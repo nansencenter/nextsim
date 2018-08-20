@@ -9480,6 +9480,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
     double topaz_conc, topaz_thick;
     double h_model, c_model;
     double c_thin_orig = 0.;
+
+    //thickness of new thin ice (default 25cm, but it needs to be
+    //relative to h_thin_[min,max])
+    double h_thin_new = h_thin_min + (4./9.)*(h_thin_max-h_thin_min);
     for (int i=0; i<M_num_elements; ++i)
     {
         h_model=M_thick[i];
@@ -9506,52 +9510,37 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
 
                 if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
                 {
-                    thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
-                    if(thin_conc_obs>=0.)
-                    {
-                        //increase thin ice conc so total conc = thin_conc_obs_min
-                        if(thin_conc_obs>M_conc_thin[i])
-                            //increase thin ice vol
-                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
-                        else
-                            //reduce thin ice vol
-                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                    //increase thin ice conc so total conc = thin_conc_obs_min
+                    thin_conc_obs = thin_conc_obs_min-M_conc[i];// > M_conc_thin >= 0
 
-                        M_conc_thin[i] = thin_conc_obs;
-                    }
-#if 0
-                    else
-                    {
-                        //not possible?
-                        M_conc_thin[i]=0.;
-                        M_h_thin[i]=0.;
+                    //increase thin ice vol
+                    M_h_thin[i] += h_thin_new*(thin_conc_obs-M_conc_thin[i]);
 
-                        M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                        M_conc[i]=M_conc[i]+thin_conc_obs;
-                    }
-#endif
+                    //change the thin ice conc
+                    M_conc_thin[i] = thin_conc_obs;
                 }
                 else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
                 {
                     thin_conc_obs = thin_conc_obs_max-M_conc[i];
-                    if(thin_conc_obs>=0.)
+                    if(thin_conc_obs<0.)
                     {
-                        //some thin ice
-                        if(thin_conc_obs>M_conc_thin[i])
-                            M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
-                        else
-                            M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                        // M_conc > thin_conc_obs_max
+                        // - reduce thick ice to max value
+                        M_conc[i] = thin_conc_obs_max;
 
-                        M_conc_thin[i] = thin_conc_obs;
+                        // - no thin ice
+                        M_conc_thin[i] = 0.;
+                        M_h_thin[i]    = 0.;
+                        M_hs_thin[i]   = 0.;
                     }
                     else
                     {
-                        //no thin ice
-                        M_conc_thin[i]=0.;
-                        M_h_thin[i]=0.;
-
-                        // reduce thick ice to max value
-                        M_conc[i]=M_conc[i]+thin_conc_obs;
+                        //some thin ice left - reduce it
+                        // NB thin_conc_obs>=0, M_conc_thin>0
+                        double cfac = thin_conc_obs/M_conc_thin[i];
+                        M_conc_thin[i] = thin_conc_obs;
+                        M_h_thin[i]   *= cfac;
+                        M_hs_thin[i]  *= cfac;
                     }
                 }
 
@@ -9570,17 +9559,11 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
             else
             {
                 if(M_conc[i]<thin_conc_obs_min)
-                {
-                    //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
-                    thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                    M_conc[i] = thin_conc_obs;
-                }
+                    //increase M_conc to min value
+                    M_conc[i] = thin_conc_obs_min;
                 else if(M_conc[i]>thin_conc_obs_max)
-                {
-                    //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
-                    thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                    M_conc[i] = thin_conc_obs;
-                }
+                    //increase M_conc to max value
+                    M_conc[i] = thin_conc_obs_max;
             }//not using thin ice
 
         }//use NIC
@@ -9589,10 +9572,10 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(
         //if either c or h equal zero, we set the others to zero as well
         if ( M_conc[i] < 0.01 || M_thick[i] < physical::hmin*M_conc[i] )
         {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
+            M_conc[i]        = 0.;
+            M_thick[i]       = 0.;
+            M_snow_thick[i]  = 0.;
+            M_ridge_ratio[i] = 0.;
         }
 
         if(c_model>0.01)
