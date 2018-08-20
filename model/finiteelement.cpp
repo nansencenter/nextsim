@@ -8823,8 +8823,7 @@ FiniteElement::assimilateIce()
                     M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
             break;
         default:
-            std::cout << "invalid choice for data assimilation of the ice"<<"\n";
-            throw std::logic_error("invalid initialization of the ice");
+            throw std::logic_error("invalid choice for data assimilation of the ice");
     }
 
 #if 1
