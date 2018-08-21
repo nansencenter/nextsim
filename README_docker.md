@@ -25,7 +25,7 @@ Image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains D
 compiling of bamx, mapx, core and the model code. This Dockerfile is based on another image
 `boost_petsc_gmsh` available [here](https://github.com/nansencenter/docker-boost-petsc-gmsh)
 
-## 3.1 Build from scratch
+#### 3.1 Build from scratch
 
 To build an image you need to clone the repository, go to nextsim directory and run the following command:
 ```
@@ -39,7 +39,7 @@ It will do the following:
 * save the image with name `nextsim` (as provided with the `-t` parameter above)
 * stop and remove the temporary container
 
-## 3.2 Recompile the code
+#### 3.2 Recompile the code
 
 Docker caches the images that are built. It means that if you run the above command again, without
 changing the nextsim code, it will build the image from cache very fast.
@@ -98,3 +98,7 @@ The last two parameters (`/nextsim/test.cfg` and `7`) are giving the location of
 and number of CPUs. Since we mount `/home/user/nextsim` as `/nextsim` the config file on a host
 computer should be located in `/home/user/nextsim/test.cfg`.
 
+One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
+
+An example script to run model in a container can be found here:
+[scripts/run_docker_nextsim_tallinn.sh](scripts/run_docker_nextsim_tallinn.sh)
