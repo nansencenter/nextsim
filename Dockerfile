@@ -6,25 +6,30 @@ RUN apt-get update && apt-get install -y \
     ssh \
 && rm -rf /var/lib/apt/lists/*
 
-ENV NEXTSIMDIR=/src
+ENV NEXTSIMDIR=/opt/local/nextsim
 SHELL ["/bin/bash", "-c"]
 
-COPY Makefile $NEXTSIMDIR/
-COPY contrib $NEXTSIMDIR/contrib
+COPY contrib/mapx $NEXTSIMDIR/contrib/mapx
+WORKDIR $NEXTSIMDIR/contrib/mapx/src
+RUN source /root/.nextsimrc && make
+
+COPY contrib/bamg $NEXTSIMDIR/contrib/bamg
+WORKDIR $NEXTSIMDIR/contrib/bamg/src
+RUN source /root/.nextsimrc && make
+
 COPY core $NEXTSIMDIR/core
-WORKDIR $NEXTSIMDIR/
+WORKDIR $NEXTSIMDIR/core/src
 RUN source /root/.nextsimrc && make
 
-COPY model $SRCDIR/model
-WORKDIR $SRCDIR/model
+COPY model $NEXTSIMDIR/model
+WORKDIR $NEXTSIMDIR/model
 RUN source /root/.nextsimrc && make
 
-#COPY model/nextsim.sh /usr/local/bin/nextsim.sh
-#RUN mkdir -p /opt/local/nextsim/lib && mv $SRCDIR/lib/* /opt/local/nextsim/lib/
-#RUN mv $SRCDIR/model/bin/nextsim.exec /usr/local/bin/ && chmod a+x /usr/local/bin/nextsim.sh
-#RUN echo '/opt/local/nextsim/lib/' >> /etc/ld.so.conf \
-#&&  ldconfig \
+RUN ln -s $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/nextsim.exec \
+&&  ln -s $NEXTSIMDIR/model/run_in_docker.sh /usr/local/bin/run_in_docker.sh \
+&&  echo $NEXTSIMDIR/lib/ >> /etc/ld.so.conf \
+&&  ldconfig
 
-WORKDIR $NEXTSIMDIR
-#ENTRYPOINT ["/usr/local/bin/nextsim.sh"]
-CMD [ "/bin/bash" ]
+WORKDIR /
+ENTRYPOINT ["/usr/local/bin/run_in_docker.sh"]
+#CMD [ "/bin/bash" ]
