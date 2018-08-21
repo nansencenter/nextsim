@@ -1,5 +1,6 @@
 #!/bin/bash
 docker run --rm -it \
+    --security-opt seccomp=unconfined \
     -v /home/antonk/nextsim/nextsim:/nextsim \
     -v /Data/sim/data/:/Data/sim/data/ \
     -v /Data/nextsimf/data/:/Data/nextsimf/data/ \
