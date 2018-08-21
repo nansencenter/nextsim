@@ -863,7 +863,12 @@ FiniteElement::initForcings()
             M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes",M_num_nodes);
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements",M_num_elements);
             break;
-
+#ifdef OASIS
+        case setup::OceanType::COUPLED:
+            M_ocean_nodes_dataset=DataSet("ocean_cpl_nodes",M_num_nodes);
+            M_ocean_elements_dataset=DataSet("ocean_cpl_elements",M_num_elements);
+            break;
+#endif
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
@@ -1193,7 +1198,8 @@ FiniteElement::initOptAndParam()
         ("topaz", setup::OceanType::TOPAZR)
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
         ("topaz_forecast", setup::OceanType::TOPAZF)
-        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
+        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
+        ("coupled", setup::OceanType::COUPLED);
     M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
@@ -8709,7 +8715,31 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             M_external_data.push_back(&M_mld);
     		break;
+#ifdef OASIS
+        case setup::OceanType::COUPLED:
+            M_ocean=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 0, true,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ocean);
 
+            M_ssh=ExternalData(
+                &M_ocean_nodes_dataset, M_mesh, 2, false,
+                time_init, vm["simul.spinup_duration"].as<double>());
+            M_external_data.push_back(&M_ssh);
+
+            M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
+            M_external_data.push_back(&M_ocean_temp);
+
+            M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
+            M_external_data.push_back(&M_ocean_salt);
+
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_external_data.push_back(&M_mld);
+
+            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            M_external_data.push_back(&M_qsrml);
+            break;
+#endif
         case setup::OceanType::TOPAZR_ALTIMETER:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
@@ -8781,6 +8811,9 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
+#if OASIS
+        case setup::OceanType::COUPLED:
+#endif
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
