@@ -6707,12 +6707,20 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Prognostic variables
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_conc[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_conc_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_thick[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_h_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::damage):
@@ -6722,7 +6730,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
+                {
                     it->data_mesh[i] += M_snow_thick[i]*time_factor;
+                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        it->data_mesh[i] += M_hs_thin[i]*time_factor;
+                }
                 break;
 
             case (GridOutput::variableID::tsurf):
@@ -8678,7 +8690,7 @@ FiniteElement::initIce()
         if(M_conc[i]>0.)
             hi = M_thick[i]/M_conc[i];
 
-        if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin))
+        if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin) )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -8689,7 +8701,7 @@ FiniteElement::initIce()
         if(M_conc_thin[i]>0.)
             hi = M_h_thin[i]/M_conc_thin[i];
 
-        if ( (M_conc_thin[i] < physical::cmin) || (hi < physical::hmin))
+        if ( (M_conc_thin[i] < physical::cmin) || (hi < physical::hmin) )
         {
             M_conc_thin[i]=0.;
             M_h_thin[i]=0.;
@@ -8700,7 +8712,8 @@ FiniteElement::initIce()
         weight_conc=std::min(1.,conc_tot*100.);
         if(conc_tot>0.)
             M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
-
+            //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
+        
         if ( M_snow_thick[i] > 0. )
             M_tice[0][i] = std::min(0., M_tair[i]);
         else
@@ -8900,11 +8913,11 @@ FiniteElement::targetIce()
 
         M_conc[i]  = vm["ideal_simul.init_concentration"].as<double>();
 
-        // if(i==10)
-        //     M_conc[i]=0.;
+    // if(i==10)
+    //     M_conc[i]=0.;
 
-    M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
-    M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
+        M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
+        M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
 
         M_damage[i]=0.;
 
@@ -9046,18 +9059,13 @@ FiniteElement::topazIceOsisafIcesat()
 {
     //topaz
     external_data M_topaz_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_topaz_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_topaz_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
 
     //obs
     external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_icesat_thick=ExternalData(&M_ice_icesat_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_amsre_conc=ExternalData(&M_ice_amsre_elements_dataset,M_mesh,0,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -9099,31 +9107,41 @@ FiniteElement::topazIceOsisafIcesat()
 
         if((hi>0.)&&(M_conc[i])>0.2)
         {
-            if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
+            if(M_mesh_filename.find("kara") != std::string::npos)
             {
-                M_ridge_ratio[i]=0.;
+                LOG(DEBUG) <<"Type information is not used for the kara mesh, "
+                    <<"we assume there is only FYI\n";
+                M_ridge_ratio[i]=ratio_FYI;
+                hi = thick_FYI;
+            } 
+            else
+            {
+                if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
+                {
+                    M_ridge_ratio[i]=0.;
                     hi=thick_FYI;
-            }
+                }
                 else if(M_osisaf_type[i]<2.5)//2. FYI
-            {
+                {
                     M_ridge_ratio[i]=ratio_FYI;
                     hi=thick_FYI;
-            }
+                }
                 else if(M_osisaf_type[i]<3.5)//3. MYI
-            {
+                {
                     M_ridge_ratio[i]=ratio_MYI;
                     hi  = thick_MYI;
-            }
+                }
                 else if(M_osisaf_type[i]<4.5)//4. mixed
-            {
+                {
                     M_ridge_ratio[i]=ratio_Mixed;
                     hi      =thick_Mixed;
-            }
+                }
                 else//can't happen, can it?
-            {
-                M_ridge_ratio[i]=ratio_Mixed;
+                {
+                    M_ridge_ratio[i]=ratio_Mixed;
                     hi=thick_Mixed;
-            }
+                }
+            }//not Kara
         }//ice present
         else
         {
@@ -9132,7 +9150,7 @@ FiniteElement::topazIceOsisafIcesat()
 
         if ( M_conc[i] < 0.01 || hi < physical::hmin )
         {
-        //if either c or h equal zero, we set the others to zero as well
+            //if either c or h equal zero, we set the others to zero as well
             M_conc[i]=0.;
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
@@ -9160,9 +9178,7 @@ void
 FiniteElement::topazForecastIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -9206,11 +9222,8 @@ FiniteElement::topazForecastAmsr2Ice()
     double init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
-
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -9281,22 +9294,24 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
     double alpha_up = 0.;
     if(!use_weekly_nic)
     {
+        if(ci<=1.e-3)
+        {
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.1;
+        }
         if(ci<=0.45)
         {
             // CT18
             // .45: .1 - .8
-            alpha_up=(0.45-ci)/0.45;
-            thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_min=0.1;
+            thin_conc_obs_max=0.8;
         }
         else if(ci<=0.9)
         {
             // CT81
             // .9: .8 - 1.
-            //alpha_up=(0.9-ci)/0.45; # 0 anyway
-            alpha_up=(0.9-ci)/0.9;
-            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.;
         }
         else if(ci<=1.)
         {
@@ -9314,51 +9329,44 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,d
         if(ci<=0.05) // CT01
         {
             // 0 - .1
-            alpha_up=(0.05-ci)/(0.05-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.1;
         }
         else if(ci<=0.10) // CT02
         {
             // 0 - .2
-            alpha_up=(0.10-ci)/(0.10-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
+            thin_conc_obs_min=0.;
+            thin_conc_obs_max=0.2;
         }
         else if(ci<=0.25) // CT14, CT13, CT24
         {
             // .1 - .4
-            alpha_up=(0.25-ci)/(0.25-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
+            thin_conc_obs_min=0.1;
+            thin_conc_obs_max=0.4;
         }
         else if(ci<=0.50) // CT46
         {
             // .4 - .6
-            alpha_up=(0.50-ci)/(0.50-0.25);
-            thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
-            thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
+            thin_conc_obs_min=0.4;
+            thin_conc_obs_max=0.6;
         }
         else if(ci<=0.70) //CT68
         {
             // .6 - .8
-            alpha_up=(0.70-ci)/(0.70-0.50);
-            thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
-            thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
+            thin_conc_obs_min=0.6;
+            thin_conc_obs_max=0.8;
         }
         else if(ci<=0.90) // CT81
         {
             // .8 - 1.
-            alpha_up=(0.90-ci)/(0.90-0.70);
-            thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
-            thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.8;
+            thin_conc_obs_max=1.0;
         }
         else if(ci<=1.) // CT92
         {
             // .9 - 1.
-            alpha_up=(1.0-ci)/(1.0-0.9);
-            thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
-            thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min=0.9;
+            thin_conc_obs_max=1.0;
         }
         else // should not happen
         {
@@ -9402,9 +9410,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         if(c_model>0.01)
         {
-            M_thick[i]=h_model/c_model*M_conc[i];
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i];
-            M_damage[i]=M_damage[i]/c_model*M_conc[i];
+            M_thick[i]=(h_model/c_model)*M_conc[i];            
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+            M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
         {
@@ -9540,20 +9548,23 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
 
     external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    DataSet dist2coast_elements_dataset=DataSet("dist2coast_elements",M_num_elements);
+    external_data M_dist2coast = ExternalData(&dist2coast_elements_dataset,M_mesh,0,false,time_init);
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_osisaf_conc);
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
+    external_data_tmp.push_back(&M_dist2coast);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            "init - OSISAF - AMSR2");
+            "assim - OSISAF - AMSR2 -dist2coast");
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,
-            "init - TOPAZ ice forecast");
+            "assim - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -9566,16 +9577,24 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
+        //initial fields
         h_model=M_thick[i];
         c_model=M_conc[i];
 
         topaz_conc = (M_topaz_conc[i]>1e-14) ? M_topaz_conc[i] : 0.; // TOPAZ puts very small values instead of 0.
         topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
 
-        if((topaz_conc>0.)||(M_conc[i]>0.)) // use osisaf only where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
+        if(((topaz_conc>0.)||(M_conc[i]>0.))
+                && (M_osisaf_conc[i]>.15)
+                && (M_dist2coast[i]>25.e3))
+            // use osisaf only
+            // - where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
+            // - where its conc is > .15 (can be trusted)
+            // - also take into account distance to coast
             M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
 
-        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+        if((M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and sees small opening that would not be see in OSISAF
+                && (M_amsr2_conc[i]>.15))
             M_conc[i]=M_amsr2_conc[i];
 
         //tmp_var=M_topaz_snow_thick[i];
@@ -9586,9 +9605,9 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
         if(c_model>0.01)
         {
-            M_thick[i]=h_model/c_model*M_conc[i];
-            M_ridge_ratio[i]=M_ridge_ratio[i]/c_model*M_conc[i];
-            M_damage[i]=M_damage[i]/c_model*M_conc[i];
+            M_thick[i]=(h_model/c_model)*M_conc[i];            
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+            M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
         {
@@ -9597,8 +9616,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
         }
 
         //if either c or h equal zero, we set the others to zero as well
-        double hi=M_thick[i]/M_conc[i];
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
+        if ( M_conc[i] < 0.01 || M_thick[i] < (M_conc[i]*physical::hmin) )
         {
             M_conc[i]=0.;
             M_thick[i]=0.;
@@ -9741,6 +9759,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_thick[i]=0.;
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
+            M_damage[i]=0.;
         }
         else
         {
@@ -9748,6 +9767,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i];
             M_snow_thick[i] = M_conc[i]*hs;
             M_thick[i] = M_conc[i]*hi;
+            M_damage[i]=1.-M_conc[i];
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -9756,7 +9776,6 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
-        M_damage[i]=1.-M_conc[i];
     }//loop over elements
 }//topazForecastAmsr2OsisafIce
 
@@ -9841,30 +9860,30 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
             else
             {
                 if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
-            {
-                M_ridge_ratio[i]=0.;
+                {
+                    M_ridge_ratio[i]=0.;
                     hi*=thickfac_FYI;
-            }
+                }
                 else if(M_osisaf_type[i]<2.5)//2. FYI
-            {
+                {
                     M_ridge_ratio[i]=ratio_FYI;
                     hi*=thickfac_FYI;
-            }
+                }
                 else if(M_osisaf_type[i]<3.5)//3. MYI
-            {
+                {
                     M_ridge_ratio[i]=ratio_MYI;
                     hi*=thickfac_MYI;
-            }
+                }
                 else if(M_osisaf_type[i]<4.5)//4. mixed
-            {
+                {
                     M_ridge_ratio[i]=ratio_Mixed;
                     hi*=thickfac_Mixed;
-            }
+                }
                 else//can't happen, can it?
-            {
-                M_ridge_ratio[i]=ratio_Mixed;
+                {
+                    M_ridge_ratio[i]=ratio_Mixed;
                     hi*=thickfac_Mixed;
-        }
+                }
             }//not Kara
         }//ice present
         else
@@ -9960,9 +9979,7 @@ void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -10005,9 +10022,7 @@ FiniteElement::topazAmsreIce()
 
     //topaz
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -10064,11 +10079,8 @@ FiniteElement::topazAmsr2Ice()
     double real_thickness, init_conc_tmp;
 
     external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_init_snow_thick=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -10123,9 +10135,7 @@ void
 FiniteElement::cs2SmosIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -10210,11 +10220,8 @@ void
 FiniteElement::cs2SmosAmsr2Ice()
 {
     external_data M_init_conc=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_cs2_smos_elements_dataset,M_mesh,1,false,time_init);
-
     external_data M_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init);
 
     external_data_vec external_data_tmp;
@@ -10302,7 +10309,6 @@ void
 FiniteElement::smosIce()
 {
     external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
     external_data M_init_thick=ExternalData(&M_ice_smos_elements_dataset,M_mesh,0,false,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
@@ -10835,8 +10841,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
                               numVertices,
                               indices );
 
-        //mesh_triangles.insert(std::make_pair(tr,gmshElt));
-        //mesh_triangles.push_back(gmshElt);
         mesh_triangles[tr] = gmshElt;
     }
 
@@ -11154,16 +11158,20 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool exp
 
             if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
+                // We also add the "thin" quantities to the "thick" ones
                 // h_thin
                 M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_thick_root[i] += M_h_thin_root[i];
                 tmp_nb_var++;
 
                 // conc_thin
                 M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_conc_root[i] += M_conc_thin_root[i];
                 tmp_nb_var++;
 
                 // hs_thin
                 M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                M_snow_thick_root[i] += M_hs_thin_root[i];
                 tmp_nb_var++;
 
                 // tsurf_thin
@@ -11530,12 +11538,16 @@ FiniteElement::writeLogFile()
                 try
                 {
                     std::vector<std::string> vect = vm[it->first].as<std::vector<std::string> >();
+                    if(vect.size()==0)
+                        //make sure we go to the next line if vector is empty
+                        logfile<<"\n";
+
                     uint i = 0;
-                    for (std::vector<std::string>::iterator oit=vect.begin(); oit != vect.end(); oit++, ++i)
+                    for (auto oit=vect.begin(); oit != vect.end(); oit++, ++i)
                     {
                         //logfile << it->first << "[" << i << "]=" << (*oit) <<"\n";
                         if (i > 0)
-                            logfile << std::setw(41) << std::right;
+                            logfile << std::setw(log_width) << std::right<<" ";
 
                         logfile << "[" << i << "]=" << (*oit) <<"\n";
                     }
@@ -11690,7 +11702,7 @@ FiniteElement::finalise()
         M_iabp_out.close();
     }
 
-    // Clear pinters etc
+    // Clear ponters etc
     M_comm.barrier();
 
     delete bamgmesh;

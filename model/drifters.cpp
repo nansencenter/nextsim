@@ -252,7 +252,9 @@ void
 Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y)
 {
     // Do nothing if we don't have to
-    if ( M_no_drifters == 0 )
+    int no_drifters = X.size();
+    assert(no_drifters==Y.size());
+    if ( no_drifters == 0 )
         return;
 
     // Interpolate the total displacement onto the drifter positions
@@ -273,13 +275,13 @@ Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vect
                             numNodes,mesh.numTriangles(),
                             &interp_drifter_in[0],
                             numNodes,nb_var,
-                            &M_X[0],&M_Y[0],M_no_drifters,
+                            &X[0],&Y[0],no_drifters,
                             true, 0.);
 
-    for ( int i=0; i<M_no_drifters; ++i )
+    for ( int i=0; i<no_drifters; ++i )
     {
-        X[i] = M_X[i] + interp_drifter_out[nb_var*i];
-        Y[i] = M_Y[i] + interp_drifter_out[nb_var*i+1];
+        X[i] += interp_drifter_out[nb_var*i];
+        Y[i] += interp_drifter_out[nb_var*i+1];
     }
 
     xDelete<double>(interp_drifter_out);
@@ -289,7 +291,7 @@ Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vect
 void
 Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT)
 {
-    move(mesh, UT, M_X, M_Y);
+    this->move(mesh, UT, M_X, M_Y);
 }
 
 /*
@@ -357,7 +359,7 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
     lat.putAtt("long_name","latitude");
     lat.putAtt("units","degrees_north");
 
-    // Reference index if comming from a grid or a reference dataset
+    // Reference indices if comming from a grid or a reference dataset
     netCDF::NcVar ind = dataFile.addVar("index", netCDF::ncInt, dims2);
     ind.putAtt("standard_name","index");
     ind.putAtt("long_name","reference index");
@@ -372,12 +374,10 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
 void
 Drifters::appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector<double> const& UT)
 {
-#if 0 // not necessary anymore ence the position are updated twice a day, so that it works also with an Eulerian and ALE scheme
     // Move the drifters before export, but save the result in a different variable
     std::vector<double> X(M_no_drifters);
     std::vector<double> Y(M_no_drifters);
-    move(mesh, UT, X, Y);
-#endif
+    this->move(mesh, UT, X, Y);
 
     // Calculate lat and lon
     mapx_class *map;
@@ -390,7 +390,7 @@ Drifters::appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector
     std::vector<double> lat(M_no_drifters);
     std::vector<double> lon(M_no_drifters);
     for (int i=0; i<M_no_drifters; ++i)
-        inverse_mapx(map, M_X[i], M_Y[i], &lat[i], &lon[i]);
+        inverse_mapx(map, X[i], Y[i], &lat[i], &lon[i]);
 
     close_mapx(map);
 
