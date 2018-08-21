@@ -171,11 +171,12 @@ public:
                       double Qlw_in, double Qsw_in, double mld, double snowfall,
                       double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
                       double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
+    inline double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
                      double &Qai, double &dQaidT, double &subl,
                      double &Qsh, double &Qlh, double &Qlw);
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
+    inline double freezingPoint(double sss);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                              double const& CRtime, std::string const& printout, const int pcpt);

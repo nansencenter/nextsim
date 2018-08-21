@@ -5395,7 +5395,7 @@ FiniteElement::thermo(int dt)
 
         /* dT/dt due to heatflux ocean->atmosphere */
         double const tw_new = M_sst[i] - ddt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
-        double const tfrw   = -physical::mu*M_sss[i];
+        double const tfrw   = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
@@ -5635,7 +5635,7 @@ FiniteElement::thermo(int dt)
             // temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
             {
-                double Tbot = -physical::mu*M_sss[i];
+                double Tbot = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
                 double C;
                 switch (M_thermo_type)
                 {
@@ -5757,7 +5757,7 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
-    double const Tbot = -physical::mu*sss; // Temperature at ice base (bottom), also freezing point of sea-water
+    double const Tbot = this->freezingPoint(sss); // Temperature at ice base (bottom), also freezing point of sea-water
     if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
     {
         return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
@@ -5777,8 +5777,18 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
     }
 }
 
+// Freezing point of sea water
+inline double
+FiniteElement::freezingPoint(double sss)
+{
+    double zs  = std::sqrt(sss/35.16504);         // square root salinity
+    double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
+                - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
+    return ptf*sss;
+}
+
 // Albedo
-double
+inline double
 FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0)
 {
     double albedo;
@@ -5859,7 +5869,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     double const qs   = physical::Lf * physical::rhos;
     double const Crho = physical::C * physical::rhoi;
 
-    double const Tbot     = -physical::mu*M_sss[i]; // Temperature at ice base (bottom), also freezing point of sea-water
+    double const Tbot     = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i]; // Temperature at ice base (bottom), also freezing point of sea-water
     double const Tfr_ice  = -physical::mu*physical::si; // Freezing point of ice
 
     /* Local variables */
@@ -6123,7 +6133,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         * --------------------------------------------------------------- */
         double albedo = this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0);
         double dtsurf   = 1.;
-        double Tbot     = -physical::mu*M_sss[i];
+        double Tbot     = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
         int nb_iter_while=0;
         while ( dtsurf > 1e-4 )
         {
@@ -9305,6 +9315,7 @@ FiniteElement::initIce()
         conc_tot=M_conc[i]+M_conc_thin[i];
         weight_conc=std::min(1.,conc_tot*100.);
         if(conc_tot>0.)
+            M_sst[i] = this->freezingPoint(M_sss[i]); //*weight_conc+M_sst[i]*(1.-weight_conc);
             M_sst[i] = -M_sss[i]*physical::mu*weight_conc+M_sst[i]*(1.-weight_conc);
             //M_sst[i] = -M_sss[i]*physical::mu;//*M_conc[i]+M_ocean_temp[i]*(1.-M_conc[i]);
         
@@ -9318,7 +9329,7 @@ FiniteElement::initIce()
     {
         for ( int i=0; i<M_num_elements; i++ )
         {
-            double Tbot  = -physical::mu*M_sss[i];
+            double Tbot  = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
             if ( M_thick[i] > 0. )
             {
                 // Just a linear interpolation between bottom and snow-ice interface (i.e. a zero layer model)
@@ -9420,6 +9431,30 @@ FiniteElement::constantIce()
     std::fill(M_thick.begin(), M_thick.end(), c_const*h_const);//M_thick is ice volume
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), hs_const);
     std::fill(M_damage.begin(), M_damage.end(), 0.);
+
+    // No ice where SST is over init_SST_limit
+    double SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
+    double init_thin_conc = vm["ideal_simul.init_thin_conc"].as<double>();
+    double h_thin_min = vm["thermo.h_thin_min"].as<double>();
+    double h_thin_max = vm["thermo.h_thin_max"].as<double>();
+    int cnt=0;
+    for (int i=0; i<M_sst.size(); ++i)
+    {
+        if ( M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
+        {
+            M_conc[i]       = 0;
+            M_thick[i]      = 0;
+            M_snow_thick[i] = 0;
+            cnt++;
+        }
+        else if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            M_conc_thin[i] = init_thin_conc;
+            M_h_thin[i]    = (h_thin_min+(h_thin_max-h_thin_min)/2.)*M_conc_thin[i];
+            M_hs_thin[i]   = hs_const*M_conc_thin[i];
+        }
+    }
+	LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
 
     if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
