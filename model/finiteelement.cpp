@@ -7149,8 +7149,8 @@ FiniteElement::initMoorings()
         else if ( *it == "tau_xy" | *it == "tau_uv" | *it == "tau_grid" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
-            GridOutput::Variable taux(GridOutput::variableID::taux, use_ice_mask);
-            GridOutput::Variable tauy(GridOutput::variableID::tauy, use_ice_mask);
+            GridOutput::Variable taux(GridOutput::variableID::taux);
+            GridOutput::Variable tauy(GridOutput::variableID::tauy);
             nodal_variables.push_back(taux);
             nodal_variables.push_back(tauy);
 
