@@ -921,6 +921,48 @@ FiniteElement::initForcings()
     this->forcingOcean();
 }//initForcings
 
+#ifdef OASIS
+void
+FiniteElement::setCplId_rcv(DataSet &dataset)
+{
+    for (auto it=dataset.variables.begin(); it!=dataset.variables.end(); ++it)
+    {
+        bool set = false;
+        for (int j=0; j<var_rcv.size(); ++j)
+        {
+            if ( it->name == var_rcv[j] )
+            {
+                dataset.M_cpl_id.push_back(var_id_rcv[j]);
+                set = var_id_rcv[j]>=0; // var_id_rcv may be -1 if OASIS3::def_var didn't set it properly
+                LOG(DEBUG) << "Set M_cpl_id for " << var_rcv[j] << " " << var_id_rcv[j] << "\n";
+                break;
+            }
+        }
+        if (!set) throw std::logic_error("FinitElement::setCplId_rcv: Coupling variable "+it->name+" not set. Exiting");
+    }
+}
+
+void
+FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
+{
+    for (auto it=cpl_var.begin(); it!=cpl_var.end(); ++it)
+    {
+        bool set = false;
+        for (int j=0; j<var_snd.size(); ++j)
+        {
+            if ( "I_"+it->name == var_snd[j] )
+            {
+                it->cpl_id = var_id_snd[j];
+                set = var_id_snd[j]>=0; // var_id_rcv may be -1 if OASIS3::def_var didn't set it properly
+                LOG(DEBUG) << "Set cpl_id for " << var_snd[j] << " " << var_id_snd[j] << "\n";
+                break;
+            }
+        }
+        if (!set) throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set. Exiting");
+    }
+}
+#endif
+
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const& CRtime, std::string const& printout)
