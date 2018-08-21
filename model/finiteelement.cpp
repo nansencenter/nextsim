@@ -9177,14 +9177,16 @@ FiniteElement::topazIceOsisafIcesat()
 void
 FiniteElement::topazForecastIce()
 {
-    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-    external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
+    external_data topaz_conc = ExternalData(&M_ocean_elements_dataset, M_mesh, 3, false, time_init);
+    // NB TOPAZ gives absolute ice/snow thickness
+    // - cell_methods = "mean_where_ice"
+    external_data topaz_thick = ExternalData(&M_ocean_elements_dataset, M_mesh, 4, false, time_init);
+    external_data topaz_snow_thick = ExternalData(&M_ocean_elements_dataset, M_mesh, 5, false, time_init);
 
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_init_conc);
-    external_data_tmp.push_back(&M_init_thick);
-    external_data_tmp.push_back(&M_init_snow_thick);
+    external_data_tmp.push_back(&topaz_conc);
+    external_data_tmp.push_back(&topaz_thick);
+    external_data_tmp.push_back(&topaz_snow_thick);
     this->checkReloadDatasets(external_data_tmp,time_init,"init - TOPAZ ice forecast");
     external_data_tmp.resize(0);
 
@@ -9193,25 +9195,23 @@ FiniteElement::topazForecastIce()
     {
         // - TOPAZ puts very small values instead of 0.
         // - uses absolute thickness not effective thickness
-        tmp_var=std::min(1.,M_init_conc[i]);
-        M_conc[i] = (tmp_var>1e-14) ? tmp_var*M_conc[i] : 0.;
-        tmp_var=M_init_thick[i];
+        tmp_var = std::min(1., topaz_conc[i]);
+        M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+        tmp_var = topaz_thick[i];
         M_thick[i] = (tmp_var>1e-14) ? tmp_var*M_conc[i] : 0.;
-        tmp_var=M_init_snow_thick[i];
-        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
+        tmp_var = topaz_snow_thick[i];
+        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var*M_conc[i] : 0.;
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
+        if ( M_conc[i] < 0.01 || M_thick[i] < (M_conc[i]*physical::hmin) )
         {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
+            M_conc[i]        = 0.;
+            M_thick[i]       = 0.;
+            M_snow_thick[i]  = 0.;
         }
 
+        //init damage and ridge ratio to 0.
+        M_ridge_ratio[i] = 0.;
         M_damage[i]=0.;
     }
 }//topazForecastIce
