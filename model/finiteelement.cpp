@@ -5756,7 +5756,7 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 
         /* Calculate atmospheric fluxes */
         // Shortwave is modulated by the albedo
-        double Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
+        Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
         // The rest is calculated by bulk formula
         this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
                 Qsh, Qlh, Qlw);
@@ -5974,16 +5974,8 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         hs     = vols/conc;
 
         /* Local variables */
-        double Qsw, Qout, dQaidT, subl;
+        double dQaidT, subl;
         double Qic, del_hs, del_ht, del_hb, draft;
-
-        double Qlw_out, dQlwdT;
-        double tairK, sphumi;
-        double rhoair, Qsh, dQshdT;
-        double Qlh, dsphumidT, dQlhdT;
-
-        double fi, esti;
-        double dsphumdesti, destidT, dfidT;
 
         /* ---------------------------------------------------------------
         * Calculate the surface temperature within a while-loop
@@ -9185,11 +9177,11 @@ FiniteElement::topazIceOsisafIcesat()
 void
 FiniteElement::topazForecastIce()
 {
-    external_data topaz_conc=ExternalData(&M_ocean_elements_dataset, M_mesh, 3, false, time_init);
+    external_data topaz_conc = ExternalData(&M_ocean_elements_dataset, M_mesh, 3, false, time_init);
     // NB TOPAZ gives absolute ice/snow thickness
-    // - cell_methods="mean_where_ice"
-    external_data topaz_thick=ExternalData(&M_ocean_elements_dataset, M_mesh, 4, false, time_init);
-    external_data topaz_snow_thick=ExternalData(&M_ocean_elements_dataset, M_mesh, 5, false, time_init);
+    // - cell_methods = "mean_where_ice"
+    external_data topaz_thick = ExternalData(&M_ocean_elements_dataset, M_mesh, 4, false, time_init);
+    external_data topaz_snow_thick = ExternalData(&M_ocean_elements_dataset, M_mesh, 5, false, time_init);
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&topaz_conc);
@@ -9216,10 +9208,10 @@ FiniteElement::topazForecastIce()
             M_conc[i]        = 0.;
             M_thick[i]       = 0.;
             M_snow_thick[i]  = 0.;
-            M_ridge_ratio[i] = 0.;
         }
 
-        //init damage to 0.
+        //init damage and ridge ratio to 0.
+        M_ridge_ratio[i] = 0.;
         M_damage[i]=0.;
     }
 }//topazForecastIce
