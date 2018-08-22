@@ -22,7 +22,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG 
+	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
@@ -46,7 +46,7 @@ CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include
 
 # boost
-CXXFLAGS += -I $(BOOST_INCDIR) -I .
+CXXFLAGS += -I $(BOOST_INCDIR)/ -I .
 
 # netcdf
 CXXFLAGS +=	-I $(NETCDF_DIR)/include

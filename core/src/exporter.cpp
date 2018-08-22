@@ -37,7 +37,6 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
         out.write((char*)&fsize, sizeof(fsize)); // write first the record length
 
         int typesize = sizeof(Type);
-        // if ((precision != "double") && (typesize == sizeof(double)))
         if ( precision == "float" )
         {
             for (int i=0; i<container.size(); ++i)
