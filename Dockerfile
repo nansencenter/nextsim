@@ -11,19 +11,19 @@ SHELL ["/bin/bash", "-c"]
 
 COPY contrib/mapx $NEXTSIMDIR/contrib/mapx
 WORKDIR $NEXTSIMDIR/contrib/mapx/src
-RUN source /root/.nextsimrc && make
+RUN source /root/.nextsimrc && make -j8
 
 COPY contrib/bamg $NEXTSIMDIR/contrib/bamg
 WORKDIR $NEXTSIMDIR/contrib/bamg/src
-RUN source /root/.nextsimrc && make
+RUN source /root/.nextsimrc && make -j8
 
 COPY core $NEXTSIMDIR/core
 WORKDIR $NEXTSIMDIR/core/src
-RUN source /root/.nextsimrc && make
+RUN source /root/.nextsimrc && make -j8
 
 COPY model $NEXTSIMDIR/model
 WORKDIR $NEXTSIMDIR/model
-RUN source /root/.nextsimrc && make
+RUN source /root/.nextsimrc && make -j8
 
 RUN ln -s $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/nextsim.exec \
 &&  ln -s $NEXTSIMDIR/model/run_in_docker.sh /usr/local/bin/run_in_docker.sh \
