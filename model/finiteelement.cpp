@@ -6697,7 +6697,12 @@ FiniteElement::step()
     timer["reload"].first.restart();
     this->checkReloadDatasets(M_external_data,
                               M_current_time+dtime_step/(24*3600.0),
-                              "step - time-dependant");
+                              "step - time-dependant"
+#ifdef OASIS
+                              , pcpt);
+#else
+                              );
+#endif
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -12201,11 +12206,7 @@ FiniteElement::writeLogFile()
         }
         catch (const boost::filesystem::filesystem_error &)
         {
-            std::ifstream in (path1.string());
-            std::ofstream out(path2.string());
-            out << in.rdbuf();
-            out.close();
-            in.close();
+            fs::copy_file(path1,path2);
             fs::remove(path1);
         }
     }
