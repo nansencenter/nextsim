@@ -237,9 +237,7 @@ public:
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
-    void checkConsistency(
-            std::vector<bool> const &init_thick_ice_temp,
-            std::vector<bool> const &init_thin_ice_temp);
+    void checkConsistency();
     void initThermodynamics();
     void initSlabOcean();
     void initDrifters();
