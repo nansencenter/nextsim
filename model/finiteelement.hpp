@@ -705,6 +705,7 @@ private:
     void updateMeans(GridOutput& means, double time_factor);
     void initMoorings();
     void updateMoorings();
+    void checkFields();
 
 private:
 
