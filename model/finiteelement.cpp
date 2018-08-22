@@ -12206,7 +12206,7 @@ FiniteElement::writeLogFile()
         }
         catch (const boost::filesystem::filesystem_error &)
         {
-            fs::copy_file(path1,path2);
+            fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
             fs::remove(path1);
         }
     }
