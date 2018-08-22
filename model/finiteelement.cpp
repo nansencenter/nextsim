@@ -8800,8 +8800,8 @@ FiniteElement::assimilateIce()
             throw std::logic_error("invalid choice for data assimilation of the ice");
     }
 
-    // Check consistency of fields and init ice temp.
-    // We only need to initialise the ice temp
+    // Check consistency of fields and init ice temperature.
+    // We only need to initialise the ice temperature
     // - if new ice is created by the assimilation
     // - TODO determine where to do this in the individual assimilation routines
     this->checkConsistency();
