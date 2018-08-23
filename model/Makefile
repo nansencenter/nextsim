@@ -19,6 +19,15 @@ ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
 
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -lgfortran
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CHAN = MPI1
+	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+endif
+
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
