@@ -55,8 +55,15 @@ then
 fi
 
 # Run the nextsim model
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=$config 2>&1 | tee $(basename $config .cfg).log
+logfile=$(basename $config .cfg).log
+mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=$config 2>&1 | tee $logfile
 
+if [ "$MAILTO" != "" ]
+then
+   # send email at finish of run
+   # export MAILTO=... to activate
+   mail -s "neXtSIM run finished ($config)" -a $logfile $MAILTO
+fi
 
 # Run the CPU profiler (google perftools)
 nbt=`echo $NEXTSIM_BUILD_TYPE  | tr '[:upper:]' '[:lower:]'`

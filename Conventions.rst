@@ -34,10 +34,9 @@ If you have been assigned an issue on https://github.com/nansencenter/nextsim/is
                    a. Make sure you test your modifications well. 
                    b. Feel free to commit and push your issue branch often
         3. Once the issue is fixed merge the **master** branch back into your issue branch and resolve any conflicts.
-        4. Create a pull request of the issue branch on GitHub. Always include at least one reviewer who will then:
-                   a. Merge the issue branch with the **master** branch
-                   b. Merge the issue branch with the **develop** branch
-                   c. Delete the issue branch and close the issue.
+        4. Create a pull request on GitHub to merge the issue branch back into **master**. Always include at least one reviewer who will then merge and delete the issue branch.
+        5. Merge the **master** branch into **develop** in your local repository, resolve conflicts, test, and push the updated **develop** branch.
+        6. Close the issue.
 
 For issues not requiring a hotfix (less urgent bug-fixes and feature requests):
 
@@ -46,7 +45,7 @@ For issues not requiring a hotfix (less urgent bug-fixes and feature requests):
                    a. Make sure you test your modifications well. 
                    b. Feel free to commit and push your issue branch often
         3. Once the issue is fixed merge the **develop** branch back into your issue branch and resolve any conflicts.
-        4. Create a pull request of the issue branch on GitHub (always include at least one reviewer who will then merge and delete the issue branch, and close the issue).
+        4. Create a pull request on GitHub to merge the issue branch back into **develop**. Always include at least one reviewer who will then merge and delete the issue branch, and close the issue.
 
 Code conventions
 -------------------

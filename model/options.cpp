@@ -59,6 +59,12 @@ namespace Nextsim
             ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
+            ("debugging.check_fields", po::value<bool>()->default_value( false ),
+                "call checkFields")
+            ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
+                "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
+            ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
+                "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
 
             /*
              *-----------------------------------------------------------------------------------
