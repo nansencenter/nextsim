@@ -6173,32 +6173,12 @@ FiniteElement::step()
         this->gatherNodalField(M_UT, M_UT_root);
         this->gatherNodalField(M_UM, M_UM_root);
         this->gatherElementField(M_conc, M_conc_root);
-        this->updateDrifters();
 
-#if 0
-        if(M_use_rgps_drifters)
-        {
-            // do we need to init RGPS drifters?
-            // RGPS drifters are not initialised until M_rgps_time_init
-            // - check if it's time to initialise them
-            if( !M_rgps_drifters.isInitialised() && M_current_time == M_rgps_time_init)
-                this->initRGPSDrifters();
-        }
-        if(M_current_time == M_drifters_time_init)
-        {
-            //do we need to init non-RGPS drifters?
-            //(RGPS has its own init time)
-            LOG(DEBUG) << "initDrifters\n";
-            this->initDrifters();
-        }
-        else if (M_current_time > M_drifters_time_init)
-        {
-            //do we need to update drifters? (move, output, read new inputs)
-            //NB now we only call this if we after initialisation time
-            LOG(DEBUG) << "updateDrifters\n";
-            this->updateDrifters();
-        }
-#endif
+        // check if need to:
+        // 1. move any drifters
+        // 2. input &/or output drifters
+        // 3. init any drifters
+        this->checkDrifters();
     }
 
 #if 1
@@ -11105,7 +11085,7 @@ FiniteElement::outputtingDrifters(
 }
 
 void
-FiniteElement::updateDrifters()
+FiniteElement::checkDrifters()
 {
     // 1. move the drifters (if needed)
     // 2. get new inputs (IABP, OSISAF) (if needed)
@@ -11265,7 +11245,7 @@ FiniteElement::updateDrifters()
         this->initOsisafDrifters();
     }
 
-}//updateDrifters
+}//checkDrifters
 
 void
 FiniteElement::initOsisafDrifters()

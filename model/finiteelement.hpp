@@ -724,7 +724,7 @@ private:
         bool &output_osisaf,
         bool &move_drifters
         );
-    void updateDrifters();
+    void checkDrifters();
     void initOsisafDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
