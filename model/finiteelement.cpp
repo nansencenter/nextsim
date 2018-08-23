@@ -2283,10 +2283,10 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             }
             else
             {
-                M_tice[1][i] = -physical::mu*M_sss[i];
+                M_tice[1][i] = -physical::mu*physical::si;
                 tmp_nb_var++;
 
-                M_tice[2][i] = -physical::mu*M_sss[i];
+                M_tice[2][i] = -physical::mu*physical::si;
                 tmp_nb_var++;
             }
         }
@@ -5395,7 +5395,7 @@ FiniteElement::thermo(int dt)
 
         /* dT/dt due to heatflux ocean->atmosphere */
         double const tw_new = M_sst[i] - ddt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
-        double const tfrw   = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
+        double const tfrw   = this->freezingPoint(M_sss[i]);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
@@ -5635,7 +5635,7 @@ FiniteElement::thermo(int dt)
             // temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
             {
-                double Tbot = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
+                double Tbot = this->freezingPoint(M_sss[i]);
                 double C;
                 switch (M_thermo_type)
                 {
@@ -5869,8 +5869,8 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
     double const qs   = physical::Lf * physical::rhos;
     double const Crho = physical::C * physical::rhoi;
 
-    double const Tbot     = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i]; // Temperature at ice base (bottom), also freezing point of sea-water
-    double const Tfr_ice  = -physical::mu*physical::si; // Freezing point of ice
+    double const Tbot     = this->freezingPoint(M_sss[i]);  // Temperature at ice base (bottom), also freezing point of sea-water
+    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
 
     /* Local variables */
     double dQaidT, subl;
@@ -6133,7 +6133,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         * --------------------------------------------------------------- */
         double albedo = this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0);
         double dtsurf   = 1.;
-        double Tbot     = this->freezingPoint(M_sss[i]); //-physical::mu*M_sss[i];
+        double Tbot     = this->freezingPoint(M_sss[i]);
         int nb_iter_while=0;
         while ( dtsurf > 1e-4 )
         {
@@ -9184,7 +9184,7 @@ FiniteElement::initSlabOcean()
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
                 // This can still be done much better!
                 M_sss[i] = std::max(physical::si, M_ocean_salt[i]);
-                M_sst[i] = std::max(-M_sss[i]*physical::mu, M_ocean_temp[i]);
+                M_sst[i] = std::max(this->freezingPoint(M_sss[i]), M_ocean_temp[i]);
             }
 
             break;
@@ -9218,12 +9218,12 @@ FiniteElement::assimilateSlabOcean()
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
                 // This can still be done much better!
                 sss_obs=std::max(physical::si, M_ocean_salt[i]);
-                sst_obs=std::max(-sss_obs*physical::mu, M_ocean_temp[i]);
+                sst_obs=std::max(this->freezingPoint(sss_obs), M_ocean_temp[i]);
 
                 M_sss[i] = (sigma_obs*M_sss[i]+sigma_mod*sss_obs)/(sigma_obs+sigma_mod);
                 M_sst[i] = (sigma_obs*M_sst[i]+sigma_mod*sst_obs)/(sigma_obs+sigma_mod);
 
-                M_sst[i] = std::max(-M_sss[i]*physical::mu, M_sst[i]);
+                M_sst[i] = std::max(this->freezingPoint(M_sss[i]), M_sst[i]);
             }
             break;
         default:
