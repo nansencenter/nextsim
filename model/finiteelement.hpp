@@ -264,15 +264,13 @@ public:
 
     void exportResults(int step,
                        bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(double datetime,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::string const& name_str,
                        bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::vector<std::string> const& filenames,
                        bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
+    void checkWriteRestart();
     void writeRestart(int pcpt, int step);
-    void writeRestart(int pcpt, double datetime);
     void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
     int readRestart(std::string step);
@@ -705,6 +703,7 @@ private:
     void updateMeans(GridOutput& means, double time_factor);
     void initMoorings();
     void updateMoorings();
+    void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
 
 private:
