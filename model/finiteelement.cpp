@@ -6099,15 +6099,6 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
-    // Check the minimum angle of the grid
-    double minang = this->minAngle(M_mesh);
-
-    if (minang < vm["numerics.regrid_angle"].as<double>())
-    {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
-
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
@@ -6137,6 +6128,16 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
     }
+
+    // Check the minimum angle of the grid
+    // - needs to be after readRestart, otherwise M_mesh is not initialised yet
+    double minang = this->minAngle(M_mesh);
+    if (minang < vm["numerics.regrid_angle"].as<double>())
+    {
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    }
+
 
     // Initialise atmospheric and oceanic forcing
     this->initForcings();
@@ -7524,7 +7525,7 @@ FiniteElement::readRestart(std::string step)
         }
         else
         {
-            restart_path = vm["setup.restart_path"].as<std::string>();
+            restart_path = vm["restart.input_path"].as<std::string>();
         }
 
         // Start with the record
@@ -7733,7 +7734,7 @@ FiniteElement::readRestart(std::string step)
         M_sss        = field_map_dbl["M_sss"];
 
         // Pre-processing
-        if(vm["setup.restart_at_rest"].as<bool>())
+        if(vm["restart.restart_at_rest"].as<bool>())
         {
             for (int i=0; i < M_sigma.size(); i++)
             {
