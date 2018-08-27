@@ -6413,7 +6413,8 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
     this->init();
-    int niter = vm["debugging.maxiteration"].as<int>();
+    int maxiter = vm["debugging.maxiteration"].as<int>();
+    int niter = 0;
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
@@ -6450,13 +6451,15 @@ FiniteElement::run()
 
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == niter-1)
-            is_running = false;
-
         // **********************************************************************
         // Take one time-step
         // **********************************************************************
         this->step();
+
+        //stop early if debugging
+        niter++;
+        if (niter == maxiter)
+            is_running = false;
     }
 
     this->exportResults("final");
@@ -7493,6 +7496,7 @@ FiniteElement::readRestart(std::string step)
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
+    int pcpt =0;
 
     if (M_rank == 0)
     {
@@ -7577,7 +7581,7 @@ FiniteElement::readRestart(std::string step)
                          );
 
         // Set and check time
-        int pcpt = field_map_int["Misc_int"].at(0);
+        pcpt = field_map_int["Misc_int"].at(0);
         std::vector<double> time = field_map_dbl["Time"];
         if (!vm["restart.reset_time_counter"].as<bool>())
         {
@@ -7592,7 +7596,6 @@ FiniteElement::readRestart(std::string step)
 	    }
 	    else
 	    {
-            pcpt = 0;
             if ( time[0] != time_init )
             {
                 std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
@@ -7632,7 +7635,10 @@ FiniteElement::readRestart(std::string step)
         std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
-    }
+    }//M_rank==0
+
+    //transfer pcpt to all processors (all need to have the same time!)
+    boost::mpi::broadcast(M_comm, pcpt, 0);
 
     // mesh partitioning
     this->partitionMeshRestart();
@@ -7773,7 +7779,7 @@ FiniteElement::readRestart(std::string step)
                 }
             }
         }
-    }
+    }//M_rank==0
 
     std::vector<double> interp_elt_out;
     std::vector<double> interp_nd_out;
