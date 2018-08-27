@@ -6166,7 +6166,13 @@ FiniteElement::init()
     LOG(DEBUG) << "initDrifters\n";
     if (M_use_drifters)
         this->initDrifters();
-}
+
+    // output restart for debugging
+    if(vm["output.datetime_in_filename"].as<bool>())
+        this->writeRestart(pcpt, M_current_time);
+    else
+        this->writeRestart(pcpt, "post_init");
+}//init
 
 // Take one time step
 void
@@ -7691,7 +7697,7 @@ FiniteElement::readRestart(std::string step)
 
         for (int i=0; i<M_tice.size(); ++i)
         {
-            std::cout<<"M_tice[i]= "<< (M_tice[i]).size() <<"\n";
+            std::cout<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
