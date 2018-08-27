@@ -282,7 +282,7 @@ FiniteElement::bcMarkedNodes()
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
-}
+}//bcMarkedNodes
 
 void
 FiniteElement::rootMeshProcessing()
@@ -2772,7 +2772,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 #endif
         }
 #endif
-    }
+    }//advection on root
 
 #if 1
     this->scatterElementField(interp_elt_out_root, interp_elt_out, M_nb_var_element);
@@ -3932,69 +3932,30 @@ FiniteElement::adaptMesh()
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     std::cout <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
 
-    // Save the old id_node before redefining it
-    std::vector<int> old_node_id = M_mesh_root.id();
-
-    // Import the mesh from bamg
+    // Import the mesh from bamg, update the boundary flags and node ID's 
     this->importBamg(bamgmesh_root);
-
-    this->updateBoundaryFlags(old_node_id);
+    this->updateBoundaryFlags();
+    this->updateNodeIds();
 }//adaptMesh()
 
 void
-FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
+FiniteElement::updateNodeIds()
 {
-    LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
-    LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
-
-    // update dirichlet nodes
-    M_dirichlet_flags_root.resize(0);
-    M_neumann_flags_root.resize(0);
-
-    // get the global number of nodes
-    int num_nodes = M_mesh_root.numNodes();
-
-#if 0
-    // We mask out the boundary nodes
-    M_mask_root.assign(num_nodes,false);
-    M_mask_dirichlet_root.assign(num_nodes,false);
-
-    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
-    {
-        if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
-        {
-            M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
-
-            // new addition for masking the dirichlet nodes
-            M_mask_dirichlet_root[edg] = true;
-        }
-        else
-        {
-            M_neumann_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
-        }
-
-        M_mask_root[edg] = true;
-    }
-#endif
-
-#if 1
-    // We mask out the boundary nodes
-    M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
-    M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
-
-    for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
-        M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
-
     // Recompute the node ids
+    // - for during adaptMesh() if bamgopt->KeepVertices is set to 1
     if(bamgopt->KeepVertices)
     {
-        std::vector<int> new_nodes_id=M_mesh_root.id();
+        //M_mesh_previous_root is the mesh before importBamg was called
+        std::vector<int> old_nodes_id = M_mesh_previous_root.id();
+
+        //M_mesh_root is the mesh after importBamg was called
+        std::vector<int> new_nodes_id = M_mesh_root.id();
 
         int Boundary_id  = 0;
         int nb_new_nodes = 0;
 
-        // The new id will have values higher than the previous one
-        int first_new_node = *std::max_element(old_node_id.begin(),old_node_id.end())+1;
+        // The new id's will have values higher than the previous ones
+        int first_new_node = *std::max_element(old_nodes_id.begin(), old_nodes_id.end())+1;
 
         for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
         {
@@ -4012,36 +3973,50 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
                 }
                 else
                 {
-                    new_nodes_id[vert] = old_node_id[bamgmesh_root->PreviousNumbering[vert]-1];
+                    new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
                 }
             }
         }
         M_mesh_root.setId(new_nodes_id);
-    }
+    }//if(bamgopt->KeepVertices)
+}//updateNodeIds
 
+void
+FiniteElement::updateBoundaryFlags()
+{
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
+
+    // update dirichlet nodes
+    M_dirichlet_flags_root.resize(0);
+    M_neumann_flags_root.resize(0);
+
+    // get the global number of nodes
+    int num_nodes = M_mesh_root.numNodes();
+
+    // We mask out the boundary nodes
+    M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+    M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+    for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+
+    // update dirichlet and neumann flags
     std::vector<int> boundary_flags_root;
-
     for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
     {
         boundary_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
-
         if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
-        {
             M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
-        }
     }
 
     std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
-
     std::sort(boundary_flags_root.begin(), boundary_flags_root.end());
-
     std::set_difference(boundary_flags_root.begin(), boundary_flags_root.end(),
                         M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(),
                         std::back_inserter(M_neumann_flags_root));
 
-#endif
 
-
+    // update dirichlet nodes
     M_dirichlet_nodes_root.resize(2*(M_dirichlet_flags_root.size()));
     for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
     {
@@ -4050,6 +4025,7 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
         M_mask_dirichlet_root[M_dirichlet_flags_root[i]] = true;
     }
 
+    // update neumann nodes
     M_neumann_nodes_root.resize(2*(M_neumann_flags_root.size()));
     for (int i=0; i<M_neumann_flags_root.size(); ++i)
     {
@@ -4057,10 +4033,9 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
         M_neumann_nodes_root[2*i+1] = M_neumann_flags_root[i]+num_nodes;
     }
 
-
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
-}
+}//updateBoundaryFlags
 
 void
 FiniteElement::assemble(int pcpt)
@@ -7480,6 +7455,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
             exporter.writeField(outbin, drifter_x, "Drifter_x");
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
+        
+        // Finally add the previous numbering to the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         outbin.close();
 
@@ -7622,7 +7604,6 @@ FiniteElement::readRestart(std::string step)
 
         // Fix boundaries
         M_flag_fix   = field_map_int["Misc_int"].at(1);
-
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
         for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
@@ -7643,9 +7624,14 @@ FiniteElement::readRestart(std::string step)
 
         // Import the bamg structs
         this->importBamg(bamgmesh_root);
+        this->updateBoundaryFlags();// update boundary flags
+        M_mesh_root.setId(nodeId);  // set the node id's
 
-        // update the boundary flags (to uncomment)
-        // this->updateBoundaryFlags();
+        // Finally add the previous numbering from the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
     }
 
     // mesh partitioning
@@ -10857,7 +10843,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
     LOG(DEBUG) <<"Current  NumTriangles  = "<< M_mesh_root.numTriangles() <<"\n";
     LOG(DEBUG) <<"\n";
-}
+}//importBamg
 
 void
 FiniteElement::createGraph()

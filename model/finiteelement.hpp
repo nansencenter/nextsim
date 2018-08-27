@@ -133,7 +133,8 @@ public:
 
     void regrid(bool step = true);
     void adaptMesh();
-    void updateBoundaryFlags(std::vector<int> const& old_node_id);
+    void updateNodeIds();
+    void updateBoundaryFlags();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
