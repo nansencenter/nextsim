@@ -7884,37 +7884,16 @@ FiniteElement::readRestart(std::string step)
     // mesh partitioning
     this->partitionMeshRestart();
 
-#define RESTART_INIT_EARLY
-#ifdef RESTART_INIT_EARLY
     // set all variables to 0
     // - best to do this early on so M_tice has the right number of components
     //   as early as possible
     // Restart variables are reset on root to be the values from the restart file,
     // then resized back later on
     this->initVariables();
-#else
-    // Make sure M_tice is set to have the right size
-    // before going into getRestartVariableNames
-    // TODO just call initVariables here?
-    // this->initVariables();
-    switch (M_thermo_type)
-    {
-        case (setup::ThermoType::ZERO_LAYER):
-            M_tice.resize(1);
-            break;
-        case (setup::ThermoType::WINTON):
-            M_tice.resize(3);
-            break;
-        default:
-            std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
-            throw std::logic_error("Wrong thermo_type");
-    }
-#endif
 
     if (M_rank == 0)
     {
         int num_elements_root = M_mesh_root.numTriangles();
-
 
 #ifdef RESTART_WITH_SINGLE_M_TICE_VARIABLE
         int tice_size = M_tice.size();
@@ -8030,11 +8009,6 @@ FiniteElement::readRestart(std::string step)
     // TODO do something similar for the nodes
     this->collectRootRestart(interp_elt_out, interp_nd_out,
             data_elements, num_components_elements);
-
-#ifndef RESTART_INIT_EARLY
-    // Initialise all the variables to zero
-    this->initVariables();//TODO do earlier?
-#endif
 
     // Scatter fields from root and put it in data_elements
     // inside a loop
