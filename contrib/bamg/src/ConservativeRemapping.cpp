@@ -150,24 +150,15 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
         for (int tr=0; tr<triangles[i].size(); ++tr)
         {
             triangle_area[triangles[i][tr]] += weights[i][tr];
-            if (triangles[i][tr] == 10070)
-                std::cout << triangles[i][tr] << " " << gridP[i] << " " << weights[i][tr];
             // ... and all the variables
             for (int var=0; var<nb_var; ++var)
-            {
                 interp_out[triangles[i][tr]*nb_var+var] += interp_in[gridP[i]*nb_var+var]*weights[i][tr];
-                if (triangles[i][tr] == 10070)
-                    std::cout << " " << interp_in[gridP[i]*nb_var+var];
-            }
-            if (triangles[i][tr] == 10070)
-                std::cout << std::endl;
         }
     }
 
     // Post-process interp_out
     for (int tr=0; tr<numElements; ++tr)
     {
-        if (tr == 10070) std::cout << tr << " " << triangle_area[tr] << std::endl;
         double r_triangle_area = 1./triangle_area[tr];
         for (int var=0; var<nb_var; ++var)
             interp_out[tr*nb_var+var] *= r_triangle_area;
