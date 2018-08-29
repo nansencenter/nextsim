@@ -2238,6 +2238,156 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 }
 
 void
+FiniteElement::getVariablesIO(
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> &num_components,
+        std::vector<std::string> const &names)
+{
+    // Takes a list of names and for each name
+    // - adds a pointer to the appropriate vector.
+    // - adds the number of components in the variable to another vector
+    //   (this is usually 1, but can be 3 eg M_sigma)
+    // These outputs are then used in loops in collectVariablesIO and
+    // scatterFieldsElementIO (called from readRestart)
+
+    //1st set pointers to the data requested in "names"
+    for(auto it=names.begin(); it!=names.end(); it++)
+    {
+        LOG(DEBUG)<<"collectVariablesIO: adding "<<*it<<"\n";
+        int num_comp = 1;
+        if(*it=="M_conc")
+        {
+            // concentration
+            data.push_back(&M_conc);
+        }
+        else if(*it=="M_thick")
+        {
+            // thickness
+            data.push_back(&M_thick);
+        }
+        else if(*it=="M_snow_thick")
+        {
+            // snow thickness
+            data.push_back(&M_snow_thick);
+        }
+        else if(*it=="M_sigma")
+        {
+            // stress
+            data.push_back(&M_sigma);
+            num_comp = 3;
+        }
+        else if(*it=="M_damage")
+        {
+            // damage
+            data.push_back(&M_damage);
+        }
+        else if(*it=="M_ridge_ratio")
+        {
+            // damage
+            data.push_back(&M_ridge_ratio);
+        }
+        else if(*it == "M_random_number")
+        {
+            // random_number
+            data.push_back(&M_random_number);
+        }
+        else if(*it == "M_sss")
+        {
+            // SSS
+            data.push_back(&M_sss);
+        }
+        else if(*it == "M_sst")
+        {
+            // SST
+            data.push_back(&M_sst);
+        }
+        else if(*it == "M_Tice_0")
+        {
+            // M_tice[0] - Ice temperature
+            data.push_back(&(M_tice[0]));
+        }
+        else if(*it == "M_Tice_1")
+        {
+            // M_tice[1] - Ice temperature
+            data.push_back(&(M_tice[1]));
+        }
+        else if(*it == "M_Tice_2")
+        {
+            // M_tice[2] - Ice temperature
+            data.push_back(&(M_tice[2]));
+        }
+        else if(*it == "M_h_thin")
+        {
+            // thin ice thickness
+            data.push_back(&M_h_thin);
+        }
+        else if(*it == "M_conc_thin")
+        {
+            // thin ice concentration
+            data.push_back(&M_conc_thin);
+        }
+        else if(*it == "M_hs_thin")
+        {
+            // snow thickness on thin ice
+            data.push_back(&M_hs_thin);
+        }
+        else if(*it == "M_tsurf_thin")
+        {
+            // surface temperature over thin ice
+            data.push_back(&M_tsurf_thin);
+        }
+        else
+            throw std::runtime_error("Unimplemented name: "+*it);
+
+        // set the number of components to loop over
+        // and resize the variables
+        num_components.push_back(num_comp);
+    }
+}//getVariablesIO
+
+
+void
+FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values,
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> const& num_components)
+{
+    // * out_elt_values is vector containing all the variables to be
+    //   redistributed (eg after scattering from root) into the
+    //   individual variables (eg M_conc, M_thick,...)
+    // * data is a vector of pointers to the variables to be assigned
+    //   values from out_elt_values
+    // * num_components is a vector with the number of components in
+    //   each variable (usually 1, but can be 3 eg for M_sigma)
+
+    // 1st initialise the data
+    int nb_var_element = 0;
+    for(int j=0; j<data.size(); j++)
+    {
+        int num_comp = num_components[j];
+        data[j]->assign(num_comp*M_num_elements, 0.);
+        nb_var_element += num_comp;
+    }
+
+    // now loop over the data and get their values
+    // from out_elt_values
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        int tmp_nb_var=0;
+        for(int j=0; j<data.size(); j++)
+        {
+            int num_comp = num_components[j];
+            for (int k=0; k<num_comp; k++)
+            {
+                (*(data[j]))[num_comp*i+k] = out_elt_values[nb_var_element*i+tmp_nb_var];
+                tmp_nb_var++;
+            }//loop over each component of variables
+        }//loop over variables
+        if(tmp_nb_var!=nb_var_element)
+            throw std::logic_error("tmp_nb_var not equal to nb_var_element");
+    }//loop over elements
+}//redistributeVariablesIO
+
+void
 FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice)
 {
     int nb_var_element = M_nb_var_element;
@@ -3095,6 +3245,94 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }
 
+std::vector<std::string>
+FiniteElement::getRestartVariableNames()
+{
+    // get the names of the variables that need to be
+    // gathered and scattered when reading or saving restarts
+    std::vector<std::string> names = {
+        "M_conc",
+        "M_thick",
+        "M_snow_thick",
+        "M_sigma",//3 components
+        "M_damage",
+        "M_ridge_ratio",
+        "M_random_number",
+        "M_sss",
+        "M_sst"};
+    
+    for(int i=0; i<M_tice.size(); i++)
+        names.push_back("M_Tice_" + std::to_string(i));
+    if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+    {
+        names.push_back("M_h_thin");
+        names.push_back("M_conc_thin");
+        names.push_back("M_hs_thin");
+        names.push_back("M_tsurf_thin");
+    }
+    return names;
+}
+
+void
+FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> const& num_components)
+{
+    // * interp_elt_out is a vector containing all the variables to be
+    //   redistributed (eg after scattering from root) into the
+    //   individual variables (eg M_conc, M_thick,...)
+    //   - rearranged using M_id_elements and passed to
+    //     boost::mpi::scatterv
+    // * data is a vector of pointers to the variables to be assigned
+    //   values from out_elt_values
+    //   - passed to redistributeVariablesIO
+    // * num_components is a vector with the number of components in
+    //   each variable (usually 1, but can be 3 eg for M_sigma)
+    //   - passed to redistributeVariablesIO
+    timer["scatter"].first.restart();
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+
+    int const nb_var_element = std::accumulate(
+            num_components.begin(), num_components.end(), 0);
+
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+    std::vector<double> in_elt_values;
+
+    if (M_rank == 0)
+    {
+        in_elt_values.resize(nb_var_element*M_id_elements.size());
+
+        for (int i=0; i<M_id_elements.size(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+            for (int j=0; j<nb_var_element; ++j)
+            {
+                in_elt_values[nb_var_element*i+j]
+                    = interp_elt_out[nb_var_element*ri+j];
+            }
+        }
+    }
+
+    std::vector<double> out_elt_values(nb_var_element*M_num_elements);
+    if (M_rank == 0)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(),
+                [&](int& f){ f = nb_var_element*f; });
+        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements,
+                &out_elt_values[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &out_elt_values[0],
+                nb_var_element*M_num_elements, 0);
+    }
+
+    this->redistributeVariablesIO(out_elt_values, data, num_components);
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+}//scatterFieldsElementIO
+
 void
 FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice)
 {
@@ -3178,7 +3416,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     this->redistributeVariablesIO(out_elt_values, thin_ice);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
-}
+}//scatterFieldsElementIO
 
 void
 FiniteElement::interpFieldsElement()
@@ -6074,6 +6312,8 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
+    //uncomment this line to restart with single variable for M_tice (even with Winton)
+//#define RESTART_WITH_SINGLE_M_TICE_VARIABLE
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
@@ -7249,7 +7489,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         std::vector<double> M_random_number_root(num_elements_root);
         std::vector<double> M_sss_root(num_elements_root);
         std::vector<double> M_sst_root(num_elements_root);
+#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+        std::vector<std::vector<double>> M_tice_root(M_tice.size());
+        for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
+            it->resize(num_elements_root);
+#else
         std::vector<double> M_tice_root(tice_size*num_elements_root);
+#endif
 
         std::vector<double> M_h_thin_root;
         std::vector<double> M_conc_thin_root;
@@ -7313,6 +7559,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
             M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
+#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+            for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
+            {
+                (*it)[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                tmp_nb_var++;
+            }
+#else
             // tice1
             M_tice_root[tice_size*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
@@ -7327,6 +7580,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
                 M_tice_root[tice_size*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
+#endif
 
             if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
@@ -7419,7 +7673,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
         exporter.writeField(outbin, M_random_number_root, "M_random_number");
 
+#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+        for (int i=0; i<M_tice.size(); i++)
+            exporter.writeField(outbin, M_tice_root[i],
+                    "M_Tice_"+std::to_string(i));
+#else
         exporter.writeField(outbin, M_tice_root, "M_Tice");
+#endif
 
         exporter.writeField(outbin, M_sst_root, "M_sst");
         exporter.writeField(outbin, M_sss_root, "M_sss");
@@ -7649,9 +7909,22 @@ FiniteElement::readRestart(std::string step)
     // mesh partitioning
     this->partitionMeshRestart();
 
-    // Initialise all the variables to zero
-    // done below
+    // Make sure M_tice is set to have the right size
+    // before going into getRestartVariableNames
+    // TODO just call initVariables here?
     // this->initVariables();
+    switch (M_thermo_type)
+    {
+        case (setup::ThermoType::ZERO_LAYER):
+            M_tice.resize(1);
+            break;
+        case (setup::ThermoType::WINTON):
+            M_tice.resize(3);
+            break;
+        default:
+            std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+            throw std::logic_error("Wrong thermo_type");
+    }
 
     if (M_rank == 0)
     {
@@ -7675,28 +7948,12 @@ FiniteElement::readRestart(std::string step)
         M_sst.resize(num_elements_root);
 
 
+#if 0
         std::vector<double> M_tice_all(tice_size*num_elements_root);
-
-        switch (M_thermo_type)
-        {
-            case (setup::ThermoType::ZERO_LAYER):
-                M_tice.resize(1);
-                break;
-            case (setup::ThermoType::WINTON):
-                M_tice.resize(3);
-                break;
-            default:
-                std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
-                throw std::logic_error("Wrong thermo_type");
-        }
-
-        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        {
-            it->resize(num_elements_root);
-        }
-
+#endif
         for (int i=0; i<M_tice.size(); ++i)
         {
+            M_tice[i].resize(num_elements_root);
             std::cout<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
         }
 
@@ -7715,8 +7972,12 @@ FiniteElement::readRestart(std::string step)
         M_damage          = field_map_dbl["M_damage"];
         M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
         M_random_number   = field_map_dbl["M_random_number"];
-        M_tice_all   = field_map_dbl["M_Tice"];
+#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+        for (int i=0; i<M_tice.size(); i++)
+            M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
+#else
 
+        M_tice_all   = field_map_dbl["M_Tice"];
         for (int i=0; i<num_elements_root; ++i)
         {
             M_tice[0][i] = M_tice_all[tice_size*i];
@@ -7727,6 +7988,7 @@ FiniteElement::readRestart(std::string step)
                 M_tice[2][i] = M_tice_all[tice_size*i+2];
             }
         }
+#endif
 
         M_sst        = field_map_dbl["M_sst"];
         M_sss        = field_map_dbl["M_sss"];
@@ -7789,12 +8051,38 @@ FiniteElement::readRestart(std::string step)
 
     std::vector<double> interp_elt_out;
     std::vector<double> interp_nd_out;
-    this->collectRootRestart(interp_elt_out, interp_nd_out);
+
+
+#if 1
+    // get names of the variables in the restart file,
+    // and set data (pointers to the corresponding vectors)
+    // and num_components (number of components in those vectors)
+    std::vector<std::vector<double>*> data_elements;
+    std::vector<int> num_components_elements;
+    std::vector<std::string> names = this->getRestartVariableNames();
+    this->getVariablesIO(data_elements, num_components_elements, names);
+
+    // get the variables (only on the root processor so far)
+    // from data and put it not interp_elt_out
+    // TODO do something similar for the nodes
+    this->collectRootRestart(interp_elt_out, interp_nd_out,
+            data_elements, num_components_elements);
 
     // Initialise all the variables to zero
-    this->initVariables();
+    this->initVariables();//TODO do earlier?
 
+    // Scatter fields from root and put it in data_elements
+    // inside a loop
+    // - data_elements is a vector of pointers so the required
+    //  variables are now set
+    this->scatterFieldsElementIO(interp_elt_out,
+            data_elements, num_components_elements);
+#else
+    this->collectRootRestart(interp_elt_out, interp_nd_out);
+    // Initialise all the variables to zero
+    this->initVariables();
     this->scatterFieldsElementIO(interp_elt_out, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+#endif
 
     this->scatterFieldsNode(&interp_nd_out[0]);
 
@@ -7844,6 +8132,104 @@ FiniteElement::partitionMeshRestart()
     this->distributedMeshProcessing(true);
 }
 
+void
+FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
+        std::vector<double>& interp_nd_out,
+        std::vector<std::vector<double>*> &data_elements,
+        std::vector<int> &num_components_elements)
+{
+    // * output: interp_elt_out is vector containing all the variables
+    //   on the elements to be scattered from root during readRestart
+    // * output: interp_nd_out is vector containing all the variables
+    //   on the nodes to be scattered from root during readRestart
+    // * data_elements is a vector of pointers to the elemental variables to go
+    //   into interp_elt_out
+    // * num_components_elements is a vector with the number of components in
+    //   each elemental variable (usually 1, but can be 3 eg for M_sigma)
+    int const nb_var_element = std::accumulate(
+            num_components_elements.begin(), num_components_elements.end(), 0);
+
+    if (M_rank == 0)
+    {
+        int num_elements_root = M_mesh_root.numTriangles();
+        int tice_size = M_tice.size();
+
+        interp_elt_out.resize(nb_var_element*num_elements_root);
+        for (int i=0; i<num_elements_root; ++i)
+        {
+            int tmp_nb_var=0;
+            for(int j=0; j<data_elements.size(); j++)
+            {
+                int num_comp = num_components_elements[j];
+                for (int k=0; k<num_comp; k++)
+                {
+                    interp_elt_out[nb_var_element*i+tmp_nb_var]
+                        = (*(data_elements[j]))[num_comp*i+k];
+                    tmp_nb_var++;
+                }//loop over each component of variables
+            }//loop over variables
+            if(tmp_nb_var!=nb_var_element)
+                throw std::logic_error("tmp_nb_var not equal to nb_var_element");
+        }
+    }//M_rank == 0: collect elemental variables
+
+#if 1
+    M_nb_var_node = 10;
+
+    if (M_rank == 0)
+    {
+        int num_nodes_root = M_mesh_root.numNodes();
+        interp_nd_out.resize(M_nb_var_node*num_nodes_root,0.);
+
+        int tmp_nb_var = 0;
+
+        for (int i=0; i<num_nodes_root; ++i)
+        {
+            tmp_nb_var = 0;
+
+            // VT
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // VTM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // VTMM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // UM
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
+            tmp_nb_var++;
+
+            // UT
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+            tmp_nb_var++;
+
+            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>M_nb_var_node)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
+    }
+#endif
+}
 void
 FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
 {
