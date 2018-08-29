@@ -278,7 +278,6 @@ public:
     int readRestart(int step);
     int readRestart(std::string step);
     void partitionMeshRestart();
-    void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out);
     void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
             std::vector<std::vector<double>*> &data,
             std::vector<int> &num_components);
@@ -313,8 +312,6 @@ private:
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
 
-    void redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice);
-    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice);
     std::vector<std::string> getRestartVariableNames();
     void getVariablesIO(
             std::vector<std::vector<double>*> &data,

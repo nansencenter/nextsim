@@ -2387,103 +2387,6 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
     }//loop over elements
 }//redistributeVariablesIO
 
-void
-FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice)
-{
-    int nb_var_element = M_nb_var_element;
-    if (!thin_ice)
-    {
-        nb_var_element -= 4;
-    }
-
-    int tmp_nb_var=0;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        M_conc[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // thickness
-        M_thick[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // snow thickness
-        M_snow_thick[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress1
-        M_sigma[3*i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress2
-        M_sigma[3*i+1] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress3
-        M_sigma[3*i+2] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // damage
-        M_damage[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // ridge_ratio
-        M_ridge_ratio[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // random_number
-        M_random_number[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SSS
-        M_sss[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SST
-        M_sst[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Ice temperature
-        M_tice[0][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            M_tice[1][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            M_tice[2][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-        }
-
-        if (thin_ice)
-        {
-            // thin ice thickness
-            M_h_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thin ice concentration
-            M_conc_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow on thin ice
-            M_hs_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // Ice surface temperature for thin ice
-            M_tsurf_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-        }
-
-        if(tmp_nb_var!=nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-}//redistributeVariablesIO
 
 void
 FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
@@ -3333,90 +3236,6 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
 
-void
-FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice)
-{
-    timer["scatter"].first.restart();
-
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
-
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-
-    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-
-    std::vector<double> in_elt_values;
-
-    if (M_rank == 0)
-    {
-        in_elt_values.resize(nb_var_element*M_id_elements.size());
-
-        for (int i=0; i<M_id_elements.size(); ++i)
-        {
-            int ri = M_id_elements[i]-1;
-
-            for (int j=0; j<nb_var_element; ++j)
-            {
-                in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
-            }
-        }
-    }
-
-    std::vector<double> out_elt_values(nb_var_element*M_num_elements);
-
-    if (M_rank == 0)
-    {
-        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements, &out_elt_values[0], 0);
-    }
-    else
-    {
-        boost::mpi::scatterv(M_comm, &out_elt_values[0], nb_var_element*M_num_elements, 0);
-    }
-
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-
-    M_conc.assign(M_num_elements,0.);
-    M_thick.assign(M_num_elements,0.);
-    M_snow_thick.assign(M_num_elements,0.);
-    M_sigma.assign(3*M_num_elements,0.);
-    M_damage.assign(M_num_elements,0.);
-    M_ridge_ratio.assign(M_num_elements,0.);
-    M_random_number.resize(M_num_elements);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        it->assign(M_num_elements,0.);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_conc_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
-
-    // Diagnostics
-    D_Qa.assign(M_num_elements,0.);
-    D_Qsh.assign(M_num_elements,0.);
-    D_Qlh.assign(M_num_elements,0.);
-    D_Qlw.assign(M_num_elements,0.);
-    D_Qsw.assign(M_num_elements,0.);
-    D_Qo.assign(M_num_elements,0.);
-    D_delS.assign(M_num_elements,0.);
-
-    this->redistributeVariablesIO(out_elt_values, thin_ice);
-
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
-}//scatterFieldsElementIO
 
 void
 FiniteElement::interpFieldsElement()
@@ -7991,11 +7810,7 @@ FiniteElement::readRestart(std::string step)
         }
     }//M_rank==0
 
-    std::vector<double> interp_elt_out;
-    std::vector<double> interp_nd_out;
 
-
-#if 1
     // get names of the variables in the restart file,
     // and set data (pointers to the corresponding vectors)
     // and num_components (number of components in those vectors)
@@ -8007,22 +7822,19 @@ FiniteElement::readRestart(std::string step)
     // get the variables (only on the root processor so far)
     // from data and put it not interp_elt_out
     // TODO do something similar for the nodes
+    std::vector<double> interp_elt_out;
+    std::vector<double> interp_nd_out;
     this->collectRootRestart(interp_elt_out, interp_nd_out,
             data_elements, num_components_elements);
 
-    // Scatter fields from root and put it in data_elements
+    // Scatter elemental fields from root and put it in data_elements
     // inside a loop
     // - data_elements is a vector of pointers so the required
     //  variables are now set
     this->scatterFieldsElementIO(interp_elt_out,
             data_elements, num_components_elements);
-#else
-    this->collectRootRestart(interp_elt_out, interp_nd_out);
-    // Initialise all the variables to zero
-    this->initVariables();
-    this->scatterFieldsElementIO(interp_elt_out, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
-#endif
 
+    // Scatter nodal fields from root
     this->scatterFieldsNode(&interp_nd_out[0]);
 
     //set time and counters
@@ -8210,176 +8022,6 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
 #endif
 }//collectRootRestart
 
-
-void
-FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
-{
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-
-    if (M_rank == 0)
-    {
-        int num_elements_root = M_mesh_root.numTriangles();
-        int tice_size = M_tice.size();
-
-        interp_elt_out.resize(nb_var_element*num_elements_root);
-
-        // std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
-
-        int tmp_nb_var = 0;
-
-        for (int i=0; i<num_elements_root; ++i)
-        {
-            tmp_nb_var=0;
-            //int ri = M_rmap_elements[i];
-
-            // concentration
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_conc[i];
-            tmp_nb_var++;
-
-            // thickness
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_thick[i];
-            tmp_nb_var++;
-
-            // snow thickness
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-            tmp_nb_var++;
-
-            // integrated_stress1
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i];
-            tmp_nb_var++;
-
-            // integrated_stress2
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1];
-            tmp_nb_var++;
-
-            // integrated_stress3
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2];
-            tmp_nb_var++;
-
-            // damage
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_damage[i];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_random_number[i];
-            tmp_nb_var++;
-
-            // sss
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sss[i];
-            tmp_nb_var++;
-
-            // sst
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sst[i];
-            tmp_nb_var++;
-
-            // tice1
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-            tmp_nb_var++;
-
-            if ( interp_elt_out[nb_var_element*i+tmp_nb_var] = M_thermo_type == setup::ThermoType::WINTON )
-            {
-                // tice2
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[1][i];
-                tmp_nb_var++;
-
-                // tice3
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[2][i];
-                tmp_nb_var++;
-            }
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                // h_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-                tmp_nb_var++;
-
-                // conc_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
-                tmp_nb_var++;
-
-                // hs_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-                tmp_nb_var++;
-
-                // tsurf_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-                tmp_nb_var++;
-            }
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-    }
-
-#if 1
-    M_nb_var_node = 10;
-
-    if (M_rank == 0)
-    {
-        int num_nodes_root = M_mesh_root.numNodes();
-        interp_nd_out.resize(M_nb_var_node*num_nodes_root,0.);
-
-        int tmp_nb_var = 0;
-
-        for (int i=0; i<num_nodes_root; ++i)
-        {
-            tmp_nb_var = 0;
-
-            // VT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTMM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // UM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // UT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>M_nb_var_node)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-    }
-#endif
-}
 
 void
 FiniteElement::updateVelocity()
