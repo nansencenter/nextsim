@@ -284,6 +284,36 @@ integer function oasis3_get_localcomm(localcomm) bind(c)
 end function oasis3_get_localcomm
 
 ! ------------------------------------------------------------------------------
+! *** oasis3_create_couplcomm(int icpl, MPI_Comm *cplcomm);
+! ------------------------------------------------------------------------------
+integer function oasis3_create_couplcomm(icpl, cplcomm) bind(c)
+
+  use mod_oasis
+  use iso_c_binding
+
+  implicit none
+  include 'mpif.h'
+
+  ! Arguments
+  integer(c_int),         intent(in)  :: icpl
+  integer(c_int),         intent(out) :: cplcomm
+
+  ! Locals
+  integer :: info, comm
+
+  call oasis_get_localcomm(comm, info)
+  if ( icpl == 0 ) then
+    call oasis_create_couplcomm(MPI_UNDEFINED, comm, cplcomm, info)
+  else
+    call oasis_create_couplcomm(1, comm, cplcomm, info)
+  end if
+
+  oasis3_create_couplcomm= info
+
+  return
+end function oasis3_create_couplcomm
+
+! ------------------------------------------------------------------------------
 ! *** oasis3_terminate_grids_writing
 ! ------------------------------------------------------------------------------
 integer function oasis3_start_grids_writing(flag) bind(c)

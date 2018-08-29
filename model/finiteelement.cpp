@@ -947,6 +947,7 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 {
     for (auto it=cpl_var.begin(); it!=cpl_var.end(); ++it)
     {
+        it->cpl_id = -1;
         bool set = false;
         for (int j=0; j<var_snd.size(); ++j)
         {
@@ -958,7 +959,8 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
                 break;
             }
         }
-        if (!set) throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set. Exiting");
+        // Check if the variable was set, skipping non-outputing variables
+        if ( it->varID>0 && !set ) throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set. Exiting");
     }
 }
 #endif
@@ -1012,7 +1014,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             {
                 LOG(DEBUG)<<"in nodes: dataset = "<<(*it)->M_dataset->name<<"\n";
 #ifdef OASIS
-                (*it)->check_and_reload(RX_nod,RY_nod,CRtime,pcpt*time_step,cpl_time_step);
+                (*it)->check_and_reload(RX_nod,RY_nod,CRtime,M_comm,pcpt*time_step,cpl_time_step);
 #else
                 (*it)->check_and_reload(RX_nod,RY_nod,CRtime);
 #endif
@@ -1022,7 +1024,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
             {
                 LOG(DEBUG)<<"in elements: dataset = "<<(*it)->M_dataset->name<<"\n";
 #ifdef OASIS
-                (*it)->check_and_reload(RX_el,RY_el,CRtime,pcpt*time_step,cpl_time_step);
+                (*it)->check_and_reload(RX_el,RY_el,CRtime,M_comm,pcpt*time_step,cpl_time_step);
 #else
                 (*it)->check_and_reload(RX_el,RY_el,CRtime);
 #endif
@@ -6255,14 +6257,10 @@ FiniteElement::init()
 
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
+        LOG(INFO) <<"Smalest angle of mesh: " << minang << "\n";
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
-
-#ifdef OASIS
-    LOG(DEBUG) <<"Initialize OASIS coupler\n";
-    this->initOASIS();
-#endif
 
     if ( M_use_restart )
     {
@@ -6295,6 +6293,11 @@ FiniteElement::init()
 
     // Initialise atmospheric and oceanic forcing
     this->initForcings();
+
+#ifdef OASIS
+    LOG(DEBUG) <<"Initialize OASIS coupler\n";
+    this->initOASIS();
+#endif
 
     // Initialise bathymetry
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -6354,9 +6357,9 @@ FiniteElement::initOASIS()
     //!!!!!!!!!!!!!!!!! OASIS_INIT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     int ierror, rank;
-    int  mype, npes;            // rank and  number of pe
-    MPI_Comm localComm;         // local MPI communicator and Initialized
-    int comp_id;                // Component identification
+    int  mype, npes;             // rank and  number of pe
+    MPI_Comm localComm, cplComm; // local and couple MPI communicators
+    int comp_id;                 // Initialized Component identification
     const char * comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
 
     ierror = OASIS3::init_comp(&comp_id, comp_name);
@@ -6382,6 +6385,10 @@ FiniteElement::initOASIS()
     ierror = MPI_Comm_rank(localComm, &mype);
     std::cout << "npes : " << npes << "  mype : " << mype << std::endl;
 
+    //!!!!!!!!!!!!!!!!! OASIS_CREATE_COUPLCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // Only root is active
+    ierror = OASIS3::create_couplcomm(M_rank==0, &cplComm);
+
     // // Initialise Petsc
     // PETSC_COMM_WORLD = localComm;
     // int ierr = 0;
@@ -6393,15 +6400,10 @@ FiniteElement::initOASIS()
     //  GRID DEFINITION
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // Output and averaging grids
-    std::vector<double> data_nodes(M_num_nodes);
-    std::vector<double> data_elements(M_num_elements);
-    std::vector<double> data_grid;
-
     // Output variables - nodes
-    GridOutput::Variable taux(GridOutput::variableID::taux, data_nodes, data_grid);
-    GridOutput::Variable tauy(GridOutput::variableID::tauy, data_nodes, data_grid);
-    GridOutput::Variable taumod(GridOutput::variableID::taumod, data_nodes, data_grid);
+    GridOutput::Variable taux(GridOutput::variableID::taux);
+    GridOutput::Variable tauy(GridOutput::variableID::tauy);
+    GridOutput::Variable taumod(GridOutput::variableID::taumod);
 
     std::vector<GridOutput::Variable> nodal_variables;
     nodal_variables.push_back(taux);
@@ -6409,11 +6411,11 @@ FiniteElement::initOASIS()
     nodal_variables.push_back(taumod);
 
     // Output variables - elements
-    GridOutput::Variable emp(GridOutput::variableID::emp, data_elements, data_grid);
-    GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw, data_elements, data_grid);
-    GridOutput::Variable QSw(GridOutput::variableID::Qsw, data_elements, data_grid);
-    GridOutput::Variable Sflx(GridOutput::variableID::Fsalt, data_elements, data_grid);
-    GridOutput::Variable conc(GridOutput::variableID::conc, data_elements, data_grid);
+    GridOutput::Variable emp(GridOutput::variableID::emp);
+    GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
+    GridOutput::Variable QSw(GridOutput::variableID::Qsw);
+    GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+    GridOutput::Variable conc(GridOutput::variableID::conc);
 
     std::vector<GridOutput::Variable> elemental_variables;
     elemental_variables.push_back(emp);
@@ -6421,6 +6423,10 @@ FiniteElement::initOASIS()
     elemental_variables.push_back(QSw);
     elemental_variables.push_back(Sflx);
     elemental_variables.push_back(conc);
+
+    // We need a proc_mask
+    GridOutput::Variable proc_mask(GridOutput::variableID::proc_mask);
+    elemental_variables.push_back(proc_mask);
 
     // The vectorial variables are ...
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
@@ -6505,7 +6511,11 @@ FiniteElement::initOASIS()
     int ig_paral[3];
     ig_paral[0] = 0;                // a serial partition
     ig_paral[1] = 0;
-    ig_paral[2] = ncols*nrows;   // the total grid size
+    if (M_rank==0)
+        ig_paral[2] = ncols*nrows;  // the total grid size
+    else
+        ig_paral[2] = 0;            // only root is coupling
+
     ierror = OASIS3::def_partition(&part_id, ig_paral, (int) sizeof(ig_paral));
     if (ierror != 0) {
         std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
@@ -6520,7 +6530,7 @@ FiniteElement::initOASIS()
     //  GRID WRITING
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
     std::cout << "Grid writing\n";
-    if (mype == 0) {
+    if (M_rank == 0) {
         OASIS3::start_grids_writing(ierror);
         OASIS3::write_grid("nxts", ncols, nrows, &M_cpl_out.M_grid.gridLON[0], &M_cpl_out.M_grid.gridLAT[0]);
         // OASIS3::write_corner("nxts", ncols, nrows, 4, globalgrid_clo, globalgrid_cla);
@@ -6667,8 +6677,8 @@ FiniteElement::step()
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(bamgmesh);
 #ifdef OASIS
-            m_cpl_out.resetmeshmean(bamgmesh, m_regrid);
-            m_ocean_elements_dataset.setweights(m_cpl_out.getgridp(), m_cpl_out.gettriangles(), m_cpl_out.getweights());
+            M_cpl_out.resetMeshMean(bamgmesh, M_regrid);
+            M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
             ++M_nb_regrid;
         }//M_regrid
@@ -6800,14 +6810,32 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
-        std::cout << "OASIS put ... at " << pcpt*time_step << "\n";
-        M_cpl_out.updateGridMean(bamgmesh);
-
-        for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
-            int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
-            int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            if (M_rank==0) it->data_grid = result;
+        }
+        for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            if (M_rank==0) it->data_grid = result;
+        }
+
+        if ( M_rank == 0 )
+        {
+            std::cout << "OASIS put ... at " << pcpt*time_step << "\n";
+            M_cpl_out.updateGridMean(bamgmesh);
+
+            for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
+                if ( it->varID > 0 ) // Skip non-outputing variables
+                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+
+            for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
+                if ( it->varID > 0 ) // Skip non-outputing variables
+                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+        }
 
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();

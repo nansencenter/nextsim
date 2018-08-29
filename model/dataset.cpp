@@ -999,6 +999,22 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
@@ -1058,6 +1074,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         loaded=false;
         interpolated=false;
 
+        averaging_period=1.; // days
+        time= time_tmp;
         coupled = true;
     }
     else if (strcmp (DatasetName, "ocean_cpl_elements") == 0)
@@ -1196,6 +1214,22 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
@@ -1241,6 +1275,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
         loaded=false;
         interpolated=false;
 
+        averaging_period=1.; // days
+        time= time_tmp;
         coupled = true;
     }
 #endif

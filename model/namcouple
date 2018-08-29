@@ -96,7 +96,7 @@ nxts  nxts
 LOCTRANS
   AVERAGE
 #
-I_sfo I_sfo 1 3600 1 ice.nc OUTPUT
+I_sfi I_sfi 1 3600 1 ice.nc OUTPUT
 nxts  nxts
 LOCTRANS
   AVERAGE

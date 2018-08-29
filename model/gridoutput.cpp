@@ -391,13 +391,11 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
 
 
     // Stuff the input vector
-    for (int i=0; i<source_size; ++i)
+    for (int j=0; j<nb_var; j++)
     {
-        for (int j=0; j<nb_var; j++)
-        {
-            assert( variables[j].data_mesh.size() == source_size );
+        assert( variables[j].data_mesh.size() == source_size );
+        for (int i=0; i<source_size; ++i)
             interp_in[nb_var*i+j] = variables[j].data_mesh[i];
-        }
     }
 
     // Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2dx or ConservativeRemappingMeshToGrid.
@@ -405,7 +403,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
     // TODO: Permit regular grids to use the conservative remapping.
     if ( M_grid.loaded )
     {
-        if ( kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
+        if (false) // kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
             ConservativeRemappingMeshToGrid(interp_out, interp_in,
                                     nb_var, M_grid_size, miss_val,
                                     M_gridP, M_triangles, M_weights);

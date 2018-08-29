@@ -37,6 +37,9 @@
 #include <omp.h>
 #include <boost/random/linear_congruential.hpp>
 #include <boost/random/uniform_01.hpp>
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 extern "C"
 {
@@ -592,6 +595,8 @@ private:
     external_data M_ocean_temp;   // Ocean temperature in top layer [C]
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
+
+    external_data M_qsrml;        // Fraction of short wave radiation absorbed by the mixed layer
 
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries

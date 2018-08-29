@@ -121,6 +121,7 @@ class OASIS3
     // ajout  tm 19/10/2015
  public : static int abort(int ,  std::string, std::string);
  public : static int get_localcomm(MPI_Comm *);
+ public : static int create_couplcomm(bool, MPI_Comm *);
  public : static int start_grids_writing(int *);
  public : static int start_grids_writing(int);
  public : static int terminate_grids_writing();
