@@ -111,40 +111,34 @@ int OASIS3::create_couplcomm(bool active, MPI_Comm *cplcomm)
 int OASIS3::write_grid(std::string gridname, int nx, int ny, double *lon, double *lat)
 {
   int lgridname = gridname.length();
-  int ierror =  oasis3_write_grid(gridname.c_str(), &nx, &ny, lon, lat, &lgridname);
-  return ierror;
+  return oasis3_write_grid(gridname.c_str(), &nx, &ny, lon, lat, &lgridname);
 }
 
 int OASIS3::write_corner(std::string gridname, int nx, int ny, int nc, double *clon, double *clat)
 {
   int lgridname = gridname.length();
-  int ierror = oasis3_write_corner(gridname.c_str(), &nx, &ny,&nc, clon, clat, &lgridname);
-  return ierror;
+  return oasis3_write_corner(gridname.c_str(), &nx, &ny,&nc, clon, clat, &lgridname);
 }
 
 int OASIS3::write_area(std::string gridname, int nx, int ny, double *area)
 {
   int lgridname = gridname.length();
-  int ierror = oasis3_write_area(gridname.c_str(), &nx, &ny, area,  &lgridname);
-  return ierror;
+  return oasis3_write_area(gridname.c_str(), &nx, &ny, area,  &lgridname);
 }
 
 int OASIS3::write_mask(std::string gridname, int nx, int ny, int *mask)
 {
   int lgridname = gridname.length();
-  int ierror = oasis3_write_mask(gridname.c_str(), &nx, &ny, mask, &lgridname);
-  return ierror;
+  return oasis3_write_mask(gridname.c_str(), &nx, &ny, mask, &lgridname);
 }
 
 int OASIS3::start_grids_writing(int flag)
 {
-  int error = oasis3_start_grids_writing(&flag);
-  return error;
+  return oasis3_start_grids_writing(&flag);
 }
 
 
 int OASIS3::terminate_grids_writing()
 {
-  int ierror = oasis3_terminate_grids_writing();
-  return ierror;
+  return oasis3_terminate_grids_writing();
 }

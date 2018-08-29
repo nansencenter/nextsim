@@ -50,7 +50,7 @@ class OASIS3
  public : static const int CLIM_TimeOut        =  -10;
  public : static const int CLIM_Unpack         =  -19;
  public : static const int CLIM_Void           =    0;
-  
+
  public : static const int ip_accumul          =    3;
  public : static const int ip_auxilary         =    7;
  public : static const int ip_average          =    2;
@@ -63,7 +63,7 @@ class OASIS3
  public : static const int ip_max              =    5;
  public : static const int ip_min              =    4;
  public : static const int ip_output           =    4;
-  
+
  public : static const int PRISM_Double        =    8;
  public : static const int PRISM_DoubleDef     =   -5;
  public : static const int PRISM_FromRest      =   10;
@@ -84,7 +84,7 @@ class OASIS3
  public : static const int PRISM_SentOut       =    8;
  public : static const int PRISM_ToRest        =    6;
  public : static const int PRISM_ToRestOut     =    9;
-  
+
  public : static const int OASIS_Double        = PRISM_Double;
  public : static const int OASIS_DoubleDef     = PRISM_DoubleDef;
  public : static const int OASIS_FromRest      = PRISM_FromRest;
@@ -105,19 +105,19 @@ class OASIS3
  public : static const int OASIS_SentOut       = PRISM_SentOut;
  public : static const int OASIS_ToRest        = PRISM_ToRest;
  public : static const int OASIS_ToRestOut     = PRISM_ToRestOut;
-  
+
  public : static int init_comp(int *, std::string);
  public : static int terminate();
-  
+
  public : static int def_partition(int *, int *, int);
  public : static int def_var(int *, std::string, int, int *, int, int *, int);
  public : static int enddef();
-  
+
  public : static int put_1d(int, int, double *, int);
  public : static int put_2d(int, int, double *, int, int);
  public : static int get_1d(int, int, double *, int);
  public : static int get_2d(int, int, double *, int, int);
-  
+
     // ajout  tm 19/10/2015
  public : static int abort(int ,  std::string, std::string);
  public : static int get_localcomm(MPI_Comm *);

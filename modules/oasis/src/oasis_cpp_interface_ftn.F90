@@ -7,12 +7,12 @@ integer function oasis3_init_comp(compid,model_name,lname) bind(c)
     use iso_c_binding
 
     implicit none
-  
+
     ! Arguments
     integer(c_int),   intent(out) :: compid
     integer(c_int),   intent(in)  :: lname
     character(c_char),intent(in)  :: model_name(lname+1)
-    
+
     ! Locals
     integer :: ierror, i
     character(len=lname) :: name_str
@@ -23,8 +23,8 @@ integer function oasis3_init_comp(compid,model_name,lname) bind(c)
     enddo
 
     call oasis_init_comp(compid,name_str,ierror)
-    
-    oasis3_init_comp = ierror    
+
+    oasis3_init_comp = ierror
     return
 end function oasis3_init_comp
 
@@ -61,12 +61,12 @@ integer function oasis3_def_partition(il_part_id,ig_paral,ig_paral_len) bind(c)
     integer(c_int),intent(out) :: il_part_id
     integer(c_int),intent(in)  :: ig_paral_len
     integer(c_int),intent(in)  :: ig_paral(ig_paral_len)
-    
+
     ! Locals
     integer :: ierror
 
     call oasis_def_partition(il_part_id,ig_paral,ierror)
-    
+
     oasis3_def_partition = ierror
     return
 end function  oasis3_def_partition
@@ -236,12 +236,12 @@ integer function oasis3_abort(comp_id, routine_name, abort_message, lname, lmess
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),   intent(in)  :: comp_id, lname, lmess
   character(c_char),intent(in)  :: routine_name(lname+1)
   character(c_char),intent(in)  :: abort_message(lmess+1)
-  
+
   ! Locals
   integer :: info, i
   character(len=lname) routine_name_str
@@ -256,7 +256,7 @@ integer function oasis3_abort(comp_id, routine_name, abort_message, lname, lmess
   enddo
 
   call oasis_abort(comp_id, routine_name_str, abort_message_str)
-  
+
   oasis3_abort = OASIS_Ok
   return
 end function oasis3_abort
@@ -270,17 +270,17 @@ integer function oasis3_get_localcomm(localcomm) bind(c)
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),         intent(out)  :: localcomm
-  
+
   ! Locals
   integer :: info
 
   call oasis_get_localcomm(localcomm, info)
   oasis3_get_localcomm = info
 
-  return 
+  return
 end function oasis3_get_localcomm
 
 ! ------------------------------------------------------------------------------
@@ -325,12 +325,12 @@ integer function oasis3_start_grids_writing(flag) bind(c)
 
   ! Arguments
   integer(c_int),         intent(out)  :: flag
-  
+
   call oasis_start_grids_writing(flag)
-  
+
   oasis3_start_grids_writing = OASIS_Ok
 
-  return 
+  return
 end function oasis3_start_grids_writing
 
 ! ------------------------------------------------------------------------------
@@ -342,12 +342,12 @@ integer function oasis3_write_grid(gridname, nx, ny, lon,lat, lgridname) bind(c)
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),             intent(in) :: nx, ny, lgridname
   character(c_char),          intent(in) :: gridname(lgridname+1)
   real(c_double), intent(in) :: lon(ny,nx), lat(ny,nx)
-  
+
   ! Locals
   integer :: i
   character(len=lgridname) :: gridname_str
@@ -358,10 +358,10 @@ integer function oasis3_write_grid(gridname, nx, ny, lon,lat, lgridname) bind(c)
   enddo
 
   call oasis_write_grid(gridname_str, nx, ny, transpose(lon), transpose(lat))
-  
+
   oasis3_write_grid = OASIS_Ok
 
-  return 
+  return
 end function oasis3_write_grid
 
 ! ------------------------------------------------------------------------------
@@ -373,12 +373,12 @@ integer function oasis3_write_corner(gridname, nx, ny, nc, clon,clat, lgridname)
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),             intent(in) :: nx, ny, nc, lgridname
   character(c_char),          intent(in) :: gridname(lgridname+1)
   real(c_double), intent(in) :: clon(nc,ny,nx), clat(nc,ny,nx)
-  
+
   ! Locals
   integer :: i
   character(len=lgridname) :: gridname_str
@@ -389,10 +389,10 @@ integer function oasis3_write_corner(gridname, nx, ny, nc, clon,clat, lgridname)
   enddo
 
   call oasis_write_corner(gridname_str, nx, ny, nc, reshape(clon, (/3, 2, 1/)), reshape(clat, (/3, 2, 1/)))
-  
+
   oasis3_write_corner = OASIS_Ok
 
-  return 
+  return
 end function oasis3_write_corner
 
 
@@ -406,12 +406,12 @@ integer function oasis3_write_area(gridname, nx, ny, area, lgridname) bind(c)
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),             intent(in) :: nx, ny, lgridname
   character(c_char),          intent(in) :: gridname(lgridname+1)
   real(c_double), intent(in) :: area(ny,nx)
-  
+
   ! Locals
   integer :: i
   character(len=lgridname) :: gridname_str
@@ -422,10 +422,10 @@ integer function oasis3_write_area(gridname, nx, ny, area, lgridname) bind(c)
   enddo
 
   call oasis_write_area(gridname_str, nx, ny, transpose(area))
-  
+
   oasis3_write_area = OASIS_Ok
 
-  return 
+  return
 end function oasis3_write_area
 
 
@@ -439,12 +439,12 @@ integer function oasis3_write_mask(gridname, nx, ny, mask, lgridname) bind(c)
   use iso_c_binding
 
   implicit none
-  
+
   ! Arguments
   integer(c_int),         intent(in) :: nx, ny, lgridname
   character(c_char),      intent(in) :: gridname(lgridname+1)
   integer(c_int),         intent(in) :: mask(ny,nx)
-  
+
   ! Locals
   integer :: i
   character(len=lgridname) :: gridname_str
@@ -455,10 +455,10 @@ integer function oasis3_write_mask(gridname, nx, ny, mask, lgridname) bind(c)
   enddo
 
   call oasis_write_mask(gridname_str, nx, ny, transpose(mask))
-  
+
   oasis3_write_mask = OASIS_Ok
 
-  return 
+  return
 end function oasis3_write_mask
 
 
@@ -471,12 +471,12 @@ integer function oasis3_terminate_grids_writing() bind(c)
   use iso_c_binding
 
   implicit none
-  
+
   call oasis_terminate_grids_writing()
-  
+
   oasis3_terminate_grids_writing = OASIS_Ok
 
-  return 
+  return
 end function oasis3_terminate_grids_writing
 
 
