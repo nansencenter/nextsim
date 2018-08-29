@@ -6129,8 +6129,6 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
-    //uncomment this line to restart with single variable for M_tice (even with Winton)
-//#define RESTART_WITH_SINGLE_M_TICE_VARIABLE
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
@@ -7306,13 +7304,9 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         std::vector<double> M_random_number_root(num_elements_root);
         std::vector<double> M_sss_root(num_elements_root);
         std::vector<double> M_sst_root(num_elements_root);
-#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
         std::vector<std::vector<double>> M_tice_root(M_tice.size());
         for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
             it->resize(num_elements_root);
-#else
-        std::vector<double> M_tice_root(tice_size*num_elements_root);
-#endif
 
         std::vector<double> M_h_thin_root;
         std::vector<double> M_conc_thin_root;
@@ -7376,28 +7370,12 @@ FiniteElement::writeRestart(int pcpt, std::string step)
             M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+            // M_tice
             for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
             {
                 (*it)[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
-#else
-            // tice1
-            M_tice_root[tice_size*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
-            {
-                // tice2
-                M_tice_root[tice_size*i+1] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // tice3
-                M_tice_root[tice_size*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-#endif
 
             if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
@@ -7489,17 +7467,12 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeField(outbin, M_damage_root, "M_damage");
         exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
         exporter.writeField(outbin, M_random_number_root, "M_random_number");
-
-#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
+        exporter.writeField(outbin, M_sst_root, "M_sst");
+        exporter.writeField(outbin, M_sss_root, "M_sss");
         for (int i=0; i<M_tice.size(); i++)
             exporter.writeField(outbin, M_tice_root[i],
                     "M_Tice_"+std::to_string(i));
-#else
-        exporter.writeField(outbin, M_tice_root, "M_Tice");
-#endif
 
-        exporter.writeField(outbin, M_sst_root, "M_sst");
-        exporter.writeField(outbin, M_sss_root, "M_sss");
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
@@ -7714,10 +7687,6 @@ FiniteElement::readRestart(std::string step)
     {
         int num_elements_root = M_mesh_root.numTriangles();
 
-#ifdef RESTART_WITH_SINGLE_M_TICE_VARIABLE
-        int tice_size = M_tice.size();
-        std::vector<double> M_tice_all(tice_size*num_elements_root);
-#endif
         for (int i=0; i<M_tice.size(); ++i)
         {
             M_tice[i].resize(num_elements_root);
@@ -7741,23 +7710,8 @@ FiniteElement::readRestart(std::string step)
         M_random_number = field_map_dbl["M_random_number"];
         M_sst           = field_map_dbl["M_sst"];
         M_sss           = field_map_dbl["M_sss"];
-#ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
         for (int i=0; i<M_tice.size(); i++)
             M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
-#else
-
-        M_tice_all   = field_map_dbl["M_Tice"];
-        for (int i=0; i<num_elements_root; ++i)
-        {
-            M_tice[0][i] = M_tice_all[tice_size*i];
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
-            {
-                M_tice[1][i] = M_tice_all[tice_size*i+1];
-                M_tice[2][i] = M_tice_all[tice_size*i+2];
-            }
-        }
-#endif
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
