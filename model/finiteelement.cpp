@@ -2483,7 +2483,7 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
             throw std::logic_error("tmp_nb_var not equal to nb_var");
         }
     }
-}
+}//redistributeVariablesIO
 
 void
 FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
@@ -4173,7 +4173,8 @@ FiniteElement::adaptMesh()
     // Import the mesh from bamg, update the boundary flags and node ID's 
     this->importBamg(bamgmesh_root);
     this->updateBoundaryFlags();
-    this->updateNodeIds();
+    if(bamgopt->KeepVertices)
+        this->updateNodeIds();
 }//adaptMesh()
 
 void
@@ -4181,42 +4182,39 @@ FiniteElement::updateNodeIds()
 {
     // Recompute the node ids
     // - for during adaptMesh() if bamgopt->KeepVertices is set to 1
-    if(bamgopt->KeepVertices)
+    //M_mesh_previous_root is the mesh before importBamg was called
+    std::vector<int> old_nodes_id = M_mesh_previous_root.id();
+
+    //M_mesh_root is the mesh after importBamg was called
+    std::vector<int> new_nodes_id = M_mesh_root.id();
+
+    int Boundary_id  = 0;
+    int nb_new_nodes = 0;
+
+    // The new id's will have values higher than the previous ones
+    int first_new_node = *std::max_element(old_nodes_id.begin(), old_nodes_id.end())+1;
+
+    for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
     {
-        //M_mesh_previous_root is the mesh before importBamg was called
-        std::vector<int> old_nodes_id = M_mesh_previous_root.id();
-
-        //M_mesh_root is the mesh after importBamg was called
-        std::vector<int> new_nodes_id = M_mesh_root.id();
-
-        int Boundary_id  = 0;
-        int nb_new_nodes = 0;
-
-        // The new id's will have values higher than the previous ones
-        int first_new_node = *std::max_element(old_nodes_id.begin(), old_nodes_id.end())+1;
-
-        for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
+        if(M_mask_root[vert])
         {
-            if(M_mask_root[vert])
+            Boundary_id++;
+            new_nodes_id[vert] = Boundary_id;
+        }
+        else
+        {
+            if(bamgmesh_root->PreviousNumbering[vert]==0)
             {
-                Boundary_id++;
-                new_nodes_id[vert] = Boundary_id;
+                nb_new_nodes++;
+                new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
             }
             else
             {
-                if(bamgmesh_root->PreviousNumbering[vert]==0)
-                {
-                    nb_new_nodes++;
-                    new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
-                }
-                else
-                {
-                    new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
-                }
+                new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
             }
         }
-        M_mesh_root.setId(new_nodes_id);
-    }//if(bamgopt->KeepVertices)
+    }
+    M_mesh_root.setId(new_nodes_id);
 }//updateNodeIds
 
 void
@@ -7762,7 +7760,8 @@ FiniteElement::readRestart(std::string step)
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
-    int pcpt =0;
+    std::vector<int> misc_int;
+    std::vector<double> time_vec;
 
     if (M_rank == 0)
     {
@@ -7846,33 +7845,12 @@ FiniteElement::readRestart(std::string step)
                          coordX.size(), indexTr.size()/3.
                          );
 
-        // Set and check time
-        pcpt = field_map_int["Misc_int"].at(0);
-        std::vector<double> time = field_map_dbl["Time"];
-        if (!vm["restart.reset_time_counter"].as<bool>())
-        {
-            double tmp = time_init + pcpt*time_step/(24*3600.0);
-            if ( time[0] != tmp )
-            {
-                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
-                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
-	    else
-	    {
-            if ( time[0] != time_init )
-            {
-                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
+        // read time and misc_int
+        time_vec = field_map_dbl["Time"];
+        misc_int = field_map_int["Misc_int"];
 
         // Fix boundaries
-        M_flag_fix   = field_map_int["Misc_int"].at(1);
+        M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
         for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
@@ -7903,12 +7881,18 @@ FiniteElement::readRestart(std::string step)
             bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
     }//M_rank==0
 
-    //transfer pcpt to all processors (all need to have the same time!)
-    boost::mpi::broadcast(M_comm, pcpt, 0);
-
     // mesh partitioning
     this->partitionMeshRestart();
 
+#define RESTART_INIT_EARLY
+#ifdef RESTART_INIT_EARLY
+    // set all variables to 0
+    // - best to do this early on so M_tice has the right number of components
+    //   as early as possible
+    // Restart variables are reset on root to be the values from the restart file,
+    // then resized back later on
+    this->initVariables();
+#else
     // Make sure M_tice is set to have the right size
     // before going into getRestartVariableNames
     // TODO just call initVariables here?
@@ -7925,30 +7909,15 @@ FiniteElement::readRestart(std::string step)
             std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
             throw std::logic_error("Wrong thermo_type");
     }
+#endif
 
     if (M_rank == 0)
     {
         int num_elements_root = M_mesh_root.numTriangles();
+
+
+#ifdef RESTART_WITH_SINGLE_M_TICE_VARIABLE
         int tice_size = M_tice.size();
-
-        M_VT.resize(2*M_ndof);
-        M_VTM.resize(2*M_ndof);
-        M_VTMM.resize(2*M_ndof);
-        M_UM.resize(2*M_ndof);
-        M_UT.resize(2*M_ndof);
-
-        M_conc.resize(num_elements_root);
-        M_thick.resize(num_elements_root);
-        M_snow_thick.resize(num_elements_root);
-        M_sigma.resize(3*num_elements_root);
-        M_damage.resize(num_elements_root);
-        M_ridge_ratio.resize(num_elements_root);
-        M_random_number.resize(num_elements_root);
-        M_sss.resize(num_elements_root);
-        M_sst.resize(num_elements_root);
-
-
-#if 0
         std::vector<double> M_tice_all(tice_size*num_elements_root);
 #endif
         for (int i=0; i<M_tice.size(); ++i)
@@ -7965,13 +7934,15 @@ FiniteElement::readRestart(std::string step)
             M_tsurf_thin.resize(num_elements_root);
         }
 
-        M_conc            = field_map_dbl["M_conc"];
-        M_thick           = field_map_dbl["M_thick"];
-        M_snow_thick      = field_map_dbl["M_snow_thick"];
-        M_sigma           = field_map_dbl["M_sigma"];
-        M_damage          = field_map_dbl["M_damage"];
-        M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
-        M_random_number   = field_map_dbl["M_random_number"];
+        M_conc          = field_map_dbl["M_conc"];
+        M_thick         = field_map_dbl["M_thick"];
+        M_snow_thick    = field_map_dbl["M_snow_thick"];
+        M_sigma         = field_map_dbl["M_sigma"];
+        M_damage        = field_map_dbl["M_damage"];
+        M_ridge_ratio   = field_map_dbl["M_ridge_ratio"];
+        M_random_number = field_map_dbl["M_random_number"];
+        M_sst           = field_map_dbl["M_sst"];
+        M_sss           = field_map_dbl["M_sss"];
 #ifndef RESTART_WITH_SINGLE_M_TICE_VARIABLE
         for (int i=0; i<M_tice.size(); i++)
             M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
@@ -7990,16 +7961,16 @@ FiniteElement::readRestart(std::string step)
         }
 #endif
 
-        M_sst        = field_map_dbl["M_sst"];
-        M_sss        = field_map_dbl["M_sss"];
-
         // Pre-processing
+        M_VT   = field_map_dbl["M_VT"];
+        M_VTM  = field_map_dbl["M_VTM"];
+        M_VTMM = field_map_dbl["M_VTMM"];
+        M_UM   = field_map_dbl["M_UM"];
+        M_UT   = field_map_dbl["M_UT"];
         if(vm["restart.restart_at_rest"].as<bool>())
         {
             for (int i=0; i < M_sigma.size(); i++)
-            {
                 M_sigma[i] = 0.;
-            }
 
             for (int i=0; i < M_VT.size(); i++)
             {
@@ -8009,14 +7980,6 @@ FiniteElement::readRestart(std::string step)
                 M_UM[i]   = 0.;
                 M_UT[i]   = 0.;
             }
-        }
-        else
-        {
-            M_VT         = field_map_dbl["M_VT"];
-            M_VTM        = field_map_dbl["M_VTM"];
-            M_VTMM       = field_map_dbl["M_VTMM"];
-            M_UM         = field_map_dbl["M_UM"];
-            M_UT         = field_map_dbl["M_UT"];
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -8068,8 +8031,10 @@ FiniteElement::readRestart(std::string step)
     this->collectRootRestart(interp_elt_out, interp_nd_out,
             data_elements, num_components_elements);
 
+#ifndef RESTART_INIT_EARLY
     // Initialise all the variables to zero
     this->initVariables();//TODO do earlier?
+#endif
 
     // Scatter fields from root and put it in data_elements
     // inside a loop
@@ -8086,6 +8051,46 @@ FiniteElement::readRestart(std::string step)
 
     this->scatterFieldsNode(&interp_nd_out[0]);
 
+    //set time and counters
+    int pcpt = 0;
+    mesh_adapt_step = 0;
+    M_nb_regrid = 0;
+    if(M_rank==0)
+    {
+        // Set and check time
+        if (!vm["restart.reset_time_counter"].as<bool>())
+        {
+            pcpt = misc_int[0];
+            double tmp = time_init + pcpt*time_step/(24*3600.0);
+            if ( time_vec[0] != tmp )
+            {
+                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+
+            //set other counters from the restart file
+            mesh_adapt_step = misc_int[2];
+            M_nb_regrid     = misc_int[3];
+	    }
+	    else
+	    {
+            if ( time_vec[0] != time_init )
+            {
+                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+	    }
+    }
+
+    //transfer scalars from "Misc_int" from root to all processors
+    boost::mpi::broadcast(M_comm, pcpt, 0);
+    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
+    boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
+    boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
     return pcpt;
 }//readRestart
 
@@ -8229,7 +8234,9 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
         }
     }
 #endif
-}
+}//collectRootRestart
+
+
 void
 FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
 {
