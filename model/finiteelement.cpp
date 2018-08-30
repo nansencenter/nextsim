@@ -7688,10 +7688,7 @@ FiniteElement::readRestart(std::string step)
         int num_elements_root = M_mesh_root.numTriangles();
 
         for (int i=0; i<M_tice.size(); ++i)
-        {
-            M_tice[i].resize(num_elements_root);
-            std::cout<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
-        }
+            LOG(DEBUG)<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
