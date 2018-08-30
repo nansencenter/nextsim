@@ -13,7 +13,7 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -DHAVE_CONFIG_H -D_MULTITHREADING_ -fpermissive
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
@@ -39,7 +39,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DDEBUGGING 
+	CXXFLAGS += -g -O0 -DDEBUGGING
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
@@ -47,7 +47,7 @@ ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
 else
-	CXXFLAGS += -O3 -pthread  
+	CXXFLAGS += -O3 -pthread
 endif
 
 # add include paths
