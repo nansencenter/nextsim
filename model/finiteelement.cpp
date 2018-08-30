@@ -6157,7 +6157,17 @@ FiniteElement::init()
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
-}
+
+    if(M_use_drifters)
+    {
+        // 1. Gather the fields needed by the drifters
+        // 2. Check if need to:
+        //  i.   move any drifters
+        //  ii.  input &/or output drifters
+        //  iii. init any drifters
+        this->checkDrifters();
+    }
+}//init
 
 // Take one time step
 void
@@ -6166,20 +6176,6 @@ FiniteElement::step()
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
-
-    if(M_use_drifters)
-    {
-        //gather the fields needed by the drifters
-        this->gatherNodalField(M_UT, M_UT_root);
-        this->gatherNodalField(M_UM, M_UM_root);
-        this->gatherElementField(M_conc, M_conc_root);
-
-        // check if need to:
-        // 1. move any drifters
-        // 2. input &/or output drifters
-        // 3. init any drifters
-        this->checkDrifters();
-    }
 
 #if 1
     if (pcpt == 0)
@@ -6405,9 +6401,17 @@ FiniteElement::step()
         }
     }
 #endif
-#if 0
-#endif
- }
+
+    if(M_use_drifters)
+    {
+        // 1. Gather the fields needed by the drifters
+        // 2. Check if need to:
+        //  i.   move any drifters
+        //  ii.  input &/or output drifters
+        //  iii. init any drifters
+        this->checkDrifters();
+    }
+}//step
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
@@ -11087,10 +11091,17 @@ FiniteElement::outputtingDrifters(
 void
 FiniteElement::checkDrifters()
 {
-    // 1. move the drifters (if needed)
-    // 2. get new inputs (IABP, OSISAF) (if needed)
-    // 3. output to text file or netcdf (if needed)
-    // NB this routine is only called if we are after M_drifters_time_init
+    // 1. Gather the fields needed by the drifters
+    // TODO Currently this is done every time step at the moment
+    //      - perhaps only needed if moving?
+    this->gatherNodalField(M_UT, M_UT_root);
+    this->gatherNodalField(M_UM, M_UM_root);
+    this->gatherElementField(M_conc, M_conc_root);
+
+    // 2. check if need to:
+    // i. move the drifters (if needed)
+    // ii. get new inputs (IABP, OSISAF) (if needed)
+    // iii. output to text file or netcdf (if needed)
     if(M_rank != 0)
         return;
 
