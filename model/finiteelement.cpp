@@ -282,7 +282,7 @@ FiniteElement::bcMarkedNodes()
         M_neumann_nodes[2*i] = M_neumann_flags[i];
         M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
     }
-}
+}//bcMarkedNodes
 
 void
 FiniteElement::rootMeshProcessing()
@@ -2238,102 +2238,155 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 }
 
 void
-FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice)
+FiniteElement::getVariablesIO(
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> &num_components,
+        std::vector<std::string> const &names)
 {
-    int nb_var_element = M_nb_var_element;
-    if (!thin_ice)
+    // Takes a list of names and for each name
+    // - adds a pointer to the appropriate vector.
+    // - adds the number of components in the variable to another vector
+    //   (this is usually 1, but can be 3 eg M_sigma)
+    // These outputs are then used in loops in collectVariablesIO and
+    // scatterFieldsElementIO (called from readRestart)
+
+    //1st set pointers to the data requested in "names"
+    for(auto it=names.begin(); it!=names.end(); it++)
     {
-        nb_var_element -= 4;
-    }
-
-    int tmp_nb_var=0;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        M_conc[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // thickness
-        M_thick[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // snow thickness
-        M_snow_thick[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress1
-        M_sigma[3*i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress2
-        M_sigma[3*i+1] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // integrated_stress3
-        M_sigma[3*i+2] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // damage
-        M_damage[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // ridge_ratio
-        M_ridge_ratio[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // random_number
-        M_random_number[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SSS
-        M_sss[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SST
-        M_sst[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Ice temperature
-        M_tice[0][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
+        LOG(DEBUG)<<"collectVariablesIO: adding "<<*it<<"\n";
+        int num_comp = 1;
+        if(*it=="M_conc")
         {
-            M_tice[1][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            M_tice[2][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
+            // concentration
+            data.push_back(&M_conc);
         }
-
-        if (thin_ice)
+        else if(*it=="M_thick")
+        {
+            // thickness
+            data.push_back(&M_thick);
+        }
+        else if(*it=="M_snow_thick")
+        {
+            // snow thickness
+            data.push_back(&M_snow_thick);
+        }
+        else if(*it=="M_sigma")
+        {
+            // stress
+            data.push_back(&M_sigma);
+            num_comp = 3;
+        }
+        else if(*it=="M_damage")
+        {
+            // damage
+            data.push_back(&M_damage);
+        }
+        else if(*it=="M_ridge_ratio")
+        {
+            // damage
+            data.push_back(&M_ridge_ratio);
+        }
+        else if(*it == "M_random_number")
+        {
+            // random_number
+            data.push_back(&M_random_number);
+        }
+        else if(*it == "M_sss")
+        {
+            // SSS
+            data.push_back(&M_sss);
+        }
+        else if(*it == "M_sst")
+        {
+            // SST
+            data.push_back(&M_sst);
+        }
+        else if(*it == "M_Tice_0")
+        {
+            // M_tice[0] - Ice temperature
+            data.push_back(&(M_tice[0]));
+        }
+        else if(*it == "M_Tice_1")
+        {
+            // M_tice[1] - Ice temperature
+            data.push_back(&(M_tice[1]));
+        }
+        else if(*it == "M_Tice_2")
+        {
+            // M_tice[2] - Ice temperature
+            data.push_back(&(M_tice[2]));
+        }
+        else if(*it == "M_h_thin")
         {
             // thin ice thickness
-            M_h_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thin ice concentration
-            M_conc_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow on thin ice
-            M_hs_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // Ice surface temperature for thin ice
-            M_tsurf_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-            tmp_nb_var++;
+            data.push_back(&M_h_thin);
         }
-
-        if(tmp_nb_var!=nb_var_element)
+        else if(*it == "M_conc_thin")
         {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+            // thin ice concentration
+            data.push_back(&M_conc_thin);
         }
+        else if(*it == "M_hs_thin")
+        {
+            // snow thickness on thin ice
+            data.push_back(&M_hs_thin);
+        }
+        else if(*it == "M_tsurf_thin")
+        {
+            // surface temperature over thin ice
+            data.push_back(&M_tsurf_thin);
+        }
+        else
+            throw std::runtime_error("Unimplemented name: "+*it);
+
+        // set the number of components to loop over
+        // and resize the variables
+        num_components.push_back(num_comp);
     }
-}
+}//getVariablesIO
+
+
+void
+FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values,
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> const& num_components)
+{
+    // * out_elt_values is vector containing all the variables to be
+    //   redistributed (eg after scattering from root) into the
+    //   individual variables (eg M_conc, M_thick,...)
+    // * data is a vector of pointers to the variables to be assigned
+    //   values from out_elt_values
+    // * num_components is a vector with the number of components in
+    //   each variable (usually 1, but can be 3 eg for M_sigma)
+
+    // 1st initialise the data
+    int nb_var_element = 0;
+    for(int j=0; j<data.size(); j++)
+    {
+        int num_comp = num_components[j];
+        data[j]->assign(num_comp*M_num_elements, 0.);
+        nb_var_element += num_comp;
+    }
+
+    // now loop over the data and get their values
+    // from out_elt_values
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        int tmp_nb_var=0;
+        for(int j=0; j<data.size(); j++)
+        {
+            int num_comp = num_components[j];
+            for (int k=0; k<num_comp; k++)
+            {
+                (*(data[j]))[num_comp*i+k] = out_elt_values[nb_var_element*i+tmp_nb_var];
+                tmp_nb_var++;
+            }//loop over each component of variables
+        }//loop over variables
+        if(tmp_nb_var!=nb_var_element)
+            throw std::logic_error("tmp_nb_var not equal to nb_var_element");
+    }//loop over elements
+}//redistributeVariablesIO
+
 
 void
 FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
@@ -2772,7 +2825,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 #endif
         }
 #endif
-    }
+    }//advection on root
 
 #if 1
     this->scatterElementField(interp_elt_out_root, interp_elt_out, M_nb_var_element);
@@ -3095,26 +3148,58 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }
 
-void
-FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice)
+std::vector<std::string>
+FiniteElement::getRestartVariableNames()
 {
+    // get the names of the variables that need to be
+    // gathered and scattered when reading or saving restarts
+    std::vector<std::string> names = {
+        "M_conc",
+        "M_thick",
+        "M_snow_thick",
+        "M_sigma",//3 components
+        "M_damage",
+        "M_ridge_ratio",
+        "M_random_number",
+        "M_sss",
+        "M_sst"};
+    
+    for(int i=0; i<M_tice.size(); i++)
+        names.push_back("M_Tice_" + std::to_string(i));
+    if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+    {
+        names.push_back("M_h_thin");
+        names.push_back("M_conc_thin");
+        names.push_back("M_hs_thin");
+        names.push_back("M_tsurf_thin");
+    }
+    return names;
+}
+
+void
+FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
+        std::vector<std::vector<double>*> &data,
+        std::vector<int> const& num_components)
+{
+    // * interp_elt_out is a vector containing all the variables to be
+    //   redistributed (eg after scattering from root) into the
+    //   individual variables (eg M_conc, M_thick,...)
+    //   - rearranged using M_id_elements and passed to
+    //     boost::mpi::scatterv
+    // * data is a vector of pointers to the variables to be assigned
+    //   values from out_elt_values
+    //   - passed to redistributeVariablesIO
+    // * num_components is a vector with the number of components in
+    //   each variable (usually 1, but can be 3 eg for M_sigma)
+    //   - passed to redistributeVariablesIO
     timer["scatter"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
+    int const nb_var_element = std::accumulate(
+            num_components.begin(), num_components.end(), 0);
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
@@ -3124,61 +3209,33 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         for (int i=0; i<M_id_elements.size(); ++i)
         {
             int ri = M_id_elements[i]-1;
-
             for (int j=0; j<nb_var_element; ++j)
             {
-                in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
+                in_elt_values[nb_var_element*i+j]
+                    = interp_elt_out[nb_var_element*ri+j];
             }
         }
     }
 
     std::vector<double> out_elt_values(nb_var_element*M_num_elements);
-
     if (M_rank == 0)
     {
-        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements, &out_elt_values[0], 0);
+        std::for_each(sizes_elements.begin(), sizes_elements.end(),
+                [&](int& f){ f = nb_var_element*f; });
+        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements,
+                &out_elt_values[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_elt_values[0], nb_var_element*M_num_elements, 0);
+        boost::mpi::scatterv(M_comm, &out_elt_values[0],
+                nb_var_element*M_num_elements, 0);
     }
 
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-
-    M_conc.assign(M_num_elements,0.);
-    M_thick.assign(M_num_elements,0.);
-    M_snow_thick.assign(M_num_elements,0.);
-    M_sigma.assign(3*M_num_elements,0.);
-    M_damage.assign(M_num_elements,0.);
-    M_ridge_ratio.assign(M_num_elements,0.);
-    M_random_number.resize(M_num_elements);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        it->assign(M_num_elements,0.);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_conc_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
-
-    // Diagnostics
-    D_Qa.assign(M_num_elements,0.);
-    D_Qsh.assign(M_num_elements,0.);
-    D_Qlh.assign(M_num_elements,0.);
-    D_Qlw.assign(M_num_elements,0.);
-    D_Qsw.assign(M_num_elements,0.);
-    D_Qo.assign(M_num_elements,0.);
-    D_delS.assign(M_num_elements,0.);
-
-    this->redistributeVariablesIO(out_elt_values, thin_ice);
+    this->redistributeVariablesIO(out_elt_values, data, num_components);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
-}
+}//scatterFieldsElementIO
+
 
 void
 FiniteElement::interpFieldsElement()
@@ -3932,17 +3989,55 @@ FiniteElement::adaptMesh()
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
     std::cout <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
 
-    // Save the old id_node before redefining it
-    std::vector<int> old_node_id = M_mesh_root.id();
-
-    // Import the mesh from bamg
+    // Import the mesh from bamg, update the boundary flags and node ID's 
     this->importBamg(bamgmesh_root);
-
-    this->updateBoundaryFlags(old_node_id);
+    this->updateBoundaryFlags();
+    if(bamgopt->KeepVertices)
+        this->updateNodeIds();
 }//adaptMesh()
 
 void
-FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
+FiniteElement::updateNodeIds()
+{
+    // Recompute the node ids
+    // - for during adaptMesh() if bamgopt->KeepVertices is set to 1
+    //M_mesh_previous_root is the mesh before importBamg was called
+    std::vector<int> old_nodes_id = M_mesh_previous_root.id();
+
+    //M_mesh_root is the mesh after importBamg was called
+    std::vector<int> new_nodes_id = M_mesh_root.id();
+
+    int Boundary_id  = 0;
+    int nb_new_nodes = 0;
+
+    // The new id's will have values higher than the previous ones
+    int first_new_node = *std::max_element(old_nodes_id.begin(), old_nodes_id.end())+1;
+
+    for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
+    {
+        if(M_mask_root[vert])
+        {
+            Boundary_id++;
+            new_nodes_id[vert] = Boundary_id;
+        }
+        else
+        {
+            if(bamgmesh_root->PreviousNumbering[vert]==0)
+            {
+                nb_new_nodes++;
+                new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
+            }
+            else
+            {
+                new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
+            }
+        }
+    }
+    M_mesh_root.setId(new_nodes_id);
+}//updateNodeIds
+
+void
+FiniteElement::updateBoundaryFlags()
 {
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
@@ -3954,94 +4049,29 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
     // get the global number of nodes
     int num_nodes = M_mesh_root.numNodes();
 
-#if 0
-    // We mask out the boundary nodes
-    M_mask_root.assign(num_nodes,false);
-    M_mask_dirichlet_root.assign(num_nodes,false);
-
-    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
-    {
-        if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
-        {
-            M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
-
-            // new addition for masking the dirichlet nodes
-            M_mask_dirichlet_root[edg] = true;
-        }
-        else
-        {
-            M_neumann_flags_root.push_back(bamgmesh_root->Edges[3*edg]/*-1*/);
-        }
-
-        M_mask_root[edg] = true;
-    }
-#endif
-
-#if 1
     // We mask out the boundary nodes
     M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
     M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
-
     for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
         M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
-    // Recompute the node ids
-    if(bamgopt->KeepVertices)
-    {
-        std::vector<int> new_nodes_id=M_mesh_root.id();
-
-        int Boundary_id  = 0;
-        int nb_new_nodes = 0;
-
-        // The new id will have values higher than the previous one
-        int first_new_node = *std::max_element(old_node_id.begin(),old_node_id.end())+1;
-
-        for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
-        {
-            if(M_mask_root[vert])
-            {
-                Boundary_id++;
-                new_nodes_id[vert] = Boundary_id;
-            }
-            else
-            {
-                if(bamgmesh_root->PreviousNumbering[vert]==0)
-                {
-                    nb_new_nodes++;
-                    new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
-                }
-                else
-                {
-                    new_nodes_id[vert] = old_node_id[bamgmesh_root->PreviousNumbering[vert]-1];
-                }
-            }
-        }
-        M_mesh_root.setId(new_nodes_id);
-    }
-
+    // update dirichlet and neumann flags
     std::vector<int> boundary_flags_root;
-
     for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
     {
         boundary_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
-
         if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
-        {
             M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
-        }
     }
 
     std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
-
     std::sort(boundary_flags_root.begin(), boundary_flags_root.end());
-
     std::set_difference(boundary_flags_root.begin(), boundary_flags_root.end(),
                         M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(),
                         std::back_inserter(M_neumann_flags_root));
 
-#endif
 
-
+    // update dirichlet nodes
     M_dirichlet_nodes_root.resize(2*(M_dirichlet_flags_root.size()));
     for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
     {
@@ -4050,6 +4080,7 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
         M_mask_dirichlet_root[M_dirichlet_flags_root[i]] = true;
     }
 
+    // update neumann nodes
     M_neumann_nodes_root.resize(2*(M_neumann_flags_root.size()));
     for (int i=0; i<M_neumann_flags_root.size(); ++i)
     {
@@ -4057,10 +4088,9 @@ FiniteElement::updateBoundaryFlags(std::vector<int> const& old_node_id)
         M_neumann_nodes_root[2*i+1] = M_neumann_flags_root[i]+num_nodes;
     }
 
-
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
-}
+}//updateBoundaryFlags
 
 void
 FiniteElement::assemble(int pcpt)
@@ -6099,15 +6129,6 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
-    // Check the minimum angle of the grid
-    double minang = this->minAngle(M_mesh);
-
-    if (minang < vm["numerics.regrid_angle"].as<double>())
-    {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
-
     if ( M_use_restart )
     {
         LOG(DEBUG) <<"Reading restart file\n";
@@ -6137,6 +6158,16 @@ FiniteElement::init()
         LOG(DEBUG) <<"Initialize variables\n";
         this->initVariables();
     }
+
+    // Check the minimum angle of the grid
+    // - needs to be after readRestart, otherwise M_mesh is not initialised yet
+    double minang = this->minAngle(M_mesh);
+    if (minang < vm["numerics.regrid_angle"].as<double>())
+    {
+        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    }
+
 
     // Initialise atmospheric and oceanic forcing
     this->initForcings();
@@ -6190,7 +6221,13 @@ FiniteElement::init()
     LOG(DEBUG) << "initDrifters\n";
     if (M_use_drifters)
         this->initDrifters();
-}
+
+    // output restart for debugging
+    if(vm["output.datetime_in_filename"].as<bool>())
+        this->writeRestart(pcpt, M_current_time);
+    else
+        this->writeRestart(pcpt, "post_init");
+}//init
 
 // Take one time step
 void
@@ -6437,7 +6474,8 @@ FiniteElement::run()
 {
     std::string current_time_system = current_time_local();
     this->init();
-    int niter = vm["debugging.maxiteration"].as<int>();
+    int maxiter = vm["debugging.maxiteration"].as<int>();
+    int niter = 0;
 
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
@@ -6474,13 +6512,15 @@ FiniteElement::run()
 
         is_running = ((pcpt+1)*time_step) < duration;
 
-        if (pcpt == niter-1)
-            is_running = false;
-
         // **********************************************************************
         // Take one time-step
         // **********************************************************************
         this->step();
+
+        //stop early if debugging
+        niter++;
+        if (niter == maxiter)
+            is_running = false;
     }
 
     this->exportResults("final");
@@ -7276,7 +7316,9 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         std::vector<double> M_random_number_root(num_elements_root);
         std::vector<double> M_sss_root(num_elements_root);
         std::vector<double> M_sst_root(num_elements_root);
-        std::vector<double> M_tice_root(tice_size*num_elements_root);
+        std::vector<std::vector<double>> M_tice_root(M_tice.size());
+        for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
+            it->resize(num_elements_root);
 
         std::vector<double> M_h_thin_root;
         std::vector<double> M_conc_thin_root;
@@ -7340,18 +7382,10 @@ FiniteElement::writeRestart(int pcpt, std::string step)
             M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
             tmp_nb_var++;
 
-            // tice1
-            M_tice_root[tice_size*i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
+            // M_tice
+            for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
             {
-                // tice2
-                M_tice_root[tice_size*i+1] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // tice3
-                M_tice_root[tice_size*i+2] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
+                (*it)[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
                 tmp_nb_var++;
             }
 
@@ -7445,11 +7479,12 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeField(outbin, M_damage_root, "M_damage");
         exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
         exporter.writeField(outbin, M_random_number_root, "M_random_number");
-
-        exporter.writeField(outbin, M_tice_root, "M_Tice");
-
         exporter.writeField(outbin, M_sst_root, "M_sst");
         exporter.writeField(outbin, M_sss_root, "M_sss");
+        for (int i=0; i<M_tice.size(); i++)
+            exporter.writeField(outbin, M_tice_root[i],
+                    "M_Tice_"+std::to_string(i));
+
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
@@ -7491,6 +7526,13 @@ FiniteElement::writeRestart(int pcpt, std::string step)
             exporter.writeField(outbin, drifter_x, "Drifter_x");
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
+        
+        // Finally add the previous numbering to the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         outbin.close();
 
@@ -7522,6 +7564,8 @@ FiniteElement::readRestart(std::string step)
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
+    std::vector<int> misc_int;
+    std::vector<double> time_vec;
 
     if (M_rank == 0)
     {
@@ -7536,7 +7580,7 @@ FiniteElement::readRestart(std::string step)
         }
         else
         {
-            restart_path = vm["setup.restart_path"].as<std::string>();
+            restart_path = vm["restart.input_path"].as<std::string>();
         }
 
         // Start with the record
@@ -7605,35 +7649,12 @@ FiniteElement::readRestart(std::string step)
                          coordX.size(), indexTr.size()/3.
                          );
 
-        // Set and check time
-        int pcpt = field_map_int["Misc_int"].at(0);
-        std::vector<double> time = field_map_dbl["Time"];
-        if (!vm["restart.reset_time_counter"].as<bool>())
-        {
-            double tmp = time_init + pcpt*time_step/(24*3600.0);
-            if ( time[0] != tmp )
-            {
-                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
-                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
-	    else
-	    {
-            pcpt = 0;
-            if ( time[0] != time_init )
-            {
-                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time[0] << " = " << to_date_time_string(time[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
+        // read time and misc_int
+        time_vec = field_map_dbl["Time"];
+        misc_int = field_map_int["Misc_int"];
 
         // Fix boundaries
-        M_flag_fix   = field_map_int["Misc_int"].at(1);
-
+        M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
 
         for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
@@ -7654,64 +7675,32 @@ FiniteElement::readRestart(std::string step)
 
         // Import the bamg structs
         this->importBamg(bamgmesh_root);
+        this->updateBoundaryFlags();// update boundary flags
+        M_mesh_root.setId(nodeId);  // set the node id's
 
-        // update the boundary flags (to uncomment)
-        // this->updateBoundaryFlags();
-    }
+        // Finally add the previous numbering from the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
+    }//M_rank==0
 
     // mesh partitioning
     this->partitionMeshRestart();
 
-    // Initialise all the variables to zero
-    // done below
-    // this->initVariables();
+    // set all variables to 0
+    // - best to do this early on so M_tice has the right number of components
+    //   as early as possible
+    // Restart variables are reset on root to be the values from the restart file,
+    // then resized back later on
+    this->initVariables();
 
     if (M_rank == 0)
     {
         int num_elements_root = M_mesh_root.numTriangles();
-        int tice_size = M_tice.size();
-
-        M_VT.resize(2*M_ndof);
-        M_VTM.resize(2*M_ndof);
-        M_VTMM.resize(2*M_ndof);
-        M_UM.resize(2*M_ndof);
-        M_UT.resize(2*M_ndof);
-
-        M_conc.resize(num_elements_root);
-        M_thick.resize(num_elements_root);
-        M_snow_thick.resize(num_elements_root);
-        M_sigma.resize(3*num_elements_root);
-        M_damage.resize(num_elements_root);
-        M_ridge_ratio.resize(num_elements_root);
-        M_random_number.resize(num_elements_root);
-        M_sss.resize(num_elements_root);
-        M_sst.resize(num_elements_root);
-
-
-        std::vector<double> M_tice_all(tice_size*num_elements_root);
-
-        switch (M_thermo_type)
-        {
-            case (setup::ThermoType::ZERO_LAYER):
-                M_tice.resize(1);
-                break;
-            case (setup::ThermoType::WINTON):
-                M_tice.resize(3);
-                break;
-            default:
-                std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
-                throw std::logic_error("Wrong thermo_type");
-        }
-
-        for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        {
-            it->resize(num_elements_root);
-        }
 
         for (int i=0; i<M_tice.size(); ++i)
-        {
-            std::cout<<"M_tice[i]= "<< (M_tice[i]).size() <<"\n";
-        }
+            LOG(DEBUG)<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -7721,36 +7710,28 @@ FiniteElement::readRestart(std::string step)
             M_tsurf_thin.resize(num_elements_root);
         }
 
-        M_conc            = field_map_dbl["M_conc"];
-        M_thick           = field_map_dbl["M_thick"];
-        M_snow_thick      = field_map_dbl["M_snow_thick"];
-        M_sigma           = field_map_dbl["M_sigma"];
-        M_damage          = field_map_dbl["M_damage"];
-        M_ridge_ratio     = field_map_dbl["M_ridge_ratio"];
-        M_random_number   = field_map_dbl["M_random_number"];
-        M_tice_all   = field_map_dbl["M_Tice"];
-
-        for (int i=0; i<num_elements_root; ++i)
-        {
-            M_tice[0][i] = M_tice_all[tice_size*i];
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
-            {
-                M_tice[1][i] = M_tice_all[tice_size*i+1];
-                M_tice[2][i] = M_tice_all[tice_size*i+2];
-            }
-        }
-
-        M_sst        = field_map_dbl["M_sst"];
-        M_sss        = field_map_dbl["M_sss"];
+        M_conc          = field_map_dbl["M_conc"];
+        M_thick         = field_map_dbl["M_thick"];
+        M_snow_thick    = field_map_dbl["M_snow_thick"];
+        M_sigma         = field_map_dbl["M_sigma"];
+        M_damage        = field_map_dbl["M_damage"];
+        M_ridge_ratio   = field_map_dbl["M_ridge_ratio"];
+        M_random_number = field_map_dbl["M_random_number"];
+        M_sst           = field_map_dbl["M_sst"];
+        M_sss           = field_map_dbl["M_sss"];
+        for (int i=0; i<M_tice.size(); i++)
+            M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
 
         // Pre-processing
-        if(vm["setup.restart_at_rest"].as<bool>())
+        M_VT   = field_map_dbl["M_VT"];
+        M_VTM  = field_map_dbl["M_VTM"];
+        M_VTMM = field_map_dbl["M_VTMM"];
+        M_UM   = field_map_dbl["M_UM"];
+        M_UT   = field_map_dbl["M_UT"];
+        if(vm["restart.restart_at_rest"].as<bool>())
         {
             for (int i=0; i < M_sigma.size(); i++)
-            {
                 M_sigma[i] = 0.;
-            }
 
             for (int i=0; i < M_VT.size(); i++)
             {
@@ -7760,14 +7741,6 @@ FiniteElement::readRestart(std::string step)
                 M_UM[i]   = 0.;
                 M_UT[i]   = 0.;
             }
-        }
-        else
-        {
-            M_VT         = field_map_dbl["M_VT"];
-            M_VTM        = field_map_dbl["M_VTM"];
-            M_VTMM       = field_map_dbl["M_VTMM"];
-            M_UM         = field_map_dbl["M_UM"];
-            M_UT         = field_map_dbl["M_UT"];
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -7798,19 +7771,75 @@ FiniteElement::readRestart(std::string step)
                 }
             }
         }
-    }
+    }//M_rank==0
 
+
+    // get names of the variables in the restart file,
+    // and set data (pointers to the corresponding vectors)
+    // and num_components (number of components in those vectors)
+    std::vector<std::vector<double>*> data_elements;
+    std::vector<int> num_components_elements;
+    std::vector<std::string> names = this->getRestartVariableNames();
+    this->getVariablesIO(data_elements, num_components_elements, names);
+
+    // get the variables (only on the root processor so far)
+    // from data and put it not interp_elt_out
+    // TODO do something similar for the nodes
     std::vector<double> interp_elt_out;
     std::vector<double> interp_nd_out;
-    this->collectRootRestart(interp_elt_out, interp_nd_out);
+    this->collectRootRestart(interp_elt_out, interp_nd_out,
+            data_elements, num_components_elements);
 
-    // Initialise all the variables to zero
-    this->initVariables();
+    // Scatter elemental fields from root and put it in data_elements
+    // inside a loop
+    // - data_elements is a vector of pointers so the required
+    //  variables are now set
+    this->scatterFieldsElementIO(interp_elt_out,
+            data_elements, num_components_elements);
 
-    this->scatterFieldsElementIO(interp_elt_out, M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
-
+    // Scatter nodal fields from root
     this->scatterFieldsNode(&interp_nd_out[0]);
 
+    //set time and counters
+    int pcpt = 0;
+    mesh_adapt_step = 0;
+    M_nb_regrid = 0;
+    if(M_rank==0)
+    {
+        // Set and check time
+        if (!vm["restart.reset_time_counter"].as<bool>())
+        {
+            pcpt = misc_int[0];
+            double tmp = time_init + pcpt*time_step/(24*3600.0);
+            if ( time_vec[0] != tmp )
+            {
+                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+
+            //set other counters from the restart file
+            mesh_adapt_step = misc_int[2];
+            M_nb_regrid     = misc_int[3];
+	    }
+	    else
+	    {
+            if ( time_vec[0] != time_init )
+            {
+                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+	    }
+    }
+
+    //transfer scalars from "Misc_int" from root to all processors
+    boost::mpi::broadcast(M_comm, pcpt, 0);
+    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
+    boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
+    boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
     return pcpt;
 }//readRestart
 
@@ -7858,15 +7887,21 @@ FiniteElement::partitionMeshRestart()
 }
 
 void
-FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out)
+FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
+        std::vector<double>& interp_nd_out,
+        std::vector<std::vector<double>*> &data_elements,
+        std::vector<int> &num_components_elements)
 {
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type != setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
+    // * output: interp_elt_out is vector containing all the variables
+    //   on the elements to be scattered from root during readRestart
+    // * output: interp_nd_out is vector containing all the variables
+    //   on the nodes to be scattered from root during readRestart
+    // * data_elements is a vector of pointers to the elemental variables to go
+    //   into interp_elt_out
+    // * num_components_elements is a vector with the number of components in
+    //   each elemental variable (usually 1, but can be 3 eg for M_sigma)
+    int const nb_var_element = std::accumulate(
+            num_components_elements.begin(), num_components_elements.end(), 0);
 
     if (M_rank == 0)
     {
@@ -7874,100 +7909,23 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
         int tice_size = M_tice.size();
 
         interp_elt_out.resize(nb_var_element*num_elements_root);
-
-        // std::cout<< "["<< M_rank << "] "<<"num_elements_root                   = "<< num_elements_root <<"\n";
-
-        int tmp_nb_var = 0;
-
         for (int i=0; i<num_elements_root; ++i)
         {
-            tmp_nb_var=0;
-            //int ri = M_rmap_elements[i];
-
-            // concentration
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_conc[i];
-            tmp_nb_var++;
-
-            // thickness
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_thick[i];
-            tmp_nb_var++;
-
-            // snow thickness
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-            tmp_nb_var++;
-
-            // integrated_stress1
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i];
-            tmp_nb_var++;
-
-            // integrated_stress2
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+1];
-            tmp_nb_var++;
-
-            // integrated_stress3
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sigma[3*i+2];
-            tmp_nb_var++;
-
-            // damage
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_damage[i];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_random_number[i];
-            tmp_nb_var++;
-
-            // sss
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sss[i];
-            tmp_nb_var++;
-
-            // sst
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_sst[i];
-            tmp_nb_var++;
-
-            // tice1
-            interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-            tmp_nb_var++;
-
-            if ( interp_elt_out[nb_var_element*i+tmp_nb_var] = M_thermo_type == setup::ThermoType::WINTON )
+            int tmp_nb_var=0;
+            for(int j=0; j<data_elements.size(); j++)
             {
-                // tice2
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[1][i];
-                tmp_nb_var++;
-
-                // tice3
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tice[2][i];
-                tmp_nb_var++;
-            }
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                // h_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-                tmp_nb_var++;
-
-                // conc_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
-                tmp_nb_var++;
-
-                // hs_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-                tmp_nb_var++;
-
-                // tsurf_thin
-                interp_elt_out[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-                tmp_nb_var++;
-            }
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
+                int num_comp = num_components_elements[j];
+                for (int k=0; k<num_comp; k++)
+                {
+                    interp_elt_out[nb_var_element*i+tmp_nb_var]
+                        = (*(data_elements[j]))[num_comp*i+k];
+                    tmp_nb_var++;
+                }//loop over each component of variables
+            }//loop over variables
+            if(tmp_nb_var!=nb_var_element)
+                throw std::logic_error("tmp_nb_var not equal to nb_var_element");
         }
-    }
+    }//M_rank == 0: collect elemental variables
 
 #if 1
     M_nb_var_node = 10;
@@ -8025,7 +7983,8 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out, std::vect
         }
     }
 #endif
-}
+}//collectRootRestart
+
 
 void
 FiniteElement::updateVelocity()
@@ -10861,7 +10820,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
     LOG(DEBUG) <<"Current  NumTriangles  = "<< M_mesh_root.numTriangles() <<"\n";
     LOG(DEBUG) <<"\n";
-}
+}//importBamg
 
 void
 FiniteElement::createGraph()
