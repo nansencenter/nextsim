@@ -4587,7 +4587,7 @@ FiniteElement::update()
 
     // Hotfix for issue #53 - we turn off ALE and Eulerian modes, but warn people what we just did!
     if (vm["numerics.advection_scheme"].as<string>()!="Lagrangian")
-        std::cout << "WARNING: ALE and Eulerian advection has been deactivated for now (hotfix for issue #53)".
+        std::cout << "WARNING: ALE and Eulerian advection has been deactivated for now (hotfix for issue #53)";
 
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
