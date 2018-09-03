@@ -2556,7 +2556,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     }
 }//advect()
 
-#if 1//advectRoot not used - looks weird too
+#if 0//advectRoot not used - looks weird too
 void
 FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
@@ -3470,6 +3470,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
     }
 }
 
+#if 0 // Only needed by advectRoot, which we don't use anymore
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
                                 std::vector<double>& field1_root, std::vector<double>& field2_root)
@@ -3524,6 +3525,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field1_local, std::ve
         }
     }
 }
+#endif
 
 void
 FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local)
@@ -4572,16 +4574,27 @@ FiniteElement::calcCohesion()
 void
 FiniteElement::update()
 {
-    // collect the variables into a single structure
-    std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local, true);
+    // // collect the variables into a single structure
+    // std::vector<double> interp_elt_in_local;
+    // this->collectVariables(interp_elt_in_local, true);
+    //
+    // // advect
+    // std::vector<double> interp_elt_out;
+    // this->advect(interp_elt_in_local, interp_elt_out);
+    //
+    // // redistribute the interpolated values
+    // this->redistributeVariables(interp_elt_out);
 
-    // advect
-    std::vector<double> interp_elt_out;
-    this->advectRoot(interp_elt_in_local, interp_elt_out);
+    // Hotfix for issue #53 - we turn off ALE and Eulerian modes, but warn people what we just did!
+    if (vm["numerics.advection_scheme"].as<string>()!="Lagrangian")
+        std::cout << "WARNING: ALE and Eulerian advection has been deactivated for now (hotfix for issue #53)".
 
-    // redistribute the interpolated values
-    this->redistributeVariables(interp_elt_out);
+    std::vector<double> UM_P = M_UM;
+    for (int nd=0; nd<M_UM.size(); ++nd)
+        M_UM[nd] += time_step*M_VT[nd];
+
+    for (const int& nd : M_neumann_nodes)
+        M_UM[nd] = UM_P[nd];
 
     // Horizontal diffusion
     this->diffuse(M_sst,vm["thermo.diffusivity_sst"].as<double>(),M_res_root_mesh);
@@ -4640,6 +4653,41 @@ FiniteElement::update()
         divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
         shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
+
+        /*======================================================================
+         * Update:
+         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+         *======================================================================
+         */
+
+        bool to_be_updated=false;
+        if( divergence_rate!=0.)
+            to_be_updated=true;
+
+        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
+            to_be_updated=false;
+
+        if((M_conc[cpt]>0.)  && (to_be_updated))
+        {
+            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
+
+            M_conc[cpt] *= surf_ratio;
+            M_thick[cpt] *= surf_ratio;
+            M_snow_thick[cpt] *= surf_ratio;
+            M_sigma[3*cpt] *= surf_ratio;
+            M_sigma[3*cpt+1] *= surf_ratio;
+            M_sigma[3*cpt+2] *= surf_ratio;
+            M_ridge_ratio[cpt] *= surf_ratio;
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                M_h_thin[cpt] *= surf_ratio;
+                M_conc_thin[cpt] *= surf_ratio;
+                M_hs_thin[cpt] *= surf_ratio;
+            }
+        }
 
         /*======================================================================
          * Ridging scheme and mechanical redistribution
