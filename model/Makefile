@@ -22,7 +22,7 @@ endif
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG 
+	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
@@ -94,6 +94,11 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+
+# gmsh
+LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
+LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
