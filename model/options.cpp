@@ -84,7 +84,7 @@ namespace Nextsim
             // - diffusive Eulerian case where M_UM is kept as 0
             // - purely Lagrangian case where M_UM is updated with M_VT
             // - ALE case where M_UM is updated with a smoothed version of M_VT
-            ("numerics.advection_scheme", po::value<std::string>()->default_value( "ALE" ), "Options: Lagrangian, ALE, Eulerian")
+            ("numerics.advection_scheme", po::value<std::string>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
             ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
                 "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
