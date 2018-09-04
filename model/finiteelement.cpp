@@ -3181,19 +3181,24 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 }
 
 void
-FiniteElement::interpFieldsElement()
+FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
     std::vector<double> interp_in_elements;
+    std::vector<double> interp_in_nodes;
 
     timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
         std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
     double* interp_elt_out;
+    double* interp_nd_out;
 
     if (M_rank == 0)
     {
+        // Interpolate elements
+
         std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
         std::vector<double> surface_root(M_mesh_root.numTriangles());
         //M_surface_root.resize(M_mesh_root.numTriangles());
@@ -3242,6 +3247,14 @@ FiniteElement::interpFieldsElement()
         // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
 #endif
 
+        // Interpolate nodes
+        InterpFromMeshToMesh2dx(&interp_nd_out,
+                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                                &interp_in_nodes[0],
+                                M_mesh_previous_root.numNodes(),M_nb_var_node,
+                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                                false);
     } // rank 0
 
     timer["distributed"].first.restart();
@@ -3251,12 +3264,14 @@ FiniteElement::interpFieldsElement()
 
     timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
+    this->scatterFieldsNode(interp_nd_out);
     if (M_rank == 0)
         std::cout<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
         xDelete<double>(interp_elt_out);
+        xDelete<double>(interp_nd_out);
     }
 }
 
@@ -3398,35 +3413,6 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
-}
-
-void
-FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
-{
-    std::vector<double> interp_in_nodes;
-
-    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
-
-    double* interp_nd_out;
-
-    if (M_rank == 0)
-    {
-        InterpFromMeshToMesh2dx(&interp_nd_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-                                &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
-                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                                false);
-    }
-
-
-    this->scatterFieldsNode(interp_nd_out);
-
-    if (M_rank == 0)
-    {
-        xDelete<double>(interp_nd_out);
-    }
 }
 
 void
@@ -3880,15 +3866,10 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    timer["felt"].first.restart();
-    this->interpFieldsElement();
+    timer["interpFields"].first.restart();
+    this->interpFields(prv_rmap_nodes, sizes_nodes);
     if (M_rank == 0)
-        std::cout <<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
-
-    timer["fnd"].first.restart();
-    this->interpFieldsNode(prv_rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        std::cout <<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
+        std::cout <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
