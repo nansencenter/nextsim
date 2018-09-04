@@ -6143,7 +6143,7 @@ FiniteElement::init()
         //write fields from restart to file (needed?)
         if(M_rank==0)
             LOG(DEBUG) <<"export starts\n";
-        this->exportResults("restart");
+        this->exportResults("restart", true, true, true);
         if(M_rank==0)
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
@@ -6363,7 +6363,7 @@ FiniteElement::step()
                                    % pcpt
                                    % mesh_adapt_step ).str();
 
-            this->exportResults(tmp_string3);
+            this->exportResults(tmp_string3, true, true, true);
 
             had_remeshed=false;
         }
@@ -6445,7 +6445,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults();
+        this->exportResults(true, true, true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -6509,7 +6509,7 @@ FiniteElement::run()
             is_running = false;
     }
 
-    this->exportResults("final");
+    this->exportResults("final", true, true, true);
 
     this->finalise();
 
