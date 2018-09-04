@@ -264,12 +264,12 @@ public:
     void update();
 
     void checkOutputs(bool const& at_init_time);
-    void exportResults(int step,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::string const& name_str,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::vector<std::string> const& filenames,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void exportResults( bool const& export_mesh = true,
+            bool const& export_fields = true, bool const& apply_displacement = true);
+    void exportResults(std::string const& name_str, bool const& export_mesh = true,
+            bool const& export_fields = true, bool const& apply_displacement = true);
+    void exportResults(std::vector<std::string> const& filenames, bool const& export_mesh = true,
+            bool const& export_fields = true, bool const& apply_displacement = true);
 
     bool writingRestart();
     void writeRestart();

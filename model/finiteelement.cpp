@@ -6445,8 +6445,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        int const ostep = pcpt*time_step/output_time_step;
-        this->exportResults(ostep);
+        this->exportResults();
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -10957,24 +10956,31 @@ FiniteElement::createGraph()
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
+    // determine the filename of the output files.
     // if output.datetime_in_filename = false,
-    //   step goes into the filename
+    //   an integer "output_step_num" goes into the filename
     // else,
     //   filename is [mesh,field]_%Y%m%dT%H%M%SZ.[bin,dat]
 
-    // define name_str from step or the date
-    std::string name_str = (boost::format( "%1%" )
-                               % step ).str();
+    std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
         name_str = to_date_time_string_for_filename(M_current_time);
+    else
+    {
+        int const output_step_num = pcpt*time_step/output_time_step;
+        name_str = (boost::format( "%1%" )
+                               % output_step_num ).str();
+    }
 
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
 void
-FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(std::string const& name_str, bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
     //define filenames from name_str
     std::string meshfile = (boost::format( "%1%/mesh_%2%" )
@@ -10990,7 +10996,8 @@ FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool
 }
 
 void
-FiniteElement::exportResults(std::vector<std::string> const& filenames, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
