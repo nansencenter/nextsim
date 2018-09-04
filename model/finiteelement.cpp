@@ -6428,9 +6428,11 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         if(!at_init_time)
             this->updateMoorings();
-        else if(M_moorings_snapshot)
+        else if(    M_moorings_snapshot
+                && fmod(pcpt*time_step, mooring_output_time_step) == 0 )
         {
             // write initial conditions to moorings file if using snapshot option
+            // (only if at the right time though)
 
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
@@ -7116,7 +7118,7 @@ FiniteElement::updateMoorings()
         this->updateMeans(M_moorings, mooring_time_factor);
 
     //check if we are outputting
-    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+    if ( fmod(pcpt*time_step, mooring_output_time_step) == 0 )
     {
         double output_time = M_current_time;
         if ( M_moorings_snapshot )
