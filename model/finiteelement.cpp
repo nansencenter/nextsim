@@ -6221,35 +6221,13 @@ FiniteElement::init()
     if (M_use_drifters)
         this->initDrifters();
 
-    if(M_use_moorings)
-    {
-        //write initial conditions to moorings file if using snapshot option
-        if(M_moorings_snapshot)
-        {
-            //set the fields on the mesh
-            this->updateMeans(M_moorings, 1.);
-
-            //interpolate to the grid and write them to the netcdf file
-            this->mooringsAppendNetcdf(M_current_time);
-        }
-    }
-
-    // check if writing restart
-    // - good to have it at init time especially if we are using assimilation
-    if(vm["restart.write_restart"].as<bool>())
-        this->checkWriteRestart();
-
-    // check if exporting
-    // - good to have it at init time
-    if(fmod(pcpt*time_step, output_time_step) == 0)
-    {
-        chrono.restart();
-        LOG(DEBUG) <<"export starts\n";
-        int const ostep = pcpt*time_step/output_time_step;
-        this->exportResults(ostep);
-        LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-    }
-}
+    // Check if we are doing any outputs now
+    // 1. moorings:
+    // - check if we are adding snapshot to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    this->checkOutputs(true);
+}//init
 
 // Take one time step
 void
@@ -6423,11 +6401,47 @@ FiniteElement::step()
     ++pcpt;
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-    //======================================================================
-    // Output (export and moorings)
-    //======================================================================
+    // 1. moorings:
+    // - update fields on grid if outputting mean fields
+    // - check if we are adding records to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    // TODO also add drifter check here
+    // - if we move at restart output time we can remove M_UT from
+    //   restart files (then it would always be 0)
+    this->checkOutputs(false);
+ }//step
 
-    if(fmod(pcpt*time_step,output_time_step) == 0)
+void
+FiniteElement::checkOutputs(bool const& at_init_time)
+{
+    // 1. moorings:
+    // - update fields on grid if outputting mean fields
+    // - check if we are adding records to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    // TODO also add drifter check here
+    // - if we move at restart output time we can remove M_UT from
+    //   restart files (then it would always be 0)
+
+    if(M_use_moorings)
+    {
+        if(!at_init_time)
+            this->updateMoorings();
+        else if(M_moorings_snapshot)
+        {
+            // write initial conditions to moorings file if using snapshot option
+
+            // - set the fields on the mesh
+            this->updateMeans(M_moorings, 1.);
+
+            // - interpolate to the grid and write them to the netcdf file
+            this->mooringsAppendNetcdf(M_current_time);
+        }
+    }
+
+    // check if we are outputting results file
+    if(fmod(pcpt*time_step, output_time_step) == 0)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
@@ -6436,15 +6450,10 @@ FiniteElement::step()
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
-    if ( M_use_moorings )
-    {
-        this->updateMoorings();
-    }
-
     // check if writing restart
-    if(vm["restart.write_restart"].as<bool>())
-        this->checkWriteRestart();
- }//step()
+    if(this->writingRestart())
+        this->writeRestart();
+}//checkOutputs
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
@@ -7193,38 +7202,41 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
 
-void
-FiniteElement::checkWriteRestart()
+
+bool
+FiniteElement::writingRestart()
 {
     //check if it's time to write a restart
-    // (and write one if it is)
-    if(vm["restart.debugging"].as<bool>())
-        //write one every time step
-        this->writeRestart(pcpt, pcpt);
+    if(!vm["restart.write_restart"].as<bool>())
+        return false;
+    else if(vm["restart.debugging"].as<bool>())
+        return true;
     else if ( fmod(pcpt*time_step, restart_time_step) == 0)
-    {
-        //write one every interval of restart_time_step
-        int rstep = pcpt*time_step/restart_time_step;
-        this->writeRestart(pcpt, rstep );
-    }
-}//checkWriteRestart
+        return true;
+    else
+        return false;
+}//writingRestart
+
 
 void
-FiniteElement::writeRestart(int pcpt, int step)
+FiniteElement::writeRestart()
 {
-    // pcpt goes into the file
-    // if output.datetime_in_filename = false,
-    //   step goes into the filename
-    // else,
-    //   filename is [mesh,field]_%Y%m%dT%H%M%SZ.[bin,dat]
-    std::string name_str = (boost::format( "%1%" ) % step).str();
+    //determine name to passed in to writeRestart
+    std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
         name_str = to_date_time_string_for_filename(M_current_time);
-    this->writeRestart(pcpt, name_str);
-}
+    else if(vm["restart.debugging"].as<bool>())
+        name_str = (boost::format( "%1%" ) % pcpt).str();
+    else
+    {
+        int rstep = pcpt*time_step/restart_time_step;
+        name_str = (boost::format( "%1%" ) % rstep).str();
+    }
+    this->writeRestart(name_str);
+}//writeRestart
 
 void
-FiniteElement::writeRestart(int pcpt, std::string step)
+FiniteElement::writeRestart(std::string const& name_str)
 {
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -7452,7 +7464,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
 
         filename = (boost::format( "%1%/mesh_%2%.bin" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! meshbin.good() )
@@ -7463,7 +7475,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
         if ( ! meshrecord.good() )
@@ -7475,7 +7487,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // First the data
         filename = (boost::format( "%1%/field_%2%.bin" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
         std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
@@ -7559,7 +7571,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
@@ -7568,7 +7580,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeRecord(outrecord);
         outrecord.close();
     }
-}
+}//writeRestart
 
 int
 FiniteElement::readRestart(int step)
