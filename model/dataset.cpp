@@ -7567,16 +7567,10 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
 void
 DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
-    // // we make the loaded domain a bit larger to avoid problems
-    // double expansion_factor = Environment::vm()["numerics.expansion_factor"].as<double>();
-
-    // double X_domain_size = RX_max-RX_min;
-    // double Y_domain_size = RY_max-RY_min;
-
-    // RX_min=RX_min-expansion_factor*X_domain_size;
-    // RX_max=RX_max+expansion_factor*X_domain_size;
-    // RY_min=RY_min-expansion_factor*Y_domain_size;
-    // RY_max=RY_max+expansion_factor*Y_domain_size;
+    /* We make the loaded domain a bit larger to avoid problems.
+     * This is now done by adding a "halo" of one grid cell around the grid
+     * cells needed. Replaces the old "expansion_factor" approach. */
+    int halo_size = 1;
 
     //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
 
@@ -7636,8 +7630,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
 
         tmp_start=-1;
         tmp_end=-1;
@@ -7650,8 +7644,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     tmp_start=i;
             }
         }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
 
 		LAT.resize(grid_ptr->dimension_y_count);
 		LON.resize(grid_ptr->dimension_x_count);
@@ -7693,8 +7687,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
 
         tmp_start=-1;
         tmp_end=-1;
@@ -7707,8 +7701,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     tmp_start=i;
             }
         }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
 
 		Y.resize(grid_ptr->dimension_y_count);
 		X.resize(grid_ptr->dimension_x_count);
@@ -7816,14 +7810,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
         int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
 
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
 
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-1);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end-tmp_start+3);
+        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
 
 		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);

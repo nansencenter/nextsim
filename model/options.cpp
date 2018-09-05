@@ -78,8 +78,6 @@ namespace Nextsim
                 "Export results for debugging after each mesh adaptation. NB currently deactivated")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
-            // TODO: Remove the expansion_factor option
-            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "[Depricated] Expansion factor for reading forcing data (should be a few percent)")
 
 	    // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
