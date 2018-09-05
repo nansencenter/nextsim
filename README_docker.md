@@ -19,6 +19,8 @@ See Docker overview and installation tips for Linux and Mac [here](https://docs.
 
 Pay attention to [Linux optional post-installation steps](to https://docs.docker.com/install/linux/linux-postinstall/)
 
+On macOS, once Docker is installed you need to go to the Docker icon and select Preferences->Advanced and set memory to at least 4 GB (the exact value needs testing). Otherwise the model won't compile.
+
 ## 3. Build an image
 
 Image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains Dockerfile for
