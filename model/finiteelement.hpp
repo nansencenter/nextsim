@@ -139,7 +139,6 @@ public:
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
-    void interpFieldsElement();
 
     //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
@@ -154,7 +153,8 @@ public:
 
     void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
     void scatterFieldsNode(double* interp_nd_out);
-    void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+
+    void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void assemble(int pcpt);
     void solve();

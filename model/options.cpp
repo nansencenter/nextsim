@@ -78,15 +78,15 @@ namespace Nextsim
                 "Export results for debugging after each mesh adaptation. NB currently deactivated")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
-            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "Expansion factor for reading forcing data (should be a few percent)")
 
+	    // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
             // - diffusive Eulerian case where M_UM is kept as 0
             // - purely Lagrangian case where M_UM is updated with M_VT
             // - ALE case where M_UM is updated with a smoothed version of M_VT
-            ("numerics.advection_scheme", po::value<std::string>()->default_value( "ALE" ), "Options: Lagrangian, ALE, Eulerian")
-            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
-                "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
+            // ("numerics.advection_scheme", po::value<std::string>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
+            // ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
+            //     "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")

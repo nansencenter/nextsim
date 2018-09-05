@@ -2387,7 +2387,8 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
     }//loop over elements
 }//redistributeVariablesIO
 
-
+// Hotfix for issue #53 - we only have pure Lagrangian now.
+#if 0
 void
 FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
@@ -2559,7 +2560,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
             outer_fluxes_area[i] = outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
 
-            if(outer_fluxes_area[i]>0)
+            if(outer_fluxes_area[i]>=0)
             {
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
                 outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
@@ -2608,8 +2609,9 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
         }
     }
 }//advect()
+#endif
 
-#if 1//advectRoot not used - looks weird too
+#if 0//advectRoot not used - looks weird too
 void
 FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
@@ -3238,19 +3240,24 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 
 
 void
-FiniteElement::interpFieldsElement()
+FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
     std::vector<double> interp_in_elements;
+    std::vector<double> interp_in_nodes;
 
     timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
         std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
     double* interp_elt_out;
+    double* interp_nd_out;
 
     if (M_rank == 0)
     {
+        // Interpolate elements
+
         std::vector<double> surface_previous(M_mesh_previous_root.numTriangles());
         std::vector<double> surface_root(M_mesh_root.numTriangles());
         //M_surface_root.resize(M_mesh_root.numTriangles());
@@ -3299,6 +3306,14 @@ FiniteElement::interpFieldsElement()
         // std::cout<<"InterpFromMeshToMesh2dx done in "<< chrono.elapsed() <<"\n";
 #endif
 
+        // Interpolate nodes
+        InterpFromMeshToMesh2dx(&interp_nd_out,
+                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                                &interp_in_nodes[0],
+                                M_mesh_previous_root.numNodes(),M_nb_var_node,
+                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                                false);
     } // rank 0
 
     timer["distributed"].first.restart();
@@ -3308,12 +3323,14 @@ FiniteElement::interpFieldsElement()
 
     timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
+    this->scatterFieldsNode(interp_nd_out);
     if (M_rank == 0)
         std::cout<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
         xDelete<double>(interp_elt_out);
+        xDelete<double>(interp_nd_out);
     }
 }
 
@@ -3458,35 +3475,6 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 }
 
 void
-FiniteElement::interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
-{
-    std::vector<double> interp_in_nodes;
-
-    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
-
-    double* interp_nd_out;
-
-    if (M_rank == 0)
-    {
-        InterpFromMeshToMesh2dx(&interp_nd_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-                                &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
-                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                                false);
-    }
-
-
-    this->scatterFieldsNode(interp_nd_out);
-
-    if (M_rank == 0)
-    {
-        xDelete<double>(interp_nd_out);
-    }
-}
-
-void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
     std::vector<double> um_local(2*M_local_ndof,0.);
@@ -3527,6 +3515,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
     }
 }
 
+#if 0 // Only needed by advectRoot, which we don't use anymore
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
                                 std::vector<double>& field1_root, std::vector<double>& field2_root)
@@ -3581,6 +3570,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field1_local, std::ve
         }
     }
 }
+#endif
 
 void
 FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local)
@@ -3935,15 +3925,10 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    timer["felt"].first.restart();
-    this->interpFieldsElement();
+    timer["interpFields"].first.restart();
+    this->interpFields(prv_rmap_nodes, sizes_nodes);
     if (M_rank == 0)
-        std::cout <<"interpFieldsElement done in "<< timer["felt"].first.elapsed() <<"s\n";
-
-    timer["fnd"].first.restart();
-    this->interpFieldsNode(prv_rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        std::cout <<"interpFieldsNode done in "<< timer["fnd"].first.elapsed() <<"s\n";
+        std::cout <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
@@ -4602,16 +4587,24 @@ FiniteElement::calcCohesion()
 void
 FiniteElement::update()
 {
-    // collect the variables into a single structure
-    std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local, true);
+    // Hotfix for issue #53 - we only have pure Lagrangian now.
+    // // collect the variables into a single structure
+    // std::vector<double> interp_elt_in_local;
+    // this->collectVariables(interp_elt_in_local, true);
+    //
+    // // advect
+    // std::vector<double> interp_elt_out;
+    // this->advect(interp_elt_in_local, interp_elt_out);
+    //
+    // // redistribute the interpolated values
+    // this->redistributeVariables(interp_elt_out);
 
-    // advect
-    std::vector<double> interp_elt_out;
-    this->advectRoot(interp_elt_in_local, interp_elt_out);
+    std::vector<double> UM_P = M_UM;
+    for (int nd=0; nd<M_UM.size(); ++nd)
+        M_UM[nd] += time_step*M_VT[nd];
 
-    // redistribute the interpolated values
-    this->redistributeVariables(interp_elt_out);
+    for (const int& nd : M_neumann_nodes)
+        M_UM[nd] = UM_P[nd];
 
     // Horizontal diffusion
     this->diffuse(M_sst,vm["thermo.diffusivity_sst"].as<double>(),M_res_root_mesh);
@@ -4670,6 +4663,46 @@ FiniteElement::update()
         divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
         shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
+
+        /*======================================================================
+         * Update:
+         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+         *======================================================================
+         */
+
+        // We update only elements which have deformed. Not strictly neccesary, but may improve performance.
+        bool to_be_updated=false;
+        if( divergence_rate!=0.)
+            to_be_updated=true;
+
+	/* Important: We don't update elements on the open boundary. This means
+         * that ice will flow out as if there was no resistance and in as if the ice
+         * state outside the boundary was the same as that inside it. */
+        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
+           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
+            to_be_updated=false;
+
+        // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
+        if((M_conc[cpt]>0.)  && (to_be_updated))
+        {
+            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
+
+            M_conc[cpt] *= surf_ratio;
+            M_thick[cpt] *= surf_ratio;
+            M_snow_thick[cpt] *= surf_ratio;
+            M_sigma[3*cpt] *= surf_ratio;
+            M_sigma[3*cpt+1] *= surf_ratio;
+            M_sigma[3*cpt+2] *= surf_ratio;
+            M_ridge_ratio[cpt] *= surf_ratio;
+
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                M_h_thin[cpt] *= surf_ratio;
+                M_conc_thin[cpt] *= surf_ratio;
+                M_hs_thin[cpt] *= surf_ratio;
+            }
+        }
 
         /*======================================================================
          * Ridging scheme and mechanical redistribution
