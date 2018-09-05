@@ -19,13 +19,14 @@
 
 namespace Nextsim
 {
-FiniteElement::FiniteElement()
+FiniteElement::FiniteElement(Communicator const& comm)
     :
     vm(Environment::vm()),
-    M_mesh(),
-    M_solver(),
-    M_matrix(),
-    M_vector(),
+    M_comm(comm),
+    M_mesh(mesh_type(comm)),
+    M_solver(solver_ptrtype(new solver_type(comm))),
+    M_matrix(matrix_ptrtype(new matrix_type(comm))),
+    M_vector(vector_ptrtype(new vector_type(comm))),
     timer()
 {}
 
@@ -35,7 +36,7 @@ FiniteElement::initMesh()
 {
     this->initBamg();
 
-    M_comm = M_mesh.comm();
+    // M_comm = M_mesh.comm();
     M_rank = M_comm.rank();
 
     this->rootMeshProcessing();
