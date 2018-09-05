@@ -2559,7 +2559,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
             outer_fluxes_area[i] = outer_vector[0]*VC_middle[0]+outer_vector[1]*VC_middle[1];
 
-            if(outer_fluxes_area[i]>0)
+            if(outer_fluxes_area[i]>=0)
             {
                 surface = this->measure(M_elements[cpt],M_mesh, UM_P);
                 outer_fluxes_area[i] = std::min(surface/time_step/3.,outer_fluxes_area[i]);
