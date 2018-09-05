@@ -81,13 +81,14 @@ namespace Nextsim
             // TODO: Remove the expansion_factor option
             ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ), "[Depricated] Expansion factor for reading forcing data (should be a few percent)")
 
+	    // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
             // - diffusive Eulerian case where M_UM is kept as 0
             // - purely Lagrangian case where M_UM is updated with M_VT
             // - ALE case where M_UM is updated with a smoothed version of M_VT
-            ("numerics.advection_scheme", po::value<std::string>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
-            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
-                "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
+            // ("numerics.advection_scheme", po::value<std::string>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
+            // ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
+            //     "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
