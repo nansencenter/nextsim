@@ -4670,15 +4670,20 @@ FiniteElement::update()
          *======================================================================
          */
 
+        // We update only elements which have deformed. Not strictly neccesary, but may improve performance.
         bool to_be_updated=false;
         if( divergence_rate!=0.)
             to_be_updated=true;
 
+	/* Important: We don't update elements on the open boundary. This means
+         * that ice will flow out as if there was no resistance and in as if the ice
+         * state outside the boundary was the same as that inside it. */
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
+        // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
             double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
