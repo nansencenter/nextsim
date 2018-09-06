@@ -400,7 +400,7 @@ GmshMeshSeq::clear()
 }
 
 void
-GmshMeshSeq::writeToGModel(std::string const& filename)
+GmshMeshSeq::writeToGModel()
 {
     std::map<int, MVertex*> vertexMap;
     std::vector<std::vector<int> > vertexIndices(M_num_triangles);

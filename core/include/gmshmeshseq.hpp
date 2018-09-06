@@ -122,7 +122,7 @@ public:
     std::vector<int> id() const;
 
     void initGModel();
-    void writeToGModel(std::string const& filename);
+    void writeToGModel();
     void clear();
 
 private:
