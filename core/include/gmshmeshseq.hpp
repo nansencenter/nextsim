@@ -57,7 +57,7 @@ public:
     //~GmshMeshSeq();
 
     void readFromFile(std::string const& filename);
-    void writeTofile(std::string const& filename);
+    void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
                    mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
