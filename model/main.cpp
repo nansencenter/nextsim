@@ -20,7 +20,7 @@ int main(int argc, char** argv )
 {
     using namespace Nextsim;
 
-    Environment env(argc, argv, descrOptions());
+    Environment env(argc, argv, descrOptions(), Environment::comm());
 
     if ( Environment::vm().count("help")  )
     {

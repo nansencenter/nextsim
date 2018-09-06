@@ -49,11 +49,12 @@ Environment::Environment( int& argc, char** &argv )
     CHKERRABORT( mpicomm, ierr );
 }
 
-Environment::Environment( int& argc, char** &argv, po::options_description desc)
+Environment::Environment( int& argc, char** &argv, po::options_description desc, Communicator const& comm)
     :
     mpienv(argc, argv)
 {
-    mpicomm = Communicator::commSelf();
+    // mpicomm = Communicator::commSelf();
+    mpicomm = comm;
 
 
     char * senv;
