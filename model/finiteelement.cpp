@@ -278,10 +278,11 @@ FiniteElement::rootMeshProcessing()
     if (M_rank == 0)
     {
 
+        // read the original input mesh
         M_mesh_root.setOrdering("gmsh");
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
-        M_mesh_root.readFromFile(M_mesh_filename);//original mesh
+        M_mesh_root.readFromFile(M_mesh_filename);
         LOG(DEBUG) <<"Reading root mesh done in "<< chrono.elapsed() <<"s\n";
 
         chrono.restart();
@@ -9787,7 +9788,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
             if(M_mesh_basename.find("kara") != std::string::npos)
             {
-                LOG(DEBUG) <<"Type information is not used for the kara mesh, we assume there is only FYI\n";
+                LOG(DEBUG) <<"Type information is not used for the kara meshes,"
+                    << " we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 //M_thick[i]=thick_FYI;
                 hi *= thickfac_FYI;
@@ -10799,9 +10801,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous_root = M_mesh_root;
-    //M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
     M_mesh_root.update(mesh_nodes, mesh_triangles);
-    //M_mesh.writeToFile("out.msh");
 
     LOG(DEBUG) <<"\n";
     LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
