@@ -263,18 +263,17 @@ public:
     void scalingVelocity();
     void update();
 
-    void exportResults(int step,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(double datetime,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::string const& name_str,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::vector<std::string> const& filenames,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void checkOutputs(bool const& at_init_time);
+    void exportResults(bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
+    void exportResults(std::string const& name_str, bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
+    void exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
 
-    void writeRestart(int pcpt, int step);
-    void writeRestart(int pcpt, double datetime);
-    void writeRestart(int pcpt, std::string step);
+    bool writingRestart();
+    void writeRestart();
+    void writeRestart(std::string const& name_string);
     int readRestart(int step);
     int readRestart(std::string step);
     void partitionMeshRestart();
@@ -717,6 +716,7 @@ private:
     void updateMeans(GridOutput& means, double time_factor);
     void initMoorings();
     void updateMoorings();
+    void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
 
 private:
