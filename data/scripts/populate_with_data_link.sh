@@ -1,79 +1,76 @@
 #! /bin/bash
+#
+# Link the files from ROOT_DATA_DIR (1st command line input to script)
+# which has all the needed data (eg /Data/sim/data on johansen)"
+# 
+# Usage: `basename $thisfile` [ROOT_DATA_DIR]"
+# Where ROOT_DATA_DIR is the directory where the data will be linked from"
+
 thisfile=$0
 thisdir=`dirname $thisfile`
+CWD=`pwd`
 
-if [ -z "$LOCALDATADIR" ]; then 
-   echo "LOCALDATADIR is unset, we try to link with the data from /Data/sim/data or /net/sverdrup-1/vol/sim/data"; 
-   
-   TMP_NEXTSIM_DATADIR=/net/sverdrup-1/vol/sim/data
-   if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
-   	# Control will enter here if $DIRECTORY exists.
-   	export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
-   fi
-   
-   TMP_NEXTSIM_DATADIR=/Data/sim/data
-   if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
-   	# Control will enter here if $DIRECTORY exists.
-   	export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
-   fi
-else 
-   echo "data are linked from '$LOCALDATADIR' (LOCALDATADIR)"; 
-   
-   TMP_NEXTSIM_DATADIR=$LOCALDATADIR
-   if [ -d "$TMP_NEXTSIM_DATADIR" ]; then
-   	# Control will enter here if $DIRECTORY exists.
-   	export NEXTSIM_DATADIR=$TMP_NEXTSIM_DATADIR
-   fi
+if [ $# -eq 0 ]
+then
+   echo "Usage: `basename $thisfile` [ROOT_DATA_DIR]"
+   echo "Where ROOT_DATA_DIR is the directory where the data will be linked from"
+   echo "(eg /Data/sim/data on johansen)"
+   exit 1
 fi
 
-
-if [ -z "$NEXTSIM_DATADIR" ]; then 
-   echo "Not able to define NEXTSIM_DATADIR, some data may not be linked"; 
-   exit
+ROOT_DATA_DIR="$1"
+if [ ! -d "$ROOT_DATA_DIR" ]
+then
+   echo "Input directory << $ROOT_DATA_DIR >> does not exist"
+   exit 1
 fi
 
-echo "We link the data from $NEXTSIM_DATADIR"; 
+NETCDF_LINKS_DIR=$CWD/netcdf_data_links
+mkdir -p $NETCDF_LINKS_DIR
+OTHER_LINKS_DIR=$CWD/other_data_links
+mkdir -p $OTHER_LINKS_DIR
+echo "We link the data from $ROOT_DATA_DIR"; 
 
-# link the data
-ln -s $NEXTSIM_DATADIR/BATHYMETRY/*.nc .
-ln -s $NEXTSIM_DATADIR/IABP/IABP_buoys.txt .
-ln -s $NEXTSIM_DATADIR/TOPAZ4/198910_201512/*.nc .
-ln -s $NEXTSIM_DATADIR/ERAI/*.nc .
-ln -s $NEXTSIM_DATADIR/ASR_FINAL/*.nc .
-ln -s $NEXTSIM_DATADIR/CFSR/*.nc .
-ln -s $NEXTSIM_DATADIR/CS2_SMOS_v13/*.nc .
-ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/*.nc .
-ln -s $NEXTSIM_DATADIR/NIC_ice_charts/*.nc .
-ln -s $NEXTSIM_DATADIR/NIC_weekly_ice_charts/*.nc .
-ln -s $NEXTSIM_DATADIR/SIT_data/icesat_filled_10prods/*.nc .
-ln -s $NEXTSIM_DATADIR/currents_from_altimeter/*.nc .
-ln -s $NEXTSIM_DATADIR/RGPS_ice_drift/trajectories/*.txt .
-ln -s $NEXTSIM_DATADIR/WW3arctic_RT/*.nc .
-ln -s $NEXTSIM_DATADIR/ECMWF_forecast_arctic/*.nc .
-ln -s $NEXTSIM_DATADIR/ERAI_waves_1deg/*.nc .
-ln -s $NEXTSIM_DATADIR/WW3arctic_RT/*.nc .
+# link the netcdf data
+cd $NETCDF_LINKS_DIR
+ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
+ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
+ln -s $ROOT_DATA_DIR/ERAI/*.nc .
+ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
+ln -s $ROOT_DATA_DIR/CFSR/*.nc .
+ln -s $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc .
+ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/*.nc .
+ln -s $ROOT_DATA_DIR/NIC_ice_charts/*.nc .
+ln -s $ROOT_DATA_DIR/NIC_weekly_ice_charts/*.nc .
+ln -s $ROOT_DATA_DIR/SIT_data/icesat_filled_10prods/*.nc .
+ln -s $ROOT_DATA_DIR/currents_from_altimeter/*.nc .
+ln -s $ROOT_DATA_DIR/RGPS_ice_drift/trajectories/*.txt .
+ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
+ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic/*.nc .
+ln -s $ROOT_DATA_DIR/ERAI_waves_1deg/*.nc .
+ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
 
 # For the OSISAF drifters
-ln -s $NEXTSIM_DATADIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
+ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
 
 # For the Moorings
-ln -s $NEXTSIM_DATADIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
+ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
 
 for year in {2002..2011}
 do
-     ln -s $NEXTSIM_DATADIR/AMSRE_ice_conc/$year/*.nc .
+     ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/$year/*.nc .
 done
 for year in {2005..2017}
 do
-     ln -s $NEXTSIM_DATADIR/OSISAF_ice_type/$year/*/*.nc .
+     ln -s $ROOT_DATA_DIR/OSISAF_ice_type/$year/*/*.nc .
 done
 for year in {2009..2017}
 do
-     ln -s $NEXTSIM_DATADIR/OSISAF_ice_drift/$year/*/*.nc .
+     ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/$year/*/*.nc .
 done
 for year in {2005..2017}
 do
-   TMP_DATADIR=$NEXTSIM_DATADIR/OSISAF_ice_conc/polstere/${year}_nh_polstere
+   TMP_DATADIR=$ROOT_DATA_DIR/OSISAF_ice_conc/polstere/${year}_nh_polstere
    
    echo $TMP_DATADIR
    if [ -d "$TMP_DATADIR" ]; then
@@ -84,6 +81,12 @@ done
 
 # CS2-SMOS ice thickness
 # script links weekly files to 7 daily files
-$thisdir/CS2_SMOS_pp.sh $NEXTSIM_DATADIR/CS2_SMOS_v13/*.nc
+$thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
 
+# lot of links so update the list of files
 ls -lh > FileList.txt
+
+# Other links (just so they don't get buried by all the .nc files)
+# - eg drifters
+cd $OTHER_LINKS_DIR
+ln -s $ROOT_DATA_DIR/IABP/IABP_buoys*.txt .
