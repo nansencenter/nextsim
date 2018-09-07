@@ -46,7 +46,7 @@ CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS +=	-I $(PETSC_DIR)/include
 
 # boost
-CXXFLAGS += -I $(BOOST_INCDIR) -I .
+CXXFLAGS += -I $(BOOST_INCDIR)/ -I .
 
 # netcdf
 CXXFLAGS +=	-I $(NETCDF_DIR)/include
