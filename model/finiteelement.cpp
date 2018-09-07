@@ -49,14 +49,6 @@ FiniteElement::initMesh()
 void
 FiniteElement::distributedMeshProcessing(bool start)
 {
-    // if (M_mesh_filename.substr(3,1) != std::to_string(Environment::comm().size()))
-    // {
-    //     std::cout<<"the number of processor cores does not match the number of mesh partitions: "
-    //              << std::to_string(Environment::comm().size()) <<" != " << M_mesh_filename.substr(3,1) <<"\n";
-
-    //     throw std::logic_error("invalid number of processor cores or number of mesh partitions");
-    // }
-
     M_comm.barrier();
 
     if (!start)
@@ -67,14 +59,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_mesh.setOrdering("gmsh");
 
     if (M_rank == 0)
-    {
-        //LOG(INFO) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-        std::cout << "[INFO]: " <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-    }
+        LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
     timer["meshread"].first.restart();
-    M_mesh.readFromFile(M_mesh_filename, M_mesh_fileformat);
-    //M_mesh.readFromFileBinary(M_mesh_filename);
+    M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
     if (M_rank == 0)
         std::cout<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
 
@@ -290,6 +278,7 @@ FiniteElement::rootMeshProcessing()
     if (M_rank == 0)
     {
 
+        // read the original input mesh
         M_mesh_root.setOrdering("gmsh");
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
@@ -325,7 +314,8 @@ FiniteElement::rootMeshProcessing()
         }
         else
         {
-            throw std::runtime_error("No \"coast\" marker in mesh file. Check your input file (" + M_mesh_filename + ")");
+            throw std::runtime_error(
+                    "No \"coast\" marker in mesh file. Check your input file (" + M_mesh_filename + ")");
         }
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
@@ -412,8 +402,7 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
-            M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
@@ -428,33 +417,26 @@ FiniteElement::rootMeshProcessing()
             {
                 // Environment::logMemoryUsage("before gmodel...");
                 M_mesh_root.initGModel();
-                M_mesh_root.writeToGModel(M_mesh_filename);
+                M_mesh_root.writeToGModel();
                 // Environment::logMemoryUsage("before after...");
             }
             else if (M_partition_space == mesh::PartitionSpace::DISK)
-            {
-                M_mesh_root.writeTofile(M_mesh_filename);
-            }
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
             //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
             std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             chrono.restart();
-            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
             //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
     }
-    else
-    {
-        // Add information on the number of partition to mesh filename
-        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-        // LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-    }
 
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
-}
+}//rootMeshProcessing
 
 void
 FiniteElement::rootMeshRenumbering()
@@ -1254,7 +1236,12 @@ FiniteElement::initOptAndParam()
     M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second;
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
-    M_mesh_filename = vm["mesh.filename"].as<std::string>();
+    M_mesh_basename = vm["mesh.filename"].as<std::string>();
+    M_mesh_filename = Environment::nextsimDir().string() + "/mesh/" + M_mesh_basename;
+    M_partitioned_mesh_filename = (boost::format( "%1%/par%2%%3%" )
+            % M_export_path
+            % M_comm.size()
+            % M_mesh_basename ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>();
     M_mesh.setOrdering("bamg");
 
@@ -3870,15 +3857,6 @@ FiniteElement::regrid(bool step)
 
             // save mesh (only root process)
 
-#if 0
-            std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
@@ -3889,25 +3867,16 @@ FiniteElement::regrid(bool step)
             timer["savemesh"].first.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
-            {
-                M_mesh_root.writeToGModel(M_mesh_filename);
-            }
+                M_mesh_root.writeToGModel();
             else if (M_partition_space == mesh::PartitionSpace::DISK)
-            {
-                M_mesh_root.writeTofile(M_mesh_filename);
-            }
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
             std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
-
-#if 0
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
             std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
 
             // Environment::logMemoryUsage("after partitioning...");
@@ -7635,19 +7604,13 @@ FiniteElement::readRestart(std::string step)
 
     if (M_rank == 0)
     {
-        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-
         // === Read in the mesh restart files ===
         std::string restart_path;
         if ( (vm["restart.input_path"].as<std::string>()).empty() )
-        {
             //default restart path is $NEXTSIMDIR/restart
             restart_path = Environment::nextsimDir().string()+"/restart";
-        }
         else
-        {
             restart_path = vm["restart.input_path"].as<std::string>();
-        }
 
         // Start with the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
@@ -7926,20 +7889,17 @@ FiniteElement::partitionMeshRestart()
         timer["savemesh"].first.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
-        {
-            M_mesh_root.writeToGModel(M_mesh_filename);
-        }
+            M_mesh_root.writeToGModel();
         else if (M_partition_space == mesh::PartitionSpace::DISK)
-        {
-            M_mesh_root.writeTofile(M_mesh_filename);
-        }
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
 
         std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
         timer["meshpartition"].first.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
-        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+        M_mesh_root.partition(M_partitioned_mesh_filename,
+                M_partitioner, M_partition_space, M_mesh_fileformat);
         std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
     }
 
@@ -9739,9 +9699,9 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         if( (hi>0.) && (M_conc[i])>0.2 )
         {
 
-            if(M_mesh_filename.find("kara") != std::string::npos)
+            if(M_mesh_basename.find("kara") != std::string::npos)
             {
-                LOG(DEBUG) <<"Type information is not used for the kara mesh, "
+                LOG(DEBUG) <<"Type information is not used for the kara meshes, "
                     <<"we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 hi*=thickfac_FYI;
@@ -9879,9 +9839,10 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         if( (hi>0.) && (M_conc[i])>0.2 )
         {
 
-            if(M_mesh_filename.find("kara") != std::string::npos)
+            if(M_mesh_basename.find("kara") != std::string::npos)
             {
-                LOG(DEBUG) <<"Type information is not used for the kara mesh, we assume there is only FYI\n";
+                LOG(DEBUG) <<"Type information is not used for the kara meshes,"
+                    << " we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 //M_thick[i]=thick_FYI;
                 hi *= thickfac_FYI;
@@ -10878,9 +10839,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous_root = M_mesh_root;
-    //M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
-    M_mesh_root.update(mesh_nodes,mesh_triangles);
-    //M_mesh.writeTofile("out.msh");
+    M_mesh_root.update(mesh_nodes, mesh_triangles);
 
     LOG(DEBUG) <<"\n";
     LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";

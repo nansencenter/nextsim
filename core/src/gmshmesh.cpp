@@ -98,10 +98,8 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
 #endif
 
 void
-GmshMesh::readFromFile(std::string const& filename, std::string const& format)
+GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format)
 {
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
-
     if (M_comm.rank() == 0)
         std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
@@ -118,13 +116,9 @@ GmshMesh::readFromFile(std::string const& filename, std::string const& format)
     //std::string format = (Environment::vm()["mesh.fileformat"]).as<std::string>();
 
     if (format == "binary")
-    {
         this->readFromFileBinary(ifs);
-    }
     else if (format == "ascii")
-    {
         this->readFromFileASCII(ifs);
-    }
     else
     {
         std::cout << "invalid mesh file format"<<"\n";
@@ -728,9 +722,8 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 }
 
 void
-GmshMesh::writeTofile(std::string const& filename)
+GmshMesh::writeToFile(std::string const& gmshmshfile)
 {
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
     std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
 
     if (gmshfile.is_open())
