@@ -1,5 +1,5 @@
 # untracked files to ignore
-mesh/wim_grids
+mesh/meshfile_links
 *.m
 *.msh
 *.geo
