@@ -568,6 +568,7 @@ VectorPetsc::printScreen() const
     CHKERRABORT( M_comm, ierr );
 }
 
+// TODO check if this is used and if it is meant to read $NEXTSIMDATADIR/misc/vector.dat?
 void
 VectorPetsc::printMatlab(std::string const& filename) const
 {
@@ -576,7 +577,8 @@ VectorPetsc::printMatlab(std::string const& filename) const
 	if ( !this->closed() )
 		const_cast<VectorPetsc*>( this )->close();
 
-    std::string vecfilename = Environment::nextsimDir().string() + "/matlab/" + filename;
+    std::string vecfilename = Environment::nextsimDataDir().string()
+        + "/misc/" + filename;
 
     fs::path path(vecfilename);
     if ( !fs::exists(path) )
