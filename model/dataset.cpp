@@ -7477,13 +7477,12 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
         if(is_ec_fc)
     {
             //get filename
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                            % Environment::simdataDir().string()
-                            % grid_ptr->dirname
-                            % grid_ptr->prefix
-                            % init_timestr
-                            % grid_ptr->postfix
-                       ).str();
+            filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%" )
+                    % Environment::nextsimDataDir().string()
+                    % grid_ptr->prefix
+                    % init_timestr
+                    % grid_ptr->postfix
+                    ).str();
             return filename;
     }
     else
@@ -7492,14 +7491,13 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
             // also need current time for filename
             current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
 
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
-                       % Environment::simdataDir().string()
-                       % grid_ptr->dirname
-                                % current_timestr
-                       % grid_ptr->prefix
-                       % init_timestr
-                       % grid_ptr->postfix
-                       ).str();
+            filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%%5%" )
+                    % Environment::nextsimDataDir().string()
+                    % current_timestr
+                    % grid_ptr->prefix
+                    % init_timestr
+                    % grid_ptr->postfix
+                    ).str();
             return filename;
     }
     }
@@ -7553,13 +7551,12 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                 "This option for grid_ptr->dataset_frequency is not implemented: "
                 + grid_ptr->dataset_frequency);
 
-    filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                       % Environment::simdataDir().string()
-                       % grid_ptr->dirname
-                       % grid_ptr->prefix
-                       % current_timestr
-                       % grid_ptr->postfix
-                       ).str();
+    filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%" )
+                    % Environment::nextsimDataDir().string()
+                    % grid_ptr->prefix
+                    % current_timestr
+                    % grid_ptr->postfix
+                    ).str();
 
     return filename;
 }
@@ -7584,7 +7581,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
     else
-        filename=Environment::simdataDir().string()+"/data/"+grid_ptr->gridfile;
+    filename = (boost::format( "%1%/netcdf_data_links/%2%" )
+            % Environment::nextsimDataDir().string()
+            % grid_ptr->gridfile
+            ).str();
 
     std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -8171,9 +8171,8 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
 
     // projection
 	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % grid.dirname
+	std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+                              % Environment::nextsimMeshDir().string()
                               % grid.mpp_file
                               ).str();
 
@@ -8319,9 +8318,8 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
 
     // projection
 	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                              % Environment::nextsimDir().string()
-                              % grid.dirname
+	std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+                              % Environment::nextsimMeshDir().string()
                               % grid.mpp_file
                               ).str();
 
