@@ -1028,17 +1028,12 @@ FiniteElement::initOptAndParam()
     M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
 
     // define export path
-    M_export_path = Environment::nextsimDir().string() + "/matlab";
-    // change directory for outputs if the option "output.exporter_path" is not empty
-    if ( ! (vm["output.exporter_path"].as<std::string>()).empty() )
-    {
-        M_export_path = vm["output.exporter_path"].as<std::string>();
-        fs::path path(M_export_path);
+    M_export_path = vm["output.exporter_path"].as<std::string>();
+    fs::path output_path(M_export_path);
 
-        // create the output directory if it does not exist
-        if ( (!fs::exists(path)) && (M_comm.rank()==0) )
-            fs::create_directories(path);
-    }
+    // create the output directory if it does not exist
+    if ( (!fs::exists(output_path)) && (M_comm.rank()==0) )
+        fs::create_directories(output_path);
 
     nu0 = vm["dynamics.nu0"].as<double>();
     young = vm["dynamics.young"].as<double>();
@@ -1171,7 +1166,6 @@ FiniteElement::initOptAndParam()
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("target", setup::IceType::TARGET)
-        ("binary", setup::IceType::BINARY)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
@@ -1237,11 +1231,15 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
     M_mesh_basename = vm["mesh.filename"].as<std::string>();
-    M_mesh_filename = Environment::nextsimDir().string() + "/mesh/" + M_mesh_basename;
+    M_mesh_filename = (boost::format( "%1%/meshfile_links/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % M_mesh_basename
+            ).str();
     M_partitioned_mesh_filename = (boost::format( "%1%/par%2%%3%" )
             % M_export_path
             % M_comm.size()
-            % M_mesh_basename ).str();
+            % M_mesh_basename
+            ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>();
     M_mesh.setOrdering("bamg");
 
@@ -1271,7 +1269,10 @@ FiniteElement::initOptAndParam()
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
 {
-    std::string gmshgeofile = Environment::nextsimDir().string() + "/mesh/" + geofilename;
+    std::string gmshgeofile = (boost::format( "%1%/geo_files/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % geofilename
+            ).str();
 
     if (fs::exists(gmshgeofile))
     {
@@ -6704,7 +6705,7 @@ FiniteElement::updateDrifterPosition()
             std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
 
             // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-            M_osisaf_drifters[0] = Drifters("data", "ice_drift_nh_polstere-625_multi-oi.nc",
+            M_osisaf_drifters[0] = Drifters("ice_drift_nh_polstere-625_multi-oi.nc",
                                             "xc", "yc",
                                             "lat", "lon",
                                             M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
@@ -7455,15 +7456,13 @@ FiniteElement::writeRestart(std::string const& name_str)
 
         // === Start with the mesh ===
         // First the data
-        std::string directory = Environment::nextsimDir().string() + "/restart";
-        // change directory for outputs if the option "output.exporter_path" is not empty
-        if ( ! (vm["output.exporter_path"].as<std::string>()).empty() )
-            directory = vm["output.exporter_path"].as<std::string>() + "/restart";
+        // NB directory is never empty, due to the default of output.exporter_path
+        std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
 
         // create the output directory if it does not exist
-        fs::path path(directory);
-        if ( !fs::exists(path) )
-            fs::create_directories(path);
+        fs::path output_path(directory);
+        if ( !fs::exists(output_path) )
+            fs::create_directories(output_path);
 
         filename = (boost::format( "%1%/mesh_%2%.bin" )
                     % directory
@@ -7605,12 +7604,9 @@ FiniteElement::readRestart(std::string step)
     if (M_rank == 0)
     {
         // === Read in the mesh restart files ===
-        std::string restart_path;
-        if ( (vm["restart.input_path"].as<std::string>()).empty() )
-            //default restart path is $NEXTSIMDIR/restart
-            restart_path = Environment::nextsimDir().string()+"/restart";
-        else
-            restart_path = vm["restart.input_path"].as<std::string>();
+        std::string restart_path = vm["restart.input_path"].as<std::string>();
+        if ( restart_path.empty() )
+            throw std::runtime_error("need to define restart.input option if starting from restart");
 
         // Start with the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
@@ -8622,9 +8618,6 @@ FiniteElement::initIce()
         case setup::IceType::TARGET:
             this->targetIce();
             break;
-        case setup::IceType::BINARY:
-            this->binaryIce();
-            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -8936,69 +8929,6 @@ FiniteElement::targetIce()
     }
 }
 
-void
-FiniteElement::binaryIce()
-{
-    std::fstream input;
-    std::string filename;
-    int length;
-
-    // First concentration
-    filename = Environment::nextsimDir().string() + "/data/initConc.dat";
-    input.open(filename, std::fstream::in);
-
-    // get length of file:
-    input.seekg (0, input.end);
-    length = input.tellg();
-    input.seekg (0, input.beg);
-    if ( length != M_num_elements*sizeof(double) )
-        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
-                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
-
-    input.read((char*) &M_conc[0], M_num_elements*sizeof(double));
-    input.close();
-
-    // Then thickness
-    filename = Environment::nextsimDir().string() + "/data/initThick.dat";
-    input.open(filename, std::fstream::in);
-
-    // get length of file:
-    input.seekg (0, input.end);
-    length = input.tellg();
-    input.seekg (0, input.beg);
-    if ( length != M_num_elements*sizeof(double) )
-        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
-                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
-
-    input.read((char*) &M_thick[0], M_num_elements*sizeof(double));
-    input.close();
-
-    // Finally snow thickness
-    filename = Environment::nextsimDir().string() + "/data/initSnow.dat";
-    input.open(filename, std::fstream::in);
-
-    // get length of file:
-    input.seekg (0, input.end);
-    length = input.tellg();
-    input.seekg (0, input.beg);
-    if ( length != M_num_elements*sizeof(double) )
-        throw std::runtime_error("Couldn't read the correct number of elements from " + filename +
-                ". File length is " + std::to_string(length) + " while M_num_elements is " + std::to_string(M_num_elements) + ".\n");
-
-    input.read((char*) &M_snow_thick[0], M_num_elements*sizeof(double));
-    input.close();
-
-    // Make sure damage is zero and do something for thin ice
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        M_damage[i]=0.;
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
-            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
-        }
-    }
-}
 
 void
 FiniteElement::topazIce()
@@ -10574,9 +10504,8 @@ FiniteElement::outputDrifter(std::fstream& drifters_out)
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
+        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+                                  % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -10649,9 +10578,8 @@ FiniteElement::updateIABPDrifter()
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
+        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+                                  % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -10720,7 +10648,10 @@ FiniteElement::initIABPDrifter()
 {
     if (M_rank == 0)
     {
-        std::string filename = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
+        std::string filename = (boost::format( "%1%/other_data_links/%2%" )
+                                  % Environment::nextsimDataDir().string()
+                                  % "IABP_buoys.txt"
+                                  ).str();
         M_iabp_file.open(filename, std::fstream::in);
         if ( ! M_iabp_file.good() )
             throw std::runtime_error("File not found: " + filename);
@@ -10774,8 +10705,12 @@ FiniteElement::updateRGPSDrifters()
         std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
         double RGPS_time_init = Nextsim::from_date_time_string(time_str);
 
-        std::string filename = Environment::nextsimDir().string() + "/data/RGPS_" + time_str + ".txt";
-        M_rgps_drifters = Drifters(filename, M_mesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),RGPS_time_init);
+        std::string filename = (boost::format( "%1%/other_data_links/RGPS_%2%.txt" )
+            % Environment::nextsimDataDir().string()
+            % time_str
+            ).str();
+        M_rgps_drifters = Drifters(filename, M_mesh_root, M_conc_root,
+                vm["drifters.concentration_limit"].as<double>(), RGPS_time_init);
 
         M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
         M_rgps_drifters.appendNetCDF(M_current_time, M_mesh_root, M_UT_root);
@@ -11439,9 +11374,8 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
-        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << getEnv("NEXTSIMDIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "SIMDATADIR "  << getEnv("SIMDATADIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "SIMFORECASTDIR "  << getEnv("SIMFORECASTDIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "BOOST_INCDIR "  << getEnv("BOOST_INCDIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "BOOST_LIBDIR "  << getEnv("BOOST_LIBDIR") <<"\n";
@@ -11598,11 +11532,10 @@ FiniteElement::checkFields()
 
         // get lon, lat at test position
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
+        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
 
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
