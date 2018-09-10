@@ -7533,8 +7533,10 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, M_tsurf_thin_root, "M_tsurf_thin");
         }
 
-        if (M_use_iabp_drifters)
+        if (       M_use_iabp_drifters
+                && M_iabp_drifters.size()>0)
         {
+            // if drifters not initialised yet, don't try to write them
             std::vector<int> drifter_no(M_iabp_drifters.size());
             std::vector<double> drifter_x(M_iabp_drifters.size());
             std::vector<double> drifter_y(M_iabp_drifters.size());
