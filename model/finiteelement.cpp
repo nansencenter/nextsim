@@ -10426,7 +10426,9 @@ FiniteElement::initDrifters()
     if(M_use_equallyspaced_drifters)
         this->equallySpacedDrifter();
 
-    if(M_use_iabp_drifters)
+    if(M_use_iabp_drifters && !M_use_restart)
+        // if using restart, this function will have already been called
+        // causing a crash if we call it again
         this->initIABPDrifter();
 
     if(M_use_rgps_drifters)
