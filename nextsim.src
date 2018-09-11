@@ -12,12 +12,12 @@ echo export NEXTSIMDIR=`dirname $me`
 export NEXTSIMDIR=`dirname $me`
 
 echo " "
-echo export NEXTSIM_MESH_DIR=$NEXTSIMDIR/mesh
-export NEXTSIM_MESH_DIR=$NEXTSIMDIR/mesh
+echo export NEXTSIM_MESH_DIR=$NEXTSIMDIR/mesh/mesh_links
+export NEXTSIM_MESH_DIR=$NEXTSIMDIR/mesh/mesh_links
 
 echo " "
-echo export NEXTSIM_DATA_DIR=$NEXTSIMDIR/data
-export NEXTSIM_DATA_DIR=$NEXTSIMDIR/data
+echo export NEXTSIM_DATA_DIR=$NEXTSIMDIR/data/data_links
+export NEXTSIM_DATA_DIR=$NEXTSIMDIR/data/data_links
 
 echo " "
 echo export PYTHONPATH=$PYTHONPATH:$NEXTSIMTOOLS_ROOT_DIR
