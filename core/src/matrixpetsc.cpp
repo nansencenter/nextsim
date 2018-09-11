@@ -604,7 +604,7 @@ MatrixPetsc::printMatlab(std::string const& filename) const
     //std::cout<<"CHAR= " << filename.substr(filename.size()-2, filename.size()) <<"\n";
 
     std::string matfilename = Environment::nextsimDataDir().string()
-        + "/misc/" + filename;
+        + "/" + filename;
 
     fs::path path(matfilename);
     if ( !fs::exists(path) )

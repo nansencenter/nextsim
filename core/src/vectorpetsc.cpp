@@ -578,7 +578,7 @@ VectorPetsc::printMatlab(std::string const& filename) const
 		const_cast<VectorPetsc*>( this )->close();
 
     std::string vecfilename = Environment::nextsimDataDir().string()
-        + "/misc/" + filename;
+        + "/" + filename;
 
     fs::path path(vecfilename);
     if ( !fs::exists(path) )
