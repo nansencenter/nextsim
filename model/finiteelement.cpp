@@ -1231,7 +1231,7 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
     M_mesh_basename = vm["mesh.filename"].as<std::string>();
-    M_mesh_filename = (boost::format( "%1%/meshfile_links/%2%" )
+    M_mesh_filename = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % M_mesh_basename
             ).str();
