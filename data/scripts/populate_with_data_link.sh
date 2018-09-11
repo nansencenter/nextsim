@@ -1,12 +1,17 @@
 #! /bin/bash
 #
+# Make a directory called "data_links" in the current directory
+# and link all the input-data-related files needed by the model into this directory
+# These files are for forcings, initial conditions and topography (*.nc files),
+# and text files for the drifters
+
 # Link the files from ROOT_DATA_DIR (1st command line input to script)
 # which has all the needed data (eg /Data/sim/data on johansen)"
 # 
 # Usage: `basename $thisfile` [ROOT_DATA_DIR]"
 # Where ROOT_DATA_DIR is the directory where the data will be linked from"
 
-thisfile=$0
+thisfile=`readlink -f $0`
 thisdir=`dirname $thisfile`
 CWD=`pwd`
 
@@ -25,14 +30,12 @@ then
    exit 1
 fi
 
-NETCDF_LINKS_DIR=$CWD/netcdf_data_links
-mkdir -p $NETCDF_LINKS_DIR
-OTHER_LINKS_DIR=$CWD/other_data_links
-mkdir -p $OTHER_LINKS_DIR
+DATA_LINKS_DIR=$CWD/data_links
+mkdir -p $DATA_LINKS_DIR
+cd $DATA_LINKS_DIR
 echo "We link the data from $ROOT_DATA_DIR"; 
 
 # link the netcdf data
-cd $NETCDF_LINKS_DIR
 ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
 ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI/*.nc .
@@ -83,10 +86,12 @@ done
 # script links weekly files to 7 daily files
 $thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
 
-# lot of links so update the list of files
-ls -lh > FileList.txt
-
 # Other links (just so they don't get buried by all the .nc files)
 # - eg drifters
-cd $OTHER_LINKS_DIR
 ln -s $ROOT_DATA_DIR/IABP/IABP_buoys*.txt .
+
+# Link some other files (possibly for testing) (TODO needed?)
+ln -s $thisdir/../misc/* .
+
+# lot of links so update the list of files
+ls -lh > FileList.txt
