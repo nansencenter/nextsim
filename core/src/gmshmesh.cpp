@@ -48,7 +48,7 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_map_elements(),
     timer()
 {
-    M_mppfile = (boost::format( "%1%/mpp_files/%2%" )
+    M_mppfile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % Environment::vm()["mesh.mppfile"].as<std::string>()
             ).str();

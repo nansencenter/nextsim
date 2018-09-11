@@ -335,7 +335,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/mpp_files/%2%" )
+	std::string configfileNextsim = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
@@ -347,7 +347,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     if(dataset->grid.mpp_file!="")
     {
         mapx_class *map;
-	    std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+	    std::string configfile = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % dataset->grid.mpp_file
                               ).str();
@@ -649,7 +649,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
         else
             f_timestr ="";
-            filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%" )
+            filename = (boost::format( "%1%/%2%%3%%4%" )
                         % Environment::nextsimDataDir().string()
                         % dataset->grid.prefix
                         % f_timestr
@@ -815,7 +815,7 @@ ExternalData::transformData(Dataset *dataset)
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/mpp_files/%2%" )
+    std::string configfileNextsim = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();
@@ -1270,7 +1270,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/mpp_files/%2%" )
+	std::string configfileNextsim = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % Environment::vm()["mesh.mppfile"].as<std::string>()
                               ).str();

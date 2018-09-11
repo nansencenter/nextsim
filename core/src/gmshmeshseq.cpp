@@ -26,7 +26,7 @@ GmshMeshSeq::GmshMeshSeq()
     M_marker_names(),
     timer()
 {
-    M_mppfile = (boost::format( "%1%/mpp_files/%2%" )
+    M_mppfile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % Environment::vm()["mesh.mppfile"].as<std::string>()
             ).str();
@@ -45,7 +45,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {
-    M_mppfile = (boost::format( "%1%/mpp_files/%2%" )
+    M_mppfile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % Environment::vm()["mesh.mppfile"].as<std::string>()
             ).str();
@@ -61,7 +61,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
 {
-    M_mppfile = (boost::format( "%1%/mpp_files/%2%" )
+    M_mppfile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % Environment::vm()["mesh.mppfile"].as<std::string>()
             ).str();

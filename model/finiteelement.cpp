@@ -10508,7 +10508,7 @@ FiniteElement::outputDrifter(std::fstream& drifters_out)
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+        std::string configfile = (boost::format( "%1%/%2%" )
                                   % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
@@ -10582,7 +10582,7 @@ FiniteElement::updateIABPDrifter()
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+        std::string configfile = (boost::format( "%1%/%2%" )
                                   % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
@@ -10652,7 +10652,7 @@ FiniteElement::initIABPDrifter()
 {
     if (M_rank == 0)
     {
-        std::string filename = (boost::format( "%1%/other_data_links/%2%" )
+        std::string filename = (boost::format( "%1%/%2%" )
                                   % Environment::nextsimDataDir().string()
                                   % "IABP_buoys.txt"
                                   ).str();
@@ -10709,7 +10709,7 @@ FiniteElement::updateRGPSDrifters()
         std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
         double RGPS_time_init = Nextsim::from_date_time_string(time_str);
 
-        std::string filename = (boost::format( "%1%/other_data_links/RGPS_%2%.txt" )
+        std::string filename = (boost::format( "%1%/RGPS_%2%.txt" )
             % Environment::nextsimDataDir().string()
             % time_str
             ).str();
@@ -11536,7 +11536,7 @@ FiniteElement::checkFields()
 
         // get lon, lat at test position
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+        std::string configfile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % Environment::vm()["mesh.mppfile"].as<std::string>()
             ).str();
