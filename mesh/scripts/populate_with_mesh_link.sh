@@ -12,9 +12,8 @@
 # Usage: `basename $thisfile` [ROOT_MESH_DIR]"
 # Where ROOT_MESH_DIR is the directory where the data will be linked from"
 
-thisfile=$0
+thisfile=`readlink -f $0`
 thisdir=`dirname $thisfile`
-thisdir=`readlink -f $thisdir`
 CWD=`pwd`
 
 if [ $# -eq 0 ]
