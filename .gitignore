@@ -1,5 +1,5 @@
 # untracked files to ignore
-mesh/meshfile_links
+mesh/mesh_links
 *.m
 *.msh
 *.geo
