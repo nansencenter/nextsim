@@ -7477,7 +7477,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
         if(is_ec_fc)
     {
             //get filename
-            filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%" )
+            filename = (boost::format( "%1%/%2%%3%%4%" )
                     % Environment::nextsimDataDir().string()
                     % grid_ptr->prefix
                     % init_timestr
@@ -7491,7 +7491,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
             // also need current time for filename
             current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
 
-            filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%%5%" )
+            filename = (boost::format( "%1%/%2%%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
                     % current_timestr
                     % grid_ptr->prefix
@@ -7551,7 +7551,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                 "This option for grid_ptr->dataset_frequency is not implemented: "
                 + grid_ptr->dataset_frequency);
 
-    filename = (boost::format( "%1%/netcdf_data_links/%2%%3%%4%" )
+    filename = (boost::format( "%1%/%2%%3%%4%" )
                     % Environment::nextsimDataDir().string()
                     % grid_ptr->prefix
                     % current_timestr
@@ -7581,7 +7581,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
     else
-    filename = (boost::format( "%1%/netcdf_data_links/%2%" )
+    filename = (boost::format( "%1%/%2%" )
             % Environment::nextsimDataDir().string()
             % grid_ptr->gridfile
             ).str();
@@ -8171,7 +8171,7 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
 
     // projection
 	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+	std::string configfile = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % grid.mpp_file
                               ).str();
@@ -8318,7 +8318,7 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
 
     // projection
 	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/mpp_files/%2%" )
+	std::string configfile = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % grid.mpp_file
                               ).str();
