@@ -11334,7 +11334,7 @@ FiniteElement::initSidfexDrifters()
 {
     if (M_rank == 0)
     {
-        std::string filename = Environment::nextsimDataDir().string()
+        std::string filename = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
         M_sidfex_drifters = Drifters(filename, M_mesh_root, M_UM_root, M_conc_root,
                 vm["drifters.concentration_limit"].as<double>(), M_current_time);
