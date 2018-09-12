@@ -9229,96 +9229,65 @@ FiniteElement::topazForecastAmsr2Ice()
     }
 }//topazForecastAmsr2Ice
 
+//! Get the maximum and minimum ice concentration corresponding to the original
+//! NIC ice charts
+//! called by <FiniteElement::topazForecastAmsr2OsisafNicIce>() and
+//! <FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce>()
 void
-FiniteElement::concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic)
+FiniteElement::concBinsNic(double &thin_conc_obs_min, double &thin_conc_obs_max,
+        double ci, bool use_weekly_nic)
 {
 
-    double alpha_up = 0.;
-    if(!use_weekly_nic)
+
+    if(ci<=0.)
     {
-        if(ci<=0.45)
+        thin_conc_obs_min = 0.;
+        thin_conc_obs_max = 0.;
+    }
+    else if(!use_weekly_nic)
+    {
+        if(ci<=0.45) // CT18
         {
-            // CT18
-            // .45: .1 - .8
-            alpha_up=(0.45-ci)/0.45;
-            thin_conc_obs_min=0.*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.8*(1-alpha_up);
+            thin_conc_obs_min = 0.1;
+            thin_conc_obs_max = 0.8;
         }
-        else if(ci<=0.9)
+        else if(ci<=0.9) // CT81
         {
-            // CT81
-            // .9: .8 - 1.
-            //alpha_up=(0.9-ci)/0.45; # 0 anyway
-            alpha_up=(0.9-ci)/0.9;
-            thin_conc_obs_min=0.1*alpha_up+0.8*(1-alpha_up);
-            thin_conc_obs_max=0.8*alpha_up+1.0*(1-alpha_up);
-        }
-        else if(ci<=1.)
-        {
-            thin_conc_obs_min=0.8;
-            thin_conc_obs_max=1.;
-        }
-        else // should not happen
-        {
-            thin_conc_obs_min=1.;
-            thin_conc_obs_max=1.;
+            thin_conc_obs_min = 0.8;
+            thin_conc_obs_max = 1.;
         }
     }
     else
     {
-        if(ci<=0.05) // CT01
+        if(ci<=0.2) // CT13
         {
-            // 0 - .1
-            alpha_up=(0.05-ci)/(0.05-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.1*(1-alpha_up);
+            thin_conc_obs_min = 0.1;
+            thin_conc_obs_max = 0.3;
         }
-        else if(ci<=0.10) // CT02
+        else if(ci<=0.30) // CT24
         {
-            // 0 - .2
-            alpha_up=(0.10-ci)/(0.10-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.0*(1-alpha_up);
-            thin_conc_obs_max=0.0*alpha_up+0.2*(1-alpha_up);
-        }
-        else if(ci<=0.25) // CT14, CT13, CT24
-        {
-            // .1 - .4
-            alpha_up=(0.25-ci)/(0.25-0.);
-            thin_conc_obs_min=0.0*alpha_up+0.1*(1-alpha_up);
-            thin_conc_obs_max=0.1*alpha_up+0.4*(1-alpha_up);
+            thin_conc_obs_min = 0.2;
+            thin_conc_obs_max = 0.4;
         }
         else if(ci<=0.50) // CT46
         {
-            // .4 - .6
-            alpha_up=(0.50-ci)/(0.50-0.25);
-            thin_conc_obs_min=0.1*alpha_up+0.40*(1-alpha_up);
-            thin_conc_obs_max=0.4*alpha_up+0.60*(1-alpha_up);
+            thin_conc_obs_min = 0.4;
+            thin_conc_obs_max = 0.6;
         }
         else if(ci<=0.70) //CT68
         {
-            // .6 - .8
-            alpha_up=(0.70-ci)/(0.70-0.50);
-            thin_conc_obs_min=0.40*alpha_up+0.60*(1-alpha_up);
-            thin_conc_obs_max=0.60*alpha_up+0.80*(1-alpha_up);
+            thin_conc_obs_min = 0.6;
+            thin_conc_obs_max = 0.8;
         }
         else if(ci<=0.90) // CT81
         {
-            // .8 - 1.
-            alpha_up=(0.90-ci)/(0.90-0.70);
-            thin_conc_obs_min=0.60*alpha_up+0.80*(1-alpha_up);
-            thin_conc_obs_max=0.80*alpha_up+1.0*(1-alpha_up);
+            thin_conc_obs_min = 0.8;
+            thin_conc_obs_max = 1.0;
         }
         else if(ci<=1.) // CT92
         {
-            // .9 - 1.
-            alpha_up=(1.0-ci)/(1.0-0.9);
-            thin_conc_obs_min=0.8*alpha_up+1.0*(1-alpha_up);
-            thin_conc_obs_max=1.0*alpha_up+1.0*(1-alpha_up);
-        }
-        else // should not happen
-        {
-            thin_conc_obs_min=1.;
-            thin_conc_obs_max=1.;
+            thin_conc_obs_min = 0.9;
+            thin_conc_obs_max = 1.0;
         }
     }
 }//concBinsNic
