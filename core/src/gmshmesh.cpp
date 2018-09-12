@@ -8,6 +8,7 @@
 
 #include <gmshmesh.hpp>
 #include <boost/mpi.hpp>
+#include <boost/format.hpp>
 #include <boost/serialization/string.hpp>
 #include <vector>
 #include <string>
@@ -47,7 +48,10 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_map_elements(),
     timer()
 {
-    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+    M_mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
 }
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
@@ -811,8 +815,7 @@ GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -1735,8 +1738,7 @@ std::vector<double>
 GmshMesh::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -1763,8 +1765,7 @@ std::vector<double>
 GmshMesh::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -1791,8 +1792,7 @@ std::vector<double>
 GmshMesh::lon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -1819,8 +1819,7 @@ std::vector<double>
 GmshMesh::lat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);

@@ -10,10 +10,21 @@ CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthr
 ifeq ($(KERNEL),Linux)
 	#CXX = g++-4.8
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
-	CXXFLAGS += -I. -I $(NEXTSIMDIR)/core/include -I /usr/lib/openmpi/include -I $(PETSC_DIR)/include #-I headers
-	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
+	CXXFLAGS += -I. -I $(NEXTSIMDIR)/core/include  -I $(PETSC_DIR)/include #-I headers
+	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
+	CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+	#CXXFLAGS += -I $(NETCDF_DIR)/include
+	#LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+
+	CXXFLAGS += -I $(BOOST_INCDIR)
+	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR) -L $(BOOST_LIBDIR)
+	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
+
+	CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
+
 else
 
 	ifeq ($(CXX),clang)
