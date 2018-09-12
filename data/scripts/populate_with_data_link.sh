@@ -63,15 +63,19 @@ for year in {2002..2011}
 do
      ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/$year/*.nc .
 done
-for year in {2005..2017}
+
+YEAR=`date "+%Y"`
+for year in {2005..$YEAR}
 do
      ln -s $ROOT_DATA_DIR/OSISAF_ice_type/$year/*/*.nc .
 done
-for year in {2009..2017}
+
+for year in {2009..$YEAR}
 do
      ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/$year/*/*.nc .
 done
-for year in {2005..2017}
+
+for year in {2005..$YEAR}
 do
    TMP_DATADIR=$ROOT_DATA_DIR/OSISAF_ice_conc/polstere/${year}_nh_polstere
    
