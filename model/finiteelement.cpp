@@ -49,14 +49,6 @@ FiniteElement::initMesh()
 void
 FiniteElement::distributedMeshProcessing(bool start)
 {
-    // if (M_mesh_filename.substr(3,1) != std::to_string(Environment::comm().size()))
-    // {
-    //     std::cout<<"the number of processor cores does not match the number of mesh partitions: "
-    //              << std::to_string(Environment::comm().size()) <<" != " << M_mesh_filename.substr(3,1) <<"\n";
-
-    //     throw std::logic_error("invalid number of processor cores or number of mesh partitions");
-    // }
-
     M_comm.barrier();
 
     if (!start)
@@ -67,14 +59,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_mesh.setOrdering("gmsh");
 
     if (M_rank == 0)
-    {
-        //LOG(INFO) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-        std::cout << "[INFO]: " <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-    }
+        LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
     timer["meshread"].first.restart();
-    M_mesh.readFromFile(M_mesh_filename, M_mesh_fileformat);
-    //M_mesh.readFromFileBinary(M_mesh_filename);
+    M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
     if (M_rank == 0)
         std::cout<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
 
@@ -290,6 +278,7 @@ FiniteElement::rootMeshProcessing()
     if (M_rank == 0)
     {
 
+        // read the original input mesh
         M_mesh_root.setOrdering("gmsh");
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
@@ -325,7 +314,8 @@ FiniteElement::rootMeshProcessing()
         }
         else
         {
-            throw std::runtime_error("No \"coast\" marker in mesh file. Check your input file (" + M_mesh_filename + ")");
+            throw std::runtime_error(
+                    "No \"coast\" marker in mesh file. Check your input file (" + M_mesh_filename + ")");
         }
 
         for (auto it=M_mesh_root.edges().begin(), end=M_mesh_root.edges().end(); it!=end; ++it)
@@ -412,8 +402,7 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
-            M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
+            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
@@ -428,33 +417,26 @@ FiniteElement::rootMeshProcessing()
             {
                 // Environment::logMemoryUsage("before gmodel...");
                 M_mesh_root.initGModel();
-                M_mesh_root.writeToGModel(M_mesh_filename);
+                M_mesh_root.writeToGModel();
                 // Environment::logMemoryUsage("before after...");
             }
             else if (M_partition_space == mesh::PartitionSpace::DISK)
-            {
-                M_mesh_root.writeTofile(M_mesh_filename);
-            }
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
             //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
             std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             chrono.restart();
-            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
             //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
     }
-    else
-    {
-        // Add information on the number of partition to mesh filename
-        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-        // LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_mesh_filename <<"\n";
-    }
 
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
-}
+}//rootMeshProcessing
 
 void
 FiniteElement::rootMeshRenumbering()
@@ -1235,7 +1217,12 @@ FiniteElement::initOptAndParam()
     M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second;
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
-    M_mesh_filename = vm["mesh.filename"].as<std::string>();
+    M_mesh_basename = vm["mesh.filename"].as<std::string>();
+    M_mesh_filename = Environment::nextsimDir().string() + "/mesh/" + M_mesh_basename;
+    M_partitioned_mesh_filename = (boost::format( "%1%/par%2%%3%" )
+            % M_export_path
+            % M_comm.size()
+            % M_mesh_basename ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>();
     M_mesh.setOrdering("bamg");
 
@@ -3855,15 +3842,6 @@ FiniteElement::regrid(bool step)
 
             // save mesh (only root process)
 
-#if 0
-            std::string src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            std::string desc_fname = Environment::nextsimDir().string() + "/mesh/" + "prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_prev_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
             std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
@@ -3874,25 +3852,16 @@ FiniteElement::regrid(bool step)
             timer["savemesh"].first.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
-            {
-                M_mesh_root.writeToGModel(M_mesh_filename);
-            }
+                M_mesh_root.writeToGModel();
             else if (M_partition_space == mesh::PartitionSpace::DISK)
-            {
-                M_mesh_root.writeTofile(M_mesh_filename);
-            }
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
             std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
-
-#if 0
-            src_fname = Environment::nextsimDir().string() + "/mesh/" + M_mesh_filename;
-            desc_fname = Environment::nextsimDir().string() + "/mesh/" + "seq_" + M_mesh_filename;
-            fs::copy_file(fs::path(src_fname), fs::path(desc_fname), fs::copy_option::overwrite_if_exists);
-#endif
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
             std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
 
             // Environment::logMemoryUsage("after partitioning...");
@@ -6158,13 +6127,12 @@ FiniteElement::init()
             pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
         M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-        if(fmod(pcpt*time_step,output_time_step) == 0)
-        {
+        //write fields from restart to file (needed?)
+        if(M_rank==0)
             LOG(DEBUG) <<"export starts\n";
-            //this->exportResults((int) pcpt*time_step/output_time_step);
-            this->exportResults("restart");
+        this->exportResults("restart", true, true, true);
+        if(M_rank==0)
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        }
     }
     else
     {
@@ -6232,11 +6200,12 @@ FiniteElement::init()
         this->checkDrifters();
     }
 
-    // output restart for debugging
-    if(vm["output.datetime_in_filename"].as<bool>())
-        this->writeRestart(pcpt, M_current_time);
-    else
-        this->writeRestart(pcpt, "post_init");
+    // Check if we are doing any outputs now
+    // 1. moorings:
+    // - check if we are adding snapshot to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    this->checkOutputs(true);
 }//init
 
 // Take one time step
@@ -6246,28 +6215,6 @@ FiniteElement::step()
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
-
-#if 1
-    if (pcpt == 0)
-    {
-        // Write results/restart before regrid - useful for debugging
-        // NB this only helps if starting from a restart,
-        // otherwise regridding has already happened in init(),
-        // so won't happen this time step
-        // TODO just write restart in init() as well?
-        LOG(DEBUG) <<"first export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = 0;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
-        // this->writeRestart(pcpt, 0); // Write a restart before regrid - useful for debugging
-        LOG(DEBUG) <<"first export done\n";
-    }
-#endif
-
 
     // remeshing and remapping of the prognostic variables
 
@@ -6392,7 +6339,7 @@ FiniteElement::step()
                                    % pcpt
                                    % mesh_adapt_step ).str();
 
-            this->exportResults(tmp_string3);
+            this->exportResults(tmp_string3, true, true, true);
 
             had_remeshed=false;
         }
@@ -6430,58 +6377,70 @@ FiniteElement::step()
     ++pcpt;
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
 
-#if 1
-    //======================================================================
-    // Output (export and moorings)
-    //======================================================================
+    // 1. moorings:
+    // - update fields on grid if outputting mean fields
+    // - check if we are adding records to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    // TODO also add drifter check here
+    // - if we move at restart output time we can remove M_UT from
+    //   restart files (then it would always be 0)
+    this->checkOutputs(false);
+ }//step
 
-    if(fmod(pcpt*time_step,output_time_step) == 0)
+void
+FiniteElement::checkOutputs(bool const& at_init_time)
+{
+    // 1. moorings:
+    // - update fields on grid if outputting mean fields
+    // - check if we are adding records to netcdf file
+    // 2. check if writing outputs, and do it if it's time
+    // 3. check if writing restart, and do it if it's time
+    // TODO also add drifter check here
+    // - if we move at restart output time we can remove M_UT from
+    //   restart files (then it would always be 0)
+
+    if(M_use_moorings)
+    {
+        if(!at_init_time)
+            this->updateMoorings();
+        else if(    M_moorings_snapshot
+                && fmod(pcpt*time_step, mooring_output_time_step) == 0 )
+        {
+            // write initial conditions to moorings file if using snapshot option
+            // (only if at the right time though)
+
+            // - set the fields on the mesh
+            this->updateMeans(M_moorings, 1.);
+
+            // - interpolate to the grid and write them to the netcdf file
+            this->mooringsAppendNetcdf(M_current_time);
+        }
+    }
+
+    // check if we are outputting results file
+    if(fmod(pcpt*time_step, output_time_step) == 0)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->exportResults(M_current_time);
-        else
-        {
-            int ostep = pcpt*time_step/output_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->exportResults(ostep);
-        }
+        this->exportResults(true, true, true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
-
-    if ( M_use_moorings )
-    {
-        this->updateMoorings();
-    }
-
-    // check if writing restart each timestep
-    bool write_restart = vm["restart.debugging"].as<bool>();
-    if(!write_restart)
-        // else check if we've reached the restart timestep
-        write_restart = (fmod(pcpt*time_step,restart_time_step) == 0);
-    if (write_restart)
-    {
-        std::cout << "Writing restart file after time step " <<  pcpt-1 << "\n";
-        if (vm["output.datetime_in_filename"].as<bool>())
-            this->writeRestart(pcpt, M_current_time);
-        else
-        {
-            int rstep = pcpt*time_step/restart_time_step;//need to declare as an int, to make sure it's not interpreted as a double
-            this->writeRestart(pcpt, rstep );
-        }
-    }
-#endif
 
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
-        // 2. Check if need to:
+        // 2. Check if we need to:
         //  i.   move any drifters
         //  ii.  input &/or output drifters
         //  iii. init any drifters
         this->checkDrifters();
     }
-}//step
+
+    // check if writing restart
+    if(this->writingRestart())
+        this->writeRestart();
+}//checkOutputs
 
 // This is the main working function, called from main.cpp (same as perform_simul in the old code)
 void
@@ -6538,7 +6497,7 @@ FiniteElement::run()
             is_running = false;
     }
 
-    this->exportResults("final");
+    this->exportResults("final", true, true, true);
 
     this->finalise();
 
@@ -6910,6 +6869,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 void
 FiniteElement::initMoorings()
 {
+
+    if (       (!M_moorings_snapshot) 
+            && fmod(pcpt*time_step, mooring_output_time_step) != 0 )
+    {
+        std::string msg = "FE::initMoorings: Start time (or restart time) incompatible with\n";
+        msg += "mooring output time step (from moorings.output_timestep option)\n";
+        msg += "(when moorings.snapshot = false).";
+        throw std::runtime_error(msg);
+    }
+
     bool use_ice_mask = false;
 
     // Output variables - elements
@@ -7112,9 +7081,9 @@ FiniteElement::initMoorings()
     {
         double output_time;
         if ( M_moorings_snapshot )
-            // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time;
         else
+            // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time - mooring_output_time_step/86400/2;
 
         std::string filename_root;
@@ -7131,28 +7100,31 @@ FiniteElement::initMoorings()
 void
 FiniteElement::updateMoorings()
 {
-    // If we're taking snapshots the we only call updateMeans before writing to file
+    // If we're taking snapshots then we only call updateMeans before writing to file
+    // - otherwise we update every time step
     if ( !M_moorings_snapshot )
         this->updateMeans(M_moorings, mooring_time_factor);
 
-    if ( fmod(pcpt*time_step,mooring_output_time_step) == 0 )
+    //check if we are outputting
+    if ( fmod(pcpt*time_step, mooring_output_time_step) == 0 )
     {
-        double output_time;
+        double output_time = M_current_time;
         if ( M_moorings_snapshot )
         {
             // Update the snapshot
             this->updateMeans(M_moorings, 1.);
-            // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time;
         }
         else
         {
+            // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time - mooring_output_time_step/86400/2;
         }
 
         // If it's a new day we check if we need a new file
         double not_used;
-        if ( (M_rank==0||M_moorings_parallel_output) && (M_moorings_file_length != GridOutput::fileLength::inf) && (modf(output_time, &not_used) < time_step*86400) )
+        if (       (M_rank==0 || M_moorings_parallel_output)
+                && (M_moorings_file_length != GridOutput::fileLength::inf)
+                && (modf(output_time, &not_used) < time_step*86400) )
         {
             std::string filename_root;
             if ( M_moorings_parallel_output )
@@ -7180,48 +7152,80 @@ FiniteElement::updateMoorings()
             }
         }
 
-        M_moorings.updateGridMean(M_mesh);
+        // get data on grid and write to netcdf
+        // (gathering to master if necessary)
+        this->mooringsAppendNetcdf(output_time);
 
-        if ( ! M_moorings_parallel_output )
-        {
-            for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
-            {
-                std::vector<double> result;
-                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
-                if (M_rank==0) it->data_grid = result;
-            }
-            for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
-            {
-                std::vector<double> result;
-                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
-                if (M_rank==0) it->data_grid = result;
-            }
-        }
-
-        if ( (M_rank==0) || M_moorings_parallel_output )
-            M_moorings.appendNetCDF(M_moorings_file, output_time);
-
-        M_moorings.resetMeshMean(M_mesh);
-        M_moorings.resetGridMean();
-    }
+    }//outputting
 }//updateMoorings
 
 void
-FiniteElement::writeRestart(int pcpt, int step)
+FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
-    std::string tmp = (boost::format( "%1%" ) % step).str();
-    this->writeRestart(pcpt,tmp);
-}
+    // update data on grid
+    M_moorings.updateGridMean(M_mesh);
+
+    if ( ! M_moorings_parallel_output )
+    {
+        //gather fields to root processor if not using parallel output
+        for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            if (M_rank==0) it->data_grid = result;
+        }
+        for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            if (M_rank==0) it->data_grid = result;
+        }
+    }
+
+    //append to netcdf
+    if ( (M_rank==0) || M_moorings_parallel_output )
+        M_moorings.appendNetCDF(M_moorings_file, output_time);
+
+    //reset means on mesh and grid
+    M_moorings.resetMeshMean(M_mesh);
+    M_moorings.resetGridMean();
+}//mooringsAppendNetcdf
+
+
+bool
+FiniteElement::writingRestart()
+{
+    //check if it's time to write a restart
+    if(!vm["restart.write_restart"].as<bool>())
+        return false;
+    else if(vm["restart.debugging"].as<bool>())
+        return true;
+    else if ( fmod(pcpt*time_step, restart_time_step) == 0)
+        return true;
+    else
+        return false;
+}//writingRestart
+
 
 void
-FiniteElement::writeRestart(int pcpt, double date_time)
+FiniteElement::writeRestart()
 {
-    std::string tmp = to_date_time_string_for_filename(date_time);
-    this->writeRestart(pcpt,tmp);
-}
+    //determine name to passed in to writeRestart
+    std::string name_str;
+    if (vm["output.datetime_in_filename"].as<bool>())
+        name_str = to_date_time_string_for_filename(M_current_time);
+    else if(vm["restart.debugging"].as<bool>())
+        name_str = (boost::format( "%1%" ) % pcpt).str();
+    else
+    {
+        int rstep = pcpt*time_step/restart_time_step;
+        name_str = (boost::format( "%1%" ) % rstep).str();
+    }
+    this->writeRestart(name_str);
+}//writeRestart
 
 void
-FiniteElement::writeRestart(int pcpt, std::string step)
+FiniteElement::writeRestart(std::string const& name_str)
 {
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -7449,7 +7453,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
 
         filename = (boost::format( "%1%/mesh_%2%.bin" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
         if ( ! meshbin.good() )
@@ -7460,7 +7464,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
         if ( ! meshrecord.good() )
@@ -7472,7 +7476,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // First the data
         filename = (boost::format( "%1%/field_%2%.bin" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
         std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
         if ( ! outbin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
@@ -7556,7 +7560,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
         if ( ! outrecord.good() )
@@ -7565,7 +7569,7 @@ FiniteElement::writeRestart(int pcpt, std::string step)
         exporter.writeRecord(outrecord);
         outrecord.close();
     }
-}
+}//writeRestart
 
 int
 FiniteElement::readRestart(int step)
@@ -7586,19 +7590,13 @@ FiniteElement::readRestart(std::string step)
 
     if (M_rank == 0)
     {
-        M_mesh_filename = (boost::format( "par%1%%2%" ) % M_comm.size() % M_mesh_filename ).str();
-
         // === Read in the mesh restart files ===
         std::string restart_path;
         if ( (vm["restart.input_path"].as<std::string>()).empty() )
-        {
             //default restart path is $NEXTSIMDIR/restart
             restart_path = Environment::nextsimDir().string()+"/restart";
-        }
         else
-        {
             restart_path = vm["restart.input_path"].as<std::string>();
-        }
 
         // Start with the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
@@ -7882,20 +7880,17 @@ FiniteElement::partitionMeshRestart()
         timer["savemesh"].first.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
-        {
-            M_mesh_root.writeToGModel(M_mesh_filename);
-        }
+            M_mesh_root.writeToGModel();
         else if (M_partition_space == mesh::PartitionSpace::DISK)
-        {
-            M_mesh_root.writeTofile(M_mesh_filename);
-        }
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
 
         std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
         timer["meshpartition"].first.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
-        M_mesh_root.partition(M_mesh_filename,M_partitioner,M_partition_space, M_mesh_fileformat);
+        M_mesh_root.partition(M_partitioned_mesh_filename,
+                M_partitioner, M_partition_space, M_mesh_fileformat);
         std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
     }
 
@@ -9695,9 +9690,9 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         if( (hi>0.) && (M_conc[i])>0.2 )
         {
 
-            if(M_mesh_filename.find("kara") != std::string::npos)
+            if(M_mesh_basename.find("kara") != std::string::npos)
             {
-                LOG(DEBUG) <<"Type information is not used for the kara mesh, "
+                LOG(DEBUG) <<"Type information is not used for the kara meshes, "
                     <<"we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 hi*=thickfac_FYI;
@@ -9835,9 +9830,10 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         if( (hi>0.) && (M_conc[i])>0.2 )
         {
 
-            if(M_mesh_filename.find("kara") != std::string::npos)
+            if(M_mesh_basename.find("kara") != std::string::npos)
             {
-                LOG(DEBUG) <<"Type information is not used for the kara mesh, we assume there is only FYI\n";
+                LOG(DEBUG) <<"Type information is not used for the kara meshes,"
+                    << " we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 //M_thick[i]=thick_FYI;
                 hi *= thickfac_FYI;
@@ -11631,9 +11627,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"Previous  NumTriangles = "<< M_mesh.numTriangles() <<"\n";
 
     M_mesh_previous_root = M_mesh_root;
-    //M_mesh_root = mesh_type_root(mesh_nodes,mesh_edges,mesh_triangles);
-    M_mesh_root.update(mesh_nodes,mesh_triangles);
-    //M_mesh.writeTofile("out.msh");
+    M_mesh_root.update(mesh_nodes, mesh_triangles);
 
     LOG(DEBUG) <<"\n";
     LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
@@ -11744,32 +11738,38 @@ FiniteElement::createGraph()
 }
 
 void
-FiniteElement::exportResults(int step, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
-    //define name_str from step
-    std::string name_str    = (boost::format( "%1%" )
-                               % step ).str();
+    // determine the filename of the output files.
+    // if output.datetime_in_filename = false,
+    //   an integer "output_step_num" goes into the filename
+    // else,
+    //   filename is [mesh,field]_%Y%m%dT%H%M%SZ.[bin,dat]
+
+    std::string name_str;
+    if (vm["output.datetime_in_filename"].as<bool>())
+        name_str = to_date_time_string_for_filename(M_current_time);
+    else
+    {
+        int const output_step_num = pcpt*time_step/output_time_step;
+        name_str = (boost::format( "%1%" )
+                               % output_step_num ).str();
+    }
 
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }
 
 void
-FiniteElement::exportResults(double date_time, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(std::string const& name_str, bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
-    //define name_str from date_time
-    std::string name_str = to_date_time_string_for_filename(date_time);
-    this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
-}
-
-void
-FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool export_fields, bool apply_displacement)
-{
-    //define filenames from iname_str
-    std::string meshfile    = (boost::format( "%1%/mesh_%2%" )
+    //define filenames from name_str
+    std::string meshfile = (boost::format( "%1%/mesh_%2%" )
                                % M_export_path
                                % name_str ).str();
 
-    std::string fieldfile   = (boost::format( "%1%/field_%2%" )
+    std::string fieldfile = (boost::format( "%1%/field_%2%" )
                                % M_export_path
                                % name_str ).str();
 
@@ -11778,7 +11778,8 @@ FiniteElement::exportResults(std::string const& name_str, bool export_mesh, bool
 }
 
 void
-FiniteElement::exportResults(std::vector<std::string> const& filenames, bool export_mesh, bool export_fields, bool apply_displacement)
+FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
+        bool const& export_fields, bool const& apply_displacement)
 {
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);

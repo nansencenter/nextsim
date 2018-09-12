@@ -76,14 +76,13 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
 // }
 
 void
-GmshMeshSeq::readFromFile(std::string const& filename)
+GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 {
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
     std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
 
-    std::ifstream __is ( gmshmshfile.c_str() );
+    std::ifstream gmshfile ( gmshmshfile.c_str() );
 
-    if ( !__is.is_open() )
+    if ( !gmshfile.is_open() )
     {
         std::ostringstream ostr;
         std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
@@ -92,7 +91,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
     }
 
     char __buf[256];
-    __is >> __buf;
+    gmshfile >> __buf;
 
     std::string theversion;
 
@@ -101,7 +100,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
     if (std::string( __buf ) == "$MeshFormat")
     {
         int format, size;
-        __is >> theversion >> format >> size;
+        gmshfile >> theversion >> format >> size;
         std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
             " size of double: " << size << "\n";
 
@@ -109,25 +108,25 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
         version = boost::lexical_cast<double>( theversion );
 
-        __is >> __buf;
+        gmshfile >> __buf;
 
         ASSERT(std::string( __buf ) == "$EndMeshFormat","invalid file format entry");
 
-        __is >> __buf;
+        gmshfile >> __buf;
 
         std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
 
         if ( std::string( __buf ) == "$PhysicalNames" )
         {
             int nnames;
-            __is >> nnames;
+            gmshfile >> nnames;
 
             for ( int n = 0; n < nnames; ++n )
             {
                 int id, topodim;
                 std::string name;
 
-                __is >> topodim >> id >> name;
+                gmshfile >> topodim >> id >> name;
 
                 boost::trim( name );
                 boost::trim_if( name,boost::is_any_of( "\"" ) );
@@ -138,10 +137,10 @@ GmshMeshSeq::readFromFile(std::string const& filename)
                 M_marker_names.insert(std::make_pair(name,marker_data));
             }
 
-            __is >> __buf;
+            gmshfile >> __buf;
             ASSERT(std::string( __buf ) == "$EndPhysicalNames","invalid file format entry");
 
-            __is >> __buf;
+            gmshfile >> __buf;
         }
     }
 
@@ -158,7 +157,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
     bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
     unsigned int __n;
-    __is >> __n;
+    gmshfile >> __n;
 
     M_num_nodes = __n;
 
@@ -172,7 +171,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
     {
         int id = 0;
 
-        __is >> id
+        gmshfile >> id
              >> coords[0]
              >> coords[1]
              >> coords[2];
@@ -181,7 +180,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
         M_nodes[id-1].coords = coords;
     }
 
-    __is >> __buf;
+    gmshfile >> __buf;
     //std::cout << "buf: "<< __buf << "\n";
 
     // make sure that we have read all the points
@@ -190,12 +189,12 @@ GmshMeshSeq::readFromFile(std::string const& filename)
 
     // Read ELEMENTS
 
-    __is >> __buf;
+    gmshfile >> __buf;
 
     ASSERT(std::string( __buf ) == "$Elements","invalid elements string");
 
     int numElements;
-    __is >> numElements;
+    gmshfile >> numElements;
 
     //M_num_elements = numElements;
 
@@ -211,14 +210,14 @@ GmshMeshSeq::readFromFile(std::string const& filename)
         int number, type, physical = 0, elementary = 0, numVertices;
         int numTags;
 
-        __is >> number  // elm-number
+        gmshfile >> number  // elm-number
              >> type // elm-type
              >> numTags; // number-of-tags
 
         for(int j = 0; j < numTags; j++)
         {
             int tag;
-            __is >> tag;
+            gmshfile >> tag;
             if(j == 0) physical = tag;
             else if(j == 1) elementary = tag;
         }
@@ -230,7 +229,7 @@ GmshMeshSeq::readFromFile(std::string const& filename)
         std::vector<int> indices(numVertices);
         for(int j = 0; j < numVertices; j++)
         {
-            __is >> indices[j];
+            gmshfile >> indices[j];
             // check
             //indices[j] = indices[j]-1;
         }
@@ -300,75 +299,73 @@ GmshMeshSeq::readFromFile(std::string const& filename)
     }
 
     // make sure that we have read everything
-    __is >> __buf;
+    gmshfile >> __buf;
 
     ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
 
     // we are done reading the MSH file
-}
+}//readFromFile
 
 void
-GmshMeshSeq::writeTofile(std::string const& filename)
+GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
 {
-    std::string gmshmshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
     std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
 
-    if (gmshfile.is_open())
-    {
-        gmshfile << "$MeshFormat\n";
-        gmshfile << "2.2 0 8\n";
-        gmshfile << "$EndMeshFormat\n";
-
-        gmshfile << "$Nodes\n";
-        gmshfile << M_num_nodes << "\n";
-
-        int node = 0;
-        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-        {
-            gmshfile << node + 1
-                     << "  " << it->coords[0]
-                     << "  " << it->coords[1]
-                     << "  0.0\n";
-
-            ++node;
-        }
-        gmshfile << "$EndNodes\n";
-
-
-        int element_type = 2;
-        int tag_num = 2;
-        int tag1 = 1;
-        int tag2 = 0;
-
-        gmshfile << "$Elements\n";
-        gmshfile << M_num_triangles << "\n";
-
-        int element = 0;
-        for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
-        {
-            gmshfile << element + 1
-                     << "  " << element_type
-                     << "  " << tag_num
-                     << "  " << tag1
-                     << "  " << tag2;
-
-            for (int i = 0; i < 3; i++ )
-            {
-                gmshfile << "  " << it->indices[i];
-            }
-            gmshfile << "\n";
-
-            ++element;
-        }
-        gmshfile << "$EndElements\n";
-    }
-    else
+    if (!gmshfile.is_open())
     {
         std::cout << "Cannot open " << gmshmshfile  << "\n";
         std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
         std::abort();
     }
-}
+
+    gmshfile << "$MeshFormat\n";
+    gmshfile << "2.2 0 8\n";
+    gmshfile << "$EndMeshFormat\n";
+
+    gmshfile << "$Nodes\n";
+    gmshfile << M_num_nodes << "\n";
+
+    int node = 0;
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        gmshfile << node + 1
+                 << "  " << it->coords[0]
+                 << "  " << it->coords[1]
+                 << "  0.0\n";
+
+        ++node;
+    }
+    gmshfile << "$EndNodes\n";
+
+
+    int element_type = 2;
+    int tag_num = 2;
+    int tag1 = 1;
+    int tag2 = 0;
+
+    gmshfile << "$Elements\n";
+    gmshfile << M_num_triangles << "\n";
+
+    int element = 0;
+    for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
+    {
+        gmshfile << element + 1
+                 << "  " << element_type
+                 << "  " << tag_num
+                 << "  " << tag1
+                 << "  " << tag2;
+
+        for (int i = 0; i < 3; i++ )
+        {
+            gmshfile << "  " << it->indices[i];
+        }
+        gmshfile << "\n";
+
+        ++element;
+    }
+    gmshfile << "$EndElements\n";
+
+}//writeToFile
 
 void
 GmshMeshSeq::update(std::vector<point_type> const& nodes,
@@ -400,7 +397,7 @@ GmshMeshSeq::clear()
 }
 
 void
-GmshMeshSeq::writeToGModel(std::string const& filename)
+GmshMeshSeq::writeToGModel()
 {
     std::map<int, MVertex*> vertexMap;
     std::vector<std::vector<int> > vertexIndices(M_num_triangles);
@@ -456,35 +453,25 @@ GmshMeshSeq::writeToGModel(std::string const& filename)
 }
 
 void
-GmshMeshSeq::partition(std::string const& filename,
+GmshMeshSeq::partition(std::string const& mshfile,
                        mesh::Partitioner const& partitioner,
                        mesh::PartitionSpace const& space,
                        std::string const& format)
 {
 
     if ((partitioner != mesh::Partitioner::CHACO) && (partitioner != mesh::Partitioner::METIS))
-    {
         throw std::logic_error("invalid partitioner");
-    }
-
-    std::string mshfile = Environment::nextsimDir().string() + "/mesh/" + filename;
 
     if (space == mesh::PartitionSpace::MEMORY)
-    {
         this->partitionMemory(mshfile, partitioner, format);
-    }
     else if (space == mesh::PartitionSpace::DISK)
-    {
         this->partitionDisk(mshfile, partitioner, format);
-    }
     else
-    {
         throw std::logic_error("invalid partition space");
-    }
 }
 
 void
-GmshMeshSeq::partitionMemory(std::string const& filename,
+GmshMeshSeq::partitionMemory(std::string const& mshfile,
                              mesh::Partitioner const& partitioner,
                              std::string const& format)
 {
@@ -496,50 +483,44 @@ GmshMeshSeq::partitionMemory(std::string const& filename,
     CTX::instance()->partitionOptions.createPartitionBoundaries = false;
 
     PartitionMesh( M_gmodel, CTX::instance()->partitionOptions);
-    M_gmodel->writeMSH(filename, 2.2, (format=="binary")?true:false);
+    M_gmodel->writeMSH(mshfile, 2.2, (format=="binary")?true:false);
 
     M_gmodel->deleteMesh();
     M_gmodel->destroy();
 }
 
 void
-GmshMeshSeq::partitionDisk(std::string const& filename,
+GmshMeshSeq::partitionDisk(std::string const& mshfile,
                            mesh::Partitioner const& partitioner,
                            std::string const& format)
 {
-    if (fs::exists(filename))
+    if (!fs::exists(mshfile))
     {
-        //std::cout<<"NOT FOUND " << fs::absolute( filename ).string() <<"\n";
-
-        CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
-        CTX::instance()->mesh.binary = 1;
-
-        std::ostringstream gmshstr;
-        gmshstr << BOOST_PP_STRINGIZE( gmsh )
-                << " -" << 2
-                << " -part " << Environment::comm().size();
-
-        if (format == "binary")
-        {
-            gmshstr << " -bin";
-        }
-
-        gmshstr << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
-                << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
-                << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-                << " -string " << "\"General.Verbosity=0;\""
-                << " " << filename;
-
-
-        //gmshstr << " " << filename;
-
-        std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
-        auto err = ::system( gmshstr.str().c_str() );
+        std::string const msg = "Cannot find mesh file" + mshfile;
+        throw std::runtime_error(msg);
     }
-    else
+
+    CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
+    CTX::instance()->mesh.binary = 1;
+
+    std::ostringstream gmshstr;
+    gmshstr << BOOST_PP_STRINGIZE( gmsh )
+            << " -" << 2
+            << " -part " << Environment::comm().size();
+
+    if (format == "binary")
     {
-        std::cout << "Cannot found " << filename <<"\n";
+        gmshstr << " -bin";
     }
+
+    gmshstr << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
+            << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
+            << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
+            << " -string " << "\"General.Verbosity=0;\""
+            << " " << mshfile;
+
+    std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+    auto err = ::system( gmshstr.str().c_str() );
 }
 
 void
