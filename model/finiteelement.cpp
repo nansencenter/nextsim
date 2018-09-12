@@ -10264,8 +10264,8 @@ FiniteElement::initDrifterOpts()
     {
         std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
         M_rgps_time_init = Nextsim::from_date_time_string(time_str);
-        M_rgps_file = Environment::nextsimDir().string()
-            + "/data/RGPS_" + time_str + ".txt";
+        M_rgps_file = Environment::nextsimDataDir().string()
+            + "/RGPS_" + time_str + ".txt";
 
         // make sure RGPS init time is not too early
         if(M_rgps_time_init<M_drifters_time_init)
@@ -10356,23 +10356,18 @@ FiniteElement::initIabpDrifter()
     iabp_out.close();
 
     // INPUT:
-#if 0
-    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys.txt";
-#else
     //new buoy file has a header
-    std::string filename_in = Environment::nextsimDir().string() + "/data/IABP_buoys_new_format.txt";
-#endif
+    std::string filename_in = Environment::nextsimDataDir().string()
+        + "/IABP_buoys_new_format.txt";
     M_iabp_infile_fstream.open(filename_in, std::fstream::in);
     if ( ! M_iabp_infile_fstream.good() )
         throw std::runtime_error("File not found: " + filename_in);
 
-#if 1
     //skip header
     std::string header;
     std::getline(M_iabp_infile_fstream, header);
     std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
     std::cout<<"header: "<<header<<"\n";
-#endif
 
     int pos;    // To be able to rewind one line
     double time = from_date_string("1979-01-01");
@@ -10405,9 +10400,8 @@ FiniteElement::outputIabpDrifter()
 
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
+        std::string configfile = (boost::format( "%1%/%2%" )
+                                  % Environment::nextsimDataDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -10461,9 +10455,8 @@ FiniteElement::updateIabpDrifter()
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%/%3%" )
-                                  % Environment::nextsimDir().string()
-                                  % "data"
+        std::string configfile = (boost::format( "%1%/%2%" )
+                                  % Environment::nextsimDataDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -11050,7 +11043,7 @@ FiniteElement::initOsisafDrifters()
         osi_output_path = M_export_path+"/OSISAF_refined9_";
     }
         
-    M_osisaf_drifters[0] = Drifters("data", osi_grid_file,
+    M_osisaf_drifters[0] = Drifters(osi_grid_file,
             "xc", "yc",
             "lat", "lon", M_mesh_root, M_UM_root,
             M_conc, vm["drifters.concentration_limit"].as<double>());
@@ -11341,7 +11334,7 @@ FiniteElement::initSidfexDrifters()
 {
     if (M_rank == 0)
     {
-        std::string filename = Environment::nextsimDir().string() + "/data/"
+        std::string filename = Environment::nextsimDataDir().string()
             + vm["drifters.sidfex_filename"].as<std::string>();
         M_sidfex_drifters = Drifters(filename, M_mesh_root, M_UM_root, M_conc_root,
                 vm["drifters.concentration_limit"].as<double>(), M_current_time);
