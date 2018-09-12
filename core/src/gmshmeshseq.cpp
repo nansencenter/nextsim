@@ -26,10 +26,7 @@ GmshMeshSeq::GmshMeshSeq()
     M_marker_names(),
     timer()
 {
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -45,10 +42,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -61,10 +55,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
 {
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
@@ -77,6 +68,16 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_num_nodes(mesh.M_num_nodes),
     M_num_triangles(mesh.M_num_triangles)
 {}
+
+//! set the .mpp projection file in the GmshMeshSeq object
+void
+GmshMeshSeq::setMppFile()
+{
+    M_mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+}
 
 // GmshMeshSeq::~GmshMeshSeq()
 // {

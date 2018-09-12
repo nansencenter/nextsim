@@ -1269,7 +1269,7 @@ FiniteElement::initOptAndParam()
 void
 FiniteElement::createGMSHMesh(std::string const& geofilename)
 {
-    std::string gmshgeofile = (boost::format( "%1%/geo_files/%2%" )
+    std::string gmshgeofile = (boost::format( "%1%/%2%" )
             % Environment::nextsimMeshDir().string()
             % geofilename
             ).str();
@@ -11380,13 +11380,6 @@ FiniteElement::writeLogFile()
         logfile << "#----------Environment variables\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "PETSC_DIR "  << getEnv("PETSC_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "BOOST_INCDIR "  << getEnv("BOOST_INCDIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "BOOST_LIBDIR "  << getEnv("BOOST_LIBDIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "GMSH_DIR "  << getEnv("GMSH_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "NETCDF_DIR "  << getEnv("NETCDF_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "OPENMPI_LIB_DIR "  << getEnv("OPENMPI_LIB_DIR") <<"\n";
-        logfile << std::setw(log_width) << std::left << "OPENMPI_INCLUDE_DIR "  << getEnv("OPENMPI_INCLUDE_DIR") <<"\n";
 
         logfile << "#----------Program options\n";
 
