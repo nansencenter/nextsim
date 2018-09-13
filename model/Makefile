@@ -95,11 +95,6 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
-# gmsh
-LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
-
-
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
