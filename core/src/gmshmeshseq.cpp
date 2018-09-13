@@ -399,7 +399,7 @@ GmshMeshSeq::initGModel()
     CTX::instance()->terminal = 1;
     //CTX::instance()->mesh.saveTopology;
     CTX::instance()->mesh.fileFormat = FORMAT_MSH;
-    CTX::instance()->mesh.mshFileVersion = 2.0;
+    CTX::instance()->mesh.mshFileVersion = 2.2;
     //M_partition_options.num_partitions = Environment::comm().size();
     CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
 }
@@ -520,7 +520,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
     std::ostringstream gmshstr;
     gmshstr << BOOST_PP_STRINGIZE( gmsh )
             << " -" << 2
-            << " -part " << Environment::comm().size();
+            << " -part " << Environment::comm().size()
             << " -format " << "msh2";
 
     if (format == "binary")
