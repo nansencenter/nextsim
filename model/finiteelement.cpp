@@ -91,7 +91,8 @@ FiniteElement::distributedMeshProcessing(bool start)
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles()
+                     M_mesh.numNodes(), M_mesh.numTriangles(),
+                     M_mesh.numLocalNodesWithoutGhost(), M_mesh.numTrianglesWithoutGhost()
                      );
 
     if (M_rank == 0)
