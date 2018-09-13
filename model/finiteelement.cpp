@@ -7609,6 +7609,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
             "init - OSISAF - AMSR2 - NIC");
+    external_data_tmp.resize(0);
 
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
