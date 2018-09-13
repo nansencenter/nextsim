@@ -632,7 +632,7 @@ GmshMesh::coordY(double const& rotangle) const
 }
 
 std::vector<double>
-GmshMesh::bcoordX() const
+GmshMesh::bCoordX() const
 {
     //get x coord of centers of elements
     std::vector<double> bcoord_x(M_num_triangles);
@@ -656,7 +656,7 @@ GmshMesh::bcoordX() const
 }
 
 std::vector<double>
-GmshMesh::bcoordY() const
+GmshMesh::bCoordY() const
 {
     //get y coord of centers of elements
     std::vector<double> bcoord_y(M_num_triangles);
@@ -680,7 +680,7 @@ GmshMesh::bcoordY() const
 }
 
 std::vector<double>
-GmshMesh::bcoordX(double const& rotangle) const
+GmshMesh::bCoordX(double const& rotangle) const
 {
     //get x coord of centers of elements (rotated)
     std::vector<double> bcoord_x(M_num_triangles);
@@ -706,7 +706,7 @@ GmshMesh::bcoordX(double const& rotangle) const
 }
 
 std::vector<double>
-GmshMesh::bcoordY(double const& rotangle) const
+GmshMesh::bCoordY(double const& rotangle) const
 {
     //get y coord of centers of elements (rotated)
     std::vector<double> bcoord_y(M_num_triangles);
@@ -745,8 +745,8 @@ GmshMesh::meanLon() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bcoordX();
-    std::vector<double> Y = this->bcoordY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {
@@ -773,8 +773,8 @@ GmshMesh::meanLat() const
     double lat = 0.;
     double lon = 0.;
 
-    std::vector<double> X = this->bcoordX();
-    std::vector<double> Y = this->bcoordY();
+    std::vector<double> X = this->bCoordX();
+    std::vector<double> Y = this->bCoordY();
 
     for (int elt=0; elt<M_num_triangles; ++elt)
     {

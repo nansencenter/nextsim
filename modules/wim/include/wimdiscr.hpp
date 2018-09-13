@@ -37,7 +37,7 @@
 #include <omp.h>
 #include <gmshmesh.hpp>
 #include <iceinfo.hpp>
-#include <meshtools.hpp>
+#include <meshinfo.hpp>
 #include <gridinfo.hpp>
 
 #ifdef PI
@@ -59,9 +59,6 @@ template<typename T=float> class WimDiscr
     typedef typename std::vector<T_val_vec*>  T_val_vec_ptrs;
     typedef typename std::vector<T_val_vec>   T_val_vec2d;//vector of vectors
     typedef typename std::vector<T_val_vec2d> T_val_vec3d;//vector of vectors of vectors
-    
-    //gmsh types
-    typedef Nextsim::GmshMesh T_gmsh;
 
     //other types
     typedef Wim::IceParams<T_val>                         T_icep;
@@ -93,15 +90,19 @@ public:
     //constructors
     ~WimDiscr() {}
     WimDiscr() {}
-
-    WimDiscr(po::variables_map const& vmIn,int const& nextsim_cpt=0);
-    WimDiscr(po::variables_map const& vmIn,T_gmsh const &mesh,int const& nextsim_cpt=0);
+    WimDiscr(po::variables_map const& vmIn);
     // ====================================================================================
 
 
     // ====================================================================================
     // init
-    void initConstant(int const& nextsim_cpt);
+    void initStandAlone();
+    template<typename FEMeshType>
+    void initCoupled(int const& nextsim_cpt,
+            FEMeshType const &movedmesh,
+            BamgMesh* bamgmesh,
+            int const& flag_fix);
+    void initConstant(int const& nextsim_cpt=0);
     void initRemaining();
     void assign();
     void assignSpatial();
@@ -136,31 +137,30 @@ public:
 
     // wim on its own grid
     // - need mesh for interpolation etc
-    void setMesh( T_gmsh const &mesh);
-    void setMesh( T_gmsh const &mesh,
-            T_val_vec const &um);
+    template<typename FEMeshType>
+    void setMeshSimple( FEMeshType const &mesh);
 
     // wim on nextsim mesh
-    void setMesh2( T_gmsh const &mesh,
-            T_val_vec const &um,
+    template<typename FEMeshType>
+    void setMeshFull( FEMeshType const &mesh,
             BamgMesh* bamgmesh,
             int const& flag_fix,
-            bool const& assign_spatial=false);
-    void setMesh2( T_gmsh const &mesh,
-            BamgMesh* bamgmesh,
-            int const& flag_fix,
-            bool const& assign_spatial=false);
+            bool const& regridding=false);
 
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in) const;
-    T_val_vec getRelativeMeshDisplacement(T_gmsh const &mesh_in,T_val_vec const &um_in) const;
-    T_val_vec getMeshDisplacement() const { return M_UM; }
-    void setRelativeMeshDisplacement(T_val_vec const&um_in) { M_UM = um_in; return; }
+    template<typename FEMeshType>
+    T_val_vec getRelativeMeshDisplacement(FEMeshType const &movedmesh) const;
+    T_val_vec getMeshDisplacement() const
+    { return M_UM; }
+    void setRelativeMeshDisplacement(T_val_vec const&um_in)
+    { M_UM = um_in; }
 
-    void updateWaveSpec( T_gmsh const &mesh);
-    void updateWaveSpec( T_gmsh const &mesh,T_val_vec const &um);
-    T_val_vec getSurfaceFactor(T_gmsh const &mesh_in);
+    template<typename FEMeshType>
+    void updateWaveSpec( FEMeshType const &mesh);
+    template<typename FEMeshType>
+    T_val_vec getSurfaceFactor(FEMeshType const &movedmesh);
 
-    T_val_vec3d getWaveSpec() const { return M_sdf_dir; }
+    T_val_vec3d getWaveSpec() const
+    { return M_sdf_dir; }
     void setWaveSpec(T_val_vec3d const&sdf_in)
     {
         // reset wave spectrum after regrid;
@@ -168,22 +168,22 @@ public:
         // and so they are ready for export;
         M_sdf_dir = sdf_in;
         this->intWaveSpec();
-        return;
     }
     // ==============================================================================
 
 
     // ==============================================================================
     // set ice
-    void idealIceFields (T_val const xfac);
+    void idealIceFields (T_val const xfac=0.7);
     void setIceFields( std::vector<T_val> const& conc,  // conc
                        std::vector<T_val> const& vol, // ice vol or effective thickness (conc*thickness)
-                       std::vector<T_val> const& nfloes,// Nfloes=conc/Dmax^2
-                       bool const pre_regrid);
-    void clearMeshFields() { M_ice[IceType::sim].clearFields(); }
+                       std::vector<T_val> const& nfloes);// Nfloes=conc/Dmax^2
+                       //bool const pre_regrid);
+    void clearMeshFields()
+    { M_ice[IceType::sim].clearFields(); }
 
     // set waves
-    void idealWaveFields(T_val const xfac);
+    void idealWaveFields(T_val const xfac=0.8);
     void setWaveFields(T_val_vec const& swh_in,
             T_val_vec const& mwp_in,
             T_val_vec const& mwd_in);
@@ -194,23 +194,28 @@ public:
     // ==============================================================================
     // output fields, wave stress,...
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_val_vec &xel, T_val_vec &yel, T_val_vec const&surface_fac);
+            T_val_vec &xel, T_val_vec &yel);
+    template<typename FEMeshType>
     T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsElements(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
+            FEMeshType const &movedmesh);
 
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
             T_val_vec &xnod, T_val_vec &ynod);
+    template<typename FEMeshType>
     T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in,T_val_vec const &um_in);
-    T_map_vec returnFieldsNodes(std::vector<std::string> const&fields,
-            T_gmsh const &mesh_in);
+            FEMeshType const &movedmesh);
 
-    void returnWaveStress(T_val_vec &M_tau, T_val_vec &xnod, T_val_vec &ynod);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in,T_val_vec const &um_in);
-    void returnWaveStress(T_val_vec &M_tau, T_gmsh const &mesh_in);
-    void returnWaveStress(T_val_vec &M_tau);
+    T_val_vec returnWaveStress(T_val_vec &xnod, T_val_vec &ynod);
+        //base interface - pass in the nodes for interpolation to these points
+    template<typename FEMeshType>
+    T_val_vec returnWaveStress(FEMeshType const &movedmesh);
+        //pass in the moved mesh, then get the nodes
+    T_val_vec returnWaveStress();
+        //if running on mesh, have stresses on elements: interp them to nodes
+
+    T_val_vec combineVectorComponents(T_val_vec const &vec_x, T_val_vec const &vec_y);
+        //combine x,y components of vector into one vector:
+        // {vec_x[0], ..., vec_x[N-1], vec_y[0], ..., vec_y[N-1]}
     // ========================================================================
 
 
@@ -230,11 +235,10 @@ public:
                  std::vector<T_val> const& m_dfloe,
                  std::vector<T_val> const& m_conc);
 
-    void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out,T_val_vec &broken);
-    void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
-            T_val_vec const & conc_tot, T_gmsh const &mesh_in,T_val_vec const &um_in);
-    void getFsdMesh(T_val_vec &nfloes_out,T_val_vec &dfloe_out, T_val_vec &broken,
-            T_val_vec const & conc_tot, T_gmsh const &mesh_in);
+    void getFsdMesh(T_val_vec &nfloes_out, T_val_vec &dfloe_out, T_val_vec &broken);
+    template<typename FEMeshType>
+    void getFsdMesh(T_val_vec &nfloes_out, T_val_vec &dfloe_out, T_val_vec &broken,
+            T_val_vec const & conc_tot, FEMeshType const &movedmesh);
     // ========================================================================
 
 
@@ -245,13 +249,13 @@ public:
             T_val_vec const& boundary_vals);
     void attenSimple(
             T_val_vec2d& Sdir, T_val_vec& Sfreq,
-            T_val_vec& taux_omega,T_val_vec& tauy_omega,
-            T_val_vec& sdx_omega,T_val_vec& sdy_omega,
+            T_val_vec& taux_omega, T_val_vec& tauy_omega,
+            T_val_vec& sdx_omega, T_val_vec& sdy_omega,
             T_val_vec const& ag2d_eff);
     void attenIsotropic(
             T_val_vec2d& Sdir, T_val_vec& Sfreq,
-            T_val_vec& taux_omega,T_val_vec& tauy_omega,
-            T_val_vec& sdx_omega,T_val_vec& sdy_omega,
+            T_val_vec& taux_omega, T_val_vec& tauy_omega,
+            T_val_vec& sdx_omega, T_val_vec& sdy_omega,
             T_val_vec const& ag2d_eff);
 
     // integrate the wave spectrum
@@ -301,7 +305,17 @@ public:
     void printRange(std::string const &name, T_val_vec const &vec, int const & prec=0) const;
     void getRange(T_val_vec const &vec, T_val &xmin, T_val &xmax) const;
 
-    std::string getWimGridFilename() const { return M_grid.M_gridfile; }
+    std::string getWimGridFilename() const
+    { return M_grid.M_gridfile; }
+
+    T_val jacobian(T_val const x0, T_val const y0,
+            T_val const x1, T_val const y1,
+            T_val const x2, T_val const y2) const
+    {
+        //signed area of a triangle with vertices (going anti-clockwise)
+        //(x0,y0), (x1,y1), (x2,y2)
+        return (x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+    }
     // ==========================================================================
 
 
@@ -332,8 +346,8 @@ private:
     T_val_vec M_wlng_wtr, M_ag_wtr, M_ap_wtr;
 
     //dimension of space
-    T_val_vec M_Hs,M_Tp,M_mwd;
-    T_val_vec M_swh_in,M_mwp_in,M_mwd_in;
+    T_val_vec M_Hs, M_Tp, M_mwd;
+    T_val_vec M_swh_in, M_mwp_in, M_mwd_in;
     T_val_vec M_dave;
 
     //depend on freq and position
@@ -350,11 +364,12 @@ private:
     T_val_vec Mtmp_sdf_freq;                                   //for mom0 integral
     T_val_vec Mtmp_taux_om, Mtmp_tauy_om;                      //for taux,tau_y integrals
     T_val_vec Mtmp_stokes_drift_x_om, Mtmp_stokes_drift_y_om;  //for mwd_x,mwd_y, stokes_drift_x,stokes_drift_y integrals
-    T_val_vec Mtmp_mom0,Mtmp_mom2,Mtmp_var_strain;
-    T_val_vec Mtmp_mom0w,Mtmp_mom2w;
+    T_val_vec Mtmp_mom0, Mtmp_mom2, Mtmp_var_strain;
+    T_val_vec Mtmp_mom0w, Mtmp_mom2w;
     T_val_vec Mtmp_atten_dim, Mtmp_damp_dim;
 
-    T_val_vec M_mwd_x, M_mwd_y, M_tau_x, M_tau_y,M_stokes_drift_x,M_stokes_drift_y;//row-major order (C)
+    T_val_vec M_mwd_x, M_mwd_y, M_tau_x, M_tau_y,
+              M_stokes_drift_x, M_stokes_drift_y;
 
     int M_max_threads;
     boost::mpi::timer chrono;
@@ -369,7 +384,6 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
-    bool M_assigned          = false;// if (false), need to call assignSpatial() inside setMesh()
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;
@@ -379,7 +393,7 @@ private:
     int M_nb_mesh_test      = 0;
 
     // mesh, grid objects
-    T_mesh M_mesh,M_mesh_old;
+    T_mesh M_mesh, M_mesh_old;
     T_grid M_grid;
 
     T_icep M_ice_params;// ice parameters
@@ -387,6 +401,7 @@ private:
 
     bool M_break_on_mesh = false;// do breaking on nextsim mesh as well as on grid
     bool M_wim_on_mesh   = false;// to run WIM on nextsim mesh
+    bool M_do_coupling   = false;// run WIM coupled to nextsim
     
     T_val_vec M_land_mask;
     T_val_vec M_UM;// displacement of mesh nodes between calls to wim.run()

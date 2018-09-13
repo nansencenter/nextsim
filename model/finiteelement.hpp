@@ -82,9 +82,10 @@ public:
     typedef typename std::vector<dbl_vec2d> dbl_vec3d;
 
 #if defined (WAVES)
+    // WIM types
     typedef Wim::WimDiscr<double> wim_type;
     typedef Wim::WimDiscr<double>::T_map_vec T_map_vec;
-#endif
+#endif//WAVES
 
     FiniteElement();
 
@@ -168,9 +169,6 @@ public:
     Dataset M_nesting_distance_elements_dataset;
     Dataset M_nesting_dynamics_elements_dataset;
 
-#if defined (WAVES)
-    Dataset M_wave_elements_dataset;
-#endif
     double minAngles(element_type const& element, mesh_type const& mesh) const;
     double minAngle(mesh_type const& mesh) const;
 
@@ -186,26 +184,24 @@ public:
     std::vector<double> AllMinAngle(mesh_type const& mesh, std::vector<double> const& um, double factor) const;
 
     void initBamg();
-    void initConstant();
+    void initOptsAndParams();
+    void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
     void forcingNesting();
 
-#if defined (WAVES)
-    void forcingWave();
-    WaveOptions M_wim_forcing_options;
-#endif
-
 	void bathymetry();
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const& CRtime, std::string const& printout);
+        double const& CRtime,
+        std::string const& target_location,
+        std::string const& printout);
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifter();
+    void initDrifters();
     void coriolis();
     void nodesToElements(double const* depth, std::vector<double>& v);
 
@@ -222,33 +218,33 @@ public:
     void exportInitMesh();
     void exportResults(int step,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(double date_time,
-            bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::string const name_str,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
     void exportResults(std::vector<std::string> const &filenames,
             bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
 
     void writeRestart(int pcpt, int step);
-    void writeRestart(int pcpt, double date_time);
     void writeRestart(int pcpt, std::string step);
     int readRestart(int step);
     int readRestart(std::string step);
 
 #if defined (WAVES)
+    // WIM methods
+
+    // Init 
     void initWim(int const pcpt);
-    void initWimVariables();
-    void wimCommPreRegrid();
+    void initWimVariables(dbl_vec const &ctot, dbl_vec const &vtot);
+    void forcingWave();
+
+    // Running
     void wimPreRegrid();
     void wimPostRegrid();
-    void wimCheckWaves();
     void wimCall();
+    void wimCheckWaves();
     void getWimDiagnostics();
-#if 0
-    std::vector<double> FiniteElements::rotatedWimElementsX(double const& rotangle) const;
-    std::vector<double> FiniteElements::rotatedWimElementsY(double const& rotangle) const;
-#endif
-#endif
+#endif//WAVES
+    void getTotalConcVol(std::vector<double> &ctot, std::vector<double> &vtot);
+    void isTooThick(int const & pcpt, std::string const & printme);
 
     std::string gitRevision();
     std::string system(std::string const& command);
@@ -288,10 +284,7 @@ private:
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-#if defined (WAVES)
-    setup::WaveType M_wave_type;
-    setup::WaveMode M_wave_mode;
-#endif
+
     setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
@@ -333,8 +326,7 @@ private:
     std::vector<double> M_hs_thin;
     std::vector<double> M_ridge_ratio;
 
-    external_data_vec M_external_data;
-    external_data_vec M_external_data_waves;
+    external_data_vec M_external_data_elements, M_external_data_nodes;
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
@@ -353,7 +345,7 @@ private:
     // =============================================================================
     // variables needed for nesting
     bool M_use_nesting;
-    bool M_use_ocean_nesting;
+    bool M_use_ocean_nesting = false;
     std::string M_nest_outer_mesh;
     std::string M_nest_inner_mesh;
     std::string M_nest_method;
@@ -364,22 +356,44 @@ private:
     // =============================================================================
 
     // =============================================================================
-    // variables needed for coupling with wim
 #if defined (WAVES)
+    // variables needed for coupling with wim
     wim_type M_wim;
-    std::vector<double> M_nfloes;
-    std::vector<double> M_dfloe;
 
+    // options
+    bool M_run_wim;
+    bool M_use_wim;
+    bool M_export_wim_diags_mesh;
+
+    //forcing
+    setup::WaveType M_wave_type;
+    setup::WaveMode M_wave_mode;
+
+    // Dataset
+    Dataset M_wave_elements_dataset;
+    WaveOptions M_wim_forcing_options;
+
+    // External data objects
+    external_data_vec M_external_data_waves;
+    external_data M_SWH;	      // Significant wave height [m]
+    external_data M_MWD;	      // Mean wave direction (deg)
+    external_data M_MWP;          // Peak wave period (s)
+    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
+                                  // - due to inconsistent ice masks,
+                                  // there could be attenuation in the open ocean
+
+    // counters
     int M_wim_cpt;//no of times WIM has been called
     int M_wim_steps_since_last_call;//no of time steps since WIM was last called
     int M_wim_cpl_freq;//call wim every "M_wim_cpl_freq" nextsim time steps
 
+    // unordered mappings (for diagnostics)
     T_map_vec M_wim_fields_nodes;
     T_map_vec M_wim_fields_els;
-    //std::vector<double> M_stokes_drift;
 
-    bool M_export_wim_diags_mesh;
-    bool M_collect_wavespec = false;
+    // fields
+    std::vector<double> M_nfloes;
+    std::vector<double> M_dfloe;
     dbl_vec   M_wim_meshdisp;
     dbl_vec3d M_wavespec;
 #endif
@@ -428,11 +442,6 @@ private:
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
-#if defined (WAVES)
-    bool M_run_wim;
-    bool M_use_wim;
-    bool M_interp_fsd;
-#endif
 
     bool M_use_restart;
     bool M_write_restart;
@@ -487,13 +496,6 @@ private:
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
 
-    // Wave
-    external_data M_SWH;	      // Significant wave height [m]
-    external_data M_MWD;	      // Mean wave direction (deg)
-    external_data M_MWP;          // Peak wave period (s)
-    external_data M_fice_waves;   // Waves masked if ice used in external wave model 
-                                  // - due to inconsistent ice masks,
-                                  // there could be attenuation in the open ocean
 
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
@@ -515,24 +517,39 @@ private:
     // Bathynetry
     external_data M_element_depth;
 
+    // are we using any drifters?
+    bool M_use_drifters;
+    double M_drifters_time_init;
+
     // IABP-like drifters
     bool M_use_iabp_drifters;
+    double M_iabp_drifters_input_time_step;
+    double M_iabp_drifters_output_time_step;
+    dbl_vec M_iabp_conc;
     boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_file;   // The file we read the IABP buoy data from
-    std::fstream M_iabp_out;    // The file we write our simulated drifter positions into
+    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
+    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
 
     // Drifters on a grid
-    double M_equallyspaced_drifters_output_time_step;
-    bool M_use_equallyspaced_drifters;
-    Drifters M_equallyspaced_drifters; 
+    double M_equally_spaced_drifters_output_time_step;
+    bool M_use_equally_spaced_drifters;
+    Drifters M_equally_spaced_drifters; 
     
     // Drifters as in the RGPS data
     double M_rgps_drifters_output_time_step;
+    double M_rgps_time_init;
+    std::string M_rgps_file;
     bool M_use_rgps_drifters;
     Drifters M_rgps_drifters; 
+
+    // Drifters for SIDFEX forecast
+    double M_sidfex_drifters_output_time_step;
+    bool M_use_sidfex_drifters;
+    Drifters M_sidfex_drifters; 
     
     // drifters for the OSISAF emulation
     bool M_use_osisaf_drifters;
+    double M_osisaf_drifters_output_time_step;
     std::vector<Drifters> M_osisaf_drifters;
 
     // Element variable
@@ -581,8 +598,8 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void assimilate_topazForecastOsisafAmsr2Ice();
+    void assimilateNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
@@ -592,13 +609,25 @@ private:
     void topazAmsreIce();
     void topazAmsr2Ice();
 
-    void initOSISAFDrifters();
+    void outputtingDrifters(
+        bool &output_rgps,
+        bool &input_iabp,
+        bool &output_iabp,
+        bool &output_equally_spaced,
+        bool &output_sidfex,
+        bool &output_osisaf,
+        bool &move_drifters
+        );
+    void updateDrifters();
     void initRGPSDrifters();
     void updateRGPSDrifters();
-    void equallySpacedDrifter();
-    void outputDrifter(std::fstream &iabp_out);
-    void initIABPDrifter();
-    void updateIABPDrifter();
+    void initSidfexDrifters();
+    void initEquallySpacedDrifters();
+    void outputIabpDrifter();
+    void initIabpDrifter();
+    void updateIabpDrifter();
+    void updateIabpDrifterPosition();
+    void updateIabpDrifterConc();
 
     void updateMeans(GridOutput &means, double time_factor);
     void initMoorings();

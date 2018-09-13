@@ -109,7 +109,10 @@ public:
         Qsh         = 103,
         Qlh         = 104,
         Qo          = 105,
-        delS        = 106
+        delS        = 106,
+
+        // WIM variables
+        dfloe = 200
     };
 
     typedef struct Variable
@@ -126,6 +129,7 @@ public:
                     longName = "Land Sea Mask";
                     stdName  = "land_sea_mask";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
 
                 // Prognostic variables
@@ -134,42 +138,49 @@ public:
                     longName = "Sea Ice Concentration";
                     stdName  = "sea_ice_area_fraction";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::thick):
                     name     = "sit";
                     longName = "Sea Ice Thickness";
                     stdName  = "sea_ice_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::damage):
                     name     = "damage";
                     longName = "Sea Ice Damage";
                     stdName  = "sea_ice_damage";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::snow):
                     name     = "snt";
                     longName = "Surface Snow Thickness";
                     stdName  = "surface_snow_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::VT_x):
                     name     = "siu";
                     longName = "Sea Ice X Velocity";
                     stdName  = "sea_ice_x_velocity";
                     Units    = "m s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::VT_y):
                     name     = "siv";
                     longName = "Sea Ice Y Velocity";
                     stdName  = "sea_ice_y_velocity";
                     Units    = "m s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tsurf):
                     name     = "ts";
                     longName = "Surface Temperature";
                     stdName  = "surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::sst):
@@ -177,6 +188,7 @@ public:
                     longName = "Sea Surface Temperature";
                     stdName  = "sea_surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::sss):
@@ -184,12 +196,14 @@ public:
                     longName = "Sea Surface Salinity";
                     stdName  = "sea_surface_salinity";
                     Units    = "1e-3";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tsurf_ice):
                     name     = "tsi";
                     longName = "Sea Ice Surface Temperature";
                     stdName  = "sea_ice_surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::t1):
@@ -197,6 +211,7 @@ public:
                     longName = "Ice Temperature 1";
                     stdName  = "ice_temperature_1";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::t2):
@@ -204,6 +219,7 @@ public:
                     longName = "Ice Temperature 2";
                     stdName  = "ice_temperature_2";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::conc_thin):
@@ -211,18 +227,21 @@ public:
                     longName = "Thin Ice Concentration";
                     stdName  = "thin_ice_area_fraction";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::h_thin):
                     name     = "sit_thin";
                     longName = "Thin Ice Thickness";
                     stdName  = "thin_ice_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::hs_thin):
                     name     = "snt_thin";
                     longName = "Surface Snow Thickness on thin ice";
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
 
                 // Diagnostic variables
@@ -231,42 +250,58 @@ public:
                     longName = "Surface Upward Heat Flux In Air";
                     stdName  = "surface_upward_heat_flux_in_air";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qsw):
                     name     = "rss";
                     longName = "Surface Net Upward Shortwave Flux";
                     stdName  = "surface_net_upward_shortwave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qlw):
                     name     = "rls";
                     longName = "Surface Net Upward Longwave Flux";
                     stdName  = "surface_net_upward_longwave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qsh):
                     name     = "hfss";
                     longName = "Surface Upward Sensible Heat Flux";
                     stdName  = "surface_upward_sensible_heat_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qlh):
                     name     = "hfsl";
                     longName = "Surface Upward Latent Heat Flux";
                     stdName  = "surface_upward_latent_heat_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qo):
                     name     = "hfos";
                     longName = "Surface Upward Heatflux In Ocean";
                     stdName  = "surface_upward_heatflux_in_ocean";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::delS):
                     name     = "sfo";
                     longName = "Downward Saltflux In Ocean";
                     stdName  = "downward_slatflux_in_ocean";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+
+                //WIM variables
+                case (variableID::dfloe):
+                    name     = "dfloe";
+                    longName = "Maximum floe size";
+                    stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
                     break;
             }
         }
@@ -276,6 +311,7 @@ public:
         std::string longName;
         std::string stdName;
         std::string Units;
+        std::string cell_methods;
 
         std::vector<double> data_mesh;
         std::vector<double> data_grid;
@@ -293,17 +329,26 @@ public:
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
+    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+            std::vector<Variable> variables, variableKind kind,
+            double averaging_period=0);
 
-    GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind);
+    GridOutput(Grid grid, std::vector<Variable> variables, variableKind kind,
+            double averaging_period=0);
 
-    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+            std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variable,
+            double averaging_period=0);
 
-    GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variable,
+            double averaging_period=0);
 
-    GridOutput(int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+            std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            std::vector<Vectorial_Variable> vectorial_variable, double averaging_period=0);
 
-    GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            std::vector<Vectorial_Variable> vectorial_variables, double averaging_period=0);
 
     ~GridOutput();
 
@@ -323,16 +368,19 @@ public:
     std::vector<Variable> M_nodal_variables;
     std::vector<Variable> M_elemental_variables;
     std::vector<Vectorial_Variable> M_vectorial_variables;
+    double M_averaging_period;
 
     double M_miss_val = -1e+14; // Must be smaller than any expected result
 
 private:
 
-    GridOutput(std::vector<Variable> variables, variableKind kind);
+    GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period=0);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double averaging_period=0);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            std::vector<Vectorial_Variable> vectorial_variables, double averaging_period=0);
 
     void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 

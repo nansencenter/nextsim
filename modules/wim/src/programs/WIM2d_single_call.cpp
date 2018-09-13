@@ -56,6 +56,8 @@ int main(int argc, char** argv )
     WimDiscr<double> wim(vm);
     //WimDiscr<float> wim(vm);
 
+    wim.initStandAlone();
+
 #if 0
     //test fsd:
     double dave,dmax;
