@@ -69,11 +69,15 @@ public:
 
     static po::variables_map const& vm() { return vmenv; }
 
-    static fs::path const& nextsimDir() { return nextsimdirenv; }
+    //! return $NEXTSIM_MESH_DIR
+    static fs::path const& nextsimMeshDir() { return nextsim_mesh_dir_env; }
 
-    static fs::path const& simdataDir() { return simdatadirenv; }
+    //! return $NEXTSIM_DATA_DIR
+	static fs::path const& nextsimDataDir() { return nextsim_data_dir_env; }
 
-	static fs::path const& simforecastDir() { return simforecastdirenv; }
+    //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
+    //! and some sub-directories
+    void setEnvironmentVariables();
 
     static MemoryUsage logMemoryUsage(std::string const& message);
 
@@ -82,10 +86,12 @@ private:
     boost::mpi::environment mpienv;
     static Communicator mpicomm;
     static po::variables_map vmenv;
-    static fs::path nextsimdirenv;
-    static fs::path simdatadirenv;
-    static fs::path simforecastdirenv;
 
+    //! $NEXTSIM_DATA_DIR
+    static fs::path nextsim_data_dir_env;
+
+    //! $NEXTSIM_MESH_DIR
+    static fs::path nextsim_mesh_dir_env;
 };
 
 } // Nextsim

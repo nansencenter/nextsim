@@ -114,8 +114,11 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
-    std::vector<char> str(filename.begin(), filename.end());
+    std::string mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+    std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -133,16 +136,16 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
     M_rgps_file.close();
 }
 
-Drifters::Drifters(std::string dirname, std::string gridFile,
+Drifters::Drifters(std::string gridFile,
                    std::string dimNameX, std::string dimNameY,
                    std::string latName, std::string lonName,
                    GmshMeshSeq const& mesh, std::vector<double>& conc, double climit)
 {
-    // Load the grid from file
+    // Load the grid from netcdf file
     // Check file
-    std::string filename = (boost::format( "%1%/%2%/%3%" )
-                            % Environment::simdataDir().string()
-                            % dirname
+    // TODO dirname not used
+    std::string filename = (boost::format( "%1%/%2%" )
+                            % Environment::nextsimDataDir().string()
                             % gridFile
                             ).str();
 
@@ -181,8 +184,11 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
-    std::vector<char> str(filename.begin(), filename.end());
+    std::string mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+    std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -381,8 +387,11 @@ Drifters::appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector
 
     // Calculate lat and lon
     mapx_class *map;
-    std::string mpp_file = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
-    std::vector<char> str(mpp_file.begin(), mpp_file.end());
+    std::string mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+    std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);

@@ -20,29 +20,7 @@ Environment::Environment( int& argc, char** &argv )
 
     char * senv;
 
-	senv = ::getenv( "NEXTSIMDIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'NEXTSIMDIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    nextsimdirenv = fs::path(std::string(senv));
-
-	senv = ::getenv( "SIMDATADIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'SIMDATADIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    simdatadirenv = fs::path(std::string(senv));
-
-	senv = ::getenv( "SIMFORECASTDIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'SIMFORECASTDIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    simforecastdirenv = fs::path(std::string(senv));
+    this->setEnvironmentVariables();
 
     int ierr = 0;
     ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
@@ -59,29 +37,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc,
 
     char * senv;
 
-	senv = ::getenv( "NEXTSIMDIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'NEXTSIMDIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    nextsimdirenv = fs::path(std::string(senv));
-
-	senv = ::getenv( "SIMDATADIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'SIMDATADIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    simdatadirenv = fs::path(std::string(senv));
-
-	senv = ::getenv( "SIMFORECASTDIR" );
-    if ( (senv == NULL) || (senv[0] == '\0') )
-    {
-        std::cout << "you must define 'SIMFORECASTDIR' environment variable for nextsim root directory"<<"\n";
-        throw std::logic_error("invalid environment variable");
-    }
-    simforecastdirenv = fs::path(std::string(senv));
+    this->setEnvironmentVariables();
 
     int ierr = 0;
     ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
@@ -224,17 +180,44 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc,
 
 }
 
+
 Environment::~Environment()
 {
     int ierr = 0;
     ierr = PetscFinalize();
 }
 
+
+void
+Environment::setEnvironmentVariables()
+{
+    //! get and check $NEXTSIM_MESH_DIR and $NEXTSIM_DATA_DIR
+    //! and set them to nextsim_mesh_dir_env and nextsim_data_dir_env
+
+    char * senv = ::getenv( "NEXTSIM_MESH_DIR" );
+    if ( (senv == NULL) || (senv[0] == '\0') )
+    {
+        std::cout << "you must define 'NEXTSIM_MESH_DIR' environment variable"
+            << " for directory with meshes and mppfiles"<<"\n";
+        throw std::logic_error("invalid environment variable");
+    }
+    nextsim_mesh_dir_env = fs::path(std::string(senv));
+
+	senv = ::getenv( "NEXTSIM_DATA_DIR" );
+    if ( (senv == NULL) || (senv[0] == '\0') )
+    {
+        std::cout << "you must define 'NEXTSIM_DATA_DIR' environment variable"
+            << " for directory with netcdf input files and other input files"
+            <<" (eg drifter text files)\n";
+        throw std::logic_error("invalid environment variable");
+    }
+    nextsim_data_dir_env = fs::path(std::string(senv));
+}
+
 Communicator Environment::mpicomm;
 po::variables_map Environment::vmenv;
-fs::path Environment::nextsimdirenv;
-fs::path Environment::simdatadirenv;
-fs::path Environment::simforecastdirenv;
+fs::path Environment::nextsim_data_dir_env;
+fs::path Environment::nextsim_mesh_dir_env;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)
