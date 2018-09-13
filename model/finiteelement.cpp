@@ -5435,6 +5435,7 @@ FiniteElement::step(int &pcpt)
 #endif//OASIS
 
 
+
     if(vm["restart.write_restart"].as<bool>())
     {
         if(vm["restart.debugging"].as<bool>())
@@ -5446,7 +5447,6 @@ FiniteElement::step(int &pcpt)
             this->writeRestart(pcpt, pcpt*time_step/restart_time_step );
         }
     }//write restart
-
 
 #if defined (WAVES)
     if(M_use_wim)
@@ -7715,6 +7715,7 @@ FiniteElement::assimilate_topazForecastOsisafAmsr2Ice()
     external_data_tmp.push_back(&M_amsr2_conc);
     external_data_tmp.push_back(&M_dist2coast);
     this->checkReloadDatasets(external_data_tmp,time_init-0.5,
+
             "mesh_elements", "assim - OSISAF - AMSR2 -dist2coast");
     
     external_data_tmp.resize(0);

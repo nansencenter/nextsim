@@ -526,6 +526,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         for (auto jump_ptr = file_jump.begin() ; jump_ptr != file_jump.end(); ++jump_ptr)
         {
             int jump = *jump_ptr;//get jump as an integer
+            std::cout<<"jump = "<<jump<<"\n";
             if(is_ec_fc||is_topaz_fc)
             {
                 double inittime = init_time;
@@ -543,8 +544,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             std::cout<<"FILENAME (JUMPS) = "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
+            {
+                std::cout << "File not found: " + filename<< "; jump = "<<jump << "\n";
                 continue;
                 //throw std::runtime_error("File not found: " + filename);
+            }
+            else
+                std::cout << "File found: " + filename<< "; jump = "<<jump << "\n";
 
             index_start.resize(1);
             index_count.resize(1);
@@ -578,6 +584,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             double f;
             int nt = XTIME.size();
+            std::cout<<"582: "<<nt<<"\n";
             if(is_ec_fc && (!true_forecast))
                 nt = 4;// just use the first day of each file (1st 4 records, each 6 hours apart)
 
@@ -604,6 +611,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                      index_prev = it;
                      filename_prev = filename;
                  }
+                 std::cout<<"608"<< f << ", " << M_current_time << ", " << filename_prev <<", " << filename_next <<"\n";
+                 std::cout<<"609"<< time_prev << ", " << index_prev << ", " << time_next <<", " << index_next <<"\n";
             }
         }//loop over jump
 
