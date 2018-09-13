@@ -18,14 +18,13 @@
 
 namespace Nextsim
 {
-/*
- * Constructors and destructors
- * We have one constructor for regularly spaced drifters and one for
- * drifter positions read in from file. In addition we have a private
- * function (maskXY), called only by the constructors, to mask out drifters
- * placed outside the ice cover.
- * There is also a default, constructor which initialises things to zero and false.
- */
+//! Constructors and destructors
+//! * We have one constructor for regularly spaced drifters and one for
+//!   drifter positions read in from file. In addition we have a private
+//!   function (maskXY), called only by the constructors, to mask out drifters
+//!   placed outside the ice cover.
+//! * There is also a default, constructor which initialises things to zero and false.
+ 
 
 Drifters::Drifters()
 {
@@ -35,10 +34,13 @@ Drifters::Drifters()
     M_Y.resize(0);
     M_i.resize(0);
 }
-
+    
+    
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
 Drifters::Drifters(double spacing, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit)
 {
-    // Calculate the grid spacing assuming a regular grid
+    //! - 1) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = mesh.coordX();
     std::vector<double> RY = mesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
@@ -65,15 +67,18 @@ Drifters::Drifters(double spacing, GmshMeshSeq const& mesh, std::vector<double>&
         y += spacing;
     }
 
-    // Apply mask using conc and climit, and save to M_X and M_Y
+    //! -2) Applies the mask using conc and climit, and save to M_X and M_Y
     maskXY(mesh, X, Y, conc, climit);
 
     M_is_initialised = true;
 }
 
+    
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
 Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit, double current_time)
 {
-    // Load the nodes from file
+    //! - 1) Load the nodes from file
     // Check file
     std::fstream M_rgps_file;   // The file we read the IABP buoy data from
 
@@ -81,7 +86,7 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
     if ( ! M_rgps_file.good() )
         throw std::runtime_error("File not found: " + filename);
 
-    // Read the current buoys from file
+    //! -2) Read the current buoys from file
     int pos;    // To be able to rewind one line
     double time = current_time;
     std::vector<int> keepers;
@@ -109,7 +114,7 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
 
     std::cout<<"gridSize: "<< gridSize <<"\n";
 
-    // Calculate x and y
+    //! - 3) Calculates cartesian (x,y) position from latitude and longitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
 
@@ -125,7 +130,7 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
 
     close_mapx(map);
 
-    // Apply mask using conc and climit, and save to M_X and M_Y
+    //! - 4) Applies mask using conc and climit, and save to M_X and M_Y
     maskXY(mesh, X, Y, conc, -1.);//climit);
 
     M_is_initialised = true;
@@ -133,12 +138,15 @@ Drifters::Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<do
     M_rgps_file.close();
 }
 
+    
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
 Drifters::Drifters(std::string dirname, std::string gridFile,
                    std::string dimNameX, std::string dimNameY,
                    std::string latName, std::string lonName,
                    GmshMeshSeq const& mesh, std::vector<double>& conc, double climit)
 {
-    // Load the grid from file
+    //! - 1) Loads the grid from file
     // Check file
     std::string filename = (boost::format( "%1%/%2%/%3%" )
                             % Environment::simdataDir().string()
@@ -152,7 +160,7 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
     // Open file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    // Read the dimension of the grid
+    //! - 2) Reads the dimension of the grid
     netCDF::NcDim dim;
     dim = dataFile.getDim(dimNameX);
     if ( dim.isNull() )
@@ -166,17 +174,17 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
 
     int gridSize = ncols*nrows;
 
-    // Read the lat and lon
+    //! - 3) Reads the latitude and longitude
     netCDF::NcVar VLAT = dataFile.getVar(latName);
     netCDF::NcVar VLON = dataFile.getVar(lonName);
 
-    // Read data into LON & LAT
+    //! - 4) Reads the data in LON & LAT
     std::vector<double> LAT(gridSize);
     std::vector<double> LON(gridSize);
     VLAT.getVar(&LAT[0]);
     VLON.getVar(&LON[0]);
 
-    // Calculate x and y
+    //! - 5) Calculates cartesian (x,y) coordinates from the longitude and latitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
 
@@ -192,17 +200,19 @@ Drifters::Drifters(std::string dirname, std::string gridFile,
 
     close_mapx(map);
 
-    // Apply mask using conc and climit, and save to M_X and M_Y
+    //! - 6) Applies mask using conc and climit, and save to M_X and M_Y
     maskXY(mesh, X, Y, conc, climit);
 
     M_is_initialised = true;
 }
 
-// Mask out the initial X and Y values so we only have drifters where there's ice
+    
+// --------------------------------------------------------------------------------------
+//! Masks out the initial X and Y values so we only have drifters where there is ice.
 void
 Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim)
 {
-    // Interpolate the concentration onto the drifter positions
+    //! - 1) Interpolates the concentration onto the drifter positions
     int gridSize = X.size();
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
@@ -213,7 +223,7 @@ Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double>& X, std::vector<do
                             &X[0],&Y[0],gridSize,
                             true, 0.);
 
-    // Add drifter positions where conc > conc_lim
+    //! - 2) Adds drifter positions where conc > conc_lim
     M_X.resize(0); // this shouldn't be necessary!
     M_Y.resize(0);
     M_i.resize(0);
@@ -233,21 +243,21 @@ Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double>& X, std::vector<do
     xDelete<double>(interp_drifter_out);
 }
 
-// Check to see if we're properly initialised
+
+// --------------------------------------------------------------------------------------
+//! Checks to see if the drifters are correctly initialized.
 bool
 Drifters::isInitialised()
 {
     return M_is_initialised;
 }
 
-/*
- * There are two use-cases for moving drifters. The "normal" case where you
- * overwrite the old coordinates with the new ones and the case where you
- * want to store the new coordinates in a seperate variable. This latter
- * case is useful when writing to file
- */
+//! * There are two types of moving drifters. The "normal" case where you overwrite
+//!   the old coordinates with the new ones and the case where you
+//!   want to store the new coordinates in a seperate variable. This latter
+//!   case is useful when writing to file.
 
-// Move drifters puting output into X and Y
+//! - 1) Moves drifters, with outputs into cartesian coordinates (X and Y).
 void
 Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y)
 {
@@ -287,24 +297,23 @@ Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vect
     xDelete<double>(interp_drifter_out);
 }
 
-// Move drifters and replace the old coordinates with the new ones
+//! - 2) Moves drifters and replaces the old coordinates with the new ones.
 void
 Drifters::move(GmshMeshSeq const& mesh, std::vector<double> const& UT)
 {
     this->move(mesh, UT, M_X, M_Y);
 }
 
-/*
- * File operations
- *
- * We use netCDF files to save a fixed number of drifters. The file
- * contains two vectors of latitude and longitude positions and can be
- * appended to through time. File name contains time stamp for the creation
- * date (format: yyyymmdd, we assume we won't be creating multiple files
- * with the same prefix per day.
- */
 
-// Initialise the netCDF file
+// File operations
+// ----------------------------------------------------------------------------------------------
+//! Initializes the netCDF file
+//! * We use netCDF files to save a fixed number of drifters. The file
+//! contains two vectors of latitude and longitude positions and can be
+//! appended to through time. File name contains time stamp for the creation
+//! date (format: yyyymmdd, we assume we won't be creating multiple files
+//! with the same prefix per day.
+ 
 void
 Drifters::initNetCDF(std::string file_prefix, double current_time)
 {
@@ -370,7 +379,9 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
     dataFile.putAtt("source", "neXtSIM model fields");
 }
 
-// Write data to the netCDF file
+
+// -------------------------------------------------------------------------------------
+//! Writes data to the netCDF file.
 void
 Drifters::appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector<double> const& UT)
 {
