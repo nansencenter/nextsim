@@ -7570,7 +7570,7 @@ FiniteElement::readRestart(std::string step)
             std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
             std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-            this->initIabpDrifter();//initIABPDrifter();
+            this->initIabpDrifter();
             if (drifter_no.size() == 0)
             {
                 if(M_rank==0)
@@ -7579,7 +7579,7 @@ FiniteElement::readRestart(std::string step)
                     msg += " Drifter positions initialised as if there was no restart.\n";
                     LOG(WARNING) << msg;
                 }
-                this->updateIabpDrifter();//updateIABPDrifter();
+                this->updateIabpDrifter();
             }
             else
             {
@@ -10401,7 +10401,7 @@ FiniteElement::outputIabpDrifter()
         // Initialize the map
         mapx_class *map;
         std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimDataDir().string()
+                                  % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -10456,7 +10456,7 @@ FiniteElement::updateIabpDrifter()
         // Initialize the map
         mapx_class *map;
         std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimDataDir().string()
+                                  % Environment::nextsimMeshDir().string()
                                   % vm["mesh.mppfile"].as<std::string>()
                                   ).str();
 
@@ -11113,193 +11113,6 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
     }
 }
 
-#if 0
-// A simple function to output the drifters in the model, IABP or otherwise
-// The output could well be prettier!
-void
-FiniteElement::outputDrifter(std::fstream& drifters_out)
-{
-    if (M_rank == 0)
-    {
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        // Assemble the coordinates from the unordered_map
-        std::vector<double> drifter_X(M_iabp_drifters.size());
-        std::vector<double> drifter_Y(M_iabp_drifters.size());
-        int j=0;
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            drifter_X[j] = it->second[0];
-            drifter_Y[j] = it->second[1];
-            ++j;
-        }
-
-        // Interpolate the total displacement and concentration onto the drifter positions
-        int nb_var=2;
-        int ndof_root = M_mesh_root.numNodes();
-        std::vector<double> interp_drifter_in(nb_var*ndof_root);
-
-        // Interpolate the velocity
-        for (int i=0; i<ndof_root; ++i)
-        {
-            interp_drifter_in[nb_var*i]   = M_UT_root[i];
-            interp_drifter_in[nb_var*i+1] = M_UT_root[i+ndof_root];
-        }
-
-        double* interp_drifter_out;
-        InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
-                                M_mesh_root.numNodes(),M_mesh_root.numTriangles(),
-                                &interp_drifter_in[0],
-                                M_mesh_root.numNodes(),nb_var,
-                                &drifter_X[0],&drifter_Y[0],M_iabp_drifters.size(),
-                                true, 0.);
-
-        // Loop over the map and output
-        j=0;
-        boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
-        boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            double lat, lon;
-            inverse_mapx(map,it->second[0]+interp_drifter_out[nb_var*j],it->second[1]+interp_drifter_out[nb_var*j+1],&lat,&lon);
-            j++;
-
-            drifters_out << setw(4) << date.year()
-                         << " " << setw( 2) << date.month().as_number()
-                         << " " << setw( 2) << date.day().as_number()
-                         << " " << setw( 2) << time.hours()
-                         << " " << setw(16) << it->first
-                         << fixed << setprecision(5)
-                         << " " << setw( 8) << lat
-                         << " " << setw(10) << lon << "\n";
-        }
-
-        xDelete<double>(interp_drifter_out);
-        close_mapx(map);
-    }
-}
-#endif
-
-#if 0
-// Add the buoys that have been put into the ice and remove dead ones
-void
-FiniteElement::updateIABPDrifter()
-{
-    if (M_rank == 0)
-    {
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        // Read the current buoys from file
-        int pos;    // To be able to rewind one line
-        double time = M_current_time;
-        std::vector<int> keepers;
-        while ( time == M_current_time )
-        {
-            // Remember where we were
-            pos = M_iabp_file.tellg();
-
-            // Read the next line
-            int year, month, day, hour, number;
-            double lat, lon;
-            M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
-            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-            time = from_date_string(date) + hour/24.;
-
-            // Remember which buoys are in the ice according to IABP
-            keepers.push_back(number);
-
-            // Project and add the buoy to the map if it's missing
-            if ( M_iabp_drifters.count(number) == 0 )
-            {
-                double x, y;
-                forward_mapx(map,lat,lon,&x,&y);
-                M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
-
-            }
-        }
-        close_mapx(map);
-
-        // Go through the M_iabp_drifters map and throw out the ones which IABP doesn't
-        // report as being in the ice anymore
-        for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); /* ++model is not allowed here, because we use 'erase' */ )
-        {
-            bool keep = false;
-            // Check against all the buoys we want to keep
-            for ( auto obs = keepers.begin(); obs != keepers.end(); ++obs )
-            {
-                if ( model->first == *obs )
-                {
-                    keep = true;
-                    break;
-                }
-            }
-
-            // Delete or advance the iterator
-            if ( ! keep )
-                model = M_iabp_drifters.erase(model);
-            else
-                ++model;
-        }
-    }
-}
-#endif
-
-#if 0
-// Initialise by reading all the data from '79 up to time_init
-// This is too slow, but only happens once so I won't try to optimise that for now
-void
-FiniteElement::initIABPDrifter()
-{
-    if (M_rank == 0)
-    {
-        std::string filename = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimDataDir().string()
-                                  % "IABP_buoys.txt"
-                                  ).str();
-        M_iabp_file.open(filename, std::fstream::in);
-        if ( ! M_iabp_file.good() )
-            throw std::runtime_error("File not found: " + filename);
-
-        int pos;    // To be able to rewind one line
-        double time = from_date_string("1979-01-01");
-        while ( time < time_init )
-        {
-            // Remember where we were
-            pos = M_iabp_file.tellg();
-
-            // Read the next line
-            int year, month, day, hour, number;
-            double lat, lon;
-            M_iabp_file >> year >> month >> day >> hour >> number >> lat >> lon;
-            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-
-            time = from_date_string(date) + hour/24.;
-        }
-
-        // We must rewind one line so that updateIABPDrifter works correctly
-        M_iabp_file.seekg(pos);
-    }
-}
-#endif
 
 void
 FiniteElement::initEquallySpacedDrifters()
