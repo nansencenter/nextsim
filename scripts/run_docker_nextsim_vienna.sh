@@ -12,10 +12,10 @@ VOLUMES+=("-v /mnt/10.11.12.232/nextsimf/:/mnt/10.11.12.232/nextsimf/:ro")
 VOLUMES+=("-v /home/timill/Github-Repos/nextsim-cxx/nextsim:/home/timill/Github-Repos/nextsim-cxx/nextsim:ro")
 
 # $NEXTSIM_MESH_DIR (read-only)
-VOLUMES+=("-v /home/timill/Github-Repos/nextsim-cxx/nextsim/mesh/mesh_links:/nextsim_mesh_dir/:ro")
+VOLUMES+=("-v /home/timill/Github-Repos/nextsim-cxx/nextsim/mesh/mesh_links:/mesh:ro")
 
 # $NEXTSIM_DATA_DIR (read-only)
-VOLUMES+=("-v /home/timill/Github-Repos/nextsim-cxx/nextsim/data/data_links:/nextsim_data_dir/:ro")
+VOLUMES+=("-v /home/timill/Github-Repos/nextsim-cxx/nextsim/data/data_links:/data:ro")
 
 # where docker can find inputs and outputs (read-write)
 # NB could separate input and output if you preferred
