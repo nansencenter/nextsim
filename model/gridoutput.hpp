@@ -63,6 +63,12 @@ public:
         grid      = 2,
     };
 
+    enum interpMethod
+    {
+        meshToMesh = 0,
+        conservative = 1
+    };
+
     // NB! You need to wrap direct "strings" in std::string() so that the constructor gives the expected results
     // I.e. GridOutput::Grid new(std::string("file"), ...), not GridOutput::Grid new("file", ...)
     typedef struct Grid
@@ -459,7 +465,8 @@ public:
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void appendNetCDF(std::string filename, double timestamp);
 
-    std::vector<int> getMask(BamgMesh* bamgmesh, variableKind kind);
+    // Return a mask
+    std::vector<int> const &getMask() const { return M_lsm; }
 
     int M_ncols;
     int M_nrows;
@@ -482,6 +489,9 @@ private:
     double M_ymax;
 
     std::vector<int> M_lsm;
+    bool M_use_lsm;
+
+    interpMethod M_interp_method;
 
     int M_proc_mask_indx;
     int M_ice_mask_indx;
@@ -499,8 +509,10 @@ private:
 
     void initMask();
 
-    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val);
-    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val,
+    void applyLSM();
+
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val,
         bool apply_mask, Variable mask);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);

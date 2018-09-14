@@ -194,6 +194,7 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
 
     close_mapx(map);
 
+    M_use_lsm = false;
     M_lsm.assign(M_grid_size, 1);
     this->resetGridMean();
     this->resetMeshMean(bamgmesh);
@@ -253,6 +254,8 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
         M_grid.gridTheta.resize(M_grid_size);
         Theta.getVar(&M_grid.gridTheta[0]);
     }
+
+    // Do a conservative remapping if we find both cornerLatName and cornerLonName
     if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
     {
         netCDF::NcVar cornerLat = dataFile.getVar(M_grid.cornerLatName);
@@ -261,6 +264,7 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
         M_grid.gridCornerLon.resize(M_grid_size*4);
         cornerLat.getVar(&M_grid.gridCornerLat[0]);
         cornerLon.getVar(&M_grid.gridCornerLon[0]);
+        M_interp_method = interpMethod::conservative;
     }
 
     // Calculate x and y
@@ -277,7 +281,7 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
     for (int i=0; i<M_grid_size; ++i)
         forward_mapx(map, M_grid.gridLAT[i], M_grid.gridLON[i], &M_grid.gridX[i], &M_grid.gridY[i]);
 
-    if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
+    if ( M_interp_method==interpMethod::conservative )
     {
         M_grid.gridCornerX.resize(4*M_grid_size);
         M_grid.gridCornerY.resize(4*M_grid_size);
@@ -289,6 +293,7 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
 
     M_grid.loaded = true;
 
+    M_use_lsm = false;
     M_lsm.assign(M_grid_size, 1);
     this->resetGridMean();
     this->resetMeshMean(bamgmesh, true);
@@ -349,11 +354,11 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh)
         M_elemental_variables[M_proc_mask_indx].data_grid.assign(M_grid_size, 0.);
 
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_elemental_variables, M_miss_val);
+    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_interp_method, M_elemental_variables, M_miss_val);
 
     // Call the worker routine for the nodes
     if (M_proc_mask_indx != -1)
-        this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_nodal_variables, M_miss_val,
+        this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_interp_method, M_nodal_variables, M_miss_val,
                 true, M_elemental_variables[M_proc_mask_indx]);
     else
         if ( M_nodal_variables.size() > 0 )
@@ -375,16 +380,16 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh)
 
 // Interpolate from the mesh to the grid - updating the gridded mean
 void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
 {
     bool apply_mask = false;
     Variable mask(variableID::proc_mask);
 
-    this->updateGridMeanWorker(bamgmesh, kind, variables, miss_val, apply_mask, mask);
+    this->updateGridMeanWorker(bamgmesh, kind, method, variables, miss_val, apply_mask, mask);
 }
 
 void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vector<Variable>& variables, double miss_val,
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val,
         bool apply_mask, Variable mask)
 {
     int nb_var = variables.size();
@@ -431,7 +436,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
     // TODO: Permit regular grids to use the conservative remapping.
     if ( M_grid.loaded )
     {
-        if ( kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
+        if ( kind==variableKind::elemental && method==interpMethod::conservative )
             ConservativeRemappingMeshToGrid(interp_out, interp_in,
                                     nb_var, M_grid_size, 0.,
                                     M_gridP, M_triangles, M_weights, M_num_masked);
@@ -477,40 +482,23 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
 }
 
 // Set the land-sea mask
+/* This function should _only_ be called by the root and _only_ with bamgmesh_root as an argument.
+ * You only need to call it if you want an LSM in your output or you need to get at it in the code
+ * via GridOutput::getLSM() */
 void
-GridOutput::setLSM(BamgMesh* bamgmesh)
+GridOutput::setLSM(BamgMesh* bamgmesh_root)
 {
-    M_lsm = getMask(bamgmesh, variableKind::elemental);
-    this->resetGridMean();
-}
+    M_use_lsm = true;
 
-// Return a mask
-std::vector<int>
-GridOutput::getMask(BamgMesh* bamgmesh, variableKind kind)
-{
     // Call the worker routine using a vector of ones and give zero for missing values (land mask)
     std::vector<Variable> variables(1);
     variables[0] = Variable(variableID::lsm);
-
     variables[0].data_grid.assign(M_grid_size,0);
-    switch (kind)
-    {
-        case variableKind::nodal:
-            throw std::logic_error("variableKind::nodal not supported in GridOutput::getMask");
-            variables[0].data_mesh.assign(bamgmesh->VerticesSize[0], 1.);
-            break;
+    variables[0].data_mesh.assign(bamgmesh_root->TrianglesSize[0], 1.);
 
-        case variableKind::elemental:
-            variables[0].data_mesh.assign(bamgmesh->TrianglesSize[0], 1.);
-            break;
+    this->updateGridMeanWorker(bamgmesh_root, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
-        default:
-            throw std::logic_error("Incorrect variable kind in GridOutput::getMask");
-    }
-
-    this->updateGridMeanWorker(bamgmesh, kind, variables, 0.);
-
-    return std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
+    M_lsm = std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
 }
 
 // Rotate the vectors as needed
@@ -575,25 +563,27 @@ void
 GridOutput::resetGridMean()
 {
     // TODO: This is ugly - we should be able to loop over all the variables at once.
-    for (int i=0; i<M_nodal_variables.size(); i++)
-    {
-        M_nodal_variables[i].data_grid.resize(M_grid_size);
-        for (int j=0; j<M_grid_size; j++)
-            if (M_lsm[j] == 0)
-                M_nodal_variables[i].data_grid[j] = M_miss_val;
-            else
-                M_nodal_variables[i].data_grid[j] = 0.;
-    }
+    for ( auto &var : M_nodal_variables )
+        var.data_grid.assign(M_grid_size, 0.);
 
-    for (int i=0; i<M_elemental_variables.size(); i++)
-    {
-        M_elemental_variables[i].data_grid.resize(M_grid_size);
-        for (int j=0; j<M_grid_size; j++)
-            if (M_lsm[j] == 0)
-                M_elemental_variables[i].data_grid[j] = M_miss_val;
-            else
-                M_elemental_variables[i].data_grid[j] = 0.;
-    }
+    for ( auto &var : M_elemental_variables )
+        var.data_grid.assign(M_grid_size, 0.);
+}
+
+// Apply the land-sea mask
+void
+GridOutput::applyLSM()
+{
+    // TODO: This is ugly - we should be able to loop over all the variables at once.
+    for ( auto &var : M_nodal_variables )
+        for (int i=0; i<M_grid_size; i++)
+            if (M_lsm[i] == 0)
+                var.data_grid[i] = M_miss_val;
+
+    for ( auto &var : M_elemental_variables )
+        for (int i=0; i<M_grid_size; i++)
+            if (M_lsm[i] == 0)
+                var.data_grid[i] = M_miss_val;
 }
 
 // Set the _mesh values back to zero and recalculate weights if needed (and if they're being used)
@@ -606,7 +596,7 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
     for (int i=0; i<M_elemental_variables.size(); i++)
         M_elemental_variables[i].data_mesh.assign(bamgmesh->TrianglesSize[0], 0.);
 
-    if ( regrid && (M_grid.cornerLatName != "" && M_grid.cornerLonName != "") )
+    if ( regrid && M_interp_method==interpMethod::conservative )
         ConservativeRemappingWeights(bamgmesh,
                                 M_grid.gridX,M_grid.gridY,
                                 M_grid.gridCornerX,M_grid.gridCornerY,
@@ -752,6 +742,10 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
 
     count.push_back(M_ncols);
     count.push_back(M_nrows);
+
+    // Apply mask - if needed
+    if (M_use_lsm)
+        this->applyLSM();
 
     // Save to file
     netCDF::NcVar data;
