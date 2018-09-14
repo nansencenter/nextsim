@@ -134,3 +134,31 @@ sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
 ## run
 
 # type “bin/nextsim.exec” from the nextsim/research directory
+
+##-------  Create documentation --------- 
+# Run doxygen with docker
+* 
+cd [path to nextsim source]
+docker run --rm -v $(pwd):/data -it hrektts/doxygen doxygen
+* This automatically uses the file Doxyfile (made originally with the doxygen gui)
+  in the nextsim directory
+# Install doxygen locally
+  * Ubuntu:
+    sudo apt-get install doxygen graphviz doxygen-gui
+  * Mac OSX:
+    * GUI: download .dmg image from docker website and open it to install 
+    * command line: sudo port install doxygen graphviz
+# Run locally
+* Ubuntu
+  * GUI:
+  doxywizard &
+  * command line:
+  cp Doxyfile Doxyfile-edited.cfg
+  * edit new file and change entries for INPUT and OUTPUT_DIRECTORY]
+  cd [path to the other directory]
+  doxygen Doxyfile-edited.cfg
+* Mac OSX:
+  * GUI: open Doxygen.app file
+  * command line: same as ubunty
+  * NB doxygen is not fully functional on Mac OSX but GUI could still be used to create a config file
+    to run with docker
