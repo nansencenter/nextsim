@@ -137,8 +137,12 @@ cd [path to nextsim source]
 docker run --rm -v $(pwd):/data -it hrektts/doxygen doxygen
 ```
 This automatically uses the file Doxyfile (made originally with the doxygen gui)
-  in the nextsim directory
-  
+  in the nextsim directory. Outputs go into a new folder nextsim-doc:
+```
+ls nextsim-doc/
+html  latex  man  rtf  xml
+```
+You can then see the results with (eg.) `firefox nextsim-doc/html/index.html &`
 ### Install doxygen locally
 * Ubuntu:
   `sudo apt-get install doxygen graphviz doxygen-gui`
