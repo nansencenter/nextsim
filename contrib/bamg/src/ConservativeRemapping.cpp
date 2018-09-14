@@ -101,7 +101,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int nb_var, int grid_size, double miss_val,
-        std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
+        std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights, int nb_masked)
 {
     // Initialise interp_out
     interp_out = xNew<double>(nb_var*grid_size);
@@ -118,8 +118,8 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
 
         double r_cell_area = 1./cell_area;
 
-        // walk through all the variables
-        for (int var=0; var<nb_var; ++var)
+        // walk through all the variables - excluding the masking variables
+        for (int var=0; var<nb_var-nb_masked; ++var)
         {
             // ... and contributing elements
             interp_out[gridP[i]*nb_var+var] = 0;
@@ -128,6 +128,10 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
 
             interp_out[gridP[i]*nb_var+var] *= r_cell_area;
         }
+
+        // For the mask we know the first triangle is the one covering the P-point, so we just use that
+        for (int var=nb_var-nb_masked; var<nb_var; ++var)
+            interp_out[gridP[i]*nb_var+var] = interp_in[triangles[i][0]*nb_var+var];
     }
 }
 

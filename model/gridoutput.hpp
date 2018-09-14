@@ -485,6 +485,7 @@ private:
 
     int M_proc_mask_indx;
     int M_ice_mask_indx;
+    int M_num_masked;
 
     GridOutput(std::vector<Variable> variables, variableKind kind);
 

@@ -300,11 +300,39 @@ GridOutput::initMask()
 {
     M_proc_mask_indx = -1;
     M_ice_mask_indx = -1;
+    M_num_masked = 0;
 
     for ( int i=0; i<M_elemental_variables.size(); ++i )
     {
-        if (M_elemental_variables[i].varID==variableID::proc_mask) M_proc_mask_indx = i;
-        if (M_elemental_variables[i].varID==variableID::ice_mask)  M_ice_mask_indx = i;
+        if (M_elemental_variables[i].varID==variableID::proc_mask)
+        {
+            M_proc_mask_indx = i;
+            M_num_masked++;
+        }
+        if (M_elemental_variables[i].varID==variableID::ice_mask)
+        {
+            M_ice_mask_indx = i;
+            M_num_masked++;
+        }
+    }
+
+    // Move the masks to the end and reset M_*_mask_indx
+    if ( M_proc_mask_indx != -1 )
+    {
+        std::swap(M_elemental_variables[M_proc_mask_indx], M_elemental_variables.back());
+        M_proc_mask_indx = M_elemental_variables.size()-1;
+    }
+
+    if ( M_ice_mask_indx != -1 )
+    {
+        if ( M_proc_mask_indx != -1 ) // Move to the 2nd last if we've already moved proc mask
+        {
+            std::swap( M_elemental_variables[M_ice_mask_indx], *(M_elemental_variables.end()-2) );
+            M_ice_mask_indx = M_elemental_variables.size()-2;
+        } else {
+            std::swap( M_elemental_variables[M_ice_mask_indx], *(M_elemental_variables.end()-1) );
+            M_ice_mask_indx = M_elemental_variables.size()-1;
+        }
     }
 }
 
@@ -331,7 +359,7 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh)
         if ( M_nodal_variables.size() > 0 )
             throw std::logic_error("GridOutput::updateGridMean: There are nodal variables to be interpolated but no proc_mask set.");
 
-    // Mask if that's requested
+    // Ice mask if that's requested
     for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); it++ )
         if ( it->mask )
             for ( int i=0; i<M_grid_size; ++i )
@@ -403,10 +431,10 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
     // TODO: Permit regular grids to use the conservative remapping.
     if ( M_grid.loaded )
     {
-        if (false) // kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
+        if ( kind==variableKind::elemental && M_grid.cornerLatName!="" && M_grid.cornerLonName!="" )
             ConservativeRemappingMeshToGrid(interp_out, interp_in,
-                                    nb_var, M_grid_size, miss_val,
-                                    M_gridP, M_triangles, M_weights);
+                                    nb_var, M_grid_size, 0.,
+                                    M_gridP, M_triangles, M_weights, M_num_masked);
         else
             InterpFromMeshToMesh2dx(&interp_out,
                                     &indexTr[0],&coordX[0],&coordY[0],
@@ -414,7 +442,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, std::vec
                                     &interp_in[0],
                                     source_size,nb_var,
                                     &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                    true, miss_val);
+                                    true, 0.);
     }
     else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
     {
