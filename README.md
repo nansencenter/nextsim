@@ -109,56 +109,54 @@ export BOOST_DIR=/opt/local/boost
 export DYLD_LIBRARY_PATH="/opt/local/boost/lib"
 export DYLD_LIBRARY_PATH=NEXTSIMDIR/lib:$DYLD_LIBRARY_PATH
 
-##-------  Compile neXtSIM itself --------- 
+## -------  Compile neXtSIM itself --------- 
 
-# Open a new command window
+### Open a new command window
 
-# Either modify the Makefile to have the right link to openmpi or do the following:
-
+### Either modify the Makefile to have the right link to openmpi or do the following:
+```
 sudo rm -rf /opt/local/include/openmpi-mp
 sudo ln -sf /opt/local/include/openmpi-gcc48 /opt/local/include/openmpi-mp
-
 sudo rm -rf /opt/local/lib/openmpi-mp
 sudo ln -sf /opt/local/lib/openmpi-gcc48 /opt/local/lib/openmpi-mp
+```
 
-# Type make in nextsim
+* Type make in nextsim
+* For the model application (run nextsim)
+* go to nextsim/model
+* Type make
 
-## For the mode application (run nextsim)
+## -------  Run neXtSIM --------- 
 
-# go to nextsim/model
+* type “bin/nextsim.exec” from the nextsim/model directory
 
-# Type make
-
-# Go to bin, type ./nextsim.exec
-
-## run
-
-# type “bin/nextsim.exec” from the nextsim/research directory
-
-##-------  Create documentation --------- 
-# Run doxygen with docker
-* 
+## -------  Create documentation --------- 
+### Run doxygen with docker
+```
 cd [path to nextsim source]
 docker run --rm -v $(pwd):/data -it hrektts/doxygen doxygen
-* This automatically uses the file Doxyfile (made originally with the doxygen gui)
+```
+This automatically uses the file Doxyfile (made originally with the doxygen gui)
   in the nextsim directory
-# Install doxygen locally
-  * Ubuntu:
-    sudo apt-get install doxygen graphviz doxygen-gui
-  * Mac OSX:
-    * GUI: download .dmg image from docker website and open it to install 
-    * command line: sudo port install doxygen graphviz
-# Run locally
+  
+### Install doxygen locally
+* Ubuntu:
+  `sudo apt-get install doxygen graphviz doxygen-gui`
+* Mac OSX:
+  * GUI: download .dmg image from docker website and open it to install 
+  * command line: sudo port install doxygen graphviz
+### Run locally
 * Ubuntu
   * GUI:
-  doxywizard &
+  `doxywizard &`
   * command line:
+  ```
   cp Doxyfile Doxyfile-edited.cfg
-  * edit new file and change entries for INPUT and OUTPUT_DIRECTORY]
-  cd [path to the other directory]
+  [edit new file and change entries for INPUT and OUTPUT_DIRECTORY]
   doxygen Doxyfile-edited.cfg
+  ```
 * Mac OSX:
   * GUI: open Doxygen.app file
-  * command line: same as ubunty
+  * command line: same as ubuntu
   * NB doxygen is not fully functional on Mac OSX but GUI could still be used to create a config file
     to run with docker
