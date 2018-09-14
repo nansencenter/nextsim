@@ -11252,7 +11252,7 @@ FiniteElement::outputtingDrifters(
 void
 FiniteElement::checkDrifters()
 {
-    //! 1) Gather the fields needed by the drifters
+    //! - 1) Gather the fields needed by the drifters
     // TODO Currently this is done every time step at the moment
     //      - perhaps only needed if moving?
     this->gatherNodalField(M_UT, M_UT_root);
@@ -11262,7 +11262,7 @@ FiniteElement::checkDrifters()
     bool move_drifters = false;//needed on all processors
     if(M_rank==0)
     {
-        //! 2) check if need to:
+        //! - 2) check if need to:
         //! * move the drifters (if needed)
         //! * get new inputs (IABP, OSISAF) (if needed)
         //! * output to text file or netcdf (if needed)
@@ -11297,7 +11297,7 @@ FiniteElement::checkDrifters()
                 io_any
                 );
 
-        //! 3) Do we need to move any drifters?
+        //! - 3) Do we need to move any drifters?
         //! * If we are outputting ANY, we move ALL the drifters, since they all use the same
         //!   total displcement (M_UT)
         //! * Also if we are initialising any, we also need to move the drifters
@@ -11316,33 +11316,19 @@ FiniteElement::checkDrifters()
             if(M_current_time>M_drifters_time_init)
             {
                 if ( M_use_iabp_drifters )
-                {
-                    LOG(DEBUG)<<"Move IABP drifters: "
-                            <<to_date_time_string(M_current_time)<<"\n";
                     this->updateIabpDrifterPosition();
-                }
+                
                 if ( M_use_equally_spaced_drifters )
-                {
-                    LOG(DEBUG)<<"Move equally-spaced drifters: "
-                            <<to_date_time_string(M_current_time)<<"\n";
                     M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
-                }
+
                 if ( M_use_sidfex_drifters )
-                {
-                    LOG(DEBUG)<<"Move SIDFEX drifters: "
-                            <<to_date_time_string(M_current_time)<<"\n";
                     M_sidfex_drifters.move(M_mesh_root, M_UT_root);
-                }
             }
 
             if ( M_use_rgps_drifters )
             {
                 if ( M_rgps_drifters.isInitialised() )
-                {
-                    LOG(DEBUG)<<"Move RGPS drifters: "
-                            <<to_date_time_string(M_current_time)<<"\n";
                     M_rgps_drifters.move(M_mesh_root, M_UT_root);
-                }
             }
 
             if ( M_use_osisaf_drifters )
@@ -11357,57 +11343,48 @@ FiniteElement::checkDrifters()
                     }
             }
         
-            // reset M_UT
+            // reset M_UT_root
+            // TODO do we need to do this?
+            // - it isn't used and seems to be gathered each time it's needed
+            // (eg in writeRestart)
+            // - needs checking though
             LOG(DEBUG)<<"Reset M_UT_root: "
                 <<to_date_time_string(M_current_time)<<"\n";
             std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
         }//moving drifters (or just resetting M_UT)
 
+        //! - 3) Do we need to input/output any drifters?
         if (input_iabp)
-        {
             // check if we need to add new IABP drifters
             // NB do this after moving
             // NB this updates M_iabp_conc
-            LOG(DEBUG)<<"update IABP: "
-                <<to_date_time_string(M_current_time)<<"\n";
             this->updateIabpDrifter();
-        }
 
         if (output_iabp)
         {
-            LOG(DEBUG)<<"output IABP: "
-                <<to_date_time_string(M_current_time)<<"\n";
             // output IABP drifters
             // NB do this after moving
             if(!input_iabp)
-            {
                 //still need to update M_iabp_conc
                 this->updateIabpDrifterConc();
-            }
             this->outputIabpDrifter();
         }
 
         if ( output_equally_spaced )
         {
-            LOG(DEBUG)<<"output equally-spaced: "
-                <<to_date_time_string(M_current_time)<<"\n";
             M_equally_spaced_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
             M_equally_spaced_drifters.appendNetCDF(M_current_time);
         }
 
         if ( output_rgps )
         {
-            LOG(DEBUG)<<"output RGPS: "
-                <<to_date_time_string(M_current_time)<<"\n";
             M_rgps_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
             M_rgps_drifters.appendNetCDF(M_current_time);
         }
 
         if ( output_sidfex )
         {
-            LOG(DEBUG)<<"output SIDFEX: "
-                <<to_date_time_string(M_current_time)<<"\n";
             M_sidfex_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
             M_sidfex_drifters.appendNetCDF(M_current_time);
         }
@@ -11416,57 +11393,31 @@ FiniteElement::checkDrifters()
         {
             int i = 0;
             for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++, i++)
+            {
                 if (it->isInitialised())
                 {
-                    LOG(DEBUG)<<"output OSISAF["<<i<<"]: "
-                        <<to_date_time_string(M_current_time)<<"\n";
                     it->updateConc(M_mesh_root, M_UM_root, M_conc_root);
                     it->appendNetCDF(M_current_time);
                 }
+            }
         }
          
-        // * Do initialisation after moving,
-        //   to avoid moving drifters that are only just initialised
-        // * Also do it after output - this is mainly for the OSISAF drifters
+        //! - 4) Do we need to initialise any drifters?
+        //  * Do initialisation after moving,
+        //    to avoid moving drifters that are only just initialised
+        //  * Also do it after output - this is mainly for the OSISAF drifters
         if(init_main)
-        {
-            LOG(DEBUG)<<"init main drifters: "
-                <<to_date_time_string(M_current_time)<<"\n";
-            LOG(DEBUG)<<"min M_UT_root: "<< *std::min_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-            LOG(DEBUG)<<"max M_UT_root: "<< *std::max_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-
             this->initDrifters();
-        }
 
         if(init_rgps)
-        {
-            LOG(DEBUG)<<"init RGPS drifters: "
-                <<to_date_time_string(M_current_time)<<"\n";
-            LOG(DEBUG)<<"min M_UT_root: "<< *std::min_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-            LOG(DEBUG)<<"max M_UT_root: "<< *std::max_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-
             this->initRGPSDrifters();
-        }
 
         if(init_osisaf)
-        {
-            LOG(DEBUG)<<"init OSISAF drifters: "
-                <<to_date_time_string(M_current_time)<<"\n";
-            LOG(DEBUG)<<"min M_UT_root: "<< *std::min_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-            LOG(DEBUG)<<"max M_UT_root: "<< *std::max_element(
-                    M_UT_root.begin(), M_UT_root.end())<<"\n";
-
             // start a new set of OSISAF drifters
             // NB do this after outputting netcdf,
             // to make sure the last time record is present
             // for the drifters that will be terminated
             this->initOsisafDrifters();
-        }
     
     }//M_rank==0
 
@@ -11474,19 +11425,7 @@ FiniteElement::checkDrifters()
     // NB faster to just reset on each processor than scattering
     boost::mpi::broadcast(M_comm, move_drifters, 0);
     if(move_drifters)
-    {
-        LOG(DEBUG)<<"Reset M_UT: "
-            <<to_date_time_string(M_current_time)<<"\n";
         std::fill(M_UT.begin(), M_UT.end(), 0.);
-    }
-
-    LOG(DEBUG)<<"11293: "<<M_rank<<": check M_UT "
-            <<to_date_time_string(M_current_time)<<"\n";
-    LOG(DEBUG)<<"move_drifters: "<<M_rank<<": "<< move_drifters << "\n";
-    LOG(DEBUG)<<"min M_UT: "<<M_rank<<": "<< *std::min_element(
-            M_UT.begin(), M_UT.end())<<"\n";
-    LOG(DEBUG)<<"max M_UT: "<<M_rank<<": "<< *std::max_element(
-            M_UT.begin(), M_UT.end())<<"\n";
 
 }//checkDrifters
 
@@ -11536,7 +11475,7 @@ FiniteElement::initOsisafDrifters()
 }
 
 // -----------------------------------------------------------------------------------------------------------
-//! Calculates the planeray vorticity (f) of sets f = 0.
+//! Calculates the planetary vorticity (f) of sets f = 0.
 //! Called by the step() function.
 void
 FiniteElement::calcCoriolis()
