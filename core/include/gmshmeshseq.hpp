@@ -56,8 +56,9 @@ public:
 
     //~GmshMeshSeq();
 
+    void setMppFile();
     void readFromFile(std::string const& filename);
-    void writeTofile(std::string const& filename);
+    void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
                    mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
@@ -122,7 +123,7 @@ public:
     std::vector<int> id() const;
 
     void initGModel();
-    void writeToGModel(std::string const& filename);
+    void writeToGModel();
     void clear();
 
 private:

@@ -46,7 +46,8 @@ int main(int argc, char** argv )
     {
         // This is the array we will read.
         int dataIn[NX][NY];
-        std::string filenc = (boost::format( "%1%/data/simple_xy.nc" ) % Environment::nextsimDir().string()).str();
+        std::string filenc = (boost::format( "%1%/simple_xy.nc" )
+                % Environment::nextsimDataDir().string()).str();
         //std::cout<<"filenc= "<< filenc <<"\n";
 
         // Open the file for read access
