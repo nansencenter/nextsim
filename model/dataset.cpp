@@ -940,8 +940,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
+            use_FillValue: false,
+            use_missing_value: false,
             a: 1.,
             b: 0.,
             Units: "m/s",
@@ -1172,8 +1172,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
+            use_FillValue: false,
+            use_missing_value: false,
             a: 1.,
             b: 0.,
             Units: "m/s",
@@ -7476,7 +7476,9 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
 void
 DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time)
 {
-    loadGrid(grid_ptr, init_time, current_time, 0., 0., 0., 0.);
+    loadGrid(grid_ptr, init_time, current_time,
+            std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
+            std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
 }
 
 std::string
@@ -8045,7 +8047,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             {
                 find_valid_max=false;
             }
-   #endif
+#endif
             bool find_land_mask     =grid_ptr->masking_variable.land_mask_defined;
             double land_mask_value  =grid_ptr->masking_variable.land_mask_value;
             bool find_NaN_mask      =grid_ptr->masking_variable.NaN_mask_defined;
@@ -8093,6 +8095,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			grid_ptr->gridY=Y;
 			grid_ptr->gridLAT=LAT;
 			grid_ptr->gridLON=LON;
+#ifdef OASIS
+            grid_ptr->gridTheta=Theta;
+#endif
 		}
 
 		std::cout <<"GRID : Triangulate starts\n";
@@ -8106,6 +8111,70 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		std::cout <<"GRID : Triangulate done\n";
 
 	}//interpolation_method==InterpolationType::FromMeshToMesh2dx
+#ifdef OASIS
+    else if (grid_ptr->interpolation_method==InterpolationType::ConservativeRemapping)
+    {
+		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+
+        // We load the full grid
+		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+
+		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+
+        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+
+        // Read in the gridded rotation angle, if requested
+        std::vector<double> Theta;
+        if(grid_ptr->gridded_rotation_angle)
+        {
+            // load the data
+            netCDF::NcVar VTHETA = dataFile.getVar(grid_ptr->vector_rotation_variable.name);
+
+            // here we find the start and count index for each dimensions
+            int dims = VTHETA.getDimCount();
+            if ( dims != grid_ptr->vector_rotation_variable.dimensions.size() )
+                throw std::logic_error( "DataSet::loadGrid: Wrong number of dimensions: Got " + std::to_string(dims) +
+                        " from " + filename + " and " + std::to_string(grid_ptr->masking_variable.dimensions.size()) +
+                        " from the settings in dataset.cpp");
+
+            std::vector<size_t> index_count(dims);
+            std::vector<size_t> index_start(dims);
+
+            for (int i=0; i<dims; ++i)
+            {
+                netCDF::NcDim tmpDim = VTHETA.getDim(i);
+                std::string name = tmpDim.getName();
+                if ( name == grid_ptr->dimension_x.name )
+                {
+                    index_start[i] = grid.dimension_x_start;
+                    index_count[i] = grid.dimension_x_count;
+                }
+                else if ( name == grid_ptr->dimension_y.name )
+                {
+                    index_start[i] = grid.dimension_y_start;
+                    index_count[i] = grid.dimension_y_count;
+                }
+                else // We take the first slice of the time and/or depth dimension
+                {
+                    index_start[i] = 0;
+                    index_count[i] = 1;
+                }
+            }
+
+            Theta.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+            VTHETA.getVar(index_start,index_count,&Theta[0]);
+
+        }
+        grid_ptr->gridX=X;
+        grid_ptr->gridY=Y;
+        grid_ptr->gridLAT=LAT;
+        grid_ptr->gridLON=LON;
+        grid_ptr->gridTheta=Theta;
+    }
+#endif
 
     grid_ptr->loaded=true;
 }

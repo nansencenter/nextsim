@@ -212,7 +212,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
                     // ---------------------------------
                     // Load grid if unloaded
-                    M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time, RX_min, RX_max, RY_min, RY_max);
+                    // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
+                    M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
                 }
 
                 this->recieveCouplingData(M_dataset, cpl_time, comm);
@@ -405,7 +406,7 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
             std::vector<double> data_in_tmp(MN_full);
 
             if ( comm.rank() == 0 )
-                int ierror = OASIS3::get_2d(dataset->M_cpl_id[j], (int) cpl_time, &data_in_tmp[0], N_full, M_full);
+                int ierror = OASIS3::get_2d(dataset->M_cpl_id[j], cpl_time, &data_in_tmp[0], N_full, M_full);
 
             // TODO: This is not very efficient but it will do for now, premature optimisations, and all that!
             boost::mpi::broadcast(comm, &data_in_tmp[0], MN_full, 0);
