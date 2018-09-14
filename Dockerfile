@@ -4,8 +4,6 @@ RUN apt-get update && apt-get install -y \
     libnetcdf-dev \
     libnetcdf-c++4-dev \
     vim \
-    doxygen \
-    graphviz \
     ssh \
 && rm -rf /var/lib/apt/lists/*
 
