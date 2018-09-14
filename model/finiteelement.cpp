@@ -6456,6 +6456,7 @@ FiniteElement::initOASIS()
     // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
     GridOutput::Grid grid(std::string("NEMO.nc"), std::string("coupler"), std::string("plat"), std::string("plon"), std::string("ptheta"), std::string("lat_corners"), std::string("lon_corners"), true);
     M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+    M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
     //std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
