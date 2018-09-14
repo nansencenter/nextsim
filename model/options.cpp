@@ -208,7 +208,7 @@ namespace Nextsim
             ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
             ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.init_SST_limit", po::value<double>()->default_value( -1. ), "")
+            ("ideal_simul.init_SST_limit", po::value<double>()->default_value( 2. ), "")
 
             // - if atmosphere-type=constant
             // -- thermodynamics
