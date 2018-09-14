@@ -7753,7 +7753,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         //std::cout <<"GRID : READ NETCDF done\n";
 
 	}//end interpolation_method==InterpolationType::FromGridToMesh
-	else
+	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
 	{
         //interpolation_method==InterpolationType::FromMeshToMesh2dx
 
