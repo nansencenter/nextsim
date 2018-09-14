@@ -11360,6 +11360,7 @@ FiniteElement::createGraph()
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
 //! Called by the step() function.
+void
 FiniteElement::exportResults(bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
