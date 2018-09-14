@@ -67,15 +67,15 @@ public:
     typedef struct Dimension
     {
         // Information on the input data
-        std::string name;   // name of the dimension in the input file
-        bool cyclic;        // if cyclic, then the first value will also be used for interpolation after the last value
+        std::string name;   //! name of the dimension in the input file
+        bool cyclic;        //! if cyclic, then the first value will also be used for interpolation after the last value
     } Dimension;
 
     typedef struct Variable
     {
         // Information on the input data
-        std::string name;   // name of the variable in the input file
-        std::vector<Dimension> dimensions; // dimensions in the input file
+        std::string name;   //! name of the variable in the input file
+        std::vector<Dimension> dimensions; //! dimensions in the input file
 
         // Information on the fill values and land mask when not available through the netcdf Attributes
         bool land_mask_defined;
@@ -87,13 +87,13 @@ public:
         bool use_missing_value;
 
         // Information on the unit transform
-        double a;           // scale_factor defined by us to have the data in the units system used by nextsim
-        double b;           // add_offset defined by us to have the data in the units system used by nextsim
-        std::string Units;  // units used in neXtSIM for this variable
+        double a;           //! scale_factor defined by us to have the data in the units system used by nextsim
+        double b;           //! add_offset defined by us to have the data in the units system used by nextsim
+        std::string Units;  //! units used in neXtSIM for this variable
 
         // Storage of the loaded and interpolated data
-        std::vector<std::vector<double>> loaded_data;       // 2 vectors, one for the previous and one for the next data timestep
-        std::vector<std::vector<double>> interpolated_data; // 2 vectors, one for the previous and one for the next data timestep
+        std::vector<std::vector<double>> loaded_data;       //! 2 vectors, one for the previous and one for the next data timestep
+        std::vector<std::vector<double>> interpolated_data; //! 2 vectors, one for the previous and one for the next data timestep
 
         WaveDirOptions wavDirOptions;
             // to determine if this is the mean wave direction

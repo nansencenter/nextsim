@@ -15,13 +15,14 @@ namespace Nextsim
 {
 	using namespace physical;
 
-/* Compute the redistribution of thin ice. */
-/* Returns the change in volume and concentration of the thick ice as well as
- * the change in volume of thin ice. This is called by thermo_ow_mex as well as
- * thin_ice_redistribute_mex */
-
-void thin_ice_redistribute(double v_thin, double vs_thin, double newice, double c, double tanalpha, double rtanalpha, double hi_thin_max, \
-		double *v_thin_new, double *v_newice, double *del_c_new, double *del_vs)
+//! ------------------------------------------------------------------------------
+//! Performs the redistribution of thin ice.
+//! * Returns the change in volume and concentration of the thick ice as well as
+//! the change in volume of thin ice. This is called by thermo_ow_mex as well as
+//! thin_ice_redistribute_mex
+void
+thin_ice_redistribute(double v_thin, double vs_thin, double newice, double c, double tanalpha, double rtanalpha, double hi_thin_max, \
+    double *v_thin_new, double *v_newice, double *del_c_new, double *del_vs)
 {
 	/* Physical constants */
 
@@ -43,10 +44,9 @@ void thin_ice_redistribute(double v_thin, double vs_thin, double newice, double 
 
 	double c_thin, h0, del_c, hs_thin;
 
-	/* -----------------------------------------------------------------------
-	 * Compute the redistribution of ice volume from the thin ice class to
-	 * the tick ice.
-	 * ----------------------------------------------------------------------- */
+
+  //! Computes the redistribution of ice volume from the thin ice class to the tick ice.
+
 
 	/* c_thin needs to change as the volume changes */
 	c_thin = fmin(v_thin/hmin, sqrt(2.*v_thin*rtanalpha));
@@ -79,7 +79,7 @@ void thin_ice_redistribute(double v_thin, double vs_thin, double newice, double 
 		c_thin = 1.-c;
 	}
 
-	/* Concentration and volum changes for the thick ice */
+	/* Concentration and volume changes for the thick ice */
 	/* Two cases again: The lead closes or not */
 	del_c      = fmax( 0., h0-hi_thin_max )*rtanalpha;
 	if ( del_c <= 1.-c )
@@ -97,7 +97,7 @@ void thin_ice_redistribute(double v_thin, double vs_thin, double newice, double 
 
 	/* Change in snow volume */
 	*del_vs = fmin( vs_thin,del_c*hs_thin);
-}
-
+}//thin_ice_redistribute
+    
 } // Nextsim
 #endif
