@@ -31,10 +31,6 @@ then
    exit 1
 fi
 
-MESH_LINKS_DIR=$CWD/mesh_links
-mkdir -p $MESH_LINKS_DIR
-cd $MESH_LINKS_DIR
-
 # link the meshes
 echo "We link the meshes from $ROOT_MESH_DIR"; 
 ln -s $ROOT_MESH_DIR/unref/*.msh .
@@ -43,10 +39,3 @@ ln -s $ROOT_MESH_DIR/split/*.msh .
 # link WIM grids
 ln -s $ROOT_MESH_DIR/wim_grids/*.a .
 ln -s $ROOT_MESH_DIR/wim_grids/*.b .
-
-# link to .mpp files
-NEXTSIM_MESH_SRC=`readlink -f $thisdir/..`
-ln -s $NEXTSIM_MESH_SRC/mpp_files/*.mpp .
-
-# link to .geo files if they are not present
-ln -s $NEXTSIM_MESH_SRC/geo_files/*.geo .

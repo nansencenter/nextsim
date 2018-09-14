@@ -52,7 +52,6 @@ Code conventions
 
 .. note:: This section requires substantially more work
 
-        * Comment stating intent with the code, not to describe how it functions (this should be inferible from the code itself).
         * neXtSIM is written using ISO C++11
         * Indentation is done using a set of four (4) spaces (no tabs)
         * All array opperations should be done using std::vectors - not C-style arrays
@@ -62,3 +61,77 @@ Code conventions
         * Names and values of physical constants recide in ``model/constants.hpp``
         * Runtime modifiable model parameters are set in ``model/options.cpp`` and can be set using option files.
 
+
+Commenting the code; conventions
+--------------------------------
+
+	Doxygen is used to generate a documentation of NeXtSIM, which can be found here: file:///Users/verans/Developer/nextsim/doc/html/index.html        
+	When developing the code, re-writing or creating new functions, please comment it as follow.
+
+	* Create a header for the function, structured as below:
+	  // ---------------------------------------------------
+	  //! The function does (...)
+	  //! * Notes, particularities, etc.
+	  //! Called by the <functionWhichCallsThatParticularFunction>() function.
+
+	  Precisions:
+	  - Any comment preceded by "//!" will be treated as a description of a function/variable in Doxygen and will appear in the documentation.
+	  - The first line of the header should describe briefly what the function does.
+	  - The following lines should add any valuable information or comment on the function. "*" produces a bullet point in Doxygen. 
+	  - The last line should indicate the function() or functions() that directly call the function in question. 
+            The () should be included at the end of the function's name. This automatically creates a link to this function in Doxygen, enabling the user to trace back the origin and order of call for the functions.
+	  - The header should be placed just before the function declaration, i.e., the type and function name and opening bracket, { .
+
+	* Place logical and relevant comments within the function, especially if the function is long, and calls many functions itself. 
+          Enumerate the different logical steps taken within the function using "//! - 1) ...description...". 
+	  This creates en indented, numbered list in the Doxygen documentation that indicates that function's structure. 
+	  It is better to avoid placing "//!" in front of comments that express a doubt or a "to do" type of idea, as those will interfere with the documentation of the current version of the code. 
+
+	* After the closing bracket, recall the name of the function as follow:
+          //<functionName>
+	  This will not appear in the Doxygen documentation, but eases the reading when scrolling through the code, i.e. the finiteelement.cpp file. 
+
+	* Leave 2 blank lines between each function declaration.
+
+	
+	Below is an exemple of a documented function:
+
+	//------------------------------------------------------------------------------------------------------
+	//! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
+	//! * Also outputs restarts for debugging.
+	//! Called by the run() function.
+	void
+	FiniteElement::init()
+	{
+
+    	//! - 1) Initializes everything that doesn't depend on the mesh (constants, dataset descriptions and time) using the initOptAndParam() function,
+
+    		M_comm.barrier();
+
+    		pcpt = 0;
+    		mesh_adapt_step=0;
+    		had_remeshed=false;
+
+    		this->initOptAndParam();
+    		M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+
+    	//! - 2) Initializes the mesh using the initMesh() function,
+   
+		this->initMesh();
+
+    		if (M_rank==0)
+    		{
+		LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
+       	 	LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
+        	LOG(INFO) <<"DURATION= "<< duration <<"\n";
+    		}
+
+    		// We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    		// The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    		boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
+
+
+		(.........)
+
+ 	}//init
+        

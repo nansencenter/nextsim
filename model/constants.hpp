@@ -9,85 +9,83 @@
 #ifndef __Constants_HPP
 #define __Constants_HPP 1
 
-/* Physical constants for the ice as well as not-so-constant values that we
- * keep constant anyway */
+//! Physical constants for the ice as well as not-so-constant values that we keep constant anyway
 
 namespace physical
 {
-    /* Heat capacity of ice (for Winton model, excluding internal melt) [J/K/kg] */
+    //! Heat capacity of ice (for Winton model, excluding internal melt) [J/K/kg]
     const double C = 2100;
 
-    /* Minimum ice concentration allowed [0 1] */
+    //! Minimum ice concentration allowed [0 1]
     const double cmin = 1e-12;
 
-    /* Speciffic heat of air [J/K/kg] */
+    //! Specific heat of air [J/K/kg]
     const double cpa = 1004.64;
 
-    /* Speciffic heat of sea water [J/K/kg] */
+    //! Specific heat of sea water [J/K/kg]
     const double cpw = 4186.84;
 
-    /* Emisivity of ice */
+    //! Emissivity of ice */
     const double eps = 0.996;
 
-    /* Gravitational acceleration [m/s^2] */
+    //! Gravitational acceleration [m/s^2]
     const double g = 9.8;
 
-    /* Minimum ice thickness allowed [m] */
+    //! Minimum ice thickness allowed [m]
     const double hmin = 0.01;
 
-    /* Heat conductivity of ice [W/K/m] */
+    //! Heat conductivity of ice [W/K/m]
     const double ki = 2.0334;
 
-    /* Heat conductivity of snow [W/K/m] */
+    //! Heat conductivity of snow [W/K/m]
     const double ks = 0.3096;
 
-    /* Latent heat of fusion [J/Kg] */
+    //! Latent heat of fusion [J/Kg]
     const double Lf = 334e3;
 
-    /* Latent heat of evaporation at 0degC [J/Kg] */
+    //! Latent heat of evaporation at 0degC [J/Kg]
     const double Lv0 = 2500.79e3;
 
-    /* Proportionalty constant between salinity and freezing temperature of sea
-     * water [C] */
+    //! Proportionalty constant between salinity and freezing temperature of sea water [C]
     const double mu = 0.055;
 
-    /* Gas constant for dry air [J/kg/K] */
+    //! Gas constant for dry air [J/kg/K]
     const double Ra = 286.9;
 
-    /* Density of ice (same as in NEMO-LIM) */
+    //! Density of ice (same as in NEMO-LIM) [kg/m3]
     const double rhoi = 917.;
 
-    /* Density of fresh water */
+    //! Density of fresh water [kg/m3]
     const double rhofw = 1000.;
 
-    /* Density of ocean water */
+    //! Density of ocean water [kg/m3]
     const double rhow = 1025.;
 
-    /* Density of snow (same as in NEMO-LIM) */
+    //! Density of snow (same as in NEMO-LIM) [kg/m3]
     const double rhos = 330.;
 
-    /* Salinity of ice */
+    //! Salinity of ice [g/kg]
     const double si = 5.;
 
-    /* Stephan-Boltzmann constant [W/m2/K4] */
+    //! Stephan-Boltzmann constant [W/m2/K4]
     const double sigma_sb = 5.67E-8;
 
-    /* Freezing temperature of water in Kelvin [K] */
+    //! Freezing temperature of water in Kelvin [K]
     const double tfrwK = 273.15;
 
-    /* Van Karman constant */
+    //! Van Karman constant
     const double vonKarman = 0.4;
 
-    /* Constant of gravity [m/s2] */
+    //! Constant of gravity [m/s2]
     const double gravity = 9.80616;
 
-    /* Rotational velocity [rad/s] */
+    //! Rotational velocity [rad/s]
     const double omega = 7.292e-5;
 
-    /* Density of air [kg/m3]*/
+    //! Density of air [kg/m3]
     const double rhoa = 1.225;
 
-    /* Temperature of freezing of sea water [degree Celsius] */
+    //! Temperature of freezing of sea water [degrees Celsius]
     const double ocean_freezing_temp = -1.8;
 }
 
