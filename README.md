@@ -144,7 +144,7 @@ This automatically uses the file Doxyfile (made originally with the doxygen gui)
   `sudo apt-get install doxygen graphviz doxygen-gui`
 * Mac OSX:
   * GUI: download .dmg image from docker website and open it to install 
-  * command line: sudo port install doxygen graphviz
+  * command line: `sudo port install doxygen graphviz`
 ### Run locally
 * Ubuntu
   * GUI:
