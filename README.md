@@ -158,5 +158,5 @@ This automatically uses the file Doxyfile (made originally with the doxygen gui)
 * Mac OSX:
   * GUI: open Doxygen.app file
   * command line: same as ubuntu
-  * NB doxygen is not fully functional on Mac OSX but GUI could still be used to create a config file
+  * NB doxygen is not fully functional on Mac OSX (graphviz not working correctly) but GUI could still be used to create a config file
     to run with docker
