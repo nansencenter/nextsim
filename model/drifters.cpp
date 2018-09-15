@@ -37,6 +37,8 @@ Drifters::Drifters()
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
+//! * defines a uniform grid with resolution defined by spacing
+//! Called by FiniteElement::initEquallySpacedDrifters()
 Drifters::Drifters(double spacing,
         GmshMeshSeq const& mesh,
         std::vector<double> const& um,
@@ -78,6 +80,7 @@ Drifters::Drifters(double spacing,
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
+//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 Drifters::Drifters(std::string filename,
         GmshMeshSeq const& mesh,
         std::vector<double> const& um,
@@ -148,8 +151,6 @@ Drifters::Drifters(std::string filename,
             break;
     }
 
-    std::cout<<"gridSize: "<< gridSize <<"\n";
-
     //! - 3) Calculates cartesian (x,y) position from latitude and longitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
@@ -190,6 +191,8 @@ Drifters::Drifters(std::string filename,
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
+//! * reads a netcdf file
+//! Called by FiniteElement::initOsisafDrifters()
 Drifters::Drifters(std::string gridFile,
                    std::string dimNameX, std::string dimNameY,
                    std::string latName, std::string lonName,
