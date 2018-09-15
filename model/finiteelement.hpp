@@ -743,9 +743,10 @@ private:
     void updateRGPSDrifters();
     void initSidfexDrifters();
     void initEquallySpacedDrifters();
-    void outputIabpDrifter();
-    void initIabpDrifter();
-    void updateIabpDrifter();
+    void outputIabpDrifters();
+    void initIabpDrifters();
+    void initIabpDrifterFiles();
+    void updateIabpDrifters();
     void updateIabpDrifterPosition();
     void updateIabpDrifterConc();
 

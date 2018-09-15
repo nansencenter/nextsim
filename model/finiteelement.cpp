@@ -1306,10 +1306,6 @@ FiniteElement::initOptAndParam()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second;
-
-    // Drifter options - may not need to init yet
-    // (don't init until spinup is over)
-    this->initDrifterOpts();
 }//initOptAndParam
 
     
@@ -6454,7 +6450,13 @@ FiniteElement::init()
     if ( M_use_moorings )
         this->initMoorings();
 
-    //! - 8) Checks if anything has to be output now using the checkOutputs() function.
+
+    //! - 8) Set the drifter options
+    //  NB needs to be done after readRestart()
+    this->initDrifterOpts();
+
+
+    //! - 9) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
     // - check if we are adding snapshot to netcdf file
     // 2. do we need to init any drifters (also save output at init time)
@@ -7889,25 +7891,33 @@ FiniteElement::readRestart(std::string step)
             std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
             std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
 
-            this->initIabpDrifter();
             if (drifter_no.size() == 0)
             {
+                // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
                 if(M_rank==0)
                 {
                     std::string msg = "Warning: Couldn't read drifter positions from restart file.";
                     msg += " Drifter positions initialised as if there was no restart.\n";
                     LOG(WARNING) << msg;
                 }
-                this->updateIabpDrifter();
             }
             else
             {
+                // init the input/output files
+                this->initIabpDrifterFiles();
+
+                // insert the drifter positions from the restart file
                 for ( int i=0; i<drifter_no.size(); ++i )
-                {
-                    M_iabp_drifters.emplace(drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
-                }
+                    M_iabp_drifters.emplace(
+                            drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+
+                // still need to get M_conc at these positions
+                this->updateIabpDrifterConc();
+
+                // Save the initial positions to the output file
+                this->outputIabpDrifters();
             }
-        }
+        }//M_use_iabp_drifters
     }//M_rank==0
 
 
@@ -10631,8 +10641,9 @@ FiniteElement::initThermodynamics()
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! Initializes the type of drifters used (equally spaced, IABP, RGPS OSISAF).
-//! Called by the step() function.
+//! Initializes the type of drifters used (equally spaced, IABP, RGPS, OSISAF, SIDFEX).
+//  NB needs to be done after readRestart()
+//! Called by the init() function.
 void
 FiniteElement::initDrifterOpts()
 {
@@ -10640,6 +10651,11 @@ FiniteElement::initDrifterOpts()
     // NB use ceil to make sure the init time is 0:00
     M_drifters_time_init = std::ceil(time_init)
         + vm["simul.spinup_duration"].as<double>();
+
+    // if current time is ahead of init-drifter time (eg in a restart situation),
+    // increase the init-drifter time
+    M_drifters_time_init = std::max(M_drifters_time_init,
+            std::ceil(M_current_time));
 
     //to be run at start time
     std::vector<double> drifters_timesteps;
@@ -10770,7 +10786,10 @@ FiniteElement::initDrifterOpts()
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! Initialise the main drifters if it's the right time
+//! Initialise the main drifters if it's the right time:
+//! * Equally-spaced
+//! * SIDFEX
+//! * IABP
 //! Called by the checkDrifters() function.
 void
 FiniteElement::initDrifters()
@@ -10778,31 +10797,42 @@ FiniteElement::initDrifters()
     if(M_use_equally_spaced_drifters)
         this->initEquallySpacedDrifters();
 
-    if(M_use_iabp_drifters)
-    {
-        // init the input file
-        this->initIabpDrifter();
-
-        // Get:
-        // - the 1st drifter positions (if any)
-        // - M_conc at these positions
-        this->updateIabpDrifter();
-        
-        // Save the initial positions to the output file
-        this->outputIabpDrifter();
-    }
-
     if(M_use_sidfex_drifters)
         this->initSidfexDrifters();
+
+    if(M_use_iabp_drifters)
+    {
+        if(M_iabp_drifters.size()==0)
+            //only init if not already initialised (eg from restart)
+            this->initIabpDrifters();
+    }
 }//initDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initialise the IABP drifters
-// The output could well be prettier!
 //! Called by the initDrifters() function.
 void
-FiniteElement::initIabpDrifter()
+FiniteElement::initIabpDrifters()
+{
+    // init the input/output files
+    this->initIabpDrifterFiles();
+
+    // Get:
+    // - the 1st drifter positions (if any)
+    // - M_conc at these positions
+    this->updateIabpDrifters();
+
+    // Save the initial positions to the output file
+    this->outputIabpDrifters();
+}//initIabpDrifters
+
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initialise the IABP drifters
+//! Called by the initIabpDrifters() and readRestart() functions.
+void
+FiniteElement::initIabpDrifterFiles()
 {
     // OUTPUT:
     // We should tag the file name with the init time in case of a re-start.
@@ -10847,13 +10877,16 @@ FiniteElement::initIabpDrifter()
         time = from_date_string(date) + hour/24.;
     }
 
-    // We must rewind one line so that updateIabpDrifter works correctly
+    // We must rewind one line so that updateIabpDrifters works correctly
     M_iabp_infile_fstream.seekg(pos);
-}//initIabpDrifter
+}//initIabpDrifterFiles
 
 
+// -----------------------------------------------------------------------------------------------------------
+//! Outputs the IABP drifter positions and conc
+//! Called by the readRestart(), initDrifters() and checkDrifters() functions.
 void
-FiniteElement::outputIabpDrifter()
+FiniteElement::outputIabpDrifters()
 {
     if (M_rank==0)
     {
@@ -10907,14 +10940,15 @@ FiniteElement::outputIabpDrifter()
         // close the map
         close_mapx(map);
     }
-}//outputIabpDrifter
+}//outputIabpDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
 //! Updates the IABP buoy in time, by adding the buoys that have been put into the ice and removing the dead ones.
+//! * Also updates the conc at the IABP drifters
 //! Called by the updateDrifterPosition() function.
 void
-FiniteElement::updateIabpDrifter()
+FiniteElement::updateIabpDrifters()
 {
 
     if(M_rank==0)
@@ -10988,12 +11022,12 @@ FiniteElement::updateIabpDrifter()
             }
         }//remove drifters not in ice according to IABP or model
     }
-}//updateIabpDrifter
+}//updateIabpDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
 //! Updates the concentration variable at the IABP buoys
-//! Called by the updateIabpDrifter() function.
+//! Called by the updateIabpDrifters() function.
 void
 FiniteElement::updateIabpDrifterConc()
 {
@@ -11033,12 +11067,12 @@ FiniteElement::updateIabpDrifterConc()
         xDelete<double>(interp_drifter_c_out);
     }
 
-}//updateIABPDrifterConc
+}//updateIabpDrifterConc
 
 
 // -----------------------------------------------------------------------------------------------------------
 //! Updates the positions of the IABP buoys
-//! Called by the updateIabpDrifter() function.
+//! Called by the updateIabpDrifters() function.
 void
 FiniteElement::updateIabpDrifterPosition()
 {
@@ -11359,7 +11393,7 @@ FiniteElement::checkDrifters()
             // check if we need to add new IABP drifters
             // NB do this after moving
             // NB this updates M_iabp_conc
-            this->updateIabpDrifter();
+            this->updateIabpDrifters();
 
         if (output_iabp)
         {
@@ -11368,7 +11402,7 @@ FiniteElement::checkDrifters()
             if(!input_iabp)
                 //still need to update M_iabp_conc
                 this->updateIabpDrifterConc();
-            this->outputIabpDrifter();
+            this->outputIabpDrifters();
         }
 
         if ( output_equally_spaced )
