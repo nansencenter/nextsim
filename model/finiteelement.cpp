@@ -7864,6 +7864,9 @@ FiniteElement::readRestart(std::string step)
         M_UT   = field_map_dbl["M_UT"];
         if(vm["restart.restart_at_rest"].as<bool>())
         {
+            // reset M_sigma, M_VT[,M,MM] = 0
+            // NB don't reset M_UT = 0 (for drifters)
+            // TODO should M_UM = 0 ? - this is the mesh displacement (not part of the rheology)
             for (int i=0; i < M_sigma.size(); i++)
                 M_sigma[i] = 0.;
 
@@ -7873,7 +7876,6 @@ FiniteElement::readRestart(std::string step)
                 M_VTM[i]  = 0.;
                 M_VTMM[i] = 0.;
                 M_UM[i]   = 0.;
-                M_UT[i]   = 0.;
             }
         }
 
@@ -7910,6 +7912,15 @@ FiniteElement::readRestart(std::string step)
                 for ( int i=0; i<drifter_no.size(); ++i )
                     M_iabp_drifters.emplace(
                             drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+
+                // move the drifters
+                // NB updateIabpDrifterPosition uses M_UT_root 
+                // (don't need to gather since we have it already from
+                // restart file)
+                M_UT_root = M_UT;
+                this->updateIabpDrifterPosition();
+                std::fill(M_UT.begin(), M_UT.end(), 0.);//M_UT is no longer needed (this is what we will use)
+                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);//M_UT_root is no longer needed
 
                 // still need to get M_conc at these positions
                 this->updateIabpDrifterConc();
@@ -11027,7 +11038,7 @@ FiniteElement::updateIabpDrifters()
 
 // -----------------------------------------------------------------------------------------------------------
 //! Updates the concentration variable at the IABP buoys
-//! Called by the updateIabpDrifters() function.
+//! Called by the updateIabpDrifters() and readRestart() function.
 void
 FiniteElement::updateIabpDrifterConc()
 {
@@ -11289,6 +11300,9 @@ FiniteElement::checkDrifters()
     //! - 1) Gather the fields needed by the drifters
     // TODO Currently this is done every time step at the moment
     //      - perhaps only needed if moving?
+    M_UT_root.resize(2*M_ndof);
+    M_UM_root.resize(2*M_ndof);
+    M_conc_root.resize(M_mesh_root.numTriangles());
     this->gatherNodalField(M_UT, M_UT_root);
     this->gatherNodalField(M_UM, M_UM_root);
     this->gatherElementField(M_conc, M_conc_root);
@@ -11388,7 +11402,7 @@ FiniteElement::checkDrifters()
 
         }//moving drifters (or just resetting M_UT)
 
-        //! - 3) Do we need to input/output any drifters?
+        //! - 4) Do we need to input/output any drifters?
         if (input_iabp)
             // check if we need to add new IABP drifters
             // NB do this after moving
@@ -11436,7 +11450,7 @@ FiniteElement::checkDrifters()
             }
         }
          
-        //! - 4) Do we need to initialise any drifters?
+        //! - 5) Do we need to initialise any drifters?
         //  * Do initialisation after moving,
         //    to avoid moving drifters that are only just initialised
         //  * Also do it after output - this is mainly for the OSISAF drifters
