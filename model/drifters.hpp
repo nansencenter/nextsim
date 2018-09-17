@@ -49,13 +49,16 @@ public:
 
         Drifters();
 
+        //! init equally-spaced drifters
         Drifters(double spacing, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
 
-        Drifters(std::string dirname, std::string gridFile,
+        //! init drifters from netcdf file
+        Drifters(std::string gridFile,
                  std::string dimNameX, std::string dimNameY,
                  std::string latName, std::string lonName,
                  GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
 
+        //! init drifters from text file
         Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit, double time);
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);

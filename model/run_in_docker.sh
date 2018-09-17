@@ -1,7 +1,6 @@
 #! /bin/bash
-export NEXTSIMDIR=/nextsim
-export SIMDATADIR=/simdata
-export SIMFORECASTDIR=/simforecast
+export NEXTSIM_MESH_DIR=/mesh
+export NEXTSIM_DATA_DIR=/data
 
 # run bash if parameters are not given
 if [ $# -eq 0 ]

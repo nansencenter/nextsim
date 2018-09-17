@@ -167,7 +167,10 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
     M_grid.gridLON.assign(M_grid_size, 0.);
 
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
+    std::string filename = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -208,9 +211,8 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
 
     // Load the grid from file
     // Check file
-    std::string filename = (boost::format( "%1%/%2%/%3%" )
-                            % Environment::nextsimDir().string()
-                            % M_grid.dirname
+    std::string filename = (boost::format( "%1%/%2%" )
+                            % Environment::nextsimDataDir().string()
                             % M_grid.gridFile
                             ).str();
     if ( ! boost::filesystem::exists(filename) )
@@ -272,7 +274,10 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
     M_grid.gridY.resize(M_grid_size);
 
     mapx_class *map;
-    filename = Environment::nextsimDir().string() + "/data/" + Environment::vm()["mesh.mppfile"].as<std::string>();
+    filename = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -508,11 +513,10 @@ GridOutput::rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_v
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/%2%/%3%" )
-                                     % Environment::nextsimDir().string()
-                                     % "data"
-                                     % Environment::vm()["mesh.mppfile"].as<std::string>()
-                                     ).str();
+    std::string configfileNextsim = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
 
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');

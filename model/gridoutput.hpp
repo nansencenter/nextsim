@@ -75,38 +75,37 @@ public:
     {
         Grid() {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon),
+        Grid(std::string file, std::string lat, std::string lon)
+            : gridFile(file), latName(lat), lonName(lon),
                 transpose(false), thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
         {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon, bool transp)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon), transpose(transp),
+        Grid(std::string file, std::string lat, std::string lon, bool transp)
+            : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
         {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta),
+        Grid(std::string file, std::string lat, std::string lon, std::string theta)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta),
                 transpose(false), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
         {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, bool transp)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
         {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon),
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon),
                 transpose(false), dimNameX(""), dimNameY(""), loaded(false)
         {}
 
-        Grid(std::string file, std::string dir, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon, bool transp)
-            : gridFile(file), dirname(dir), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon), transpose(transp),
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon, bool transp)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon), transpose(transp),
                 dimNameX(""), dimNameY(""), loaded(false)
         {}
 
         std::string gridFile;
-        std::string dirname;
         std::string latName;
         std::string lonName;
         std::string thetaName;
