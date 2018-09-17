@@ -3,7 +3,6 @@ FROM akorosov/boost_petsc_gmsh:0.0.5
 RUN apt-get update && apt-get install -y \
     libnetcdf-dev \
     libnetcdf-c++4-dev \
-    vim \
     ssh \
 && rm -rf /var/lib/apt/lists/*
 
