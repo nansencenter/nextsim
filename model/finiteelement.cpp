@@ -7905,6 +7905,12 @@ FiniteElement::readRestart(std::string step)
             }
             else
             {
+                // possible problems with IABP restart
+                throw std::runtime_error("Possible problems with restarting IABP drifters");
+
+                // get the time
+                M_current_time = time_vec[0];
+
                 // init the input/output files
                 this->initIabpDrifterFiles();
 
@@ -7923,6 +7929,7 @@ FiniteElement::readRestart(std::string step)
                 std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);//M_UT_root is no longer needed
 
                 // still need to get M_conc at these positions
+                M_conc_root = M_conc;
                 this->updateIabpDrifterConc();
 
                 // Save the initial positions to the output file
@@ -10848,7 +10855,7 @@ FiniteElement::initIabpDrifterFiles()
     // OUTPUT:
     // We should tag the file name with the init time in case of a re-start.
     std::stringstream filename_out;
-    filename_out << M_export_path << "/drifters_out_" << M_drifters_time_init << ".txt";
+    filename_out << M_export_path << "/drifters_out_" << M_current_time << ".txt";
     M_iabp_outfile = filename_out.str();
     std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
     if ( ! iabp_out.good() )
@@ -10933,14 +10940,14 @@ FiniteElement::outputIabpDrifters()
             j++;
 
             iabp_out
-                << setw(4) << date.year()
-                << " " << setw( 2) << date.month().as_number()
-                << " " << setw( 2) << date.day().as_number()
-                << " " << setw( 2) << time.hours()
-                << " " << setw(16) << it->first
-                << fixed << setprecision(5)
-                << " " << setw( 8) << lat
-                << " " << setw(10) << lon
+                << std::setw(4) << date.year()
+                << " " << std::setw( 2) << date.month().as_number()
+                << " " << std::setw( 2) << date.day().as_number()
+                << " " << std::setw( 2) << time.hours()
+                << " " << std::setw(16) << it->first
+                << std::fixed << std::setprecision(5)
+                << " " << std::setw( 8) << lat
+                << " " << std::setw(10) << lon
                 << " " << conc
                 << "\n";
         }
@@ -10976,14 +10983,10 @@ FiniteElement::updateIabpDrifters()
         map = init_mapx(&str[0]);
 
         // Read the current buoys from file
-        int pos;    // To be able to rewind one line
         double time = M_current_time;
         std::vector<int> keepers;
         while ( time == M_current_time )
         {
-            // Remember where we were
-            pos = M_iabp_infile_fstream.tellg();
-
             // Read the next line
             int year, month, day, hour, number;
             double lat, lon;
@@ -11000,7 +11003,9 @@ FiniteElement::updateIabpDrifters()
                 double x, y;
                 forward_mapx(map,lat,lon,&x,&y);
                 M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
-
+                LOG(DEBUG)<<"new IABP buoy: time, index, lon, lat, x, y: "
+                    <<to_date_time_string(time)<<", "<<number<<", "
+                    <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
             }
         }
         close_mapx(map);
