@@ -6677,7 +6677,7 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
-                M_moorings.resetMeshMean(bamgmesh);
+                M_moorings.resetMeshMean(bamgmesh, M_regrid);
 #ifdef OASIS
             M_cpl_out.resetMeshMean(bamgmesh, M_regrid);
             M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
@@ -6812,23 +6812,24 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
+        M_cpl_out.updateGridMean(bamgmesh);
+
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
         {
             std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
             if (M_rank==0) it->data_grid = result;
         }
         for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
         {
             std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
             if (M_rank==0) it->data_grid = result;
         }
 
         if ( M_rank == 0 )
         {
             std::cout << "OASIS put ... at " << pcpt*time_step << "\n";
-            M_cpl_out.updateGridMean(bamgmesh);
 
             for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
                 if ( it->varID > 0 ) // Skip non-outputing variables
@@ -7742,13 +7743,13 @@ FiniteElement::updateMoorings()
             for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
             {
                 std::vector<double> result;
-                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
                 if (M_rank==0) it->data_grid = result;
             }
             for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
             {
                 std::vector<double> result;
-                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0.);
+                boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
                 if (M_rank==0) it->data_grid = result;
             }
         }
