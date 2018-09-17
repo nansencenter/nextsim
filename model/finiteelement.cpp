@@ -11274,7 +11274,7 @@ FiniteElement::outputtingDrifters(
         // outputting OSISAF drifters?
         // NB note the different reference point
         // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
-        // - needed since OSISAF drifters at 12:00
+        // - needed since OSISAF drifters start at 12:00
         if ( M_use_osisaf_drifters )
         {
             output_osisaf = (std::fmod(
@@ -11293,7 +11293,7 @@ FiniteElement::outputtingDrifters(
             || output_sidfex
             || output_osisaf
             );
-}
+}//outputtingDrifters()
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -11496,12 +11496,6 @@ FiniteElement::initOsisafDrifters()
         return;
 
     LOG(DEBUG)<<"Initialize a new set of OSISAF drifters\n";
-#if 1
-    double sum_ut = 0.;
-    for (int i=0; i<M_UT.size(); i++)
-        sum_ut += std::abs(M_UT[i]);
-    std::cout<<"Sum |M_UT[i]| = "<< sum_ut <<"\n";
-#endif
 
     // Flip the vector so we move [0] to be [1]
     std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
@@ -11528,7 +11522,7 @@ FiniteElement::initOsisafDrifters()
 }
 
 // -----------------------------------------------------------------------------------------------------------
-//! Calculates the planetary vorticity (f) of sets f = 0.
+//! Calculates the planetary vorticity (f) or sets f = 0 (dynamics.use_coriolis=false).
 //! Called by the step() function.
 void
 FiniteElement::calcCoriolis()
@@ -11547,7 +11541,7 @@ FiniteElement::calcCoriolis()
             M_fcor[i] = 0.;
         }
     }
-}//equallySpacedDrifter
+}//calcCoriolis()
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -11576,7 +11570,8 @@ FiniteElement::initBathymetry()//(double const& u, double const& v)
             throw std::logic_error("invalid bathymetry");
     }
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);//this needs to be reloaded if we are regridding
-}
+}//initBathymetry
+
 
 void
 FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)

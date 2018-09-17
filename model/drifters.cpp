@@ -95,7 +95,7 @@ Drifters::Drifters(std::string filename,
     //! - 1) Load the nodes from file
 
     // Check file
-    std::fstream drifter_text_file;   // The file we read the IABP buoy data from
+    std::fstream drifter_text_file;   // The file we read the buoy data from
 
     drifter_text_file.open(filename, std::fstream::in);
     if ( ! drifter_text_file.good() )

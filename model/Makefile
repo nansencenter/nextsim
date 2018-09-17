@@ -18,7 +18,6 @@ CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
-#CXXFLAGS += -Wfatal-errors
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
