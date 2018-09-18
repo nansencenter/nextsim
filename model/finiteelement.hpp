@@ -242,7 +242,6 @@ public:
     void checkConsistency();
     void initThermodynamics();
     void initSlabOcean();
-    void initDrifters();
     void updateDrifterPosition();
 
     void calcCoriolis();
@@ -737,17 +736,17 @@ private:
         bool &io_any
         );
     void checkDrifters();
-    void initOsisafDrifters();
-    void initRGPSDrifters();
-    void updateRGPSDrifters();
-    void initSidfexDrifters();
-    void initEquallySpacedDrifters();
+    void initDrifters(mesh_type_root const& movedmesh_root);
+    void initOsisafDrifters(mesh_type_root const& movedmesh_root);
+    void initRGPSDrifters(mesh_type_root const& movedmesh_root);
+    void initSidfexDrifters(mesh_type_root const& movedmesh_root);
+    void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root);
     void outputIabpDrifters();
-    void initIabpDrifters();
+    void initIabpDrifters(mesh_type_root const& movedmesh_root);
     void initIabpDrifterFiles();
-    void updateIabpDrifters();
     void updateIabpDrifterPosition();
-    void updateIabpDrifterConc();
+    void updateIabpDrifters(mesh_type_root const& movedmesh_root);
+    void updateIabpDrifterConc(mesh_type_root const& movedmesh_root);
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

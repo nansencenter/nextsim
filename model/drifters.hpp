@@ -49,27 +49,24 @@ public:
         Drifters();
 
         //! init equally-spaced drifters
-        Drifters(double spacing, GmshMeshSeq const& mesh,
-                std::vector<double> const& um,
+        Drifters(double spacing, GmshMeshSeq const& movedmesh,
                 std::vector<double>& conc, double climit);
 
         //! init drifters from netcdf file
         Drifters(std::string gridFile,
                  std::string dimNameX, std::string dimNameY,
                  std::string latName, std::string lonName,
-                 GmshMeshSeq const& mesh,
-                 std::vector<double> const& um,
+                 GmshMeshSeq const& movedmesh,
                  std::vector<double>& conc,
                  double climit);
 
         //! init drifters from text file
         Drifters(std::string filename,
-                GmshMeshSeq const& mesh,
-                std::vector<double> const& um,
+                GmshMeshSeq const& movedmesh,
                 std::vector<double>& conc, double climit, double time);
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void updateConc( GmshMeshSeq const& mesh, std::vector<double> const& um,
+        void updateConc( GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc);
 
         void initNetCDF(std::string file_prefix, double current_time);
@@ -106,10 +103,7 @@ private:
         std::vector<long int> M_i;
         std::vector<double> M_conc;
 
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
-
         void maskXY(GmshMeshSeq const& mesh,
-                std::vector<double> const& um,
                 std::vector<double>& X, std::vector<double>& Y,
                 std::vector<long int>& INDS,
                 std::vector<double>& conc, double clim);

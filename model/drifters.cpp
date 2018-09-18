@@ -40,14 +40,13 @@ Drifters::Drifters()
 //! * defines a uniform grid with resolution defined by spacing
 //! Called by FiniteElement::initEquallySpacedDrifters()
 Drifters::Drifters(double spacing,
-        GmshMeshSeq const& mesh,
-        std::vector<double> const& um,
+        GmshMeshSeq const& movedmesh,
         std::vector<double>& conc, double climit)
 {
 
     //! - 1) Calculates the grid spacing assuming a regular grid
-    std::vector<double> RX = mesh.coordX();
-    std::vector<double> RY = mesh.coordY();
+    std::vector<double> RX = movedmesh.coordX();
+    std::vector<double> RY = movedmesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
@@ -75,7 +74,7 @@ Drifters::Drifters(double spacing,
     }
 
     //! -2) Applies the mask using conc and climit, and save to M_X and M_Y
-    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
+    this->maskXY(movedmesh, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 }
@@ -85,8 +84,7 @@ Drifters::Drifters(double spacing,
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 Drifters::Drifters(std::string filename,
-        GmshMeshSeq const& mesh,
-        std::vector<double> const& um,
+        GmshMeshSeq const& movedmesh,
         std::vector<double>& conc, double climit, double current_time)
 {
     // interface for RGPS, SIDFEX
@@ -179,7 +177,7 @@ Drifters::Drifters(std::string filename,
 
     //! - 4) Applies mask using conc and climit, and save to M_X and M_Y
     // - also save indices (order drifters are read) to M_i 
-    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
+    this->maskXY(movedmesh, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 
@@ -194,7 +192,7 @@ Drifters::Drifters(std::string filename,
 Drifters::Drifters(std::string gridFile,
                    std::string dimNameX, std::string dimNameY,
                    std::string latName, std::string lonName,
-                   GmshMeshSeq const& mesh, std::vector<double> const& um,
+                   GmshMeshSeq const& movedmesh,
                    std::vector<double>& conc, double climit)
 {
 
@@ -259,7 +257,7 @@ Drifters::Drifters(std::string gridFile,
     close_mapx(map);
 
     //! - 6) Applies mask using conc and climit, and save to M_X and M_Y
-    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
+    this->maskXY(movedmesh, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 }
@@ -288,14 +286,11 @@ Drifters::isOutputTime(double const& current_time)
 //! Masks out the initial X and Y values so we only have drifters where there is ice.
 //! Also fills M_i with the indices that are kept
 void
-Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double> const& um,
+Drifters::maskXY(GmshMeshSeq const& movedmesh,
         std::vector<double>& X, std::vector<double>& Y,
         std::vector<long int>& INDS,
         std::vector<double>& conc, double clim)
 {
-    //move the mesh
-    auto movedmesh = mesh;
-    movedmesh.move(um, 1.);
 
     //! - 1) Interpolates the concentration onto the drifter positions
     int gridSize = X.size();
@@ -388,7 +383,7 @@ Drifters::move(GmshMeshSeq const& mesh,
 //! interp conc onto drifter positions
 //! called by FiniteElement::checkDrifters()
 void
-Drifters::updateConc(GmshMeshSeq const& mesh, std::vector<double> const& um,
+Drifters::updateConc(GmshMeshSeq const& movedmesh,
         std::vector<double> &conc)
 {
     // Do nothing if we don't have to
@@ -396,8 +391,6 @@ Drifters::updateConc(GmshMeshSeq const& mesh, std::vector<double> const& um,
         return;
 
     // move the mesh before interpolating
-    auto movedmesh = mesh;
-    movedmesh.move(um, 1.);
     int numNodes = movedmesh.numNodes();
     int numElements = movedmesh.numTriangles();
 
