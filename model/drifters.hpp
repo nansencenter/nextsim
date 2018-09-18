@@ -77,9 +77,23 @@ public:
         void appendNetCDF(double current_time);
 
         bool isInitialised();
+        bool isOutputTime(double const& current_time);
+
+        // --------------------------------------------------------------------------------------
+        //! Set the time to initialise the drifters
+        //! Called by initDrifterOpts()
+        //  TODO can now make a loop over all the drifters
+        void setInitTimeAndOutputFreq(double const& current_time, double const& output_freq)
+        {
+            M_time_init = current_time;
+            M_output_freq = output_freq;
+        }
+
 
 private:
         bool M_is_initialised;
+        double M_time_init;
+        double M_output_freq;
 
         int M_num_drifters;
 
@@ -89,7 +103,7 @@ private:
 
         std::vector<double> M_X;
         std::vector<double> M_Y;
-        std::vector<int> M_i;
+        std::vector<long int> M_i;
         std::vector<double> M_conc;
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
@@ -97,6 +111,7 @@ private:
         void maskXY(GmshMeshSeq const& mesh,
                 std::vector<double> const& um,
                 std::vector<double>& X, std::vector<double>& Y,
+                std::vector<long int>& INDS,
                 std::vector<double>& conc, double clim);
     };
 } // Nextsim

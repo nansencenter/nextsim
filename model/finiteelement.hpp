@@ -275,8 +275,8 @@ public:
     bool writingRestart();
     void writeRestart();
     void writeRestart(std::string const& name_string);
-    int readRestart(int step);
-    int readRestart(std::string step);
+    void readRestart(int step);
+    void readRestart(std::string step);
     void partitionMeshRestart();
     void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
             std::vector<std::vector<double>*> &data,
@@ -620,6 +620,9 @@ private:
 
     // Drifters
     bool M_use_drifters;
+
+    //! vector of pointers to the ordinary (non-IABP) drifters
+    std::vector<Drifters*> M_ordinary_drifters;
     double M_drifters_time_init;
 
     // also needed for the drifters
@@ -729,13 +732,9 @@ private:
         bool &init_any
         );
     void outputtingDrifters(
-        bool &output_rgps,
         bool &input_iabp,
         bool &output_iabp,
-        bool &output_equally_spaced,
-        bool &output_sidfex,
-        bool &output_osisaf,
-        bool &move_drifters
+        bool &io_any
         );
     void checkDrifters();
     void initOsisafDrifters();

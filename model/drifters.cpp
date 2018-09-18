@@ -44,6 +44,7 @@ Drifters::Drifters(double spacing,
         std::vector<double> const& um,
         std::vector<double>& conc, double climit)
 {
+
     //! - 1) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = mesh.coordX();
     std::vector<double> RY = mesh.coordY();
@@ -55,6 +56,7 @@ Drifters::Drifters(double spacing,
 
     std::vector<double> X(ncols*nrows);
     std::vector<double> Y(ncols*nrows);
+    std::vector<long int> INDS(ncols*nrows);
 
     int i=0;
     int y = *ycoords.first;
@@ -65,6 +67,7 @@ Drifters::Drifters(double spacing,
         {
             X[i] = x;
             Y[i] = y;
+            INDS[i] = i;
             ++i;
             x += spacing;
         }
@@ -72,7 +75,7 @@ Drifters::Drifters(double spacing,
     }
 
     //! -2) Applies the mask using conc and climit, and save to M_X and M_Y
-    this->maskXY(mesh, um, X, Y, conc, climit);
+    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 }
@@ -104,11 +107,10 @@ Drifters::Drifters(std::string filename,
     //! -2) Read the current buoys from file
     double time = current_time;
     std::vector<int> keepers;
-    int gridSize=0;
 
     std::vector<double> LAT(0);
     std::vector<double> LON(0);
-    std::vector<int> INDS(0);
+    std::vector<long int> INDS(0);
 
     // skip header line
     std::string header;
@@ -116,11 +118,16 @@ Drifters::Drifters(std::string filename,
     std::cout<<"open drifter file: "<<filename<<"\n";
     std::cout<<"header: "<<header<<"\n";
 
-    int year, month, day, hour, number;
+    int year, month, day, hour;//, number;
+    long int number;
     double lat, lon;
-    int old_number;
 
     // Read the next line
+    // NB need to use eof() and old_number instead of commented code since that version stopped
+    // after the first line for one example of input file
+    int gridSize = 0;
+    int old_number = 0;
+    //while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
     while (!drifter_text_file.eof())
     {
 
@@ -172,16 +179,7 @@ Drifters::Drifters(std::string filename,
 
     //! - 4) Applies mask using conc and climit, and save to M_X and M_Y
     // - also save indices (order drifters are read) to M_i 
-    // - assume all the RGPS/SIDFEX init postions are OK and don't need masking (use climit=-1)
-    this->maskXY(mesh, um, X, Y, conc, -1);//climit);
-
-#if 0
-    //uncomment these lines to have the actual buoy numbers in M_i and the
-    //netcdf file ('indice')
-    for(int i=0; i<M_i.size(); i++)
-        //replace indices in M_i (order drifters are read), with actual buoy IDs
-        M_i[i] = INDS[i];
-#endif
+    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 
@@ -240,6 +238,7 @@ Drifters::Drifters(std::string gridFile,
     //! - 5) Calculates cartesian (x,y) coordinates from the longitude and latitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
+    std::vector<long int> INDS(gridSize);
 
     mapx_class *map;
     std::string mppfile = (boost::format( "%1%/%2%" )
@@ -252,22 +251,46 @@ Drifters::Drifters(std::string gridFile,
     map = init_mapx(&str[0]);
 
     for (int i=0; i<gridSize; ++i)
+    {
         forward_mapx(map, LAT[i], LON[i], &X[i], &Y[i]);
+        INDS[i] = i;
+    }
 
     close_mapx(map);
 
     //! - 6) Applies mask using conc and climit, and save to M_X and M_Y
-    this->maskXY(mesh, um, X, Y, conc, climit);
+    this->maskXY(mesh, um, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
 }
 
-    
+
+// --------------------------------------------------------------------------------------
+//! Determine if we need to output a drifter
+//! Called by outputtingDrifters()
+//  TODO can now make a loop over all the drifters
+bool
+Drifters::isOutputTime(double const& current_time)
+{
+    // can only output if it's initialised
+    if(!M_is_initialised)
+        return false;
+
+    bool do_output = false;
+    if(current_time>M_time_init)
+        // output is already done at init time
+        do_output = std::fmod(current_time - M_time_init, M_output_freq) == 0;
+    return do_output;
+}
+
+
 // --------------------------------------------------------------------------------------
 //! Masks out the initial X and Y values so we only have drifters where there is ice.
+//! Also fills M_i with the indices that are kept
 void
 Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double> const& um,
         std::vector<double>& X, std::vector<double>& Y,
+        std::vector<long int>& INDS,
         std::vector<double>& conc, double clim)
 {
     //move the mesh
@@ -300,7 +323,7 @@ Drifters::maskXY(GmshMeshSeq const& mesh, std::vector<double> const& um,
         {
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
-            M_i.push_back(i);
+            M_i.push_back(INDS[i]);
             M_conc.push_back(interp_drifter_out[i]);
         }
     }
@@ -335,8 +358,6 @@ Drifters::move(GmshMeshSeq const& mesh,
     int nb_var=2;
     int numNodes = mesh.numNodes();
     std::vector<double> interp_drifter_in(nb_var*numNodes);
-
-    // Interpolate the velocity
     for (int i=0; i<numNodes; ++i)
     {
         interp_drifter_in[nb_var*i]   = UT[i];
@@ -352,6 +373,7 @@ Drifters::move(GmshMeshSeq const& mesh,
                             &M_X[0],&M_Y[0],M_num_drifters,
                             true, 0.);
 
+    // Add the displacement to the current position
     for ( int i=0; i<M_num_drifters; ++i )
     {
         M_X[i] += interp_drifter_out[nb_var*i];

@@ -154,8 +154,8 @@ namespace Nextsim
                  "interval between IABP drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
 
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "Use OSISAF drifters?")
-            ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( .5 ),
-                 "interval between OSISAF drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
+            ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( 2. ),
+                 "interval between OSISAF drifter outputs (days): 2.0/n, n=1,2,... down to timestep")
             ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
                 "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
 

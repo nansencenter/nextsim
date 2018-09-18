@@ -1306,6 +1306,10 @@ FiniteElement::initOptAndParam()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
     M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second;
+
+    //! - Set the drifter options
+    //  NB needs to be done before readRestart()
+    this->initDrifterOpts();
 }//initOptAndParam
 
     
@@ -6355,7 +6359,7 @@ FiniteElement::init()
     had_remeshed=false;
 
     this->initOptAndParam();
-    M_current_time = time_init /*+ pcpt*time_step/(24*3600.0)*/;
+    M_current_time = time_init;
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6381,10 +6385,9 @@ FiniteElement::init()
 
         std::string res_str = vm["restart.restart_string"].as<std::string>();
         if ( !res_str.empty() )
-            pcpt = this->readRestart(res_str);
+            this->readRestart(res_str);
         else
-            pcpt = this->readRestart(vm["restart.step_nb"].as<int>());
-        M_current_time = time_init + pcpt*time_step/(24*3600.0);
+            this->readRestart(vm["restart.step_nb"].as<int>());
 
         //write fields from restart to file (needed?)
         if(M_rank==0)
@@ -6451,12 +6454,7 @@ FiniteElement::init()
         this->initMoorings();
 
 
-    //! - 8) Set the drifter options
-    //  NB needs to be done after readRestart()
-    this->initDrifterOpts();
-
-
-    //! - 9) Checks if anything has to be output now using the checkOutputs() function.
+    //! - 8) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
     // - check if we are adding snapshot to netcdf file
     // 2. do we need to init any drifters (also save output at init time)
@@ -7690,17 +7688,17 @@ FiniteElement::writeRestart(std::string const& name_str)
     
 //------------------------------------------------------------------------------------------------------
 //! Reads restart files. Called by the step() function.
-int
+void
 FiniteElement::readRestart(int step)
 {
     std::string tmp = (boost::format( "%1%" ) % step).str();
-    return this->readRestart(tmp);
+    this->readRestart(tmp);
 }//readRestart
 
 
 //------------------------------------------------------------------------------------------------------
 //! Reads restart files. Called by the step() function.
-int
+void
 FiniteElement::readRestart(std::string step)
 {
     Exporter exp_field("double"), exp_mesh("double");
@@ -7822,6 +7820,55 @@ FiniteElement::readRestart(std::string step)
     // mesh partitioning
     this->partitionMeshRestart();
 
+    //set time and counters
+    mesh_adapt_step = 0;
+    M_nb_regrid = 0;
+    if(M_rank==0)
+    {
+        // Set and check time
+        if (!vm["restart.reset_time_counter"].as<bool>())
+        {
+            pcpt = misc_int[0];
+            double tmp = time_init + pcpt*time_step/(24*3600.0);
+            if ( time_vec[0] != tmp )
+            {
+                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+
+            //set other counters from the restart file
+            mesh_adapt_step = misc_int[2];
+            M_nb_regrid     = misc_int[3];
+	    }
+	    else
+	    {
+            if ( time_vec[0] != time_init )
+            {
+                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
+                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
+                throw std::runtime_error("Inconsistent time information in restart file");
+            }
+	    }
+    }
+
+    //transfer scalars from "Misc_int" from root to all processors
+    boost::mpi::broadcast(M_comm, pcpt, 0);
+    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
+    boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
+    boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
+    M_current_time = time_init + pcpt*time_step/(24*3600.0);
+    if(M_use_drifters)
+    {
+        // if current time is ahead of init-drifter time
+        // (as it could be in a restart situation),
+        // increase the init-drifter time
+        M_drifters_time_init = std::max(M_drifters_time_init,
+                std::ceil(M_current_time));
+    }
+
     // set all variables to 0
     // - best to do this early on so M_tice has the right number of components
     //   as early as possible
@@ -7898,19 +7945,12 @@ FiniteElement::readRestart(std::string step)
                 // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
                 if(M_rank==0)
                 {
-                    std::string msg = "Warning: Couldn't read drifter positions from restart file.";
-                    msg += " Drifter positions initialised as if there was no restart.\n";
-                    LOG(WARNING) << msg;
+                    LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
+                        << " Drifter positions initialised as if there was no restart.\n";
                 }
             }
             else
             {
-                // possible problems with IABP restart
-                throw std::runtime_error("Possible problems with restarting IABP drifters");
-
-                // get the time
-                M_current_time = time_vec[0];
-
                 // init the input/output files
                 this->initIabpDrifterFiles();
 
@@ -7925,11 +7965,14 @@ FiniteElement::readRestart(std::string step)
                 // restart file)
                 M_UT_root = M_UT;
                 this->updateIabpDrifterPosition();
-                std::fill(M_UT.begin(), M_UT.end(), 0.);//M_UT is no longer needed (this is what we will use)
-                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);//M_UT_root is no longer needed
+
+                // M_UT, M_UT_root can be set to zero now we have moved the drifters
+                std::fill(M_UT.begin(), M_UT.end(), 0.);
+                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
                 // still need to get M_conc at these positions
                 M_conc_root = M_conc;
+                M_UM_root = M_UM;
                 this->updateIabpDrifterConc();
 
                 // Save the initial positions to the output file
@@ -7964,48 +8007,6 @@ FiniteElement::readRestart(std::string step)
 
     // Scatter nodal fields from root
     this->scatterFieldsNode(&interp_nd_out[0]);
-
-    //set time and counters
-    int pcpt = 0;
-    mesh_adapt_step = 0;
-    M_nb_regrid = 0;
-    if(M_rank==0)
-    {
-        // Set and check time
-        if (!vm["restart.reset_time_counter"].as<bool>())
-        {
-            pcpt = misc_int[0];
-            double tmp = time_init + pcpt*time_step/(24*3600.0);
-            if ( time_vec[0] != tmp )
-            {
-                std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
-                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-
-            //set other counters from the restart file
-            mesh_adapt_step = misc_int[2];
-            M_nb_regrid     = misc_int[3];
-	    }
-	    else
-	    {
-            if ( time_vec[0] != time_init )
-            {
-                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
-    }
-
-    //transfer scalars from "Misc_int" from root to all processors
-    boost::mpi::broadcast(M_comm, pcpt, 0);
-    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
-    boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
-    boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
-    return pcpt;
 }//readRestart
     
     
@@ -10660,20 +10661,15 @@ FiniteElement::initThermodynamics()
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the type of drifters used (equally spaced, IABP, RGPS, OSISAF, SIDFEX).
-//  NB needs to be done after readRestart()
+//  NB needs to be done before readRestart()
 //! Called by the init() function.
 void
 FiniteElement::initDrifterOpts()
 {
     // init drifters after spinup
     // NB use ceil to make sure the init time is 0:00
-    M_drifters_time_init = std::ceil(time_init)
-        + vm["simul.spinup_duration"].as<double>();
-
-    // if current time is ahead of init-drifter time (eg in a restart situation),
-    // increase the init-drifter time
-    M_drifters_time_init = std::max(M_drifters_time_init,
-            std::ceil(M_current_time));
+    M_drifters_time_init = std::ceil(time_init
+        + vm["simul.spinup_duration"].as<double>());
 
     //to be run at start time
     std::vector<double> drifters_timesteps;
@@ -10718,20 +10714,24 @@ FiniteElement::initDrifterOpts()
     {
         M_osisaf_drifters.resize(2);
 
-        if( M_osisaf_drifters_output_time_step > 0.5 )
+        if( M_osisaf_drifters_output_time_step > 2.0 )
         {
-            // currently OSISAF output time step has to be <= 0.5 (days)
-            throw std::runtime_error("OSISAF drifters output timestep should be <= 0.5");
+            // currently OSISAF output time step has to fit into 2 days
+            throw std::runtime_error("OSISAF drifters output timestep should be <= 2.0");
         }
-        else if( fmod(.5, M_osisaf_drifters_output_time_step) != 0 )
+        else if( fmod(2.0, M_osisaf_drifters_output_time_step) != 0 )
         {
             // output timestep should fit into .5
-            throw std::runtime_error("0.5 should be a multiple of the OSISAF drifters output timestep");
+            throw std::runtime_error("2.0 should be a multiple of the OSISAF drifters output timestep");
         }
 
         // to check all the drifter timesteps later
         drifters_timesteps.push_back(M_osisaf_drifters_output_time_step);
         drifters_names.push_back("OSISAF");
+
+        // add drifters to the list of ordinary drifters
+        M_ordinary_drifters.push_back(&M_osisaf_drifters[0]);
+        M_ordinary_drifters.push_back(&M_osisaf_drifters[1]);
     }
 
     // equally spaced drifters
@@ -10742,6 +10742,9 @@ FiniteElement::initDrifterOpts()
         // to check all the drifter timesteps later
         drifters_timesteps.push_back(M_equally_spaced_drifters_output_time_step);
         drifters_names.push_back("Equally-spaced");
+
+        // add drifter to the list of ordinary drifters
+        M_ordinary_drifters.push_back(&M_equally_spaced_drifters);
     }
 
     // RGPS drifters
@@ -10767,6 +10770,9 @@ FiniteElement::initDrifterOpts()
         // to check all the drifter timesteps later
         drifters_timesteps.push_back(M_rgps_drifters_output_time_step);
         drifters_names.push_back("RGPS");
+
+        // add drifter to the list of ordinary drifters
+        M_ordinary_drifters.push_back(&M_rgps_drifters);
     }
 
     // SIDFEX drifters
@@ -10776,17 +10782,14 @@ FiniteElement::initDrifterOpts()
     {
         drifters_timesteps.push_back(M_sidfex_drifters_output_time_step);
         drifters_names.push_back("SIDFEX");
+
+        // add drifter to the list of ordinary drifters
+        M_ordinary_drifters.push_back(&M_sidfex_drifters);
     }
 
     // can now tell if we are using any drifters and set the init time
     // (after spinup)
-    M_use_drifters = (
-               M_use_iabp_drifters
-            || M_use_osisaf_drifters
-            || M_use_equally_spaced_drifters
-            || M_use_sidfex_drifters
-            || M_use_rgps_drifters
-            );
+    M_use_drifters = ( M_use_iabp_drifters || M_ordinary_drifters.size()>0 );
 
     if(M_use_drifters)
     {
@@ -11205,36 +11208,17 @@ FiniteElement::initialisingDrifters(
 //! Called by checkDrifters()
 void
 FiniteElement::outputtingDrifters(
-        bool &output_rgps,
         bool &input_iabp,
         bool &output_iabp,
-        bool &output_equally_spaced,
-        bool &output_sidfex,
-        bool &output_osisaf,
         bool &io_any
         )
 {
 
-    output_rgps = false;
     input_iabp = false;
     output_iabp = false;
-    output_equally_spaced = false;
-    output_sidfex = false;
-    output_osisaf = false;
     io_any = false;
     if(M_rank != 0)
         return;
-
-    // outputting RGPS drifters?
-    // NB these drifters have different initial times
-    if(M_use_rgps_drifters)
-    {
-        output_rgps = (
-            M_current_time > M_rgps_time_init//only output after init time (not at init time)
-            && fmod(M_current_time - M_rgps_time_init,
-                M_rgps_drifters_output_time_step)==0
-            );
-    }
 
     // we only output after init time (not at init time)
     // - netcdf/text file outputs are already written at init time of drifters
@@ -11252,47 +11236,13 @@ FiniteElement::outputtingDrifters(
                     M_iabp_drifters_output_time_step
                     )==0);
         }
-
-        // outputting equally-spaced drifters?
-        if ( M_use_equally_spaced_drifters )
-        {
-            output_equally_spaced = (std::fmod(
-                    M_current_time - M_drifters_time_init,
-                    M_equally_spaced_drifters_output_time_step
-                    )==0);
-        }
-
-        // outputting SIDFEX drifters?
-        if ( M_use_sidfex_drifters )
-        {
-            output_sidfex = (std::fmod(
-                        M_current_time - M_drifters_time_init,
-                        M_sidfex_drifters_output_time_step
-                        ) == 0 );
-        }
-
-        // outputting OSISAF drifters?
-        // NB note the different reference point
-        // - this is OK since we require M_osisaf_drifters_output_time_step<=.5
-        // - needed since OSISAF drifters start at 12:00
-        if ( M_use_osisaf_drifters )
-        {
-            output_osisaf = (std::fmod(
-                        M_current_time,
-                        M_osisaf_drifters_output_time_step
-                        ) == 0 );
-        }
     }
 
-    // we move ALL the drifters if we need to input/output ANY
-    io_any = (
-               output_rgps
-            || input_iabp
-            || output_iabp
-            || output_equally_spaced
-            || output_sidfex
-            || output_osisaf
-            );
+    // Check the non-IABP drifters by looping over M_ordinary_drifters
+    io_any = input_iabp || output_iabp;
+    for(auto it = M_ordinary_drifters.begin(); it!= M_ordinary_drifters.end(); it++)
+        io_any = io_any || (*it)->isOutputTime(M_current_time);
+
 }//outputtingDrifters()
 
 
@@ -11302,29 +11252,25 @@ FiniteElement::outputtingDrifters(
 void
 FiniteElement::checkDrifters()
 {
-    //! - 1) Gather the fields needed by the drifters
-    // TODO Currently this is done every time step at the moment
-    //      - perhaps only needed if moving?
-    M_UT_root.resize(2*M_ndof);
-    M_UM_root.resize(2*M_ndof);
-    M_conc_root.resize(M_mesh_root.numTriangles());
-    this->gatherNodalField(M_UT, M_UT_root);
-    this->gatherNodalField(M_UM, M_UM_root);
-    this->gatherElementField(M_conc, M_conc_root);
+    // although these are only needed on the root processor,
+    // we need these in several scopes, so declare them here
+    bool init_main = false;
+    bool init_rgps = false;
+    bool init_osisaf = false;
+    bool init_any = false;
+    bool input_iabp = false;
+    bool output_iabp = false;
+    bool io_any = false;
+    bool move_drifters = false;//needed on all processors (broadcast later)
 
-    bool move_drifters = false;//needed on all processors
     if(M_rank==0)
     {
-        //! - 2) check if need to:
+        //! - 1) check if need to:
         //! * move the drifters (if needed)
         //! * get new inputs (IABP, OSISAF) (if needed)
         //! * output to text file or netcdf (if needed)
 
         // do we need to init any drifters?
-        bool init_main = false;
-        bool init_rgps = false;
-        bool init_osisaf = false;
-        bool init_any = false;
         this->initialisingDrifters(
                 init_main,
                 init_rgps,
@@ -11333,33 +11279,41 @@ FiniteElement::checkDrifters()
                 );
 
         // do we need to output any drifters?
-        bool output_rgps = false;
-        bool input_iabp = false;
-        bool output_iabp = false;
-        bool output_equally_spaced = false;
-        bool output_sidfex = false;
-        bool output_osisaf = false;
-        bool io_any = false;
         this->outputtingDrifters(
-                output_rgps,
                 input_iabp,
                 output_iabp,
-                output_equally_spaced,
-                output_sidfex,
-                output_osisaf,
                 io_any
                 );
 
-        //! - 3) Do we need to move any drifters?
+        //! - 2) Do we need to move any drifters?
         //! * If we are outputting ANY, we move ALL the drifters, since they all use the same
         //!   total displcement (M_UT)
         //! * Also if we are initialising any, we also need to move the drifters
         //!   - this is because we need M_UT=0 at init time,
         //!     so the next move is relative to their initial position
         move_drifters = (init_any || io_any);
+    }
+
+    // let all the processors know if we need to gather the three vectors
+    // or if we need to reset M_UT
+    boost::mpi::broadcast(M_comm, move_drifters, 0);
+
+    //! - 3) Gather the fields needed by the drifters if we are moving
+    if(move_drifters)
+    {
+        M_UT_root.resize(2*M_mesh_root.numNodes());
+        M_UM_root.resize(2*M_mesh_root.numNodes());
+        M_conc_root.resize(M_mesh_root.numTriangles());
+        this->gatherNodalField(M_UT, M_UT_root);
+        this->gatherNodalField(M_UM, M_UM_root);
+        this->gatherElementField(M_conc, M_conc_root);
+    }
+
+    if(M_rank==0)
+    {
         if (move_drifters)
         {
-            // move the drifters
+            //! - 4) Move the drifters
             // NB M_UT is relative to the fixed mesh, not the moved mesh
             // NB to update the conc we need to move the mesh
             // TODO so far we do this inside updateIabpDrifterConc and
@@ -11370,31 +11324,11 @@ FiniteElement::checkDrifters()
             {
                 if ( M_use_iabp_drifters )
                     this->updateIabpDrifterPosition();
-                
-                if ( M_use_equally_spaced_drifters )
-                    M_equally_spaced_drifters.move(M_mesh_root, M_UT_root);
-
-                if ( M_use_sidfex_drifters )
-                    M_sidfex_drifters.move(M_mesh_root, M_UT_root);
             }
 
-            if ( M_use_rgps_drifters )
-            {
-                if ( M_rgps_drifters.isInitialised() )
-                    M_rgps_drifters.move(M_mesh_root, M_UT_root);
-            }
-
-            if ( M_use_osisaf_drifters )
-            {
-                int i = 0;
-                for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++, i++)
-                    if (it->isInitialised())
-                    {
-                        LOG(DEBUG)<<"Move OSISAF drifters ["<<i<<"]: "
-                            <<to_date_time_string(M_current_time)<<"\n";
-                        it->move(M_mesh_root, M_UT_root);
-                    }
-            }
+            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
+                if ((*it)->isInitialised())
+                    (*it)->move(M_mesh_root, M_UT_root);
         
             // reset M_UT_root
             // TODO do we need to do this?
@@ -11407,7 +11341,7 @@ FiniteElement::checkDrifters()
 
         }//moving drifters (or just resetting M_UT)
 
-        //! - 4) Do we need to input/output any drifters?
+        //! - 5) Do we need to input/output any drifters?
         if (input_iabp)
             // check if we need to add new IABP drifters
             // NB do this after moving
@@ -11424,41 +11358,18 @@ FiniteElement::checkDrifters()
             this->outputIabpDrifters();
         }
 
-        if ( output_equally_spaced )
-        {
-            M_equally_spaced_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
-            M_equally_spaced_drifters.appendNetCDF(M_current_time);
-        }
-
-        if ( output_rgps )
-        {
-            M_rgps_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
-            M_rgps_drifters.appendNetCDF(M_current_time);
-        }
-
-        if ( output_sidfex )
-        {
-            M_sidfex_drifters.updateConc(M_mesh_root, M_UM_root, M_conc_root);
-            M_sidfex_drifters.appendNetCDF(M_current_time);
-        }
-
-        if ( output_osisaf )
-        {
-            int i = 0;
-            for (auto it=M_osisaf_drifters.begin(); it!=M_osisaf_drifters.end(); it++, i++)
+        for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
+            if ((*it)->isOutputTime(M_current_time))
             {
-                if (it->isInitialised())
-                {
-                    it->updateConc(M_mesh_root, M_UM_root, M_conc_root);
-                    it->appendNetCDF(M_current_time);
-                }
+                (*it)->updateConc(M_mesh_root, M_UM_root, M_conc_root);
+                (*it)->appendNetCDF(M_current_time);
             }
-        }
          
-        //! - 5) Do we need to initialise any drifters?
+        //! - 6) Do we need to initialise any drifters?
         //  * Do initialisation after moving,
         //    to avoid moving drifters that are only just initialised
         //  * Also do it after output - this is mainly for the OSISAF drifters
+        //    (to output the last record of M_osisaf_drifters[1], before it is overwritten)
         if(init_main)
             this->initDrifters();
 
@@ -11474,9 +11385,7 @@ FiniteElement::checkDrifters()
     
     }//M_rank==0
 
-    // let all the processors know if we need to reset M_UT
     // NB faster to just reset on each processor than scattering
-    boost::mpi::broadcast(M_comm, move_drifters, 0);
     if(move_drifters)
         std::fill(M_UT.begin(), M_UT.end(), 0.);
 
@@ -11516,6 +11425,7 @@ FiniteElement::initOsisafDrifters()
             "xc", "yc",
             "lat", "lon", M_mesh_root, M_UM_root,
             M_conc, vm["drifters.concentration_limit"].as<double>());
+    M_osisaf_drifters[0].setInitTimeAndOutputFreq(M_current_time, M_osisaf_drifters_output_time_step);
 
     M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
     M_osisaf_drifters[0].appendNetCDF(M_current_time);
@@ -11601,6 +11511,7 @@ FiniteElement::initEquallySpacedDrifters()
     {
         M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
                 M_mesh_root, M_UM_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
+        M_equally_spaced_drifters.setInitTimeAndOutputFreq(M_current_time, M_equally_spaced_drifters_output_time_step);
         M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
         M_equally_spaced_drifters.appendNetCDF(M_current_time);
     }
@@ -11617,8 +11528,9 @@ FiniteElement::initRGPSDrifters()
     {
         //called once when M_current_time == M_rgps_time_init
         M_rgps_drifters = Drifters(M_rgps_file, M_mesh_root, M_UM_root, M_conc_root,
-                vm["drifters.concentration_limit"].as<double>(),
+                -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
                 M_rgps_time_init);
+        M_rgps_drifters.setInitTimeAndOutputFreq(M_current_time, M_rgps_drifters_output_time_step);
 
         //save first outputs
         M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
@@ -11637,8 +11549,11 @@ FiniteElement::initSidfexDrifters()
     {
         std::string filename = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
+
         M_sidfex_drifters = Drifters(filename, M_mesh_root, M_UM_root, M_conc_root,
-                vm["drifters.concentration_limit"].as<double>(), M_current_time);
+                -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
+                M_current_time);
+        M_sidfex_drifters.setInitTimeAndOutputFreq(M_current_time, M_sidfex_drifters_output_time_step);
         
         M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
         M_sidfex_drifters.appendNetCDF(M_current_time);
