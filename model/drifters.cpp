@@ -59,7 +59,7 @@ Drifters::Drifters(double const& spacing,
 
     std::vector<double> X(ncols*nrows);
     std::vector<double> Y(ncols*nrows);
-    std::vector<long int> INDS(ncols*nrows);
+    std::vector<int> INDS(ncols*nrows);
 
     int i=0;
     int y = *ycoords.first;
@@ -117,14 +117,14 @@ Drifters::Drifters(std::string const& filename,
 
     std::vector<double> LAT(0);
     std::vector<double> LON(0);
-    std::vector<long int> INDS(0);
+    std::vector<int> INDS(0);
 
     // skip header line
     std::string header;
     std::getline(drifter_text_file, header);
 
     int year, month, day, hour;//, number;
-    long int number;
+    int number;
     double lat, lon;
 
     // Read the next line
@@ -248,7 +248,7 @@ Drifters::Drifters(std::string const& gridFile,
     //! - 6) Calculates cartesian (x,y) coordinates from the longitude and latitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
-    std::vector<long int> INDS(gridSize);
+    std::vector<int> INDS(gridSize);
 
     mapx_class *map;
     std::string mppfile = (boost::format( "%1%/%2%" )
@@ -300,7 +300,7 @@ Drifters::isOutputTime(double const& current_time)
 void
 Drifters::maskXY(GmshMeshSeq const& movedmesh,
         std::vector<double> & X, std::vector<double> & Y,
-        std::vector<long int> const& INDS,
+        std::vector<int> const& INDS,
         std::vector<double> & conc, double const& clim)
 {
 

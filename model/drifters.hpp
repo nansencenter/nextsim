@@ -92,12 +92,12 @@ private:
 
         std::vector<double> M_X;
         std::vector<double> M_Y;
-        std::vector<long int> M_i;
+        std::vector<int> M_i;
         std::vector<double> M_conc;
 
         void maskXY(GmshMeshSeq const& mesh,
                 std::vector<double> & X, std::vector<double> & Y,
-                std::vector<long int> const& INDS,
+                std::vector<int> const& INDS,
                 std::vector<double> & conc, double const& clim);
     };
 } // Nextsim
