@@ -163,9 +163,9 @@ public:
     void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
-#if 0
     int getNumVarsNode(bool read_restart=false) const;
     int getNumVarsElement(std::string vartype) const;
+#if 0
     void gatherFieldsNode(std::vector<double>& interp_in_elements,
             std::vector<int> const& rmap_nodes,
             std::vector<int> sizes_nodes,
@@ -173,7 +173,10 @@ public:
     void scatterFieldsNode(double* interp_nd_out, bool restart);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 #else
-    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+    void gatherFieldsNode(std::vector<double>& interp_in_elements,
+            std::vector<int> const& rmap_nodes,
+            std::vector<int> sizes_nodes,
+            bool restart);
     void scatterFieldsNode(double* interp_nd_out, bool restart);
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
@@ -275,7 +278,7 @@ public:
     void importBamg(BamgMesh const* bamg_mesh);
     void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
-    void initVariables(bool read_restart=false);
+    void initVariables();
     void initModelState();
     void DataAssimilation();
     void FETensors();

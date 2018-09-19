@@ -787,10 +787,6 @@ FiniteElement::assignVariables()
 
 }//assignVariables()
 
-    // number of variables to interpolate
-    M_nb_var_element = /*11*/15 + M_tice.size();
-}//assignVariables
-    
 
 //------------------------------------------------------------------------------------------------------
 //! Initializes the physical state of the model - ocean and ice - by calling the initSlabOcean() and initIce() functions.
@@ -3583,11 +3579,13 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 {
     std::vector<double> interp_in_elements;
     int nb_var_element = this->getNumVarsElement("standard");
+    bool restart = false;
+    int nb_var_node = this->getNumVarsNode(restart);
     std::vector<double> interp_in_nodes;
 
     timer["gather"].first.restart();
     this->gatherFieldsElement(interp_in_elements);
-    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes, restart);
     if (M_rank == 0)
         std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
@@ -3657,7 +3655,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                 &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
                                 M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
                                 &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
+                                M_mesh_previous_root.numNodes(),nb_var_node,
                                 &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
                                 false);
     } // rank 0
@@ -3669,7 +3667,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
     timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
-    this->scatterFieldsNode(interp_nd_out);
+    this->scatterFieldsNode(interp_nd_out, restart);
     if (M_rank == 0)
         std::cout<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
 
@@ -3678,7 +3676,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         xDelete<double>(interp_elt_out);
         xDelete<double>(interp_nd_out);
     }
-}//interpFieldsElement
+}//interpFields
 
 
 int
@@ -6795,7 +6793,7 @@ FiniteElement::init()
     }
 
     // Check the minimum angle of the grid
-    // - do this after readRestart, but before initVariables
+    // - needs to be after readRestart, otherwise M_mesh is not initialised yet
     double minang = this->minAngle(M_mesh);
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
@@ -6817,14 +6815,6 @@ FiniteElement::init()
     M_tau.assign(2*M_num_nodes, 0.);
 
     // Initialise atmospheric and oceanic forcing
-    // Check the minimum angle of the grid
-    // - needs to be after readRestart, otherwise M_mesh is not initialised yet
-    double minang = this->minAngle(M_mesh);
-    if (minang < vm["numerics.regrid_angle"].as<double>())
-    {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
-    }
 
 
     //! - 4) Initializes atmospheric and oceanic forcings using the initForcings() function,
@@ -6946,7 +6936,7 @@ FiniteElement::step()
             if(vm["numerics.regrid_output_flag"].as<bool>())
             {
                 std::string name_str = (boost::format( "pre_regrid_%1%" ) % M_nb_regrid).str();
-                this->exportResults(name_str);
+                this->exportResults(name_str, true, true, true);
             }
 
 #if defined (WAVES)
@@ -6977,7 +6967,7 @@ FiniteElement::step()
             if(vm["numerics.regrid_output_flag"].as<bool>())
             {
                 std::string name_str = (boost::format( "post_regrid_%1%" ) % M_nb_regrid).str();
-                this->exportResults(name_str);
+                this->exportResults(name_str, true, true, true);
             }
             ++M_nb_regrid;
         }//M_regrid
@@ -8641,7 +8631,8 @@ FiniteElement::readRestart(std::string step)
             data_elements, num_components_elements);
 
     // Scatter nodal fields from root
-    this->scatterFieldsNode(&interp_nd_out[0]);
+    bool restart = true;
+    this->scatterFieldsNode(&interp_nd_out[0], restart);
 
 
     //set time and counters
@@ -12885,7 +12876,7 @@ FiniteElement::wimCall(FEMeshType const &movedmesh, BamgMesh *bamgmesh_wim,
     {
         std::string tmp_string3
             = ( boost::format( "after_wim_call_%1%" ) % (M_wim_cpt-1) ).str();
-        this->exportResults(tmp_string3);
+        this->exportResults(tmp_string3, true, true, true);
     }
 #endif
 
