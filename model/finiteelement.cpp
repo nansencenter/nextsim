@@ -11336,8 +11336,6 @@ FiniteElement::checkDrifters()
                 std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 #endif
 
-
-            std::cout<<"11349: "<<M_UM_root.size()<<", "<<2*M_mesh_root.numNodes()<<"\n";
             auto movedmesh_root = M_mesh_root;
             movedmesh_root.move(M_UM_root, 1.);
 
