@@ -39,12 +39,16 @@ Drifters::Drifters()
 //! Initializes drifters : seeds and destroys drifters.
 //! * defines a uniform grid with resolution defined by spacing
 //! Called by FiniteElement::initEquallySpacedDrifters()
-Drifters::Drifters(double spacing,
+Drifters::Drifters(double const& spacing,
         GmshMeshSeq const& movedmesh,
-        std::vector<double>& conc, double climit)
+        std::vector<double> & conc, double const& climit,
+        double const& current_time, double const& output_freq)
 {
+    //! -1) Set the time and output freq
+    M_time_init = current_time;
+    M_output_freq = output_freq;
 
-    //! - 1) Calculates the grid spacing assuming a regular grid
+    //! - 2) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = movedmesh.coordX();
     std::vector<double> RY = movedmesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
@@ -73,7 +77,7 @@ Drifters::Drifters(double spacing,
         y += spacing;
     }
 
-    //! -2) Applies the mask using conc and climit, and save to M_X and M_Y
+    //! -3) Applies the mask using conc and climit, and save to M_X and M_Y
     this->maskXY(movedmesh, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
@@ -83,9 +87,10 @@ Drifters::Drifters(double spacing,
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-Drifters::Drifters(std::string filename,
+Drifters::Drifters(std::string const& filename,
         GmshMeshSeq const& movedmesh,
-        std::vector<double>& conc, double climit, double current_time)
+        std::vector<double> & conc, double const& climit,
+        double const& current_time, double const& output_freq)
 {
     // interface for RGPS, SIDFEX
     // - reads a text file
@@ -93,7 +98,11 @@ Drifters::Drifters(std::string filename,
     //   - therefore use an index file to map the true IDs to smaller integers
     //     (this is what is done in the forecast system)
 
-    //! - 1) Load the nodes from file
+    //! -1) Set the time and output freq
+    M_time_init = current_time;
+    M_output_freq = output_freq;
+
+    //! - 2) Load the nodes from file
 
     // Check file
     std::fstream drifter_text_file;   // The file we read the buoy data from
@@ -102,7 +111,7 @@ Drifters::Drifters(std::string filename,
     if ( ! drifter_text_file.good() )
         throw std::runtime_error("File not found: " + filename);
 
-    //! -2) Read the current buoys from file
+    //! -3) Read the current buoys from file
     double time = current_time;
     std::vector<int> keepers;
 
@@ -113,8 +122,6 @@ Drifters::Drifters(std::string filename,
     // skip header line
     std::string header;
     std::getline(drifter_text_file, header);
-    std::cout<<"open drifter file: "<<filename<<"\n";
-    std::cout<<"header: "<<header<<"\n";
 
     int year, month, day, hour;//, number;
     long int number;
@@ -149,8 +156,8 @@ Drifters::Drifters(std::string filename,
             INDS.push_back(number);
             gridSize++;
 
-            std::cout << year << ", "<< month << ", "<< day << ", "
-                << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
+            //std::cout << year << ", "<< month << ", "<< day << ", "
+            //    << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
         }
         else if(time>current_time)
             break;
@@ -189,14 +196,19 @@ Drifters::Drifters(std::string filename,
 //! Initializes drifters : seeds and destroys drifters.
 //! * reads a netcdf file
 //! Called by FiniteElement::initOsisafDrifters()
-Drifters::Drifters(std::string gridFile,
-                   std::string dimNameX, std::string dimNameY,
-                   std::string latName, std::string lonName,
+Drifters::Drifters(std::string const& gridFile,
+                   std::string const& dimNameX, std::string const& dimNameY,
+                   std::string const& latName, std::string const& lonName,
                    GmshMeshSeq const& movedmesh,
-                   std::vector<double>& conc, double climit)
+                   std::vector<double> & conc, double const& climit,
+                   double const& current_time, double const& output_freq)
 {
 
-    //! - 1) Loads the grid from file
+    //! -1) Set the time and output freq
+    M_time_init = current_time;
+    M_output_freq = output_freq;
+
+    //! - 2) Loads the grid from file
     // Check file
     std::string filename = (boost::format( "%1%/%2%" )
                             % Environment::nextsimDataDir().string()
@@ -209,7 +221,7 @@ Drifters::Drifters(std::string gridFile,
     // Open file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    //! - 2) Reads the dimension of the grid
+    //! - 3) Reads the dimension of the grid
     netCDF::NcDim dim;
     dim = dataFile.getDim(dimNameX);
     if ( dim.isNull() )
@@ -223,17 +235,17 @@ Drifters::Drifters(std::string gridFile,
 
     int gridSize = ncols*nrows;
 
-    //! - 3) Reads the latitude and longitude
+    //! - 4) Reads the latitude and longitude
     netCDF::NcVar VLAT = dataFile.getVar(latName);
     netCDF::NcVar VLON = dataFile.getVar(lonName);
 
-    //! - 4) Reads the data in LON & LAT
+    //! - 5) Reads the data in LON & LAT
     std::vector<double> LAT(gridSize);
     std::vector<double> LON(gridSize);
     VLAT.getVar(&LAT[0]);
     VLON.getVar(&LON[0]);
 
-    //! - 5) Calculates cartesian (x,y) coordinates from the longitude and latitude
+    //! - 6) Calculates cartesian (x,y) coordinates from the longitude and latitude
     std::vector<double> X(gridSize);
     std::vector<double> Y(gridSize);
     std::vector<long int> INDS(gridSize);
@@ -256,7 +268,7 @@ Drifters::Drifters(std::string gridFile,
 
     close_mapx(map);
 
-    //! - 6) Applies mask using conc and climit, and save to M_X and M_Y
+    //! - 7) Applies mask using conc and climit, and save to M_X and M_Y
     this->maskXY(movedmesh, X, Y, INDS, conc, climit);
 
     M_is_initialised = true;
@@ -287,9 +299,9 @@ Drifters::isOutputTime(double const& current_time)
 //! Also fills M_i with the indices that are kept
 void
 Drifters::maskXY(GmshMeshSeq const& movedmesh,
-        std::vector<double>& X, std::vector<double>& Y,
-        std::vector<long int>& INDS,
-        std::vector<double>& conc, double clim)
+        std::vector<double> & X, std::vector<double> & Y,
+        std::vector<long int> const& INDS,
+        std::vector<double> & conc, double const& clim)
 {
 
     //! - 1) Interpolates the concentration onto the drifter positions

@@ -49,21 +49,23 @@ public:
         Drifters();
 
         //! init equally-spaced drifters
-        Drifters(double spacing, GmshMeshSeq const& movedmesh,
-                std::vector<double>& conc, double climit);
+        Drifters(double const& spacing, GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc, double const& climit,
+                double const& current_time, double const& output_freq);
 
         //! init drifters from netcdf file
-        Drifters(std::string gridFile,
-                 std::string dimNameX, std::string dimNameY,
-                 std::string latName, std::string lonName,
+        Drifters(std::string const& gridFile,
+                 std::string const& dimNameX, std::string const& dimNameY,
+                 std::string const& latName, std::string const& lonName,
                  GmshMeshSeq const& movedmesh,
-                 std::vector<double>& conc,
-                 double climit);
+                 std::vector<double> & conc, double const& climit,
+                 double const& current_time, double const& output_freq);
 
         //! init drifters from text file
-        Drifters(std::string filename,
+        Drifters(std::string const& filename,
                 GmshMeshSeq const& movedmesh,
-                std::vector<double>& conc, double climit, double time);
+                std::vector<double> & conc, double const& climit,
+                double const& current_time, double const& output_freq);
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void updateConc( GmshMeshSeq const& movedmesh,
@@ -75,16 +77,6 @@ public:
 
         bool isInitialised();
         bool isOutputTime(double const& current_time);
-
-        // --------------------------------------------------------------------------------------
-        //! Set the time to initialise the drifters
-        //! Called by initDrifterOpts()
-        //  TODO can now make a loop over all the drifters
-        void setInitTimeAndOutputFreq(double const& current_time, double const& output_freq)
-        {
-            M_time_init = current_time;
-            M_output_freq = output_freq;
-        }
 
 
 private:
@@ -104,9 +96,9 @@ private:
         std::vector<double> M_conc;
 
         void maskXY(GmshMeshSeq const& mesh,
-                std::vector<double>& X, std::vector<double>& Y,
-                std::vector<long int>& INDS,
-                std::vector<double>& conc, double clim);
+                std::vector<double> & X, std::vector<double> & Y,
+                std::vector<long int> const& INDS,
+                std::vector<double> & conc, double const& clim);
     };
 } // Nextsim
 

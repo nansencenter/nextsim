@@ -11325,7 +11325,7 @@ FiniteElement::checkDrifters()
                 if ((*it)->isInitialised())
                     (*it)->move(M_mesh_root, M_UT_root);
             
-#if 0
+#if 1
                 // reset M_UT_root
                 // TODO do we need to do this?
                 // - it isn't used and seems to be gathered each time it's needed
@@ -11411,8 +11411,8 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
     M_osisaf_drifters[0] = Drifters(osi_grid_file,
             "xc", "yc",
             "lat", "lon", movedmesh_root,
-            M_conc, vm["drifters.concentration_limit"].as<double>());
-    M_osisaf_drifters[0].setInitTimeAndOutputFreq(M_current_time, M_osisaf_drifters_output_time_step);
+            M_conc, vm["drifters.concentration_limit"].as<double>(),
+            M_current_time, M_osisaf_drifters_output_time_step);
 
     M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
     M_osisaf_drifters[0].appendNetCDF(M_current_time);
@@ -11497,8 +11497,8 @@ FiniteElement::initEquallySpacedDrifters(mesh_type_root const& movedmesh_root)
     if (M_rank == 0)
     {
         M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
-                movedmesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>());
-        M_equally_spaced_drifters.setInitTimeAndOutputFreq(M_current_time, M_equally_spaced_drifters_output_time_step);
+                movedmesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),
+                M_current_time, M_equally_spaced_drifters_output_time_step);
         M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
         M_equally_spaced_drifters.appendNetCDF(M_current_time);
     }
@@ -11516,8 +11516,7 @@ FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
         //called once when M_current_time == M_rgps_time_init
         M_rgps_drifters = Drifters(M_rgps_file, movedmesh_root, M_conc_root,
                 -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
-                M_rgps_time_init);
-        M_rgps_drifters.setInitTimeAndOutputFreq(M_current_time, M_rgps_drifters_output_time_step);
+                M_rgps_time_init, M_rgps_drifters_output_time_step);
 
         //save first outputs
         M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
@@ -11539,8 +11538,7 @@ FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
 
         M_sidfex_drifters = Drifters(filename, movedmesh_root, M_conc_root,
                 -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
-                M_current_time);
-        M_sidfex_drifters.setInitTimeAndOutputFreq(M_current_time, M_sidfex_drifters_output_time_step);
+                M_current_time, M_sidfex_drifters_output_time_step);
         
         M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
         M_sidfex_drifters.appendNetCDF(M_current_time);
