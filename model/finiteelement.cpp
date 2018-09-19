@@ -10877,7 +10877,8 @@ FiniteElement::initIabpDrifterFiles()
     // OUTPUT:
     // We should tag the file name with the init time in case of a re-start.
     std::stringstream filename_out;
-    filename_out << M_export_path << "/drifters_out_" << M_current_time << ".txt";
+    filename_out << M_export_path << "/IABP_drifters_simulated_"
+        << to_date_time_string_for_filename(M_current_time) << ".txt";
     M_iabp_outfile = filename_out.str();
     std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
     if ( ! iabp_out.good() )
@@ -10890,7 +10891,7 @@ FiniteElement::initIabpDrifterFiles()
     // INPUT:
     //new buoy file has a header
     std::string filename_in = Environment::nextsimDataDir().string()
-        + "/IABP_buoys_new_format.txt";
+        + "/IABP_drifters.txt";
     M_iabp_infile_fstream.open(filename_in, std::fstream::in);
     if ( ! M_iabp_infile_fstream.good() )
         throw std::runtime_error("File not found: " + filename_in);
@@ -11377,45 +11378,6 @@ FiniteElement::checkDrifters()
 }//checkDrifters
 
 
-void
-FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
-{
-    // OSISAF drift is calculated as a drifter displacement over 48 hours
-    // - start a new one each day at 12:00
-    // We have two sets of drifters in the field at all times
-    // - [0] is the newest
-    // Here we start a new set of drifters.
-
-    if(M_rank != 0)
-        return;
-
-    LOG(DEBUG)<<"Initialize a new set of OSISAF drifters\n";
-
-    // Flip the vector so we move [0] to be [1]
-    std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-    // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-    std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
-    std::string osi_output_path = M_export_path+"/OSISAF_";
-    if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
-    {
-        // use grid refined by a factor of 9
-        // - can then compare averaged drift to the observations
-        // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
-        osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
-        osi_output_path = M_export_path+"/OSISAF_refined9_";
-    }
-        
-    M_osisaf_drifters[0] = Drifters(osi_grid_file,
-            "xc", "yc",
-            "lat", "lon", movedmesh_root,
-            M_conc, vm["drifters.concentration_limit"].as<double>(),
-            M_current_time, M_osisaf_drifters_output_time_step);
-
-    M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
-    M_osisaf_drifters[0].appendNetCDF(M_current_time);
-}
-
 // -----------------------------------------------------------------------------------------------------------
 //! Calculates the planetary vorticity (f) or sets f = 0 (dynamics.use_coriolis=false).
 //! Called by the step() function.
@@ -11542,6 +11504,49 @@ FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
         M_sidfex_drifters.appendNetCDF(M_current_time);
     }
 }//initSidfexDrifters
+
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initializes a new set of OSISAF drifters, and saves the first netcdf time record
+//! Called by the checkDrifters() function.
+void
+FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
+{
+    // OSISAF drift is calculated as a drifter displacement over 48 hours
+    // - start a new one each day at 12:00
+    // We have two sets of drifters in the field at all times
+    // - [0] is the newest
+    // Here we start a new set of drifters.
+
+    if(M_rank != 0)
+        return;
+
+    LOG(DEBUG)<<"Initialize a new set of OSISAF drifters\n";
+
+    // Flip the vector so we move [0] to be [1]
+    std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
+
+    // Create a new M_drifters instance in [0], with a properly initialised netCDF file
+    std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
+    std::string osi_output_path = M_export_path+"/OSISAF_";
+    if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+    {
+        // use grid refined by a factor of 9
+        // - can then compare averaged drift to the observations
+        // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+        osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+        osi_output_path = M_export_path+"/OSISAF_refined9_";
+    }
+        
+    M_osisaf_drifters[0] = Drifters(osi_grid_file,
+            "xc", "yc",
+            "lat", "lon", movedmesh_root,
+            M_conc_root, vm["drifters.concentration_limit"].as<double>(),
+            M_current_time, M_osisaf_drifters_output_time_step);
+
+    M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
+    M_osisaf_drifters[0].appendNetCDF(M_current_time);
+}//initOsisafDrifters()
 
     
 // -------------------------------------------------------------------------------------
