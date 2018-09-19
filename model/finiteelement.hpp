@@ -725,18 +725,15 @@ private:
     void topazAmsr2Ice();
 
     void initialisingDrifters(
-        bool &init_main,
-        bool &init_rgps,
-        bool &init_osisaf,
-        bool &init_any
-        );
+        std::vector<std::string> & init_names,
+        bool &init_any);
     void outputtingDrifters(
         bool &input_iabp,
         bool &output_iabp,
-        bool &io_any
-        );
+        bool &io_any);
     void checkDrifters();
-    void initDrifters(mesh_type_root const& movedmesh_root);
+    void initDrifters(mesh_type_root const& movedmesh_root,
+        std::vector<std::string> const& init_names);
     void initOsisafDrifters(mesh_type_root const& movedmesh_root);
     void initRGPSDrifters(mesh_type_root const& movedmesh_root);
     void initSidfexDrifters(mesh_type_root const& movedmesh_root);

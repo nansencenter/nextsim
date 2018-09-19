@@ -10809,26 +10809,43 @@ FiniteElement::initDrifterOpts()
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! Initialise the main drifters if it's the right time:
-//! * Equally-spaced
-//! * SIDFEX
-//! * IABP
+//! Initialise the drifters if it's the right time
+//! * Input init_names  is set by initialisingDrifters() 
+//!   - determines which (if any) need to be initialised this time step
 //! Called by the checkDrifters() function.
 void
-FiniteElement::initDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
+        std::vector<std::string> const& init_names)
 {
-    if(M_use_equally_spaced_drifters)
-        this->initEquallySpacedDrifters(movedmesh_root);
-
-    if(M_use_sidfex_drifters)
-        this->initSidfexDrifters(movedmesh_root);
-
-    if(M_use_iabp_drifters)
+    //! -1) do we initialise all the drifters that start at the usual time?
+    //! * Equally-spaced, SIDFEX, IABP
+    if(std::count(init_names.begin(), init_names.end(), "main")>0)
     {
-        if(M_iabp_drifters.size()==0)
-            //only init if not already initialised (eg from restart)
-            this->initIabpDrifters(movedmesh_root);
+        if(M_use_equally_spaced_drifters)
+            this->initEquallySpacedDrifters(movedmesh_root);
+
+        if(M_use_sidfex_drifters)
+            this->initSidfexDrifters(movedmesh_root);
+
+        if(M_use_iabp_drifters)
+        {
+            if(M_iabp_drifters.size()==0)
+                //only init if not already initialised (eg from restart)
+                this->initIabpDrifters(movedmesh_root);
+        }
     }
+
+    //! -2) initialise the RGPS drifters that start at their own time?
+    if(std::count(init_names.begin(), init_names.end(), "rgps")>0)
+        this->initRGPSDrifters(movedmesh_root);
+
+    if(std::count(init_names.begin(), init_names.end(), "osisaf")>0)
+        //! start a new set of OSISAF drifters?
+        // NB do this after outputting netcdf,
+        // to make sure the last time record is present
+        // for the drifters that will be terminated
+        this->initOsisafDrifters(movedmesh_root);
+    
 }//initDrifters
 
 
@@ -11153,22 +11170,14 @@ FiniteElement::updateIabpDrifterPosition()
 //! Called by checkDrifters()
 void
 FiniteElement::initialisingDrifters(
-        bool &init_main,
-        bool &init_rgps,
-        bool &init_osisaf,
+        std::vector<std::string> &init_names,
         bool &init_any
         )
 {
-    init_main = false;
-    init_rgps = false;
-    init_osisaf = false;
+    init_names.resize(0);
     init_any = false;
     if(M_rank != 0)
         return;
-
-    // initialising RGPS drifters?
-    if(M_use_rgps_drifters)
-        init_rgps = ( M_current_time == M_rgps_time_init );
 
     // inputting/outputting main drifters?
     // - those that start at the usual time
@@ -11179,23 +11188,24 @@ FiniteElement::initialisingDrifters(
             || M_use_equally_spaced_drifters
             || M_use_sidfex_drifters
             )
-        init_main = ( M_current_time == M_drifters_time_init);
+        if( M_current_time == M_drifters_time_init)
+            init_names.push_back("main");
+
+    // initialising RGPS drifters?
+    if(M_use_rgps_drifters)
+        if( M_current_time == M_rgps_time_init )
+            init_names.push_back("rgps");
 
     // initialising OSISAF drifters?
     // - is it 12:00 and past the spinup duration?
     if ( M_use_osisaf_drifters )
-        init_osisaf = (
-                    M_current_time > M_drifters_time_init
-                 && std::fmod( M_current_time + 0.5, 1.0) == 0
-                 );
+        if(M_current_time > M_drifters_time_init
+                && std::fmod( M_current_time + 0.5, 1.0) == 0)
+            init_names.push_back("osisaf");
 
     // calculate if we need to initialise ANY,
     // since then we need to ensure M_UT = 0
-    init_any = (
-               init_main
-            || init_rgps
-            || init_osisaf
-            );
+    init_any = (init_names.size()>0);
 }//initialisingDrifters
 
 
@@ -11252,14 +11262,12 @@ FiniteElement::checkDrifters()
 {
     // although these are only needed on the root processor,
     // we need these in several scopes, so declare them here
-    bool init_main = false;
-    bool init_rgps = false;
-    bool init_osisaf = false;
-    bool init_any = false;
-    bool input_iabp = false;
-    bool output_iabp = false;
-    bool io_any = false;
-    bool move_drifters = false;//needed on all processors (broadcast later)
+    bool io_any = false;                    // input/output any drifters (then we need to move)?
+    bool input_iabp = false;                // need to update IABP?
+    bool output_iabp = false;               // need to output IABP?
+    bool init_any = false;                  //init any drifters (then we need to move)?
+    std::vector<std::string> init_names;    // names of the drifters to init this time step
+    bool move_drifters = false;             //needed on all processors (broadcast later)
 
     if(M_rank==0)
     {
@@ -11270,18 +11278,14 @@ FiniteElement::checkDrifters()
 
         // do we need to init any drifters?
         this->initialisingDrifters(
-                init_main,
-                init_rgps,
-                init_osisaf,
-                init_any
-                );
+                init_names,
+                init_any);
 
         // do we need to output any drifters?
         this->outputtingDrifters(
                 input_iabp,
                 output_iabp,
-                io_any
-                );
+                io_any);
 
         //! - 2) Do we need to move any drifters?
         //! * If we are outputting ANY, we move ALL the drifters, since they all use the same
@@ -11296,98 +11300,81 @@ FiniteElement::checkDrifters()
     // or if we need to reset M_UT
     boost::mpi::broadcast(M_comm, move_drifters, 0);
 
-    //! - 3) Gather the fields needed by the drifters if we are moving
     if(move_drifters)
     {
-        M_UT_root.resize(2*M_mesh_root.numNodes());
-        M_UM_root.resize(2*M_mesh_root.numNodes());
-        M_conc_root.resize(M_mesh_root.numTriangles());
+        //! - 3) Gather the fields needed by the drifters if we are moving
         this->gatherNodalField(M_UT, M_UT_root);
         this->gatherNodalField(M_UM, M_UM_root);
         this->gatherElementField(M_conc, M_conc_root);
 
-        //can now reset M_UT to 0
+        // can now reset M_UT to 0
         std::fill(M_UT.begin(), M_UT.end(), 0.);
-    }
 
-    if(M_rank==0)
-    {
-        if (move_drifters)
+        if(M_rank==0)
         {
             //! - 4) Move the drifters
             // NB M_UT is relative to the fixed mesh, not the moved mesh
             // NB to update the conc we need to move the mesh
-            // TODO so far we do this inside updateIabpDrifterConc and
-            // Drifters::updateConc - would be more efficient to move the
-            // mesh here, but that would mean changing all the interfaces
-            // to the routines
-            if(M_current_time>M_drifters_time_init)
-            {
-                if ( M_use_iabp_drifters )
+            //! * IABP drifters 
+            if ( M_use_iabp_drifters )
+                if(M_current_time>M_drifters_time_init)
                     this->updateIabpDrifterPosition();
-            }
 
+            //! * other drifters 
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
                 if ((*it)->isInitialised())
                     (*it)->move(M_mesh_root, M_UT_root);
-        
-            // reset M_UT_root
-            // TODO do we need to do this?
-            // - it isn't used and seems to be gathered each time it's needed
-            // (eg in writeRestart)
-            // - needs checking though
-            LOG(DEBUG)<<"Reset M_UT_root: "
-                <<to_date_time_string(M_current_time)<<"\n";
-            std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
+            
+#if 0
+                // reset M_UT_root
+                // TODO do we need to do this?
+                // - it isn't used and seems to be gathered each time it's needed
+                // (eg in writeRestart)
+                // - needs checking though
+                LOG(DEBUG)<<"Reset M_UT_root: "
+                    <<to_date_time_string(M_current_time)<<"\n";
+                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
+#endif
 
-        }//moving drifters (or just resetting M_UT)
 
-        auto movedmesh_root = M_mesh_root;
-        movedmesh_root.move(M_UM_root, 1.);
+            std::cout<<"11349: "<<M_UM_root.size()<<", "<<2*M_mesh_root.numNodes()<<"\n";
+            auto movedmesh_root = M_mesh_root;
+            movedmesh_root.move(M_UM_root, 1.);
 
-        //! - 5) Do we need to input/output any drifters?
-        if (input_iabp)
-            // check if we need to add new IABP drifters
-            // NB do this after moving
-            // NB this updates M_iabp_conc
-            this->updateIabpDrifters(movedmesh_root);
+            //! - 5) Do we need to input/output any drifters?
+            if (input_iabp)
+                // check if we need to add new IABP drifters
+                // NB do this after moving
+                // NB this updates M_iabp_conc
+                this->updateIabpDrifters(movedmesh_root);
 
-        if (output_iabp)
-        {
-            // output IABP drifters
-            // NB do this after moving
-            if(!input_iabp)
-                //still need to update M_iabp_conc
-                this->updateIabpDrifterConc(movedmesh_root);
-            this->outputIabpDrifters();
-        }
-
-        for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-            if ((*it)->isOutputTime(M_current_time))
+            if (output_iabp)
             {
-                (*it)->updateConc(movedmesh_root, M_conc_root);
-                (*it)->appendNetCDF(M_current_time);
+                // output IABP drifters
+                // NB do this after moving
+                if(!input_iabp)
+                    //still need to update M_iabp_conc
+                    this->updateIabpDrifterConc(movedmesh_root);
+                this->outputIabpDrifters();
             }
-         
-        //! - 6) Do we need to initialise any drifters?
-        //  * Do initialisation after moving,
-        //    to avoid moving drifters that are only just initialised
-        //  * Also do it after output - this is mainly for the OSISAF drifters
-        //    (to output the last record of M_osisaf_drifters[1], before it is overwritten)
-        if(init_main)
-            this->initDrifters(movedmesh_root);
 
-        if(init_rgps)
-            this->initRGPSDrifters(movedmesh_root);
+            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
+                if ((*it)->isOutputTime(M_current_time))
+                {
+                    (*it)->updateConc(movedmesh_root, M_conc_root);
+                    (*it)->appendNetCDF(M_current_time);
+                }
+             
+            //! - 6) Do we need to initialise any drifters?
+            //  * Do initialisation after moving,
+            //    to avoid moving drifters that are only just initialised
+            //  * Also do it after output - this is mainly for the OSISAF drifters
+            //    (to output the last record of M_osisaf_drifters[1], before it is overwritten)
+            if(init_any)
+                this->initDrifters(movedmesh_root, init_names);
 
-        if(init_osisaf)
-            // start a new set of OSISAF drifters
-            // NB do this after outputting netcdf,
-            // to make sure the last time record is present
-            // for the drifters that will be terminated
-            this->initOsisafDrifters(movedmesh_root);
-    
-    }//M_rank==0
+        }//M_rank==0
+    }//if(move_drifters)
 
 }//checkDrifters
 
