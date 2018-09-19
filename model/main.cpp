@@ -16,6 +16,8 @@ namespace Nextsim
     po::options_description descrOptions();
 }
 
+// ----------------------------------------------------------------------------------------
+//! Main.cpp: launches the model run by calling the run() function within finiteelement.cpp.
 int main(int argc, char** argv )
 {
     using namespace Nextsim;
@@ -32,4 +34,4 @@ int main(int argc, char** argv )
 
     FiniteElement FE;
     FE.run();
-}
+}//main

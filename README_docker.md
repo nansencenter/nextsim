@@ -69,15 +69,12 @@ The option `-it` tells docker to run the container in foreground and provide int
 #### 4.2 Run neXtSIM
 
 If you want to run nextsim you also need to provide options to docker how to mount directories with
-data, mesh and forecasts. By default, nextsim inside the container expects three directories:
+data, mesh and forecasts. By default, nextsim inside the container expects two directories:
 ```
-export NEXTSIMDIR=/nextsim
-export SIMDATADIR=/simdata
-export SIMFORECASTDIR=/simforecast
+export NEXTSIM_MESH_DIR=/mesh
+export NEXTSIM_DATA_DIR=/data
 ```
-Then data is expected to be in /simdata/data and paths to the input meshfile and to the output
-files is provided in the nextsim config file (see below). Therefore you need to provide mounting
-of all these directories.
+Therefore you need to provide mounting of these two directories and a directory for output.
 
 In addition you need to provide options to nextsim with the path to the config file and number of CPUs.
 Note that all paths (to the config file, to the mesh, to the data, to outputs) are given in the
@@ -86,19 +83,17 @@ container file system.
 An example command can look like the following:
 ```
 docker run -it --rm \
-    -v /home/user/nextsim:/nextsim \
-    -v /home/user/data/:/simdata/data \
-    -v /home/user/forecasts/:/simforecast/ \
-    nextsim /nextsim/test.cfg 7
+    -v /home/user/nextsim/data/data_links:/data \
+    -v /home/user/nextsim/mesh/mesh_links:/mesh \
+    -v /home/user/output:/output \
+    nextsim /output/test.cfg 7
 ```
-It will, for example, mount directory `/home/user/nextsim` from the host as `/nextsim` on container.
-Note that `/home/user/data/` will be mounted directly as `/simdata/data`, which means that data
-with forcings and data for assimilation should be located inside `/home/user/data/` and not in
-subdirectires.
+It will, for example, mount directory `/home/user/nextsim/data/data_links` from the host as
+`/data` on container.
 
-The last two parameters (`/nextsim/test.cfg` and `7`) are giving the location of the config file
-and number of CPUs. Since we mount `/home/user/nextsim` as `/nextsim` the config file on a host
-computer should be located in `/home/user/nextsim/test.cfg`.
+The last two parameters (`/output/test.cfg` and `7`) are giving the location of the config file
+and number of CPUs. Since we mount `/home/user/output` as `/output` the config file on a host
+computer should be located in `/home/user/output/test.cfg`.
 
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
