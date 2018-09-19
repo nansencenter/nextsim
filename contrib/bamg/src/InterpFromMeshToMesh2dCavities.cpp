@@ -1,4 +1,3 @@
-/* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 /**
  * @file   InterpFromMeshToMesh2dCavities.cpp
  * @author Sylvain Bouillon <sylvain.bouillon@nersc.no>
@@ -20,8 +19,11 @@ using namespace std;
 
 
 
-int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, int* method_in, int nb_variables,
-        double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new){
+int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,
+      int* method_in, int nb_variables, double* surface_old,
+      double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new)
+{
+
     /*  Conservative interpolation method
         Use the cavities detected by detect_cavity to transfer physical
         quantities from the old element to the new ones*/
@@ -108,11 +110,11 @@ int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in, i
 
     if (verbosity>1) _printf_("   Interp Cavities: loop1...\n");
 
-    //for(int cavity_id=0; cavity_id< gate.nb_cavities; cavity_id++)
+#ifndef BAMG_NO_OMP
     int thread_id;
     int max_threads = omp_get_max_threads(); /*8 by default on MACOSX (2,5 GHz Intel Core i7)*/
-
 #pragma omp parallel for num_threads(max_threads) private(thread_id)
+#endif
     for (int cavity_id=0; cavity_id < gate.nb_cavities; ++cavity_id)
     {
         if (verbosity>1) _printf_("   Interp Cavities: enter loop1...\n");
@@ -396,8 +398,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
                     {
                         /* l0, l1, l2 */
                         l0=l;
-                        l1=next(l0);
-                        l2=next(l1);
+                        l1=next_node(l0);
+                        l2=next_node(l1);
 
                         if((Previous_connected_element_num_node[0]==Previous_num_node[l0])
                                 && (Previous_connected_element_num_node[1]==Previous_num_node[l1])
@@ -533,8 +535,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
                 /*  if the edge exists in the old mesh */
                 /*  the edge j goes from node j to node jnext */
-                edge_node_1 = next(j_born);
-                edge_node_2 =next(edge_node_1);
+                edge_node_1 = next_node(j_born);
+                edge_node_2 =next_node(edge_node_1);
 
                 Previous_edge_node_1=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_1]-1];
                 Previous_edge_node_2=PreviousNumbering[(int)new_bamg_mesh_Triangles[(tmp_born-1)*4+edge_node_2]-1];
@@ -609,8 +611,8 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
                             {
                                 /*  if the edge exists in the old mesh */
                                 /*  the edge j goes from node j to node jnext */
-                                edge_node_1=next(j);
-                                edge_node_2=next(edge_node_1);
+                                edge_node_1=next_node(j);
+                                edge_node_2=next_node(edge_node_1);
 
                                 tmp_node_1=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_1];
                                 tmp_node_2=(int)bamg_mesh_Triangles[(tmp_dead-1)*4+edge_node_2];
@@ -950,7 +952,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
         /*-------- Initializing the integrated quantities --------- -*/
         for (k=0; k<nb_variables; k++)
             integrated_variables[k]=0.;
-            
+
         min_distance=-1.;
 
         test_integrated_area=0.;
@@ -998,7 +1000,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                     dist=pow(pow(x_born_elements[i_born*3+j_born]-x_born_elements[i_born*3+j_born+1],2.)+pow(y_born_elements[i_born*3+j_born]-y_born_elements[i_born*3+j_born+1],2.),0.5);
                 else
                     dist=pow(pow(x_born_elements[i_born*3+j_born]-x_born_elements[i_born*3+0  ],2.)+pow(y_born_elements[i_born*3+j_born]-y_born_elements[i_born*3+0  ],2.),0.5);
-                
+
                 if(dist>dist_max)
                     dist_max=dist;
             }
@@ -1017,7 +1019,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                         born_node_on_dead_node[j_born]=j_dead;
                     else /* Bamg sometimes says that the nodes are different, whereas they are almost at the same position */
                     {
-                        
+
                         dist=pow(pow(x_dead_elements[i_dead*3+j_dead]-x_born_elements[i_born*3+j_born],2.)+pow(y_dead_elements[i_dead*3+j_dead]-y_born_elements[i_born*3+j_born],2.),0.5);
                         if(flag_print==1)
                             _printf_("dist/dist_max=" << dist/dist_max <<"\n");
@@ -1690,8 +1692,8 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 _printf_("area_intersection=" << << "\n \n", area_intersection);*/
 
             /*-------- Computing the integrated quantities ---------- */
-            
-            
+
+
             tmp_distance= pow(
                 pow(
                      (x_dead_elements[i_dead*3+0]+x_dead_elements[i_dead*3+1]+x_dead_elements[i_dead*3+2])/3.
@@ -1702,10 +1704,10 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                     -(y_born_elements[i_born*3+0]+y_born_elements[i_born*3+1]+y_born_elements[i_born*3+2])/3.
                     ,2.)
                               ,0.5);
-            
+
             if(min_distance<0. || tmp_distance<min_distance)
                 min_distance = tmp_distance;
-            
+
             for (k=0; k<nb_variables; k++)
             {
                 if(method_in[k]==1)
@@ -1714,7 +1716,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                     if(min_distance == tmp_distance)
                         integrated_variables[k]=dead_variables[i_dead*nb_variables+k];
             }
-            
+
             test_integrated_area+=area_intersection;
         } /* end of loop on i_dead */
 
@@ -1727,7 +1729,7 @@ int InterpCavity(double* tmp_mean_variables, double* tmp_integrated_area,
                 tmp_mean_variables[i_born*nb_variables+k]=integrated_variables[k];
 
         tmp_integrated_area[i_born]=test_integrated_area;
-        
+
         if(test_integrated_area<=0.)
             _printf_("born_elements[i_born]=" << born_elements[i_born] << "\n");
 

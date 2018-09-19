@@ -145,12 +145,12 @@ public:
 
     void regrid(bool step = true);
     void adaptMesh();
-    void updateBoundaryFlags(std::vector<int> const& old_node_id);
+    void updateNodeIds();
+    void updateBoundaryFlags();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
-    void interpFieldsElement();
 
     //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
@@ -163,6 +163,7 @@ public:
     void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
+#if 0
     int getNumVarsNode(bool read_restart=false) const;
     int getNumVarsElement(std::string vartype) const;
     void gatherFieldsNode(std::vector<double>& interp_in_elements,
@@ -171,6 +172,12 @@ public:
             bool restart);
     void scatterFieldsNode(double* interp_nd_out, bool restart);
     void interpFieldsNode(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+#else
+    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+    void scatterFieldsNode(double* interp_nd_out, bool restart);
+
+    void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+#endif
 
     void assemble(int pcpt);
     void solve();
@@ -254,6 +261,8 @@ public:
     void assimilateIce();
     void assimilateSlabOcean();
     void initIce();
+    void checkConsistency();
+    void initThermodynamics();
     void initSlabOcean();
     void initDrifters();
     void updateDrifterPosition();
@@ -277,19 +286,23 @@ public:
     void scalingVelocity();
     void update();
 
-    void exportResults(int step,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::string const& name_str,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
-    void exportResults(std::vector<std::string> const& filenames,
-                       bool export_mesh = true, bool export_fields = true, bool apply_displacement = true);
+    void checkOutputs(bool const& at_init_time);
+    void exportResults(bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
+    void exportResults(std::string const& name_str, bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
+    void exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
+            bool const& export_fields, bool const& apply_displacement);
 
-    void writeRestart(int pcpt, int step);
-    void writeRestart(int pcpt, std::string step);
+    bool writingRestart();
+    void writeRestart();
+    void writeRestart(std::string const& name_string);
     int readRestart(int step);
     int readRestart(std::string step);
     void partitionMeshRestart();
-    void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out);
+    void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
+            std::vector<std::vector<double>*> &data,
+            std::vector<int> &num_components);
 
     void rootMeshProcessing();
 
@@ -418,8 +431,17 @@ private:
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
 
-    void redistributeVariablesIO(std::vector<double> const& out_elt_values, bool thin_ice);
-    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out, bool thin_ice);
+    std::vector<std::string> getRestartVariableNames();
+    void getVariablesIO(
+            std::vector<std::vector<double>*> &data,
+            std::vector<int> &num_components,
+            std::vector<std::string> const &names);
+    void redistributeVariablesIO(std::vector<double> const& out_elt_values,
+            std::vector<std::vector<double>*> &data,
+            std::vector<int> const &num_components);
+    void scatterFieldsElementIO(std::vector<double> const& out_elt_values,
+            std::vector<std::vector<double>*> &data,
+            std::vector<int> const &num_components);
 
     void scatterElementConnectivity();
 
@@ -486,7 +508,9 @@ private:
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
 
+    std::string M_mesh_basename;
     std::string M_mesh_filename;
+    std::string M_partitioned_mesh_filename;
     std::string M_mesh_fileformat;
 
     int M_flag_fix;
@@ -801,7 +825,6 @@ private:
     std::vector<double> M_sss;          // Sea-surface salinity [psu]
 
     // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    //std::vector<double> M_tsurf;        // Ice surface temperature [C]
     std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
@@ -866,6 +889,8 @@ private:
     void initMoorings();
     void updateMoorings();
     void checkNodalFields(std::string text);
+    void mooringsAppendNetcdf(double const &output_time);
+    void checkFields();
 
 private:
 

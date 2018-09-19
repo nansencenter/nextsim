@@ -250,6 +250,7 @@ MatrixPetsc::init( const size_type m,
 
     // free
     delete[] dnzOffProc;
+    delete[] dnz;
 
     this->initLocalToGlobalMapping(graph);
 
@@ -586,6 +587,7 @@ MatrixPetsc::printScreen() const
     CHKERRABORT( M_comm, ierr );
 }
 
+// TODO check if this is used and if it is meant to read $NEXTSIMDATADIR/misc/matrix.dat?
 void
 MatrixPetsc::printMatlab(std::string const& filename) const
 {
@@ -601,7 +603,8 @@ MatrixPetsc::printMatlab(std::string const& filename) const
     //std::cout<<"PATH= "<< boost::filesystem::path(filename).stem().string() <<"\n";
     //std::cout<<"CHAR= " << filename.substr(filename.size()-2, filename.size()) <<"\n";
 
-    std::string matfilename = Environment::nextsimDir().string() + "/matlab/" + filename;
+    std::string matfilename = Environment::nextsimDataDir().string()
+        + "/" + filename;
 
     fs::path path(matfilename);
     if ( !fs::exists(path) )

@@ -37,6 +37,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 
+            // - basics
             ("simul.time_init", po::value<std::string>()->default_value( "" ),
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
@@ -58,6 +59,12 @@ namespace Nextsim
             ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
+            ("debugging.check_fields", po::value<bool>()->default_value( false ),
+                "call checkFields")
+            ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
+                "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
+            ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
+                "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
 
             /*
              *-----------------------------------------------------------------------------------
@@ -72,16 +79,15 @@ namespace Nextsim
                 "Export results for debugging before and after each regrid.")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
-            ("numerics.expansion_factor", po::value<double>()->default_value( 0.15 ),
-                "Expansion factor for reading forcing data (should be a few percent)")
 
+            // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
             // - diffusive Eulerian case where M_UM is kept as 0
             // - purely Lagrangian case where M_UM is updated with M_VT
             // - ALE case where M_UM is updated with a smoothed version of M_VT
-            ("numerics.advection_scheme", po::value<std::string>()->default_value( "ALE" ), "Options: Lagrangian, ALE, Eulerian")
-            ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
-                "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
+            // ("numerics.advection_scheme", po::value<std::string>()->default_value( "Lagrangian" ), "Options: Lagrangian, ALE, Eulerian")
+            // ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
+            //     "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
             // solver
             ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
@@ -158,14 +164,15 @@ namespace Nextsim
             // restart
             // - inputs
             ("restart.start_from_restart", po::value<bool>()->default_value( false ),
-                "start from a restart file or initialise according to setup.ice-type")
+                "are we starting from a restart file?")
             ("restart.restart_string", po::value<std::string>()->default_value( "" ),
-                "set filename of restart file: [field,mesh]_[restart_string].[bin,dat]")
+                "if we are starting from a restart file, the main file's name will be field_[restart_string].bin")
             ("restart.step_nb", po::value<int>()->default_value( 0 ),
-                "set filename of restart file: [field,mesh]_[step_nb].[bin,dat]")//TODO redundant now - use restart_string
+                "if we are starting from a restart file, the main file's name will be field_[step_nb].bin")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
-                    "where to find restarts (default is $NEXTSIMDIR/restart)")
-            ("restart.restart_at_rest", po::value<bool>()->default_value( false ), "")
+                    "where to find restart files")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
+                "reset ice velocity to zero if starting from restart")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
                 "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
@@ -180,11 +187,12 @@ namespace Nextsim
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
-                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // exporter
-            ("output.exporter_path", po::value<std::string>()->default_value( "" ), "")
+            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
+            ("output.exporter_path", po::value<std::string>()->default_value( "nextsim_outputs" ),
+                "Path where results should be exported")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
 
@@ -220,7 +228,7 @@ namespace Nextsim
             // - if atmosphere-type=constant
             // -- dynamics
             ("ideal_simul.constant_wind_u", po::value<double>()->default_value( 0. ), "")
-            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( -10. ), "")
+            ("ideal_simul.constant_wind_v", po::value<double>()->default_value( 0. ), "")
 
             // - if ocean-type=constant
             ("ideal_simul.constant_ocean_u", po::value<double>()->default_value( 0. ), "")

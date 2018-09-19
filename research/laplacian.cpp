@@ -116,7 +116,7 @@ void Laplacian::init()
 
 void Laplacian::createGMSHMesh(std::string const& geofilename)
 {
-    std::string gmshgeofile = Environment::nextsimDir().string() + "/mesh/" + geofilename;
+    std::string gmshgeofile = Environment::nextsimMeshDir().string() + "/" + geofilename;
 
     if (fs::exists(gmshgeofile))
     {

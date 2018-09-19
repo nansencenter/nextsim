@@ -117,7 +117,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
     PetscReal final_resid = 0.;
 
 #if PETSC_VERSION_LESS_THAN(3,5,0)
-    ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat(), SAME_NONZERO_PATTERN);
+    ierr = KSPSetOperators( M_ksp, matrix->mat(), matrix->mat(), DIFFERENT_NONZERO_PATTERN);
 #else
     M_reuse_prec = M_reuse_prec && ( M_ksp_type != "preonly");
     ierr = KSPSetReusePreconditioner( M_ksp, (M_reuse_prec) ? PETSC_TRUE : PETSC_FALSE );
@@ -180,7 +180,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
         // {
         //     std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
         // }
-    }
+        }
 }
 
 void
