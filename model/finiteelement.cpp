@@ -2413,17 +2413,17 @@ FiniteElement::getVariablesIO(
             // SST
             data.push_back(&M_sst);
         }
-        else if(*it == "M_Tice_0")
+        else if(*it == "M_tice_0")
         {
             // M_tice[0] - Ice temperature
             data.push_back(&(M_tice[0]));
         }
-        else if(*it == "M_Tice_1")
+        else if(*it == "M_tice_1")
         {
             // M_tice[1] - Ice temperature
             data.push_back(&(M_tice[1]));
         }
-        else if(*it == "M_Tice_2")
+        else if(*it == "M_tice_2")
         {
             // M_tice[2] - Ice temperature
             data.push_back(&(M_tice[2]));
@@ -3305,7 +3305,7 @@ FiniteElement::getRestartVariableNames()
         "M_sst"};
     
     for(int i=0; i<M_tice.size(); i++)
-        names.push_back("M_Tice_" + std::to_string(i));
+        names.push_back("M_tice_" + std::to_string(i));
     if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
     {
         names.push_back("M_h_thin");
@@ -7617,7 +7617,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_sss_root, "M_sss");
         for (int i=0; i<M_tice.size(); i++)
             exporter.writeField(outbin, M_tice_root[i],
-                    "M_Tice_"+std::to_string(i));
+                    "M_tice_"+std::to_string(i));
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
@@ -7892,7 +7892,7 @@ FiniteElement::readRestart(std::string const& name_str)
         M_sst           = field_map_dbl["M_sst"];
         M_sss           = field_map_dbl["M_sss"];
         for (int i=0; i<M_tice.size(); i++)
-            M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
+            M_tice[i] = field_map_dbl["M_tice_"+std::to_string(i)];
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
