@@ -61,7 +61,7 @@ public:
 
     Environment( int& argc, char** &argv );
 
-    Environment( int& argc, char** &argv, po::options_description desc );
+    Environment( int& argc, char** &argv, po::options_description desc, Communicator const& comm = Communicator::commSelf());
 
     ~Environment();
 

@@ -87,7 +87,9 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
-    FiniteElement();
+    FiniteElement(Communicator const& comm = Environment::comm());
+
+    // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
 
