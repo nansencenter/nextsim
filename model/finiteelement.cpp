@@ -6760,13 +6760,14 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
-        LOG(DEBUG) <<"Reading restart files\n";
-
-        std::string res_str = vm["restart.restart_string"].as<std::string>();
-        if ( !res_str.empty() )
-            this->readRestart(res_str);
-        else
-            this->readRestart(vm["restart.step_nb"].as<int>());
+        std::string resfil = vm["restart.filename"].as<std::string>();
+        LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
+        if ( resfil.empty() )
+            throw std::runtime_error("Please provide restart.filename");
+        else if ( resfil.length()<=6 )
+            throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
+        std::string res_str = resfil.substr(6, resfil.length());
+        this->readRestart(res_str);
 
         //write fields from restart to file (needed?)
         if(M_rank==0)
@@ -8173,19 +8174,9 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     
 //------------------------------------------------------------------------------------------------------
-//! Reads restart files. Called by the step() function.
+//! Reads restart files. Called by the init() function.
 void
-FiniteElement::readRestart(int step)
-{
-    std::string tmp = (boost::format( "%1%" ) % step).str();
-    this->readRestart(tmp);
-}//readRestart
-
-
-//------------------------------------------------------------------------------------------------------
-//! Reads restart files. Called by the step() function.
-void
-FiniteElement::readRestart(std::string step)
+FiniteElement::readRestart(std::string const& name_str)
 {
     Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
@@ -8205,7 +8196,7 @@ FiniteElement::readRestart(std::string step)
         //! - Starts with the record,
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
         LOG(DEBUG)<<"restart mesh file = "<<filename<<"\n";
 
         std::ifstream meshrecord(filename);
@@ -8218,7 +8209,7 @@ FiniteElement::readRestart(std::string step)
         //! - Reads in the data itself
         filename = (boost::format( "%1%/mesh_%2%.bin" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshbin(filename, std::ios::binary | std::ios::in );
         if ( ! meshbin.good() )
@@ -8236,7 +8227,7 @@ FiniteElement::readRestart(std::string step)
         // Start with the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::ifstream inrecord(filename);
         if ( ! inrecord.good() )
@@ -8248,7 +8239,7 @@ FiniteElement::readRestart(std::string step)
         // Then onto the data itself
         filename = (boost::format( "%1%/field_%2%.bin" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream inbin(filename, std::ios::binary | std::ios::in);
 
