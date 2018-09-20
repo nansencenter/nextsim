@@ -21,3 +21,4 @@ expt_*/
 .deps/
 *.log
 profile.pdf
+.DS_Store

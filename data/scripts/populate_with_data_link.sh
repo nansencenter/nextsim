@@ -53,34 +53,18 @@ ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI_waves_1deg/*.nc .
 ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
 
-# For the OSISAF drifters
+# OSISAF products
+ln -s $ROOT_DATA_DIR/OSISAF_ice_conc/polstere/*_nh_polstere/*.nc .
+ln -s $ROOT_DATA_DIR/OSISAF_ice_type/*/*/*.nc .
+ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/*/*/*.nc .
+
+# - example files needed for OSISAF drifters grids
 ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
+ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/ice_drift*refined*.nc .
 
 # For the Moorings
 ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
-
-for year in {2002..2011}
-do
-     ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/$year/*.nc .
-done
-for year in {2005..2017}
-do
-     ln -s $ROOT_DATA_DIR/OSISAF_ice_type/$year/*/*.nc .
-done
-for year in {2009..2017}
-do
-     ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/$year/*/*.nc .
-done
-for year in {2005..2017}
-do
-   TMP_DATADIR=$ROOT_DATA_DIR/OSISAF_ice_conc/polstere/${year}_nh_polstere
-   
-   echo $TMP_DATADIR
-   if [ -d "$TMP_DATADIR" ]; then
-         # Control will enter here if $DIRECTORY exists.
-     ln -s $TMP_DATADIR/*.nc .
-   fi
-done
+ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/*/*.nc .
 
 # CS2-SMOS ice thickness
 # script links weekly files to 7 daily files
