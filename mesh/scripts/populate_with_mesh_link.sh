@@ -12,13 +12,11 @@
 # Usage: `basename $thisfile` [ROOT_MESH_DIR]"
 # Where ROOT_MESH_DIR is the directory where the data will be linked from"
 
-thisfile=`readlink -f $0`
-thisdir=`dirname $thisfile`
 CWD=`pwd`
 
 if [ $# -eq 0 ]
 then
-   echo "Usage: `basename $thisfile` [ROOT_MESH_DIR]"
+   echo "Usage: `basename $0` [ROOT_MESH_DIR]"
    echo "Where ROOT_MESH_DIR is the directory where the data will be linked from"
    echo "(eg /Data/sim/data/mesh on johansen)"
    exit 1
