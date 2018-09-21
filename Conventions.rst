@@ -94,7 +94,7 @@ Commenting the code; conventions
 	* Leave 2 blank lines between each function declaration.
 
 	
-	Below is an exemple of a documented function:
+	Below is an example of a documented function:
 
 	//------------------------------------------------------------------------------------------------------
 	//! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
