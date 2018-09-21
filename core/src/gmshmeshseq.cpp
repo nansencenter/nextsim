@@ -9,6 +9,7 @@
 #include <gmshmeshseq.hpp>
 #include <GModel.h>
 #include <GmshMessage.h>
+#include <boost/format.hpp>
 
 namespace Nextsim
 {
@@ -25,7 +26,7 @@ GmshMeshSeq::GmshMeshSeq()
     M_marker_names(),
     timer()
 {
-    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -41,7 +42,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_triangles(triangles.size()),
     M_num_edges(edges.size())
 {
-    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
@@ -54,7 +55,7 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size())
 {
-    M_mppfile = (Environment::vm()["mesh.mppfile"]).as<std::string>();
+    this->setMppFile();
 }
 
 GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
@@ -67,6 +68,16 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_num_nodes(mesh.M_num_nodes),
     M_num_triangles(mesh.M_num_triangles)
 {}
+
+//! set the .mpp projection file in the GmshMeshSeq object
+void
+GmshMeshSeq::setMppFile()
+{
+    M_mppfile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+}
 
 // GmshMeshSeq::~GmshMeshSeq()
 // {
@@ -575,8 +586,7 @@ GmshMeshSeq::stereographicProjection()
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -791,8 +801,7 @@ std::vector<double>
 GmshMeshSeq::meanLon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -819,8 +828,7 @@ std::vector<double>
 GmshMeshSeq::meanLat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -847,8 +855,7 @@ std::vector<double>
 GmshMeshSeq::lon() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);
@@ -875,8 +882,7 @@ std::vector<double>
 GmshMeshSeq::lat() const
 {
     mapx_class *map;
-    std::string filename = Environment::nextsimDir().string() + "/data/" + M_mppfile;
-    std::vector<char> str(filename.begin(), filename.end());
+    std::vector<char> str(M_mppfile.begin(), M_mppfile.end());
     str.push_back('\0');
 
     map = init_mapx(&str[0]);

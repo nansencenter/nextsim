@@ -22,7 +22,7 @@ else
 endif
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -fpermissive
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
@@ -41,7 +41,7 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
@@ -76,10 +76,10 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 # petsc
 LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
 LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
-ifeq ($(KERNEL),Linux)
-	LDFLAGS += -L $(PETSC_DIR)/lib -lparmetis
-	LDFLAGS += -L $(PETSC_DIR)/lib -lmetis
-endif
+#ifeq ($(KERNEL),Linux)
+#	LDFLAGS += -L $(PETSC_DIR)/lib -lparmetis
+#	LDFLAGS += -L $(PETSC_DIR)/lib -lmetis
+#endif
 
 # gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib

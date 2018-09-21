@@ -56,6 +56,7 @@ public:
 
     //~GmshMeshSeq();
 
+    void setMppFile();
     void readFromFile(std::string const& filename);
     void writeToFile(std::string const& filename);
 
