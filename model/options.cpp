@@ -116,7 +116,6 @@ namespace Nextsim
 
             // mesh
             // - input
-            ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
@@ -179,12 +178,10 @@ namespace Nextsim
             // - inputs
             ("restart.start_from_restart", po::value<bool>()->default_value( false ),
                 "are we starting from a restart file?")
-            ("restart.restart_string", po::value<std::string>()->default_value( "" ),
-                "if we are starting from a restart file, the main file's name will be field_[restart_string].bin")
-            ("restart.step_nb", po::value<int>()->default_value( 0 ),
-                "if we are starting from a restart file, the main file's name will be field_[step_nb].bin")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
+            ("restart.filename", po::value<std::string>()->default_value( "" ),
+                "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
                 "reset ice velocity to zero if starting from restart")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),

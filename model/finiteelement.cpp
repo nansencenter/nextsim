@@ -2413,17 +2413,17 @@ FiniteElement::getVariablesIO(
             // SST
             data.push_back(&M_sst);
         }
-        else if(*it == "M_Tice_0")
+        else if(*it == "M_tice_0")
         {
             // M_tice[0] - Ice temperature
             data.push_back(&(M_tice[0]));
         }
-        else if(*it == "M_Tice_1")
+        else if(*it == "M_tice_1")
         {
             // M_tice[1] - Ice temperature
             data.push_back(&(M_tice[1]));
         }
-        else if(*it == "M_Tice_2")
+        else if(*it == "M_tice_2")
         {
             // M_tice[2] - Ice temperature
             data.push_back(&(M_tice[2]));
@@ -3305,7 +3305,7 @@ FiniteElement::getRestartVariableNames()
         "M_sst"};
     
     for(int i=0; i<M_tice.size(); i++)
-        names.push_back("M_Tice_" + std::to_string(i));
+        names.push_back("M_tice_" + std::to_string(i));
     if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
     {
         names.push_back("M_h_thin");
@@ -6381,13 +6381,14 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
-        LOG(DEBUG) <<"Reading restart file\n";
-
-        std::string res_str = vm["restart.restart_string"].as<std::string>();
-        if ( !res_str.empty() )
-            this->readRestart(res_str);
-        else
-            this->readRestart(vm["restart.step_nb"].as<int>());
+        std::string resfil = vm["restart.filename"].as<std::string>();
+        LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
+        if ( resfil.empty() )
+            throw std::runtime_error("Please provide restart.filename");
+        else if ( resfil.length()<=6 )
+            throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
+        std::string res_str = resfil.substr(6, resfil.length());
+        this->readRestart(res_str);
 
         //write fields from restart to file (needed?)
         if(M_rank==0)
@@ -7616,7 +7617,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_sss_root, "M_sss");
         for (int i=0; i<M_tice.size(); i++)
             exporter.writeField(outbin, M_tice_root[i],
-                    "M_Tice_"+std::to_string(i));
+                    "M_tice_"+std::to_string(i));
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
@@ -7687,19 +7688,9 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     
 //------------------------------------------------------------------------------------------------------
-//! Reads restart files. Called by the step() function.
+//! Reads restart files. Called by the init() function.
 void
-FiniteElement::readRestart(int step)
-{
-    std::string tmp = (boost::format( "%1%" ) % step).str();
-    this->readRestart(tmp);
-}//readRestart
-
-
-//------------------------------------------------------------------------------------------------------
-//! Reads restart files. Called by the step() function.
-void
-FiniteElement::readRestart(std::string step)
+FiniteElement::readRestart(std::string const& name_str)
 {
     Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
@@ -7719,7 +7710,7 @@ FiniteElement::readRestart(std::string step)
         //! - Starts with the record,
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
         LOG(DEBUG)<<"restart file = "<<filename<<"\n";
 
         std::ifstream meshrecord(filename);
@@ -7732,7 +7723,7 @@ FiniteElement::readRestart(std::string step)
         //! - Reads in the data itself
         filename = (boost::format( "%1%/mesh_%2%.bin" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream meshbin(filename, std::ios::binary | std::ios::in );
         if ( ! meshbin.good() )
@@ -7750,7 +7741,7 @@ FiniteElement::readRestart(std::string step)
         // Start with the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::ifstream inrecord(filename);
         if ( ! inrecord.good() )
@@ -7762,7 +7753,7 @@ FiniteElement::readRestart(std::string step)
         // Then onto the data itself
         filename = (boost::format( "%1%/field_%2%.bin" )
                     % restart_path
-                    % step ).str();
+                    % name_str ).str();
 
         std::fstream inbin(filename, std::ios::binary | std::ios::in);
 
@@ -7901,7 +7892,7 @@ FiniteElement::readRestart(std::string step)
         M_sst           = field_map_dbl["M_sst"];
         M_sss           = field_map_dbl["M_sss"];
         for (int i=0; i<M_tice.size(); i++)
-            M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
+            M_tice[i] = field_map_dbl["M_tice_"+std::to_string(i)];
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];

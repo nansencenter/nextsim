@@ -274,8 +274,7 @@ public:
     bool writingRestart();
     void writeRestart();
     void writeRestart(std::string const& name_string);
-    void readRestart(int step);
-    void readRestart(std::string step);
+    void readRestart(std::string const& name_string);
     void partitionMeshRestart();
     void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
             std::vector<std::vector<double>*> &data,
