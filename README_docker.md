@@ -98,4 +98,17 @@ computer should be located in `/home/user/output/test.cfg`.
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
 An example script to run model in a container can be found here:
-[scripts/run_docker_nextsim_tallinn.sh](scripts/run_docker_nextsim_tallinn.sh)
+[run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/tallinn/run_nextsim_container.sh)
+
+#### 4.3 Debug neXtSIM
+
+If you want to debug neXtSIM without rebuilind the entire image you can mount the nextsim
+directory into /opt/local/nextsim inside the container
+(with option `-v /path/on/the/host/nextsim:/opt/local/nextsim`). Then the compiled code will be
+replaced with the source code, available for editing on your host machine. You should run the
+container without specifying the config file and number of CPUs to enter bash inside the container.
+Then you can compile the code (e.g. run `make All` from `/opt/local/nextsim`) and run the
+model inside the container.
+
+An example script to run container for debugging can be found here:
+[run_nextsim_container_debug.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/tallinn/run_nextsim_container_debug.sh)
