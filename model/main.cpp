@@ -17,7 +17,7 @@ namespace Nextsim
 }
 
 // ----------------------------------------------------------------------------------------
-//! Main.cpp: launches the model run by calling the run() function within finiteelement.cpp.
+//! Main.cpp: launches the model run by calling the FiniteElement::run() function
 int main(int argc, char** argv )
 {
     using namespace Nextsim;
