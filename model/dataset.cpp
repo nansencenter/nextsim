@@ -4650,8 +4650,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
      	};
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_x;
-        dimensions_latlon[1] = dimension_y;
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
 
         Variable latitude={
             name: "Lat",
