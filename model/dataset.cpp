@@ -7807,18 +7807,25 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
+        // tmp_start and tmp_end are the start and end without halos
         int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
         int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
 
+        // Add a halo - keeping in mind that grid_ptr->dimension_(x|y)_count is the total dimension
+        // size at the moment.
         grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        tmp_end = std::min(grid_ptr->dimension_y_count, tmp_end+halo_size);
+        grid_ptr->dimension_y_count = tmp_end - grid_ptr->dimension_y_start;
 
+        // Do the same for x
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
 
         grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
+        tmp_end = std::min(grid_ptr->dimension_x_count, tmp_end+halo_size);
+        grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
 
+        // Resize and read
 		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
