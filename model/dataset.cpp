@@ -4650,8 +4650,8 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
      	};
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[0] = dimension_x;
+        dimensions_latlon[1] = dimension_y;
 
         Variable latitude={
             name: "Lat",
@@ -7811,13 +7811,15 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
 
         grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        tmp_end = std::min(grid_ptr->dimension_y_count, tmp_end+halo_size);
+        grid_ptr->dimension_y_count = tmp_end - grid_ptr->dimension_y_start;
 
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
 
         grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
+        tmp_end = std::min(grid_ptr->dimension_x_count, tmp_end+halo_size);
+        grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
 
 		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
