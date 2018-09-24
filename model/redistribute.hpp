@@ -45,7 +45,7 @@ thin_ice_redistribute(double v_thin, double vs_thin, double newice, double c, do
 	double c_thin, h0, del_c, hs_thin;
 
 
-  //! Computes the redistribution of ice volume from the thin ice class to the tick ice.
+    //! Computes the redistribution of ice volume from the thin ice class to the tick ice.
 
 
 	/* c_thin needs to change as the volume changes */
