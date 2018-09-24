@@ -102,7 +102,7 @@ An example script to run model in a container can be found here:
 
 #### 4.3 Debug neXtSIM
 
-If you want to debug neXtSIM without rebuilind the entire image you can mount the nextsim
+If you want to debug neXtSIM without rebuilding the entire image you can mount the nextsim
 directory into /opt/local/nextsim inside the container
 (with option `-v /path/on/the/host/nextsim:/opt/local/nextsim`). Then the compiled code will be
 replaced with the source code, available for editing on your host machine. You should run the
