@@ -1,12 +1,15 @@
 FROM akorosov/boost_petsc_gmsh:0.0.5
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -yq --no-install-recommends \
     libnetcdf-dev \
     libnetcdf-c++4-dev \
     ssh \
-&& rm -rf /var/lib/apt/lists/*
+    valgrind \
+&&  apt-get clean \
+&&  rm -rf /var/lib/apt/lists/*
 
 ENV NEXTSIMDIR=/opt/local/nextsim
+
 SHELL ["/bin/bash", "-c"]
 
 # copy mapx source, compile and copy libs and include into
@@ -39,12 +42,6 @@ COPY model $NEXTSIMDIR/model
 WORKDIR $NEXTSIMDIR/model
 RUN source /root/.nextsimrc && make -j8
 
-# install nextsim system-wide
-RUN ln -s $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/nextsim.exec \
-&&  ln -s $NEXTSIMDIR/model/run_in_docker.sh /usr/local/bin/run_in_docker.sh \
-&&  echo $NEXTSIMDIR/lib/ >> /etc/ld.so.conf \
-&&  ldconfig
-
-WORKDIR /
-ENTRYPOINT ["/usr/local/bin/run_in_docker.sh"]
+WORKDIR $NEXTSIMDIR
+ENTRYPOINT ["/opt/local/nextsim/model/run_in_docker.sh"]
 

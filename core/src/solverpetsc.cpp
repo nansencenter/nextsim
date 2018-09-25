@@ -180,7 +180,7 @@ SolverPetsc::solveLinearSystem(matrix_ptrtype const& matrix,
         // {
         //     std::cout <<"[solverpetsc] Other kind of divergence: this should not happen \n";
         // }
-        }
+    }
 }
 
 void
