@@ -116,7 +116,6 @@ namespace Nextsim
 
             // mesh
             // - input
-            ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),

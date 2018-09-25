@@ -19,8 +19,9 @@
 
 namespace Nextsim
 {
+
 //------------------------------------------------------------------------------------------------------
-//!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
+//!Despite its name, this is the main model file. All functions pertaining to neXtSIM are defined here.
 FiniteElement::FiniteElement()
     :
     vm(Environment::vm()),
@@ -1408,7 +1409,8 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) cons
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
 
     return  jac;
-}
+}//jacobian
+
 
 double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
@@ -1429,8 +1431,14 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
 
     return  jac;
-}
+}//jacobian
 
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! * This is used to calculate the finite element shape coefficient.
+//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
+//! Called by the flip(), measure() and shapeCoeff() functions.
 double
 FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh) const
 {
@@ -1442,7 +1450,8 @@ FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh)
     jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
 
     return  jac;
-}
+}//jacobian
+
 
 double
 FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh,
@@ -1485,7 +1494,8 @@ FiniteElement::sides(element_type const& element, mesh_type const& mesh) const
     side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
 
     return side;
-}
+}//sides
+
 
 std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type const& mesh,
@@ -1509,7 +1519,8 @@ FiniteElement::sides(element_type const& element, mesh_type const& mesh,
     side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
 
     return side;
-}
+}//sides
+
 
 std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type_root const& mesh) const
@@ -1525,7 +1536,8 @@ FiniteElement::sides(element_type const& element, mesh_type_root const& mesh) co
     side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
 
     return side;
-}
+}//sides
+
 
 std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
@@ -1597,7 +1609,8 @@ FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh) co
     minang = minang*45.0/std::atan(1.0);
 
     return minang;
-}
+}//minAngles
+
 
 template<typename FEMeshType>
 double
@@ -1633,7 +1646,8 @@ FiniteElement::minAngle(FEMeshType const& mesh) const
     double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
     //return min_angle;
     return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
-}
+}//minAngle
+
 
 template<typename FEMeshType>
 double
@@ -1964,7 +1978,7 @@ FiniteElement::gatherSizes()
 
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single structure, interp_elt_in_local: called by the update() function,
+//! Collects model variables and stores them into a single vector, interp_elt_in_local: called by the update() function,
 //! before updating all variables after solving.
 //! Called by the gatherFieldsElement() function.
 void
@@ -2149,7 +2163,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single structure, interp_elt_in_local, for outputing.
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputing.
 //! Called by the gatherFieldsElementIO() function.
     void
 FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
@@ -2551,17 +2565,17 @@ FiniteElement::getVariablesIO(
             // SST
             data.push_back(&M_sst);
         }
-        else if(*it == "M_Tice_0")
+        else if(*it == "M_tice_0")
         {
             // M_tice[0] - Ice temperature
             data.push_back(&(M_tice[0]));
         }
-        else if(*it == "M_Tice_1")
+        else if(*it == "M_tice_1")
         {
             // M_tice[1] - Ice temperature
             data.push_back(&(M_tice[1]));
         }
-        else if(*it == "M_Tice_2")
+        else if(*it == "M_tice_2")
         {
             // M_tice[2] - Ice temperature
             data.push_back(&(M_tice[2]));
@@ -2883,6 +2897,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     }
 }//advect
 #endif
+
 
 #if 0//advectRoot not used - looks weird too
 //------------------------------------------------------------------------------------------------------
@@ -3372,7 +3387,7 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 
 
 //------------------------------------------------------------------------------------------------------
-//! Scatters (redistributes) P0 field values to the subdomains (parallel computing).
+//! Scatters (redistributes) P0 (elemental) field values to the subdomains (parallel computing).
 //! Called by the interpFields() function.
 void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
@@ -3480,7 +3495,7 @@ FiniteElement::getRestartVariableNames()
         "M_sst"};
     
     for(int i=0; i<M_tice.size(); i++)
-        names.push_back("M_Tice_" + std::to_string(i));
+        names.push_back("M_tice_" + std::to_string(i));
     if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
     {
         names.push_back("M_h_thin");
@@ -6125,7 +6140,7 @@ FiniteElement::thermo(double dt)
             / denominator;
 
         // -------------------------------------------------
-        //! 8) Damage manipulation (thermoDamage in matlab)
+        //! 8) Damage manipulation
 
         // local variables
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
@@ -6342,6 +6357,7 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 
     return albedo;
 }//albedo
+
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
@@ -6721,7 +6737,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
     
 //------------------------------------------------------------------------------------------------------
 //! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
-//! * Also outputs restarts for debugging.
+//! * Also outputs initial mooring snapshots, drifter outputs, normal outputs and  restarts.
 //! Called by the run() function.
 void
 FiniteElement::init()
@@ -6985,7 +7001,7 @@ FiniteElement::step()
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
     //======================================================================
-    //! 2) Performs the thermodynamics,
+    //! 2) Performs the thermodynamics
     //======================================================================
     if ( vm["thermo.use_thermo_forcing"].as<bool>() && (fmod(pcpt*time_step,thermo_timestep) == 0) )
     {
@@ -6996,7 +7012,7 @@ FiniteElement::step()
     }
 
     //======================================================================
-    //! 3) Performs the nesting of the ice,
+    //! 3) Performs the nesting of the tracers
     //======================================================================
     if( M_use_nesting )
     {
@@ -7006,7 +7022,7 @@ FiniteElement::step()
         LOG(DEBUG) <<"nestingIce done in "<< chrono.elapsed() <<"s\n";
 
    //======================================================================
-   //! 4) Performs the nesting of the dynamics,
+   //! 4) Performs the nesting of the dynamical variables
    //======================================================================
 
         if( M_nest_dynamic_vars )
@@ -7019,7 +7035,7 @@ FiniteElement::step()
     }
 
     //======================================================================
-    //! 5) Performs the dynamics,
+    //! 5) Performs the dynamics
     //======================================================================
 
 #if 0
@@ -7080,7 +7096,7 @@ FiniteElement::step()
 
 
     //======================================================================
-    //! 6) Updates the time,
+    //! 6) Updates the time
     //======================================================================
 
     ++pcpt;
@@ -7107,6 +7123,7 @@ FiniteElement::step()
         M_wim_steps_since_last_call++;
 #endif
 }//step
+
 
 
 //------------------------------------------------------------------------------------------------------
@@ -7171,6 +7188,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     if(this->writingRestart())
         this->writeRestart();
 }//checkOutputs
+
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //------------------------------------------------------------------------------------------------------
@@ -7263,7 +7281,8 @@ FiniteElement::run()
 
 
 //------------------------------------------------------------------------------------------------------
-//! Updates P0 variables and multiply by a time factor (time_factorvoid) to get mean fields.
+//! Updates moorings variables (both elemental and nodal) on the grid and multiply by a time factor (time_factor)
+//! to weight their contribution to the mean fields.
 //! Also updates the position of the grid nodes.
 //! Called by the step() function.
 void
@@ -7761,6 +7780,9 @@ FiniteElement::updateMoorings()
     }//outputting
 }//updateMoorings
 
+
+// -------------------------------------------------------------------------------------
+//! update grid means, gather to root processor if requested, and append the fields to the output netcdf file
 void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
@@ -7794,6 +7816,9 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
 }//mooringsAppendNetcdf
 
 
+//------------------------------------------------------------------------------------------------------
+//! do we write a restart file this time step?
+//! called by checkOutputs()
 bool
 FiniteElement::writingRestart()
 {
@@ -7811,7 +7836,7 @@ FiniteElement::writingRestart()
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.
-//! Called by the step() function.
+//! Called by the checkOutputs() function.
 void
 FiniteElement::writeRestart()
 {
@@ -8103,7 +8128,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_sss_root, "M_sss");
         for (int i=0; i<M_tice.size(); i++)
             exporter.writeField(outbin, M_tice_root[i],
-                    "M_Tice_"+std::to_string(i));
+                    "M_tice_"+std::to_string(i));
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
@@ -8378,7 +8403,7 @@ FiniteElement::readRestart(std::string const& name_str)
         M_sst           = field_map_dbl["M_sst"];
         M_sss           = field_map_dbl["M_sss"];
         for (int i=0; i<M_tice.size(); i++)
-            M_tice[i] = field_map_dbl["M_Tice_"+std::to_string(i)];
+            M_tice[i] = field_map_dbl["M_tice_"+std::to_string(i)];
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
@@ -9332,7 +9357,7 @@ FiniteElement::initIce()
 //------------------------------------------------------------------------------------------------------
 //! Checks on the consistency of fields and initial ice temperature after initialization and assimilation.
 //! Called by the InitIce() and AssimilateIce() functions.
-//! * We only need to initialize the ice temperature if new ice is created by the assimilation.
+//  TODO If assimilating, we only need to initialize the ice temperature if new ice is created by the assimilation.
 void
 FiniteElement::checkConsistency()
 {
@@ -11132,23 +11157,6 @@ FiniteElement::warrenClimatology()
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! ??.
-//! !Does not seem to be used!
-void
-FiniteElement::initThermodynamics()
-{
-    // std::fill(damage.begin(), damage.end(), 0.);
-
-#if 0
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        damage[i] = 1.0 - conc[i];
-    }
-#endif
-}//initThermodynamics
-
-
-// -----------------------------------------------------------------------------------------------------------
 //! Initializes the type of drifters used (equally spaced, IABP, RGPS, OSISAF, SIDFEX).
 //  NB needs to be done before readRestart()
 //! Called by the init() function.
@@ -11356,7 +11364,7 @@ FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root)
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! Initialise the IABP drifters
+//! Initialise the IABP drifter input and output text files
 //! Called by the initIabpDrifters() and readRestart() functions.
 void
 FiniteElement::initIabpDrifterFiles()
@@ -11813,16 +11821,14 @@ FiniteElement::checkDrifters()
                 if ((*it)->isInitialised())
                     (*it)->move(M_mesh_root, M_UT_root);
             
-#if 1
-                // reset M_UT_root
-                // TODO do we need to do this?
-                // - it isn't used and seems to be gathered each time it's needed
-                // (eg in writeRestart)
-                // - needs checking though
-                LOG(DEBUG)<<"Reset M_UT_root: "
-                    <<to_date_time_string(M_current_time)<<"\n";
-                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-#endif
+            // reset M_UT_root
+            // TODO do we need to do this?
+            // - it isn't used and seems to be gathered each time it's needed
+            // (eg in writeRestart)
+            // - needs checking though
+            LOG(DEBUG)<<"Reset M_UT_root: "
+                <<to_date_time_string(M_current_time)<<"\n";
+            std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
             auto movedmesh_root = M_mesh_root;
             movedmesh_root.move(M_UM_root, 1.);
@@ -12201,11 +12207,10 @@ FiniteElement::createGraph()
 
 }//createGraph
     
-    
 
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
-//! Called by the step() function.
+//! Called by the checkOutputs() and step() functions.
 void
 FiniteElement::exportResults(bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
@@ -12229,10 +12234,10 @@ FiniteElement::exportResults(bool const& export_mesh,
     this->exportResults(name_str, export_mesh, export_fields, apply_displacement);
 }//exportResults
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
-//! Called by the step() function.
+//! Called by the other exportResults() interface, init(), step() functions.
 void
 FiniteElement::exportResults(std::string const& name_str, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
@@ -12250,10 +12255,10 @@ FiniteElement::exportResults(std::string const& name_str, bool const& export_mes
     this->exportResults(filenames, export_mesh, export_fields, apply_displacement);
 }//exportResults
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
-//! Called by the step() function.
+//! Called by the other exportResults() function.
 void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
@@ -13518,8 +13523,8 @@ FiniteElement::gitRevision()
 
     
 // -------------------------------------------------------------------------------------
-//! Gets the location of the libraries.
-//! Called by the writeLogFile() function.
+//! Run a system command
+//! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
 std::string
 FiniteElement::system(std::string const& command)
 {
