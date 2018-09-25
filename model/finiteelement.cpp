@@ -959,7 +959,7 @@ FiniteElement::checkReloadDatasets(double const& CRtime)
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
-    this->checkReloadDatasets(M_external_data_nodes, M_current_time, RX, RY);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadDatasets
 
     
