@@ -933,26 +933,35 @@ FiniteElement::initForcings()
 //! Called by the init(), step() and all other functions that initializes datasets.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const& CRtime,
-        std::vector<double> &RX, std::vector<double> &RY, 
-        std::string const& printout)
+        double const& CRtime, std::vector<double> &RX, std::vector<double> &RY)
 {
-    //std::cout<<"size of external data vector = "<<ext_data_vec.size()<<"\n";
     if ( ext_data_vec.size()==0 )
     {
-        LOG(DEBUG) <<"check_and_reload ("<<printout<<"):\n";
-        LOG(DEBUG) <<"nothing to do\n";
+        LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
         return;
     }
 
     //loop over ext_data_vec and call check and reload for each:
     chrono.restart();
-    LOG(DEBUG) <<"check_and_reload ("<<printout<<") starts\n";
-
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
         (*it)->check_and_reload(RX, RY, CRtime);
-
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
+}//checkReloadDatasets
+
+
+void
+FiniteElement::checkReloadDatasets(double const& CRtime)
+{
+    // check the time-dependant ExternalData objects to see if they need to be reloaded
+    // - mesh elements
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
+
+    // - mesh nodes
+    RX = M_mesh.coordX();
+    RY = M_mesh.coordY();
+    this->checkReloadDatasets(M_external_data_nodes, M_current_time, RX, RY);
 }//checkReloadDatasets
 
     
@@ -6384,12 +6393,10 @@ FiniteElement::init()
     this->initBathymetry();
 
     //! - 6) Loads the data from the datasets initialized in 1) using the checkReloadDatasets(),
+    if(M_rank==0)
+        LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadDatasets(M_external_data_elements, M_current_time,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - time-dependant (elements)");
-    this->checkReloadDatasets(M_external_data_nodes, M_current_time,
-            M_mesh.coordX(), M_mesh.coordY(), "init - time-dependant (nodes)");
-
+    this->checkReloadDatasets(M_current_time);
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -6499,11 +6506,10 @@ FiniteElement::step()
             std::cout <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
     }
 
+    if(M_rank==0)
+        LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadDatasets(M_external_data_elements, M_current_time+time_step/(24*3600.0),
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "step - time-dependant (elements)");
-    this->checkReloadDatasets(M_external_data_nodes, M_current_time+time_step/(24*3600.0),
-            M_mesh.coordX(), M_mesh.coordY(), "step - time-dependant (nodes)");
+    this->checkReloadDatasets(M_current_time+time_step/(24*3600.0));
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -8999,8 +9005,12 @@ FiniteElement::topazIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp, time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ ice");
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ ice ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
 
     double tmp_var;
@@ -9058,9 +9068,12 @@ FiniteElement::topazIceOsisafIcesat()
     external_data_tmp.push_back(&M_osisaf_conc);
     external_data_tmp.push_back(&M_icesat_thick);
     external_data_tmp.push_back(&M_amsre_conc);
-    this->checkReloadDatasets(external_data_tmp, time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ-OSISAF-Icesat ice");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ/OSISAF/Icesat ice ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -9174,9 +9187,12 @@ FiniteElement::topazForecastIce()
     external_data_tmp.push_back(&topaz_conc);
     external_data_tmp.push_back(&topaz_thick);
     external_data_tmp.push_back(&topaz_snow_thick);
-    this->checkReloadDatasets(external_data_tmp, time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ ice forecast");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -9223,9 +9239,12 @@ FiniteElement::topazForecastAmsr2Ice()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ ice forecast + AMSR2");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ ice forecast/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -9363,8 +9382,11 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
                 M_mesh, 0, false, time_init-0.5);
     external_data_tmp.push_back(&M_nic_conc);
 
-    this->checkReloadDatasets(external_data_tmp, time_init-0.5,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "assimilate - NIC");
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     double sigma_mod=0.1;
@@ -9531,16 +9553,20 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
     external_data_tmp.push_back(&M_dist2coast);
-    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "assim-OSISAF-AMSR2-dist2coast");
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "assim - TOPAZ ice forecast");
-    external_data_tmp.resize(0);
+    if(M_rank==0)
+        LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     double sigma_mod=1.;
@@ -9640,16 +9666,20 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     external_data_tmp.push_back(&M_osisaf_conc);
     external_data_tmp.push_back(&M_osisaf_type);
     external_data_tmp.push_back(&M_amsr2_conc);
-    this->checkReloadDatasets(external_data_tmp,time_init-0.5,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - OSISAF-AMSR2");
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - OSISAF/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ ice forecast");
-    external_data_tmp.resize(0);
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -9790,16 +9820,19 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
                 M_mesh, 0, false, time_init-0.5);
     external_data_tmp.push_back(&M_nic_conc);
 
-    this->checkReloadDatasets(external_data_tmp, time_init-0.5,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - OSISAF-AMSR2-NIC");
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - OSISAF/AMSR2/NIC ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    this->checkReloadDatasets(external_data_tmp, time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init - TOPAZ ice forecast");
-    external_data_tmp.resize(0);
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -9975,9 +10008,12 @@ FiniteElement::piomasIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - PIOMAS");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - PIOMAS ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -10023,9 +10059,12 @@ FiniteElement::topazAmsreIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - TOPAZ + AMSR-E");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ/AMSR-E ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -10085,9 +10124,12 @@ FiniteElement::topazAmsr2Ice()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - TOPAZ + AMSR2");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
@@ -10143,11 +10185,14 @@ FiniteElement::cs2SmosIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_type);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - CS2 + SMOS");
-    external_data_tmp.resize(0);
 
-    warrenClimatology();
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - CS2/SMOS ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    this->warrenClimatology();
 
     double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
@@ -10234,11 +10279,14 @@ FiniteElement::cs2SmosAmsr2Ice()
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_type);
     external_data_tmp.push_back(&M_amsr2_conc);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - CS2 + SMOS + AMSR2");
-    external_data_tmp.resize(0);
 
-    warrenClimatology();
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - CS2/SMOS/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    this->warrenClimatology();
 
     double tmp_var, correction_factor_warren;
     for (int i=0; i<M_num_elements; ++i)
@@ -10331,9 +10379,12 @@ FiniteElement::smosIce()
     external_data_tmp.push_back(&M_init_conc);
     external_data_tmp.push_back(&M_init_thick);
     external_data_tmp.push_back(&M_init_snow_thick);
-    this->checkReloadDatasets(external_data_tmp,time_init,
-            M_mesh.bCoordX(), M_mesh.bCoordY(), "init ice - SMOS");
-    external_data_tmp.resize(0);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG)<<"init - SMOS ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)

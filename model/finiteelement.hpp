@@ -179,9 +179,8 @@ public:
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const& CRtime,
-                    std::vector<double> &RX, std::vector<double> &RY, 
-                    std::string const& printout);
+                    double const& CRtime, std::vector<double> &RX, std::vector<double> &RY);
+    void checkReloadDatasets(double const& CRtime);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
