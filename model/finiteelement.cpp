@@ -942,10 +942,8 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     }
 
     //loop over ext_data_vec and call check and reload for each:
-    chrono.restart();
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
         (*it)->check_and_reload(RX, RY, CRtime);
-    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 }//checkReloadDatasets
 
 
