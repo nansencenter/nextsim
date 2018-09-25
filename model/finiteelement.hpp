@@ -180,7 +180,7 @@ public:
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const& CRtime,
-                    std::string const& target_location,
+                    std::vector<double> &RX, std::vector<double> &RY, 
                     std::string const& printout);
 
     Dataset M_atmosphere_nodes_dataset;
