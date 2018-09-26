@@ -5417,7 +5417,7 @@ FiniteElement::thermo(double dt)
         }
         else
         {
-            throw std::logic_error("Neither M_dair nor M_mixrat have been initialized. I cannot calculate sphuma.");
+            throw std::logic_error("Neither M_sphuma, M_mixrat nor M_dair have been initialized. I cannot calculate sphuma.");
         }
 
         // -------------------------------------------------
@@ -8428,11 +8428,14 @@ FiniteElement::forcingAtmosphere()
     M_external_data_elements.push_back(&M_snowfr);
     M_external_data_elements.push_back(&M_precip);
 
-    if(M_mixrat.isInitialized())
-        // have mixing ratio from the forcing
+    if(M_sphuma.isInitialized())
+        // have specific humidity from the forcing
+        M_external_data_elements.push_back(&M_sphuma);
+    else if(M_mixrat.isInitialized())
+        // have mixing ratio (simple relationship to specific humidity) from the forcing
         M_external_data_elements.push_back(&M_mixrat);
     else if(M_dair.isInitialized())
-        // calculate the mixing ratio from the dew point
+        // need to estimate the specific humidity from the dew point
         M_external_data_elements.push_back(&M_dair);
     else
         throw std::runtime_error("forcingAtmosphere: One of M_mixrat or M_dair should be initialised");
