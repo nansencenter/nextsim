@@ -683,7 +683,7 @@ FiniteElement::assignVariables()
     M_UM.assign(2*M_num_nodes,0.);
     //M_UT.assign(2*M_num_nodes,0.);
 
-    M_fcor.resize(M_num_elements);
+    M_fcor.assign(M_num_elements, 0.);
 
 #if 1
     // reload the dataset
@@ -6498,10 +6498,13 @@ FiniteElement::step()
         if (M_rank == 0)
             std::cout <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
 
-        timer["calcCoriolis"].first.restart();
-        this->calcCoriolis();
-        if (M_rank == 0)
-            std::cout <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        if (vm["dynamics.use_coriolis"].as<bool>())
+        {
+            timer["calcCoriolis"].first.restart();
+            this->calcCoriolis();
+            if (M_rank == 0)
+                std::cout <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        }
     }
 
     if(M_rank==0)
@@ -11264,7 +11267,7 @@ FiniteElement::checkDrifters()
 
 
 // -----------------------------------------------------------------------------------------------------------
-//! Calculates the planetary vorticity (f) or sets f = 0 (dynamics.use_coriolis=false).
+//! Calculates the planetary vorticity (f)
 //! Called by the step() function.
 void
 FiniteElement::calcCoriolis()
@@ -11273,16 +11276,7 @@ FiniteElement::calcCoriolis()
     std::vector<double> lat = M_mesh.meanLat();
 
     for (int i=0; i<M_fcor.size(); ++i)
-    {
-        if (vm["dynamics.use_coriolis"].as<bool>())
-        {
-            M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
-        }
-        else
-        {
-            M_fcor[i] = 0.;
-        }
-    }
+        M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
 }//calcCoriolis()
 
 
