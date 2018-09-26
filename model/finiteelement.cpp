@@ -8656,8 +8656,6 @@ FiniteElement::initIce()
     switch (M_ice_type)
     {
         case setup::IceType::CONSTANT:
-            this->constantIce();
-            break;
         case setup::IceType::CONSTANT_PARTIAL:
             this->constantIce();
             break;
@@ -8869,9 +8867,15 @@ FiniteElement::constantIce()
 
     if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
-        auto Bx = M_mesh.coordX();//xmin,xmax from nodes
-        double xmin = *std::min_element(Bx.begin(),Bx.end());
-        double xmax = *std::max_element(Bx.begin(),Bx.end());
+        double xmin, xmax;
+        if(M_rank==0)
+        {
+            auto Bx = M_mesh_root.coordX();//xmin,xmax from nodes of global mesh
+            xmin = *std::min_element(Bx.begin(), Bx.end());
+            xmax = *std::max_element(Bx.begin(), Bx.end());
+        }
+        boost::mpi::broadcast(xmin, 0);
+        boost::mpi::broadcast(xmax, 0);
         double xedge = xmin + 0.3*(xmax-xmin);
 
         std::cout<<"In constantIce (partial cover)\n";
@@ -8884,7 +8888,7 @@ FiniteElement::constantIce()
         std::cout<<"xmax="<<xmax<<"\n";
         std::cout<<"xedge="<<xedge<<"\n";
 
-        Bx = M_mesh.bCoordX();//set conc, etc on elements
+        auto Bx = M_mesh.bCoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
         {
             if (Bx[i] < xedge)
