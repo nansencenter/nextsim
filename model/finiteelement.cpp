@@ -942,8 +942,14 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     }
 
     //loop over ext_data_vec and call check and reload for each:
-    for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it )
+    int i = 0;
+    for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
+    {
+        ASSERT((*it)->isInitialized(),
+                "checkReloadDatasets: ExternalData object "
+                +std::to_string(i) + "is not initialised yet");
         (*it)->check_and_reload(RX, RY, CRtime);
+    }
 }//checkReloadDatasets
 
 
@@ -8416,13 +8422,21 @@ FiniteElement::forcingAtmosphere()
     // for looping
     M_external_data_nodes.push_back(&M_wind);
     M_external_data_elements.push_back(&M_tair);
-    M_external_data_elements.push_back(&M_mixrat);
     M_external_data_elements.push_back(&M_mslp);
     M_external_data_elements.push_back(&M_Qsw_in);
     M_external_data_elements.push_back(&M_Qlw_in);
     M_external_data_elements.push_back(&M_snowfr);
     M_external_data_elements.push_back(&M_precip);
-    M_external_data_elements.push_back(&M_dair);
+
+    if(M_mixrat.isInitialised())
+        // have mixing ratio from the forcing
+        M_external_data_elements.push_back(&M_mixrat);
+    else if(M_dair.isInitialised())
+        // calculate the mixing ratio from the dew point
+        M_external_data_elements.push_back(&M_dair);
+    else
+        throw std::runtime_error("forcingAtmosphere: One of M_mixrat or M_dair should be initialised");
+
 }//forcingAtmosphere
 
 
