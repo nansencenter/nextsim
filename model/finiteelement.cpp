@@ -930,7 +930,7 @@ FiniteElement::initForcings()
 //! * for external data to be interpolated onto the WIM elements use
 //!   RX = M_wim.getX(), RY = M_wim.getY()
 //! * NB we don't rotate RX, RY yet since rotation angle is not always defined at this point
-//! Called by the init(), step() and all other functions that initializes datasets.
+//! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const& CRtime, std::vector<double> &RX, std::vector<double> &RY)
@@ -947,8 +947,14 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 }//checkReloadDatasets
 
 
+//------------------------------------------------------------------------------------------------------
+//! Loads and checks on the loading of the time-dependant datasets.
+//! * In practice this is done by looping over the ExternalData objects in
+//!   M_external_data_elements and M_external_data_nodes and checking if the corresponding Dataset
+//!   needs to be reloaded and/or reinterpolated
+//! Called by init() and step()
 void
-FiniteElement::checkReloadDatasets(double const& CRtime)
+FiniteElement::checkReloadMainDatasets(double const& CRtime)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
@@ -960,7 +966,7 @@ FiniteElement::checkReloadDatasets(double const& CRtime)
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
-}//checkReloadDatasets
+}//checkReloadMainDatasets
 
     
 //------------------------------------------------------------------------------------------------------
@@ -6394,7 +6400,7 @@ FiniteElement::init()
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadDatasets(M_current_time);
+    this->checkReloadMainDatasets(M_current_time);
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -6510,7 +6516,7 @@ FiniteElement::step()
     if(M_rank==0)
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadDatasets(M_current_time+time_step/(24*3600.0));
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -8874,8 +8880,8 @@ FiniteElement::constantIce()
             xmin = *std::min_element(Bx.begin(), Bx.end());
             xmax = *std::max_element(Bx.begin(), Bx.end());
         }
-        boost::mpi::broadcast(xmin, 0);
-        boost::mpi::broadcast(xmax, 0);
+        boost::mpi::broadcast(M_comm, xmin, 0);
+        boost::mpi::broadcast(M_comm, xmax, 0);
         double xedge = xmin + 0.3*(xmax-xmin);
 
         std::cout<<"In constantIce (partial cover)\n";
