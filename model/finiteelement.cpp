@@ -8428,10 +8428,10 @@ FiniteElement::forcingAtmosphere()
     M_external_data_elements.push_back(&M_snowfr);
     M_external_data_elements.push_back(&M_precip);
 
-    if(M_mixrat.isInitialised())
+    if(M_mixrat.isInitialized())
         // have mixing ratio from the forcing
         M_external_data_elements.push_back(&M_mixrat);
-    else if(M_dair.isInitialised())
+    else if(M_dair.isInitialized())
         // calculate the mixing ratio from the dew point
         M_external_data_elements.push_back(&M_dair);
     else

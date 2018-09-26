@@ -118,13 +118,7 @@ public:
     void recieveCouplingData(Dataset *dataset, int cpl_time);
 #endif
 
-#if 0
-	size_type size() const;
-
-	bool isInitialized() const { return M_is_initialized; }
-
-	bool closed() const { return M_is_closed; }
-#endif
+	bool isInitialized() const { return M_initialized; }
 
 public:
     double fdt;
