@@ -2163,31 +2163,15 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputing.
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
-    void
+void
 FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
 {
-#if 1
     int nb_var_element = this->getNumVarsElement("IO");
-#else
-    int nb_var_element = M_nb_var_element;
-    if (!thin_ice)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-#endif
-
     int num_elements = M_local_nelements;
     if (ghosts)
-    {
         num_elements = M_num_elements;
-    }
 
     interp_elt_in_local.resize(nb_var_element*num_elements);
 
@@ -3300,7 +3284,8 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     timer["gather"].first.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"----------GATHER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements;
     //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
@@ -3335,7 +3320,8 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
 }//gatherFieldsElement
 
 
@@ -12290,22 +12276,27 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         throw std::runtime_error("exportResults: interp_in_elements is wrong size\n");
     }
 
-
 #if defined (WAVES)
     T_map_vec wim_fields_els, wim_fields_nodes;
     dbl_vec tau_root, nfloes_root, dfloe_root;
-    if(M_use_wim)
+    if(M_use_wim && M_wim.isInitialised())
     {
-        tau_root.resize(2*M_mesh_root.numNodes());
-        nfloes_root.resize(M_mesh_root.numTriangles());
-        dfloe_root.resize(M_mesh_root.numTriangles());
-        this->gatherElementField(M_nfloes, nfloes_root);
-        this->gatherElementField(M_dfloe, dfloe_root);
-        if(M_export_wim_diags_mesh)
-            this->getWimDiagnosticsRoot(M_mesh_root,
-                    wim_fields_els, wim_fields_nodes, tau_root);
-        else
-            this->gatherNodalField(M_tau, tau_root);
+        // If reading restart, test output field_restart is written straight away
+        // (before assimilation)
+        // before WIM is initialised (after assimilation)
+        if(M_use_wim)
+        {
+            tau_root.resize(2*M_mesh_root.numNodes());
+            nfloes_root.resize(M_mesh_root.numTriangles());
+            dfloe_root.resize(M_mesh_root.numTriangles());
+            this->gatherElementField(M_nfloes, nfloes_root);
+            this->gatherElementField(M_dfloe, dfloe_root);
+            if(M_export_wim_diags_mesh)
+                this->getWimDiagnosticsRoot(M_mesh_root,
+                        wim_fields_els, wim_fields_nodes, tau_root);
+            else
+                this->gatherNodalField(M_tau, tau_root);
+        }
     }
 #endif//WAVES
 
@@ -12627,7 +12618,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             }
 
 #if defined (WAVES)
-            if(M_use_wim)
+            if(M_use_wim && M_wim.isInitialised())
             {
                 exporter.writeField(outbin, dfloe_root, "Dfloe");
                 exporter.writeField(outbin, nfloes_root, "Nfloes");

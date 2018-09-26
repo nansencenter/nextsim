@@ -308,6 +308,8 @@ public:
 
     std::string getWimGridFilename() const
     { return M_grid.M_gridfile; }
+    bool isInitialised() const
+    { return M_initialised; }
 
     T_val jacobian(T_val const x0, T_val const y0,
             T_val const x1, T_val const y1,
@@ -385,6 +387,7 @@ private:
     bool M_regular           = false;
     bool M_initialised_ice   = false;
     bool M_initialised_waves = false;
+    bool M_initialised       = false;
 
     int M_nb_export_nextwim = 0;
     int M_nb_export_inc     = 0;

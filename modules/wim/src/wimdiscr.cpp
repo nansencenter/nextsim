@@ -27,6 +27,7 @@ template<typename T>
 WimDiscr<T>::WimDiscr(po::variables_map const& vmIn)
 {
     vm = vmIn;
+    M_initialised = true;
 }//WimDiscr()
 
 
