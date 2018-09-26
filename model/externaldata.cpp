@@ -1212,7 +1212,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     }
 
     // Collect all the data before the interpolation
-    std::cout << "Collect the ivariables before interpolation:" <<"\n";
+    std::cout << "Collect the variables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
 
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
