@@ -120,7 +120,7 @@ public:
 
 	bool isInitialized() const { return M_initialized; }
 
-public:
+private:
     double fdt;
     std::vector<double> fcoeff;
     Dataset *M_dataset;

@@ -947,7 +947,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     {
         ASSERT((*it)->isInitialized(),
                 "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + "is not initialised yet");
+                +std::to_string(i) + " is not initialised yet");
         (*it)->check_and_reload(RX, RY, CRtime);
     }
 }//checkReloadDatasets
@@ -5337,9 +5337,9 @@ FiniteElement::thermo(double dt)
 
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall;
-        if(M_snowfr.M_initialized)
+        if(M_snowfr.isInitialized())
             tmp_snowfall=M_precip[i]*M_snowfr[i];
-        else if (M_snowfall.M_initialized)
+        else if (M_snowfall.isInitialized())
             tmp_snowfall=M_snowfall[i];
         else
         {
@@ -5350,13 +5350,14 @@ FiniteElement::thermo(double dt)
         }
 
         double Qsw_in;
-        if(M_Qsw_in.M_initialized)
+        if(M_Qsw_in.isInitialized())
         {
             Qsw_in=M_Qsw_in[i];
         }
         else
         {
-            throw std::logic_error("The function approxSW not yet implemented, you need to initialized M_Qsw_in");
+            throw std::logic_error(
+                    "The function approxSW is not yet implemented, you need to initialize M_Qsw_in");
             //Qsw_in=approxSW();
         }
 
@@ -5401,17 +5402,17 @@ FiniteElement::thermo(double dt)
         // -------------------------------------------------
         //! 3.1) Calculates specific humidity of the atmosphere.
         //! - There are two ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
-        if ( M_sphuma.M_initialized )
+        if ( M_sphuma.isInitialized() )
         {
             sphuma = M_sphuma[i];
         }
-        else if ( M_dair.M_initialized )
+        else if ( M_dair.isInitialized() )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
-        else if ( M_mixrat.M_initialized )
+        else if ( M_mixrat.isInitialized() )
         {
             sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
         }
@@ -5442,7 +5443,7 @@ FiniteElement::thermo(double dt)
 
         // Sum them up
         double Qlw_in;
-        if(M_Qlw_in.M_initialized)
+        if(M_Qlw_in.isInitialized())
         {
             Qlw_in=M_Qlw_in[i];
         }
@@ -8420,13 +8421,23 @@ FiniteElement::forcingAtmosphere()
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
     // for looping
+    // - these are (or should be) common to all the forcings
+    // TODO raise error if not?
     M_external_data_nodes.push_back(&M_wind);
     M_external_data_elements.push_back(&M_tair);
     M_external_data_elements.push_back(&M_mslp);
-    M_external_data_elements.push_back(&M_Qsw_in);
-    M_external_data_elements.push_back(&M_Qlw_in);
-    M_external_data_elements.push_back(&M_snowfr);
     M_external_data_elements.push_back(&M_precip);
+    M_external_data_elements.push_back(&M_Qsw_in);
+
+    // - long wave input is only in a few forcings
+    if(M_Qlw_in.isInitialized())
+        M_external_data_elements.push_back(&M_Qlw_in);
+
+    // - snowfall can come from M_snowfall, M_snowfr*M_precip, or just M_precip (if M_tair<0)
+    if(M_snowfr.isInitialized())
+        M_external_data_elements.push_back(&M_snowfr);
+    if(M_snowfall.isInitialized())
+        M_external_data_elements.push_back(&M_snowfall);
 
     if(M_sphuma.isInitialized())
         // have specific humidity from the forcing
@@ -8438,7 +8449,7 @@ FiniteElement::forcingAtmosphere()
         // need to estimate the specific humidity from the dew point
         M_external_data_elements.push_back(&M_dair);
     else
-        throw std::runtime_error("forcingAtmosphere: One of M_mixrat or M_dair should be initialised");
+        throw std::runtime_error("forcingAtmosphere: One of M_sphuma, M_mixrat or M_dair should be initialised");
 
 }//forcingAtmosphere
 
