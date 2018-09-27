@@ -200,12 +200,14 @@ ExternalData::get(const size_type i)
         // for the moment same value is given to all the components
         if(!M_is_vector)
         {
-            ASSERT(i < M_target_size, "invalid index");
+            ASSERT(i < M_target_size,
+                    "invalid index for scalar (no dataset)");
             value = M_constant_value;
         }
         else
         {
-            ASSERT(i < 2*M_target_size, "invalid index");
+            ASSERT(i < 2*M_target_size,
+                    "invalid index for vector (no dataset)");
 
             if(i < M_target_size)
                 value = M_constant_value;
@@ -219,11 +221,10 @@ ExternalData::get(const size_type i)
         // or constant/step-wise interpolation
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
-        bool interp_const_wave  = ((M_dataset->grid.waveOptions.wave_dataset)
+        bool interp_const_wave  = (M_dataset->grid.waveOptions.wave_dataset);
 #if defined(WAVES)
+        interp_const_wave = (interp_const_wave
                 && (Environment::vm()["wimsetup.wave-time-interp-option"].as<std::string>()=="step"));
-#else
-                );
 #endif
                 //&& (M_dataset->grid.waveOptions.time_interp_option=="step"));
         interp_linear_time  = (interp_linear_time && !interp_const_wave);
@@ -239,14 +240,15 @@ ExternalData::get(const size_type i)
 
             if(!M_is_vector)
             {
-                ASSERT(i < M_target_size, "invalid index");
+                ASSERT(i < M_target_size, "invalid index for scalar id = "
+                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
             else
             {
-                ASSERT(i < 2*M_target_size, "invalid index");
-
+                ASSERT(i < 2*M_target_size, "invalid index for vector id = "
+                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
                 if(i < M_target_size)
                 {
                     i_tmp=i;
@@ -269,13 +271,15 @@ ExternalData::get(const size_type i)
             //step-function or constant in time
             if(!M_is_vector)
             {
-                ASSERT(i < M_target_size, "invalid index");
+                ASSERT(i < M_target_size, "invalid index for scalar id = "
+                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
             else
             {
-                ASSERT(i < 2*M_target_size, "invalid index");
+                ASSERT(i < M_target_size, "invalid index for vector id = "
+                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
 
                 if(i < M_target_size)
                 {

@@ -966,11 +966,15 @@ FiniteElement::checkReloadMainDatasets(double const& CRtime)
     // - mesh elements
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
+    if(M_rank==0)
+        LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
     this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
+    if(M_rank==0)
+        LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
@@ -8429,9 +8433,13 @@ FiniteElement::forcingAtmosphere()
     M_external_data_elements.push_back(&M_precip);
     M_external_data_elements.push_back(&M_Qsw_in);
 
-    // - long wave input is only in a few forcings
+    // either need the long wave input, or cloud cover to parameterise it
     if(M_Qlw_in.isInitialized())
         M_external_data_elements.push_back(&M_Qlw_in);
+    else if(M_tcc.isInitialized())
+        M_external_data_elements.push_back(&M_tcc);
+    else
+        throw std::runtime_error("forcingAtmosphere: One of M_Qlw_in or M_tcc should be initialised");
 
     // - snowfall can come from M_snowfall, M_snowfr*M_precip, or just M_precip (if M_tair<0)
     if(M_snowfr.isInitialized())
