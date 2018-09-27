@@ -5248,6 +5248,11 @@ FiniteElement::update()
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
+#if defined (WAVES)
+        //save the conc to update M_nfloes later once the new conc is finalised
+        double conc_old = M_conc[cpt];
+#endif//WAVES
+
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
@@ -5508,6 +5513,10 @@ FiniteElement::update()
             tmp=0.;
 
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
+#if defined (WAVES)
+        // M_nfloes = M_conc/(M_dfloe^2) so need to update it in the same way as M_conc
+        M_nfloes[cpt] *= ((conc_old>0.)?(M_conc[cpt]/conc_old):(0.)) ;
+#endif//WAVES
     }//loop over elements
 }//update
 
