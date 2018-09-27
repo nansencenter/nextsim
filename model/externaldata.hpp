@@ -129,7 +129,6 @@ private:
     bool M_is_vector;
     int M_target_size;
 
-private:
     std::string M_datasetname;
     int M_VariableId;
     double M_current_time;
