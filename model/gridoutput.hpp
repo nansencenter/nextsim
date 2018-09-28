@@ -112,6 +112,9 @@ public:
         Qo          = 105,
         delS        = 106,
 
+        // WIM variables
+        dfloe       = 200,
+
         // Non-output variables - all negative
         proc_mask   = -1,
         ice_mask    = -2
@@ -301,7 +304,6 @@ public:
                     cell_methods = "area: mean";
                     break;
 
-#if defined (WAVES)
                 //WIM variables
                 case (variableID::dfloe):
                     name     = "dfloe";
@@ -310,7 +312,6 @@ public:
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
-#endif//WAVES
 
                 // Non-output variables
                 case (variableID::proc_mask):

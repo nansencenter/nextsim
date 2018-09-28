@@ -7017,9 +7017,31 @@ FiniteElement::initMoorings()
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+#if defined (WAVES)
+    std::vector<std::string> names_wim = {"dfloe"};
+#endif//WAVES
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
+        // skip thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+        {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
+        }
+
+        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
+        {
+#if ! defined (WAVES)
+            LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+            continue;
+#endif//WAVES
+        }
+
         // Element variables
         if ( *it == "conc" )
         {
@@ -7076,21 +7098,29 @@ FiniteElement::initMoorings()
             GridOutput::Variable delS(GridOutput::variableID::delS);
             elemental_variables.push_back(delS);
         }
-        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "conc_thin" )
         {
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin);
             elemental_variables.push_back(conc_thin);
         }
-        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "h_thin" )
         {
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin);
             elemental_variables.push_back(h_thin);
         }
-        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "hs_thin" )
         {
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
             elemental_variables.push_back(hs_thin);
         }
+#if defined (WAVES)
+        else if ( *it == "dfloe" )
+        {
+            GridOutput::Variable dfloe(GridOutput::variableID::dfloe);
+            elemental_variables.push_back(dfloe);
+        }
+#endif//WAVES
+
         // Nodal variables and vectors
         else if ( *it == "velocity_xy" | *it == "velocity_uv" )
         {
@@ -7113,6 +7143,7 @@ FiniteElement::initMoorings()
 
             vectorial_variables.push_back(siuv);
         }
+
         // Error
         else
         {
@@ -7135,6 +7166,9 @@ FiniteElement::initMoorings()
                 std::cout << "h_thin, ";
                 std::cout << "hs_thin, ";
             }
+#if defined (WAVES)
+            std::cout << "dfloe, ";
+#endif
             std::cout << "velocity_xy, ";
             std::cout << "velocity_uv";
 
