@@ -579,6 +579,16 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dims2[0] = xDim;
     dims2[1] = yDim;
 
+    //cell methods - combine time method with hard-coded area method defined for each variable
+    std::string cell_methods_time = "time: point ";//for snapshot
+    if (Environment::vm()["moorings.snapshot"].as<bool>())
+    {
+        double averaging_period = Environment::vm()["moorings.output_timestep"].as<double>()*24.;//hours
+        cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
+                               % averaging_period
+                               ).str();
+    }
+
     // Create the longitude and latitude variables
     // Longitude
     netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
@@ -604,12 +614,13 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dims[2] = yDim;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
@@ -620,8 +631,37 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
+
+    // Create the projection variable
+    // - get the projection
+    mapx_class *map;
+    std::string mppfile = Environment::nextsimMppfile();
+    std::vector<char> str(mppfile.begin(), mppfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
+
+    // - determine if false easting (if there are no vectorial variables it doesn't matter)
+    std::string false_easting = "1";
+    for (auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); ++it)
+        if(it->east_west_oriented)
+            false_easting = "0";
+    
+    // - add the projection variable
+    std::vector<netCDF::NcDim> dims0(0);
+    netCDF::NcVar proj = dataFile.addVar("Polar_Stereographic_Grid", netCDF::ncInt, dims0);
+    proj.putAtt("grid_mapping_name", "polar_stereographic");
+    proj.putAtt("false_easting", false_easting);
+    proj.putAtt("false_northing", false_easting);
+    proj.putAtt("semi_major_axis", std::to_string(map->equatorial_radius));
+    proj.putAtt("semi_minor_axis", std::to_string(map->polar_radius));
+    proj.putAtt("straight_vertical_longitude_from_pole", std::to_string(map->rotation));
+	proj.putAtt("latitude_of_projection_origin", std::to_string(map->lat0));
+    proj.putAtt("standard_parallel", std::to_string(map->lat1));
+    close_mapx(map);
+
 
     dataFile.putAtt("Conventions", "CF-1.6");
     dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
