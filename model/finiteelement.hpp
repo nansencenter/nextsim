@@ -622,11 +622,6 @@ private:
     std::vector<Drifters*> M_ordinary_drifters;
     double M_drifters_time_init;
 
-    // also needed for the drifters
-    std::vector<double> M_UT_root;
-    std::vector<double> M_UM_root;
-    std::vector<double> M_conc_root;
-
     // IABP drifters
     bool M_use_iabp_drifters;
     double M_iabp_drifters_input_time_step;
@@ -730,18 +725,18 @@ private:
         bool &output_iabp,
         bool &io_any);
     void checkDrifters();
-    void initDrifters(mesh_type_root const& movedmesh_root,
+    void initDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root,
         std::vector<std::string> const& init_names);
-    void initOsisafDrifters(mesh_type_root const& movedmesh_root);
-    void initRGPSDrifters(mesh_type_root const& movedmesh_root);
-    void initSidfexDrifters(mesh_type_root const& movedmesh_root);
-    void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root);
+    void initOsisafDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
+    void initRGPSDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
+    void initSidfexDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
+    void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
     void outputIabpDrifters();
-    void initIabpDrifters(mesh_type_root const& movedmesh_root);
+    void initIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
     void initIabpDrifterFiles();
-    void updateIabpDrifterPosition();
-    void updateIabpDrifters(mesh_type_root const& movedmesh_root);
-    void updateIabpDrifterConc(mesh_type_root const& movedmesh_root);
+    void updateIabpDrifterPosition(std::vector<double> & UT_root);
+    void updateIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
+    void updateIabpDrifterConc(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

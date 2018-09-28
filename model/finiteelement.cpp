@@ -633,12 +633,6 @@ FiniteElement::initVariables()
         }
     }
 
-    if ((M_rank == 0) && (M_use_drifters))
-    {
-        M_UT_root.assign(2*M_ndof,0.);
-        M_conc_root.resize(M_mesh_root.numTriangles());
-    }
-
     this->assignVariables();
 }//initVariables
 
@@ -7976,22 +7970,15 @@ FiniteElement::readRestart(std::string const& name_str)
                             drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
 
                 // move the drifters
-                // NB updateIabpDrifterPosition uses M_UT_root 
-                // (don't need to gather since we have it already from
-                // restart file)
-                M_UT_root = M_UT;
-                this->updateIabpDrifterPosition();
+                this->updateIabpDrifterPosition(M_UT);//confusingly, M_UT is currently the root variable
 
-                // M_UT, M_UT_root can be set to zero now we have moved the drifters
+                // M_UT can be set to zero now we have moved the drifters
                 std::fill(M_UT.begin(), M_UT.end(), 0.);
-                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
                 // still need to get M_conc at these positions
-                M_conc_root = M_conc;
-                M_UM_root = M_UM;
                 auto movedmesh = M_mesh_root;
-                movedmesh.move(M_UM_root, 1.);
-                this->updateIabpDrifterConc(movedmesh);
+                movedmesh.move(M_UM, 1.);//confusingly, M_UM is currently the root variable
+                this->updateIabpDrifterConc(movedmesh, M_conc);//confusingly, M_conc is currently the root variable
 
                 // Save the initial positions to the output file
                 this->outputIabpDrifters();
@@ -10811,6 +10798,7 @@ FiniteElement::initDrifterOpts()
 //! Called by the checkDrifters() function.
 void
 FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
+        std::vector<double> & conc_root,
         std::vector<std::string> const& init_names)
 {
     //! -1) do we initialise all the drifters that start at the usual time?
@@ -10818,29 +10806,29 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
     if(std::count(init_names.begin(), init_names.end(), "main")>0)
     {
         if(M_use_equally_spaced_drifters)
-            this->initEquallySpacedDrifters(movedmesh_root);
+            this->initEquallySpacedDrifters(movedmesh_root, conc_root);
 
         if(M_use_sidfex_drifters)
-            this->initSidfexDrifters(movedmesh_root);
+            this->initSidfexDrifters(movedmesh_root, conc_root);
 
         if(M_use_iabp_drifters)
         {
             if(M_iabp_drifters.size()==0)
                 //only init if not already initialised (eg from restart)
-                this->initIabpDrifters(movedmesh_root);
+                this->initIabpDrifters(movedmesh_root, conc_root);
         }
     }
 
     //! -2) initialise the RGPS drifters that start at their own time?
     if(std::count(init_names.begin(), init_names.end(), "rgps")>0)
-        this->initRGPSDrifters(movedmesh_root);
+        this->initRGPSDrifters(movedmesh_root, conc_root);
 
     if(std::count(init_names.begin(), init_names.end(), "osisaf")>0)
         //! start a new set of OSISAF drifters?
         // NB do this after outputting netcdf,
         // to make sure the last time record is present
         // for the drifters that will be terminated
-        this->initOsisafDrifters(movedmesh_root);
+        this->initOsisafDrifters(movedmesh_root, conc_root);
     
 }//initDrifters
 
@@ -10849,7 +10837,7 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
 //! Initialise the IABP drifters
 //! Called by the initDrifters() function.
 void
-FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     // init the input/output files
     this->initIabpDrifterFiles();
@@ -10857,7 +10845,7 @@ FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root)
     // Get:
     // - the 1st drifter positions (if any)
     // - M_conc at these positions
-    this->updateIabpDrifters(movedmesh_root);
+    this->updateIabpDrifters(movedmesh_root, conc_root);
 
     // Save the initial positions to the output file
     this->outputIabpDrifters();
@@ -10985,7 +10973,7 @@ FiniteElement::outputIabpDrifters()
 //! * Also updates the conc at the IABP drifters
 //! Called by the updateDrifterPosition() function.
 void
-FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double>& conc_root)
 {
 
     if(M_rank==0)
@@ -11030,7 +11018,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
         close_mapx(map);
 
         // update M_iabp_conc (get model conc at all drifters)
-        this->updateIabpDrifterConc(movedmesh_root);
+        this->updateIabpDrifterConc(movedmesh_root, conc_root);
 
         // Rebuild the M_iabp_drifters map
         double clim = vm["drifters.concentration_limit"].as<double>();
@@ -11064,7 +11052,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
 //! Updates the concentration variable at the IABP buoys
 //! Called by the updateIabpDrifters() and readRestart() function.
 void
-FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root)
+FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     if( M_rank ==0 )
     {
@@ -11085,7 +11073,7 @@ FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root)
         InterpFromMeshToMesh2dx(&interp_drifter_c_out,
                                 &movedmesh_root.indexTr()[0], &movedmesh_root.coordX()[0], &movedmesh_root.coordY()[0],
                                 movedmesh_root.numNodes(), movedmesh_root.numTriangles(),
-                                &M_conc_root[0],
+                                &conc_root[0],
                                 movedmesh_root.numTriangles(), 1,
                                 &drifter_X[0], &drifter_Y[0],
                                 Ndrifters,
@@ -11105,7 +11093,7 @@ FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root)
 //! Updates the positions of the IABP buoys
 //! Called by the updateIabpDrifters() function.
 void
-FiniteElement::updateIabpDrifterPosition()
+FiniteElement::updateIabpDrifterPosition(std::vector<double> & UT_root)
 {
     if(M_rank==0)
     {
@@ -11128,8 +11116,8 @@ FiniteElement::updateIabpDrifterPosition()
         std::vector<double> interp_drifter_in(nb_var*M_mesh_root.numNodes());
         for (int i=0; i<M_mesh_root.numNodes(); ++i)
         {
-            interp_drifter_in[nb_var*i]   = M_UT_root[i];
-            interp_drifter_in[nb_var*i+1] = M_UT_root[i+M_mesh_root.numNodes()];
+            interp_drifter_in[nb_var*i]   = UT_root[i];
+            interp_drifter_in[nb_var*i+1] = UT_root[i+M_mesh_root.numNodes()];
         }
 
         double* interp_drifter_out;
@@ -11300,9 +11288,10 @@ FiniteElement::checkDrifters()
     if(move_drifters)
     {
         //! - 3) Gather the fields needed by the drifters if we are moving
-        this->gatherNodalField(M_UT, M_UT_root);
-        this->gatherNodalField(M_UM, M_UM_root);
-        this->gatherElementField(M_conc, M_conc_root);
+        std::vector<double> UT_root, UM_root, conc_root;
+        this->gatherNodalField(M_UT, UT_root);
+        this->gatherNodalField(M_UM, UM_root);
+        this->gatherElementField(M_conc, conc_root);
 
         // can now reset M_UT to 0
         std::fill(M_UT.begin(), M_UT.end(), 0.);
@@ -11315,31 +11304,22 @@ FiniteElement::checkDrifters()
             //! * IABP drifters 
             if ( M_use_iabp_drifters )
                 if(M_current_time>M_drifters_time_init)
-                    this->updateIabpDrifterPosition();
+                    this->updateIabpDrifterPosition(UT_root);
 
             //! * other drifters 
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
                 if ((*it)->isInitialised())
-                    (*it)->move(M_mesh_root, M_UT_root);
+                    (*it)->move(M_mesh_root, UT_root);
             
-            // reset M_UT_root
-            // TODO do we need to do this?
-            // - it isn't used and seems to be gathered each time it's needed
-            // (eg in writeRestart)
-            // - needs checking though
-            LOG(DEBUG)<<"Reset M_UT_root: "
-                <<to_date_time_string(M_current_time)<<"\n";
-            std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-
             auto movedmesh_root = M_mesh_root;
-            movedmesh_root.move(M_UM_root, 1.);
+            movedmesh_root.move(UM_root, 1.);
 
             //! - 5) Do we need to input/output any drifters?
             if (input_iabp)
                 // check if we need to add new IABP drifters
                 // NB do this after moving
                 // NB this updates M_iabp_conc
-                this->updateIabpDrifters(movedmesh_root);
+                this->updateIabpDrifters(movedmesh_root, conc_root);
 
             if (output_iabp)
             {
@@ -11347,14 +11327,14 @@ FiniteElement::checkDrifters()
                 // NB do this after moving
                 if(!input_iabp)
                     //still need to update M_iabp_conc
-                    this->updateIabpDrifterConc(movedmesh_root);
+                    this->updateIabpDrifterConc(movedmesh_root, conc_root);
                 this->outputIabpDrifters();
             }
 
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
                 if ((*it)->isOutputTime(M_current_time))
                 {
-                    (*it)->updateConc(movedmesh_root, M_conc_root);
+                    (*it)->updateConc(movedmesh_root, conc_root);
                     (*it)->appendNetCDF(M_current_time);
                 }
              
@@ -11364,7 +11344,7 @@ FiniteElement::checkDrifters()
             //  * Also do it after output - this is mainly for the OSISAF drifters
             //    (to output the last record of M_osisaf_drifters[1], before it is overwritten)
             if(init_any)
-                this->initDrifters(movedmesh_root, init_names);
+                this->initDrifters(movedmesh_root, conc_root, init_names);
 
         }//M_rank==0
     }//if(move_drifters)
@@ -11446,12 +11426,12 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 //! Initializes the equally-spaced drifters, and saves the first netcdf time record
 //! Called by the initDrifters() function.
 void
-FiniteElement::initEquallySpacedDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initEquallySpacedDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     if (M_rank == 0)
     {
         M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
-                movedmesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),
+                movedmesh_root, conc_root, vm["drifters.concentration_limit"].as<double>(),
                 M_current_time, M_equally_spaced_drifters_output_time_step);
         M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
         M_equally_spaced_drifters.appendNetCDF(M_current_time);
@@ -11463,12 +11443,12 @@ FiniteElement::initEquallySpacedDrifters(mesh_type_root const& movedmesh_root)
 //! Initializes the RGPS drifters, and saves the first netcdf time record
 //! Called by the initDrifters() function.
 void
-FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     if (M_rank == 0)
     {
         //called once when M_current_time == M_rgps_time_init
-        M_rgps_drifters = Drifters(M_rgps_file, movedmesh_root, M_conc_root,
+        M_rgps_drifters = Drifters(M_rgps_file, movedmesh_root, conc_root,
                 -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
                 M_rgps_time_init, M_rgps_drifters_output_time_step);
 
@@ -11481,16 +11461,16 @@ FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the SIDFEX drifters, and saves the first netcdf time record
-//! Called by the checkDrifters() function.
+//! Called by the initDrifters() function.
 void
-FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     if (M_rank == 0)
     {
         std::string filename = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
 
-        M_sidfex_drifters = Drifters(filename, movedmesh_root, M_conc_root,
+        M_sidfex_drifters = Drifters(filename, movedmesh_root, conc_root,
                 -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
                 M_current_time, M_sidfex_drifters_output_time_step);
         
@@ -11504,7 +11484,7 @@ FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
 //! Initializes a new set of OSISAF drifters, and saves the first netcdf time record
 //! Called by the checkDrifters() function.
 void
-FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
+FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
     // OSISAF drift is calculated as a drifter displacement over 48 hours
     // - start a new one each day at 12:00
@@ -11535,7 +11515,7 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
     M_osisaf_drifters[0] = Drifters(osi_grid_file,
             "xc", "yc",
             "lat", "lon", movedmesh_root,
-            M_conc_root, vm["drifters.concentration_limit"].as<double>(),
+            conc_root, vm["drifters.concentration_limit"].as<double>(),
             M_current_time, M_osisaf_drifters_output_time_step);
 
     M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
