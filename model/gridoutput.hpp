@@ -301,6 +301,17 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+#if defined (WAVES)
+                //WIM variables
+                case (variableID::dfloe):
+                    name     = "dfloe";
+                    longName = "Maximum floe size";
+                    stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+#endif//WAVES
+
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
