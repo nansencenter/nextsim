@@ -73,10 +73,7 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
 void
 GmshMeshSeq::setMppFile()
 {
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+	M_mppfile = Environment::nextsimMppfile();
 }
 
 // GmshMeshSeq::~GmshMeshSeq()

@@ -10933,11 +10933,7 @@ FiniteElement::outputIabpDrifters()
 
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
@@ -10992,11 +10988,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
@@ -12381,11 +12373,7 @@ FiniteElement::checkFields()
 
         // get lon, lat at test position
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);

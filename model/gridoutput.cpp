@@ -157,10 +157,7 @@ GridOutput::initRegularGrid(int ncols, int nrows, double mooring_spacing, double
     M_grid.gridLON.assign(M_grid_size, 0.);
 
     mapx_class *map;
-    std::string filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string filename = Environment::nextsimMppfile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
 
@@ -234,13 +231,9 @@ GridOutput::initArbitraryGrid(Grid grid)
     M_grid.gridY.resize(M_grid_size);
 
     mapx_class *map;
-    filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    filename = Environment::nextsimMppfile();
     std::vector<char> str(filename.begin(), filename.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     for (int i=0; i<M_grid_size; ++i)
@@ -428,11 +421,7 @@ GridOutput::rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vector
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-
+    std::string configfileNextsim = Environment::nextsimMppfile();
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
