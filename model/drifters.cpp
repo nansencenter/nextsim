@@ -510,7 +510,6 @@ Drifters::appendNetCDF(double current_time)
     std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     std::vector<double> lat(M_num_drifters);
