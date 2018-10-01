@@ -349,7 +349,6 @@ public:
     typedef struct Vectorial_Variable
     {
         std::vector<int> components_Id;
-        bool east_west_oriented;
     } Vectorial_Variable;
 
     ///////////////////////////////////////////////////////////////////////
@@ -384,6 +383,7 @@ public:
     int M_nrows;
     double M_mooring_spacing;
     int M_grid_size;
+    bool M_false_easting;
     Grid M_grid;
     std::vector<Variable> M_nodal_variables;
     std::vector<Variable> M_elemental_variables;
@@ -412,6 +412,7 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
+    void initCommon(GmshMesh const& mesh);
     void initMask();
 
     void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,

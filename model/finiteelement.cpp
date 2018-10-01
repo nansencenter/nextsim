@@ -7003,13 +7003,13 @@ FiniteElement::initMoorings()
             }
         }
 
+#if defined (WAVES)
         if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
         {
-#if ! defined (WAVES)
             LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
             continue;
-#endif//WAVES
         }
+#endif//WAVES
 
         // Element variables
         if ( *it == "conc" )
@@ -7091,7 +7091,7 @@ FiniteElement::initMoorings()
 #endif//WAVES
 
         // Nodal variables and vectors
-        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        else if (*it == "velocity")
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
@@ -7105,11 +7105,6 @@ FiniteElement::initMoorings()
 
             GridOutput::Vectorial_Variable siuv;
             siuv.components_Id = siuv_id;
-            if ( *it == "velocity_xy" )
-                siuv.east_west_oriented = false;
-            else
-                siuv.east_west_oriented = true;
-
             vectorial_variables.push_back(siuv);
         }
 
@@ -7138,8 +7133,7 @@ FiniteElement::initMoorings()
 #if defined (WAVES)
             std::cout << "dfloe, ";
 #endif
-            std::cout << "velocity_xy, ";
-            std::cout << "velocity_uv";
+            std::cout << "velocity";
 
             throw std::runtime_error("Invalid mooring name");
         }
@@ -7182,10 +7176,21 @@ FiniteElement::initMoorings()
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
         // Read the grid in from file
+        // - add an .mpp file if the projection is different to the neXtSIM projection
+        // - if not given, assume it is the same as neXtSIM
+        std::string mpp_file = Environment::vm()["moorings.mppfile"].as<std::string>();
+        if(!mpp_file.empty())
+            mpp_file = (boost::format( "%1%/%2%" )
+                    % Environment::nextsimMeshDir().string()
+                    % mpp_file
+                    ).str();
+        else
+            mpp_file = Environment::nextsimMppfile();
+
         GridOutput::Grid grid{
             gridFile: Environment::vm()["moorings.grid_file"].as<std::string>(),
             dirname: "data",
-            mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
+            mpp_file: mpp_file,
             dimNameX: "y",
             dimNameY: "x",
             latName: "latitude",
