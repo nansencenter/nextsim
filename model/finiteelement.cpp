@@ -866,9 +866,9 @@ FiniteElement::initForcings()
     if (M_use_wim)
     {
         if (M_wave_type == setup::WaveType::WW3A)
-            M_wave_elements_dataset = DataSet("ww3a_elements",M_num_elements);
+            M_wave_elements_dataset = DataSet("ww3a_elements");
         else if (M_wave_type == setup::WaveType::ERAI_WAVES_1DEG)
-            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements",M_num_elements);
+            M_wave_elements_dataset = DataSet("erai_waves_1deg_elements");
         else if (M_wave_type != setup::WaveType::SET_IN_WIM)
         {
             std::cout << "invalid wave forcing"<<"\n";
@@ -9427,11 +9427,13 @@ FiniteElement::partiallyConstantIce()
         boost::mpi::broadcast(M_comm, xmax, 0);
         double xedge = xmin + 0.3*(xmax-xmin);
 
-        std::cout<<"In constantIce (partial cover)\n";
-        std::cout<<"M_ice_type "<< (int)M_ice_type<<"\n";
-        std::cout<<"xmin="<<xmin<<"\n";
-        std::cout<<"xmax="<<xmax<<"\n";
-        std::cout<<"xedge="<<xedge<<"\n";
+        if(M_rank==0)
+        {
+            LOG(DEBUG)<<"In constantIce (partial cover)\n";
+            LOG(DEBUG)<<"xmin="<<xmin<<"\n";
+            LOG(DEBUG)<<"xmax="<<xmax<<"\n";
+            LOG(DEBUG)<<"xedge="<<xedge<<"\n";
+        }
 
         auto Bx = M_mesh.bCoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
@@ -9443,10 +9445,6 @@ FiniteElement::partiallyConstantIce()
                 M_snow_thick[i] = 0.;
             }
         }
-        std::cout<<"Min conc = "<< *std::min_element(conc_root.begin(), conc_root.end()) <<"\n";
-        std::cout<<"Max conc = "<< *std::max_element(conc_root.begin(), conc_root.end()) <<"\n";
-        std::cout<<"Min thick = "<< *std::min_element(thick_root.begin(), thick_root.end()) <<"\n";
-        std::cout<<"Max thick = "<< *std::max_element(thick_root.begin(), thick_root.end()) <<"\n";
     }//CONSTANT_PARTIAL ice
 }//partiallyConstantIce
 
@@ -13275,9 +13273,13 @@ FiniteElement::wimCheckWaves()
         //nothing to do
         return;
 
-    this->checkReloadDatasets(M_external_data_waves, M_current_time, "wimCheckWaves");
+    if(M_rank==0)
+        LOG(DEBUG)<<"Check wave datasets\n";
+    auto RX = M_wim.getX();
+    auto RY = M_wim.getY();
+    this->checkReloadDatasets(M_external_data_waves, M_current_time, RX, RY);
 
-    int num_elements_wim = M_wim.getX().size();
+    int num_elements_wim = RX.size();
     //std::cout<<M_rank<< ": num_elements_wim: "<<num_elements_wim<<", "<<M_SWH.M_target_size<<"\n";
     dbl_vec swh_in(num_elements_wim, 0.);
     dbl_vec mwp_in(num_elements_wim, 0.);
