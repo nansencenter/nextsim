@@ -138,6 +138,9 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
         //get initial time from wimsetup.initialtime
         M_init_time_str = vm["wimsetup.initialtime"].as<std::string>();
 
+        //output directory
+        M_out_parent_dir = vm["wimdiag.outparentdir"].template as<std::string>();
+
         //save options from wimoptions.cpp
         this->saveOptionsLog();
     }
@@ -152,6 +155,10 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
 
         //if using restart, may need to calculate shift from initial time
         M_restart_time = nextsim_cpt*nextsim_time_step;//model time of current call to wim
+
+        //output directory
+        M_out_parent_dir = (boost::format( "%1%/WIM" )
+                % vm["output.exporter_path"].as<std::string>()).str();
  
         if ( vm["nextwim.coupling-option"].template as<std::string>() == "run_on_mesh")
             //run on mesh takes priority
@@ -169,7 +176,7 @@ void WimDiscr<T>::initConstant(int const& nextsim_cpt)
     std::cout<<"initial time = "<<M_init_time_str<<"\n";
     std::cout<<"restart time = "<<time_str1<<"\n";
 #endif
-}//end ::initConstant()
+}//initConstant()
 
 
 template<typename T>
@@ -873,15 +880,14 @@ void WimDiscr<T>::timeStep()
 
     // dump local diagnostic file
     // - directory to put it
-    std::string outdir = vm["wimdiag.outparentdir"].template as<std::string>();
-    fs::path path(outdir);
-    path /= "diagnostics/local";
+    std::string pathstr = M_out_parent_dir + "/diagnostics/local/";
+    fs::path path(pathstr);
     if ( !fs::exists(path) )
         fs::create_directories(path);
 
     //set file name and open
     std::string diagfile   = (boost::format( "%1%/WIMdiagnostics_local%2%.txt" )
-            % path.string() % timestpstr).str();
+            % pathstr % timestpstr).str();
 
     if ( M_dump_diag )
     {
@@ -2508,8 +2514,7 @@ void WimDiscr<T>::exportResults(std::string const& output_type)
 
     T_map_vec_ptrs extract_fields;
 
-    std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
-    pathstr += "/binaries/";
+    std::string pathstr = M_out_parent_dir + "/binaries/";
     if (!(output_type=="INIT" || output_type=="FINAL"))
         // - save the very initial and very final conditions to root directory
         // - else make a separate directory for each type of result
@@ -2764,8 +2769,7 @@ void WimDiscr<T>::exportResultsMesh(T_map_vec_ptrs & extract_fields,
 template<typename T>
 void WimDiscr<T>::testMesh()
 {
-    std::string pathstr = vm["wimdiag.outparentdir"].template as<std::string>();
-    pathstr += "/binaries/test_mesh";
+    std::string pathstr = M_out_parent_dir + "/binaries/test_mesh";
     fs::path path(pathstr);
     if ( !fs::exists(path) )
         fs::create_directories(path);
@@ -2804,9 +2808,8 @@ void WimDiscr<T>::exportMesh(std::string const &filename)
 template<typename T>
 void WimDiscr<T>::saveLog(T_val const& t_out) const
 {
-    std::string str = vm["wimdiag.outparentdir"].template as<std::string>();
-    fs::path path(str);
-    path /= "diagnostics/global";
+    std::string pathstr = M_out_parent_dir + "/diagnostics/global";
+    fs::path path(pathstr);
     if ( !fs::exists(path) )
        fs::create_directories(path);
 
@@ -2961,14 +2964,12 @@ void WimDiscr<T>::saveLog(T_val const& t_out) const
 template<typename T>
 void WimDiscr<T>::saveOptionsLog()
 {
-    std::string fileout = vm["wimdiag.outparentdir"].template as<std::string>();
-    fileout += "/diagnostics/global";
-    fs::path path(fileout);
+    std::string pathstr = M_out_parent_dir + "/diagnostics/global";
+    fs::path path(pathstr);
     if ( !fs::exists(path) )
        fs::create_directories(path);
 
-    fileout += "/wimoptions.log";
-
+    std::string fileout = pathstr + "/wimoptions.log";
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
     std::cout << "Writing log file " << fileout << "...\n";
 

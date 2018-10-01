@@ -6826,11 +6826,8 @@ FiniteElement::init()
     // - after 1st regrid
     // - NB it calls forcingWave() 
     if (M_use_wim)
-    {
-        LOG(DEBUG) <<"Initialize WIM\n";
         this->initWim(pcpt);
-    }
-#endif
+#endif//WAVES
 
     //! - 7) Initializes the moorings - if requested - using the initMoorings() function,
     LOG(DEBUG) << "initMoorings\n";
@@ -12668,7 +12665,10 @@ FiniteElement::initWim(int const pcpt, FEMeshType const &movedmesh, BamgMesh* ba
     // 2. if on master processor
     bool do_wim_comm = (M_parallel_wim || M_rank==0);
     if (do_wim_comm)
+    {
+        LOG(DEBUG) <<"[" <<M_rank<< "] Initialize WIM\n";
         M_wim.initCoupled(pcpt, movedmesh, bamgmesh_wim, M_flag_fix);
+    }
 
     M_comm.barrier();//all processors wait here
 #if 1

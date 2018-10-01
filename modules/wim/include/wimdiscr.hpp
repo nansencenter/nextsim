@@ -333,6 +333,7 @@ private:
     T_val M_timestep = 0.;
     T_val M_duration = 0.;
     int M_num_timesteps;
+    std::string M_out_parent_dir;
 
     int nwavedirn, nwavefreq, M_advdim;
     bool M_ref_Hs_ice, M_atten, M_useicevel, M_steady, M_breaking;
