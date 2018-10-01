@@ -205,7 +205,8 @@ public:
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                             double const& CRtime, std::string const& printout);
+                    double const& CRtime, std::vector<double> &RX, std::vector<double> &RY);
+    void checkReloadMainDatasets(double const& CRtime);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -555,10 +556,8 @@ private:
     std::vector<double> M_h_ridged_thin_ice;
     std::vector<double> M_h_ridged_thick_ice;
 
-    external_data_vec M_external_data;
-    external_data_vec M_external_data_tmp;
+    external_data_vec M_external_data_elements, M_external_data_nodes;
     Dataset_vec M_datasets_regrid;
-    //std::vector<external_data*> M_external_data;
 
     std::vector<double> M_fcor;
 
