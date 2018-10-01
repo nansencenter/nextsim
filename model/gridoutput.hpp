@@ -377,6 +377,7 @@ public:
     void resetGridMean();
     void resetMeshMean(GmshMesh const& mesh);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
+    void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
 
     int M_ncols;
