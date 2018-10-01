@@ -135,6 +135,10 @@ GridOutput::~GridOutput()
 void
 GridOutput::initCommon(GmshMesh const& mesh)
 {
+    M_averaging_period = 0.;
+    if (!Environment::vm()["moorings.snapshot"].as<bool>())
+        M_averaging_period = Environment::vm()["moorings.output_timestep"].as<double>();//days
+
     M_false_easting = Environment::vm()["moorings.false_easting"].as<bool>();
     this->resetMeshMean(mesh);
     this->initMask();
@@ -557,12 +561,21 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     // Create the time dimension
     netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
 
+    // Create the nv dimension for time_bnds
+    netCDF::NcDim nvDim = dataFile.addDim("nv", 2);
+
     // Create the time variable
     netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
-    time.putAtt("standard_name","time");
-    time.putAtt("long_name","simulation time");
-    time.putAtt("units","days since 1900-01-01 00:00:00");
-    time.putAtt("calendar","standard");
+    time.putAtt("standard_name", "time");
+    time.putAtt("long_name", "simulation time");
+    time.putAtt("units", "days since 1900-01-01 00:00:00");
+    time.putAtt("calendar", "standard");
+    time.putAtt("bounds", "time_bnds");
+
+    // Create the time_bnds variable (specify the time period each record applies to)
+    std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
+    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncFloat, dims_bnds);
+    time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
 
     M_nc_step=0;
 
@@ -578,7 +591,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     std::string cell_methods_time = "time: point ";//for snapshot
     if (!Environment::vm()["moorings.snapshot"].as<bool>())
     {
-        double averaging_period = Environment::vm()["moorings.output_timestep"].as<double>()*24.;//hours
+        double averaging_period = 24*M_averaging_period;//hours
         cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
                                % averaging_period
                                ).str();
@@ -650,6 +663,19 @@ GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
 
     // - determine false easting string
     int false_easting = (M_false_easting) ? 1 : 0;
+
+    double a = 1.e3*map->equatorial_radius;
+    double b = 1.e3*map->polar_radius;
+    double lat0 = map->lat0;
+    double lat_ts = map->lat1;
+    double rotn = map->rotation;
+    std::string proj4 = ( boost::format( "+proj=stere +a=%1% +b=%2% +lat_0=%3% +lat_ts=%4% +lon_0=%5%" )
+            %a
+            %b
+            %lat0
+            %lat_ts
+            %rotn
+            ).str();
     
     // - add the projection variable
     std::vector<netCDF::NcDim> dims0(0);
@@ -657,11 +683,12 @@ GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
     proj.putAtt("grid_mapping_name", "polar_stereographic");
     proj.putAtt("false_easting", netCDF::ncInt, false_easting);
     proj.putAtt("false_northing", netCDF::ncInt, false_easting);
-    proj.putAtt("semi_major_axis", netCDF::ncFloat, 1.e3*map->equatorial_radius);
-    proj.putAtt("semi_minor_axis", netCDF::ncFloat, 1.e3*map->polar_radius);
-    proj.putAtt("straight_vertical_longitude_from_pole", netCDF::ncFloat, map->rotation);
-	proj.putAtt("latitude_of_projection_origin", netCDF::ncFloat, map->lat0);
-    proj.putAtt("standard_parallel", netCDF::ncFloat, map->lat1);
+    proj.putAtt("semi_major_axis", netCDF::ncFloat, a);
+    proj.putAtt("semi_minor_axis", netCDF::ncFloat, b);
+    proj.putAtt("straight_vertical_longitude_from_pole", netCDF::ncFloat, rotn);
+	proj.putAtt("latitude_of_projection_origin", netCDF::ncFloat, lat0);
+    proj.putAtt("standard_parallel", netCDF::ncFloat, lat_ts);
+    proj.putAtt("proj4_string", proj4);
     close_mapx(map);
 }
 
@@ -674,39 +701,49 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
 
     // Append to time
-    std::vector<size_t> start;
-    start.push_back(M_nc_step);
-
-    std::vector<size_t> count;
-    count.push_back(1);
-
-    M_nc_step++;
-
-    netCDF::NcVar time = dataFile.getVar("time");
-    time.putVar(start, count, &timestamp);
+    this->updateNetCDFTime(dataFile, timestamp);
 
     // Append to the output variables
-    start.push_back(0);
-    start.push_back(0);
-
-    count.push_back(M_ncols);
-    count.push_back(M_nrows);
+    std::vector<size_t> start = {M_nc_step, 0, 0};
+    std::vector<size_t> count = {1, M_ncols, M_nrows};
 
     // Save to file
     netCDF::NcVar data;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
+
+    M_nc_step++;
 }
+
+
+void
+GridOutput::updateNetCDFTime(netCDF::NcFile &dataFile, double timestamp)
+{
+
+    // Append to time
+    std::vector<size_t> start = {M_nc_step};
+    std::vector<size_t> count = {1};
+    netCDF::NcVar time = dataFile.getVar("time");
+    time.putVar(start, count, &timestamp);
+
+    // Append to time_bnds
+    start = {M_nc_step, 0};
+    count = {1, 2};
+    netCDF::NcVar time_bnds = dataFile.getVar("time_bnds");
+    std::vector<double> tbdata = {timestamp -0.5*M_averaging_period, timestamp +0.5*M_averaging_period};
+    time_bnds.putVar(start, count, &tbdata[0]);
+}
+
 } // Nextsim
