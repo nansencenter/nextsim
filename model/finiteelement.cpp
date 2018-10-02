@@ -6725,10 +6725,6 @@ FiniteElement::initOASIS()
     elemental_variables.push_back(Sflx);
     elemental_variables.push_back(conc);
 
-    // We need a proc_mask
-    GridOutput::Variable proc_mask(GridOutput::variableID::proc_mask);
-    elemental_variables.push_back(proc_mask);
-
     // The vectorial variables are ...
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
 
@@ -7621,11 +7617,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
 
             // Non-output variables
-            case (GridOutput::variableID::proc_mask):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] = 1;
-                break;
-
             case (GridOutput::variableID::ice_mask):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
@@ -7950,13 +7941,6 @@ FiniteElement::initMoorings()
 
             throw std::runtime_error("Invalid mooring name");
         }
-    }
-
-    // Need a mask for the nodal variables
-    if ( nodal_variables.size() > 0 )
-    {
-        GridOutput::Variable proc_mask(GridOutput::variableID::proc_mask);
-        elemental_variables.push_back(proc_mask);
     }
 
     // A mask for velocity (if we want it)

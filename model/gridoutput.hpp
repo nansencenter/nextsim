@@ -492,9 +492,7 @@ private:
 
     interpMethod M_interp_method;
 
-    int M_proc_mask_indx;
     int M_ice_mask_indx;
-    int M_num_masked;
 
     GridOutput(std::vector<Variable> variables, variableKind kind);
 
@@ -511,8 +509,6 @@ private:
     void applyLSM();
 
     void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
-    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val,
-        bool apply_mask, Variable mask);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
@@ -521,6 +517,9 @@ private:
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
+
+    void setProcMask(BamgMesh* bamgmesh);
+    std::vector<double> M_proc_mask;
 };
 } // Nextsim
 #endif // __GridOutput_H

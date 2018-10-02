@@ -199,9 +199,9 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
 
     M_use_lsm = false;
     M_lsm.assign(M_grid_size, 1);
+    this->initMask();
     this->resetGridMean();
     this->resetMeshMean(bamgmesh);
-    this->initMask();
 }
 
 void
@@ -300,50 +300,37 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
 
     M_use_lsm = false;
     M_lsm.assign(M_grid_size, 1);
+    this->initMask();
     this->resetGridMean();
     this->resetMeshMean(bamgmesh, true);
-    this->initMask();
 }
 
 void
 GridOutput::initMask()
 {
-    M_proc_mask_indx = -1;
     M_ice_mask_indx = -1;
-    M_num_masked = 0;
 
     for ( int i=0; i<M_elemental_variables.size(); ++i )
-    {
-        if (M_elemental_variables[i].varID==variableID::proc_mask)
-        {
-            M_proc_mask_indx = i;
-            M_num_masked++;
-        }
         if (M_elemental_variables[i].varID==variableID::ice_mask)
-        {
             M_ice_mask_indx = i;
-            M_num_masked++;
-        }
-    }
+}
 
-    // Move the masks to the end and reset M_*_mask_indx
-    if ( M_proc_mask_indx != -1 )
-    {
-        std::swap(M_elemental_variables[M_proc_mask_indx], M_elemental_variables.back());
-        M_proc_mask_indx = M_elemental_variables.size()-1;
-    }
+void
+GridOutput::setProcMask(BamgMesh* bamgmesh)
+{
+    // Call the worker routine using a vector of ones and give zero for missing values and gohsts
+    std::vector<Variable> variables(1);
+    variables[0] = Variable(variableID::proc_mask);
 
-    if ( M_ice_mask_indx != -1 )
-    {
-        if ( M_proc_mask_indx != -1 ) // Move to the 2nd last if we've already moved proc mask
-        {
-            std::swap( M_elemental_variables[M_ice_mask_indx], *(M_elemental_variables.end()-2) );
-            M_ice_mask_indx = M_elemental_variables.size()-2;
-        } else {
-            std::swap( M_elemental_variables[M_ice_mask_indx], *(M_elemental_variables.end()-1) );
-            M_ice_mask_indx = M_elemental_variables.size()-1;
-        }
-    }
+    variables[0].data_grid.assign(M_grid_size,0);
+    variables[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
+
+    std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + bamgmesh->TrianglesSize[2], 1. );
+    std::fill( variables[0].data_mesh.begin() + bamgmesh->TrianglesSize[2],variables[0].data_mesh.end(),  0. );
+
+    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
+
+    M_proc_mask = variables[0].data_grid;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -354,20 +341,11 @@ GridOutput::initMask()
 void
 GridOutput::updateGridMean(BamgMesh* bamgmesh)
 {
-    // Reset proc_mask
-    if (M_proc_mask_indx != -1)
-        M_elemental_variables[M_proc_mask_indx].data_grid.assign(M_grid_size, 0.);
-
     // Call the worker routine for the elements
     this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_interp_method, M_elemental_variables, M_miss_val);
 
     // Call the worker routine for the nodes
-    if (M_proc_mask_indx != -1)
-        this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_interp_method, M_nodal_variables, M_miss_val,
-                true, M_elemental_variables[M_proc_mask_indx]);
-    else
-        if ( M_nodal_variables.size() > 0 )
-            throw std::logic_error("GridOutput::updateGridMean: There are nodal variables to be interpolated but no proc_mask set.");
+    this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_interp_method, M_nodal_variables, M_miss_val);
 
     // Ice mask if that's requested
     for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); it++ )
@@ -386,16 +364,6 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh)
 // Interpolate from the mesh to the grid - updating the gridded mean
 void
 GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
-{
-    bool apply_mask = false;
-    Variable mask(variableID::proc_mask);
-
-    this->updateGridMeanWorker(bamgmesh, kind, method, variables, miss_val, apply_mask, mask);
-}
-
-void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val,
-        bool apply_mask, Variable mask)
 {
     int nb_var = variables.size();
     if ( nb_var == 0 )
@@ -444,7 +412,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
         if ( kind==variableKind::elemental && method==interpMethod::conservative )
             ConservativeRemappingMeshToGrid(interp_out, interp_in,
                                     nb_var, M_grid_size, 0.,
-                                    M_gridP, M_triangles, M_weights, M_num_masked);
+                                    M_gridP, M_triangles, M_weights);
         else
             InterpFromMeshToMesh2dx(&interp_out,
                                     &indexTr[0],&coordX[0],&coordY[0],
@@ -481,7 +449,10 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     // Add the output pointer value to the grid vectors
     for (int i=0; i<nb_var; i++)
         for (int j=0; j<M_grid_size; ++j)
-                variables[i].data_grid[j] += apply_mask ? (interp_out[nb_var*j+i]*mask.data_grid[j]) : interp_out[nb_var*j+i];
+            if ( kind == variableKind::nodal )
+                variables[i].data_grid[j] += interp_out[nb_var*j+i]*M_proc_mask[j];
+            else
+                variables[i].data_grid[j] += interp_out[nb_var*j+i];
 
     xDelete<double>(interp_out);
 }
@@ -590,7 +561,7 @@ GridOutput::applyLSM()
                 var.data_grid[i] = M_miss_val;
 }
 
-// Set the _mesh values back to zero and recalculate weights if needed (and if they're being used)
+// Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
 void
 GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
 {
@@ -605,6 +576,9 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
                                 M_grid.gridX,M_grid.gridY,
                                 M_grid.gridCornerX,M_grid.gridCornerY,
                                 M_gridP, M_triangles, M_weights);
+
+    if ( M_nodal_variables.size() > 0 )
+        this->setProcMask(bamgmesh);
 }
 
 // Initialise a netCDF file and return the file name in an std::string
