@@ -681,8 +681,8 @@ GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
     std::vector<netCDF::NcDim> dims0(0);
     netCDF::NcVar proj = dataFile.addVar("Polar_Stereographic_Grid", netCDF::ncInt, dims0);
     proj.putAtt("grid_mapping_name", "polar_stereographic");
-    proj.putAtt("false_easting", netCDF::ncInt, false_easting);
-    proj.putAtt("false_northing", netCDF::ncInt, false_easting);
+    proj.putAtt("false_easting", netCDF::ncFloat, false_easting);
+    proj.putAtt("false_northing", netCDF::ncFloat, false_easting);
     proj.putAtt("semi_major_axis", netCDF::ncFloat, a);
     proj.putAtt("semi_minor_axis", netCDF::ncFloat, b);
     proj.putAtt("straight_vertical_longitude_from_pole", netCDF::ncFloat, rotn);
