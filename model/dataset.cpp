@@ -176,7 +176,9 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: "NpsASR.mpp",
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+                branch_cut_lon: -180,
+                    // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                    // and is now determined automatically in loadGrid)
 
                 loaded: false,
                 dataset_frequency:"monthly",
@@ -317,7 +319,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "NpsASR.mpp",
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -623,7 +627,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -823,7 +829,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -982,7 +990,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1209,7 +1219,9 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+                branch_cut_lon: -180,
+                    // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                    // and is now determined automatically in loadGrid)
 
                 loaded: false,
                 dataset_frequency:"daily",
@@ -1387,7 +1399,9 @@ DataSet::DataSet(char const *DatasetName)
 
               mpp_file: projfilename,
               interpolation_in_latlon: false,
-              branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+              branch_cut_lon: -180,
+                  // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                  // and is now determined automatically in loadGrid)
 
               loaded: false,
               dataset_frequency:"daily",
@@ -1601,7 +1615,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1764,7 +1780,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1877,7 +1895,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -1988,7 +2008,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -2173,7 +2195,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -2373,7 +2397,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -2561,7 +2587,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
@@ -2810,7 +2838,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
@@ -3001,7 +3031,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -3178,7 +3210,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"yearly",
@@ -3359,7 +3393,9 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+                branch_cut_lon: -180,
+                    // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                    // and is now determined automatically in loadGrid)
 
                 loaded: false,
                 dataset_frequency:"yearly",
@@ -3509,7 +3545,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -3667,7 +3705,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -3809,7 +3849,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -3950,7 +3992,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4081,7 +4125,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4239,7 +4285,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4397,7 +4445,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4555,7 +4605,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4669,7 +4721,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
      		interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -4773,8 +4827,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.98, // for the 4 deg dataset  // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
-            //branch_cut_lon: -180,// for the 1 deg dataset // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -4900,7 +4955,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -5023,7 +5080,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -5278,7 +5337,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
 
@@ -5458,7 +5519,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
 
@@ -5639,7 +5702,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -5893,7 +5958,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
 
@@ -6074,7 +6141,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -6278,7 +6347,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
 
@@ -6459,7 +6530,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily_ec2_forecast",
@@ -6715,7 +6788,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
 
@@ -7023,7 +7098,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -7162,7 +7239,9 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: 0,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+            branch_cut_lon: -180,
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 
             loaded: false,
             dataset_frequency:"yearly",
