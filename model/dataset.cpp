@@ -7526,14 +7526,36 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
-	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
+	if(grid_ptr->interpolation_in_latlon)
 	{
+        ASSERT((grid_ptr->latitude.dimensions.size()==1)
+                && (grid_ptr->longitude.dimensions.size()==1),
+                "lon & lat should be dimensions if Dataset::grid.interpolation_in_latlon = true");
+        ASSERT(grid_ptr->interpolation_method == InterpolationType::FromGridToMesh,
+                "Dataset::grid.interpolation_method should be FromGridToMesh if Dataset::grid.interpolation_in_latlon = true");
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
+        // first we load longitude determine where the branch cut should be
+        // - check 1st element
+        std::vector<size_t> index_lon_start = {0};
+        std::vector<size_t> index_lon_count = {1};
+		std::vector<double> LON(1);
+        VLON.getVar(index_lon_start, index_lon_count, &LON[0]);
+        double lon0 = LON[0];
+        grid_ptr->branch_cut_lon = LON[0];
+        // - check last element
+        index_lon_start[0] = grid_ptr->dimension_x_count_netcdf - 1;
+        VLON.getVar(index_lon_start, index_lon_count, &LON[0]);
+        double lon1 = LON[0];
+
+        grid_ptr->branch_cut_lon = std::min(lon0, lon1);
+        // TODO we could determine what make_cyclic should be here too, ie
+        // grid_ptr.dimension_x.make_cyclic = (grid_ptr->branch_cut_lon + 360. != std::max(lon0, lon1));
+
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
-		std::vector<double> LON(grid_ptr->dimension_x_count);
+		LON.resize(grid_ptr->dimension_x_count);
 
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
@@ -7585,6 +7607,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	}//end regular lat=lon
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
+        // regular x,y grid
+        // - interp from grid to mesh
+        // - need grid.mpp_file to be correct .mpp file
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
@@ -7642,8 +7667,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	}//end interpolation_method==InterpolationType::FromGridToMesh
 	else
 	{
-        //interpolation_method==InterpolationType::FromMeshToMesh2dx
-
+        // interpolation_method==InterpolationType::FromMeshToMesh2dx
+        // - most general method
+        // - project to x,y plane with nextsim .mpp file and do interpolation in x,y space
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 

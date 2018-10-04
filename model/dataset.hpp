@@ -18,6 +18,7 @@
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>
 #include <BamgTriangulatex.h>
+#include <assert.hpp>
 extern "C"
 {
 #include <mapx.h>
