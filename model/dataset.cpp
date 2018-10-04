@@ -4950,7 +4950,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -5205,7 +5205,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -5386,7 +5386,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
