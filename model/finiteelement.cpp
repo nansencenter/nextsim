@@ -4465,7 +4465,7 @@ FiniteElement::assemble(int pcpt)
             else
                 mass_e = 0.;
 
-            /* compute the x and y derivative of g*ssh */
+            /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
             double g_ssh_e_y = 0.;
             double g_ssh_e;
@@ -4479,10 +4479,10 @@ FiniteElement::assemble(int pcpt)
 
             coef_drag  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/time_step;             /* for the inertial term */
+            coef_V     = mass_e/time_step;                /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*multiplicator;
+            coef_sigma = M_thick[cpt]*multiplicator;      /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4874,7 +4874,7 @@ FiniteElement::update()
          *======================================================================
          */
 
-        /* Compute the elastic deformation and the instantaneous deformation rate */
+        //! - Computes the elastic deformation and the instantaneous deformation rate
         for(int i=0;i<3;i++)
         {
             epsilon_veloc_i = 0.0;
@@ -4893,8 +4893,7 @@ FiniteElement::update()
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
 
         /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+        //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
@@ -4933,8 +4932,7 @@ FiniteElement::update()
         }
 
         /*======================================================================
-         * Ridging scheme and mechanical redistribution
-         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
+        //! - Performs the mechanical redistribution (after the advection the concentration can be higher than 1, meaning that ridging should have occured)
          *======================================================================
          */
         double open_water_concentration=1.-M_conc[cpt];
@@ -5040,7 +5038,7 @@ FiniteElement::update()
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
-         * Update the internal stress
+         //! - Updates the internal stress
          *======================================================================
          */
 
@@ -5070,7 +5068,7 @@ FiniteElement::update()
         }
 
         /*======================================================================
-         * Correct the internal stress and the damage
+         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
          *======================================================================
          */
 
@@ -5092,6 +5090,7 @@ FiniteElement::update()
         else
             hi = M_thick[cpt]/0.1;
 
+        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
         double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
         double effective_cohesion = mult_factor * M_Cohesion[cpt];
@@ -5100,11 +5099,11 @@ FiniteElement::update()
         q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
-
-        /* minimum and maximum normal stress */
-        tract_max=-tract_coef*effective_cohesion/tan_phi;
-
-        /* Correction of the damage */
+        tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
+            
+            
+        /* Calculate the adjusted level of damage */
+            //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
         if(sigma_n>effective_compressive_strength)
         {
             sigma_target=effective_compressive_strength;
