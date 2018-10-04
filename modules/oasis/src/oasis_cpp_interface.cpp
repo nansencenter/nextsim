@@ -16,7 +16,7 @@ extern "C"
   // tm 19/10/2015
   int oasis3_abort(int *, const char *, const char *, int *, int *);
   int oasis3_get_localcomm(int *);
-  int oasis3_create_couplcomm(int *, int *);
+  int oasis3_create_couplcomm(int *, int *, int *);
   int oasis3_start_grids_writing(int *);
   int oasis3_write_grid(const char *, int *, int *, double *, double *, int*);
   int oasis3_write_corner(const char *, int *, int *, int *, double *, double *, int*);
@@ -95,13 +95,18 @@ int OASIS3::get_localcomm(MPI_Comm *localcomm)
   return ierror;
 }
 
-int OASIS3::create_couplcomm(bool active, MPI_Comm *cplcomm)
+int OASIS3::create_couplcomm(bool active, MPI_Comm *localcomm, MPI_Comm *cplcomm)
 {
   int fortran_cplcomm;
+  MPI_Fint fortran_localcomm;
   int ierror;
   int icpl = int(active);
+
+  // conversion du communicateur MPI fortran (int) en un communicateur C
+  fortran_localcomm = MPI_Comm_c2f(*localcomm);
+
   // communicateur fortran donne par OASIS
-  ierror = oasis3_create_couplcomm(&icpl, &fortran_cplcomm);
+  ierror = oasis3_create_couplcomm(&icpl, &fortran_localcomm, &fortran_cplcomm);
 
   // conversion du communicateur MPI fortran (int) en un communicateur C
   *cplcomm   = MPI_Comm_f2c(fortran_cplcomm);

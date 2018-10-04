@@ -381,6 +381,7 @@ namespace Nextsim
              * -----------------------------------------------------------------------------------
              */
 #if defined(OASIS)
+            ("coupler.component_name", po::value<std::string>()->default_value( "nxtsim" ), "Component name (6 characters) same as in the namcouple")
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             // ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")

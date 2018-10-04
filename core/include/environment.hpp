@@ -16,6 +16,9 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 namespace Nextsim
 {
@@ -61,7 +64,7 @@ public:
 
     Environment( int& argc, char** &argv );
 
-    Environment( int& argc, char** &argv, po::options_description desc, Communicator const& comm = Communicator::commSelf());
+    Environment( int& argc, char** &argv, po::options_description desc );
 
     ~Environment();
 

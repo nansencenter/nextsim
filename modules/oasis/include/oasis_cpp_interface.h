@@ -1,3 +1,6 @@
+#ifndef __OASIS_HPP
+#define __OASIS_HPP 1
+
 #include "mpi.h"
 #include <string>
 
@@ -121,7 +124,7 @@ class OASIS3
     // ajout  tm 19/10/2015
  public : static int abort(int ,  std::string, std::string);
  public : static int get_localcomm(MPI_Comm *);
- public : static int create_couplcomm(bool, MPI_Comm *);
+ public : static int create_couplcomm(bool, MPI_Comm *, MPI_Comm *);
  public : static int start_grids_writing(int *);
  public : static int start_grids_writing(int);
  public : static int terminate_grids_writing();
@@ -131,3 +134,4 @@ class OASIS3
  public : static int write_mask(std::string, int, int, int *);
 
 };
+#endif

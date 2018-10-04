@@ -6657,38 +6657,39 @@ FiniteElement::initOASIS()
 {
     //!!!!!!!!!!!!!!!!! OASIS_INIT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    int ierror, rank;
-    int  mype, npes;             // rank and  number of pe
-    MPI_Comm localComm, cplComm; // local and couple MPI communicators
-    int comp_id;                 // Initialized Component identification
-    const char * comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
+    // int ierror, rank;
+    // int  mype, npes;             // rank and  number of pe
+    // MPI_Comm localComm, cplComm; // local and couple MPI communicators
+    // int comp_id;                 // Initialized Component identification
+    // const char * comp_name = "nxtsim";  // Component name (6 characters) same as in the namcouple
 
-    ierror = OASIS3::init_comp(&comp_id, comp_name);
-    if (ierror != 0) {
-        std::cout << "oasis_init_comp abort by nextsim with error code " << ierror << std::endl;
-        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::init_comp");
-    }
+    // ierror = OASIS3::init_comp(&comp_id, comp_name);
+    // if (ierror != 0) {
+    //     std::cout << "oasis_init_comp abort by nextsim with error code " << ierror << std::endl;
+    //     OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::init_comp");
+    // }
 
-    // Unit for output messages : one file for each process
-    ierror =  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-
-    //!!!!!!!!!!!!!!!!! OASIS_GET_LOCALCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ierror = OASIS3::get_localcomm(&localComm);
-    if (ierror != 0) {
-        std::cout << "oasis_get_localcomm abort by nextsim with error code " << ierror << std::endl;
-        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::get_localcomm");
-    }
+    // // Unit for output messages : one file for each process
+    // ierror =  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 
-    // Get MPI size and rank
-    ierror = MPI_Comm_size(localComm, &npes);
-    ierror = MPI_Comm_rank(localComm, &mype);
-    std::cout << "npes : " << npes << "  mype : " << mype << std::endl;
+    // //!!!!!!!!!!!!!!!!! OASIS_GET_LOCALCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // ierror = OASIS3::get_localcomm(&localComm);
+    // if (ierror != 0) {
+    //     std::cout << "oasis_get_localcomm abort by nextsim with error code " << ierror << std::endl;
+    //     OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::get_localcomm");
+    // }
 
-    //!!!!!!!!!!!!!!!!! OASIS_CREATE_COUPLCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // Only root is active
-    ierror = OASIS3::create_couplcomm(M_rank==0, &cplComm);
+
+    // // Get MPI size and rank
+    // ierror = MPI_Comm_size(localComm, &npes);
+    // ierror = MPI_Comm_rank(localComm, &mype);
+    // std::cout << "npes : " << npes << "  mype : " << mype << std::endl;
+
+    // //!!!!!!!!!!!!!!!!! OASIS_CREATE_COUPLCOMM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // // Only root is active
+    // MPI_Comm cplComm;
+    // int ierror = OASIS3::create_couplcomm(M_rank==0, &cplComm);
 
     // // Initialise Petsc
     // PETSC_COMM_WORLD = localComm;
@@ -6814,10 +6815,11 @@ FiniteElement::initOASIS()
     else
         ig_paral[2] = 0;            // only root is coupling
 
-    ierror = OASIS3::def_partition(&part_id, ig_paral, (int) sizeof(ig_paral));
+    int ierror = OASIS3::def_partition(&part_id, ig_paral, (int) sizeof(ig_paral));
     if (ierror != 0) {
         std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
-        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::def_partition");
+        // FIXME: Why does this not work?
+        //OASIS3::abort(Environment::compId(), "FiniteElement::initOASIS", "Problem calling OASIS3::def_partition");
     }
     std::cout << "Partition definition done\n";
 
@@ -7224,7 +7226,6 @@ FiniteElement::run()
     else if(duration==0)
         is_running = false;
 
-#if 1
     // main loop for nextsim program
     while (is_running)
     {
@@ -7265,19 +7266,8 @@ FiniteElement::run()
     // **********************************************************************
     // Finalizing
     // **********************************************************************
-    this->finalise();
 
-#endif
-
-    M_comm.barrier();
-
-    if (M_rank==0)
-    {
-        std::cout <<"nb regrid total = " << M_nb_regrid <<"\n";
-
-        std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
-    }
+    this->finalise(current_time_system);
 }//run
 
     
@@ -12759,7 +12749,7 @@ FiniteElement::checkFields()
 //! Finalizes the run: clears meshes and some matrices used by the solver.
 //! Called by the step() function.
 void
-FiniteElement::finalise()
+FiniteElement::finalise(std::string current_time_system)
 {
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)
@@ -12767,10 +12757,6 @@ FiniteElement::finalise()
         M_iabp_file.close();
         M_iabp_out.close();
     }
-
-#ifdef OASIS
-    int ierror = OASIS3::terminate();
-#endif
 
     // Clear ponters etc
     M_comm.barrier();
@@ -12804,6 +12790,20 @@ FiniteElement::finalise()
     M_vector->clear();
     M_solution->clear();
     M_solver->clear();
+
+    M_comm.barrier();
+
+    if (M_rank==0)
+    {
+        std::cout <<"nb regrid total = " << M_nb_regrid <<"\n";
+
+        std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+        std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+    }
+
+#ifdef OASIS
+    int ierror = OASIS3::terminate();
+#endif
 }//finalise
 
 } // Nextsim

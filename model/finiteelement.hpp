@@ -299,7 +299,7 @@ public:
 
     void bcMarkedNodes();
 
-    void finalise();
+    void finalise(std::string current_time_system);
 
 public:
     std::string gitRevision();
