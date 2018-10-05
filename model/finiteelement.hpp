@@ -697,6 +697,8 @@ private:
     std::string M_moorings_file;
     GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
+    bool M_moorings_false_easting;
+    double M_moorings_averaging_period;
 
 private:
 

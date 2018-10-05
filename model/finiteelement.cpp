@@ -1282,8 +1282,14 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length (in time) of the mooring output file (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
-    
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
+        //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
+        //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
+        //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
+    M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (days): mainly for netcdf metadata
+    if(!M_moorings_snapshot)
+        M_moorings_averaging_period = vm["moorings.output_timestep"].as<double>();
     
     //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
@@ -7194,7 +7200,8 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables,
+                elemental_variables, vectorial_variables, M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
@@ -7221,7 +7228,8 @@ FiniteElement::initMoorings()
         };
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, M_moorings_false_easting);
     }
     else
     {

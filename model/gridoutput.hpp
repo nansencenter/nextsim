@@ -356,17 +356,23 @@ public:
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
+    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables,
+            variableKind kind, double const& averaging_period, bool const& false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind);
+    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+            double const& averaging_period, bool const& false_easting);
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+            std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, double const& averaging_period, bool const& false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double const& averaging_period, bool const& false_easting);
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables,
+            std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables, double const& averaging_period, bool const& false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            std::vector<Vectorial_Variable> vectorial_variables, double const& averaging_period, bool const& false_easting);
 
     ~GridOutput();
 
@@ -415,7 +421,7 @@ private:
 
     void initArbitraryGrid(Grid grid);
 
-    void initCommon(GmshMesh const& mesh);
+    void initCommon(GmshMesh const& mesh, double const& averaging_period, bool const& false_easting);
     void initMask();
 
     void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,

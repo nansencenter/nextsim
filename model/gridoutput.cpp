@@ -47,21 +47,24 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
+        double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
+        double const& averaging_period, bool const& false_easting)
     :
     GridOutput(variables, kind)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables,
+        variableKind kind, double const& averaging_period, bool const& false_easting)
     :
     GridOutput(variables, kind)
 {
     this->initArbitraryGrid(grid);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -78,21 +81,24 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 // constructor for nodal and elemental variables only (no vectors) - regular grid
 GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       double const& averaging_period, bool const& false_easting)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables,
+        std::vector<Variable> elemental_variables,
+        double const& averaging_period, bool const& false_easting)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
     this->initArbitraryGrid(grid);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -108,22 +114,24 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 // constructor for nodal, elemental and vectorial variables - regular grid
 GridOutput::GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       std::vector<Vectorial_Variable> vectorial_variables, double const& averaging_period, bool const& false_easting)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initRegularGrid(ncols, nrows, mooring_spacing, xmin, ymin);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
 GridOutput::GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables,
-                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+                       double const& averaging_period, bool const& false_easting)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
     this->initArbitraryGrid(grid);
-    this->initCommon(mesh);
+    this->initCommon(mesh, averaging_period, false_easting);
 }
 
 GridOutput::~GridOutput()
@@ -133,13 +141,10 @@ GridOutput::~GridOutput()
 // Initialisation routines
 ////////////////////////////////////////////////////////////////////////////////
 void
-GridOutput::initCommon(GmshMesh const& mesh)
+GridOutput::initCommon(GmshMesh const& mesh, double const& averaging_period, bool const& false_easting)
 {
-    M_averaging_period = 0.;
-    if (!Environment::vm()["moorings.snapshot"].as<bool>())
-        M_averaging_period = Environment::vm()["moorings.output_timestep"].as<double>();//days
-
-    M_false_easting = Environment::vm()["moorings.false_easting"].as<bool>();
+    M_averaging_period = averaging_period;
+    M_false_easting = false_easting;
     this->resetMeshMean(mesh);
     this->initMask();
 }
@@ -589,7 +594,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // cell methods - combine time method with hard-coded area method defined for each variable
     std::string cell_methods_time = "time: point ";//for snapshot
-    if (!Environment::vm()["moorings.snapshot"].as<bool>())
+    if (M_averaging_period>0)
     {
         double averaging_period = 24*M_averaging_period;//hours
         cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
