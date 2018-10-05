@@ -18,8 +18,6 @@ Environment::Environment( int& argc, char** &argv )
 {
     mpicomm = Communicator::commSelf();
 
-    char * senv;
-
     this->setEnvironmentVariables();
 
     int ierr = 0;
@@ -32,9 +30,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
     mpienv(argc, argv)
 {
     mpicomm = Communicator::commSelf();
-
-
-    char * senv;
 
     this->setEnvironmentVariables();
 
@@ -126,7 +121,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::runtime_error("...");
     }
 
-    this->setOtherVariables();
+    this->setVariablesFromConfigFile();
 
 }
 
@@ -169,13 +164,13 @@ Environment::setEnvironmentVariables()
 //! across multiple classes
 //! * nextsim .mppfile
 void
-Environment::setOtherVariables()
+Environment::setVariablesFromConfigFile()
 {
     nextsim_mppfile = (boost::format( "%1%/%2%" )
             % this->nextsimMeshDir().string()
             % this->vm()["mesh.mppfile"].as<std::string>()
             ).str();
-}//setOtherVariables
+}//setVariablesFromConfigFile
 
 
 Communicator Environment::mpicomm;
