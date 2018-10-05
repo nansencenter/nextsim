@@ -195,6 +195,8 @@ public:
 
     void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
+    std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
+    void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);
     void getLatLonRegularLatLon(double* LAT, double* LON,
                                   netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 

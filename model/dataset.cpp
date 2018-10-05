@@ -7560,6 +7560,73 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     return filename;
 }
 
+
+//! get longitude range from the netcdf file
+//! * only needed if grid.interpolation_in_latlon = true
+//! called by loadGrid
+void
+DataSet::getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON)
+{
+    // - check 1st element
+    std::vector<size_t> index_lon_start = {0};
+    std::vector<size_t> index_lon_count = {1};
+    auto LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
+    double lon0 = LON[0];
+
+    // - check last element
+    index_lon_start[0] = grid.dimension_x_count_netcdf - 1;
+    LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
+    double lon1 = LON[0];
+
+    // get range
+    lonmin = std::min(lon0, lon1);
+    lonmax = std::max(lon0, lon1);
+}//getLonRange
+
+
+//! get nc data as a vector, with scale_factor and offset already applied
+//! called by getLonRange
+//  TODO also use this in eg getLatLonRegularLatLon...
+std::vector<double>
+DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count)
+{
+    // Attributes (scaling and offset)
+    // - Need to multiply with scale factor and add offset
+    // - these are stored as variable attributes
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+    scale_factor=1.;
+    try
+    {
+        att = ncvar.getAtt("scale_factor");
+        att.getValues(&scale_factor);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    add_offset=0.;
+    try
+    {
+        att = ncvar.getAtt("add_offset");
+        att.getValues(&add_offset);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    // read the raw data
+    int Ndata = 1;
+    for (auto it=count.begin(); it!=count.end(); it++)
+        Ndata *= *it;
+    std::vector<double> data(Ndata);
+    ncvar.getVar(start, count, &data[0]);
+
+    // apply the scale factor and offset
+    for (auto it=data.begin(); it!=data.end(); it++)
+        *it = (*it)*scale_factor + add_offset;
+}//getNcVarData
+
+
 void
 DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
@@ -7615,27 +7682,17 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
-        // first we load longitude determine where the branch cut should be
-        // - check 1st element
-        std::vector<size_t> index_lon_start = {0};
-        std::vector<size_t> index_lon_count = {1};
-		std::vector<double> LON(1);
-        VLON.getVar(index_lon_start, index_lon_count, &LON[0]);
-        double lon0 = LON[0];
-        grid_ptr->branch_cut_lon = LON[0];
-        // - check last element
-        index_lon_start[0] = grid_ptr->dimension_x_count_netcdf - 1;
-        VLON.getVar(index_lon_start, index_lon_count, &LON[0]);
-        double lon1 = LON[0];
-
-        grid_ptr->branch_cut_lon = std::min(lon0, lon1);
+        // first we determine where the branch cut should be from
+        // the range in longitude
+        double lonmin, lonmax;
+        this->getLonRange(lonmin, lonmax, VLON);
+        grid_ptr->branch_cut_lon = lonmin;
         // TODO we could determine what make_cyclic should be here too, ie
-        // grid_ptr.dimension_x.make_cyclic = (grid_ptr->branch_cut_lon + 360. != std::max(lon0, lon1));
+        // grid_ptr.dimension_x.make_cyclic = (lonmin + 360. != lonmax);
 
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
-		LON.resize(grid_ptr->dimension_x_count);
-
+		std::vector<double> LON(grid_ptr->dimension_x_count);
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
         // Then, we determine the reduced dimension
