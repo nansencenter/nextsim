@@ -490,18 +490,21 @@ FiniteElement::rootMeshRenumbering()
 
     
 //------------------------------------------------------------------------------------------------------
-//! Initializes the size of all physical variables with values set to zero
-
-//! Convention: * The prefix D_ is used for diagnostic variables (outputs),
-//!             * The prefix M_ is used for global variables of the finite element class, accessible for all functions defined in finiteelement.cpp.
+//! Initializes the size of all physical variables with values set to zero.
 //! Called by the init() and readRestart() functions.
+//! \note
+//! - The prefix D_ is used for diagnostic variables (outputs),
+//! - The prefix M_ is used for global variables of the finite element class, accessible for all functions defined in finiteelement.cpp.
+//! - The suffix M is used for a quantity at the previous (nth) time step (e.g., VTM)
+//! - The suffix M is used for a quantity at the second-previous (n-1 th) time step (e.g., VTMM)
+
 void
 FiniteElement::initVariables()
 {
     chrono_tot.restart();
 
-    //! Global variables are assigned the prefix M_
-    M_nb_regrid = 0;
+    // Global variables are assigned the prefix M_
+    M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
 
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
@@ -510,18 +513,18 @@ FiniteElement::initVariables()
 
     M_reuse_prec = true;
 
-    M_VT.resize(2*M_num_nodes,0.);
-    M_VTM.resize(2*M_num_nodes,0.);
-    M_VTMM.resize(2*M_num_nodes,0.);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_conc_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
-
+    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
+    M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
+    M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
+    
+    M_h_thin.assign(M_num_elements,0.); //! \param M_h_thin (double) Thickness of thin ice [m]
+    M_conc_thin.assign(M_num_elements,0.); //! \param M_conc_thin (double) Concentration thin ice
+    M_hs_thin.assign(M_num_elements,0.); //! \param M_hs_thin (double) Thickness of snow on top of thin ice [m]
+    M_tsurf_thin.assign(M_num_elements,0.); //! \param M_tsurf_thin (double) Temperature at the surface of thin ice [C]
+    
     // stresses
-    M_sigma.assign(3*M_num_elements,0.);
-
+    M_sigma.assign(3*M_num_elements,0.); //! \param M_sigma (double) Internal stress tensor [N/m2]
+    
     // random numbers
     //M_random_number.resize(M_num_elements);
 
@@ -572,19 +575,19 @@ FiniteElement::initVariables()
         M_random_number[i] = M_random_number_root[id_elements[i]-1];
 #endif
 
-    M_conc.resize(M_num_elements);
-    M_thick.resize(M_num_elements);
-    M_damage.resize(M_num_elements);
-    M_ridge_ratio.assign(M_num_elements,0.);
-    M_snow_thick.resize(M_num_elements);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
+    M_conc.resize(M_num_elements); //! \param M_conc (double) Concentration of thick ice
+    M_thick.resize(M_num_elements); //! \param M_thick (double) Thickness of thick ice [m]
+    M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
+    M_ridge_ratio.assign(M_num_elements,0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
+    M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
+    
+    M_sst.resize(M_num_elements); //! \param M_sst (double) Sea surface temperature [C]
+    M_sss.resize(M_num_elements); //! \param M_sss (double) Sea surface salinity [C]
+    
     switch (M_thermo_type)
     {
         case (setup::ThermoType::ZERO_LAYER):
-            M_tice.resize(1);
+            M_tice.resize(1);   //! \param M_tice (double) Ice temperature [C]
             break;
         case (setup::ThermoType::WINTON):
             M_tice.resize(3);
@@ -610,17 +613,18 @@ FiniteElement::initVariables()
         }
     }
 
-    //! Diagnostic variables are assigned the prefix D_
-    D_Qa.resize(M_num_elements);
-    D_Qsh.resize(M_num_elements);
-    D_Qlh.resize(M_num_elements);
-    D_Qlw.resize(M_num_elements);
-    D_Qsw.resize(M_num_elements);
-    D_Qo.resize(M_num_elements);
-    D_delS.resize(M_num_elements);
-
-    M_UT.assign(2*M_num_nodes,0.);
-
+    // Diagnostic variables are assigned the prefix D_
+    D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
+    D_Qsh.resize(M_num_elements); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
+    D_Qlh.resize(M_num_elements); //! \param D_Qlh (double) Latent heat flux to the atmosphere
+    D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
+    D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
+    D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
+    D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
+    
+    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
+    
+    
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
@@ -659,8 +663,8 @@ FiniteElement::DataAssimilation()
 
     
 //------------------------------------------------------------------------------------------------------
-//! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing
-//! Called by the regrid() function.
+//! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
+//! Called by the regrid() and initVariables() functions.
 void
 FiniteElement::assignVariables()
 {
@@ -755,10 +759,10 @@ FiniteElement::assignVariables()
     //     (*it)->grid.loaded=false;
     // }
 
-    M_Cohesion.resize(M_num_elements);
-    M_Compressive_strength.resize(M_num_elements);
-    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage);
-
+    M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
+    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
+    M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
+    
 #if 1
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
@@ -1036,10 +1040,11 @@ FiniteElement::initBamg()
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
 //! Called by the init() function.
+//! \note These options and parameters are defined in the options.cpp file.
 void
 FiniteElement::initOptAndParam()
 {
-    //! - Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
+    //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
         ("info", INFO)
         ("warning", WARNING)
@@ -1049,8 +1054,8 @@ FiniteElement::initOptAndParam()
     M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
 
 
-    //! - Defines the export (output) path.
-    M_export_path = vm["output.exporter_path"].as<std::string>();
+    //! Defines the export (output) path.
+    M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
     // Changes directory for outputs if the option "output.exporter_path" is not empty
     fs::path output_path(M_export_path);
 
@@ -1059,23 +1064,25 @@ FiniteElement::initOptAndParam()
     fs::create_directories(output_path);
 
 
-    // Poisson's ratio
-    nu0 = vm["dynamics.nu0"].as<double>();
-    // Young's modulus
-    young = vm["dynamics.young"].as<double>();
-    rhoi = physical::rhoi;
-    rhos = physical::rhos;
-
-    // Conversion factor from days to seconds
-    days_in_sec = 24.0*3600.0;
+    //! Sets Poisson's ratio
+    nu0 = vm["dynamics.nu0"].as<double>(); //! \param nu0 (double) Poisson's ratio
+    
+    //! Sets the Young's modulus, ice density and snow density
+    young = vm["dynamics.young"].as<double>(); //! \param young (double) Young modulus of undamaged ice
+    rhoi = physical::rhoi; //! \param rhoi (double) Ice density [kg/m3]
+    rhos = physical::rhos; //! \param rhos (double) Snow density [kg/m3]
+    
+    
+    //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
+    days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
     if (vm["simul.time_init"].as<std::string>() == "")
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
-    time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>());
-    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>();
-
-    time_step = vm["simul.timestep"].as<double>();
-    thermo_timestep = vm["simul.thermo_timestep"].as<double>();
+    time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>()); //! \param time_init (string) Time at which the simulation is started
+    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>(); //! \param ptime_step (int) Debugging time step?
+    
+    time_step = vm["simul.timestep"].as<double>(); //! \param time_step (double) Model time step [s]
+    thermo_timestep = vm["simul.thermo_timestep"].as<double>(); //! \param thermo_timestep (double) Thermodynamic time step [s]
     if ( fmod(thermo_timestep,time_step) != 0)
     {
         std::cout << thermo_timestep << " " << time_step << "\n";
@@ -1084,64 +1091,76 @@ FiniteElement::initOptAndParam()
     // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
     thermo_timestep = time_step;
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
-    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec;
-    mooring_time_factor = time_step/mooring_output_time_step;
+    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
+    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
+    mooring_time_factor = time_step/mooring_output_time_step; 
     if ( fmod(mooring_output_time_step,time_step) != 0)
     {
         std::cout << mooring_output_time_step << " " << time_step << "\n";
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
     }
 
-    duration = (vm["simul.duration"].as<double>())*days_in_sec;
-    restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec;
-    M_use_assimilation   = vm["setup.use_assimilation"].as<bool>();
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>();
-    M_write_restart = vm["restart.write_restart"].as<bool>();
+    duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
+    restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+    M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
+    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+    M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
     if ( fmod(restart_time_step,time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
-    ocean_turning_angle_rad = 0.;
+    
+    //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
+    ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
     if (vm["dynamics.use_coriolis"].as<bool>())
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
-    ridging_exponent = vm["dynamics.ridging_exponent"].as<double>();
+    ridging_exponent = vm["dynamics.ridging_exponent"].as<double>(); //! \param ridging_exponent (double) Ridging exponent
+    
+    quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>(); //! \param quad_drag_coef_water (double) Quadratic ocean drag coefficient
+    
+    basal_k2 = vm["dynamics.Lemieux_basal_k2"].as<double>(); //! \param basal_k2 (double) Free parameter that determines the maximum basal stress (ice keels scheme of Lemieux et al., 2016)
+    basal_u_0 = vm["dynamics.Lemieux_basal_u_0"].as<double>(); //! \param basal_u_0 (double) "Small velocity" parameter (ice keels scheme of Lemieux et al., 2016)
+    basal_Cb = vm["dynamics.Lemieux_basal_Cb"].as<double>(); //! \param basal_Cb (double) Basal stress coefficient (ice keels scheme of Lemieux et al., 2016)
+    
+    
+    //! Sets the values of parameters related to healing
+    time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec; //! \param time_relaxation_damage (double) Characteristic healing time [s]
+    deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
+    
 
-    quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>();
-
-    basal_k2 = vm["dynamics.Lemieux_basal_k2"].as<double>();
-    basal_u_0 = vm["dynamics.Lemieux_basal_u_0"].as<double>();
-    basal_Cb = vm["dynamics.Lemieux_basal_Cb"].as<double>();
-
-    time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec;
-    deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>();
-
-    h_thin_max = vm["thermo.h_thin_max"].as<double>();
-    h_thin_min = vm["thermo.h_thin_min"].as<double>();
-
-    compr_strength = vm["dynamics.compr_strength"].as<double>();
-    tract_coef = vm["dynamics.tract_coef"].as<double>();
+    //! Sets the minimum and maximum thickness of thin ice
+    h_thin_max = vm["thermo.h_thin_max"].as<double>(); //! \param h_thin_max (double) Maximum thickness of thin ice [m]
+    h_thin_min = vm["thermo.h_thin_min"].as<double>(); //! \param h_thin_min (double) Minimum thickness of thin ice [m]
+    
+    
+    //! Sets mechanical parameter values
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
+    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strenght as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     // scale_coef = vm["dynamics.scale_coef"].as<double>();
-    alea_factor = vm["dynamics.alea_factor"].as<double>();
-    cfix = vm["dynamics.cfix"].as<double>();
+    alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
+    cfix = vm["dynamics.cfix"].as<double>(); //! \param cfix (double) Fixed part of the cohesion [Pa]
     // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    tan_phi = vm["dynamics.tan_phi"].as<double>();
+    tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
+    
 
+    //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
-        M_ice_cat_type = setup::IceCategoryType::THIN_ICE;
+        M_ice_cat_type = setup::IceCategoryType::THIN_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (thin ice or "classic")
     else
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
 
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second;
+    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
+    
+    //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
@@ -1151,8 +1170,8 @@ FiniteElement::initOptAndParam()
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
-    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second;
-    switch(M_atmosphere_type){
+    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second; //! \param M_atmosphere_type (string) Option on the type of atm. forcing (constant or reanalyses)
+        switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
@@ -1166,8 +1185,8 @@ FiniteElement::initOptAndParam()
     }
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
-    M_use_nesting= vm["nesting.use_nesting"].as<bool>();
-
+    M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
+    
     if (M_use_nesting)
     {
         M_use_ocean_nesting = vm["nesting.use_ocean_nesting"].as<bool>();
@@ -1186,7 +1205,7 @@ FiniteElement::initOptAndParam()
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER);
-    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second;
+    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second; //! \param M_ocean_type (string) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
@@ -1214,33 +1233,34 @@ FiniteElement::initOptAndParam()
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
-    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second;
+    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second; //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
     LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
-    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second;
+    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second; //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
     LOG(DEBUG) <<"BATHYMETRYTYPE= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second;
+    M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
 
-    // mesh type
+
+    //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
         ("from_split", setup::MeshType::FROM_SPLIT);
-    M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second;
+    M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second; //! \param M_mesh_type (string) Mesh type (unref or split)
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
-    M_mesh_basename = vm["mesh.filename"].as<std::string>();
-    M_mesh_filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
+    M_mesh_basename = vm["mesh.filename"].as<std::string>(); //! \param M_mesh_basename (string) Mesh filename
+    M_mesh_filename = (boost::format( "%1%/%2%" ) // \param M_mesh_filename (string) Mesh filename (with path)
+                       % Environment::nextsimMeshDir().string()
             % M_mesh_basename
             ).str();
     M_partitioned_mesh_filename = (boost::format( "%1%/par%2%%3%" )
@@ -1248,34 +1268,38 @@ FiniteElement::initOptAndParam()
             % M_comm.size()
             % M_mesh_basename
             ).str();
-    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>();
+    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
     M_mesh.setOrdering("bamg");
-
-    // Moorings
-    M_use_moorings =  vm["moorings.use_moorings"].as<bool>();
-    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>();
-    M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>();
+    
+    
+    //! Sets options on the use of moorings
+    M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
+    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputing snapshots of mooring records
+    M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>(); //! \param M_moorings_parallel_output (boolean) Option on parallel outputs
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
-
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length (in time) of the mooring output file (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    
+    
+    //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
-    M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second;
-
+    M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second; //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
-    M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second;
 
+    M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second; //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
     //! - Set the drifter options
     //  NB needs to be done before readRestart()
     this->initDrifterOpts();
+
 }//initOptAndParam
 
     
@@ -1309,9 +1333,11 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
     
 //------------------------------------------------------------------------------------------------------
 //! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! Called by the flip(), measure() and shapeCoeff() functions.
+//! \note
 //! * This is used to calculate the finite element shape coefficient.
 //! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-//! Called by the flip(), measure() and shapeCoeff() functions.
+
 double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
 {
@@ -4405,7 +4431,7 @@ FiniteElement::assemble(int pcpt)
             else
                 mass_e = 0.;
 
-            /* compute the x and y derivative of g*ssh */
+            /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
             double g_ssh_e_y = 0.;
             double g_ssh_e;
@@ -4419,10 +4445,10 @@ FiniteElement::assemble(int pcpt)
 
             coef_drag  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/time_step;             /* for the inertial term */
+            coef_V     = mass_e/time_step;                /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*multiplicator;
+            coef_sigma = M_thick[cpt]*multiplicator;      /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4814,7 +4840,7 @@ FiniteElement::update()
          *======================================================================
          */
 
-        /* Compute the elastic deformation and the instantaneous deformation rate */
+        //! - Computes the elastic deformation and the instantaneous deformation rate
         for(int i=0;i<3;i++)
         {
             epsilon_veloc_i = 0.0;
@@ -4833,8 +4859,7 @@ FiniteElement::update()
         delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
 
         /*======================================================================
-         * Update:
-         * Ice and snow thickness, and concentration using a Lagrangian or an Eulerian scheme
+        //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
@@ -4873,8 +4898,7 @@ FiniteElement::update()
         }
 
         /*======================================================================
-         * Ridging scheme and mechanical redistribution
-         * After the advection the concentration can be higher than 1, meaning that ridging should have occured.
+        //! - Performs the mechanical redistribution (after the advection the concentration can be higher than 1, meaning that ridging should have occured)
          *======================================================================
          */
         double open_water_concentration=1.-M_conc[cpt];
@@ -4980,7 +5004,7 @@ FiniteElement::update()
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
-         * Update the internal stress
+         //! - Updates the internal stress
          *======================================================================
          */
 
@@ -5010,7 +5034,7 @@ FiniteElement::update()
         }
 
         /*======================================================================
-         * Correct the internal stress and the damage
+         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
          *======================================================================
          */
 
@@ -5032,6 +5056,7 @@ FiniteElement::update()
         else
             hi = M_thick[cpt]/0.1;
 
+        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
         double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
         double effective_cohesion = mult_factor * M_Cohesion[cpt];
@@ -5040,11 +5065,11 @@ FiniteElement::update()
         q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
-
-        /* minimum and maximum normal stress */
-        tract_max=-tract_coef*effective_cohesion/tan_phi;
-
-        /* Correction of the damage */
+        tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
+            
+            
+        /* Calculate the adjusted level of damage */
+            //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
         if(sigma_n>effective_compressive_strength)
         {
             sigma_target=effective_compressive_strength;
@@ -5241,7 +5266,7 @@ FiniteElement::nestingDynamics()
 //------------------------------------------------------------------------------------------------------
 //! Performs thermodynamics calculation based on the 1D thermodynamical model.
     
-//! Notes :
+//! \note
 //! - Uses either the Winton et al. 2000 or a zero-layer scheme (thermoWinton(), thermoIce0()).
 //! - No stability dependent atmospheric drag for now.
 //! - There is now only one big loop for the thermodynamics, so that we can use multithreading.
@@ -5252,66 +5277,64 @@ FiniteElement::thermo(double dt)
 
 
     // constant variables
-    //! 1) Sets local variables to values defined by options
-    double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>();
-    double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>();
-    double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>();
-    double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>();
+    //! 1) Sets local variables to values defined in options.cpp
+    double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>(); //! \param timeT (double const) Nudging time for temperature
+    double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>(); //! \param timeS (double const) Nudging time for salinity
+    double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>(); //! \param Qdw_const (double const) Heat flux from ocean nudging
+    double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>(); //! \param Qdw_const (double const) Fresh water flux from ocean nudging
+    double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param Qdw_const (double const) Ocean albedo
+    double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
+    double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>(); //! \param drag_ocean_q (double const) Ocean drag parameter, to calculate latent heat flux
+    double const rh0   = 1./vm["thermo.hnull"].as<double>(); //! \param rh0 (double const)
+    double const rPhiF = 1./vm["thermo.PhiF"].as<double>(); //! \param rPhiF (double const)
+    
+    double const qi = physical::Lf * physical::rhoi; //! \param qi (double const) Latent heat of fusion * ice density [J m^{-3}]
+    double const qs = physical::Lf * physical::rhos; //! \param qi (double const) Latent heat of fusion * snow density [J m^{-3}]
 
-    double const ocean_albedo = vm["thermo.albedoW"].as<double>();
-    double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>();
-    double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>();
+    int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
+    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
+    double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
+    double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
+    
+    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3; //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity (atmosphere)
+    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10; //! \param Aw, Bw, Cw (double const) Other set of constants for the calculation of specific humidity (atmosphere)
 
-    double const rh0   = 1./vm["thermo.hnull"].as<double>();
-    double const rPhiF = 1./vm["thermo.PhiF"].as<double>();
-
-    double const qi = physical::Lf * physical::rhoi;// J m^{-3}
-    double const qs = physical::Lf * physical::rhos;// J m^{-3}
-
-    int const newice_type = vm["thermo.newice_type"].as<int>();
-    int const melt_type = vm["thermo.melt_type"].as<int>();
-    double const PhiM = vm["thermo.PhiM"].as<double>();
-    double const PhiF = vm["thermo.PhiF"].as<double>();
-
-    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3;
-    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10;
-
-    const double alpha=0.62197, beta=0.37803;
+    const double alpha=0.62197, beta=0.37803; //! \param alpha, beta (double const) Constants for the calculation of specific humidity (at the ocean surface)
 
     for (int i=0; i < M_num_elements; ++i)
     {
         // -------------------------------------------------
         //! 1.1) Initializes temporary variables
 
-        double  hi=0.;          //! - Ice thickness (slab)
-        double  hi_old=0.;      //! - Ice thickness at the start of the time step (slab)
-        double  hs=0.;          //! - Snow thickness (slab)
+        double  hi=0.;          //! \param hi (double) Ice thickness (slab) [m]
+        double  hi_old=0.;      //! \param hi_old (double) Ice thickness at the start of the time step (slab) [m]
+        double  hs=0.;          //! \param hs (double) Snow thickness (slab) [m]
 
-        double  hi_thin=0.;     //! - Thin ice thickness (slab)
-        double  hi_thin_old=0.; //! - Thin ice thickness at the start of the time step (slab)
-        double  hs_thin=0.;     //! - Snow thickness on thin ice (slab)
+        double  hi_thin=0.;     //! \param hi_thin (double) Thin ice thickness (slab) [m]
+        double  hi_thin_old=0.; //! \param hi_thin_old (double) Thin ice thickness at the start of the time step (slab) [m]
+        double  hs_thin=0.;     //! \param hs_thin (double) Snow thickness on thin ice (slab) [m]
 
-        double  del_hi=0.;      //! - Change in ice thickness (slab only)
-        double  del_hi_thin=0.; //! - Change in thin ice thickness (slab only)
+        double  del_hi=0.;      //! \param del_hi (double) Rate of change in ice thickness (slab only) [m/s]
+        double  del_hi_thin=0.; //! \param del_hi_thin (double) Rate of change in thin ice thickness (slab only) [m/s]
 
-        double  evap=0.;        //! - Evaporation
+        double  evap=0.;        //! \param evap (double) Evaporation (rate or amount?)
 
-        double  Qdw=0.;         //! - Heat flux from ocean nudging
-        double  Fdw=0.;         //! - Fresh water flux from ocean nudging
+        double  Qdw=0.;         //! \param Qdw (double) Heat flux from ocean nudging
+        double  Fdw=0.;         //! \param Fdw (double) Fresh water flux from ocean nudging
 
-        double  Qio=0.;         //! - Ice-ocean heat flux
-        double  Qio_thin=0.;    //! - Ice-ocean heat flux through thin ice
-        double  Qai=0.;         //! - Total atmosphere-ice heat flux
-        double  Qai_thin=0.;    //! - Total atmosphere-ice heat flux over thin ice
-        double  Qswi=0.;        //! - Short-wave atmosphere-ice heat flux
-        double  Qsw_thin=0.;    //! - Short-wave atmosphere-ice heat flux over thin ice
-        double  Qlwi=0.;        //! - Latent atmosphere-ice heat flux
-        double  Qlw_thin=0.;    //! - Latent atmosphere-ice heat flux over thin ice
-        double  Qshi=0.;        //! - Sensible atmosphere-ice heat flux
-        double  Qsh_thin=0.;    //! - Sensible atmosphere-ice heat flux over thin ice
-        double  Qlhi=0.;        //! - Long-wave atmosphere-ice heat flux
-        double  Qlh_thin=0.;    //! - Long-wave atmosphere-ice heat flux over thin ice
-        double  Qow=0.;         //! - Open water heat flux
+        double  Qio=0.;         //! \param Qio (double) Ice-ocean heat flux
+        double  Qio_thin=0.;    //! \param Qio_thin (double) Ice-ocean heat flux through thin ice
+        double  Qai=0.;         //! \param Qai (double) Total atmosphere-ice heat flux
+        double  Qai_thin=0.;    //! \param Qai_thin (double) Total atmosphere-ice heat flux over thin ice
+        double  Qswi=0.;        //! \param Qswi (double) Short-wave atmosphere-ice heat flux
+        double  Qsw_thin=0.;    //! \param Qsw_thin (double) Short-wave atmosphere-ice heat flux over thin ice
+        double  Qlwi=0.;        //! \param Qlwi (double) Latent atmosphere-ice heat flux
+        double  Qlw_thin=0.;    //! \param Qlw_thin (double) Latent atmosphere-ice heat flux over thin ice
+        double  Qshi=0.;        //! \param Qshi (double) Sensible atmosphere-ice heat flux
+        double  Qsh_thin=0.;    //! \param Qsh_thin (double) Sensible atmosphere-ice heat flux over thin ice
+        double  Qlhi=0.;        //! \param Qlhi (double) Long-wave atmosphere-ice heat flux
+        double  Qlh_thin=0.;    //! \param Qlh_thin (double) Long-wave atmosphere-ice heat flux over thin ice
+        double  Qow=0.;         //! \param Qow (double) Open water heat flux
 
         //! 1.2) Saves old _volumes_ and concentrations and calculates wind speed
         double  old_vol=M_thick[i];
