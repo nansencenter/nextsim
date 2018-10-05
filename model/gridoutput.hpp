@@ -385,7 +385,6 @@ public:
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
-    void updateNetCDFTime(netCDF::NcFile &dataFile, double timestamp);
 
     int M_ncols;
     int M_nrows;

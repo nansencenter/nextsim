@@ -147,7 +147,7 @@ namespace Nextsim
             ("moorings.mppfile", po::value<std::string>()->default_value( "" ),
                 "mpp file with projection for output grid (only used if grid_type = from_file)")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
-                "do we output vectors relative to the output grid, or do we give their north-south components?")
+                "true: we output vectors relative to the output grid; false: we give their north-south components")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
 

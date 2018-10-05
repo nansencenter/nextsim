@@ -706,11 +706,21 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
 
     // Append to time
-    this->updateNetCDFTime(dataFile, timestamp);
+    std::vector<size_t> start = {M_nc_step};
+    std::vector<size_t> count = {1};
+    netCDF::NcVar time = dataFile.getVar("time");
+    time.putVar(start, count, &timestamp);
+
+    // Append to time_bnds
+    start = {M_nc_step, 0};
+    count = {1, 2};
+    netCDF::NcVar time_bnds = dataFile.getVar("time_bnds");
+    std::vector<double> tbdata = {timestamp -0.5*M_averaging_period, timestamp +0.5*M_averaging_period};
+    time_bnds.putVar(start, count, &tbdata[0]);
 
     // Append to the output variables
-    std::vector<size_t> start = {M_nc_step, 0, 0};
-    std::vector<size_t> count = {1, M_ncols, M_nrows};
+    start = {M_nc_step, 0, 0};
+    count = {1, M_ncols, M_nrows};
 
     // Save to file
     netCDF::NcVar data;
@@ -730,25 +740,6 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     }
 
     M_nc_step++;
-}
-
-
-void
-GridOutput::updateNetCDFTime(netCDF::NcFile &dataFile, double timestamp)
-{
-
-    // Append to time
-    std::vector<size_t> start = {M_nc_step};
-    std::vector<size_t> count = {1};
-    netCDF::NcVar time = dataFile.getVar("time");
-    time.putVar(start, count, &timestamp);
-
-    // Append to time_bnds
-    start = {M_nc_step, 0};
-    count = {1, 2};
-    netCDF::NcVar time_bnds = dataFile.getVar("time_bnds");
-    std::vector<double> tbdata = {timestamp -0.5*M_averaging_period, timestamp +0.5*M_averaging_period};
-    time_bnds.putVar(start, count, &tbdata[0]);
 }
 
 } // Nextsim

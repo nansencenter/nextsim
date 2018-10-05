@@ -1287,7 +1287,7 @@ FiniteElement::initOptAndParam()
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
     M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
         //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
-    M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (days): mainly for netcdf metadata
+    M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
     if(!M_moorings_snapshot)
         M_moorings_averaging_period = vm["moorings.output_timestep"].as<double>();
     
