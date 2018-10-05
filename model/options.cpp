@@ -104,24 +104,7 @@ namespace Nextsim
              //-----------------------------------------------------------------------------------
 
 
-<<<<<<< HEAD
             // - Setup
-            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
-            ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
-            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
-            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
-            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
-
-            // - Mesh
-            // -- input
-            ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
-            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
-            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
-=======
-            // setup
             ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "which atmospheric forcing?")
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "which oceanic forcing?")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
@@ -132,10 +115,9 @@ namespace Nextsim
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
-            // - input
+            // -- input
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
->>>>>>> develop
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
@@ -146,13 +128,9 @@ namespace Nextsim
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
                 "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
 
-<<<<<<< HEAD
+
             // -- moorings
-            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
-=======
-            // moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
->>>>>>> develop
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
@@ -168,14 +146,9 @@ namespace Nextsim
                 "Grid file with locations for moorings output (overrides mooring.spacing). Has to be a netcdf file with x, y as dimensions and latitude, longitude as variables")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
-<<<<<<< HEAD
-            // -- drifters
-            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
-=======
-            // drifters
-            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "lower concentration limit for ignoring a drifter")
->>>>>>> develop
 
+            // -- drifters
+            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "lower concentration limit for ignoring a drifter")
             ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "Use IABP drifters or not")
             ("drifters.iabp_drifters_output_time_step", po::value<double>()->default_value( .5 ),
                  "interval between IABP drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
