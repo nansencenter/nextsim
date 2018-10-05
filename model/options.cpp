@@ -186,7 +186,7 @@ namespace Nextsim
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
                 "reset ice velocity to zero if starting from restart")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
-                "false: simulation starts at simul.time_init eg for forecast; true: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+                "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // -- outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")

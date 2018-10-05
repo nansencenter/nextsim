@@ -4228,7 +4228,7 @@ DataSet::DataSet(char const *DatasetName)
             dirname: "data",
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
-            gridfile: "",
+            gridfile: "LongitudeLatitudeGrid_3.125km_Arctic.nc",//older AMSR2 files don't have lon,lat inside them
             reference_date: "0001-01-01",
 
             latitude: latitude,
@@ -7782,49 +7782,40 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			std::vector<double> reduced_LON;
 			std::vector<int> reduced_nodes_ind;
 
-        	std::vector<size_t> index_count(grid_ptr->masking_variable.dimensions.size());
-            std::vector<size_t> index_start(grid_ptr->masking_variable.dimensions.size());
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
+            auto mask_dims = VMASK.getDims();
+        	std::vector<size_t> index_count(mask_dims.size());
+            std::vector<size_t> index_start(mask_dims.size());
+            for(int k=0; k<mask_dims.size(); ++k)
             {
-                std::string dimension_name=grid_ptr->masking_variable.dimensions[k].name;
+                auto ncdim = mask_dims[k];
+                auto dimension_name = ncdim.getName();
 
                 // dimension_x case
-                if ((dimension_name).find(grid_ptr->dimension_x.name) != std::string::npos)
+                if (dimension_name == grid_ptr->dimension_x.name)
                 {
                     index_start[k] = grid_ptr->dimension_x_start;
                     index_count[k] = grid_ptr->dimension_x_count;
                 }
                 // dimension_y case
-                else if ((dimension_name).find(grid_ptr->dimension_y.name) != std::string::npos)
+                else if (dimension_name == grid_ptr->dimension_y.name)
                 {
                     index_start[k] = grid_ptr->dimension_y_start;
                     index_count[k] = grid_ptr->dimension_y_count;
                 }
-                // other cases
-                else {
-                    tmpDim = dataFile2.getDim(dimension_name);
+                // other cases: only time or depth
+                // - just take 1st record as time/depth-varying masks are not implemented
+                // - see below: data_in just has the size of the spatial dimensions
+                else
+                {
                     index_start[k] = 0;
-                    index_count[k] = tmpDim.getSize();
+                    index_count[k] = 1;
                 }
             }
 
-            // time dimension
-            if(grid_ptr->masking_variable.dimensions.size()>2)
-            {
-			    index_start[0] = 0;
-			    index_count[0] = 1;
-            }
-            // depth dimension
-            if(grid_ptr->masking_variable.dimensions.size()>3)
-			{
-            	index_start[1] = 0;
-            	index_count[1] = 1;
-			}
-
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-			VMASK.getVar(index_start,index_count,&data_in[0]);
+			VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
 			netCDF::NcVarAtt att;
