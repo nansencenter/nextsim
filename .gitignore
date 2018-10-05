@@ -1,6 +1,7 @@
 # untracked files to ignore
 mesh/mesh_links
 data/data_links
+nextsim-doc
 *.m
 *.msh
 *.geo
@@ -20,3 +21,4 @@ expt_*/
 .deps/
 *.log
 profile.pdf
+.DS_Store

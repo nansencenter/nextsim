@@ -54,6 +54,7 @@ Code conventions
 
         * neXtSIM is written using ISO C++11
         * Indentation is done using a set of four (4) spaces (no tabs)
+        * Maximum line length is 100 characters
         * All array opperations should be done using std::vectors - not C-style arrays
         * The use of C-style pointers, new, and delete is strongly discouraged
         * Names of (class) global variables start with M_, except for diagnostic variables which start with D_. The names of prognostic global variables should start with P_, but this is not yet implemented.
@@ -94,7 +95,7 @@ Commenting the code; conventions
 	* Leave 2 blank lines between each function declaration.
 
 	
-	Below is an exemple of a documented function:
+	Below is an example of a documented function:
 
 	//------------------------------------------------------------------------------------------------------
 	//! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.

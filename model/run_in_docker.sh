@@ -1,6 +1,9 @@
 #! /bin/bash
 export NEXTSIM_MESH_DIR=/mesh
 export NEXTSIM_DATA_DIR=/data
+export PATH=$PATH:$NEXTSIMDIR/model/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NEXTSIMDIR/lib
+source /root/.nextsimrc
 
 # run bash if parameters are not given
 if [ $# -eq 0 ]

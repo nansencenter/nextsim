@@ -9,7 +9,6 @@
 #ifndef __Drifters_H
 #define __Drifters_H 1
 
-#include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -50,29 +49,42 @@ public:
         Drifters();
 
         //! init equally-spaced drifters
-        Drifters(double spacing, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
+        Drifters(double const& spacing, GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc, double const& climit,
+                double const& current_time, double const& output_freq);
 
         //! init drifters from netcdf file
-        Drifters(std::string gridFile,
-                 std::string dimNameX, std::string dimNameY,
-                 std::string latName, std::string lonName,
-                 GmshMeshSeq const& mesh, std::vector<double>& conc, double climit);
+        Drifters(std::string const& gridFile,
+                 std::string const& dimNameX, std::string const& dimNameY,
+                 std::string const& latName, std::string const& lonName,
+                 GmshMeshSeq const& movedmesh,
+                 std::vector<double> & conc, double const& climit,
+                 double const& current_time, double const& output_freq);
 
         //! init drifters from text file
-        Drifters(std::string filename, GmshMeshSeq const& mesh, std::vector<double>& conc, double climit, double time);
+        Drifters(std::string const& filename,
+                GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc, double const& climit,
+                double const& current_time, double const& output_freq);
 
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void updateConc( GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc);
 
         void initNetCDF(std::string file_prefix, double current_time);
 
-        void appendNetCDF(double current_time, GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void appendNetCDF(double current_time);
 
         bool isInitialised();
+        bool isOutputTime(double const& current_time);
+
 
 private:
         bool M_is_initialised;
+        double M_time_init;
+        double M_output_freq;
 
-        int M_no_drifters;
+        int M_num_drifters;
 
         size_t M_nc_step;
 
@@ -81,10 +93,12 @@ private:
         std::vector<double> M_X;
         std::vector<double> M_Y;
         std::vector<int> M_i;
+        std::vector<double> M_conc;
 
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT, std::vector<double>& X, std::vector<double>& Y);
-
-        void maskXY(GmshMeshSeq const& mesh, std::vector<double>& X, std::vector<double>& Y, std::vector<double>& conc, double clim);
+        void maskXY(GmshMeshSeq const& mesh,
+                std::vector<double> & X, std::vector<double> & Y,
+                std::vector<int> const& INDS,
+                std::vector<double> & conc, double const& clim);
     };
 } // Nextsim
 
