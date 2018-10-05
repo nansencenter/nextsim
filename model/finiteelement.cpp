@@ -513,7 +513,7 @@ FiniteElement::initVariables()
 
     M_reuse_prec = true;
 
-    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th t-step [m/s]
+    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
     M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
     M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     
@@ -664,7 +664,7 @@ FiniteElement::DataAssimilation()
     
 //------------------------------------------------------------------------------------------------------
 //! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
-//! Called by the regrid() function.
+//! Called by the regrid() and initVariables() functions.
 void
 FiniteElement::assignVariables()
 {
@@ -1268,7 +1268,7 @@ FiniteElement::initOptAndParam()
             % M_comm.size()
             % M_mesh_basename
             ).str();
-    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the mesh file
+    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
     M_mesh.setOrdering("bamg");
     
     
@@ -1282,7 +1282,7 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length of the mooring output file (set according to daily, weekly, monthly or yearly outputs)
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length (in time) of the mooring output file (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
     
     
     //! Sets the type of partitioner and partition space
