@@ -404,15 +404,19 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
             interp_in[nb_var*i+j] = variables[j].data_mesh[i];
     }
 
-    // Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2dx or ConservativeRemappingMeshToGrid.
-    // Regular grids, based on the polar stereographic coordinate system and a regular spacing, are handled by InterpFromMeshToGridx.
-    // TODO: Permit regular grids to use the conservative remapping.
+    /* Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2dx or
+     * ConservativeRemappingMeshToGrid.
+     * Regular grids, based on the polar stereographic coordinate system and a regular spacing, are
+     * handled by InterpFromMeshToGridx.
+     * Conservative remapping only really works when we can guarantee that the coastlines of mesh
+     * and grid match. */
     if ( M_grid.loaded )
     {
         if ( kind==variableKind::elemental && method==interpMethod::conservative )
             ConservativeRemappingMeshToGrid(interp_out, interp_in,
                                     nb_var, M_grid_size, 0.,
-                                    M_gridP, M_triangles, M_weights);
+                                    M_gridP, M_grid.gridCornerX, M_grid.gridCornerY,
+                                    M_triangles, M_weights, bamgmesh->TrianglesSize[2]);
         else
             InterpFromMeshToMesh2dx(&interp_out,
                                     &indexTr[0],&coordX[0],&coordY[0],

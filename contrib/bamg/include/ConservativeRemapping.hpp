@@ -18,13 +18,14 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int nb_var, int grid_size, double miss_val,
-        std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights);
+        std::vector<int> &gridP, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
+        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights, int num_local_triangles);
 
 // Apply weights going from grid to mesh
 void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var, int numElements, std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights);
 
 // Recursive function to check the current triangle
-inline void checkTriangle(BamgMesh* bamgmesh, int numLocalTriangles, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_number, // inputs
+inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_number, // inputs
 		std::vector<int> &number, std::vector<double> &weight);  // outputs
 
 // Check if we've already visited this triangle

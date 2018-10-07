@@ -18,7 +18,6 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     // ---------- Initialisation ---------- //
     // Copy the triangle information
     int numTriangles = bamgmesh->TrianglesSize[0];
-    int numLocalTriangles = bamgmesh->TrianglesSize[3];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
     for (int tr=0; tr<numTriangles; ++tr)
@@ -89,7 +88,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
             // local_weights.reserve(10);
 
             // Call the recursive function (this is our work horse here)
-            checkTriangle(bamgmesh, numLocalTriangles, cornerX, cornerY, elnum_out[ppoint], local_triangles, local_weights);
+            checkTriangle(bamgmesh, cornerX, cornerY, elnum_out[ppoint], local_triangles, local_weights);
 
             // Save the weights and triangle numbers
             triangles.push_back(local_triangles);
@@ -101,7 +100,8 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int nb_var, int grid_size, double miss_val,
-        std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
+        std::vector<int> &gridP, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
+        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights, int num_local_triangles)
 {
     // Initialise interp_out
     interp_out = xNew<double>(nb_var*grid_size);
@@ -112,11 +112,12 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
     for (int i=0; i<gridP.size(); ++i)
     {
         // Calculate cell area
-        double cell_area = 0;
-        for (int tr=0; tr<triangles[i].size(); ++tr)
-            cell_area += weights[i][tr];
+        int ppoint = gridP[i];
+        std::vector<std::pair<double,double>> points(4);
+        for (int corner=0; corner<4; ++corner)
+            points[corner] = std::make_pair(gridCornerX[4*ppoint+corner],gridCornerY[4*ppoint+corner]);
 
-        double r_cell_area = 1./cell_area;
+        double r_cell_area = 1./area(points);
 
         // walk through all the variables
         for (int var=0; var<nb_var; ++var)
@@ -124,7 +125,8 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
             // ... and contributing elements
             interp_out[gridP[i]*nb_var+var] = 0;
             for (int tr=0; tr<triangles[i].size(); ++tr)
-                interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
+                if ( triangles[i][tr] < num_local_triangles )
+                    interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
 
             interp_out[gridP[i]*nb_var+var] *= r_cell_area;
         }
@@ -167,7 +169,7 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
 }
 
 // Recursive function to check the current triangle
-inline void checkTriangle(BamgMesh* bamgmesh, int numLocalTriangles, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_triangle, // inputs
+inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_triangle, // inputs
 		std::vector<int> &triangles, std::vector<double> &weights)  // outputs
 {
     /*
@@ -207,11 +209,10 @@ inline void checkTriangle(BamgMesh* bamgmesh, int numLocalTriangles, std::vector
             {
                 int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                // elt_num > numLocalTriangles means it's a ghost element
-                if ( elt_num < 0 || elt_num >= numLocalTriangles) break;
+                if ( elt_num < 0 ) break;
 
                 if ( ! visited(elt_num, triangles) )
-                    checkTriangle(bamgmesh, numLocalTriangles, gridCornerX, gridCornerY, elt_num, triangles, weights);
+                    checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
             }
         }
     }
@@ -257,8 +258,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, int numLocalTriangles, std::vector
             {
                 int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                // elt_num > numLocalTriangles means it's a ghost element
-                if ( elt_num < 0 || elt_num >= numLocalTriangles) break;
+                if ( elt_num < 0 ) break;
 
                 /*
                  * Find the triangle adjacent to the current one by comparing
@@ -277,7 +277,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, int numLocalTriangles, std::vector
                 assert(counter>=1);
 
                 if ( counter==2 && !visited(elt_num, triangles) )
-                    checkTriangle(bamgmesh, numLocalTriangles, gridCornerX, gridCornerY, elt_num, triangles, weights);
+                    checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
             }
         }
     }
