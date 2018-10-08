@@ -7574,7 +7574,8 @@ DataSet::getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON)
     double lon0 = LON[0];
 
     // - check last element
-    index_lon_start[0] = grid.dimension_x_count_netcdf - 1;
+    size_t Nlon = grid.dimension_x_count_netcdf;
+    index_lon_start = {Nlon - 1};
     LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
     double lon1 = LON[0];
 
@@ -7596,7 +7597,7 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
     netCDF::NcVarAtt att;
     double scale_factor;
     double add_offset;
-    scale_factor=1.;
+    scale_factor = 1.;
     try
     {
         att = ncvar.getAtt("scale_factor");
@@ -7605,7 +7606,7 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
     catch(netCDF::exceptions::NcException& e)
     {}
 
-    add_offset=0.;
+    add_offset = 0.;
     try
     {
         att = ncvar.getAtt("add_offset");
@@ -7615,15 +7616,18 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
     {}
 
     // read the raw data
-    int Ndata = 1;
-    for (auto it=count.begin(); it!=count.end(); it++)
-        Ndata *= *it;
+    ASSERT(count.size()>0, "count is empty");
+    ASSERT(count.size() == start.size(), "count and start should be the same size");
+    int Ndata = std::accumulate(count.begin(), count.end(),
+            1, std::multiplies<double>());
     std::vector<double> data(Ndata);
     ncvar.getVar(start, count, &data[0]);
 
     // apply the scale factor and offset
     for (auto it=data.begin(); it!=data.end(); it++)
         *it = (*it)*scale_factor + add_offset;
+
+    return data;
 }//getNcVarData
 
 
@@ -7687,8 +7691,12 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         double lonmin, lonmax;
         this->getLonRange(lonmin, lonmax, VLON);
         grid_ptr->branch_cut_lon = lonmin;
-        // TODO we could determine what make_cyclic should be here too, ie
-        // grid_ptr.dimension_x.make_cyclic = (lonmin + 360. != lonmax);
+        if(Environment::comm().rank()==0)
+            std::cout<<name<<": branch_cut_lon = "<<lonmin<<"\n";
+
+        // TODO we could determine what cyclic should be here too, ie
+        // grid_ptr.dimension_x.cyclic = (lonmin + 360. != lonmax);
+        // although that wouldn't work for a reduced grid but you get the idea
 
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
