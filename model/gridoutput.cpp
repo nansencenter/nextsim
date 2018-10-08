@@ -55,11 +55,12 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(variables, kind)
 {
-    this->initArbitraryGrid(bamgmesh, grid);
+    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -76,12 +77,13 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables)
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(variables, kind)
 {
     M_vectorial_variables = vectorial_variables;
-    this->initArbitraryGrid(bamgmesh, grid);
+    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,11 +108,12 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(nodal_variables, elemental_variables)
 {
-    this->initArbitraryGrid(bamgmesh, grid);
+    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -135,11 +138,12 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables,
-                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+                       std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables)
 {
-    this->initArbitraryGrid(bamgmesh, grid);
+    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
 
 GridOutput::~GridOutput()
@@ -201,13 +205,15 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
     M_lsm.assign(M_grid_size, 1);
     this->initMask();
     this->resetGridMean();
-    this->resetMeshMean(bamgmesh);
+    this->resetMeshMean(bamgmesh, true);
 }
 
 void
-GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
+GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const & comm,
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
 {
     M_grid = grid;
+    M_comm = comm;
 
     // Load the grid from file
     // Check file
@@ -302,7 +308,10 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid grid)
     M_lsm.assign(M_grid_size, 1);
     this->initMask();
     this->resetGridMean();
-    this->resetMeshMean(bamgmesh, true);
+    if ( M_comm.rank() == 0 )
+        this->resetMeshMean(bamgmesh, true, transfer_map, bamgmesh_root);
+    else
+        this->resetMeshMean(bamgmesh, true, transfer_map);
 }
 
 void
@@ -567,7 +576,8 @@ GridOutput::applyLSM()
 
 // Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
 void
-GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
+GridOutput::resetMeshMean(BamgMesh* bamgmesh,
+        bool regrid, bimap_type const & transfer_map, BamgMesh* bamgmesh_root)
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
         M_nodal_variables[i].data_mesh.assign(bamgmesh->VerticesSize[0], 0.);
@@ -575,14 +585,116 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid)
     for (int i=0; i<M_elemental_variables.size(); i++)
         M_elemental_variables[i].data_mesh.assign(bamgmesh->TrianglesSize[0], 0.);
 
-    if ( regrid && M_interp_method==interpMethod::conservative )
-        ConservativeRemappingWeights(bamgmesh,
-                                M_grid.gridX,M_grid.gridY,
-                                M_grid.gridCornerX,M_grid.gridCornerY,
-                                M_gridP, M_triangles, M_weights);
+    if ( regrid )
+    {
+        if ( M_nodal_variables.size() > 0 )
+            this->setProcMask(bamgmesh);
 
-    if ( M_nodal_variables.size() > 0 )
-        this->setProcMask(bamgmesh);
+        /* Calculate the weights on the root, broadcast them to ohers, and map from global to local
+         * element id */
+        if ( M_interp_method==interpMethod::conservative )
+        {
+            std::vector<int> gridP;
+            std::vector<std::vector<int>> triangles;
+            std::vector<std::vector<double>> weights;
+            if ( M_comm.rank() == 0 )
+                ConservativeRemappingWeights(bamgmesh_root,
+                                    M_grid.gridX,M_grid.gridY,
+                                    M_grid.gridCornerX,M_grid.gridCornerY,
+                                    gridP, triangles, weights);
+
+            this->broadcastWeights(gridP, triangles, weights);
+
+            for ( int i=0; i<gridP.size(); i++ )
+            {
+                std::vector<int> local_triangles;
+                std::vector<double> local_weights;
+                // We'll almost always need either all the space or none of it, so reserving makes sense
+                local_triangles.reserve(triangles[i].size());
+                local_weights.reserve(weights[i].size());
+
+                for ( int j=0; j<triangles[i].size(); j++ )
+                {
+                    int tr = triangles[i][j] + 1; // We need Bamg numbering
+                    if (transfer_map.left.find(tr) != transfer_map.left.end())
+                    {
+                        local_triangles.push_back(transfer_map.left.find(tr)->second-1); // C++ numbering
+                        local_weights.push_back(weights[i][j]);
+                    }
+                }
+
+                if ( local_triangles.size() > 0 )
+                {
+                    M_gridP.push_back(gridP[i]);
+                    M_triangles.push_back(local_triangles);
+                    M_weights.push_back(local_weights);
+                }
+            }
+        }
+    }
+}
+
+// Broadcast gridP, triangles, and weights - only used when M_interp_method == interpMethod::conservative
+void
+GridOutput::broadcastWeights(std::vector<int>& gridP,
+        std::vector<std::vector<int>>& triangles,
+        std::vector<std::vector<double>>& weights )
+{
+    // Pack the triangles and weights
+    std::vector<int> nb_weights;
+    std::vector<int> packed_tr;
+    std::vector<double> packed_w;
+    if ( M_comm.rank() == 0 )
+    {
+        for ( int i=0; i<gridP.size(); i++ )
+        {
+            nb_weights.push_back(triangles[i].size());
+            packed_tr.insert( packed_tr.end(), triangles[i].begin(), triangles[i].end() );
+            packed_w.insert( packed_w.end(), weights[i].begin(), weights[i].end() );
+        }
+    }
+
+    // Broadcast the sizes
+    std::vector<int> tmp(2);
+    tmp[0] = gridP.size();
+    tmp[1] = packed_tr.size();
+
+    boost::mpi::broadcast(M_comm, &tmp[0], 2, 0);
+
+    int reduced_size = tmp[0];
+    int packed_size = tmp[1];
+
+    // Resize what's not on root and broadcast everything
+    if ( M_comm.rank() != 0 )
+    {
+        gridP.resize(reduced_size);
+        triangles.resize(reduced_size);
+        weights.resize(reduced_size);
+
+        nb_weights.resize(reduced_size);
+        packed_tr.resize(packed_size);
+        packed_w.resize(packed_size);
+    }
+
+    // TODO: Combine the first three broadcasts into one (they're all ints)
+    boost::mpi::broadcast(M_comm, &gridP[0], reduced_size, 0);
+    boost::mpi::broadcast(M_comm, &nb_weights[0], reduced_size, 0);
+    boost::mpi::broadcast(M_comm, &packed_tr[0], packed_size, 0);
+    boost::mpi::broadcast(M_comm, &packed_w[0], packed_size, 0);
+
+    // Unpack
+    if ( M_comm.rank() != 0 )
+    {
+        int first=0;
+        int last=0;
+        for ( int i=0; i<gridP.size(); i++ )
+        {
+            last += nb_weights[i];
+            triangles[i] = std::vector<int>(packed_tr.begin()+first, packed_tr.begin()+last);
+            weights[i] = std::vector<double>(packed_w.begin()+first, packed_w.begin()+last);
+            first += nb_weights[i];
+        }
+    }
 }
 
 // Initialise a netCDF file and return the file name in an std::string

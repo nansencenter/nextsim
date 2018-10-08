@@ -6752,7 +6752,8 @@ FiniteElement::initOASIS()
 
     // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
     GridOutput::Grid grid(std::string("coupler/NEMO.nc"), std::string("plat"), std::string("plon"), std::string("ptheta"), std::string("lat_corners"), std::string("lon_corners"), true);
-    M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+    M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+        bamgmesh_root, M_mesh.transferMapElt(), M_comm);
     M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
     //std::vector<int> lsm = M_cpl_out.getMask(M_mesh, GridOutput::variableKind::elemental);
     int nrows = M_cpl_out.M_nrows;
@@ -6962,7 +6963,11 @@ FiniteElement::step()
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(bamgmesh, M_regrid);
 #ifdef OASIS
-            M_cpl_out.resetMeshMean(bamgmesh, M_regrid);
+            if ( M_rank==0 )
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt(), bamgmesh_root);
+            else
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt());
+
             M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
             ++M_nb_regrid;
