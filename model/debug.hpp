@@ -24,7 +24,7 @@ namespace Nextsim
 	};
 
 
-static const char* STRENUM[] = { "INFO", "WARNING", "DEBUG", "ERROR" };
+static const char* ENUM_STR[] = { "ERROR", "WARNING", "INFO", "DEBUG" };
 
 class Log
 {
@@ -32,7 +32,7 @@ public:
 	Log(LogLevel loglevel = INFO)
 	{
 		_buffer << "["
-		        << STRENUM[loglevel]
+		        << ENUM_STR[loglevel]
 		        << "] :"
 		        << std::string(1, ' ');
 	}
