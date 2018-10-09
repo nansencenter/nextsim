@@ -367,14 +367,12 @@ inline double area(std::vector<std::pair<double,double>> &points)
     if ( points.size() < 3 )
         return 0.;
 
-    // Initialize
-    double area = 0.;
-    int n = points.size();
-
     // First sort the points
     sortClockwise(points);
 
     // Calculate value of shoelace formula
+    double area = 0.;
+    int n = points.size();
     int j = n-1;
     for (int i=0; i < n; j=i++)
         area += (points[j].first + points[i].first) * (points[j].second - points[i].second);
