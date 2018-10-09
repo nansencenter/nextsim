@@ -17,10 +17,10 @@ namespace Nextsim
 {
 	enum LogLevel
 	{
-		INFO    = 0,
+		ERROR   = 0,
 		WARNING = 1,
-		DEBUG   = 2,
-		ERROR   = 3
+		INFO    = 2,
+		DEBUG   = 3
 	};
 
 
@@ -59,6 +59,6 @@ extern LogLevel M_log_level;
 #define LOG(level) \
 	if (level > M_log_level) ; \
 	else Log(level)
-
 #endif
+
 } // Nextsim
