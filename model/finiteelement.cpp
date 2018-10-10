@@ -7014,113 +7014,42 @@ FiniteElement::initMoorings()
     // The vectorial variables are (always on the nodes) ...
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
 
+    // map config file names to the GridOutput enum's
+    boost::unordered_map<std::string, GridOutput::variableID>
+        mooring_name_map_elements = boost::assign::map_list_of
+            ("conc", GridOutput::variableID::conc)
+            ("thick", GridOutput::variableID::thick)
+            ("snow", GridOutput::variableID::snow)
+            ("tsurf", GridOutput::variableID::tsurf)
+            ("Qa", GridOutput::variableID::Qa)
+            ("Qo", GridOutput::variableID::Qo)
+            ("Qsw", GridOutput::variableID::Qsw)
+            ("Qlw", GridOutput::variableID::Qlw)
+            ("Qsh", GridOutput::variableID::Qsh)
+            ("Qlh", GridOutput::variableID::Qlh)
+            ("delS", GridOutput::variableID::delS)
+            ("conc_thin", GridOutput::variableID::conc_thin)
+            ("h_thin", GridOutput::variableID::h_thin)
+            ("hs_thin", GridOutput::variableID::hs_thin)
+        ;
+
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
     std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
-#if defined (WAVES)
-    std::vector<std::string> names_wim = {"dfloe"};
-#endif//WAVES
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
-        // skip thin ice variables if not using thin ice category
+        // error if trying to output thin ice variables if not using thin ice category
         if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
         {
             if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
             {
-                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
-                continue;
+                LOG(ERROR)<<"initMoorings: trying to output <<"<< *it<<">> but not running with thin ice\n";
+                throw std::runtime_error("Invalid mooring name");
             }
         }
 
-#if defined (WAVES)
-        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
-        {
-            LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
-            continue;
-        }
-#endif//WAVES
-
-        // Element variables
-        if ( *it == "conc" )
-        {
-            GridOutput::Variable conc(GridOutput::variableID::conc);
-            elemental_variables.push_back(conc);
-        }
-        else if ( *it == "thick" )
-        {
-            GridOutput::Variable thick(GridOutput::variableID::thick);
-            elemental_variables.push_back(thick);
-        }
-        else if ( *it == "snow" )
-        {
-            GridOutput::Variable snow(GridOutput::variableID::snow);
-            elemental_variables.push_back(snow);
-        }
-        else if ( *it == "tsurf" )
-        {
-            GridOutput::Variable tsurf(GridOutput::variableID::tsurf);
-            elemental_variables.push_back(tsurf);
-        }
-        else if ( *it == "Qa" )
-        {
-            GridOutput::Variable Qa(GridOutput::variableID::Qa);
-            elemental_variables.push_back(Qa);
-        }
-        else if ( *it == "Qsw" )
-        {
-            GridOutput::Variable Qsw(GridOutput::variableID::Qsw);
-            elemental_variables.push_back(Qsw);
-        }
-        else if ( *it == "Qlw" )
-        {
-            GridOutput::Variable Qlw(GridOutput::variableID::Qlw);
-            elemental_variables.push_back(Qlw);
-        }
-        else if ( *it == "Qsh" )
-        {
-            GridOutput::Variable Qsh(GridOutput::variableID::Qsh);
-            elemental_variables.push_back(Qsh);
-        }
-        else if ( *it == "Qlh" )
-        {
-            GridOutput::Variable Qlh(GridOutput::variableID::Qlh);
-            elemental_variables.push_back(Qlh);
-        }
-        else if ( *it == "Qo" )
-        {
-            GridOutput::Variable Qo(GridOutput::variableID::Qo);
-            elemental_variables.push_back(Qo);
-        }
-        else if ( *it == "delS" )
-        {
-            GridOutput::Variable delS(GridOutput::variableID::delS);
-            elemental_variables.push_back(delS);
-        }
-        else if ( *it == "conc_thin" )
-        {
-            GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin);
-            elemental_variables.push_back(conc_thin);
-        }
-        else if ( *it == "h_thin" )
-        {
-            GridOutput::Variable h_thin(GridOutput::variableID::h_thin);
-            elemental_variables.push_back(h_thin);
-        }
-        else if ( *it == "hs_thin" )
-        {
-            GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
-            elemental_variables.push_back(hs_thin);
-        }
-#if defined (WAVES)
-        else if ( *it == "dfloe" )
-        {
-            GridOutput::Variable dfloe(GridOutput::variableID::dfloe);
-            elemental_variables.push_back(dfloe);
-        }
-#endif//WAVES
-
         // Nodal variables and vectors
-        else if (*it == "velocity")
+        if (*it == "velocity")
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
@@ -7137,34 +7066,21 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
 
-        // Error
+        // Element variables
+        else if (mooring_name_map_elements.count(*it)==0)
+        {
+            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
+            LOG(ERROR)<<"Available names are:\n";
+            LOG(ERROR)<<"  velocity\n";
+            for (auto ptr=mooring_name_map_elements.begin();
+                    ptr!=mooring_name_map_elements.end(); ptr++)
+                LOG(ERROR)<<"  "<< ptr->first <<"\n";
+            throw std::runtime_error("Invalid mooring name");
+        }
         else
         {
-            std::cout << "Invalid mooring name: " << *it << std::endl;
-            std::cout << "Available names are ";
-            std::cout << "conc, ";
-            std::cout << "thick, ";
-            std::cout << "snow, ";
-            std::cout << "tsurf, ";
-            std::cout << "Qa, ";
-            std::cout << "Qsw, ";
-            std::cout << "Qlw, ";
-            std::cout << "Qsh, ";
-            std::cout << "Qlh, ";
-            std::cout << "Qo, ";
-            std::cout << "delS, ";
-            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-            {
-                std::cout << "conc_thin, ";
-                std::cout << "h_thin, ";
-                std::cout << "hs_thin, ";
-            }
-#if defined (WAVES)
-            std::cout << "dfloe, ";
-#endif
-            std::cout << "velocity";
-
-            throw std::runtime_error("Invalid mooring name");
+            GridOutput::Variable tmp(mooring_name_map_elements[*it]);
+            elemental_variables.push_back(tmp);
         }
     }
 
