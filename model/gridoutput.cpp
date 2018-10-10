@@ -42,7 +42,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
             M_nodal_variables.resize(0);
 
         default:
-            std::logic_error("Incorrect varible kind in GridOutput::GridOutput");
+            std::logic_error("Incorrect variable kind in GridOutput::GridOutput");
     }
 }
 
@@ -638,7 +638,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);

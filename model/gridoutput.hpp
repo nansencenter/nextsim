@@ -120,6 +120,7 @@ public:
         ice_mask    = -2
     };
 
+
     typedef struct Variable
     {
         Variable(){}
@@ -333,7 +334,7 @@ public:
             }
         }
 
-        int varID;
+        variableID varID;
         std::string name;
         std::string longName;
         std::string stdName;
