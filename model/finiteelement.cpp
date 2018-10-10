@@ -7043,7 +7043,7 @@ FiniteElement::initMoorings()
         {
             if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
             {
-                LOG(ERROR)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                LOG(ERROR)<<"initMoorings: trying to output <<"<< *it<<">> but not running with thin ice\n";
                 throw std::runtime_error("Invalid mooring name");
             }
         }
@@ -7069,7 +7069,7 @@ FiniteElement::initMoorings()
         // Element variables
         else if (mooring_name_map_elements.count(*it)==0)
         {
-            LOG(ERROR)<<"Unimplemented moorings name: "<<*it<<"\n\n";
+            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
             for (auto ptr=mooring_name_map_elements.begin();
