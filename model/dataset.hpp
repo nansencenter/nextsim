@@ -18,6 +18,7 @@
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>
 #include <BamgTriangulatex.h>
+#include <assert.hpp>
 extern "C"
 {
 #include <mapx.h>
@@ -141,7 +142,6 @@ public:
 
         std::string mpp_file;
 		bool interpolation_in_latlon;
-		double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
         bool loaded;
         std::string dataset_frequency;
@@ -149,7 +149,13 @@ public:
         WaveOptions waveOptions;
 
 		bool masking;
+
+        // optional variables below here...
 		Variable masking_variable;
+
+		double branch_cut_lon;
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 		std::vector<int> reduced_nodes_ind;
 
         std::vector<int> pfindex;
@@ -194,6 +200,8 @@ public:
 
     void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
+    std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
+    void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);
     void getLatLonRegularLatLon(double* LAT, double* LON,
                                   netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
