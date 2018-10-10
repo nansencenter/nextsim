@@ -142,7 +142,6 @@ public:
 
         std::string mpp_file;
 		bool interpolation_in_latlon;
-		double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
         bool loaded;
         std::string dataset_frequency;
@@ -150,7 +149,13 @@ public:
         WaveOptions waveOptions;
 
 		bool masking;
+
+        // optional variables below here...
 		Variable masking_variable;
+
+		double branch_cut_lon;
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
 		std::vector<int> reduced_nodes_ind;
 
         std::vector<int> pfindex;
