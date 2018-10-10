@@ -1282,8 +1282,14 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length (in time) of the mooring output file (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
-    
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
+        //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
+        //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
+        //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
+    M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
+    if(!M_moorings_snapshot)
+        M_moorings_averaging_period = vm["moorings.output_timestep"].as<double>();
     
     //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
@@ -7009,9 +7015,31 @@ FiniteElement::initMoorings()
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+#if defined (WAVES)
+    std::vector<std::string> names_wim = {"dfloe"};
+#endif//WAVES
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
+        // skip thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+        {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with thin ice\n";
+                continue;
+            }
+        }
+
+#if defined (WAVES)
+        if (std::count(names_wim.begin(), names_wim.end(), *it) > 0)
+        {
+            LOG(WARNING)<<"initMoorings: skipping <<"<< *it<<">> as not running with waves\n";
+            continue;
+        }
+#endif//WAVES
+
         // Element variables
         if ( *it == "conc" )
         {
@@ -7068,23 +7096,31 @@ FiniteElement::initMoorings()
             GridOutput::Variable delS(GridOutput::variableID::delS);
             elemental_variables.push_back(delS);
         }
-        else if ( *it == "conc_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "conc_thin" )
         {
             GridOutput::Variable conc_thin(GridOutput::variableID::conc_thin);
             elemental_variables.push_back(conc_thin);
         }
-        else if ( *it == "h_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "h_thin" )
         {
             GridOutput::Variable h_thin(GridOutput::variableID::h_thin);
             elemental_variables.push_back(h_thin);
         }
-        else if ( *it == "hs_thin" & M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        else if ( *it == "hs_thin" )
         {
             GridOutput::Variable hs_thin(GridOutput::variableID::hs_thin);
             elemental_variables.push_back(hs_thin);
         }
+#if defined (WAVES)
+        else if ( *it == "dfloe" )
+        {
+            GridOutput::Variable dfloe(GridOutput::variableID::dfloe);
+            elemental_variables.push_back(dfloe);
+        }
+#endif//WAVES
+
         // Nodal variables and vectors
-        else if ( *it == "velocity_xy" | *it == "velocity_uv" )
+        else if (*it == "velocity")
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
@@ -7098,13 +7134,9 @@ FiniteElement::initMoorings()
 
             GridOutput::Vectorial_Variable siuv;
             siuv.components_Id = siuv_id;
-            if ( *it == "velocity_xy" )
-                siuv.east_west_oriented = false;
-            else
-                siuv.east_west_oriented = true;
-
             vectorial_variables.push_back(siuv);
         }
+
         // Error
         else
         {
@@ -7127,8 +7159,10 @@ FiniteElement::initMoorings()
                 std::cout << "h_thin, ";
                 std::cout << "hs_thin, ";
             }
-            std::cout << "velocity_xy, ";
-            std::cout << "velocity_uv";
+#if defined (WAVES)
+            std::cout << "dfloe, ";
+#endif
+            std::cout << "velocity";
 
             throw std::runtime_error("Invalid mooring name");
         }
@@ -7166,15 +7200,27 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables,
+                elemental_variables, vectorial_variables, M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
         // Read the grid in from file
+        // - add an .mpp file if the projection is different to the neXtSIM projection
+        // - if not given, assume it is the same as neXtSIM
+        std::string mpp_file = Environment::vm()["moorings.mppfile"].as<std::string>();
+        if(!mpp_file.empty())
+            mpp_file = (boost::format( "%1%/%2%" )
+                    % Environment::nextsimMeshDir().string()
+                    % mpp_file
+                    ).str();
+        else
+            mpp_file = Environment::nextsimMppfile();
+
         GridOutput::Grid grid{
             gridFile: Environment::vm()["moorings.grid_file"].as<std::string>(),
             dirname: "data",
-            mpp_file: Environment::vm()["mesh.mppfile"].as<std::string>(),
+            mpp_file: mpp_file,
             dimNameX: "y",
             dimNameY: "x",
             latName: "latitude",
@@ -7182,7 +7228,8 @@ FiniteElement::initMoorings()
         };
 
         // Define the mooring dataset
-        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(M_mesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, M_moorings_false_easting);
     }
     else
     {
@@ -10915,11 +10962,7 @@ FiniteElement::outputIabpDrifters()
 
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
@@ -10974,11 +11017,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
     {
         // Initialize the map
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
@@ -12354,11 +12393,7 @@ FiniteElement::checkFields()
 
         // get lon, lat at test position
         mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-
+        std::string configfile = Environment::nextsimMppfile();
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);

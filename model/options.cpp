@@ -139,11 +139,15 @@ namespace Nextsim
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output (overrides mooring.spacing). Has to be a netcdf file with x, y as dimensions and latitude, longitude as variables")
+            ("moorings.mppfile", po::value<std::string>()->default_value( "" ),
+                "mpp file with projection for output grid (only used if grid_type = from_file)")
+            ("moorings.false_easting", po::value<bool>()->default_value( true ),
+                "true: we output vectors relative to the output grid; false: we give their north-south components")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
 
