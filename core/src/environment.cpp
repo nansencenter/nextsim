@@ -31,12 +31,14 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 {
     mpicomm = Communicator::commSelf();
 
+    //! - 1) Set NEXTSIM_[MESH,DATA]_DIR for inputs
     this->setEnvironmentVariables();
 
     int ierr = 0;
     ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
     CHKERRABORT( mpicomm, ierr );
 
+    //! - 2) Read the config files to get the run-time options
     try
     {
         //po::store(po::parse_command_line(argc, argv, desc),vmenv);
@@ -54,11 +56,13 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
 
             if ( vmenv.count( "config-file" ) )
             {
-                if ( fs::exists( vmenv["config-file"].as<std::string>() ) )
+                // only 1 config file
+                std::string cfg_file = vmenv["config-file"].as<std::string>();
+                if ( fs::exists(cfg_file) )
                 {
                     if (Communicator::commSelf().rank()==0)
-                        std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
-                    std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
+                        std::cout << "Reading " << cfg_file << "...\n";
+                    std::ifstream ifs( cfg_file.c_str() );
 
                     // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
                     po::store( parse_config_file( ifs, desc, false ), vmenv );
@@ -73,9 +77,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
             {
                 std::vector<std::string> configFiles = vmenv["config-files"].as<std::vector<std::string> >();
 
-                // reverse order (priorty for the last)
-                // std::reverse(configFiles.begin(),configFiles.end());
-
+                // multiple config files: loop over them all
                 for ( std::string cfgfile : configFiles )
                 {
                     if ( fs::exists( cfgfile ) )
@@ -121,8 +123,13 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::runtime_error("...");
     }
 
-    this->setVariablesFromConfigFile();
-
+    //! -3) set other useful variables it would be convenient to have access to
+    //! across multiple classes
+    //! * nextsim .mppfile
+    nextsim_mppfile = (boost::format( "%1%/%2%" )
+            % this->nextsimMeshDir().string()
+            % this->vm()["mesh.mppfile"].as<std::string>()
+            ).str();
 }
 
 
@@ -160,16 +167,9 @@ Environment::setEnvironmentVariables()
 }//setEnvironmentVariables
 
 
-//! set other useful variables it would be convenient to have access to
-//! across multiple classes
-//! * nextsim .mppfile
 void
 Environment::setVariablesFromConfigFile()
 {
-    nextsim_mppfile = (boost::format( "%1%/%2%" )
-            % this->nextsimMeshDir().string()
-            % this->vm()["mesh.mppfile"].as<std::string>()
-            ).str();
 }//setVariablesFromConfigFile
 
 

@@ -83,8 +83,6 @@ public:
     //! and some sub-directories
     void setEnvironmentVariables();
 
-    void setVariablesFromConfigFile();
-
     static MemoryUsage logMemoryUsage(std::string const& message);
 
 private:
