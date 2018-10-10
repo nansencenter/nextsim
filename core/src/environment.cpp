@@ -167,12 +167,6 @@ Environment::setEnvironmentVariables()
 }//setEnvironmentVariables
 
 
-void
-Environment::setVariablesFromConfigFile()
-{
-}//setVariablesFromConfigFile
-
-
 Communicator Environment::mpicomm;
 po::variables_map Environment::vmenv;
 fs::path Environment::nextsim_data_dir_env;
