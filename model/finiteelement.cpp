@@ -5895,6 +5895,8 @@ FiniteElement::getQlwIn()
                     *( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
                     *( 1. + 0.275*M_tcc[i] );
         }
+
+    return Qlw_in;
 }
 
 
@@ -5911,6 +5913,8 @@ FiniteElement::getSnowfall()
         for(int i=0; i<M_num_elements; i++)
             if(M_tair[i]<0)
                 snowfall[i] = M_precip[i]*M_snowfr[i];
+
+    return snowfall;
 }
 
 
@@ -5934,7 +5938,10 @@ FiniteElement::getSpecificHumidity()
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma[i] = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
+
+    return sphuma;
 }
+
 
 
 //------------------------------------------------------------------------------------------------------
@@ -7018,7 +7025,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (elements)");
+            default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
     }
 
@@ -7037,7 +7044,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
