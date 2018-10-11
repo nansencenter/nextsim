@@ -101,7 +101,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int nb_var, int grid_size, double miss_val,
         std::vector<int> &gridP, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
-        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights, int num_local_triangles)
+        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
 {
     // Initialise interp_out
     interp_out = xNew<double>(nb_var*grid_size);
@@ -125,8 +125,7 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
             // ... and contributing elements
             interp_out[gridP[i]*nb_var+var] = 0;
             for (int tr=0; tr<triangles[i].size(); ++tr)
-                if ( triangles[i][tr] < num_local_triangles )
-                    interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
+                interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
 
             interp_out[gridP[i]*nb_var+var] *= r_cell_area;
         }
