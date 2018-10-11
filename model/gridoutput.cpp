@@ -266,12 +266,22 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
     // Do a conservative remapping if we find both cornerLatName and cornerLonName
     if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
     {
-        netCDF::NcVar cornerLat = dataFile.getVar(M_grid.cornerLatName);
-        netCDF::NcVar cornerLon = dataFile.getVar(M_grid.cornerLonName);
-        M_grid.gridCornerLat.resize(M_grid_size*4);
-        M_grid.gridCornerLon.resize(M_grid_size*4);
-        cornerLat.getVar(&M_grid.gridCornerLat[0]);
-        cornerLon.getVar(&M_grid.gridCornerLon[0]);
+        netCDF::NcVar corner_x = dataFile.getVar("x_corners");
+        netCDF::NcVar corner_y = dataFile.getVar("y_corners");
+        netCDF::NcVar corner_z = dataFile.getVar("z_corners");
+
+        std::vector<double> x(M_grid_size*4);
+        std::vector<double> y(M_grid_size*4);
+        std::vector<double> z(M_grid_size*4);
+
+        corner_x.getVar(&x[0]);
+        corner_y.getVar(&y[0]);
+        corner_z.getVar(&z[0]);
+
+        M_grid.gridCornerX.resize(4*M_grid_size);
+        M_grid.gridCornerY.resize(4*M_grid_size);
+        this->stereographicProjection(x, y, z, M_grid.gridCornerX, M_grid.gridCornerY);
+
         M_interp_method = interpMethod::conservative;
     }
 
@@ -292,14 +302,6 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
     for (int i=0; i<M_grid_size; ++i)
         forward_mapx(map, M_grid.gridLAT[i], M_grid.gridLON[i], &M_grid.gridX[i], &M_grid.gridY[i]);
 
-    if ( M_interp_method==interpMethod::conservative )
-    {
-        M_grid.gridCornerX.resize(4*M_grid_size);
-        M_grid.gridCornerY.resize(4*M_grid_size);
-        for (int i=0; i<4*M_grid_size; ++i)
-            forward_mapx(map, M_grid.gridCornerLat[i], M_grid.gridCornerLon[i], &M_grid.gridCornerX[i], &M_grid.gridCornerY[i]);
-    }
-
     close_mapx(map);
 
     M_grid.loaded = true;
@@ -314,6 +316,46 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
         this->resetMeshMean(bamgmesh, true, transfer_map);
 }
 
+void
+GridOutput::stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
+    std::vector<double>& ps_x, std::vector<double>& ps_y)
+{
+    // polar stereographic projection
+    mapx_class *map;
+    std::string filename = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % Environment::vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+    std::vector<char> str(filename.begin(), filename.end());
+    str.push_back('\0');
+
+    map = init_mapx(&str[0]);
+
+    for ( int i=0; i<x.size(); i++ )
+    {
+        //compute latitude and longitude from cartesian coordinates
+        double _x = x[i];
+        double _y = y[i];
+        double _z = z[i];
+
+        // compute radius
+        double radius = std::sqrt(std::pow(_x,2.)+std::pow(_y,2.)+std::pow(_z,2.));
+
+        double latitude = std::asin(_z/radius)*(180./PI);
+        double longitude = std::atan2(_y,_x);
+
+        longitude = longitude-2*PI*std::floor(longitude/(2*PI));
+        longitude = longitude*(180./PI);
+
+        double x_, y_;
+        int status = forward_mapx(map,latitude,longitude,&x_,&y_);
+
+        ps_x[i] = x_;
+        ps_y[i] = y_;
+    }
+
+    close_mapx(map);
+}
 void
 GridOutput::initMask()
 {
