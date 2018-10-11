@@ -340,11 +340,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
@@ -821,11 +817,7 @@ ExternalData::transformData(Dataset *dataset)
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
@@ -1275,11 +1267,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);

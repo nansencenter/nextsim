@@ -176,7 +176,6 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: "NpsASR.mpp",
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
                 loaded: false,
                 dataset_frequency:"monthly",
@@ -317,7 +316,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "NpsASR.mpp",
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -623,7 +621,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -823,7 +820,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -982,7 +978,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1209,7 +1204,6 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
                 loaded: false,
                 dataset_frequency:"daily",
@@ -1387,7 +1381,6 @@ DataSet::DataSet(char const *DatasetName)
 
               mpp_file: projfilename,
               interpolation_in_latlon: false,
-              branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
               loaded: false,
               dataset_frequency:"daily",
@@ -1601,7 +1594,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1764,7 +1756,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -1877,7 +1868,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -1988,7 +1978,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -2173,7 +2162,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -2373,7 +2361,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -2561,7 +2548,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
@@ -2810,7 +2796,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily_forecast",
@@ -3001,7 +2986,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -3178,7 +3162,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"yearly",
@@ -3359,7 +3342,6 @@ DataSet::DataSet(char const *DatasetName)
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
-                branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
                 loaded: false,
                 dataset_frequency:"yearly",
@@ -3509,7 +3491,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -3667,7 +3648,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -3809,7 +3789,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -3950,7 +3929,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4081,7 +4059,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4228,7 +4205,7 @@ DataSet::DataSet(char const *DatasetName)
             dirname: "data",
             prefix: "Arc_",
             postfix: "_res3.125_pyres.nc",
-            gridfile: "",
+            gridfile: "LongitudeLatitudeGrid_3.125km_Arctic.nc",//older AMSR2 files don't have lon,lat inside them
             reference_date: "0001-01-01",
 
             latitude: latitude,
@@ -4239,7 +4216,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4397,7 +4373,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4555,7 +4530,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"nearest_daily",
@@ -4669,7 +4643,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
      		interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -4773,8 +4746,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.98, // for the 4 deg dataset  // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
-            //branch_cut_lon: -180,// for the 1 deg dataset // where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -4900,7 +4871,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"constant",
@@ -4950,7 +4920,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -5023,7 +4993,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -5205,7 +5174,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -5278,7 +5247,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
@@ -5386,7 +5354,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"lon",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -5458,7 +5426,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
@@ -5639,7 +5606,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"monthly",
@@ -5893,7 +5859,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
@@ -6074,7 +6039,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -6278,7 +6242,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
@@ -6459,7 +6422,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily_ec2_forecast",
@@ -6715,7 +6677,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: -179.875,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
 
@@ -7023,7 +6984,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
-            branch_cut_lon: -180,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"daily",
@@ -7162,7 +7122,6 @@ DataSet::DataSet(char const *DatasetName)
 
             mpp_file: "",
             interpolation_in_latlon: true,
-            branch_cut_lon: 0,//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
 
             loaded: false,
             dataset_frequency:"yearly",
@@ -7481,6 +7440,77 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     return filename;
 }
 
+
+//! get longitude range from the netcdf file
+//! * only needed if grid.interpolation_in_latlon = true
+//! called by loadGrid
+void
+DataSet::getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON)
+{
+    // - check 1st element
+    std::vector<size_t> index_lon_start = {0};
+    std::vector<size_t> index_lon_count = {1};
+    auto LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
+    double lon0 = LON[0];
+
+    // - check last element
+    size_t Nlon = grid.dimension_x_count_netcdf;
+    index_lon_start = {Nlon - 1};
+    LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
+    double lon1 = LON[0];
+
+    // get range
+    lonmin = std::min(lon0, lon1);
+    lonmax = std::max(lon0, lon1);
+}//getLonRange
+
+
+//! get nc data as a vector, with scale_factor and offset already applied
+//! called by getLonRange
+//  TODO also use this in eg getLatLonRegularLatLon...
+std::vector<double>
+DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count)
+{
+    // Attributes (scaling and offset)
+    // - Need to multiply with scale factor and add offset
+    // - these are stored as variable attributes
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+    scale_factor = 1.;
+    try
+    {
+        att = ncvar.getAtt("scale_factor");
+        att.getValues(&scale_factor);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    add_offset = 0.;
+    try
+    {
+        att = ncvar.getAtt("add_offset");
+        att.getValues(&add_offset);
+    }
+    catch(netCDF::exceptions::NcException& e)
+    {}
+
+    // read the raw data
+    ASSERT(count.size()>0, "count is empty");
+    ASSERT(count.size() == start.size(), "count and start should be the same size");
+    int Ndata = std::accumulate(count.begin(), count.end(),
+            1, std::multiplies<double>());
+    std::vector<double> data(Ndata);
+    ncvar.getVar(start, count, &data[0]);
+
+    // apply the scale factor and offset
+    for (auto it=data.begin(); it!=data.end(); it++)
+        *it = (*it)*scale_factor + add_offset;
+
+    return data;
+}//getNcVarData
+
+
 void
 DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max)
 {
@@ -7526,15 +7556,32 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
-	if((grid_ptr->latitude.dimensions.size()==1) && (grid_ptr->longitude.dimensions.size()==1))
+	if(grid_ptr->interpolation_in_latlon)
 	{
+        ASSERT((grid_ptr->latitude.dimensions.size()==1)
+                && (grid_ptr->longitude.dimensions.size()==1),
+                "lon & lat should be dimensions if Dataset::grid.interpolation_in_latlon = true");
+        ASSERT(grid_ptr->interpolation_method == InterpolationType::FromGridToMesh,
+                "Dataset::grid.interpolation_method should be FromGridToMesh if Dataset::grid.interpolation_in_latlon = true");
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+
+        // first we determine where the branch cut should be from
+        // the range in longitude
+        double lonmin, lonmax;
+        this->getLonRange(lonmin, lonmax, VLON);
+        grid_ptr->branch_cut_lon = lonmin;
+        //TODO implement LOG(DEBUG) here
+        //if(Environment::comm().rank()==0)
+        //    std::cout<<name<<": branch_cut_lon = "<<lonmin<<"\n";
+
+        // TODO we could determine what cyclic should be here too, ie
+        // grid_ptr.dimension_x.cyclic = (lonmin + 360. != lonmax);
+        // although that wouldn't work for a reduced grid but you get the idea
 
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
-
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
         // Then, we determine the reduced dimension
@@ -7585,6 +7632,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	}//end regular lat=lon
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
+        // regular x,y grid
+        // - interp from grid to mesh
+        // - need grid.mpp_file to be correct .mpp file
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
@@ -7642,8 +7692,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	}//end interpolation_method==InterpolationType::FromGridToMesh
 	else
 	{
-        //interpolation_method==InterpolationType::FromMeshToMesh2dx
-
+        // interpolation_method==InterpolationType::FromMeshToMesh2dx
+        // - most general method
+        // - project to x,y plane with nextsim .mpp file and do interpolation in x,y space
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
@@ -7782,49 +7833,40 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			std::vector<double> reduced_LON;
 			std::vector<int> reduced_nodes_ind;
 
-        	std::vector<size_t> index_count(grid_ptr->masking_variable.dimensions.size());
-            std::vector<size_t> index_start(grid_ptr->masking_variable.dimensions.size());
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<grid_ptr->masking_variable.dimensions.size(); ++k)
+            auto mask_dims = VMASK.getDims();
+        	std::vector<size_t> index_count(mask_dims.size());
+            std::vector<size_t> index_start(mask_dims.size());
+            for(int k=0; k<mask_dims.size(); ++k)
             {
-                std::string dimension_name=grid_ptr->masking_variable.dimensions[k].name;
+                auto ncdim = mask_dims[k];
+                auto dimension_name = ncdim.getName();
 
                 // dimension_x case
-                if ((dimension_name).find(grid_ptr->dimension_x.name) != std::string::npos)
+                if (dimension_name == grid_ptr->dimension_x.name)
                 {
                     index_start[k] = grid_ptr->dimension_x_start;
                     index_count[k] = grid_ptr->dimension_x_count;
                 }
                 // dimension_y case
-                else if ((dimension_name).find(grid_ptr->dimension_y.name) != std::string::npos)
+                else if (dimension_name == grid_ptr->dimension_y.name)
                 {
                     index_start[k] = grid_ptr->dimension_y_start;
                     index_count[k] = grid_ptr->dimension_y_count;
                 }
-                // other cases
-                else {
-                    tmpDim = dataFile2.getDim(dimension_name);
+                // other cases: only time or depth
+                // - just take 1st record as time/depth-varying masks are not implemented
+                // - see below: data_in just has the size of the spatial dimensions
+                else
+                {
                     index_start[k] = 0;
-                    index_count[k] = tmpDim.getSize();
+                    index_count[k] = 1;
                 }
             }
 
-            // time dimension
-            if(grid_ptr->masking_variable.dimensions.size()>2)
-            {
-			    index_start[0] = 0;
-			    index_count[0] = 1;
-            }
-            // depth dimension
-            if(grid_ptr->masking_variable.dimensions.size()>3)
-			{
-            	index_start[1] = 0;
-            	index_count[1] = 1;
-			}
-
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-			VMASK.getVar(index_start,index_count,&data_in[0]);
+			VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
 			netCDF::NcVarAtt att;
