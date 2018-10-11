@@ -209,7 +209,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             {
                 int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) break;
+                if ( elt_num < 0 ) continue;
 
                 if ( ! visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
@@ -258,7 +258,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             {
                 int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) break;
+                if ( elt_num < 0 ) continue;
 
                 /*
                  * Find the triangle adjacent to the current one by comparing
@@ -273,8 +273,9 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                         ++counter;
                 }
 
-                // Sanity check - the two triangles must share at least one node!
+                // Sanity check - the two triangles must share at least one node and no more than two!
                 assert(counter>=1);
+                assert(counter<=2);
 
                 if ( counter==2 && !visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
@@ -408,7 +409,7 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
     std::sort(points.begin(), points.end(), CWSort);
 
     // Erase duplicates - these may occur when we double count nodes on grid corners (i.e. costal points)
-    points.erase( std::unique( points.begin(), points.end() ), points.end() );
+    //points.erase( std::unique( points.begin(), points.end() ), points.end() );
 
     // Add the centre again
     for (auto it=points.begin(); it!=points.end(); ++it)
