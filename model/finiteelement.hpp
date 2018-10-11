@@ -665,6 +665,9 @@ private:
     std::vector<double> M_thick;        // Effective ice thickness [m]
     std::vector<double> M_damage;       // Ice damage
     std::vector<double> M_snow_thick;   // Effective snow thickness [m]
+    std::vector<double> M_fyi_fraction; // Fraction of the first year ice (FYI)
+    std::vector<double> M_age_obs;      // Ice age observable from space (area weighted) [timestep]
+    std::vector<double> M_age;          // Effective ice age [timestep]
 
 	// Prognostic slab ocean variables
     std::vector<double> M_sst;          // Sea-surface temperature [C]
@@ -682,11 +685,20 @@ private:
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
     std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
     std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
+    std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
+    std::vector<double> M_age_obs_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
+    std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
+   
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
     std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
     std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
+    std::vector<double> M_age_obs_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
+    std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
+    
+    
 
 private:
     // Variables for the moorings

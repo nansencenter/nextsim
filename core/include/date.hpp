@@ -101,6 +101,16 @@ inline std::string to_date_string_y( double date_time )
     return (boost::format( "%1%" ) % dt.year()).str();
 }
 
+inline std::string to_date_string_md( double date_time )
+{
+    // mmdd
+    boost::gregorian::date dt = Nextsim::parse_date( date_time );
+    return (boost::format( "%1%%2%" )
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
+            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
+            ).str();
+}
+
 inline double from_date_time_string( const std::string& datestr )
 {
     double date = from_date_string( datestr );

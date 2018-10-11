@@ -577,7 +577,10 @@ FiniteElement::initVariables()
     M_damage.resize(M_num_elements);
     M_ridge_ratio.assign(M_num_elements,0.);
     M_snow_thick.resize(M_num_elements);
-
+    M_fyi_fraction.assign(M_num_elements,0.);
+    M_age_obs.assign(M_num_elements,0.);
+    M_age.assign(M_num_elements,0.);
+    
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
 
@@ -777,7 +780,7 @@ FiniteElement::assignVariables()
 #endif
 
     // number of variables to interpolate
-    M_nb_var_element = /*11*/15 + M_tice.size();
+    M_nb_var_element = /*11*/18 + M_tice.size();
 }//assignVariables
     
 
@@ -2024,7 +2027,25 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         M_interp_method[tmp_nb_var] = 0;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
-
+        
+        // Fraction of the first year ice (FYI)
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_fyi_fraction[i];
+        M_interp_method[tmp_nb_var] = 1;
+        M_diffusivity_parameters[tmp_nb_var]=0.;
+        tmp_nb_var++;
+        
+        // Ice age observable from space (area weighted) [s]
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_age_obs[i];
+        M_interp_method[tmp_nb_var] = 1;
+        M_diffusivity_parameters[tmp_nb_var]=0.;
+        tmp_nb_var++;
+        
+        // Effective ice age [s]
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_age[i];
+        M_interp_method[tmp_nb_var] = 1;
+        M_diffusivity_parameters[tmp_nb_var]=0.;
+        tmp_nb_var++;
+       
         if(tmp_nb_var>nb_var_element)
         {
             throw std::logic_error("tmp_nb_var not equal to nb_var");
@@ -2264,6 +2285,18 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         // Ice temperature
         M_tice[0][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+        
+        // Fraction of the first year ice (FYI) 
+        M_fyi_fraction[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+        
+        // Ice age observable from space (area weighted) [s]
+        M_age_obs[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+        
+        // Effective ice age [s]
+        M_age[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
 
         if ( M_thermo_type == setup::ThermoType::WINTON )
@@ -3239,6 +3272,9 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_damage.assign(M_num_elements,0.);
     M_ridge_ratio.assign(M_num_elements,0.);
     M_random_number.resize(M_num_elements);
+    M_fyi_fraction.assign(M_num_elements,0.);
+    M_age.assign(M_num_elements,0.);
+    M_age_obs.assign(M_num_elements,0.);
 
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
@@ -5795,6 +5831,57 @@ FiniteElement::thermo(double dt)
 
         // Salt release into the ocean - kg/day
         D_delS[i] = (M_sss[i] - sss_old)*physical::rhow*mld/dt;
+        
+        //! 10) Computes tracers (ice age/type tracers)
+        // If there is no ice
+        if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
+        {
+            M_fyi_fraction[i] = 0.;
+            M_age_obs[i] = 0.;
+            M_age[i] =  0.;
+        }
+        else    //If there is ice
+        {
+            
+            // FYI fraction
+            double old_fyi=M_fyi_fraction[i];
+            std::string date_string_md = to_date_string_md( M_current_time );
+            
+            // Reset the FYI tracer to 0 every end of the melt season (15 September)
+            if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0)
+            {
+                M_fyi_fraction[i] = 0.;
+            }
+            else if (del_c > 0.)
+            {
+                M_fyi_fraction[i] = std::min(1.,old_fyi+del_c);
+            }
+            else
+            {
+                M_fyi_fraction[i] =  old_fyi;
+            }
+            
+            // Observable sea ice age tracer
+            // Melt does not effect the age, growth makes it younger
+            double old_age_obs = M_age_obs[i];
+
+            M_age_obs[i] = old_age_obs+dt*M_conc[i];
+        
+            // Real (volume weighted and conserving) sea ice age 
+            double old_age = M_age[i];
+            
+            // potential devision by zero and non-initialized old_vol (strange value) in the first time step
+            if (old_vol >= 0.)
+            {    
+                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(old_vol-M_thick[i])/M_thick[i];
+            }
+            else
+            {
+                M_age[i] =  0.;
+            }
+        }
+        
+        
     }// end for loop
 }//thermo
     
@@ -6670,15 +6757,15 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
-
+    std::cout << "6734\n";
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
-
+    std::cout << "6737\n";
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-
+    std::cout << "6742\n";
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
@@ -6891,6 +6978,22 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_hs_thin[i]*time_factor;
                 break;
+                
+            case (GridOutput::variableID::fyi_frac):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
+                break;
+                
+            case (GridOutput::variableID::age_o):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_age_obs[i]*time_factor;
+                break;  
+                
+            case (GridOutput::variableID::age):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_age[i]*time_factor;
+                break;   
+                
 
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
@@ -7004,6 +7107,21 @@ FiniteElement::initMoorings()
         {
             GridOutput::Variable snow(GridOutput::variableID::snow);
             elemental_variables.push_back(snow);
+        }    
+        else if ( *it == "fyi_frac" )
+        {
+            GridOutput::Variable fyi_frac(GridOutput::variableID::fyi_frac);
+            elemental_variables.push_back(fyi_frac);
+        }
+         else if ( *it == "age_o" )
+        {
+            GridOutput::Variable age_o(GridOutput::variableID::age_o);
+            elemental_variables.push_back(age_o);
+        }
+         else if ( *it == "age" )
+        {
+            GridOutput::Variable age(GridOutput::variableID::age);
+            elemental_variables.push_back(age);
         }
         else if ( *it == "tsurf" )
         {
@@ -7090,6 +7208,9 @@ FiniteElement::initMoorings()
             std::cout << "conc, ";
             std::cout << "thick, ";
             std::cout << "snow, ";
+            std::cout << "fyi_frac, ";
+            std::cout << "age_o, ";
+            std::cout << "age, ";
             std::cout << "tsurf, ";
             std::cout << "Qa, ";
             std::cout << "Qsw, ";
@@ -7111,6 +7232,9 @@ FiniteElement::initMoorings()
         }
     }
 
+    std::cout << "7206\n";
+    
+    
     // Need a mask for the nodal variables
     if ( nodal_variables.size() > 0 )
     {
@@ -7125,6 +7249,8 @@ FiniteElement::initMoorings()
         elemental_variables.push_back(ice_mask);
     }
 
+    std::cout << "7223\n";
+    
     if(vm["moorings.grid_type"].as<std::string>()=="regular")
     {
         // Calculate the grid spacing (assuming a regular grid for now)
@@ -7189,7 +7315,7 @@ FiniteElement::initMoorings()
 
         M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
     }
-
+std::cout << "7289\n";
 }//initMoorings
 
 
@@ -7420,7 +7546,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
     }
 
-    M_nb_var_element = 15 + M_tice.size();//15;
+    M_nb_var_element = 18 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
     {
@@ -11712,7 +11838,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    M_nb_var_element = 15 + M_tice.size();//15;
+    M_nb_var_element = 18 + M_tice.size();//15;
     int nb_var_element = M_nb_var_element;
     if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
     {

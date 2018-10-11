@@ -102,6 +102,9 @@ public:
         h_thin      = 13,
         hs_thin     = 14,
         conc_thin   = 15,
+        fyi_frac    = 16,
+        age_o       = 17,
+        age         = 18,
 
         // Diagnostic variables
         Qa          = 100,
@@ -233,7 +236,25 @@ public:
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
                     break;
-
+                case (variableID::fyi_frac):
+                    name     = "fyi_frac";
+                    longName = "First Year Ice Fraction";
+                    stdName  = "fyi_fraction";
+                    Units    = "1";
+                    break;
+                case (variableID::age_o):
+                    name     = "sia_obs";
+                    longName = "Observable sea ice age";
+                    stdName  = "obs_sea_ice_age";
+                    Units    = "s";
+                    break;   
+                case (variableID::age):
+                    name     = "sia";
+                    longName = "Sea ice age";
+                    stdName  = "aea_ice_age";
+                    Units    = "s";
+                    break;   
+                    
                 // Diagnostic variables
                 case (variableID::Qa):
                     name     = "hfs";
@@ -277,7 +298,7 @@ public:
                     stdName  = "downward_slatflux_in_ocean";
                     Units    = "kg m-2 s-1";
                     break;
-
+                    
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
