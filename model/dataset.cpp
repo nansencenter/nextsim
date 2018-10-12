@@ -1231,7 +1231,7 @@ DataSet::DataSet(char const *DatasetName, int target_size_tmp)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
             dirname: "coupler",
             prefix: "coupler/NEMO", // FIXME: dirname is not active anymore so we need to hack :(
