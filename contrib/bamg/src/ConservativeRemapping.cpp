@@ -419,31 +419,34 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
 }
 
 // The custom sorting function
-// https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
+// https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order <- the second code exmple
 inline bool CWSort(std::pair<double,double> p1, std::pair<double,double> p2)
 {
-    if (p1.first >= 0 && p2.first < 0)
-        return true;
-    if (p1.first < 0 && p2.first >= 0)
-        return false;
-    if (p1.first == 0 && p2.first == 0)
-    {
-        if (p1.second >= 0 || p2.second >= 0)
-            return p1.second > p2.second;
-        else
-            return p2.second > p1.second;
-    }
+    // Computes the quadrant for p1 and p2 (0-3):
+    //     ^
+    //   1 | 0
+    //  ---+-->
+    //   2 | 3
 
-    // compute the cross product of vectors a x b
-    int det = p1.first*p2.second - p2.first*p1.second;
-    if (det < 0)
-        return true;
-    if (det > 0)
-        return false;
+    const int dax = (p1.first > 0) ? 1 : 0;
+    const int day = (p1.second > 0) ? 1 : 0;
+    const int qa = (1 - dax) + (1 - day) + ((dax & (1 - day)) << 1);
 
-    // points a and b are on the same line from the centre
-    // check which point is closer to the centre
-    int d1 = p1.first*p1.first + p1.second*p1.second;
-    int d2 = p2.first*p2.first + p2.second*p2.second;
-    return d1 > d2;
+    /* The previous computes the following:
+
+       const int qa =
+       (  p1.first
+        ? ( p1.second
+            ? 0 : 3)
+        : (p1.second)
+            ? 1 : 2)); */
+
+    const int dbx = (p2.first > 0) ? 1 : 0;
+    const int dby = (p2.second > 0) ? 1 : 0;
+    const int qb = (1 - dbx) + (1 - dby) + ((dbx & (1 - dby)) << 1);
+
+    if (qa == qb)
+        return p2.first*p1.second < p2.second*p1.first;
+    else
+        return qa < qb;
 }
