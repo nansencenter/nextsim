@@ -5302,10 +5302,11 @@ FiniteElement::thermo(double dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     
-    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3; //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity (atmosphere)
-    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10; //! \param Aw, Bw, Cw (double const) Other set of constants for the calculation of specific humidity (atmosphere)
-
-    const double alpha=0.62197, beta=0.37803; //! \param alpha, beta (double const) Constants for the calculation of specific humidity (at the ocean surface)
+    // these 3 atmospheric forcings can be determined in a variety of ways
+    auto Qlw_in_vector = this->getQlwIn();
+    auto snowfall_vector = this->getSnowfall();
+    auto sphuma_vector = this->getSpecificHumidity(true);
+    auto sphumw_vector = this->getSpecificHumidity(false);
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5369,30 +5370,9 @@ FiniteElement::thermo(double dt)
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
         // definition of the snow fall in kg/m^2/s
-        double tmp_snowfall;
-        if(M_snowfr.isInitialized())
-            tmp_snowfall=M_precip[i]*M_snowfr[i];
-        else if (M_snowfall.isInitialized())
-            tmp_snowfall=M_snowfall[i];
-        else
-        {
-            if(M_tair[i]<0)
-                tmp_snowfall=M_precip[i];
-            else
-                tmp_snowfall=0.;
-        }
+        double tmp_snowfall = snowfall_vector[i];
 
-        double Qsw_in;
-        if(M_Qsw_in.isInitialized())
-        {
-            Qsw_in=M_Qsw_in[i];
-        }
-        else
-        {
-            throw std::logic_error(
-                    "The function approxSW is not yet implemented, you need to initialize M_Qsw_in");
-            //Qsw_in=approxSW();
-        }
+        double Qsw_in=M_Qsw_in[i];
 
         double mld=( M_mld[i] > vm["ideal_simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["ideal_simul.constant_mld"].as<double>();
 
@@ -5425,7 +5405,6 @@ FiniteElement::thermo(double dt)
         // -------------------------------------------------
         //! 3) Calculates fluxes in the open water portion
         //(openWaterFlux in old c code, Qow_mex in matlab)
-        double sphuma, sphumw;
 
         // Calculate atmospheric fluxes
 
@@ -5435,30 +5414,11 @@ FiniteElement::thermo(double dt)
         // -------------------------------------------------
         //! 3.1) Calculates specific humidity of the atmosphere.
         //! - There are two ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
-        if ( M_sphuma.isInitialized() )
-        {
-            sphuma = M_sphuma[i];
-        }
-        else if ( M_dair.isInitialized() )
-        {
-            double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
-            double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
-            sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
-        }
-        else if ( M_mixrat.isInitialized() )
-        {
-            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        }
-        else
-        {
-            throw std::logic_error("Neither M_sphuma, M_mixrat nor M_dair have been initialized. I cannot calculate sphuma.");
-        }
+        double sphuma = sphuma_vector[i];
 
         // -------------------------------------------------
-        //! 3.2) Calculates specific humidity at the ocean surface (calcSphumW in matlab)
-        double fw     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_sst[i]*M_sst[i] );
-        double estw   = aw*std::exp( (bw-M_sst[i]/dw)*M_sst[i]/(M_sst[i]+cw) )*(1-5.37e-4*M_sss[i]);
-        sphumw = alpha*fw*estw/(M_mslp[i]-beta*fw*estw) ;
+        //! 3.2) Calculates specific humidity at the ocean surface
+        double sphumw = sphumw_vector[i];
 
         // -------------------------------------------------
         /* Density of air */
@@ -5474,21 +5434,10 @@ FiniteElement::thermo(double dt)
         /* Evaporation */
         evap = Qlh_ow/(physical::rhofw*Lv);
 
+        // Long wave radiation input
+        double Qlw_in = Qlw_in_vector[i];
+
         // Sum them up
-        double Qlw_in;
-        if(M_Qlw_in.isInitialized())
-        {
-            Qlw_in=M_Qlw_in[i];
-        }
-        else
-        {
-            double tsa = M_tice[0][i] + physical::tfrwK;
-            double taa = M_tair[i]  + physical::tfrwK;
-            // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
-        	Qlw_in = sigma_sb*std::pow(taa,4) \
-        			*( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
-        			*( 1. + 0.275*M_tcc[i] );
-        }
 
         // Qow>0 => flux out of ocean:
         // - subtract shortwave and longwave input;
@@ -5913,6 +5862,102 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
         throw std::logic_error("Wrong Qio-type");
     }
 }//iceOceanHeatflux
+
+
+//! Calculate the long wave input flux
+//! * can be done in 2 ways, depending on the forcing
+//! Called by thermo() 
+std::vector<double>
+FiniteElement::getQlwIn()
+{
+    std::vector<double> Qlw_in(M_num_elements, 0.);
+    if(M_Qlw_in.isInitialized())
+        Qlw_in = M_Qlw_in.getVector();
+    else
+        for(int i=0; i<M_num_elements; i++)
+        {
+            double tsa = M_tice[0][i] + physical::tfrwK;
+            double taa = M_tair[i]  + physical::tfrwK;
+            // S.B. Idso & R.D. Jackson, Thermal radiation from the atmosphere, J. Geophys. Res. 74, 5397-5403, 1969
+            Qlw_in[i] = sigma_sb*std::pow(taa,4) \
+                    *( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
+                    *( 1. + 0.275*M_tcc[i] );
+        }
+
+    return Qlw_in;
+}
+
+
+//! Calculate the snowfall
+//! * can be done in 3 ways, depending on the forcing
+//! Called by thermo() 
+std::vector<double>
+FiniteElement::getSnowfall()
+{
+    std::vector<double> snowfall(M_num_elements, 0.);
+    if(M_snowfall.isInitialized())
+    {
+        snowfall = M_snowfall.getVector();
+    }
+    else if(M_snowfr.isInitialized())
+    {
+        for(int i=0; i<M_num_elements; i++)
+            snowfall[i] = M_precip[i]*M_snowfr[i];
+    }
+    else
+    {
+        for(int i=0; i<M_num_elements; i++)
+            if(M_tair[i]<0)
+                snowfall[i] = M_precip[i];
+    }
+
+    return snowfall;
+}
+
+
+//! Calculate the specific humidity of air or water
+//! * specific humidity of air can be done in 3 ways, depending on the forcing
+//! * specific humidity of water is only done 1 ways, but uses the same constants as the 3rd way
+//!   of calculating SH for air
+//! Called by thermo() 
+std::vector<double>
+FiniteElement::getSpecificHumidity(bool const& is_air)
+{
+    // these constants are shared by the atmosphere and ocean surface specific humidity formulae
+    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3; //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity
+    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10; //! \param Aw, Bw, Cw (double const) Other set of constants for the calculation of specific humidity
+    const double alpha=0.62197, beta=0.37803; //! \param alpha, beta (double const) Constants for the calculation of specific humidity
+    std::vector<double> sphum(M_num_elements, 0.);
+
+    if(is_air)
+    {
+        // specific humidity of air
+        // - 3 options depending on the forcing
+        if(M_sphuma.isInitialized())
+            sphum = M_sphuma.getVector();
+        else if(M_mixrat.isInitialized())
+            for(int i=0; i<M_num_elements; i++)
+                sphum[i] = M_mixrat[i]/(1.+M_mixrat[i]);
+        else
+            for(int i=0; i<M_num_elements; i++)
+            {
+                double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
+                double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
+                sphum[i] = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
+            }
+    }
+    else
+        for(int i=0; i<M_num_elements; i++)
+        {
+            // specific humidity of water
+            double fw     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_sst[i]*M_sst[i] );
+            double estw   = aw*std::exp( (bw-M_sst[i]/dw)*M_sst[i]/(M_sst[i]+cw) )*(1-5.37e-4*M_sss[i]);
+            sphum[i] = alpha*fw*estw/(M_mslp[i]-beta*fw*estw) ;
+        }
+
+    return sphum;
+}
+
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6839,6 +6884,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
     // Update elements and multiply with time_factor
     for ( auto it=means.M_elemental_variables.begin(); it!=means.M_elemental_variables.end(); ++it )
     {
+        std::vector<double> tmp;
         switch (it->varID)
         {
             // Prognostic variables
@@ -6951,6 +6997,39 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
+            // forcing variables
+            case (GridOutput::variableID::tair):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_tair[i]*time_factor;
+                break;
+            case (GridOutput::variableID::mslp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mslp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::sphuma):
+                tmp = this->getSpecificHumidity(true);
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += tmp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qsw_in):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_Qsw_in[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qlw_in):
+                tmp = this->getQlwIn();
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += tmp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::snowfall):
+                tmp = this->getSnowfall();
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += tmp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::precip):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_precip[i]*time_factor;
+                break;
+
             // Non-output variables
             case (GridOutput::variableID::proc_mask):
                 for (int i=0; i<M_local_nelements; i++)
@@ -6962,7 +7041,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (elements)");
+            default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
     }
 
@@ -6981,7 +7060,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
@@ -7031,6 +7110,13 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
+            ("tair", GridOutput::variableID::tair)
+            ("sphuma", GridOutput::variableID::sphuma)
+            ("mslp", GridOutput::variableID::mslp)
+            ("Qsw_in", GridOutput::variableID::Qsw_in)
+            ("Qlw_in", GridOutput::variableID::Qlw_in)
+            ("snowfall", GridOutput::variableID::snowfall)
+            ("precip", GridOutput::variableID::precip)
         ;
 
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
@@ -8411,13 +8497,28 @@ FiniteElement::forcingAtmosphere()
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
     // for looping
-    // - these are (or should be) common to all the forcings
-    // TODO raise error if not?
+    // - these are common to all the forcings
+    // - check if they are initialised here
     M_external_data_nodes.push_back(&M_wind);
+    ASSERT(M_wind.isInitialized(), "M_wind is not initialised");
+
+    int i = M_external_data_elements.size();
     M_external_data_elements.push_back(&M_tair);
     M_external_data_elements.push_back(&M_mslp);
     M_external_data_elements.push_back(&M_precip);
+    std::vector<std::string> names = {"M_tair", "M_mslp", "M_precip"};//for debugging
+    for ( auto name: names )
+    {
+        std::string const msg = name + "is not initialized";
+        ASSERT(M_external_data_elements[i]->isInitialized(), msg);
+        i++;
+    }
+
+    // specific error for M_Qsw_in
     M_external_data_elements.push_back(&M_Qsw_in);
+    if(!M_Qsw_in.isInitialized())
+        throw std::logic_error(
+                "The function approxSW is not yet implemented, you need to initialize M_Qsw_in");
 
     // either need the long wave input, or cloud cover to parameterise it
     if(M_Qlw_in.isInitialized())

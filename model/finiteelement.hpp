@@ -177,6 +177,9 @@ public:
                      double &Qai, double &dQaidT, double &subl,
                      double &Qsh, double &Qlh, double &Qlw);
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
+    std::vector<double> getQlwIn();
+    std::vector<double> getSnowfall();
+    std::vector<double> getSpecificHumidity(bool const& is_air);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const& CRtime, std::vector<double> &RX, std::vector<double> &RY);
