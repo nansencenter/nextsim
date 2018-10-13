@@ -7052,18 +7052,24 @@ FiniteElement::initMoorings()
     std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
 
     // - these are not always initialised, depending on the atmospheric forcing
-    // - want to loop but without copying the (big) ExternalData objects
-    //   (ie can't use an unordered_map)
-    std::vector<std::string> names_atm = {"sphuma", "Qlw_in", "snowfall"};
-    std::vector<ExternalData*> ext_data_atm = {&M_sphuma, &M_Qlw_in, &M_snowfall};
-    for (int i=0; i<names_atm.size(); i++)
+    boost::unordered_map<std::string, bool>
+        forcing_ok = boost::assign::map_list_of
+            ("tair", M_tair.isInitialized())
+            ("sphuma", M_sphuma.isInitialized())
+            ("mslp", M_mslp.isInitialized())
+            ("Qsw_in", M_Qsw_in.isInitialized())
+            ("Qlw_in", M_Qlw_in.isInitialized())
+            ("snowfall", M_snowfall.isInitialized())
+            ("precip", M_precip.isInitialized())
+        ;
+    for (auto it=forcing_ok.begin(); it!=forcing_ok.end(); it++)
     {
-        std::string name = names_atm[i];
+        std::string name = it->first;
         if(std::count(names.begin(), names.end(), name)>0)
         {
             std::string msg = "initMoorings: trying to export " + name + "to moorings file,\n"
                 + "but it is not contained in the atmospheric forcing";
-            ASSERT(ext_data_atm[i]->isInitialized(), msg);
+            ASSERT(it->second, msg);
         }
     }
 
