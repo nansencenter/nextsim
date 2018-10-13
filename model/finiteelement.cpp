@@ -6941,6 +6941,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sphuma[i]*time_factor;
                 break;
+            case (GridOutput::variableID::mixrat):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mixrat[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d2m):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_dair[i]*time_factor;
+                break;
             case (GridOutput::variableID::Qsw_in):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_Qsw_in[i]*time_factor;
@@ -6949,9 +6957,17 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_Qlw_in[i]*time_factor;
                 break;
+            case (GridOutput::variableID::tcc):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_tcc[i]*time_factor;
+                break;
             case (GridOutput::variableID::snowfall):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_snowfall[i]*time_factor;
+                break;
+            case (GridOutput::variableID::snowfr):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_snowfr[i]*time_factor;
                 break;
             case (GridOutput::variableID::precip):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7040,10 +7056,14 @@ FiniteElement::initMoorings()
             ("hs_thin", GridOutput::variableID::hs_thin)
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
+            ("mixrat", GridOutput::variableID::mixrat)
+            ("d2m", GridOutput::variableID::d2m)
             ("mslp", GridOutput::variableID::mslp)
             ("Qsw_in", GridOutput::variableID::Qsw_in)
             ("Qlw_in", GridOutput::variableID::Qlw_in)
+            ("tcc", GridOutput::variableID::tcc)
             ("snowfall", GridOutput::variableID::snowfall)
+            ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
@@ -7056,10 +7076,14 @@ FiniteElement::initMoorings()
         forcing_ok = boost::assign::map_list_of
             ("tair", M_tair.isInitialized())
             ("sphuma", M_sphuma.isInitialized())
+            ("mixrat", M_mixrat.isInitialized())
+            ("d2m", M_dair.isInitialized())
             ("mslp", M_mslp.isInitialized())
             ("Qsw_in", M_Qsw_in.isInitialized())
             ("Qlw_in", M_Qlw_in.isInitialized())
+            ("tcc", M_tcc.isInitialized())
             ("snowfall", M_snowfall.isInitialized())
+            ("snowfr", M_snowfr.isInitialized())
             ("precip", M_precip.isInitialized())
         ;
     for (auto it=forcing_ok.begin(); it!=forcing_ok.end(); it++)
@@ -7067,7 +7091,7 @@ FiniteElement::initMoorings()
         std::string name = it->first;
         if(std::count(names.begin(), names.end(), name)>0)
         {
-            std::string msg = "initMoorings: trying to export " + name + "to moorings file,\n"
+            std::string msg = "initMoorings: trying to export " + name + " to moorings file,\n"
                 + "but it is not contained in the atmospheric forcing";
             ASSERT(it->second, msg);
         }
