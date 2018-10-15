@@ -7772,52 +7772,7 @@ FiniteElement::readRestart(std::string const& name_str)
         }
 
         if (M_use_iabp_drifters)
-        {
-            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
-
-            if (drifter_no.size() == 0)
-            {
-                // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
-                if(M_rank==0)
-                {
-                    LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
-                        << " Drifter positions initialised as if there was no restart.\n";
-                }
-            }
-            else
-            {
-                // init the input/output files
-                this->initIabpDrifterFiles();
-
-                // insert the drifter positions from the restart file
-                for ( int i=0; i<drifter_no.size(); ++i )
-                    M_iabp_drifters.emplace(
-                            drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
-
-                // move the drifters
-                // NB updateIabpDrifterPosition uses M_UT_root 
-                // (don't need to gather since we have it already from
-                // restart file)
-                M_UT_root = M_UT;
-                this->updateIabpDrifterPosition();
-
-                // M_UT, M_UT_root can be set to zero now we have moved the drifters
-                std::fill(M_UT.begin(), M_UT.end(), 0.);
-                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-
-                // still need to get M_conc at these positions
-                M_conc_root = M_conc;
-                M_UM_root = M_UM;
-                auto movedmesh = M_mesh_root;
-                movedmesh.move(M_UM_root, 1.);
-                this->updateIabpDrifterConc(movedmesh);
-
-                // Save the initial positions to the output file
-                this->outputIabpDrifters();
-            }
-        }//M_use_iabp_drifters
+            this->restartIabpDrifters(field_map_int, field_map_dbl);
     }//M_rank==0
 
 
@@ -7845,6 +7800,57 @@ FiniteElement::readRestart(std::string const& name_str)
     this->scatterFieldsNode(&interp_nd_out[0]);
 }//readRestart
     
+
+void
+FiniteElement::restartIabpDrifters(
+    boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+    boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
+{
+    std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+    std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+    std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+
+    if (drifter_no.size() == 0)
+    {
+        // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
+        if(M_rank==0)
+        {
+            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
+                << " Drifter positions initialised as if there was no restart.\n";
+        }
+    }
+    else
+    {
+        // init the input/output files
+        this->initIabpDrifterFiles();
+
+        // insert the drifter positions from the restart file
+        for ( int i=0; i<drifter_no.size(); ++i )
+            M_iabp_drifters.emplace(
+                    drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+
+        // move the drifters
+        // NB updateIabpDrifterPosition uses M_UT_root 
+        // (don't need to gather since we have it already from
+        // restart file)
+        M_UT_root = field_map_dbl["M_UT"];
+        this->updateIabpDrifterPosition();
+
+        // M_UT, M_UT_root can be set to zero now we have moved the drifters
+        std::fill(M_UT.begin(), M_UT.end(), 0.);
+        std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
+
+        // still need to get M_conc at these positions
+        M_conc_root = field_map_dbl["M_conc"];
+        M_UM_root = field_map_dbl["M_UM"];
+        auto movedmesh = M_mesh_root;
+        movedmesh.move(M_UM_root, 1.);
+        this->updateIabpDrifterConc(movedmesh);
+
+        // Save the initial positions to the output file
+        this->outputIabpDrifters();
+    }
+}//restartIabpDrifters
     
 //------------------------------------------------------------------------------------------------------
 //! Partitions the mesh during a restart.
