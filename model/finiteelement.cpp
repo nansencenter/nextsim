@@ -949,9 +949,10 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
-        ASSERT((*it)->isInitialized(),
-                "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet");
+        std::string msg = "checkReloadDatasets: ExternalData object "
+                +std::to_string(i) + " is not initialised yet";
+        if(!(*it)->isInitialized())
+            throw std::runtime_error(msg);
         (*it)->check_and_reload(RX, RY, CRtime);
     }
 }//checkReloadDatasets
@@ -7090,11 +7091,12 @@ FiniteElement::initMoorings()
     {
         std::string name = it->first;
         if(std::count(names.begin(), names.end(), name)>0)
-        {
-            std::string msg = "initMoorings: trying to export " + name + " to moorings file,\n"
-                + "but it is not contained in the atmospheric forcing";
-            ASSERT(it->second, msg);
-        }
+            if(!(it->second))
+            {
+                std::string msg = "initMoorings: trying to export " + name + " to moorings file,\n"
+                    + "but it is not contained in the atmospheric forcing";
+                throw std::runtime_error(msg);
+            }
     }
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
@@ -8475,7 +8477,8 @@ FiniteElement::forcingAtmosphere()
     // - these are common to all the forcings
     // - check if they are initialised here
     M_external_data_nodes.push_back(&M_wind);
-    ASSERT(M_wind.isInitialized(), "M_wind is not initialised");
+    if(!M_wind.isInitialized())
+        throw std::logic_error("M_wind is not initialised");
 
     int i = M_external_data_elements.size();
     M_external_data_elements.push_back(&M_tair);
@@ -8485,7 +8488,8 @@ FiniteElement::forcingAtmosphere()
     for ( auto name: names )
     {
         std::string const msg = name + "is not initialized";
-        ASSERT(M_external_data_elements[i]->isInitialized(), msg);
+        if(!M_external_data_elements[i]->isInitialized())
+            throw std::logic_error(msg);
         i++;
     }
 
