@@ -6747,7 +6747,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
 
-    
+    this -> checkFields();
     if(M_use_moorings)
     {
         if(!at_init_time)
@@ -6979,7 +6979,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_hs_thin[i]*time_factor;
                 break;
                 
-            case (GridOutput::variableID::fyi_frac):
+            case (GridOutput::variableID::fyi_fraction):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
                 break;
@@ -7108,10 +7108,10 @@ FiniteElement::initMoorings()
             GridOutput::Variable snow(GridOutput::variableID::snow);
             elemental_variables.push_back(snow);
         }    
-        else if ( *it == "fyi_frac" )
+        else if ( *it == "fyi_fraction" )
         {
-            GridOutput::Variable fyi_frac(GridOutput::variableID::fyi_frac);
-            elemental_variables.push_back(fyi_frac);
+            GridOutput::Variable fyi_fraction(GridOutput::variableID::fyi_fraction);
+            elemental_variables.push_back(fyi_fraction);
         }
          else if ( *it == "age_o" )
         {
@@ -7208,7 +7208,7 @@ FiniteElement::initMoorings()
             std::cout << "conc, ";
             std::cout << "thick, ";
             std::cout << "snow, ";
-            std::cout << "fyi_frac, ";
+            std::cout << "fyi_fraction, ";
             std::cout << "age_o, ";
             std::cout << "age, ";
             std::cout << "tsurf, ";
@@ -11853,7 +11853,16 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<double> interp_in_elements;
     this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
 
-
+    //TODO put these in gatherFieldsElementIO
+    std::vector<double> M_fyi_fraction_root;
+    this->gatherElementField(M_fyi_fraction, M_fyi_fraction_root);
+    
+    std::vector<double> M_age_obs_root;
+    this->gatherElementField(M_age_obs, M_age_obs_root);
+    
+    std::vector<double> M_age_root;
+    this->gatherElementField(M_age, M_age_root);   
+    
     M_comm.barrier();
 #if 1
     if (M_rank == 0)
@@ -12100,6 +12109,13 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_snow_thick_root, "Snow");
             exporter.writeField(outbin, M_damage_root, "Damage");
             exporter.writeField(outbin, M_ridge_ratio_root, "Ridge_ratio");
+            
+            exporter.writeField(outbin, M_fyi_fraction_root, "Fyi_fraction");//choose the name here
+            exporter.writeField(outbin, M_age_obs_root, "Age_obs");//choose the name here
+            exporter.writeField(outbin, M_age_root, "Age");//choose the name here
+            
+            
+            
 
             // std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
             // exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
@@ -12464,7 +12480,13 @@ FiniteElement::checkFields()
     vec_names.push_back("M_sss");
     vecs_to_check.push_back(&(M_sst));
     vec_names.push_back("M_sst");
-
+    vecs_to_check.push_back(&M_fyi_fraction);
+    vec_names.push_back("M_fyi_frac");
+    vecs_to_check.push_back(&M_age_obs);
+    vec_names.push_back("M_age_obs");
+    vecs_to_check.push_back(&M_age);
+    vec_names.push_back("M_age");
+    
     forcings_to_check.push_back(&M_ocean_temp);
     forcing_names.push_back("SST_forcing");
     forcings_to_check.push_back(&M_ocean_salt);
