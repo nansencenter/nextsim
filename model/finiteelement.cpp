@@ -2015,11 +2015,34 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     }
 }//collectVariables
 
+
+//------------------------------------------------------------------------------------------------------
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
+//! Called by the gatherFieldsElementIO() function.
+void
+FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts,
+        std::vector<std::vector<double>*> data_elements)
+{
+    int num_elements = M_local_nelements;
+    if (ghosts)
+        num_elements = M_num_elements;
+
+    int const nb_var_element = data_elements.size();
+    interp_elt_in_local.resize(nb_var_element*num_elements);
+
+    for (int i=0; i<num_elements; ++i)
+        for(int j=0; j<nb_var_element; j++)
+        {
+            auto ptr = data_elements[j];
+            interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i];
+        }
+}//collectVariablesIO
+
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputing.
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
-    void
+void
 FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
 {
     int nb_var_element = M_nb_var_element;
@@ -3060,6 +3083,36 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 
     std::vector<double> interp_elt_in_local;
     this->collectVariablesIO(interp_elt_in_local, false, thin_ice);
+
+    if (M_rank == 0)
+    {
+        interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    }
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+}//gatherFieldsElementsIO
+
+
+//------------------------------------------------------------------------------------------------------
+//! Gathers information about the fields for outputing.
+//! Called by the exportResults() function.
+void
+FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
+        int const& nb_var_element)
+{
+
+    timer["gather"].first.restart();
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
+
+    std::vector<int> sizes_elements = M_sizes_elements;
+    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
+    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
 
     if (M_rank == 0)
     {
@@ -7257,125 +7310,21 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
     }
 
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    std::vector<std::string> names = this->getRestartVariableNames();
+    std::vector<std::vector<double>*> data_elements;
+    this->setPointersElements(data_elements, names);
 
-    std::vector<double> interp_in_elements;
-    this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+    std::vector<double> elt_values_local, elt_values_root;
+    bool const ghosts = false;
+    this->collectVariablesIO(elt_values_local, ghosts, data_elements);
+    this->gatherFieldsElementIO(elt_values_root, elt_values_local, data_elements.size());
 
     M_comm.barrier();
 
     if (M_rank == 0)
     {
-        int num_elements_root = M_mesh_root.numTriangles();
-        int tice_size = M_tice.size();
-
-        std::vector<double> M_conc_root(num_elements_root);
-        std::vector<double> M_thick_root(num_elements_root);
-        std::vector<double> M_snow_thick_root(num_elements_root);
-        std::vector<std::vector<double>> M_sigma_root(3);
-        for(int k=0; k<3; k++)
-            M_sigma_root[k].resize(num_elements_root);
-        std::vector<double> M_damage_root(num_elements_root);
-        std::vector<double> M_ridge_ratio_root(num_elements_root);
-        std::vector<double> M_random_number_root(num_elements_root);
-        std::vector<double> M_sss_root(num_elements_root);
-        std::vector<double> M_sst_root(num_elements_root);
-        std::vector<std::vector<double>> M_tice_root(M_tice.size());
-        for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
-            it->resize(num_elements_root);
-
-        std::vector<double> M_h_thin_root;
-        std::vector<double> M_conc_thin_root;
-        std::vector<double> M_hs_thin_root;
-        std::vector<double> M_tsurf_thin_root;
-
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_h_thin_root.resize(num_elements_root);
-            M_conc_thin_root.resize(num_elements_root);
-            M_hs_thin_root.resize(num_elements_root);
-            M_tsurf_thin_root.resize(num_elements_root);
-        }
-
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            tmp_nb_var=0;
-            int ri = M_rmap_elements[i];
-
-            // concentration
-            M_conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thickness
-            M_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow thickness
-            M_snow_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stresses
-            for(int k=0; k<3; k++, tmp_nb_var++)
-                M_sigma_root[k][i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-
-            // damage
-            M_damage_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_ridge_ratio_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_random_number_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sss
-            M_sss_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sst
-            M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // M_tice
-            for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
-            {
-                (*it)[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                // h_thin
-                M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // conc_thin
-                M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // hs_thin
-                M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // tsurf_thin
-                M_tsurf_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-
-
         Exporter exporter("double");
         std::string filename;
 
@@ -7428,37 +7377,36 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, misc_int, "Misc_int");
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
+        // Finally add the previous numbering to the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
+
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-        exporter.writeField(outbin, M_conc_root, "M_conc");
-        exporter.writeField(outbin, M_thick_root, "M_thick");
-        exporter.writeField(outbin, M_snow_thick_root, "M_snow_thick");
-        for (int i=0; i<M_sigma_root.size(); i++)
-            exporter.writeField(outbin, M_sigma_root[i],
-                    "M_sigma_"+std::to_string(i));
-        exporter.writeField(outbin, M_damage_root, "M_damage");
-        exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
-        exporter.writeField(outbin, M_random_number_root, "M_random_number");
-        exporter.writeField(outbin, M_sst_root, "M_sst");
-        exporter.writeField(outbin, M_sss_root, "M_sss");
-        for (int i=0; i<M_tice_root.size(); i++)
-            exporter.writeField(outbin, M_tice_root[i],
-                    "M_tice_"+std::to_string(i));
+
+        // loop over the elemental variables that have been
+        // gathered to elt_values_root
+        int const nb_var_element = names.size();
+        for(int j=0; j<nb_var_element; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(outbin, tmp, names[j]);
+        }
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
         exporter.writeField(outbin, M_UM_root, "M_UM");
         exporter.writeField(outbin, M_UT_root, "M_UT");
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            exporter.writeField(outbin, M_h_thin_root, "M_h_thin");
-            exporter.writeField(outbin, M_conc_thin_root, "M_conc_thin");
-            exporter.writeField(outbin, M_hs_thin_root, "M_hs_thin");
-            exporter.writeField(outbin, M_tsurf_thin_root, "M_tsurf_thin");
-        }
 
         if (       M_use_iabp_drifters
                 && M_iabp_drifters.size()>0)
@@ -7490,12 +7438,6 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
         
-        // Finally add the previous numbering to the restart file
-        // used in adaptMesh (updateNodeIds)
-        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
-        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         outbin.close();
 
