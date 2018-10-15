@@ -278,8 +278,10 @@ public:
     void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
             boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
-    void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
-            std::vector<std::vector<double>*> &data);
+    void restartScatterElementVariables();
+    void collectNodesRestart(std::vector<double>& interp_nd_out);
+    void collectElementsRestart(std::vector<double>& interp_elt_out,
+            std::vector<std::vector<double>*> &data_elements);
 
     void rootMeshProcessing();
 
@@ -312,13 +314,13 @@ private:
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
 
     std::vector<std::string> getRestartVariableNames();
-    void getVariablesIO(
+    void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<std::vector<double>*> &data);
-    void scatterFieldsElementIO(std::vector<double> const& out_elt_values,
-            std::vector<std::vector<double>*> &data);
+    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
+        std::vector<double> &out_elt_values, int const& nb_var_element);
 
     void scatterElementConnectivity();
 

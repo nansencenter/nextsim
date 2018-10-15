@@ -2291,7 +2291,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 //! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
 //! Called from the readRestart() function.
 void
-FiniteElement::getVariablesIO(
+FiniteElement::setPointersElements(
         std::vector<std::vector<double>*> &data,
         std::vector<std::string> const &names)
 {
@@ -3191,11 +3191,11 @@ FiniteElement::getRestartVariableNames()
 
 
 //------------------------------------------------------------------------------------------------------
-//! Redistributes all variables into the individual variables after scaterring from root.
+//! Redistributes all variables into the individual variables after scattering from root.
 //! Called by the readRestart() function.
 void
 FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<std::vector<double>*> &data)
+        std::vector<double> &out_elt_values, int const& nb_var_element)
 {
     //! * interp_elt_out is a vector containing all the variables to be
     //!   redistributed (eg after scattering from root) into the
@@ -3209,7 +3209,6 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
-    int const nb_var_element = data.size();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<double> in_elt_values;
 
@@ -3228,7 +3227,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         }
     }
 
-    std::vector<double> out_elt_values(nb_var_element*M_num_elements);
+    out_elt_values.resize(nb_var_element*M_num_elements);
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(),
@@ -3241,8 +3240,6 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         boost::mpi::scatterv(M_comm, &out_elt_values[0],
                 nb_var_element*M_num_elements, 0);
     }
-
-    this->redistributeVariablesIO(out_elt_values, data);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
@@ -7182,12 +7179,12 @@ FiniteElement::writeRestart(std::string const& name_str)
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    std::cout<< "["<< M_rank << "] "<<"M_prv_local_ndof         = "<< M_prv_local_ndof <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_num_nodes          = "<< M_prv_num_nodes <<"\n";
-    std::cout<< "["<< M_rank << "] "<< "M_prv_num_elements      = "<< M_prv_num_elements <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_nodes   = "<< M_prv_global_num_nodes <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_elements= "<< M_prv_global_num_elements <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_ndof                   = "<< M_ndof <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<< "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -7776,29 +7773,43 @@ FiniteElement::readRestart(std::string const& name_str)
     }//M_rank==0
 
 
-    // get names of the variables in the restart file,
-    // and set data (pointers to the corresponding vectors)
-    // and num_components (number of components in those vectors)
-    std::vector<std::vector<double>*> data_elements;
-    std::vector<std::string> names = this->getRestartVariableNames();
-    this->getVariablesIO(data_elements, names);
-
-    // get the variables (only on the root processor so far)
-    // from data and put it not interp_elt_out
-    // TODO do something similar for the nodes
-    std::vector<double> interp_elt_out;
-    std::vector<double> interp_nd_out;
-    this->collectRootRestart(interp_elt_out, interp_nd_out, data_elements);
-
-    // Scatter elemental fields from root and put it in data_elements
-    // inside a loop
-    // - data_elements is a vector of pointers so the required
-    //  variables are now set
-    this->scatterFieldsElementIO(interp_elt_out, data_elements);
+    // set the elemental variables
+    this->restartScatterElementVariables();
 
     // Scatter nodal fields from root
+    std::vector<double> interp_nd_out;
+    this->collectNodesRestart(interp_nd_out);
     this->scatterFieldsNode(&interp_nd_out[0]);
 }//readRestart
+
+
+void
+FiniteElement::restartScatterElementVariables()
+{
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    std::vector<std::string> names = this->getRestartVariableNames();
+    std::vector<std::vector<double>*> data_elements;
+    this->setPointersElements(data_elements, names);
+
+    // transfer data from data_elements to interp_elt_out
+    // - on root
+    // - inside a loop (automatic)
+    std::vector<double> interp_elt_out, out_elt_values;
+    this->collectElementsRestart(interp_elt_out, data_elements);
+
+    // Scatter elemental fields from root and put it in out_elt_values
+    // - from root to each processor
+    // - inside a loop (automatic)
+    this->scatterFieldsElementIO(interp_elt_out, out_elt_values, data_elements.size());
+
+    // transfer data from out_elt_values to data_elements
+    // - local
+    // - inside a loop (automatic)
+    // - data_elements is a vector of pointers so the required
+    //   variables are now set
+    this->redistributeVariablesIO(out_elt_values, data_elements);
+}//restartScatterElementVariables
     
 
 void
@@ -7895,23 +7906,19 @@ FiniteElement::partitionMeshRestart()
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
 
-    
-//------------------------------------------------------------------------------------------------------
-//! Gets the variables (only on the root processor so far) from data and store it in a structure (interp_elt_out)
-//! Called by the readRestart() function.
+
 void
-FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
-        std::vector<double>& interp_nd_out,
+FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
         std::vector<std::vector<double>*> &data_elements)
 {
-    // * output: interp_elt_out is vector containing all the variables
-    //   on the elements to be scattered from root during readRestart
-    // * output: interp_nd_out is vector containing all the variables
-    //   on the nodes to be scattered from root during readRestart
-    // * data_elements is a vector of pointers to the elemental variables to go
-    //   into interp_elt_out
-    int const nb_var_element = data_elements.size();
+
+    // get the variables (only on the root processor so far)
+    // from data and put it in interp_elt_out
+    // TODO do something similar for the nodes
+    std::vector<double> out_elt_values;
+
     int num_elements_root = M_mesh_root.numTriangles();
+    int const nb_var_element = data_elements.size();
     interp_elt_out.resize(nb_var_element*num_elements_root);
 
     if (M_rank == 0)
@@ -7920,6 +7927,22 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
             for(int j=0; j<data_elements.size(); j++)
                 interp_elt_out[nb_var_element*i+j] = (*(data_elements[j]))[i];
     }//M_rank == 0: collect elemental variables
+
+}//collectElementsRestart
+
+
+//------------------------------------------------------------------------------------------------------
+//! Gets the variables (only on the root processor so far) from data and store it in a structure (interp_elt_out)
+//! Called by the readRestart() function.
+void
+FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
+{
+    // * output: interp_elt_out is vector containing all the variables
+    //   on the elements to be scattered from root during readRestart
+    // * output: interp_nd_out is vector containing all the variables
+    //   on the nodes to be scattered from root during readRestart
+    // * data_elements is a vector of pointers to the elemental variables to go
+    //   into interp_elt_out
 
     M_nb_var_node = 10;
     if (M_rank == 0)
