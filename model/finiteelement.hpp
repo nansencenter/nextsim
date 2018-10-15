@@ -277,8 +277,7 @@ public:
     void readRestart(std::string const& name_string);
     void partitionMeshRestart();
     void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
-            std::vector<std::vector<double>*> &data,
-            std::vector<int> &num_components);
+            std::vector<std::vector<double>*> &data);
 
     void rootMeshProcessing();
 
@@ -313,14 +312,11 @@ private:
     std::vector<std::string> getRestartVariableNames();
     void getVariablesIO(
             std::vector<std::vector<double>*> &data,
-            std::vector<int> &num_components,
             std::vector<std::string> const &names);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
-            std::vector<std::vector<double>*> &data,
-            std::vector<int> const &num_components);
+            std::vector<std::vector<double>*> &data);
     void scatterFieldsElementIO(std::vector<double> const& out_elt_values,
-            std::vector<std::vector<double>*> &data,
-            std::vector<int> const &num_components);
+            std::vector<std::vector<double>*> &data);
 
     void scatterElementConnectivity();
 
@@ -411,7 +407,7 @@ private:
     std::vector<double> M_diffusivity_parameters;
 
     std::vector<double> M_surface;
-    std::vector<double> M_sigma;
+    std::vector<std::vector<double>> M_sigma;
     std::vector<double> M_UM;
     std::vector<double> M_UT;
     std::vector<double> M_VT;
