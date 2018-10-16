@@ -181,7 +181,8 @@ public:
         taumod      = 203,
         emp         = 204,
         QNoSw       = 205,
-        Fsalt       = 206
+        QSwOcean   = 206,
+        Fsalt       = 207
     };
 
     typedef struct Variable
@@ -388,8 +389,14 @@ public:
                     break;
                 case (variableID::QNoSw):
                     name     = "rsnos";
-                    longName = "Surface Net Upward Nonsolar Heatflux";
-                    stdName  = "surface_net_upward_nonsolar_heatflux";
+                    longName = "Surface Net Downward Nonsolar Heatflux";
+                    stdName  = "surface_net_downward_nonsolar_heatflux";
+                    Units    = "W m-2";
+                    break;
+                case (variableID::QSwOcean):
+                    name     = "rsso";
+                    longName = "Ocean Net Downward Short Wave Flux";
+                    stdName  = "ocean_net_downward_short_wave_flux";
                     Units    = "W m-2";
                     break;
                 case (variableID::Fsalt):
