@@ -1919,6 +1919,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     {
         tmp_nb_var=0;
 
+        // Order of variables has be same as in redistributeVariables!
         // concentration
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
         M_interp_method[tmp_nb_var] = 1;
@@ -2213,6 +2214,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
     {
         tmp_nb_var=0;
 
+        // Order of variables has be same as in collectVariables!
         // concentration
         M_conc[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
@@ -2287,18 +2289,6 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         M_tice[0][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
         tmp_nb_var++;
         
-        // Fraction of the first year ice (FYI) 
-        M_fyi_fraction[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-        
-        // Ice age observable from space (area weighted) [s]
-        M_age_obs[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-        
-        // Effective ice age [s]
-        M_age[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             if(M_thick[i]>0.)
@@ -2334,6 +2324,18 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         // Ice surface temperature for thin ice
         M_tsurf_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
+        tmp_nb_var++;
+        
+        // Fraction of the first year ice (FYI) 
+        M_fyi_fraction[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+        
+        // Ice age observable from space (area weighted) [s]
+        M_age_obs[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
+        tmp_nb_var++;
+        
+        // Effective ice age [s]
+        M_age[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
 
         if(tmp_nb_var!=nb_var_element)
