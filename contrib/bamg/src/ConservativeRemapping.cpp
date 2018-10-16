@@ -149,19 +149,20 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
     for (int i=0; i<gridP.size(); ++i)
     {
         // Apply the weights: walk through the contributing elements
-        for (int tr=0; tr<triangles[i].size(); ++tr)
+        for (int j=0; j<triangles[i].size(); ++j)
         {
-            triangle_area[triangles[i][tr]] += weights[i][tr];
+            int const tr = triangles[i][j];
+            triangle_area[tr] += weights[i][j];
             // ... and all the variables
             for (int var=0; var<nb_var; ++var)
-                interp_out[triangles[i][tr]*nb_var+var] += interp_in[gridP[i]*nb_var+var]*weights[i][tr];
+                interp_out[tr*nb_var+var] += interp_in[gridP[i]*nb_var+var]*weights[i][j];
         }
     }
 
     // Post-process interp_out
     for (int tr=0; tr<numElements; ++tr)
     {
-        double r_triangle_area = 1./triangle_area[tr];
+        double const r_triangle_area = 1./triangle_area[tr];
         for (int var=0; var<nb_var; ++var)
             interp_out[tr*nb_var+var] *= r_triangle_area;
     }
