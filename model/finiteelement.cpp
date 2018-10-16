@@ -1236,7 +1236,7 @@ FiniteElement::initOptAndParam()
     
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
-    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputing snapshots of mooring records
+    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
     M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>(); //! \param M_moorings_parallel_output (boolean) Option on parallel outputs
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -3057,7 +3057,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Gathers information about the fields for outputing.
+//! Gathers information about the fields for outputting.
 //! Called by the exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice)
@@ -3100,7 +3100,7 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 
 
 //------------------------------------------------------------------------------------------------------
-//! Gathers information about the fields for outputing.
+//! Gathers information about the fields for outputting.
 //! Called by the exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
