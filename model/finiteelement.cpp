@@ -1238,6 +1238,9 @@ FiniteElement::initOptAndParam()
 
     ocean_turning_angle_rad = 0.;
     if (vm["dynamics.use_coriolis"].as<bool>())
+#ifdef OASIS
+        if ( M_ocean_type != setup::OceanType::COUPLED )
+#endif
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>();
 
@@ -4926,8 +4929,13 @@ FiniteElement::update()
         M_UM[nd] = UM_P[nd];
 
     // Horizontal diffusion
-    this->diffuse(M_sst,vm["thermo.diffusivity_sst"].as<double>(),M_res_root_mesh);
-    this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
+#ifdef OASIS
+    if ( M_ocean_type != setup::OceanType::COUPLED )
+#endif
+    {
+        this->diffuse(M_sst,vm["thermo.diffusivity_sst"].as<double>(),M_res_root_mesh);
+        this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
+    }
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -5890,19 +5898,21 @@ FiniteElement::thermo(int dt)
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = evap*(1.-old_conc-old_conc_thin) - rain;
 
-#ifndef OASIS
         /* Heat-flux */
-        M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
+#ifdef OASIS
+        if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
+            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;        
 
         double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
-#ifndef OASIS
-        M_sss[i] += delsss;
+#ifdef OASIS
+        if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
+            M_sss[i] += delsss;
 
         // -------------------------------------------------
         //! 8) Damage manipulation (thermoDamage in matlab)
@@ -6675,39 +6685,47 @@ FiniteElement::initOASIS()
     //  GRID DEFINITION
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // Output variables - nodes
-    GridOutput::Variable taux(GridOutput::variableID::taux);
-    GridOutput::Variable tauy(GridOutput::variableID::tauy);
-    GridOutput::Variable taumod(GridOutput::variableID::taumod);
-
     std::vector<GridOutput::Variable> nodal_variables;
-    nodal_variables.push_back(taux);
-    nodal_variables.push_back(tauy);
-    nodal_variables.push_back(taumod);
-
-    // Output variables - elements
-    GridOutput::Variable emp(GridOutput::variableID::emp);
-    GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
-    GridOutput::Variable QSw(GridOutput::variableID::Qsw);
-    GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
-    GridOutput::Variable conc(GridOutput::variableID::conc);
-
     std::vector<GridOutput::Variable> elemental_variables;
-    elemental_variables.push_back(emp);
-    elemental_variables.push_back(QNoSw);
-    elemental_variables.push_back(QSw);
-    elemental_variables.push_back(Sflx);
-    elemental_variables.push_back(conc);
-
-    // The vectorial variables are ...
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+    GridOutput::Grid grid;
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        // Output variables - nodes
+        GridOutput::Variable taux(GridOutput::variableID::taux);
+        GridOutput::Variable tauy(GridOutput::variableID::tauy);
+        GridOutput::Variable taumod(GridOutput::variableID::taumod);
 
-    GridOutput::Vectorial_Variable tau(std::make_pair(0,1), GridOutput::vectorOrientation::grid);
-    vectorial_variables.push_back(tau);
+        nodal_variables.push_back(taux);
+        nodal_variables.push_back(tauy);
+        nodal_variables.push_back(taumod);
 
+        // Output variables - elements
+        GridOutput::Variable emp(GridOutput::variableID::emp);
+        GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
+        GridOutput::Variable QSwOcean(GridOutput::variableID::QSwOcean);
+        GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+        GridOutput::Variable conc(GridOutput::variableID::conc);
 
-    // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
-    GridOutput::Grid grid(std::string("coupler/NEMO.nc"), std::string("plat"), std::string("plon"), std::string("ptheta"), std::string("lat_corners"), std::string("lon_corners"), true);
+        elemental_variables.push_back(emp);
+        elemental_variables.push_back(QNoSw);
+        elemental_variables.push_back(QSwOcean);
+        elemental_variables.push_back(Sflx);
+        elemental_variables.push_back(conc);
+
+        // The vectorial variables are ...
+        GridOutput::Vectorial_Variable tau(std::make_pair(0,1), GridOutput::vectorOrientation::grid);
+        vectorial_variables.push_back(tau);
+
+        // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
+        grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
+                std::string("plat"), std::string("plon"), std::string("ptheta"),
+                GridOutput::interpMethod::conservative, true);
+    } else {
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
+                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
+    }
+
     M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
         bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
@@ -6793,12 +6811,17 @@ FiniteElement::initOASIS()
     }
 
     // Associate OASIS variable ids with neXtSIM DataSet variables
-    this->setCplId_rcv(M_ocean_nodes_dataset);
-    this->setCplId_rcv(M_ocean_elements_dataset);
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        this->setCplId_rcv(M_ocean_nodes_dataset);
+        this->setCplId_rcv(M_ocean_elements_dataset);
 
-    if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
-        throw std::logic_error("Not all coupling variables assigned - exiting");
-
+        if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
+            throw std::logic_error("Not all coupling variables assigned - exiting");
+    } else {
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
+                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
+    }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //         TERMINATION OF DEFINITION PHASE
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -6873,7 +6896,8 @@ FiniteElement::step()
             else
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt());
 
-            M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+            if ( M_ocean_type == setup::OceanType::COUPLED )
+                M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
             ++M_nb_regrid;
         }//M_regrid
