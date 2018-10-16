@@ -112,8 +112,21 @@ public:
         Qo          = 105,
         delS        = 106,
 
+        // Forcing variables
+        tair        = 200,
+        sphuma      = 201,
+        mixrat      = 202,
+        d2m         = 203,
+        mslp        = 204,
+        Qsw_in      = 205,
+        Qlw_in      = 206,
+        tcc         = 207,
+        snowfall    = 208,
+        precip      = 209,
+        snowfr      = 210,
+
         // WIM variables
-        dfloe       = 200,
+        dfloe       = 300,
 
         // Non-output variables - all negative
         proc_mask   = -1,
@@ -313,6 +326,96 @@ public:
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
+
+                //forcing variables
+                case (variableID::tair):
+                    name     = "t2m";
+                    longName = "2 metre air temperature";
+                    stdName  = "2_metre_air_temperature";
+                    Units    = "C";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::sphuma):
+                    name     = "hus";
+                    longName = "specific humidity";
+                    stdName  = "specific_humidity";
+                    Units    = "kg/kg";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mixrat):
+                    name     = "mixrat";
+                    longName = "humidity mixing ratio";
+                    stdName  = "humidity_mixing_ratio";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::d2m):
+                    name     = "d2m";
+                    longName = "dew point temperature";
+                    stdName  = "dew_point_temperature";
+                    Units = "C";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mslp):
+                    name     = "psl";
+                    longName = "pressure at sea level";
+                    stdName  = "pressure_at_sea_level";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::Qsw_in):
+                    name     = "ssrd";
+                    longName = "downward shortwave radiation flux";
+                    stdName  = "surface_downwelling_shortwave_flux_in_air";
+                    Units    = "W/m^2";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::Qlw_in):
+                    name     = "strd";
+                    longName = "downward thermal radiation flux";
+                    stdName  = "surface_downwelling_longwave_flux_in_air";
+                    Units    = "W/m^2";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::tcc):
+                    name     = "tcc";
+                    longName = "total cloud cover";
+                    stdName  = "cloud_area_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::snowfall):
+                    name     = "sf";
+                    longName = "snowfall rate";
+                    stdName  = "snowfall_rate";
+                    Units    = "kg/m^2/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::snowfr):
+                    name     = "snowfr";
+                    longName = "fraction of precipitation that is snow";
+                    stdName  = "snow_fraction_of_precipitation";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::precip):
+                    name     = "tp";
+                    longName = "total precipitation rate";
+                    stdName  = "total_precipitation_rate";
+                    Units    = "kg/m^2/s";
+                    cell_methods = "area: mean";
+                    break;
+
 
                 // Non-output variables
                 case (variableID::proc_mask):

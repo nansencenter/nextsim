@@ -910,9 +910,10 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
-        ASSERT((*it)->isInitialized(),
-                "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet");
+        std::string msg = "checkReloadDatasets: ExternalData object "
+                +std::to_string(i) + " is not initialised yet";
+        if(!(*it)->isInitialized())
+            throw std::runtime_error(msg);
         (*it)->check_and_reload(RX, RY, CRtime);
     }
 }//checkReloadDatasets
@@ -5223,30 +5224,16 @@ FiniteElement::thermo(double dt)
         double  wspeed = std::hypot(sum_u, sum_v)/3.;
 
         // definition of the snow fall in kg/m^2/s
-        double tmp_snowfall;
+        double tmp_snowfall = 0.;
         if(M_snowfr.isInitialized())
             tmp_snowfall=M_precip[i]*M_snowfr[i];
         else if (M_snowfall.isInitialized())
             tmp_snowfall=M_snowfall[i];
         else
-        {
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
-            else
-                tmp_snowfall=0.;
-        }
 
-        double Qsw_in;
-        if(M_Qsw_in.isInitialized())
-        {
-            Qsw_in=M_Qsw_in[i];
-        }
-        else
-        {
-            throw std::logic_error(
-                    "The function approxSW is not yet implemented, you need to initialize M_Qsw_in");
-            //Qsw_in=approxSW();
-        }
+        double Qsw_in=M_Qsw_in[i];
 
         double mld=( M_mld[i] > vm["ideal_simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["ideal_simul.constant_mld"].as<double>();
 
@@ -5288,28 +5275,20 @@ FiniteElement::thermo(double dt)
 
         // -------------------------------------------------
         //! 3.1) Calculates specific humidity of the atmosphere.
-        //! - There are two ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
+        //! - There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
         if ( M_sphuma.isInitialized() )
-        {
             sphuma = M_sphuma[i];
-        }
+        else if ( M_mixrat.isInitialized() )
+            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
         else if ( M_dair.isInitialized() )
         {
             double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
             double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
             sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
         }
-        else if ( M_mixrat.isInitialized() )
-        {
-            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        }
-        else
-        {
-            throw std::logic_error("Neither M_sphuma, M_mixrat nor M_dair have been initialized. I cannot calculate sphuma.");
-        }
 
         // -------------------------------------------------
-        //! 3.2) Calculates specific humidity at the ocean surface (calcSphumW in matlab)
+        //! 3.2) Calculates specific humidity at the ocean surface
         double fw     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_sst[i]*M_sst[i] );
         double estw   = aw*std::exp( (bw-M_sst[i]/dw)*M_sst[i]/(M_sst[i]+cw) )*(1-5.37e-4*M_sss[i]);
         sphumw = alpha*fw*estw/(M_mslp[i]-beta*fw*estw) ;
@@ -5328,12 +5307,10 @@ FiniteElement::thermo(double dt)
         /* Evaporation */
         evap = Qlh_ow/(physical::rhofw*Lv);
 
-        // Sum them up
+        // Long wave radiation input
         double Qlw_in;
         if(M_Qlw_in.isInitialized())
-        {
             Qlw_in=M_Qlw_in[i];
-        }
         else
         {
             double tsa = M_tice[0][i] + physical::tfrwK;
@@ -5344,6 +5321,7 @@ FiniteElement::thermo(double dt)
         			*( 1. + 0.275*M_tcc[i] );
         }
 
+        // Sum them up:
         // Qow>0 => flux out of ocean:
         // - subtract shortwave and longwave input;
         // add heat loss from longwave radiation, sensible heat loss (temp changes)
@@ -6805,6 +6783,52 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_delS[i]*time_factor;
                 break;
 
+            // forcing variables
+            case (GridOutput::variableID::tair):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_tair[i]*time_factor;
+                break;
+            case (GridOutput::variableID::mslp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mslp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::sphuma):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_sphuma[i]*time_factor;
+                break;
+            case (GridOutput::variableID::mixrat):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mixrat[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d2m):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_dair[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qsw_in):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_Qsw_in[i]*time_factor;
+                break;
+            case (GridOutput::variableID::Qlw_in):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_Qlw_in[i]*time_factor;
+                break;
+            case (GridOutput::variableID::tcc):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_tcc[i]*time_factor;
+                break;
+            case (GridOutput::variableID::snowfall):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_snowfall[i]*time_factor;
+                break;
+            case (GridOutput::variableID::snowfr):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_snowfr[i]*time_factor;
+                break;
+            case (GridOutput::variableID::precip):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_precip[i]*time_factor;
+                break;
+
             // Non-output variables
             case (GridOutput::variableID::proc_mask):
                 for (int i=0; i<M_local_nelements; i++)
@@ -6816,7 +6840,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (elements)");
+            default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
     }
 
@@ -6835,7 +6859,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
@@ -6885,10 +6909,49 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
+            ("tair", GridOutput::variableID::tair)
+            ("sphuma", GridOutput::variableID::sphuma)
+            ("mixrat", GridOutput::variableID::mixrat)
+            ("d2m", GridOutput::variableID::d2m)
+            ("mslp", GridOutput::variableID::mslp)
+            ("Qsw_in", GridOutput::variableID::Qsw_in)
+            ("Qlw_in", GridOutput::variableID::Qlw_in)
+            ("tcc", GridOutput::variableID::tcc)
+            ("snowfall", GridOutput::variableID::snowfall)
+            ("snowfr", GridOutput::variableID::snowfr)
+            ("precip", GridOutput::variableID::precip)
         ;
-
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+
+    //error checking
     std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+
+    // - these are not always initialised, depending on the atmospheric forcing
+    boost::unordered_map<std::string, bool>
+        forcing_ok = boost::assign::map_list_of
+            ("tair", M_tair.isInitialized())
+            ("sphuma", M_sphuma.isInitialized())
+            ("mixrat", M_mixrat.isInitialized())
+            ("d2m", M_dair.isInitialized())
+            ("mslp", M_mslp.isInitialized())
+            ("Qsw_in", M_Qsw_in.isInitialized())
+            ("Qlw_in", M_Qlw_in.isInitialized())
+            ("tcc", M_tcc.isInitialized())
+            ("snowfall", M_snowfall.isInitialized())
+            ("snowfr", M_snowfr.isInitialized())
+            ("precip", M_precip.isInitialized())
+        ;
+    for (auto it=forcing_ok.begin(); it!=forcing_ok.end(); it++)
+    {
+        std::string name = it->first;
+        if(std::count(names.begin(), names.end(), name)>0)
+            if(!(it->second))
+            {
+                std::string msg = "initMoorings: trying to export " + name + " to moorings file,\n"
+                    + "but it is not contained in the atmospheric forcing";
+                throw std::runtime_error(msg);
+            }
+    }
 
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
@@ -8255,13 +8318,30 @@ FiniteElement::forcingAtmosphere()
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
     // for looping
-    // - these are (or should be) common to all the forcings
-    // TODO raise error if not?
+    // - these are common to all the forcings
+    // - check if they are initialised here
     M_external_data_nodes.push_back(&M_wind);
+    if(!M_wind.isInitialized())
+        throw std::logic_error("M_wind is not initialised");
+
+    int i = M_external_data_elements.size();
     M_external_data_elements.push_back(&M_tair);
     M_external_data_elements.push_back(&M_mslp);
     M_external_data_elements.push_back(&M_precip);
+    std::vector<std::string> names = {"M_tair", "M_mslp", "M_precip"};//for debugging
+    for ( auto name: names )
+    {
+        std::string const msg = name + "is not initialized";
+        if(!M_external_data_elements[i]->isInitialized())
+            throw std::logic_error(msg);
+        i++;
+    }
+
+    // specific error for M_Qsw_in
     M_external_data_elements.push_back(&M_Qsw_in);
+    if(!M_Qsw_in.isInitialized())
+        throw std::logic_error(
+                "The function approxSW is not yet implemented, you need to initialize M_Qsw_in");
 
     // either need the long wave input, or cloud cover to parameterise it
     if(M_Qlw_in.isInitialized())
@@ -8272,10 +8352,10 @@ FiniteElement::forcingAtmosphere()
         throw std::runtime_error("forcingAtmosphere: One of M_Qlw_in or M_tcc should be initialised");
 
     // - snowfall can come from M_snowfall, M_snowfr*M_precip, or just M_precip (if M_tair<0)
-    if(M_snowfr.isInitialized())
-        M_external_data_elements.push_back(&M_snowfr);
     if(M_snowfall.isInitialized())
         M_external_data_elements.push_back(&M_snowfall);
+    else if (M_snowfr.isInitialized())
+        M_external_data_elements.push_back(&M_snowfr);
 
     if(M_sphuma.isInitialized())
         // have specific humidity from the forcing
