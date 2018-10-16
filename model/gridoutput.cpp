@@ -227,22 +227,19 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
     // Open file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    // If we don't know the dimNameX and dimNameY we assume the first dimension
-    // is x and the second is y ... unless M_grid.transpose is true, then we do
-    // it the other way around.
+    /* We don't know the dimNameX and dimNameY so we assume the first dimension is x and the second
+     * is y ... unless M_grid.transpose is true, then we do it the other way around. */
     netCDF::NcVar VLAT = dataFile.getVar(M_grid.latName);
     netCDF::NcVar VLON = dataFile.getVar(M_grid.lonName);
 
     // Read the dimension of the grid
     netCDF::NcDim dim;
-    if ( M_grid.dimNameX == "" )
-        M_grid.dimNameX = VLAT.getDim((int)M_grid.transpose).getName();
+    M_grid.dimNameX = VLAT.getDim((int)M_grid.transpose).getName();
 
     dim = dataFile.getDim(M_grid.dimNameX);
     M_ncols = dim.getSize();
 
-    if ( M_grid.dimNameY == "" )
-        M_grid.dimNameY = VLAT.getDim((int)!M_grid.transpose).getName();
+    M_grid.dimNameY = VLAT.getDim((int)!M_grid.transpose).getName();
 
     dim = dataFile.getDim(M_grid.dimNameY);
     M_nrows = dim.getSize();
@@ -263,8 +260,8 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
         Theta.getVar(&M_grid.gridTheta[0]);
     }
 
-    // Do a conservative remapping if we find both cornerLatName and cornerLonName
-    if ( M_grid.cornerLatName!= "" && M_grid.cornerLonName!= "")
+    // Do a conservative remapping - we assume a standard name for the corner variables
+    if ( M_grid.interp_method == interpMethod::conservative )
     {
         netCDF::NcVar corner_x = dataFile.getVar("x_corners");
         netCDF::NcVar corner_y = dataFile.getVar("y_corners");
@@ -281,8 +278,6 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
         M_grid.gridCornerX.resize(4*M_grid_size);
         M_grid.gridCornerY.resize(4*M_grid_size);
         this->stereographicProjection(x, y, z, M_grid.gridCornerX, M_grid.gridCornerY);
-
-        M_interp_method = interpMethod::conservative;
     }
 
     // Calculate x and y
@@ -393,10 +388,10 @@ void
 GridOutput::updateGridMean(BamgMesh* bamgmesh)
 {
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_interp_method, M_elemental_variables, M_miss_val);
+    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_interp_method, M_nodal_variables, M_miss_val);
+    this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_grid.interp_method, M_nodal_variables, M_miss_val);
 
     // Ice mask if that's requested
     for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); it++ )
@@ -634,7 +629,7 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
 
         /* Calculate the weights on the root, broadcast them to ohers, and map from global to local
          * element id */
-        if ( M_interp_method==interpMethod::conservative )
+        if ( M_grid.interp_method==interpMethod::conservative )
         {
             std::vector<int> gridP;
             std::vector<std::vector<int>> triangles;
@@ -681,7 +676,7 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
     }
 }
 
-// Broadcast gridP, triangles, and weights - only used when M_interp_method == interpMethod::conservative
+// Broadcast gridP, triangles, and weights - only used when M_grid.interp_method == interpMethod::conservative
 void
 GridOutput::broadcastWeights(std::vector<int>& gridP,
         std::vector<std::vector<int>>& triangles,

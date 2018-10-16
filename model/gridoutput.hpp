@@ -75,42 +75,29 @@ public:
     {
         Grid() {}
 
-        Grid(std::string file, std::string lat, std::string lon)
-            : gridFile(file), latName(lat), lonName(lon),
-                transpose(false), thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
-        {}
-
-        Grid(std::string file, std::string lat, std::string lon, bool transp)
+        Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
-                thetaName(""), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+                thetaName(""), interp_method(interpMethod::meshToMesh),
+                loaded(false)
         {}
 
-        Grid(std::string file, std::string lat, std::string lon, std::string theta)
-            : gridFile(file), latName(lat), lonName(lon), thetaName(theta),
-                transpose(false), cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
-        {}
-
-        Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp)
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
-                cornerLatName(""), cornerLonName(""), dimNameX(""), dimNameY(""), loaded(false)
+                interp_method(interpMethod::meshToMesh),
+                loaded(false)
         {}
 
-        Grid(std::string file, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon)
-            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon),
-                transpose(false), dimNameX(""), dimNameY(""), loaded(false)
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
+                loaded(false)
         {}
 
-        Grid(std::string file, std::string lat, std::string lon, std::string theta, std::string cornerLat, std::string cornerLon, bool transp)
-            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), cornerLatName(cornerLat), cornerLonName(cornerLon), transpose(transp),
-                dimNameX(""), dimNameY(""), loaded(false)
-        {}
+        interpMethod interp_method;
 
         std::string gridFile;
         std::string latName;
         std::string lonName;
         std::string thetaName;
-        std::string cornerLatName;
-        std::string cornerLonName;
 
         bool loaded;
         bool transpose;
@@ -513,8 +500,6 @@ private:
 
     std::vector<int> M_lsm;
     bool M_use_lsm;
-
-    interpMethod M_interp_method;
 
     int M_ice_mask_indx;
 
