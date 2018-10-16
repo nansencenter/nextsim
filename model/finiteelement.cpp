@@ -709,40 +709,43 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.target_size=M_num_elements;
     M_bathymetry_elements_dataset.target_size=M_num_elements;
 
-    // reload the dataset
-    M_atmosphere_nodes_dataset.loaded=false;
-    M_atmosphere_elements_dataset.loaded=false;
-    M_atmosphere_bis_elements_dataset.loaded=false;
-    M_ocean_nodes_dataset.loaded=false;
-    M_ocean_elements_dataset.loaded=false;
-
-    M_ice_topaz_elements_dataset.loaded=false;
-    M_ice_piomas_elements_dataset.loaded=false;
-    M_ice_amsre_elements_dataset.loaded=false;
-    M_ice_osisaf_elements_dataset.loaded=false;
-    M_ice_osisaf_type_elements_dataset.loaded=false;
-    M_ice_amsr2_elements_dataset.loaded=false;
-    M_ice_cs2_smos_elements_dataset.loaded=false;
-    M_ice_smos_elements_dataset.loaded=false;
-    M_bathymetry_elements_dataset.loaded=false;
-
-
-    // reload the grid
-    M_atmosphere_nodes_dataset.grid.loaded=false;
-    M_atmosphere_elements_dataset.grid.loaded=false;
-    M_atmosphere_bis_elements_dataset.grid.loaded=false;
-    M_ocean_nodes_dataset.grid.loaded=false;
-    M_ocean_elements_dataset.grid.loaded=false;
-
-    M_ice_topaz_elements_dataset.grid.loaded=false;
-    M_ice_piomas_elements_dataset.grid.loaded=false;
-    M_ice_amsre_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_elements_dataset.grid.loaded=false;
-    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
-    M_ice_amsr2_elements_dataset.grid.loaded=false;
-    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
-    M_ice_smos_elements_dataset.grid.loaded=false;
-    M_bathymetry_elements_dataset.grid.loaded=false;
+/* This shouldn't be needed - and it messes up the coupling
+ * But let's keep it commented for now, just in case.
+ *    // reload the dataset
+ *    M_atmosphere_nodes_dataset.loaded=false;
+ *    M_atmosphere_elements_dataset.loaded=false;
+ *    M_atmosphere_bis_elements_dataset.loaded=false;
+ *    M_ocean_nodes_dataset.loaded=false;
+ *    M_ocean_elements_dataset.loaded=false;
+ *
+ *    M_ice_topaz_elements_dataset.loaded=false;
+ *    M_ice_piomas_elements_dataset.loaded=false;
+ *    M_ice_amsre_elements_dataset.loaded=false;
+ *    M_ice_osisaf_elements_dataset.loaded=false;
+ *    M_ice_osisaf_type_elements_dataset.loaded=false;
+ *    M_ice_amsr2_elements_dataset.loaded=false;
+ *    M_ice_cs2_smos_elements_dataset.loaded=false;
+ *    M_ice_smos_elements_dataset.loaded=false;
+ *    M_bathymetry_elements_dataset.loaded=false;
+ *
+ *
+ *    // reload the grid
+ *    M_atmosphere_nodes_dataset.grid.loaded=false;
+ *    M_atmosphere_elements_dataset.grid.loaded=false;
+ *    M_atmosphere_bis_elements_dataset.grid.loaded=false;
+ *    M_ocean_nodes_dataset.grid.loaded=false;
+ *    M_ocean_elements_dataset.grid.loaded=false;
+ *
+ *    M_ice_topaz_elements_dataset.grid.loaded=false;
+ *    M_ice_piomas_elements_dataset.grid.loaded=false;
+ *    M_ice_amsre_elements_dataset.grid.loaded=false;
+ *    M_ice_osisaf_elements_dataset.grid.loaded=false;
+ *    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
+ *    M_ice_amsr2_elements_dataset.grid.loaded=false;
+ *    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
+ *    M_ice_smos_elements_dataset.grid.loaded=false;
+ *    M_bathymetry_elements_dataset.grid.loaded=false;
+*/
 
     // --------------------------------------------------------------
     // interpolation of the dataset
