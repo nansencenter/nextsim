@@ -647,6 +647,9 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
 
             this->broadcastWeights(gridP, triangles, weights);
 
+            M_gridP.resize(0);
+            M_triangles.resize(0);
+            M_weights.resize(0);
             for ( int i=0; i<gridP.size(); i++ )
             {
                 std::vector<int> local_triangles;
