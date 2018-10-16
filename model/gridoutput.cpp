@@ -647,6 +647,8 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
 
             this->broadcastWeights(gridP, triangles, weights);
 
+            /* Go through gridP, triangles, and weights and push_back to M_gridP, M_triangles, and
+             * M_weights the values that are local */
             M_gridP.resize(0);
             M_triangles.resize(0);
             M_weights.resize(0);

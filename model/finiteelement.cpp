@@ -1085,10 +1085,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         }
     }
 
-    RX_el.resize(0);
-    RY_el.resize(0);
-    RX_nod.resize(0);
-    RY_nod.resize(0);
+    M_comm.barrier();
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 }//checkReloadDatasets
 
