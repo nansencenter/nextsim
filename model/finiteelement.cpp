@@ -551,9 +551,9 @@ FiniteElement::initVariables()
 
     M_conc.assign(M_num_elements, 0.); //! \param M_conc (double) Concentration of thick ice
     M_thick.assign(M_num_elements, 0.); //! \param M_thick (double) Thickness of thick ice [m]
-    M_damage.assign(M_num_elements, 0.); //! \param M_damage (double) Level of damage
+    M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
     M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
-    M_snow_thick.assign(M_num_elements, 0.); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
+    M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
     
     M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
     M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
@@ -601,7 +601,7 @@ FiniteElement::initVariables()
     if ((M_rank == 0) && (M_use_drifters))
     {
         M_UT_root.assign(2*M_ndof, 0.);
-        M_conc_root.assign(M_mesh_root.numTriangles(), 0.);
+        M_conc_root.resize(M_mesh_root.numTriangles());
     }
 
     this->assignVariables();
