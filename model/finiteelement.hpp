@@ -708,7 +708,7 @@ private:
         "I_taumod",  // |tau| (at t-point)
         "I_emp",     // Evap minus precip
         "I_rsnos",   // Non-solar heatflux
-        "I_rss",     // Solar/Shortwave radiation
+        "I_rsso",    // Solar/Shortwave radiation
         "I_sfi",     // Salt/brine flux
         "I_sic"   }; // Concentration
 
@@ -775,6 +775,7 @@ private:
     std::vector<double> D_Qsh; // Total sensible heat flux at surface [W/m2]
     std::vector<double> D_Qlh; // Total latent heat flux at surface [W/m2]
     std::vector<double> D_Qnosun; // Non-solar heat loss from ocean [W/m2]
+    std::vector<double> D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_delS; // Salt flux to ocean
     std::vector<double> D_emp; // Evaporation minus Precipitation [kg/m2/s]

@@ -619,6 +619,7 @@ FiniteElement::initVariables()
     D_Qsw.resize(M_num_elements);
     D_Qo.resize(M_num_elements);
     D_Qnosun.resize(M_num_elements);
+    D_Qsw_ocean.resize(M_num_elements);
     D_delS.resize(M_num_elements);
     D_emp.resize(M_num_elements);
     D_brine.resize(M_num_elements);
@@ -3390,6 +3391,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_Qsw.assign(M_num_elements,0.);
     D_Qo.assign(M_num_elements,0.);
     D_Qnosun.assign(M_num_elements,0.);
+    D_Qsw_ocean.assign(M_num_elements,0.);
     D_delS.assign(M_num_elements,0.);
     D_emp.assign(M_num_elements,0.);
     D_brine.assign(M_num_elements,0.);
@@ -5628,6 +5630,11 @@ FiniteElement::thermo(int dt)
         // add heat loss from longwave radiation, sensible heat loss (temp changes)
         // and evaporation (latent heat loss - temp doesn't change, but phase changes)
         double Qsw_ow = -Qsw_in*(1.-ocean_albedo);
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qsw_ow *= M_qsrml[i];
+#endif
         double Qlw_ow = -Qlw_in + Qlw_out;
         Qow = Qsw_ow + Qlw_ow + Qsh_ow + Qlh_ow;
 
@@ -5958,6 +5965,9 @@ FiniteElement::thermo(int dt)
 
         // Non-solar fluxes to ocean
         D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow;
+
+        // SW fluxes to ocean - TODO: Add penetrating SW
+        D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow;
 
         // Salt balance of the ocean (all sources) - kg/day
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
@@ -7574,7 +7584,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::Qsw):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_Qsw[i]*time_factor;
+                    it->data_mesh[i] += D_Qsw[i]*time_factor;
                 break;
             case (GridOutput::variableID::Qlw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7598,6 +7608,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
 
             // Coupling variables (not covered elsewhere)
+            // NB: reversed sign convention!
             case (GridOutput::variableID::emp):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_emp[i]*time_factor;
@@ -7605,6 +7616,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::QNoSw):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_Qnosun[i]*time_factor;
+                break;
+            case (GridOutput::variableID::QSwOcean):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_Qsw_ocean[i]*time_factor;
                 break;
             case (GridOutput::variableID::Fsalt):
                 for (int i=0; i<M_local_nelements; i++)
