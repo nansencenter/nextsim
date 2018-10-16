@@ -555,8 +555,8 @@ FiniteElement::initVariables()
     M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
     
-    M_sst.resize(M_num_elements); //! \param M_sst (double) Sea surface temperature [C]
-    M_sss.resize(M_num_elements); //! \param M_sss (double) Sea surface salinity [C]
+    M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
+    M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
     
     switch (M_thermo_type)
     {
@@ -575,13 +575,13 @@ FiniteElement::initVariables()
         it->assign(M_num_elements,0.);
 
     // Diagnostic variables are assigned the prefix D_
-    D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
-    D_Qsh.resize(M_num_elements); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
-    D_Qlh.resize(M_num_elements); //! \param D_Qlh (double) Latent heat flux to the atmosphere
-    D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
-    D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
-    D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
-    D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
+    D_Qa.assign(M_num_elements, 0.); //! \param D_Qa (double) Total heat flux to the atmosphere
+    D_Qsh.assign(M_num_elements, 0.); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
+    D_Qlh.assign(M_num_elements, 0.); //! \param D_Qlh (double) Latent heat flux to the atmosphere
+    D_Qlw.assign(M_num_elements, 0.); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
+    D_Qsw.assign(M_num_elements, 0.); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
+    D_Qo.assign(M_num_elements, 0.); //! \param D_Qo (double) Total heat lost by the ocean
+    D_delS.assign(M_num_elements, 0.); //! \param D_delS (double) Salt release to the ocean [kg/day]
     
     // For drifters:
     M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
