@@ -99,7 +99,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 }
 
 // Apply weights for a mesh-to-grid remapping
-void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int nb_var, int grid_size, double miss_val,
+void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int grid_size, double miss_val,
         std::vector<int> &gridP, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
         std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
 {
@@ -133,7 +133,7 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
 }
 
 // Apply weights going from grid to mesh
-void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var, int numElements, std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
+void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int const numElements, std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
 {
     assert(weights.size()==triangles.size());
 
