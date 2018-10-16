@@ -5987,10 +5987,11 @@ FiniteElement::thermo(int dt)
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
 
         // Freshwater ballance at the surface - kg/m^2/s
-        D_emp[i] = emp/ddt;
+        D_emp[i] = 1./ddt * ( emp
+                - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
 
         // Brine release - kg/m^2/s
-        D_brine[i] = physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
 
     }// end for loop
 }//thermo
