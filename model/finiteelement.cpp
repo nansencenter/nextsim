@@ -3236,8 +3236,8 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
         "M_damage",
         "M_ridge_ratio",
         "M_random_number",
-        "M_sss",
-        "M_sst"};
+        "M_sst",
+        "M_sss"};
     
     for(int i=0; i<M_tice.size(); i++)
         names.push_back("M_tice_" + std::to_string(i));
@@ -7449,12 +7449,6 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, misc_int, "Misc_int");
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
-        // Add the previous numbering to the restart file
-        // used in adaptMesh (updateNodeIds)
-        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
-        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
@@ -7511,6 +7505,12 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
         
+        // Add the previous numbering to the restart file
+        // used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
         outbin.close();
 
