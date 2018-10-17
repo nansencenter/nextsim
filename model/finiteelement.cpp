@@ -2333,26 +2333,22 @@ FiniteElement::setPointersElements(
                 data.push_back(&M_thick); // thickness of thick ice
             else if (name == "M_snow_thick")
                 data.push_back(&M_snow_thick); // snow thickness on thick ice
-#if 0
             else if (name == "Concentration")
                 data.push_back(&D_conc); // total concentration
             else if (name == "Thickness")
                 data.push_back(&D_thick); // total thickness
             else if (name == "Snow")
                 data.push_back(&D_snow_thick); // total snow thickness
-#endif
             else if (name == "M_sigma_0")
                 data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
             else if (name == "M_sigma_1")
                 data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
             else if (name == "M_sigma_2")
                 data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
-#if 0
             else if (name == "Sigma_1")
                 data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
             else if (name == "Sigma_2")
                 data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
-#endif
             else if (name == "M_damage" || name == "Damage")
                 data.push_back(&M_damage); // damage
             else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
@@ -11800,28 +11796,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
-
-#if 0
-            // EXPORT sigma1 sigma2
-            std::vector<double> sigma1(M_mesh_root.numTriangles());
-            std::vector<double> sigma2(M_mesh_root.numTriangles());
-            double sigma_s, sigma_n;
-            std::vector<double> sigma_pred(3);
-
-            for ( int i=0; i<M_mesh_root.numTriangles(); ++i )
-            {
-                for(int k=0; k<3; k++)
-                    sigma_pred[k]=M_sigma_root[k][i];
-
-                sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-                sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-
-                sigma1[i] = sigma_n+sigma_s;
-                sigma2[i] = sigma_n-sigma_s;
-            }
-            exporter.writeField(outbin, sigma1, "Sigma1");
-            exporter.writeField(outbin, sigma2, "Sigma2");
-#endif
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root
