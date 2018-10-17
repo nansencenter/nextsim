@@ -526,6 +526,7 @@ FiniteElement::initVariables()
     M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
     for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
         it->assign(M_num_elements, 0.);
+    D_sigma.resize(2);
     
     // random numbers
     // - 1st set on root
@@ -2339,6 +2340,8 @@ FiniteElement::setPointersElements(
                 data.push_back(&D_thick); // total thickness
             else if (name == "Snow")
                 data.push_back(&D_snow_thick); // total snow thickness
+            else if (name == "Tsurf")
+                data.push_back(&D_tsurf); // mean surface temperature
             else if (name == "M_sigma_0")
                 data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
             else if (name == "M_sigma_1")
@@ -2360,11 +2363,11 @@ FiniteElement::setPointersElements(
             else if (name == "M_sst" || name == "SST")
                 data.push_back(&M_sst); // SST
             else if (name == "M_tice_0" || name == "Tice_0")
-                data.push_back(&(M_tice[0])); // M_tice[0] - Ice temperature (surface)
+                data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
             else if (name == "M_tice_1" || name == "Tice_1")
-                data.push_back(&(M_tice[1])); // M_tice[1] - Ice temperature (middle level) (Winton)
+                data.push_back(&(M_tice[1])); // M_tice[1] - Thick ice temperature (middle level) (Winton)
             else if (name == "M_tice_2" || name == "Tice_2")
-                data.push_back(&(M_tice[2])); // M_tice[2] - Ice temperature (lower level) (Winton)
+                data.push_back(&(M_tice[2])); // M_tice[2] - Thick ice temperature (lower level) (Winton)
             else if (name == "M_h_thin" || name == "Thin_ice")
                 data.push_back(&M_h_thin); // thin ice thickness
             else if (name == "M_conc_thin" || name == "Concentration_thin_ice")
@@ -6459,7 +6462,7 @@ FiniteElement::updateIceDiagnostics()
     D_conc.resize(M_num_elements);
     D_thick.resize(M_num_elements);
     D_snow_thick.resize(M_num_elements);
-    D_sigma.resize(2);
+    D_tsurf.resize(M_num_elements);
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
@@ -6467,12 +6470,18 @@ FiniteElement::updateIceDiagnostics()
     std::vector<double> sigma_pred(3);
     for(int i=0; i<M_num_elements; i++)
     {
+        D_conc[i] = M_conc[i];
+        D_thick[i] = M_thick[i];
+        D_snow_thick[i] = M_snow_thick[i];
+        D_tsurf[i] = M_conc[i]*M_tice[0][i];
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             D_conc[i] += M_conc_thin[i];
             D_thick[i] += M_h_thin[i];
             D_snow_thick[i] += M_hs_thin[i];
+            D_tsurf[i] += M_conc_thin[i]*M_tsurf_thin[i];
         }
+        D_tsurf[i] += (1-D_conc[i])*M_sst[i];
 
         // principal stresses
         for(int k=0; k<3; k++)
@@ -6874,7 +6883,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
+                    it->data_mesh[i] += D_tsurf[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):

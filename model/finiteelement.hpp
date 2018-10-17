@@ -445,6 +445,7 @@ private:
     std::vector<double> D_thick;
     std::vector<double> D_conc;
     std::vector<double> D_snow_thick;
+    std::vector<double> D_tsurf;
 
 
     std::vector<double> M_ridge_ratio;
