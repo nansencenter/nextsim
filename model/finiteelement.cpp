@@ -2328,70 +2328,70 @@ FiniteElement::setPointersElements(
     for(auto name: names)
     {
         LOG(DEBUG)<<"collectVariablesIO: adding "<<name <<"\n";
-            if (name == "M_conc")
-                data.push_back(&M_conc); // concentration of thick ice
-            else if (name == "M_thick")
-                data.push_back(&M_thick); // thickness of thick ice
-            else if (name == "M_snow_thick")
-                data.push_back(&M_snow_thick); // snow thickness on thick ice
-            else if (name == "Concentration")
-                data.push_back(&D_conc); // total concentration
-            else if (name == "Thickness")
-                data.push_back(&D_thick); // total thickness
-            else if (name == "Snow")
-                data.push_back(&D_snow_thick); // total snow thickness
-            else if (name == "Tsurf")
-                data.push_back(&D_tsurf); // mean surface temperature
-            else if (name == "M_sigma_0")
-                data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
-            else if (name == "M_sigma_1")
-                data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
-            else if (name == "M_sigma_2")
-                data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
-            else if (name == "Sigma_1")
-                data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
-            else if (name == "Sigma_2")
-                data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
-            else if (name == "M_damage" || name == "Damage")
-                data.push_back(&M_damage); // damage
-            else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
-                data.push_back(&M_ridge_ratio); // ridge ratio
-            else if (name == "M_random_number")
-                data.push_back(&M_random_number); // random_number
-            else if (name == "M_sss" || name == "SSS")
-                data.push_back(&M_sss); // SSS
-            else if (name == "M_sst" || name == "SST")
-                data.push_back(&M_sst); // SST
-            else if (name == "M_tice_0" || name == "Tice_0")
-                data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
-            else if (name == "M_tice_1" || name == "Tice_1")
-                data.push_back(&(M_tice[1])); // M_tice[1] - Thick ice temperature (middle level) (Winton)
-            else if (name == "M_tice_2" || name == "Tice_2")
-                data.push_back(&(M_tice[2])); // M_tice[2] - Thick ice temperature (lower level) (Winton)
-            else if (name == "M_h_thin" || name == "Thin_ice")
-                data.push_back(&M_h_thin); // thin ice thickness
-            else if (name == "M_conc_thin" || name == "Concentration_thin_ice")
-                data.push_back(&M_conc_thin); // thin ice concentration
-            else if (name == "M_hs_thin" || name == "Snow_thin_ice")
-                data.push_back(&M_hs_thin); // snow thickness on thin ice
-            else if (name == "M_tsurf_thin" || name == "Tsurf_thin_ice")
-                data.push_back(&M_tsurf_thin); // surface temperature over thin ice
-            else if (name == "Qatm")
-                data.push_back(&D_Qa);
-            else if (name == "Qsw")
-                data.push_back(&D_Qsw);
-            else if (name == "Qlw")
-                data.push_back(&D_Qlw);
-            else if (name == "Qsh")
-                data.push_back(&D_Qsh);
-            else if (name == "Qlh")
-                data.push_back(&D_Qlh);
-            else if (name == "Qocean")
-                data.push_back(&D_Qo);
-            else if (name == "Saltflux")
-                data.push_back(&D_delS);
-            else
-                throw std::runtime_error("Unimplemented name: "+name);
+        if (name == "M_conc")
+            data.push_back(&M_conc); // concentration of thick ice
+        else if (name == "M_thick")
+            data.push_back(&M_thick); // thickness of thick ice
+        else if (name == "M_snow_thick")
+            data.push_back(&M_snow_thick); // snow thickness on thick ice
+        else if (name == "Concentration")
+            data.push_back(&D_conc); // total concentration
+        else if (name == "Thickness")
+            data.push_back(&D_thick); // total thickness
+        else if (name == "Snow")
+            data.push_back(&D_snow_thick); // total snow thickness
+        else if (name == "Tsurf")
+            data.push_back(&D_tsurf); // mean surface temperature
+        else if (name == "M_sigma_0")
+            data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
+        else if (name == "M_sigma_1")
+            data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
+        else if (name == "M_sigma_2")
+            data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
+        else if (name == "Sigma_1")
+            data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
+        else if (name == "Sigma_2")
+            data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
+        else if (name == "M_damage" || name == "Damage")
+            data.push_back(&M_damage); // damage
+        else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
+            data.push_back(&M_ridge_ratio); // ridge ratio
+        else if (name == "M_random_number")
+            data.push_back(&M_random_number); // random_number
+        else if (name == "M_sss" || name == "SSS")
+            data.push_back(&M_sss); // SSS
+        else if (name == "M_sst" || name == "SST")
+            data.push_back(&M_sst); // SST
+        else if (name == "M_tice_0" || name == "Tice_0")
+            data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
+        else if (name == "M_tice_1" || name == "Tice_1")
+            data.push_back(&(M_tice[1])); // M_tice[1] - Thick ice temperature (middle level) (Winton)
+        else if (name == "M_tice_2" || name == "Tice_2")
+            data.push_back(&(M_tice[2])); // M_tice[2] - Thick ice temperature (lower level) (Winton)
+        else if (name == "M_h_thin" || name == "Thin_ice")
+            data.push_back(&M_h_thin); // thin ice thickness
+        else if (name == "M_conc_thin" || name == "Concentration_thin_ice")
+            data.push_back(&M_conc_thin); // thin ice concentration
+        else if (name == "M_hs_thin" || name == "Snow_thin_ice")
+            data.push_back(&M_hs_thin); // snow thickness on thin ice
+        else if (name == "M_tsurf_thin" || name == "Tsurf_thin_ice")
+            data.push_back(&M_tsurf_thin); // surface temperature over thin ice
+        else if (name == "Qatm")
+            data.push_back(&D_Qa);
+        else if (name == "Qsw")
+            data.push_back(&D_Qsw);
+        else if (name == "Qlw")
+            data.push_back(&D_Qlw);
+        else if (name == "Qsh")
+            data.push_back(&D_Qsh);
+        else if (name == "Qlh")
+            data.push_back(&D_Qlh);
+        else if (name == "Qocean")
+            data.push_back(&D_Qo);
+        else if (name == "Saltflux")
+            data.push_back(&D_delS);
+        else
+            throw std::runtime_error("Unimplemented name: "+name);
     }
 }//getVariableIO
 
