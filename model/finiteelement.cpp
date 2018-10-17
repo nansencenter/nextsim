@@ -2355,7 +2355,7 @@ FiniteElement::setPointersElements(
             else if (name == "M_damage" || name == "Damage")
                 data.push_back(&M_damage); // damage
             else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
-                data.push_back(&M_ridge_ratio); // damage
+                data.push_back(&M_ridge_ratio); // ridge ratio
             else if (name == "M_random_number")
                 data.push_back(&M_random_number); // random_number
             else if (name == "M_sss" || name == "SSS")
