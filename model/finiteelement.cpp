@@ -11,7 +11,6 @@
 #include <finiteelement.hpp>
 #include <constants.hpp>
 #include <date.hpp>
-#include <exporter.hpp>
 #include <redistribute.hpp>
 #include <numeric>
 
@@ -2372,11 +2371,10 @@ FiniteElement::setPointersElements(
 //------------------------------------------------------------------------------------------------------
 //! Redistributes variables (parallel computing).
 //! Called by function scatterFieldsElementIO().
-//! * elt_values_local is vector containing all the variables to be redistributed (eg after scattering from root)
-//    into the individual variables (eg M_conc, M_thick,...)
-//! * data is a vector of pointers to the variables to be assigned values from elt_values_local
+//! * out_elt_values is vector containing all the variables to be redistributed (eg after scattering from root) into the individual variables (eg M_conc, M_thick,...)
+//! * data is a vector of pointers to the variables to be assigned values from out_elt_values
 void
-FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_local,
+FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values,
         std::vector<std::vector<double>*> &data)
 {
     int nb_var_element = data.size();
@@ -2385,12 +2383,9 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_loc
         //! - 1) initializes the data
         data[j]->assign(M_num_elements, 0.);
 
-        //! - 2) loops over the elements to get their values from elt_values_local
+        //! - 2) loops over the elements to get their values from out_elt_values
         for (int i=0; i<M_num_elements; ++i)
-        {
-            auto ptr = data[j];
-            (*ptr)[i] = elt_values_local[nb_var_element*i+j];
-        }
+            (*(data[j]))[i] = out_elt_values[nb_var_element*i+j];
     }
 }//redistributeVariablesIO
 
@@ -3264,40 +3259,52 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
 //! * both input and output are 1 long vector containing all the variables
 //! Called by the restartScatterElementVariables() function.
 void
-FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root,
-        std::vector<std::vector<double>*> &data_elements)
+FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
+        std::vector<double> &out_elt_values, int const& nb_var_element)
 {
-    //! * elt_values_root is a vector containing all the variables to be
+    //! * interp_elt_out is a vector containing all the variables to be
     //!   redistributed (eg after scattering from root) into the
     //!   individual variables (eg M_conc, M_thick,...)
     //!   - rearranged using M_id_elements and passed to
     //!     boost::mpi::scatterv
     //! * data is a vector of pointers to the variables to be assigned
-    //!   values from elt_values_local
+    //!   values from out_elt_values
     //!   - passed to redistributeVariablesIO
     timer["scatter"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    int const nb_var_element = data_elements.size();
+    std::vector<double> in_elt_values;
 
-    std::vector<double> elt_values_local(nb_var_element*M_num_elements);
+    if (M_rank == 0)
+    {
+        in_elt_values.resize(nb_var_element*M_id_elements.size());
+
+        for (int i=0; i<M_id_elements.size(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+            for (int j=0; j<nb_var_element; ++j)
+            {
+                in_elt_values[nb_var_element*i+j]
+                    = interp_elt_out[nb_var_element*ri+j];
+            }
+        }
+    }
+
+    out_elt_values.resize(nb_var_element*M_num_elements);
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(),
                 [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, elt_values_root, sizes_elements,
-                &elt_values_local[0], 0);
+        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements,
+                &out_elt_values[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &elt_values_local[0],
+        boost::mpi::scatterv(M_comm, &out_elt_values[0],
                 nb_var_element*M_num_elements, 0);
     }
-
-    // transfer data from elt_values_local to data_elements
-    this->redistributeVariablesIO(elt_values_local, data_elements);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
@@ -7798,9 +7805,9 @@ FiniteElement::restartScatterElementVariables()
 {
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
-    std::vector<std::string> names_elements;
+    std::vector<std::string> names;
     std::vector<std::vector<double>*> data_elements;
-    this->getRestartNamesPointers(names_elements, data_elements);
+    this->getRestartNamesPointers(names, data_elements);
 
     // transfer data from data_elements to elt_values_root
     // - on root
@@ -7808,12 +7815,17 @@ FiniteElement::restartScatterElementVariables()
     std::vector<double> elt_values_root, elt_values_local;
     this->collectElementsRestart(elt_values_root, data_elements);
 
-    // Scatter elemental fields from root and put them in data_elements
-    // - data_elements is a vector of pointers so the required
-    //   variables are now set
+    // Scatter elemental fields from root and put it in elt_values_local
     // - from root to each processor
     // - inside a loop (automatic)
-    this->scatterFieldsElementIO(elt_values_root, data_elements);
+    this->scatterFieldsElementIO(elt_values_root, elt_values_local, data_elements.size());
+
+    // transfer data from elt_values_local to data_elements
+    // - local
+    // - inside a loop (automatic)
+    // - data_elements is a vector of pointers so the required
+    //   variables are now set
+    this->redistributeVariablesIO(elt_values_local, data_elements);
 }//restartScatterElementVariables
     
 
@@ -7934,16 +7946,11 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
     if (M_rank == 0)
     {
         for (int i=0; i<num_elements_root; ++i)
-        {
-            // use ri to map from the global ordering (i) to
-            // "parallelised ordering"
-            int ri = M_id_elements[i]-1;
             for(int j=0; j<data_elements.size(); j++)
             {
                 auto ptr = data_elements[j];
-                interp_elt_out[nb_var_element*i+j] = (*ptr)[ri];
+                interp_elt_out[nb_var_element*i+j] = (*ptr)[i];
             }
-        }
     }//M_rank == 0: collect elemental variables
 
 }//collectElementsRestart

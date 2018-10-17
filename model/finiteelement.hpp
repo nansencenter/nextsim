@@ -26,6 +26,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
+#include <exporter.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
 #include <externaldata.hpp>
@@ -325,7 +326,7 @@ private:
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<std::vector<double>*> &data);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<std::vector<double>*> &data_elements);
+        std::vector<double> &out_elt_values, int const& nb_var_element);
 
     void scatterElementConnectivity();
 
