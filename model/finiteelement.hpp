@@ -26,6 +26,7 @@
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
+#include <exporter.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
 #include <externaldata.hpp>
@@ -316,8 +317,13 @@ private:
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
             int const& nb_var_element);
+    void exportFieldsElements( Exporter &exporter, std::fstream &outbin,
+        std::vector<std::string> const& names,
+        std::vector<std::vector<double>*> const& data_elements);
 
-    std::vector<std::string> getRestartVariableNames();
+    void getRestartNamesPointers(
+            std::vector<std::string> &names,
+            std::vector<std::vector<double>*> &data);
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);

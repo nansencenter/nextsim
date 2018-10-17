@@ -12,7 +12,6 @@
 #include <constants.hpp>
 #include <date.hpp>
 #include <redistribute.hpp>
-#include <exporter.hpp>
 #include <numeric>
 
 #define GMSH_EXECUTABLE gmsh
@@ -2020,6 +2019,8 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 //------------------------------------------------------------------------------------------------------
 //! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
+//  TODO make it a template function so data_elements can also be
+//       std::vector<ExternalData*> for exporting forcing as well
 void
 FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
         std::vector<std::vector<double>*> data_elements, bool const& ghosts)
@@ -3211,13 +3212,15 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     
 //------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts.
-//! Called by the readRestart() function.
-std::vector<std::string>
-FiniteElement::getRestartVariableNames()
+//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts,
+//! and set pointers to the appropriate vectors
+//! Called by the readRestart() and writeRestart() functions.
+void
+FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
+        std::vector<std::vector<double>*> & data_elements)
 {
 
-    std::vector<std::string> names = {
+    names = {
         "M_conc",
         "M_thick",
         "M_snow_thick",
@@ -3240,13 +3243,15 @@ FiniteElement::getRestartVariableNames()
         names.push_back("M_hs_thin");
         names.push_back("M_tsurf_thin");
     }
-    return names;
-}//getRestartVariableNames
+
+    this->setPointersElements(data_elements, names);
+}//getRestartNamesPointers
 
 
 //------------------------------------------------------------------------------------------------------
-//! Redistributes all variables into the individual variables after scattering from root.
-//! Called by the readRestart() function.
+//! scatter from root to local
+//! * both input and output are 1 long vector containing all the variables
+//! Called by the restartScatterElementVariables() function.
 void
 FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         std::vector<double> &out_elt_values, int const& nb_var_element)
@@ -7373,17 +7378,6 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
     }
 
-    // get names of the variables in the restart file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    std::vector<std::string> names = this->getRestartVariableNames();
-    std::vector<std::vector<double>*> data_elements;
-    this->setPointersElements(data_elements, names);
-
-    std::vector<double> elt_values_local, elt_values_root;
-    bool const ghosts = false;
-    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
-    this->gatherFieldsElementIO(elt_values_root, elt_values_local, data_elements.size());
-
     M_comm.barrier();
 
     if (M_rank == 0)
@@ -7451,19 +7445,14 @@ FiniteElement::writeRestart(std::string const& name_str)
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
 
-        // loop over the elemental variables that have been
-        // gathered to elt_values_root
-        int const nb_var_element = names.size();
-        for(int j=0; j<nb_var_element; j++)
-        {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                int ri = M_rmap_elements[i];
-                tmp[i] = elt_values_root[nb_var_element*ri+j];
-            }
-            exporter.writeField(outbin, tmp, names[j]);
-        }
+        // get names of the variables in the restart file,
+        // and set pointers to the data (pointers to the corresponding vectors)
+        std::vector<std::string> names;
+        std::vector<std::vector<double>*> data_elements;
+        this->getRestartNamesPointers(names, data_elements);
+        this->exportFieldsElements(exporter, outbin, names, data_elements);
+
+
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
@@ -7517,6 +7506,37 @@ FiniteElement::writeRestart(std::string const& name_str)
         outrecord.close();
     }
 }//writeRestart
+
+
+//! write fields on the elements
+//! called by writeRestart()
+//  TODO call from exportResults
+//  TODO make it a template function so data_elements can also be
+//       std::vector<ExternalData*> for exporting forcing as well
+void
+FiniteElement::exportFieldsElements( Exporter &exporter, std::fstream &outbin,
+        std::vector<std::string> const& names,
+        std::vector<std::vector<double>*> const& data_elements)
+{
+    int const nb_var_element = names.size();
+    std::vector<double> elt_values_local, elt_values_root;
+    bool const ghosts = false;
+    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
+    this->gatherFieldsElementIO(elt_values_root, elt_values_local, nb_var_element);
+
+    // loop over the elemental variables that have been
+    // gathered to elt_values_root
+    for(int j=0; j<nb_var_element; j++)
+    {
+        std::vector<double> tmp(M_mesh_root.numTriangles());
+        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        {
+            int ri = M_rmap_elements[i];
+            tmp[i] = elt_values_root[nb_var_element*ri+j];
+        }
+        exporter.writeField(outbin, tmp, names[j]);
+    }
+}//exportFieldsElements
 
     
 //------------------------------------------------------------------------------------------------------
@@ -7788,35 +7808,39 @@ FiniteElement::readRestart(std::string const& name_str)
 }//readRestart
 
 
+//! scatter the elemental variables from the restart file read from the restart file
+//! called by readRestart()
 void
 FiniteElement::restartScatterElementVariables()
 {
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
-    std::vector<std::string> names = this->getRestartVariableNames();
+    std::vector<std::string> names;
     std::vector<std::vector<double>*> data_elements;
-    this->setPointersElements(data_elements, names);
+    this->getRestartNamesPointers(names, data_elements);
 
-    // transfer data from data_elements to interp_elt_out
+    // transfer data from data_elements to elt_values_root
     // - on root
     // - inside a loop (automatic)
-    std::vector<double> interp_elt_out, out_elt_values;
-    this->collectElementsRestart(interp_elt_out, data_elements);
+    std::vector<double> elt_values_root, elt_values_local;
+    this->collectElementsRestart(elt_values_root, data_elements);
 
-    // Scatter elemental fields from root and put it in out_elt_values
+    // Scatter elemental fields from root and put it in elt_values_local
     // - from root to each processor
     // - inside a loop (automatic)
-    this->scatterFieldsElementIO(interp_elt_out, out_elt_values, data_elements.size());
+    this->scatterFieldsElementIO(elt_values_root, elt_values_local, data_elements.size());
 
-    // transfer data from out_elt_values to data_elements
+    // transfer data from elt_values_local to data_elements
     // - local
     // - inside a loop (automatic)
     // - data_elements is a vector of pointers so the required
     //   variables are now set
-    this->redistributeVariablesIO(out_elt_values, data_elements);
+    this->redistributeVariablesIO(elt_values_local, data_elements);
 }//restartScatterElementVariables
     
 
+//! initialise the IABP drifters from the restart fields (if possible)
+//! called by readRestart()
 void
 FiniteElement::restartIabpDrifters(
     boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -7912,6 +7936,9 @@ FiniteElement::partitionMeshRestart()
 }//partitionMeshRestart
 
 
+//! collect the restart elemental variables (already on the root)
+//! and put them into 1 long vector to be scattered
+//! called by restartScatterElementVariables()
 void
 FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
         std::vector<std::vector<double>*> &data_elements)
@@ -7930,7 +7957,10 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
     {
         for (int i=0; i<num_elements_root; ++i)
             for(int j=0; j<data_elements.size(); j++)
-                interp_elt_out[nb_var_element*i+j] = (*(data_elements[j]))[i];
+            {
+                auto ptr = data_elements[j];
+                interp_elt_out[nb_var_element*i+j] = (*ptr)[i];
+            }
     }//M_rank == 0: collect elemental variables
 
 }//collectElementsRestart
