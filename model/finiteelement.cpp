@@ -3103,14 +3103,20 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 //------------------------------------------------------------------------------------------------------
 //! Gathers information about the fields for outputting.
 //! Called by the writeRestart() function.
+//  TODO make it a template function so data_elements can also be
+//       std::vector<ExternalData*> for exporting forcing as well
 void
 FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
-        std::vector<double>& elt_values_local, int const& nb_var_element)
+        std::vector<std::vector<double>*> const& data_elements)
 {
 
     timer["gather"].first.restart();
-
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
+
+    int const nb_var_element = data_elements.size();
+    std::vector<double> elt_values_local;
+    bool const ghosts = false;
+    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
 
     std::vector<int> sizes_elements = M_sizes_elements;
     //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
@@ -7307,6 +7313,15 @@ FiniteElement::writeRestart(std::string const& name_str)
     LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
     LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
 
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    // NB needs to be done on all processors
+    std::vector<std::string> names_elements;
+    std::vector<std::vector<double>*> data_elements;
+    std::vector<double> elt_values_root;
+    this->getRestartNamesPointers(names_elements, data_elements);
+    this->gatherFieldsElementIO(elt_values_root, data_elements);
+
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
@@ -7445,13 +7460,19 @@ FiniteElement::writeRestart(std::string const& name_str)
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
 
-        // get names of the variables in the restart file,
-        // and set pointers to the data (pointers to the corresponding vectors)
-        std::vector<std::string> names;
-        std::vector<std::vector<double>*> data_elements;
-        this->getRestartNamesPointers(names, data_elements);
-        this->exportFieldsElements(exporter, outbin, names, data_elements);
-
+        // loop over the elemental variables that have been
+        // gathered to elt_values_root
+        int const nb_var_element = names_elements.size();
+        for(int j=0; j<nb_var_element; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(outbin, tmp, names_elements[j]);
+        }
 
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
@@ -7506,37 +7527,6 @@ FiniteElement::writeRestart(std::string const& name_str)
         outrecord.close();
     }
 }//writeRestart
-
-
-//! write fields on the elements
-//! called by writeRestart()
-//  TODO call from exportResults
-//  TODO make it a template function so data_elements can also be
-//       std::vector<ExternalData*> for exporting forcing as well
-void
-FiniteElement::exportFieldsElements( Exporter &exporter, std::fstream &outbin,
-        std::vector<std::string> const& names,
-        std::vector<std::vector<double>*> const& data_elements)
-{
-    int const nb_var_element = names.size();
-    std::vector<double> elt_values_local, elt_values_root;
-    bool const ghosts = false;
-    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
-    this->gatherFieldsElementIO(elt_values_root, elt_values_local, nb_var_element);
-
-    // loop over the elemental variables that have been
-    // gathered to elt_values_root
-    for(int j=0; j<nb_var_element; j++)
-    {
-        std::vector<double> tmp(M_mesh_root.numTriangles());
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            int ri = M_rmap_elements[i];
-            tmp[i] = elt_values_root[nb_var_element*ri+j];
-        }
-        exporter.writeField(outbin, tmp, names[j]);
-    }
-}//exportFieldsElements
 
     
 //------------------------------------------------------------------------------------------------------

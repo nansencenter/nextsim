@@ -315,11 +315,7 @@ private:
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, std::vector<std::vector<double>*> data_elements,
             bool const& ghosts);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
-    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
-            int const& nb_var_element);
-    void exportFieldsElements( Exporter &exporter, std::fstream &outbin,
-        std::vector<std::string> const& names,
-        std::vector<std::vector<double>*> const& data_elements);
+    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<std::vector<double>*> const& data_elements);
 
     void getRestartNamesPointers(
             std::vector<std::string> &names,
