@@ -311,8 +311,8 @@ private:
 
     // IO
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
-    void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts,
-            std::vector<std::vector<double>*> data_elements);
+    void collectVariablesIO(std::vector<double>& interp_elt_in_local, std::vector<std::vector<double>*> data_elements,
+            bool const& ghosts);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
             int const& nb_var_element);

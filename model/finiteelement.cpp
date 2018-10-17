@@ -2021,21 +2021,21 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 //! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
 void
-FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts,
-        std::vector<std::vector<double>*> data_elements)
+FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
+        std::vector<std::vector<double>*> data_elements, bool const& ghosts)
 {
     int num_elements = M_local_nelements;
     if (ghosts)
         num_elements = M_num_elements;
 
     int const nb_var_element = data_elements.size();
-    interp_elt_in_local.resize(nb_var_element*num_elements);
+    elt_values_local.resize(nb_var_element*num_elements);
 
     for (int i=0; i<num_elements; ++i)
         for(int j=0; j<nb_var_element; j++)
         {
             auto ptr = data_elements[j];
-            interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i];
+            elt_values_local[nb_var_element*i+j] = (*ptr)[i];
         }
 }//collectVariablesIO
 
@@ -3101,10 +3101,10 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers information about the fields for outputting.
-//! Called by the exportResults() function.
+//! Called by the writeRestart() function.
 void
-FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<double>& interp_elt_in_local,
-        int const& nb_var_element)
+FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
+        std::vector<double>& elt_values_local, int const& nb_var_element)
 {
 
     timer["gather"].first.restart();
@@ -3117,12 +3117,12 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, st
 
     if (M_rank == 0)
     {
-        interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
+        elt_values_root.resize(nb_var_element*M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, elt_values_local, &elt_values_root[0], sizes_elements, 0);
     }
     else
     {
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+        boost::mpi::gatherv(M_comm, elt_values_local, 0);
     }
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
@@ -7381,7 +7381,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     std::vector<double> elt_values_local, elt_values_root;
     bool const ghosts = false;
-    this->collectVariablesIO(elt_values_local, ghosts, data_elements);
+    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
     this->gatherFieldsElementIO(elt_values_root, elt_values_local, data_elements.size());
 
     M_comm.barrier();
