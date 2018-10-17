@@ -6454,6 +6454,39 @@ FiniteElement::init()
     this->checkOutputs(true);
 }//init
 
+
+//! update ice diagnostics eg total conc and principal stresses
+//! called by checkOutputs() and exportResults() 
+void
+FiniteElement::updateIceDiagnostics()
+{
+    D_conc.resize(M_num_elements);
+    D_thick.resize(M_num_elements);
+    D_snow_thick.resize(M_num_elements);
+    D_sigma.resize(2);
+    for(int k=0; k<2; k++)
+        D_sigma[k].resize(M_num_elements);
+
+    double sigma_s, sigma_n;
+    std::vector<double> sigma_pred(3);
+    for(int i=0; i<M_num_elements; i++)
+    {
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            D_conc[i] += M_conc_thin[i];
+            D_thick[i] += M_h_thin[i];
+            D_snow_thick[i] += M_hs_thin[i];
+        }
+
+        // principal stresses
+        for(int k=0; k<3; k++)
+            sigma_pred[k] = M_sigma[k][i];
+        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2., sigma_pred[2]);
+        sigma_n =          - (sigma_pred[0]+sigma_pred[1])/2.;
+        D_sigma[0][i] = sigma_n+sigma_s;
+        D_sigma[1][i] = sigma_n-sigma_s;
+    }
+}
     
 //------------------------------------------------------------------------------------------------------
 //! Increments the model by one time step. Called by the run() function.
@@ -6668,6 +6701,8 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
 
+    // update the diagnostic variables before output
+    this->updateIceDiagnostics();
     
     if(M_use_moorings)
     {
@@ -6823,20 +6858,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Prognostic variables
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_conc[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_conc_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_thick[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_h_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
@@ -6846,11 +6873,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_snow_thick[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_hs_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_snow_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf):
@@ -6885,9 +6908,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::conc_thin):
                 for (int i=0; i<M_local_nelements; i++)
-                {
                     it->data_mesh[i] += M_conc_thin[i]*time_factor;
-                }
                 break;
 
             case (GridOutput::variableID::h_thin):
@@ -11688,6 +11709,11 @@ void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
+
+    // update the diagnostic variables before output
+    // - needed here for "spontaneous" exports
+    this->updateIceDiagnostics();
+
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
 
@@ -11698,7 +11724,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     }
 
     // fields defined on mesh elements
-
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;

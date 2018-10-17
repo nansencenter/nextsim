@@ -270,6 +270,7 @@ public:
             bool const& export_fields, bool const& apply_displacement);
     void exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
             bool const& export_fields, bool const& apply_displacement);
+    void updateIceDiagnostics();
 
     bool writingRestart();
     void writeRestart();
@@ -419,6 +420,8 @@ private:
 
     std::vector<double> M_surface;
     std::vector<std::vector<double>> M_sigma;
+    std::vector<std::vector<double>> D_sigma;
+
     std::vector<double> M_UM;
     std::vector<double> M_UT;
     std::vector<double> M_VT;
@@ -438,6 +441,11 @@ private:
     std::vector<double> M_h_thin;
     std::vector<double> M_conc_thin;
     std::vector<double> M_hs_thin;
+
+    std::vector<double> D_thick;
+    std::vector<double> D_conc;
+    std::vector<double> D_snow_thick;
+
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;
