@@ -526,7 +526,7 @@ FiniteElement::initVariables()
     M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
     for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
         it->assign(M_num_elements, 0.);
-    D_sigma.resize(2);
+    D_sigma.resize(2); //! \param D_sigma (double) Principal stresses (diagnostics) [N/m2]
     
     // random numbers
     // - 1st set on root
@@ -2348,9 +2348,9 @@ FiniteElement::setPointersElements(
             data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
         else if (name == "M_sigma_2")
             data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
-        else if (name == "Sigma_1")
+        else if (name == "Sigma1")
             data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
-        else if (name == "Sigma_2")
+        else if (name == "Sigma2")
             data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
         else if (name == "M_damage" || name == "Damage")
             data.push_back(&M_damage); // damage
@@ -6459,10 +6459,10 @@ FiniteElement::init()
 void
 FiniteElement::updateIceDiagnostics()
 {
-    D_conc.resize(M_num_elements);
-    D_thick.resize(M_num_elements);
-    D_snow_thick.resize(M_num_elements);
-    D_tsurf.resize(M_num_elements);
+    D_conc.resize(M_num_elements) //! \param D_conc (double) Total concentration (diagnostic)
+    D_thick.resize(M_num_elements)//! \param D_thick (double) Total thickness (diagnostic)
+    D_snow_thick.resize(M_num_elements)//! \param D_snow_thick (double) Total snow thickness (diagnostic)
+    D_tsurf.resize(M_num_elements) //! \param D_tsurf (double) Mean surface temperature (diagnostic)
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
