@@ -13,15 +13,18 @@ then
 fi
 
 # show help if only one parameter is given
-if [ $# -eq 1 ]
+if [ $# -eq 1 ] || [ $# -ge 4 ]
 then
-    echo "Usage: $0 [CONFIG_FILE NUM_CPUS]"
-    echo ""
-    echo "Run bash or parallel neXtSIM using MPI"
-    echo "    CONFIG_FILE, name of the config file for neXtSIM"
-    echo "       NUM_CPUS, number of CPUs. Must be >= 2."
-    echo ""
-    echo "If CONFIG_FILE NUM_CPUS are not given /bin/bash is executed"
+    echo "Usage:"
+    echo "$0"
+    echo "to just run bash, or"
+    echo "$0 [CONFIG_FILE] [NUM_CPUS]"
+    echo "to run the  model with log output on the screen, or"
+    echo "$0 [CONFIG_FILE] [NUM_CPUS] [LOG_FILE]"
+    echo "to run the  model with log output saved to LOG_FILE"
+    echo "NB LOGFILE should be the path inside docker and directory containing it"
+    echo "needs to be mounted with -v for it to be accessible outside docker"
+    echo "NB we need NUM_CPUS>= 2."
     exit 0
 fi
 
@@ -34,5 +37,19 @@ then
    exit 2
 fi
 
-# Run the nextsim model usin MPI
-mpirun --allow-run-as-root -np $ncpu nextsim.exec -mat_mumps_icntl_14 60 --config-files=$config
+# Run the nextsim model using MPI
+RUN_NEXTSIM_COMMAND="mpirun --allow-run-as-root -np $ncpu nextsim.exec -mat_mumps_icntl_14 60 --config-files=$config"
+if [ $# -ge 3 ]
+then
+   # output log to a text file
+   logdir=`dirname $3`
+   if [ ! -d $logdir ]
+   then
+      echo "Invalid path to output log file: $3"
+      exit 1
+   fi
+   $RUN_NEXTSIM_COMMAND &> $3
+else
+   # output log to the screen
+   $RUN_NEXTSIM_COMMAND
+fi
