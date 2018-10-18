@@ -6737,7 +6737,9 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-    double time_remaining = time_init + duration - M_current_time;// should be >= 0 after error-checking in init()
+    double time_remaining = time_init + duration/days_in_sec - M_current_time;// should be >= 0 after error-checking in init()
+    if(M_rank==0)
+        LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
     bool is_running = (time_remaining>0);// don't start stepping if at end time (time_remaining==0)
 
     // main loop for nextsim program
@@ -7842,7 +7844,7 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // set time and check it (NB now on all processors)
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
-    if(M_current_time > time_init + duration )
+    if(M_current_time > time_init + duration/days_in_sec )
         throw std::runtime_error("Restart time is after end time (time_init + duration)");
 
     if(M_use_drifters)
