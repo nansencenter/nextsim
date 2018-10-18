@@ -11,8 +11,8 @@
 #include <finiteelement.hpp>
 #include <constants.hpp>
 #include <date.hpp>
-#include <redistribute.hpp>
 #include <exporter.hpp>
+#include <redistribute.hpp>
 #include <numeric>
 
 #define GMSH_EXECUTABLE gmsh
@@ -1236,7 +1236,7 @@ FiniteElement::initOptAndParam()
     
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
-    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputing snapshots of mooring records
+    M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
     M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>(); //! \param M_moorings_parallel_output (boolean) Option on parallel outputs
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -2016,11 +2016,36 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     }
 }//collectVariables
 
+
+//------------------------------------------------------------------------------------------------------
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
+//! Called by the gatherFieldsElementIO() function.
+//  TODO make it a template function so data_elements can also be
+//       std::vector<ExternalData*> for exporting forcing as well
+void
+FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
+        std::vector<std::vector<double>*> data_elements, bool const& ghosts)
+{
+    int num_elements = M_local_nelements;
+    if (ghosts)
+        num_elements = M_num_elements;
+
+    int const nb_var_element = data_elements.size();
+    elt_values_local.resize(nb_var_element*num_elements);
+
+    for (int i=0; i<num_elements; ++i)
+        for(int j=0; j<nb_var_element; j++)
+        {
+            auto ptr = data_elements[j];
+            elt_values_local[nb_var_element*i+j] = (*ptr)[i];
+        }
+}//collectVariablesIO
+
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputing.
+//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
-    void
+void
 FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
 {
     int nb_var_element = M_nb_var_element;
@@ -2292,7 +2317,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 //! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
 //! Called from the readRestart() function.
 void
-FiniteElement::getVariablesIO(
+FiniteElement::setPointersElements(
         std::vector<std::vector<double>*> &data,
         std::vector<std::string> const &names)
 {
@@ -2347,10 +2372,11 @@ FiniteElement::getVariablesIO(
 //------------------------------------------------------------------------------------------------------
 //! Redistributes variables (parallel computing).
 //! Called by function scatterFieldsElementIO().
-//! * out_elt_values is vector containing all the variables to be redistributed (eg after scattering from root) into the individual variables (eg M_conc, M_thick,...)
-//! * data is a vector of pointers to the variables to be assigned values from out_elt_values
+//! * elt_values_local is vector containing all the variables to be redistributed (eg after scattering from root)
+//    into the individual variables (eg M_conc, M_thick,...)
+//! * data is a vector of pointers to the variables to be assigned values from elt_values_local
 void
-FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values,
+FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_local,
         std::vector<std::vector<double>*> &data)
 {
     int nb_var_element = data.size();
@@ -2359,9 +2385,12 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
         //! - 1) initializes the data
         data[j]->assign(M_num_elements, 0.);
 
-        //! - 2) loops over the elements to get their values from out_elt_values
+        //! - 2) loops over the elements to get their values from elt_values_local
         for (int i=0; i<M_num_elements; ++i)
-            (*(data[j]))[i] = out_elt_values[nb_var_element*i+j];
+        {
+            auto ptr = data[j];
+            (*ptr)[i] = elt_values_local[nb_var_element*i+j];
+        }
     }
 }//redistributeVariablesIO
 
@@ -3034,7 +3063,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Gathers information about the fields for outputing.
+//! Gathers information about the fields for outputting.
 //! Called by the exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice)
@@ -3070,6 +3099,42 @@ FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bo
     else
     {
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
+    }
+
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+}//gatherFieldsElementsIO
+
+
+//------------------------------------------------------------------------------------------------------
+//! Gathers information about the fields for outputting.
+//! Called by the writeRestart() function.
+//  TODO make it a template function so data_elements can also be
+//       std::vector<ExternalData*> for exporting forcing as well
+void
+FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
+        std::vector<std::vector<double>*> const& data_elements)
+{
+
+    timer["gather"].first.restart();
+    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
+
+    int const nb_var_element = data_elements.size();
+    std::vector<double> elt_values_local;
+    bool const ghosts = false;
+    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
+
+    std::vector<int> sizes_elements = M_sizes_elements;
+    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
+    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
+
+    if (M_rank == 0)
+    {
+        elt_values_root.resize(nb_var_element*M_mesh_root.numTriangles());
+        boost::mpi::gatherv(M_comm, elt_values_local, &elt_values_root[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, elt_values_local, 0);
     }
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
@@ -3158,13 +3223,15 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 
     
 //------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts.
-//! Called by the readRestart() function.
-std::vector<std::string>
-FiniteElement::getRestartVariableNames()
+//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts,
+//! and set pointers to the appropriate vectors
+//! Called by the readRestart() and writeRestart() functions.
+void
+FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
+        std::vector<std::vector<double>*> & data_elements)
 {
 
-    std::vector<std::string> names = {
+    names = {
         "M_conc",
         "M_thick",
         "M_snow_thick",
@@ -3174,8 +3241,8 @@ FiniteElement::getRestartVariableNames()
         "M_damage",
         "M_ridge_ratio",
         "M_random_number",
-        "M_sss",
-        "M_sst"};
+        "M_sst",
+        "M_sss"};
     
     for(int i=0; i<M_tice.size(); i++)
         names.push_back("M_tice_" + std::to_string(i));
@@ -3187,63 +3254,66 @@ FiniteElement::getRestartVariableNames()
         names.push_back("M_hs_thin");
         names.push_back("M_tsurf_thin");
     }
-    return names;
-}//getRestartVariableNames
+
+    this->setPointersElements(data_elements, names);
+}//getRestartNamesPointers
 
 
 //------------------------------------------------------------------------------------------------------
-//! Redistributes all variables into the individual variables after scaterring from root.
-//! Called by the readRestart() function.
+//! scatter from root to local
+//! * both input and output are 1 long vector containing all the variables
+//! Called by the restartScatterElementVariables() function.
 void
-FiniteElement::scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<std::vector<double>*> &data)
+FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root,
+        std::vector<std::vector<double>*> &data_elements)
 {
-    //! * interp_elt_out is a vector containing all the variables to be
+    //! * elt_values_root is a vector containing all the variables to be
     //!   redistributed (eg after scattering from root) into the
     //!   individual variables (eg M_conc, M_thick,...)
     //!   - rearranged using M_id_elements and passed to
     //!     boost::mpi::scatterv
     //! * data is a vector of pointers to the variables to be assigned
-    //!   values from out_elt_values
+    //!   values from elt_values_local
     //!   - passed to redistributeVariablesIO
     timer["scatter"].first.restart();
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
-    int const nb_var_element = data.size();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    std::vector<double> in_elt_values;
+    int const nb_var_element = data_elements.size();
+    std::vector<double> elt_values_root_remapped;
 
     if (M_rank == 0)
     {
-        in_elt_values.resize(nb_var_element*M_id_elements.size());
+        elt_values_root_remapped.resize(nb_var_element*M_id_elements.size());
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
             int ri = M_id_elements[i]-1;
             for (int j=0; j<nb_var_element; ++j)
             {
-                in_elt_values[nb_var_element*i+j]
-                    = interp_elt_out[nb_var_element*ri+j];
+                elt_values_root_remapped[nb_var_element*i+j]
+                    = elt_values_root[nb_var_element*ri+j];
             }
         }
     }
 
-    std::vector<double> out_elt_values(nb_var_element*M_num_elements);
+    std::vector<double> elt_values_local(nb_var_element*M_num_elements);
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(),
                 [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements,
-                &out_elt_values[0], 0);
+        boost::mpi::scatterv(M_comm, elt_values_root_remapped, sizes_elements,
+                &elt_values_local[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_elt_values[0],
+        boost::mpi::scatterv(M_comm, &elt_values_local[0],
                 nb_var_element*M_num_elements, 0);
     }
 
-    this->redistributeVariablesIO(out_elt_values, data);
+    // transfer data from elt_values_local to data_elements
+    this->redistributeVariablesIO(elt_values_local, data_elements);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
@@ -7245,12 +7315,21 @@ FiniteElement::writeRestart(std::string const& name_str)
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    std::cout<< "["<< M_rank << "] "<<"M_prv_local_ndof         = "<< M_prv_local_ndof <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_num_nodes          = "<< M_prv_num_nodes <<"\n";
-    std::cout<< "["<< M_rank << "] "<< "M_prv_num_elements      = "<< M_prv_num_elements <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_nodes   = "<< M_prv_global_num_nodes <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_prv_global_num_elements= "<< M_prv_global_num_elements <<"\n";
-    std::cout<< "["<< M_rank << "] "<<"M_ndof                   = "<< M_ndof <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<< "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
+    LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
+
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    // NB needs to be done on all processors
+    std::vector<std::string> names_elements;
+    std::vector<std::vector<double>*> data_elements;
+    std::vector<double> elt_values_root;
+    this->getRestartNamesPointers(names_elements, data_elements);
+    this->gatherFieldsElementIO(elt_values_root, data_elements);
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -7323,125 +7402,10 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
     }
 
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-    std::vector<double> interp_in_elements;
-    this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
-
     M_comm.barrier();
 
     if (M_rank == 0)
     {
-        int num_elements_root = M_mesh_root.numTriangles();
-        int tice_size = M_tice.size();
-
-        std::vector<double> M_conc_root(num_elements_root);
-        std::vector<double> M_thick_root(num_elements_root);
-        std::vector<double> M_snow_thick_root(num_elements_root);
-        std::vector<std::vector<double>> M_sigma_root(3);
-        for(int k=0; k<3; k++)
-            M_sigma_root[k].resize(num_elements_root);
-        std::vector<double> M_damage_root(num_elements_root);
-        std::vector<double> M_ridge_ratio_root(num_elements_root);
-        std::vector<double> M_random_number_root(num_elements_root);
-        std::vector<double> M_sss_root(num_elements_root);
-        std::vector<double> M_sst_root(num_elements_root);
-        std::vector<std::vector<double>> M_tice_root(M_tice.size());
-        for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
-            it->resize(num_elements_root);
-
-        std::vector<double> M_h_thin_root;
-        std::vector<double> M_conc_thin_root;
-        std::vector<double> M_hs_thin_root;
-        std::vector<double> M_tsurf_thin_root;
-
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_h_thin_root.resize(num_elements_root);
-            M_conc_thin_root.resize(num_elements_root);
-            M_hs_thin_root.resize(num_elements_root);
-            M_tsurf_thin_root.resize(num_elements_root);
-        }
-
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            tmp_nb_var=0;
-            int ri = M_rmap_elements[i];
-
-            // concentration
-            M_conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thickness
-            M_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow thickness
-            M_snow_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stresses
-            for(int k=0; k<3; k++, tmp_nb_var++)
-                M_sigma_root[k][i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-
-            // damage
-            M_damage_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_ridge_ratio_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_random_number_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sss
-            M_sss_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sst
-            M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // M_tice
-            for(auto it=M_tice_root.begin(); it!=M_tice_root.end(); it++)
-            {
-                (*it)[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                // h_thin
-                M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // conc_thin
-                M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // hs_thin
-                M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // tsurf_thin
-                M_tsurf_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-
-
         Exporter exporter("double");
         std::string filename;
 
@@ -7494,37 +7458,31 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, misc_int, "Misc_int");
         exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
+
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-        exporter.writeField(outbin, M_conc_root, "M_conc");
-        exporter.writeField(outbin, M_thick_root, "M_thick");
-        exporter.writeField(outbin, M_snow_thick_root, "M_snow_thick");
-        for (int i=0; i<M_sigma_root.size(); i++)
-            exporter.writeField(outbin, M_sigma_root[i],
-                    "M_sigma_"+std::to_string(i));
-        exporter.writeField(outbin, M_damage_root, "M_damage");
-        exporter.writeField(outbin, M_ridge_ratio_root, "M_ridge_ratio");
-        exporter.writeField(outbin, M_random_number_root, "M_random_number");
-        exporter.writeField(outbin, M_sst_root, "M_sst");
-        exporter.writeField(outbin, M_sss_root, "M_sss");
-        for (int i=0; i<M_tice_root.size(); i++)
-            exporter.writeField(outbin, M_tice_root[i],
-                    "M_tice_"+std::to_string(i));
+
+        // loop over the elemental variables that have been
+        // gathered to elt_values_root
+        int const nb_var_element = names_elements.size();
+        for(int j=0; j<nb_var_element; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(outbin, tmp, names_elements[j]);
+        }
+
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
         exporter.writeField(outbin, M_UM_root, "M_UM");
         exporter.writeField(outbin, M_UT_root, "M_UT");
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            exporter.writeField(outbin, M_h_thin_root, "M_h_thin");
-            exporter.writeField(outbin, M_conc_thin_root, "M_conc_thin");
-            exporter.writeField(outbin, M_hs_thin_root, "M_hs_thin");
-            exporter.writeField(outbin, M_tsurf_thin_root, "M_tsurf_thin");
-        }
 
         if (       M_use_iabp_drifters
                 && M_iabp_drifters.size()>0)
@@ -7556,7 +7514,7 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
         
-        // Finally add the previous numbering to the restart file
+        // Add the previous numbering to the restart file
         // used in adaptMesh (updateNodeIds)
         std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
@@ -7835,79 +7793,98 @@ FiniteElement::readRestart(std::string const& name_str)
         }
 
         if (M_use_iabp_drifters)
-        {
-            std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-            std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-            std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
-
-            if (drifter_no.size() == 0)
-            {
-                // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
-                if(M_rank==0)
-                {
-                    LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
-                        << " Drifter positions initialised as if there was no restart.\n";
-                }
-            }
-            else
-            {
-                // init the input/output files
-                this->initIabpDrifterFiles();
-
-                // insert the drifter positions from the restart file
-                for ( int i=0; i<drifter_no.size(); ++i )
-                    M_iabp_drifters.emplace(
-                            drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
-
-                // move the drifters
-                // NB updateIabpDrifterPosition uses M_UT_root 
-                // (don't need to gather since we have it already from
-                // restart file)
-                M_UT_root = M_UT;
-                this->updateIabpDrifterPosition();
-
-                // M_UT, M_UT_root can be set to zero now we have moved the drifters
-                std::fill(M_UT.begin(), M_UT.end(), 0.);
-                std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-
-                // still need to get M_conc at these positions
-                M_conc_root = M_conc;
-                M_UM_root = M_UM;
-                auto movedmesh = M_mesh_root;
-                movedmesh.move(M_UM_root, 1.);
-                this->updateIabpDrifterConc(movedmesh);
-
-                // Save the initial positions to the output file
-                this->outputIabpDrifters();
-            }
-        }//M_use_iabp_drifters
+            this->restartIabpDrifters(field_map_int, field_map_dbl);
     }//M_rank==0
 
 
-    // get names of the variables in the restart file,
-    // and set data (pointers to the corresponding vectors)
-    // and num_components (number of components in those vectors)
-    std::vector<std::vector<double>*> data_elements;
-    std::vector<std::string> names = this->getRestartVariableNames();
-    this->getVariablesIO(data_elements, names);
-
-    // get the variables (only on the root processor so far)
-    // from data and put it not interp_elt_out
-    // TODO do something similar for the nodes
-    std::vector<double> interp_elt_out;
-    std::vector<double> interp_nd_out;
-    this->collectRootRestart(interp_elt_out, interp_nd_out, data_elements);
-
-    // Scatter elemental fields from root and put it in data_elements
-    // inside a loop
-    // - data_elements is a vector of pointers so the required
-    //  variables are now set
-    this->scatterFieldsElementIO(interp_elt_out, data_elements);
+    // set the elemental variables
+    this->restartScatterElementVariables();
 
     // Scatter nodal fields from root
+    std::vector<double> interp_nd_out;
+    this->collectNodesRestart(interp_nd_out);
     this->scatterFieldsNode(&interp_nd_out[0]);
 }//readRestart
+
+
+//! scatter the elemental variables from the restart file read from the restart file
+//! called by readRestart()
+void
+FiniteElement::restartScatterElementVariables()
+{
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    std::vector<std::string> names_elements;
+    std::vector<std::vector<double>*> data_elements;
+    this->getRestartNamesPointers(names_elements, data_elements);
+
+    // transfer data from data_elements to elt_values_root
+    // - on root
+    // - inside a loop (automatic)
+    std::vector<double> elt_values_root, elt_values_local;
+    this->collectElementsRestart(elt_values_root, data_elements);
+
+    // Scatter elemental fields from root and put them in data_elements
+    // - data_elements is a vector of pointers so the required
+    //   variables are now set
+    // - from root to each processor
+    // - inside a loop (automatic)
+    this->scatterFieldsElementIO(elt_values_root, data_elements);
+}//restartScatterElementVariables
     
+
+//! initialise the IABP drifters from the restart fields (if possible)
+//! called by readRestart()
+void
+FiniteElement::restartIabpDrifters(
+    boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+    boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
+{
+    std::vector<int>    drifter_no = field_map_int["Drifter_no"];
+    std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
+    std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
+
+    if (drifter_no.size() == 0)
+    {
+        // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
+        if(M_rank==0)
+        {
+            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
+                << " Drifter positions initialised as if there was no restart.\n";
+        }
+    }
+    else
+    {
+        // init the input/output files
+        this->initIabpDrifterFiles();
+
+        // insert the drifter positions from the restart file
+        for ( int i=0; i<drifter_no.size(); ++i )
+            M_iabp_drifters.emplace(
+                    drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
+
+        // move the drifters
+        // NB updateIabpDrifterPosition uses M_UT_root 
+        // (don't need to gather since we have it already from
+        // restart file)
+        M_UT_root = field_map_dbl["M_UT"];
+        this->updateIabpDrifterPosition();
+
+        // M_UT, M_UT_root can be set to zero now we have moved the drifters
+        std::fill(M_UT.begin(), M_UT.end(), 0.);
+        std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
+
+        // still need to get M_conc at these positions
+        M_conc_root = field_map_dbl["M_conc"];
+        M_UM_root = field_map_dbl["M_UM"];
+        auto movedmesh = M_mesh_root;
+        movedmesh.move(M_UM_root, 1.);
+        this->updateIabpDrifterConc(movedmesh);
+
+        // Save the initial positions to the output file
+        this->outputIabpDrifters();
+    }
+}//restartIabpDrifters
     
 //------------------------------------------------------------------------------------------------------
 //! Partitions the mesh during a restart.
@@ -7952,14 +7929,42 @@ FiniteElement::partitionMeshRestart()
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
 
-    
+
+//! collect the restart elemental variables (already on the root)
+//! and put them into 1 long vector to be scattered
+//! called by restartScatterElementVariables()
+void
+FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
+        std::vector<std::vector<double>*> &data_elements)
+{
+
+    // get the variables (only on the root processor so far)
+    // from data and put it in interp_elt_out
+    // TODO do something similar for the nodes
+    std::vector<double> out_elt_values;
+
+    int num_elements_root = M_mesh_root.numTriangles();
+    int const nb_var_element = data_elements.size();
+    interp_elt_out.resize(nb_var_element*num_elements_root);
+
+    if (M_rank == 0)
+    {
+        for (int i=0; i<num_elements_root; ++i)
+            for(int j=0; j<data_elements.size(); j++)
+            {
+                auto ptr = data_elements[j];
+                interp_elt_out[nb_var_element*i+j] = (*ptr)[i];
+            }
+    }//M_rank == 0: collect elemental variables
+
+}//collectElementsRestart
+
+
 //------------------------------------------------------------------------------------------------------
 //! Gets the variables (only on the root processor so far) from data and store it in a structure (interp_elt_out)
 //! Called by the readRestart() function.
 void
-FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
-        std::vector<double>& interp_nd_out,
-        std::vector<std::vector<double>*> &data_elements)
+FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
 {
     // * output: interp_elt_out is vector containing all the variables
     //   on the elements to be scattered from root during readRestart
@@ -7967,16 +7972,6 @@ FiniteElement::collectRootRestart(std::vector<double>& interp_elt_out,
     //   on the nodes to be scattered from root during readRestart
     // * data_elements is a vector of pointers to the elemental variables to go
     //   into interp_elt_out
-    int const nb_var_element = data_elements.size();
-    int num_elements_root = M_mesh_root.numTriangles();
-    interp_elt_out.resize(nb_var_element*num_elements_root);
-
-    if (M_rank == 0)
-    {
-        for (int i=0; i<num_elements_root; ++i)
-            for(int j=0; j<data_elements.size(); j++)
-                interp_elt_out[nb_var_element*i+j] = (*(data_elements[j]))[i];
-    }//M_rank == 0: collect elemental variables
 
     M_nb_var_node = 10;
     if (M_rank == 0)
