@@ -1064,11 +1064,13 @@ FiniteElement::initOptAndParam()
     }
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
+    if(duration<0)
+        throw std::runtime_error("Set simul.duration >= 0\n");
     restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
     M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
     M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
-    if ( fmod(restart_time_step,time_step) != 0)
+    if ( fmod(restart_time_step, time_step) != 0)
     {
         std::cout << restart_time_step << " " << time_step << "\n";
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
@@ -6783,14 +6785,11 @@ FiniteElement::run()
         this->writeLogFile();
     }
 
-    M_current_time = time_init + pcpt*time_step/(24*3600.0);
-    bool is_running = true;
-    if(duration<0)
-        throw std::runtime_error("Set simul.duration >= 0\n");
-    else if(duration==0)
-        is_running = false;
+    double time_remaining = time_init + duration/days_in_sec - M_current_time;// should be >= 0 after error-checking in init()
+    if(M_rank==0)
+        LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
+    bool is_running = (time_remaining>0);// don't start stepping if at end time (time_remaining==0)
 
-#if 1
     // main loop for nextsim program
     while (is_running)
     {
@@ -6832,8 +6831,6 @@ FiniteElement::run()
     // Finalizing
     // **********************************************************************
     this->finalise();
-
-#endif
 
     M_comm.barrier();
 
@@ -7804,7 +7801,12 @@ FiniteElement::readRestart(std::string const& name_str)
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
     boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
     boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
+
+    // set time and check it (NB now on all processors)
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
+    if(M_current_time > time_init + duration/days_in_sec )
+        throw std::runtime_error("Restart time is after end time (time_init + duration)");
+
     if(M_use_drifters)
     {
         // if current time is ahead of init-drifter time
