@@ -2329,7 +2329,8 @@ FiniteElement::setPointersElements(
     //!1st set pointers to the data requested in "names"
     for(auto name: names)
     {
-        LOG(DEBUG)<<"collectVariablesIO: adding "<<name <<"\n";
+        if(M_rank==0)
+            LOG(DEBUG)<<"setPointersElements: adding "<<name <<"\n";
         if (name == "M_conc")
             data.push_back(&M_conc); // concentration of thick ice
         else if (name == "M_thick")
@@ -6461,10 +6462,10 @@ FiniteElement::init()
 void
 FiniteElement::updateIceDiagnostics()
 {
-    D_conc.resize(M_num_elements) //! \param D_conc (double) Total concentration (diagnostic)
-    D_thick.resize(M_num_elements)//! \param D_thick (double) Total thickness (diagnostic)
-    D_snow_thick.resize(M_num_elements)//! \param D_snow_thick (double) Total snow thickness (diagnostic)
-    D_tsurf.resize(M_num_elements) //! \param D_tsurf (double) Mean surface temperature (diagnostic)
+    D_conc.resize(M_num_elements); //! \param D_conc (double) Total concentration (diagnostic)
+    D_thick.resize(M_num_elements); //! \param D_thick (double) Total thickness (diagnostic)
+    D_snow_thick.resize(M_num_elements); //! \param D_snow_thick (double) Total snow thickness (diagnostic)
+    D_tsurf.resize(M_num_elements); //! \param D_tsurf (double) Mean surface temperature (diagnostic)
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
