@@ -9870,11 +9870,13 @@ FiniteElement::topazForecastAmsr2Ice()
         else
             uncertainty=0.05;
 
-        double diff_mod_obs=M_conc_amsr2[i]-M_init_conc[i];
-        if(std::abs(diff_mod_obs)>=uncertainty)
-            M_conc[i] = std::min(1.,M_conc_amsr2[i]-(diff_mod_obs)/std::abs(diff_mod_obs)*uncertainty/2.);
+        double diff_mod_obs = M_conc_amsr2[i]-M_init_conc[i];
+        if(std::abs(diff_mod_obs)>=uncertainty && M_conc_amsr2[i]<=1.)
+            // NB missing value for AMSR2 when not over land is 1.15
+            // move towards AMSR2 value by the amount uncertainty/2
+            M_conc[i] = std::min(1., M_conc_amsr2[i]-(diff_mod_obs/std::abs(diff_mod_obs))*uncertainty/2.);
         else
-            M_conc[i] = std::min(1.,M_init_conc[i]);
+            M_conc[i] = std::min(1., M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
         tmp_var=M_init_conc[i];
@@ -10209,9 +10211,11 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
             // - also take into account distance to coast
             M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
 
-        if((M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and sees small opening that would not be see in OSISAF
+        if((M_amsr2_conc[i]<M_conc[i])
                 && (M_amsr2_conc[i]>.15))
-            M_conc[i]=M_amsr2_conc[i];
+            // AMSR2 is higher resolution and sees small opening that would not be see in OSISAF
+            // NB AMSR2 = 1.15 if missing data over ocean, however this will not affect the example here
+            M_conc[i] = M_amsr2_conc[i];
 
         //tmp_var=M_topaz_snow_thick[i];
         //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
@@ -10317,6 +10321,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
         if(M_amsr2_conc[i]<M_conc[i])
             // AMSR2 is higher resolution and sees
             // small openings that would not be see in OSISAF
+            // NB AMSR2 = 1.15 if missing data over ocean, however this will not affect the example here
             M_conc[i] = M_amsr2_conc[i];
 
 
@@ -10749,7 +10754,19 @@ FiniteElement::topazAmsr2Ice()
     double tmp_var;
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_conc[i] = std::min(1.,M_conc_amsr2[i]);
+        double uncertainty;
+        if(M_conc_amsr2[i]<0.1)
+            uncertainty=0.1;
+        else
+            uncertainty=0.05;
+
+        double diff_mod_obs = M_conc_amsr2[i]-M_init_conc[i];
+        if(std::abs(diff_mod_obs)>=uncertainty && M_conc_amsr2[i]<=1.)
+            // NB missing value for AMSR2 when not over land is 1.15
+            // move towards AMSR2 value by the amount uncertainty/2
+            M_conc[i] = std::min(1., M_conc_amsr2[i]-(diff_mod_obs/std::abs(diff_mod_obs))*uncertainty/2.);
+        else
+            M_conc[i] = std::min(1., M_init_conc[i]);
 
         // TOPAZ puts very small values instead of 0.
         tmp_var=M_init_conc[i];
@@ -10910,7 +10927,9 @@ FiniteElement::cs2SmosAmsr2Ice()
         M_conc[i] = tmp_var;
         tmp_var=M_init_thick[i];
         M_thick[i] = tmp_var ;
-        if(M_amsr2_conc[i]<M_conc[i]) // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+        if(M_amsr2_conc[i]<M_conc[i])
+            // AMSR2 is higher resolution and see small opening that would not be see in OSISAF
+            // NB AMSR2 = 1.15 if missing data over ocean, however this will not affect the example here
             M_conc[i]=M_amsr2_conc[i];
 
         double ratio_FYI=0.3;

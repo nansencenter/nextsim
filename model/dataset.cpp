@@ -7818,13 +7818,13 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 std::string name = tmpDim.getName();
                 if ( name == grid_ptr->dimension_x.name )
                 {
-                    index_start[i] = grid.dimension_x_start;
-                    index_count[i] = grid.dimension_x_count;
+                    index_start[i] = grid_ptr->dimension_x_start;
+                    index_count[i] = grid_ptr->dimension_x_count;
                 }
                 else if ( name == grid_ptr->dimension_y.name )
                 {
-                    index_start[i] = grid.dimension_y_start;
-                    index_count[i] = grid.dimension_y_count;
+                    index_start[i] = grid_ptr->dimension_y_start;
+                    index_count[i] = grid_ptr->dimension_y_count;
                 }
                 else // We take the first slice of the time and/or depth dimension
                 {
@@ -7884,13 +7884,13 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 std::string name = tmpDim.getName();
                 if ( name == grid_ptr->dimension_x.name )
                 {
-                    index_start[i] = grid.dimension_x_start;
-                    index_count[i] = grid.dimension_x_count;
+                    index_start[i] = grid_ptr->dimension_x_start;
+                    index_count[i] = grid_ptr->dimension_x_count;
                 }
                 else if ( name == grid_ptr->dimension_y.name )
                 {
-                    index_start[i] = grid.dimension_y_start;
-                    index_count[i] = grid.dimension_y_count;
+                    index_start[i] = grid_ptr->dimension_y_start;
+                    index_count[i] = grid_ptr->dimension_y_count;
                 }
                 else // We take the first slice of the time and/or depth dimension
                 {
@@ -7900,7 +7900,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
 
 			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-			VMASK.getVar(index_start,index_count,&data_in[0]);
+			VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
 			netCDF::NcVarAtt att;
