@@ -315,13 +315,9 @@ private:
             std::vector<std::vector<double>*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements,
             bool const& ghosts);
-<<<<<<< Updated upstream
-    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<std::vector<double>*> const& data_elements);
-=======
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements,
             std::vector<std::vector<double>*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements);
->>>>>>> Stashed changes
 
     void getRestartNamesPointers(
             std::vector<std::string> &names,
