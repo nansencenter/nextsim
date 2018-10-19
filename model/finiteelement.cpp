@@ -1388,9 +1388,15 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second; //! \param M_moorings_file_length (string) Length (in time) of the mooring output file (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
-    
-    
+    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
+        //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
+        //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
+        //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
+    M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
+    if(!M_moorings_snapshot)
+        M_moorings_averaging_period = vm["moorings.output_timestep"].as<double>();
+
     //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
@@ -6691,7 +6697,7 @@ FiniteElement::initOASIS()
         elemental_variables.push_back(conc);
 
         // The vectorial variables are ...
-        GridOutput::Vectorial_Variable tau(std::make_pair(0,1), GridOutput::vectorOrientation::grid);
+        GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
         vectorial_variables.push_back(tau);
 
         // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
@@ -6704,7 +6710,7 @@ FiniteElement::initOASIS()
     }
 
     M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
-        bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
     M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
@@ -7594,7 +7600,7 @@ FiniteElement::initMoorings()
             elemental_variables.push_back(Fsalt);
         }
         // Nodal variables and vectors
-        else if ( *it == "velocity_xy" | *it == "velocity_uv" | *it == "velocity_grid" )
+        else if ( *it == "velocity" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
@@ -7604,17 +7610,11 @@ FiniteElement::initMoorings()
 
             GridOutput::Vectorial_Variable siuv(std::make_pair(vector_counter,vector_counter+1));
             vector_counter += 2;
-            if ( *it == "velocity_xy" )
-                siuv.orientation = GridOutput::vectorOrientation::neXtSIM;
-            else if ( *it == "velocity_uv" )
-                siuv.orientation = GridOutput::vectorOrientation::east_west;
-            else if ( *it == "velocity_grid" )
-                siuv.orientation = GridOutput::vectorOrientation::grid;
 
             vectorial_variables.push_back(siuv);
         }
         // Primarely coupling variables, but perhaps useful for debugging
-        else if ( *it == "tau_xy" | *it == "tau_uv" | *it == "tau_grid" )
+        else if ( *it == "tau" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable taux(GridOutput::variableID::taux);
@@ -7624,12 +7624,6 @@ FiniteElement::initMoorings()
 
             GridOutput::Vectorial_Variable tau(std::make_pair(vector_counter,vector_counter+1));
             vector_counter += 2;
-            if ( *it == "tau_xy" )
-                tau.orientation = GridOutput::vectorOrientation::neXtSIM;
-            else if ( *it == "tau_uv" )
-                tau.orientation = GridOutput::vectorOrientation::east_west;
-            else if ( *it == "tau_grid" )
-                tau.orientation = GridOutput::vectorOrientation::grid;
 
             vectorial_variables.push_back(tau);
         }
@@ -7695,7 +7689,8 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
@@ -7706,7 +7701,8 @@ FiniteElement::initMoorings()
                 Environment::vm()["moorings.grid_transpose"].as<std::string>() );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables);
+        M_moorings = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, M_moorings_false_easting);
     }
     else
     {

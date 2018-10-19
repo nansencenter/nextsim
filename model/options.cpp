@@ -147,6 +147,8 @@ namespace Nextsim
             ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
             ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
             ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is y and the second x.")
+            ("moorings.false_easting", po::value<bool>()->default_value( true ),
+                "true: we output vectors relative to the output grid; false: we give their north-south components")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
 

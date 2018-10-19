@@ -26,7 +26,8 @@ GridOutput::GridOutput()
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor for only one set of variables
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting)
+    : M_averaging_period(averaging_period), M_false_easting(false_easting)
 {
     M_vectorial_variables.resize(0);
 
@@ -47,18 +48,21 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind)
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind)
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+        std::vector<Variable> variables, variableKind kind,
+        double averaging_period, bool false_easting)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period, false_easting)
 {
     this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // Constructor for only one set of variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+        double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period, false_easting)
 {
     this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
@@ -68,9 +72,11 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> vari
 ////////////////////////////////////////////////////////////////////////////////
 
 // Constructor for one set of variables plus vectors - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables)
+GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+        std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+        double averaging_period, bool false_easting)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period, false_easting)
 {
     M_vectorial_variables = vectorial_variables;
     this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
@@ -78,9 +84,10 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 
 // Constructor for only one set of variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+        double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
-    GridOutput(variables, kind)
+    GridOutput(variables, kind, averaging_period, false_easting)
 {
     M_vectorial_variables = vectorial_variables;
     this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
@@ -89,8 +96,9 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> vari
 ////////////////////////////////////////////////////////////////////////////////
 // constructor for nodal and elemental variables only (no vectors)
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
-    :
+GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+        double averaging_period, bool false_easting)
+    : M_averaging_period(averaging_period), M_false_easting(false_easting),
     M_nodal_variables(nodal_variables),
     M_elemental_variables(elemental_variables)
 {
@@ -100,18 +108,20 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 // constructor for nodal and elemental variables only (no vectors) - regular grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables)
+                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+                       double averaging_period, bool false_easting)
     :
-    GridOutput(nodal_variables, elemental_variables)
+    GridOutput(nodal_variables, elemental_variables, averaging_period, false_easting)
 {
     this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+        double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
-    GridOutput(nodal_variables, elemental_variables)
+    GridOutput(nodal_variables, elemental_variables, averaging_period, false_easting)
 {
     this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
@@ -119,8 +129,9 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> noda
 ////////////////////////////////////////////////////////////////////////////////
 // constructor for nodal, elemental and vectorial variables
 ////////////////////////////////////////////////////////////////////////////////
-GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
-    :
+GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+        double averaging_period, bool false_easting)
+    : M_averaging_period(averaging_period), M_false_easting(false_easting),
     M_nodal_variables(nodal_variables),
     M_elemental_variables(elemental_variables),
     M_vectorial_variables(vectorial_variables)
@@ -128,10 +139,11 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 
 // constructor for nodal, elemental and vectorial variables - regular grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
-                       double xmin, double ymin,
-                       std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables)
+        double xmin, double ymin,
+        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+        double averaging_period, bool false_easting)
     :
-    GridOutput(nodal_variables, elemental_variables, vectorial_variables)
+    GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period, false_easting)
 {
     this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
 }
@@ -139,9 +151,10 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables,
                        std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+                       double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
-    GridOutput(nodal_variables, elemental_variables, vectorial_variables)
+    GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period, false_easting)
 {
     this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
 }
@@ -171,14 +184,8 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
     M_grid.gridLON.assign(M_grid_size, 0.);
 
     mapx_class *map;
-    std::string filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-    std::vector<char> str(filename.begin(), filename.end());
-    str.push_back('\0');
-
-    map = init_mapx(&str[0]);
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    map = init_mapx(mppfile);
 
     double lat;
     double lon;
@@ -285,14 +292,8 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
     M_grid.gridY.resize(M_grid_size);
 
     mapx_class *map;
-    filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-    std::vector<char> str(filename.begin(), filename.end());
-    str.push_back('\0');
-
-    map = init_mapx(&str[0]);
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    map = init_mapx(mppfile);
 
     for (int i=0; i<M_grid_size; ++i)
         forward_mapx(map, M_grid.gridLAT[i], M_grid.gridLON[i], &M_grid.gridX[i], &M_grid.gridY[i]);
@@ -317,14 +318,8 @@ GridOutput::stereographicProjection(std::vector<double> const & x, std::vector<d
 {
     // polar stereographic projection
     mapx_class *map;
-    std::string filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-    std::vector<char> str(filename.begin(), filename.end());
-    str.push_back('\0');
-
-    map = init_mapx(&str[0]);
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    map = init_mapx(mppfile);
 
     for ( int i=0; i<x.size(); i++ )
     {
@@ -492,8 +487,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     // Rotate vectors if needed (these may only be on the nodes)
     if ( kind == variableKind::nodal )
         for ( auto it=M_vectorial_variables.begin(); it!=M_vectorial_variables.end(); it++ )
-            if ( it->orientation != vectorOrientation::neXtSIM )
-                this->rotateVectors(*it, nb_var, interp_out, miss_val);
+            this->rotateVectors(*it, nb_var, interp_out, miss_val);
 
 
     // Add the output pointer value to the grid vectors
@@ -531,25 +525,19 @@ GridOutput::setLSM(BamgMesh* bamgmesh_root)
 void
 GridOutput::rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val)
 {
+    // If we have false easting and are using the neXtSIM projection we don't need to rotate
+    if ( M_false_easting && M_grid.thetaName=="" )
+        return;
+
     // First we decide the rotation angle
     // Get the rotation of the neXtSIM grid
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-
-    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-    strNextsim.push_back('\0');
-    mapNextsim = init_mapx(&strNextsim[0]);
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    mapNextsim = init_mapx(mppfile);
 
     double rotation_angle = mapNextsim->rotation*PI/180.;
 
     close_mapx(mapNextsim);
-
-    // One last check before we start
-    if ( (vectorial_variable.orientation == vectorOrientation::grid) && (M_grid.thetaName == "") )
-        throw std::logic_error("GridOutput::rotateVectors: You asked for vectors aligned with the output grid, but did not provide the rotation angle. Check your inputs when constructing your GridOutput::Grid object, or make sure you use simul.moorings_grid_file if you're using moorins.");
 
     // Rotate!
     for (int i=0; i<M_grid_size; ++i)
@@ -562,16 +550,15 @@ GridOutput::rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_v
         double cosang;
         double sinang;
 
-        switch (vectorial_variable.orientation)
+        if ( !M_false_easting )
         {
-            case vectorOrientation::east_west:
-                cosang = std::cos(rotation_angle - M_grid.gridLON[i]*PI/180);
-                sinang = std::sin(rotation_angle - M_grid.gridLON[i]*PI/180);
-                break;
-            case vectorOrientation::grid:
-                cosang = std::cos(rotation_angle - M_grid.gridTheta[i]);
-                sinang = std::sin(rotation_angle - M_grid.gridTheta[i]);
-                break;
+            // True easting - we rotate to the nort/east orientation
+            cosang = std::cos(rotation_angle - M_grid.gridLON[i]*PI/180);
+            sinang = std::sin(rotation_angle - M_grid.gridLON[i]*PI/180);
+        } else {
+            // False easting - we rotate to the x/y orientation
+            cosang = std::cos(rotation_angle - M_grid.gridTheta[i]);
+            sinang = std::sin(rotation_angle - M_grid.gridTheta[i]);
         }
 
         // Calculate u and v
@@ -782,15 +769,27 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
+    // Create the projection variable
+    this->createProjectionVariable(dataFile);
+
     // Create the time dimension
     netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
 
+    // Create the nv dimension for time_bnds
+    netCDF::NcDim nvDim = dataFile.addDim("nv", 2);
+
     // Create the time variable
     netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
-    time.putAtt("standard_name","time");
-    time.putAtt("long_name","simulation time");
-    time.putAtt("units","days since 1900-01-01 00:00:00");
-    time.putAtt("calendar","standard");
+    time.putAtt("standard_name", "time");
+    time.putAtt("long_name", "simulation time");
+    time.putAtt("units", "days since 1900-01-01 00:00:00");
+    time.putAtt("calendar", "standard");
+    time.putAtt("bounds", "time_bnds");
+
+    // Create the time_bnds variable (specify the time period each record applies to)
+    std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
+    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncFloat, dims_bnds);
+    time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
 
     M_nc_step=0;
 
@@ -801,6 +800,16 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     std::vector<netCDF::NcDim> dims2(2);
     dims2[0] = xDim;
     dims2[1] = yDim;
+
+    // cell methods - combine time method with hard-coded area method defined for each variable
+    std::string cell_methods_time = "time: point ";//for snapshot
+    if (M_averaging_period>0)
+    {
+        double averaging_period = 24*M_averaging_period;//hours
+        cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
+                               % averaging_period
+                               ).str();
+    }
 
     // Create the longitude and latitude variables
     // Longitude
@@ -827,12 +836,13 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dims[2] = yDim;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
@@ -843,15 +853,58 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
         data.putAtt("units",it->Units);
+        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
     }
 
+    // - set the global attributes
     dataFile.putAtt("Conventions", "CF-1.6");
     dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
     dataFile.putAtt("source", "neXtSIM model fields");
 
     return filename.str();
 }
+
+
+void
+GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
+{
+    // - get the projection
+    mapx_class *map;
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    map = init_mapx(mppfile);
+
+    // - determine false easting string
+    int false_easting = (M_false_easting) ? 1 : 0;
+
+    double a = 1.e3*map->equatorial_radius;
+    double b = 1.e3*map->polar_radius;
+    double lat0 = map->lat0;
+    double lat_ts = map->lat1;
+    double rotn = map->rotation;
+    std::string proj4 = ( boost::format( "+proj=stere +a=%1% +b=%2% +lat_0=%3% +lat_ts=%4% +lon_0=%5%" )
+            %a
+            %b
+            %lat0
+            %lat_ts
+            %rotn
+            ).str();
+    
+    // - add the projection variable
+    std::vector<netCDF::NcDim> dims0(0);
+    netCDF::NcVar proj = dataFile.addVar("Polar_Stereographic_Grid", netCDF::ncInt, dims0);
+    proj.putAtt("grid_mapping_name", "polar_stereographic");
+    proj.putAtt("false_easting", netCDF::ncFloat, false_easting);
+    proj.putAtt("false_northing", netCDF::ncFloat, false_easting);
+    proj.putAtt("semi_major_axis", netCDF::ncFloat, a);
+    proj.putAtt("semi_minor_axis", netCDF::ncFloat, b);
+    proj.putAtt("straight_vertical_longitude_from_pole", netCDF::ncFloat, rotn);
+	proj.putAtt("latitude_of_projection_origin", netCDF::ncFloat, lat0);
+    proj.putAtt("standard_parallel", netCDF::ncFloat, lat_ts);
+    proj.putAtt("proj4_string", proj4);
+    close_mapx(map);
+}
+
 
 // Write data to the netCDF file
 void
@@ -861,23 +914,21 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
 
     // Append to time
-    std::vector<size_t> start;
-    start.push_back(M_nc_step);
-
-    std::vector<size_t> count;
-    count.push_back(1);
-
-    M_nc_step++;
-
+    std::vector<size_t> start = {M_nc_step};
+    std::vector<size_t> count = {1};
     netCDF::NcVar time = dataFile.getVar("time");
     time.putVar(start, count, &timestamp);
 
-    // Append to the output variables
-    start.push_back(0);
-    start.push_back(0);
+    // Append to time_bnds
+    start = {M_nc_step, 0};
+    count = {1, 2};
+    netCDF::NcVar time_bnds = dataFile.getVar("time_bnds");
+    std::vector<double> tbdata = {timestamp -0.5*M_averaging_period, timestamp +0.5*M_averaging_period};
+    time_bnds.putVar(start, count, &tbdata[0]);
 
-    count.push_back(M_ncols);
-    count.push_back(M_nrows);
+    // Append to the output variables
+    start = {M_nc_step, 0, 0};
+    count = {1, M_ncols, M_nrows};
 
     // Apply mask - if needed
     if (M_use_lsm)
@@ -887,17 +938,20 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     netCDF::NcVar data;
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
-        if ( it->varID < 0 ) // Skip non-outputing variables
+        if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
+
+    M_nc_step++;
 }
+
 } // Nextsim
