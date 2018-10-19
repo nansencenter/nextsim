@@ -3110,9 +3110,9 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
 
 
 //------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts,
+//! Gets the names of the variables that need to be gathered and scattered when exporting results,
 //! and set pointers to the appropriate vectors
-//! Called by the readRestart() and writeRestart() functions.
+//! Called by the exportResults() function.
 void
 FiniteElement::getExportNamesPointers(std::vector<std::string> & names,
         std::vector<std::vector<double>*> & data_elements)
