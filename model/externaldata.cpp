@@ -760,12 +760,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
         else
             f_timestr ="";
-            filename = (boost::format( "%1%/%2%%3%%4%" )
-                        % Environment::nextsimDataDir().string()
-                        % dataset->grid.prefix
-                        % f_timestr
-                        % dataset->grid.postfix
-                        ).str();
+
+        filename = (boost::format( "%1%/%2%%3%%4%" )
+                    % Environment::nextsimDataDir().string()
+                    % dataset->grid.prefix
+                    % f_timestr
+                    % dataset->grid.postfix
+                    ).str();
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }

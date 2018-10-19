@@ -7609,10 +7609,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
     else
-    filename = (boost::format( "%1%/%2%" )
-            % Environment::nextsimDataDir().string()
-            % grid_ptr->gridfile
-            ).str();
+        filename = (boost::format( "%1%/%2%" )
+                % Environment::nextsimDataDir().string()
+                % grid_ptr->gridfile
+                ).str();
 
     std::cout<<"GRID : FILENAME = "<< filename <<"\n";
 
