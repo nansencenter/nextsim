@@ -119,29 +119,23 @@ public:
     void recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
-#if 0
-	size_type size() const;
+	bool isInitialized() const { return M_initialized; }
 
-	bool isInitialized() const { return M_is_initialized; }
-
-	bool closed() const { return M_is_closed; }
-#endif
-
-public:
+private:
     double fdt;
     std::vector<double> fcoeff;
     Dataset *M_dataset;
     bool M_is_constant;
     bool M_initialized;
+    bool M_is_vector;
+    int M_target_size;
 
-private:
     std::string M_datasetname;
     int M_VariableId;
     double M_current_time;
     double M_constant_value;
     double M_constant_valuebis;
     double M_bias_correction;
-    bool M_is_vector;
     int M_VariableIdbis;
     double M_StartingTime;
     double M_SpinUpDuration;
