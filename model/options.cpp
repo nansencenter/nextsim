@@ -105,20 +105,20 @@ namespace Nextsim
              */
 
             // setup
-            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "")
-            ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "")
-            ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "")
-            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "")
-            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "")
-            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "")
+            ("setup.atmosphere-type", po::value<std::string>()->default_value( "asr" ), "which atmospheric forcing?")
+            ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "which oceanic forcing?")
+            ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
+            ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
+            ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
+            ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics")
+            ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
             // - input
             ("mesh.path", po::value<std::string>()->default_value( "nextsimdir" ), "nextsimdir or simdatadir")
-            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "")
-            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "")
+            ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
+            ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
             ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
@@ -130,13 +130,13 @@ namespace Nextsim
                 "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
 
             // moorings
-            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "")
+            ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
-            ("moorings.snapshot", po::value<bool>()->default_value( false ), "")
-            ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "")
-            ("moorings.spacing", po::value<double>()->default_value( 10 ), "km")
-            ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "days")
+            ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
+            ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
+            ("moorings.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
+            ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity_xy"},
@@ -150,19 +150,33 @@ namespace Nextsim
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
             // drifters
-            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "")
+            ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "lower concentration limit for ignoring a drifter")
 
-            ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "")
+            ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "Use IABP drifters or not")
+            ("drifters.iabp_drifters_output_time_step", po::value<double>()->default_value( .5 ),
+                 "interval between IABP drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
 
-            ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "")
-            ("drifters.equallyspaced_drifters_output_time_step", po::value<double>()->default_value( 1. ), "days") // must be a multiple of 0.5
-            ("drifters.spacing", po::value<double>()->default_value( 10 ), "")
+            ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "Use OSISAF drifters?")
+            ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( 2. ),
+                 "interval between OSISAF drifter outputs (days): 2.0/n, n=1,2,... down to timestep")
+            ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
+                "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
+
+            ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "use equally spaced drifters?")
+            ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
+                 "interval between equally-spaced drifter outputs (days): integer multiple of timestep")
+            ("drifters.spacing", po::value<double>()->default_value( 10 ), "spacing of equally spaced drifters in km")
 
             ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
-            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ), "days") // must be a multiple of 0.5
-            ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ), "")
+            ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
+                 "interval between RGPS drifter outputs (days): integer multiple of timestep")
+            ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
+                "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
-            ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "")
+             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
+             ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
+                  "interval between SIDFEX drifter outputs (days): integer multiple of timestep")
+             ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
 
             // restart
             // - inputs
