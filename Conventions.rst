@@ -54,6 +54,7 @@ Code conventions
 
         * neXtSIM is written using ISO C++11
         * Indentation is done using a set of four (4) spaces (no tabs)
+        * Maximum line length is 100 characters
         * All array opperations should be done using std::vectors - not C-style arrays
         * The use of C-style pointers, new, and delete is strongly discouraged
         * Names of (class) global variables start with M_, except for diagnostic variables which start with D_. The names of prognostic global variables should start with P_, but this is not yet implemented.
