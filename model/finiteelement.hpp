@@ -284,9 +284,13 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
+    void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
+            boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
-    void collectRootRestart(std::vector<double>& interp_elt_out, std::vector<double>& interp_nd_out,
-            std::vector<std::vector<double>*> &data);
+    void restartScatterElementVariables();
+    void collectNodesRestart(std::vector<double>& interp_nd_out);
+    void collectElementsRestart(std::vector<double>& interp_elt_out,
+            std::vector<std::vector<double>*> &data_elements);
 
     void rootMeshProcessing();
 
@@ -316,16 +320,21 @@ private:
 
     // IO
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
+    void collectVariablesIO(std::vector<double>& interp_elt_in_local, std::vector<std::vector<double>*> data_elements,
+            bool const& ghosts);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
+    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<std::vector<double>*> const& data_elements);
 
-    std::vector<std::string> getRestartVariableNames();
-    void getVariablesIO(
+    void getRestartNamesPointers(
+            std::vector<std::string> &names,
+            std::vector<std::vector<double>*> &data);
+    void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<std::vector<double>*> &data);
-    void scatterFieldsElementIO(std::vector<double> const& out_elt_values,
-            std::vector<std::vector<double>*> &data);
+    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
+        std::vector<std::vector<double>*> &data_elements);
 
     void scatterElementConnectivity();
 
