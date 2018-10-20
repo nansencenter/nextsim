@@ -2978,7 +2978,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
     timer["gather"].first.restart();
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
 
-    int const nb_var_element = data_elements.size();
+    int const nb_var_element = data_elements.size() + ext_data_elements.size();
     std::vector<double> elt_values_local;
     bool const ghosts = false;
     this->collectVariablesIO(elt_values_local, data_elements,
@@ -7267,10 +7267,9 @@ FiniteElement::writeRestart(std::string const& name_str)
     // NB needs to be done on all processors
     std::vector<std::string> names_elements;
     std::vector<std::vector<double>*> data_elements;
-    std::vector<ExternalData*> ext_data_elements;//place holder
     std::vector<double> elt_values_root;
     this->getRestartNamesPointers(names_elements, data_elements);
-    this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
+    this->gatherFieldsElementIO(elt_values_root, data_elements);
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;

@@ -311,13 +311,19 @@ private:
     void redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc = false);
 
     // IO
-    void collectVariablesIO(std::vector<double>& interp_elt_in_local,
+    void collectVariablesIO(std::vector<double>& elt_values_local,
             std::vector<std::vector<double>*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements,
             bool const& ghosts);
-    void gatherFieldsElementIO(std::vector<double>& interp_in_elements,
+    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
             std::vector<std::vector<double>*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements);
+    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
+            std::vector<std::vector<double>*> const& data_elements)
+    {
+        std::vector<ExternalData> ext_data_elements = {};// add a place-holder
+        this->gatherFieldsElement(elt_values_root, data_elements, ext_data_elements);
+    }
 
     void getRestartNamesPointers(
             std::vector<std::string> &names,
