@@ -763,12 +763,53 @@ FiniteElement::initModelState()
 
     
 //------------------------------------------------------------------------------------------------------
-//! Initializes the datasets for forcing. Replaced the initDatasets() function of the serial code.
+//! Initializes the external data used by the model
+//! * Datasets objects
+//! * ExternalData objects
 //! Called by the init() function.
 void
-FiniteElement::initForcings()
+FiniteElement::initExternalData()
 {
-    //! - 1) Initializes the dataset definitions,
+    //! - 1) Init the datasets
+    this->initDatasets();
+
+    //! - 2) populates the forcing variables.
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
+
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
+    this->forcingOcean();
+
+    //! - 3) Initializes the bathymetry using the initBathymetry() function,
+    LOG(DEBUG) <<"Initialize bathymetry\n";
+    this->initBathymetry();
+
+    //! - 4) Check the external data objects
+    //       TODO add the nodes
+    if(M_external_data_elements.size() != M_external_data_elements_names.size())
+        throw std::runtime_error(
+                "M_external_data_elements and M_external_data_elements_names should be the same size");
+    for(int i=0; i<M_external_data_elements.size(); i++)
+    {
+        // check all the forcings on the elements are initialised
+        std::string const msg = "ExternalData object "
+            + M_external_data_elements_names[i] + " is not initialized";
+        if(!M_external_data_elements[i]->isInitialized())
+            throw std::logic_error(msg);
+    }
+
+}//initExternalData
+
+
+//------------------------------------------------------------------------------------------------------
+//! Initializes the Datasets used by the model
+//! * Datasets objects
+//! * ExternalData objects
+//! Called by the initExternalData() function.
+void
+FiniteElement::initDatasets()
+{
+    //! - 1) Initializes the atmospheric forcing dataset
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
             break;
@@ -813,6 +854,7 @@ FiniteElement::initForcings()
             std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
+    //! - 2) Initializes the oceanic forcing dataset
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
@@ -837,6 +879,8 @@ FiniteElement::initForcings()
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
+
+    //! - 3) Initializes the nesting datasets if needed
     if (M_use_nesting)
     {
         M_nesting_nodes_dataset=DataSet("nesting_nodes");
@@ -847,26 +891,20 @@ FiniteElement::initForcings()
         M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
 
+    //! - 4) Initializes the ice-init datasets
+    //       TODO these probably don't need to be global variables
+    //            - in fact they are probably taking up a significant
+    //              amount of memory
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
-
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
-
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
-
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
-
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
-
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
-
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements");
-
     M_ice_nic_elements_dataset=DataSet("ice_nic_elements");
-
     M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements");
-
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements");
-
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements");
 
     // datasets that need to be re-interpolated after regridding
@@ -877,15 +915,7 @@ FiniteElement::initForcings()
     M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
-
-    //! - 2) populates the forcing variables.
-    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-    this->forcingAtmosphere();
-
-    LOG(DEBUG) <<"Initialize forcingOcean\n";
-    this->forcingOcean();
-}//initForcings
-
+}
 
 //------------------------------------------------------------------------------------------------------
 //! Loads and checks on the loading of various datasets.
@@ -6240,23 +6270,13 @@ FiniteElement::init()
     }
 
 
-    //! - 4) Initializes atmospheric and oceanic forcings using the initForcings() function,
-    this->initForcings();
+    //! - 4) Initializes external data:
+    //!      * atmospheric and oceanic forcings
+    //!      * bathymetry
+    //!      * nesting (if needed)
+    this->initExternalData();
 
-    //! - 5) Initializes the bathymetry using the initBathymetry() function,
-    LOG(DEBUG) <<"Initialize bathymetry\n";
-    this->initBathymetry();
-
-    //! - 6) Loads the data from the datasets initialized in 1) using the checkReloadDatasets(),
-    for(int i=0; i<M_external_data_elements.size(); i++)
-    {
-        // check all the forcings on the elements are initialised
-        std::string const msg = "ExternalData object "
-            + M_external_data_elements_names[i] + " is not initialized";
-        if(!M_external_data_elements[i]->isInitialized())
-            throw std::logic_error(msg);
-    }
-
+    //! - 5) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
@@ -6264,6 +6284,8 @@ FiniteElement::init()
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
+    //! - 6) If not using a restart, initializes the model from the datasets
+    //       or can do assimilation (optional) if using a restart
     if ( !M_use_restart )
     {
         timer["state"].first.restart();
@@ -6271,8 +6293,7 @@ FiniteElement::init()
         if (M_rank == 0)
             LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
     }
-
-    if ( M_use_restart && M_use_assimilation )
+    else if ( M_use_assimilation )
     {
         timer["assimilation"].first.restart();
         this->DataAssimilation();

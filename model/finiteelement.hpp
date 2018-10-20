@@ -99,7 +99,8 @@ public:
     vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
-    void initForcings();
+    void initExternalData();
+    void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -321,8 +322,8 @@ private:
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
             std::vector<std::vector<double>*> const& data_elements)
     {
-        std::vector<ExternalData> ext_data_elements = {};// add a place-holder
-        this->gatherFieldsElement(elt_values_root, data_elements, ext_data_elements);
+        std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
+        this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
     }
 
     void getRestartNamesPointers(
