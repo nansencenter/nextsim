@@ -5082,7 +5082,7 @@ FiniteElement::nestingIce()
     }
 }//nestingIce
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Nests the dynamical variable (velocity, damage, stress) from outer domain.
 //! Called by the step() function.
@@ -5132,7 +5132,7 @@ FiniteElement::nestingDynamics()
     }
 }//nestingDynamics
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Performs thermodynamics calculation based on the 1D thermodynamical model.
     
@@ -8372,7 +8372,8 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
     M_external_data_elements_names.push_back("M_nesting_snow_thick");
     M_external_data_elements.push_back(&M_nesting_snow_thick);
 
-    if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
+    if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 )
+    {
         M_nesting_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
         M_external_data_elements_names.push_back("M_nesting_h_thin");
         M_external_data_elements.push_back(&M_nesting_h_thin);
@@ -8384,8 +8385,6 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
         M_nesting_hs_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
         M_external_data_elements_names.push_back("M_nesting_hs_thin");
         M_external_data_elements.push_back(&M_nesting_hs_thin);
-
-        //TODO add T_surf_thin?
     }
 
     M_nesting_sigma1=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 0,false,time_init);
@@ -8417,7 +8416,7 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
 }//forcingNesting
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the ocean according to the chosen ocean state and data (CONSTANT, TOPAZR, ...)
 //! Called by the initForcings() function.
