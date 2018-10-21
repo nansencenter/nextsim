@@ -3216,29 +3216,13 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     int const nb_var_element = data_elements.size();
-    std::vector<double> elt_values_root_remapped;
-
-    if (M_rank == 0)
-    {
-        elt_values_root_remapped.resize(nb_var_element*M_id_elements.size());
-
-        for (int i=0; i<M_id_elements.size(); ++i)
-        {
-            int ri = M_id_elements[i]-1;
-            for (int j=0; j<nb_var_element; ++j)
-            {
-                elt_values_root_remapped[nb_var_element*i+j]
-                    = elt_values_root[nb_var_element*ri+j];
-            }
-        }
-    }
 
     std::vector<double> elt_values_local(nb_var_element*M_num_elements);
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(),
                 [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, elt_values_root_remapped, sizes_elements,
+        boost::mpi::scatterv(M_comm, elt_values_root, sizes_elements,
                 &elt_values_local[0], 0);
     }
     else
@@ -7852,19 +7836,19 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
     // TODO do something similar for the nodes
     std::vector<double> out_elt_values;
 
-    int num_elements_root = M_mesh_root.numTriangles();
+    int num_elements_root = M_id_elements.size();
     int const nb_var_element = data_elements.size();
     interp_elt_out.resize(nb_var_element*num_elements_root);
 
-    if (M_rank == 0)
+    for (int i=0; i<num_elements_root; ++i)
     {
-        for (int i=0; i<num_elements_root; ++i)
-            for(int j=0; j<data_elements.size(); j++)
-            {
-                auto ptr = data_elements[j];
-                interp_elt_out[nb_var_element*i+j] = (*ptr)[i];
-            }
-    }//M_rank == 0: collect elemental variables
+        int ri = M_id_elements[i]-1;
+        for(int j=0; j<data_elements.size(); j++)
+        {
+            auto ptr = data_elements[j];
+            interp_elt_out[nb_var_element*i+j] = (*ptr)[ri];
+        }
+    }
 
 }//collectElementsRestart
 
