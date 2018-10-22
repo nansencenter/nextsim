@@ -967,7 +967,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #ifdef OASIS
     this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -cpl_time_step/time_step);
 #else
-    this->checkReloadDatasets(ext_data_vec, CRtime, RX, Ry, -1);
+    this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -1);
 #endif
 }
 

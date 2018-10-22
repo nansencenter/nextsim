@@ -116,7 +116,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         throw std::runtime_error("...");
     }
 
-    //! -3) Initialise communcator, PETSc, and OASIS (if compiled in)
+    //! -3) Initialise communicator, PETSc, and OASIS (if compiled in)
 #ifdef OASIS
     // For OASIS we need to get the local communicator first
 
