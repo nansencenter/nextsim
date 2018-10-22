@@ -140,7 +140,7 @@ namespace Nextsim
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity_xy"
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
