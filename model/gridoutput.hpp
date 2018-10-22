@@ -636,6 +636,8 @@ public:
     std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
     std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
 
+    void info();
+
 private:
 
     double M_xmin;

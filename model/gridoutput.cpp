@@ -954,4 +954,42 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     M_nc_step++;
 }
 
+// Diagnostic output on stdout - for debuging
+void
+GridOutput::info()
+{
+    std::cout << " Nodes:\n";
+    std::cout << " id           name  gridsize  meshsize    grid min    grid max    mesh min    mesh max\n";
+    for ( auto & v : M_nodal_variables )
+    {
+        auto mm_grid = std::minmax_element(v.data_grid.begin(), v.data_grid.end());
+        auto mm_mesh = std::minmax_element(v.data_mesh.begin(), v.data_mesh.end());
+        std::cout << std::setw(3) << v.varID
+            << std::setw(15) << v.name
+            << std::setw(10) << v.data_grid.size()
+            << std::setw(10) << v.data_mesh.size()
+            << std::setw(12) << *mm_grid.first
+            << std::setw(12) << *mm_grid.second
+            << std::setw(12) << *mm_mesh.first
+            << std::setw(12) << *mm_mesh.second << std::endl;
+    }
+
+    std::cout << "\n Elements:\n";
+    std::cout << " id           name  gridsize  meshsize    grid min    grid max    mesh min    mesh max\n";
+    for ( auto & v : M_elemental_variables )
+    {
+        auto mm_grid = std::minmax_element(v.data_grid.begin(), v.data_grid.end());
+        auto mm_mesh = std::minmax_element(v.data_mesh.begin(), v.data_mesh.end());
+        std::cout << std::setw(3) << v.varID
+            << std::setw(15) << v.name
+            << std::setw(10) << v.data_grid.size()
+            << std::setw(10) << v.data_mesh.size()
+            << std::setw(12) << *mm_grid.first
+            << std::setw(12) << *mm_grid.second
+            << std::setw(12) << *mm_mesh.first
+            << std::setw(12) << *mm_mesh.second << std::endl;
+    }
+    std::cout << std::endl;
+}
+
 } // Nextsim

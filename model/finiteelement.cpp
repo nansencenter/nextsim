@@ -1159,7 +1159,7 @@ FiniteElement::initOptAndParam()
 
     output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
     mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
-    mooring_time_factor = time_step/mooring_output_time_step;
+    mooring_time_factor = dtime_step/double(mooring_output_time_step);
     if ( mooring_output_time_step % time_step != 0)
     {
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
@@ -6760,6 +6760,7 @@ FiniteElement::step()
 
             if ( M_use_moorings && !M_moorings_snapshot )
                 M_moorings.updateGridMean(bamgmesh);
+
 #ifdef OASIS
             M_cpl_out.updateGridMean(bamgmesh);
 #endif
@@ -6773,6 +6774,7 @@ FiniteElement::step()
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(bamgmesh, M_regrid);
+
 #ifdef OASIS
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt(), bamgmesh_root);
@@ -7431,7 +7433,7 @@ void
 FiniteElement::initMoorings()
 {
 
-    if (       !M_moorings_snapshot
+    if (       (!M_moorings_snapshot)
             && ( pcpt*time_step % mooring_output_time_step != 0 ) )
     {
         std::string msg = "FE::initMoorings: Start time (or restart time) incompatible with\n";
