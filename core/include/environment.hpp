@@ -16,6 +16,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
+#include <boost/format.hpp>
 
 namespace Nextsim
 {
@@ -75,6 +76,9 @@ public:
     //! return $NEXTSIM_DATA_DIR
 	static fs::path const& nextsimDataDir() { return nextsim_data_dir_env; }
 
+    //! return neXtSIM .mpp file
+	static std::string const& nextsimMppfile() { return nextsim_mppfile; }
+
     //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
     //! and some sub-directories
     void setEnvironmentVariables();
@@ -92,6 +96,9 @@ private:
 
     //! $NEXTSIM_MESH_DIR
     static fs::path nextsim_mesh_dir_env;
+
+    //! .mpp file for nextsim
+    static std::string nextsim_mppfile;
 };
 
 } // Nextsim

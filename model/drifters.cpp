@@ -168,13 +168,9 @@ Drifters::Drifters(std::string const& filename,
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     for (int i=0; i<gridSize; ++i)
@@ -251,10 +247,7 @@ Drifters::Drifters(std::string const& gridFile,
     std::vector<int> INDS(gridSize);
 
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
 
@@ -514,13 +507,9 @@ Drifters::appendNetCDF(double current_time)
 
     // Calculate lat and lon
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     std::vector<double> lat(M_num_drifters);
