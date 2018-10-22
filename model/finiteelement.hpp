@@ -270,6 +270,7 @@ public:
             bool const& export_fields, bool const& apply_displacement);
     void exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
             bool const& export_fields, bool const& apply_displacement);
+    void updateIceDiagnostics();
 
     bool writingRestart();
     void writeRestart();
@@ -313,12 +314,13 @@ private:
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
     void collectVariablesIO(std::vector<double>& interp_elt_in_local, std::vector<std::vector<double>*> data_elements,
             bool const& ghosts);
-    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice);
     void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<std::vector<double>*> const& data_elements);
 
     void getRestartNamesPointers(
             std::vector<std::string> &names,
             std::vector<std::vector<double>*> &data);
+    void getExportNamesPointers(std::vector<std::string> & names,
+        std::vector<std::vector<double>*> & data_elements);
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);
@@ -417,6 +419,8 @@ private:
 
     std::vector<double> M_surface;
     std::vector<std::vector<double>> M_sigma;
+    std::vector<std::vector<double>> D_sigma;
+
     std::vector<double> M_UM;
     std::vector<double> M_UT;
     std::vector<double> M_VT;
@@ -436,6 +440,12 @@ private:
     std::vector<double> M_h_thin;
     std::vector<double> M_conc_thin;
     std::vector<double> M_hs_thin;
+
+    std::vector<double> D_thick;
+    std::vector<double> D_conc;
+    std::vector<double> D_snow_thick;
+    std::vector<double> D_tsurf;
+
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;
