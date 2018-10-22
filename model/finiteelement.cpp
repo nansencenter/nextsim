@@ -527,6 +527,7 @@ FiniteElement::initVariables()
     M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
     for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
         it->assign(M_num_elements, 0.);
+    D_sigma.resize(2); //! \param D_sigma (double) Principal stresses (diagnostics) [N/m2]
     
     // random numbers
     // - 1st set on root
@@ -2152,143 +2153,6 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 
     
 //------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
-//! Called by the gatherFieldsElementIO() function.
-void
-FiniteElement::collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice)
-{
-    int nb_var_element = M_nb_var_element;
-    if (!thin_ice)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-
-    int num_elements = M_local_nelements;
-    if (ghosts)
-    {
-        num_elements = M_num_elements;
-    }
-
-    interp_elt_in_local.resize(nb_var_element*num_elements);
-
-    int tmp_nb_var=0;
-    for (int i=0; i<num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
-        tmp_nb_var++;
-
-        // thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
-        tmp_nb_var++;
-
-        // snow thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-        tmp_nb_var++;
-
-        // integrated_stresses
-        for(int k=0; k<3; k++, tmp_nb_var++)
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[k][i];
-
-        // damage
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_damage[i];
-        tmp_nb_var++;
-
-        // ridge_ratio
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i]/**M_thick[i]*/;
-        tmp_nb_var++;
-
-        // random_number
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_random_number[i];
-        tmp_nb_var++;
-
-        // diffusivity_sss
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sss[i];
-        tmp_nb_var++;
-
-        // diffusivity_sst
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sst[i];
-        tmp_nb_var++;
-
-        // Ice temperature
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-        tmp_nb_var++;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tice[1][i];
-            tmp_nb_var++;
-
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tice[2][i];
-            tmp_nb_var++;
-        }
-
-        if (thin_ice)
-        {
-            // thin ice thickness
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-            tmp_nb_var++;
-
-            // thin ice thickness
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
-            tmp_nb_var++;
-
-            // snow on thin ice
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-            tmp_nb_var++;
-
-            // Ice surface temperature for thin ice
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-            tmp_nb_var++;
-        }
-
-        if (vm["output.save_diagnostics"].as<bool>())
-        {
-            // Qatm
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qa[i];
-            tmp_nb_var++;
-
-            // Qsw
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsw[i];
-            tmp_nb_var++;
-
-            // Qlw
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlw[i];
-            tmp_nb_var++;
-
-            // Qsh
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qsh[i];
-            tmp_nb_var++;
-
-            // Qlh
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qlh[i];
-            tmp_nb_var++;
-
-            // Qocean
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_Qo[i];
-            tmp_nb_var++;
-
-            // Saltflux
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = D_delS[i];
-            tmp_nb_var++;
-        }
-
-        if(tmp_nb_var>nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-}//collectVariablesIO
-
-
-//------------------------------------------------------------------------------------------------------
 //! Interpolates variables (other than velocities and displacements) onto the mesh grid once updated.
 //! Called by the updated() function, after the advect() function.
 void
@@ -2433,47 +2297,74 @@ FiniteElement::setPointersElements(
 
 
     //!1st set pointers to the data requested in "names"
-    for(auto it=names.begin(); it!=names.end(); it++)
+    for(auto name: names)
     {
-        LOG(DEBUG)<<"collectVariablesIO: adding "<<*it<<"\n";
-        if(*it=="M_conc")
-            data.push_back(&M_conc); // concentration
-        else if(*it=="M_thick")
-            data.push_back(&M_thick); // thickness
-        else if(*it=="M_snow_thick")
-            data.push_back(&M_snow_thick); // snow thickness
-        else if(*it=="M_sigma_0")
+        if(M_rank==0)
+            LOG(DEBUG)<<"setPointersElements: adding "<<name <<"\n";
+        if (name == "M_conc")
+            data.push_back(&M_conc); // concentration of thick ice
+        else if (name == "M_thick")
+            data.push_back(&M_thick); // thickness of thick ice
+        else if (name == "M_snow_thick")
+            data.push_back(&M_snow_thick); // snow thickness on thick ice
+        else if (name == "Concentration")
+            data.push_back(&D_conc); // total concentration
+        else if (name == "Thickness")
+            data.push_back(&D_thick); // total thickness
+        else if (name == "Snow")
+            data.push_back(&D_snow_thick); // total snow thickness
+        else if (name == "Tsurf")
+            data.push_back(&D_tsurf); // mean surface temperature
+        else if (name == "M_sigma_0")
             data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
-        else if(*it=="M_sigma_1")
+        else if (name == "M_sigma_1")
             data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
-        else if(*it=="M_sigma_2")
+        else if (name == "M_sigma_2")
             data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
-        else if(*it=="M_damage")
+        else if (name == "Sigma1")
+            data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
+        else if (name == "Sigma2")
+            data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
+        else if (name == "M_damage" || name == "Damage")
             data.push_back(&M_damage); // damage
-        else if(*it=="M_ridge_ratio")
-            data.push_back(&M_ridge_ratio); // damage
-        else if(*it == "M_random_number")
+        else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
+            data.push_back(&M_ridge_ratio); // ridge ratio
+        else if (name == "M_random_number")
             data.push_back(&M_random_number); // random_number
-        else if(*it == "M_sss")
+        else if (name == "M_sss" || name == "SSS")
             data.push_back(&M_sss); // SSS
-        else if(*it == "M_sst")
+        else if (name == "M_sst" || name == "SST")
             data.push_back(&M_sst); // SST
-        else if(*it == "M_tice_0")
-            data.push_back(&(M_tice[0])); // M_tice[0] - Ice temperature
-        else if(*it == "M_tice_1")
-            data.push_back(&(M_tice[1])); // M_tice[1] - Ice temperature
-        else if(*it == "M_tice_2")
-            data.push_back(&(M_tice[2])); // M_tice[2] - Ice temperature
-        else if(*it == "M_h_thin")
+        else if (name == "M_tice_0" || name == "Tice_0")
+            data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
+        else if (name == "M_tice_1" || name == "Tice_1")
+            data.push_back(&(M_tice[1])); // M_tice[1] - Thick ice temperature (middle level) (Winton)
+        else if (name == "M_tice_2" || name == "Tice_2")
+            data.push_back(&(M_tice[2])); // M_tice[2] - Thick ice temperature (lower level) (Winton)
+        else if (name == "M_h_thin" || name == "Thin_ice")
             data.push_back(&M_h_thin); // thin ice thickness
-        else if(*it == "M_conc_thin")
+        else if (name == "M_conc_thin" || name == "Concentration_thin_ice")
             data.push_back(&M_conc_thin); // thin ice concentration
-        else if(*it == "M_hs_thin")
+        else if (name == "M_hs_thin" || name == "Snow_thin_ice")
             data.push_back(&M_hs_thin); // snow thickness on thin ice
-        else if(*it == "M_tsurf_thin")
+        else if (name == "M_tsurf_thin" || name == "Tsurf_thin_ice")
             data.push_back(&M_tsurf_thin); // surface temperature over thin ice
+        else if (name == "Qatm")
+            data.push_back(&D_Qa);
+        else if (name == "Qsw")
+            data.push_back(&D_Qsw);
+        else if (name == "Qlw")
+            data.push_back(&D_Qlw);
+        else if (name == "Qsh")
+            data.push_back(&D_Qsh);
+        else if (name == "Qlh")
+            data.push_back(&D_Qlh);
+        else if (name == "Qocean")
+            data.push_back(&D_Qo);
+        else if (name == "Saltflux")
+            data.push_back(&D_delS);
         else
-            throw std::runtime_error("Unimplemented name: "+*it);
+            throw std::runtime_error("Unimplemented name: "+name);
     }
 }//getVariableIO
 
@@ -3172,49 +3063,6 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers information about the fields for outputting.
-//! Called by the exportResults() function.
-void
-FiniteElement::gatherFieldsElementIO(std::vector<double>& interp_in_elements, bool thin_ice)
-{
-    int nb_var_element = M_nb_var_element;
-
-    if (!thin_ice)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-
-    timer["gather"].first.restart();
-
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
-
-    std::vector<int> sizes_elements = M_sizes_elements;
-    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
-    std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
-
-    std::vector<double> interp_elt_in_local;
-    this->collectVariablesIO(interp_elt_in_local, false, thin_ice);
-
-    if (M_rank == 0)
-    {
-        interp_in_elements.resize(nb_var_element*M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
-    }
-
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
-}//gatherFieldsElementsIO
-
-
-//------------------------------------------------------------------------------------------------------
-//! Gathers information about the fields for outputting.
 //! Called by the writeRestart() function.
 //  TODO make it a template function so data_elements can also be
 //       std::vector<ExternalData*> for exporting forcing as well
@@ -3371,6 +3219,55 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
 
     this->setPointersElements(data_elements, names);
 }//getRestartNamesPointers
+
+
+//------------------------------------------------------------------------------------------------------
+//! Gets the names of the variables that need to be gathered and scattered when exporting results,
+//! and set pointers to the appropriate vectors
+//! Called by the exportResults() function.
+void
+FiniteElement::getExportNamesPointers(std::vector<std::string> & names,
+        std::vector<std::vector<double>*> & data_elements)
+{
+
+    names = {
+             "Concentration",
+             "Thickness",
+             "Snow",
+             "Damage",
+             "Ridge_ratio"
+    };
+
+    for(int i=0; i<M_tice.size(); i++)
+        names.push_back("Tice_" + std::to_string(i));
+
+    names.push_back("SST");
+    names.push_back("SSS");
+
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        names.push_back("Thin_ice");
+        names.push_back("Snow_thin_ice");
+        names.push_back("Tsurf_thin_ice");
+        names.push_back("Concentration_thin_ice");
+    }
+
+    names.push_back("Sigma1");
+    names.push_back("Sigma2");
+
+    if (vm["output.save_diagnostics"].as<bool>())
+    {
+        names.push_back("Qatm");
+        names.push_back("Qsw");
+        names.push_back("Qlw");
+        names.push_back("Qsh");
+        names.push_back("Qlh");
+        names.push_back("Qocean");
+        names.push_back("Saltflux");
+    }
+
+    this->setPointersElements(data_elements, names);
+}//getExportNamesPointers
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6722,6 +6619,45 @@ FiniteElement::initOASIS()
 }//initOASIS
 #endif
 
+//! update ice diagnostics eg total conc and principal stresses
+//! called by checkOutputs() and exportResults() 
+void
+FiniteElement::updateIceDiagnostics()
+{
+    D_conc.resize(M_num_elements); //! \param D_conc (double) Total concentration (diagnostic)
+    D_thick.resize(M_num_elements); //! \param D_thick (double) Total thickness (diagnostic)
+    D_snow_thick.resize(M_num_elements); //! \param D_snow_thick (double) Total snow thickness (diagnostic)
+    D_tsurf.resize(M_num_elements); //! \param D_tsurf (double) Mean surface temperature (diagnostic)
+    for(int k=0; k<2; k++)
+        D_sigma[k].resize(M_num_elements);
+
+    double sigma_s, sigma_n;
+    std::vector<double> sigma_pred(3);
+    for(int i=0; i<M_num_elements; i++)
+    {
+        D_conc[i] = M_conc[i];
+        D_thick[i] = M_thick[i];
+        D_snow_thick[i] = M_snow_thick[i];
+        D_tsurf[i] = M_conc[i]*M_tice[0][i];
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            D_conc[i] += M_conc_thin[i];
+            D_thick[i] += M_h_thin[i];
+            D_snow_thick[i] += M_hs_thin[i];
+            D_tsurf[i] += M_conc_thin[i]*M_tsurf_thin[i];
+        }
+        D_tsurf[i] += (1-D_conc[i])*M_sst[i];
+
+        // principal stresses
+        for(int k=0; k<3; k++)
+            sigma_pred[k] = M_sigma[k][i];
+        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2., sigma_pred[2]);
+        sigma_n =          - (sigma_pred[0]+sigma_pred[1])/2.;
+        D_sigma[0][i] = sigma_n+sigma_s;
+        D_sigma[1][i] = sigma_n-sigma_s;
+    }
+}
+    
 //------------------------------------------------------------------------------------------------------
 //! Increments the model by one time step. Called by the run() function.
 //!    * updates drifters,
@@ -6988,6 +6924,8 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
 
+    // update the diagnostic variables before output
+    this->updateIceDiagnostics();
     
     if(M_use_moorings)
     {
@@ -7128,20 +7066,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Prognostic variables
             case (GridOutput::variableID::conc):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_conc[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_conc_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::thick):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_thick[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_h_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
@@ -7151,16 +7081,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
-                {
-                    it->data_mesh[i] += M_snow_thick[i]*time_factor;
-                    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        it->data_mesh[i] += M_hs_thin[i]*time_factor;
-                }
+                    it->data_mesh[i] += D_snow_thick[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::tsurf):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += ( M_conc[i]*M_tice[0][i] + M_conc_thin[i]*M_tsurf_thin[i] + (1-M_conc[i]-M_conc_thin[i])*M_sst[i] )*time_factor;
+                    it->data_mesh[i] += D_tsurf[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::sst):
@@ -7190,9 +7116,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::conc_thin):
                 for (int i=0; i<M_local_nelements; i++)
-                {
                     it->data_mesh[i] += M_conc_thin[i]*time_factor;
-                }
                 break;
 
             case (GridOutput::variableID::h_thin):
@@ -12153,6 +12077,11 @@ void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
+
+    // update the diagnostic variables before output
+    // - needed here for "spontaneous" exports
+    this->updateIceDiagnostics();
+
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
 
@@ -12163,206 +12092,25 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     }
 
     // fields defined on mesh elements
-
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    M_nb_var_element = 15 + M_tice.size();//15;
-    int nb_var_element = M_nb_var_element;
-    if (M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
-    {
-        nb_var_element -= 4;
-    }
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        nb_var_element += 7;
-    }
-
-    std::vector<double> interp_in_elements;
-    this->gatherFieldsElementIO(interp_in_elements,M_ice_cat_type==setup::IceCategoryType::THIN_ICE);
+    // get names of the variables in the output file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    // NB needs to be done on all processors
+    std::vector<std::string> names_elements;
+    std::vector<std::vector<double>*> data_elements;
+    std::vector<double> elt_values_root;
+    this->getExportNamesPointers(names_elements, data_elements);
+    this->gatherFieldsElementIO(elt_values_root, data_elements);
 
 
     M_comm.barrier();
-#if 1
     if (M_rank == 0)
     {
-        int num_elements_root = M_mesh_root.numTriangles();
-        int tice_size = M_tice.size();
-
-        std::vector<double> M_conc_root(num_elements_root);
-        std::vector<double> M_thick_root(num_elements_root);
-        std::vector<double> M_snow_thick_root(num_elements_root);
-        std::vector<std::vector<double>> M_sigma_root(3);
-        for(int k=0; k<3; k++)
-            M_sigma_root[k].resize(num_elements_root);
-        std::vector<double> M_damage_root(num_elements_root);
-        std::vector<double> M_ridge_ratio_root(num_elements_root);
-        std::vector<double> M_random_number_root(num_elements_root);
-        std::vector<double> M_sss_root(num_elements_root);
-        std::vector<double> M_sst_root(num_elements_root);
-        std::vector<double> M_tice0_root(num_elements_root);//TODO do like M_sigma
-        std::vector<double> M_tice1_root;
-        std::vector<double> M_tice2_root;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            M_tice1_root.resize(num_elements_root);
-            M_tice2_root.resize(num_elements_root);
-        }
-
-        std::vector<double> M_h_thin_root;
-        std::vector<double> M_conc_thin_root;
-        std::vector<double> M_hs_thin_root;
-        std::vector<double> M_tsurf_thin_root;
-
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_h_thin_root.resize(num_elements_root);
-            M_conc_thin_root.resize(num_elements_root);
-            M_hs_thin_root.resize(num_elements_root);
-            M_tsurf_thin_root.resize(num_elements_root);
-        }
-
-        std::vector<double> D_Qa_root;
-        std::vector<double> D_Qsw_root;
-        std::vector<double> D_Qlw_root;
-        std::vector<double> D_Qsh_root;
-        std::vector<double> D_Qlh_root;
-        std::vector<double> D_Qo_root;
-        std::vector<double> D_delS_root;
-
-        if (vm["output.save_diagnostics"].as<bool>())
-        {
-            D_Qa_root.resize(num_elements_root);
-            D_Qsw_root.resize(num_elements_root);
-            D_Qlw_root.resize(num_elements_root);
-            D_Qsh_root.resize(num_elements_root);
-            D_Qlh_root.resize(num_elements_root);
-            D_Qo_root.resize(num_elements_root);
-            D_delS_root.resize(num_elements_root);
-        }
-
-        int tmp_nb_var = 0;
-
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            tmp_nb_var=0;
-            int ri = M_rmap_elements[i];
-
-            // concentration
-            M_conc_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // thickness
-            M_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // snow thickness
-            M_snow_thick_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // integrated_stresses
-            for(int k=0; k<3; k++, tmp_nb_var++)
-                M_sigma_root[k][i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-
-            // damage
-            M_damage_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_ridge_ratio_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_random_number_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sss
-            M_sss_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // sst
-            M_sst_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            // tice1
-            M_tice0_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-            tmp_nb_var++;
-
-            if ( M_thermo_type == setup::ThermoType::WINTON )
-            {
-                // tice2
-                M_tice1_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // tice3
-                M_tice2_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                // We also add the "thin" quantities to the "thick" ones
-                // h_thin
-                M_h_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                M_thick_root[i] += M_h_thin_root[i];
-                tmp_nb_var++;
-
-                // conc_thin
-                M_conc_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                M_conc_root[i] += M_conc_thin_root[i];
-                tmp_nb_var++;
-
-                // hs_thin
-                M_hs_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                M_snow_thick_root[i] += M_hs_thin_root[i];
-                tmp_nb_var++;
-
-                // tsurf_thin
-                M_tsurf_thin_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if (vm["output.save_diagnostics"].as<bool>())
-            {
-                // Qatm
-                D_Qa_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Qsw
-                D_Qsw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Qlw
-                D_Qlw_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Qsh
-                D_Qsh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Qlh
-                D_Qlh_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Qocean
-                D_Qo_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-
-                // Saltflux
-                D_delS_root[i] = interp_in_elements[nb_var_element*ri+tmp_nb_var];
-                tmp_nb_var++;
-            }
-
-            if(tmp_nb_var>nb_var_element)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
 
         Exporter exporter(vm["output.exporter_precision"].as<std::string>());
         std::string fileout;
@@ -12420,81 +12168,21 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
-            exporter.writeField(outbin, M_conc_root, "Concentration");
-            exporter.writeField(outbin, M_thick_root, "Thickness");
-            exporter.writeField(outbin, M_snow_thick_root, "Snow");
-            exporter.writeField(outbin, M_damage_root, "Damage");
-            exporter.writeField(outbin, M_ridge_ratio_root, "Ridge_ratio");
 
-            // std::vector<double> AllMinAngle = this->AllMinAngle(M_mesh, M_UM, 0.);
-            // exporter.writeField(outbin, AllMinAngle, "AllMinAngle");
-
-            // for (int i=0; i<num_elements_root; ++i)
-            // {
-            //     M_tice[0][i] = M_tice_root[tice_size*i];
-
-            //     if ( M_thermo_type == setup::ThermoType::WINTON )
-            //     {
-            //         M_tice[1][i] = M_tice_root[tice_size*i+1];
-            //         M_tice[2][i] = M_tice_root[tice_size*i+2];
-            //     }
-            // }
-
-            // int i=0;
-            // for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-            // {
-            //     exporter.writeField(outbin, *it, "Tice_"+std::to_string(i));
-            //     i++;
-            // }
-
-            exporter.writeField(outbin, M_tice0_root, "Tice_0");
-            if ( M_thermo_type == setup::ThermoType::WINTON )
+            // loop over the elemental variables that have been
+            // gathered to elt_values_root
+            int const nb_var_element = names_elements.size();
+            for(int j=0; j<nb_var_element; j++)
             {
-                exporter.writeField(outbin, M_tice1_root, "Tice_1");
-                exporter.writeField(outbin, M_tice2_root, "Tice_2");
+                std::vector<double> tmp(M_mesh_root.numTriangles());
+                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+                {
+                    int ri = M_rmap_elements[i];
+                    tmp[i] = elt_values_root[nb_var_element*ri+j];
+                }
+                exporter.writeField(outbin, tmp, names_elements[j]);
             }
 
-            exporter.writeField(outbin, M_sst_root, "SST");
-            exporter.writeField(outbin, M_sss_root, "SSS");
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                exporter.writeField(outbin, M_h_thin_root, "Thin_ice");
-                exporter.writeField(outbin, M_hs_thin_root, "Snow_thin_ice");
-                exporter.writeField(outbin, M_tsurf_thin_root, "Tsurf_thin_ice");
-                exporter.writeField(outbin, M_conc_thin_root, "Concentration_thin_ice");
-            }
-
-            // EXPORT sigma1 sigma2
-            std::vector<double> sigma1(M_mesh_root.numTriangles());
-            std::vector<double> sigma2(M_mesh_root.numTriangles());
-            double sigma_s, sigma_n;
-            std::vector<double> sigma_pred(3);
-
-            for ( int i=0; i<M_mesh_root.numTriangles(); ++i )
-            {
-                for(int k=0; k<3; k++)
-                    sigma_pred[k]=M_sigma_root[k][i];
-
-                sigma_s=std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-                sigma_n= -         (sigma_pred[0]+sigma_pred[1])/2.;
-
-                sigma1[i] = sigma_n+sigma_s;
-                sigma2[i] = sigma_n-sigma_s;
-            }
-            exporter.writeField(outbin, sigma1, "Sigma1");
-            exporter.writeField(outbin, sigma2, "Sigma2");
-
-            if (vm["output.save_diagnostics"].as<bool>())
-            {
-                exporter.writeField(outbin, D_Qa_root, "Qatm");
-                exporter.writeField(outbin, D_Qsw_root, "Qsw");
-                exporter.writeField(outbin, D_Qlw_root, "Qlw");
-                exporter.writeField(outbin, D_Qsh_root, "Qsh");
-                exporter.writeField(outbin, D_Qlh_root, "Qlh");
-                exporter.writeField(outbin, D_Qo_root,  "Qocean");
-                exporter.writeField(outbin, D_delS_root, "Saltflux");
-            }
             outbin.close();
 
             fileout = filenames[1]+".dat";
@@ -12509,7 +12197,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         }
     }
 
-#endif
 }// exportResults()
 
     
