@@ -7681,7 +7681,7 @@ FiniteElement::readRestart(std::string const& name_str)
                 std::string msg = name + "is not in the restart file";
                 throw std::runtime_error(msg);
             }
-            data_elements_root.push_back(&field_map_dbl[name]);
+            data_elements_root.push_back(&(field_map_dbl[name]));
         }
 
         // transfer data from data_elements_root to elt_values_root
