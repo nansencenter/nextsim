@@ -1683,7 +1683,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
             }
             else
             {
-                break;
+                continue;
             }
         }
 
