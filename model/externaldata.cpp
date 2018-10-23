@@ -42,7 +42,8 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_current_time( 0. ),
     M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true)
+    M_initialized(true),
+    M_log_level(Environment::logLevel())
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
@@ -83,7 +84,8 @@ ExternalData::ExternalData( double ConstantValue )
     M_current_time( 0. ),
     M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true)
+    M_initialized(true),
+    M_log_level(Environment::logLevel())
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
@@ -223,10 +225,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             }
             else {
 #endif
-            std::cout << "Load " << M_datasetname << "\n";
+            LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
             this->transformData(M_dataset);
-            std::cout << "Done\n";
+            LOG(DEBUG) << "Done\n";
 
             //need to interpolate again if reloading
             M_dataset->interpolated = false;
@@ -237,9 +239,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
         if (!M_dataset->interpolated)
         {
-            std::cout << "Interpolate " << M_datasetname << "\n";
+            LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
             this->interpolateDataset(M_dataset, RX_in, RY_in);
-            std::cout << "Done\n";
+            LOG(DEBUG) << "Done\n";
         }
     }
 }
@@ -400,7 +402,7 @@ void
 ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-        std::cout << "reciveCouplingData at cpl_time " << cpl_time << std::endl;
+        LOG(DEBUG) << "reciveCouplingData at cpl_time " << cpl_time << "\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             int M_full  = dataset->grid.dimension_y_count_netcdf;
@@ -526,7 +528,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // ---------------------------------
     // Load grid if unloaded
-    std::cout << dataset->grid.loaded << std::endl;
+    LOG(DEBUG) << dataset->grid.loaded << "\n";
     if(!dataset->grid.loaded)
     {
         bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
@@ -619,10 +621,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
 
-        std::cout<<"LOAD DATASET TIMES:\n";
-        std::cout<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
-        std::cout<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
-        std::cout<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
+        LOG(DEBUG)<<"LOAD DATASET TIMES:\n";
+        LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
+        LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
+        LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
         if((is_ec_fc||is_topaz_fc)&&true_forecast)
         {
             // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
@@ -661,7 +663,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            std::cout<<"FILENAME (JUMPS) = "<< filename <<"\n";
+            LOG(DEBUG)<<"FILENAME (JUMPS) = "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
                 //throw std::runtime_error("File not found: " + filename);
@@ -775,13 +777,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
-    std::cout<<"Start loading data\n";
+    LOG(DEBUG)<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         filename=filename_fstep[fstep];
         index=index_fstep[fstep];
 
-        std::cout<<"FILENAME= "<< filename <<"\n";
+        LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
 
@@ -791,7 +793,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
-            std::cout<<"variables number:" << j  << "\n";
+            LOG(DEBUG)<<"variables number:" << j  << "\n";
             if ((dataset->variables[j].wavDirOptions.isWavDir)
                     &&(!dataset->variables[j].wavDirOptions.xComponent))
             {
@@ -812,7 +814,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 throw std::logic_error( "ExternalData::loadDataset: Wrong number of dimensions: " + std::to_string(dims) +
                         ". Should be " + std::to_string(dataset->variables[j].dimensions.size()) );
 
-            std::cout << "dims: " << dims << std::endl;
+            LOG(DEBUG) << "dims: " << dims << "\n";
             index_count.resize(dims);
             index_start.resize(dims);
 
@@ -946,7 +948,7 @@ ExternalData::transformData(Dataset *dataset)
     }
 
 
-    std::cout<<"Start transforming the data\n";
+    LOG(DEBUG)<<"Start transforming the data\n";
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
@@ -1297,7 +1299,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 {
     // ---------------------------------
     // Spatial interpolation
-    std::cout<<"Spatial interpolation of the data\n";
+    LOG(DEBUG)<<"Spatial interpolation of the data\n";
 
     // size of the data
     int M  = dataset->grid.dimension_y_count;
@@ -1334,7 +1336,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     }
 
     // Collect all the data before the interpolation
-    std::cout << "Collect the variables before interpolation:" <<"\n";
+    LOG(DEBUG) << "Collect the variables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
 
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
@@ -1430,7 +1432,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     close_mapx(mapNextsim);
 
 
-    std::cout << "Interpolation:" <<"\n";
+    LOG(DEBUG) << "Interpolation:" <<"\n";
 
     double* data_out;
 
@@ -1460,7 +1462,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         break;
 #endif
         default:
-            std::cout << "invalid interpolation type:" <<"\n";
+            LOG(DEBUG) << "invalid interpolation type:" <<"\n";
             throw std::logic_error("invalid interpolation type");
     }
 

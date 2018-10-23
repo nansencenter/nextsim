@@ -19,6 +19,7 @@
 #include <ConservativeRemapping.hpp>
 #include <netcdf>
 #include <dataset.hpp>
+#include "debug.hpp"
 
 
 /**
@@ -140,6 +141,8 @@ private:
     double M_StartingTime;
     double M_SpinUpDuration;
     double M_factor;
+
+    LogLevel M_log_level;
 };
 
 } // Nextsim
