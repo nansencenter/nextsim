@@ -6377,17 +6377,12 @@ FiniteElement::init()
 
     M_comm.barrier();
 
+    pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
 
     this->initOptAndParam();
     M_current_time = time_init;
-    // Here pcpt should be set to zero - but OASIS needs it to be one coupling timestep before zero until after the forcings have been initialised
-#ifdef OASIS
-    pcpt = -cpl_time_step/time_step;
-#else
-    pcpt = 0;
-#endif
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6458,6 +6453,11 @@ FiniteElement::init()
 #endif
 
     //! - 5) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
+#ifdef OASIS
+    // OASIS needs the external data to be read in for the previous coupling time step
+    pcpt -= cpl_time_step/time_step;
+#endif
+
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
