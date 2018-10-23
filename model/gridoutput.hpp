@@ -408,6 +408,7 @@ public:
                     longName = "Ocean Net Downward Short Wave Flux";
                     stdName  = "ocean_net_downward_short_wave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Fsalt):
                     name     = "sfi";
