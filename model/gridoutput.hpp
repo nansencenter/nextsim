@@ -394,6 +394,7 @@ public:
                     longName = "Total Upward Ocean Surface Freshwater Flux";
                     stdName  = "total_upward_ocean_surface_freshwater_flux";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::QNoSw):
                     name     = "rsnos";
