@@ -387,6 +387,7 @@ public:
                     longName = "Downward Stress Magnitude at Ocean Surface";
                     stdName  = "downward_stress_magnitude_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::emp):
                     name     = "emp";
