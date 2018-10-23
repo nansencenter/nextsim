@@ -62,8 +62,6 @@ public:
         conservative = 1
     };
 
-    // NB! You need to wrap direct "strings" in std::string() so that the constructor gives the expected results
-    // I.e. GridOutput::Grid new(std::string("file"), ...), not GridOutput::Grid new("file", ...)
     typedef struct Grid
     {
         Grid() {}

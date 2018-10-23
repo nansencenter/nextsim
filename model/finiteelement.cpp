@@ -1144,7 +1144,7 @@ FiniteElement::initOptAndParam()
     {
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
-    // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
+    // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
     thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
@@ -1760,7 +1760,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
             }
             else
             {
-                break;
+                continue;
             }
         }
 
@@ -4477,7 +4477,7 @@ FiniteElement::assemble(int pcpt)
             coef_Vair  *= coef_drag*physical::rhoa;
             coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
-            /* Skip gohst nodes */
+            /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
@@ -6502,10 +6502,9 @@ FiniteElement::initOASIS()
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
         vectorial_variables.push_back(tau);
 
-        // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
+        // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
-                std::string("plat"), std::string("plon"), std::string("ptheta"),
-                GridOutput::interpMethod::conservative, true);
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
     } else {
         throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
@@ -7344,7 +7343,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
                 }
                 break;
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
@@ -7394,7 +7393,7 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
-            // Primarely coupling variables, but perhaps useful for debugging
+            // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("emp", GridOutput::variableID::emp)
             ("QNoSw", GridOutput::variableID::QNoSw)
@@ -7472,7 +7471,7 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
         
-        // Primarely coupling variables, but perhaps useful for debugging
+        // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
