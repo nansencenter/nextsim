@@ -7471,7 +7471,7 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
         
-        // Primarely coupling variables, but perhaps useful for debugging
+        // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
