@@ -6466,7 +6466,7 @@ FiniteElement::init()
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
 #ifdef OASIS
-    pcpt = 0;
+    pcpt += cpl_time_step/time_step;
 #endif
 
     //! - 6) If not using a restart, initializes the model from the datasets
