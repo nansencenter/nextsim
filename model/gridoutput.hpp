@@ -401,6 +401,7 @@ public:
                     longName = "Surface Net Downward Nonsolar Heatflux";
                     stdName  = "surface_net_downward_nonsolar_heatflux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::QSwOcean):
                     name     = "rsso";
