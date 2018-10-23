@@ -373,42 +373,49 @@ public:
                     longName = "Eastward Stress at Ocean Surface";
                     stdName  = "eastward_stress_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tauy):
                     name     = "tauy";
                     longName = "Northward Stress at Ocean Surface";
                     stdName  = "northward_stress_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::taumod):
                     name     = "taumod";
                     longName = "Downward Stress Magnitude at Ocean Surface";
                     stdName  = "downward_stress_magnitude_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::emp):
                     name     = "emp";
                     longName = "Total Upward Ocean Surface Freshwater Flux";
                     stdName  = "total_upward_ocean_surface_freshwater_flux";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::QNoSw):
                     name     = "rsnos";
                     longName = "Surface Net Downward Nonsolar Heatflux";
                     stdName  = "surface_net_downward_nonsolar_heatflux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::QSwOcean):
                     name     = "rsso";
                     longName = "Ocean Net Downward Short Wave Flux";
                     stdName  = "ocean_net_downward_short_wave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Fsalt):
                     name     = "sfi";
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 //WIM variables
                 case (variableID::dfloe):

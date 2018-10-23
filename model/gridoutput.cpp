@@ -956,7 +956,7 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     M_nc_step++;
 }
 
-// Diagnostic output on stdout - for debuging
+// Diagnostic output on stdout - for debugging
 void
 GridOutput::info()
 {
