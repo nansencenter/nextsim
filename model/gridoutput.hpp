@@ -380,6 +380,7 @@ public:
                     longName = "Northward Stress at Ocean Surface";
                     stdName  = "northward_stress_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::taumod):
                     name     = "taumod";
