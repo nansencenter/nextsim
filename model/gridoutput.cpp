@@ -771,7 +771,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // Create the projection variable
     // FIXME: This only works for the regular grid for now
-    if ( !M_grid.loaded() )
+    if ( !M_grid.loaded )
         this->createProjectionVariable(dataFile);
 
     // Create the time dimension
