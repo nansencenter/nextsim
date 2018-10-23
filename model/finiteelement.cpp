@@ -4477,7 +4477,7 @@ FiniteElement::assemble(int pcpt)
             coef_Vair  *= coef_drag*physical::rhoa;
             coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
-            /* Skip gohst nodes */
+            /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
