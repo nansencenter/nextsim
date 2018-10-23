@@ -976,17 +976,6 @@ void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
 {
-#ifdef OASIS
-    this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -cpl_time_step/time_step);
-#else
-    this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -1);
-#endif
-}
-
-void
-FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY, const int pcpt)
-{
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -1019,30 +1008,20 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 void
 FiniteElement::checkReloadMainDatasets(double const CRtime)
 {
-#ifdef OASIS
-    this->checkReloadMainDatasets(CRtime, -cpl_time_step/time_step);
-#else
-    this->checkReloadMainDatasets(CRtime, -1.);
-#endif
-}
-
-void
-FiniteElement::checkReloadMainDatasets(double const CRtime, int const pcpt)
-{
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     if(M_rank==0)
         LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, pcpt);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
     if(M_rank==0)
         LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, pcpt);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
     
@@ -1156,7 +1135,7 @@ FiniteElement::initOptAndParam()
     {
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
-    // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
+    // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
     thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
@@ -4489,7 +4468,7 @@ FiniteElement::assemble(int pcpt)
             coef_Vair  *= coef_drag*physical::rhoa;
             coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
-            /* Skip gohst nodes */
+            /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
@@ -6357,12 +6336,17 @@ FiniteElement::init()
 
     M_comm.barrier();
 
-    pcpt = 0;
     mesh_adapt_step=0;
     had_remeshed=false;
 
     this->initOptAndParam();
     M_current_time = time_init;
+    // Here pcpt should be set to zero - but OASIS needs it to be one coupling timestep before zero until after the forcings have been initialised
+#ifdef OASIS
+    pcpt = -cpl_time_step/time_step;
+#else
+    pcpt = 0;
+#endif
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6441,6 +6425,10 @@ FiniteElement::init()
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
+#ifdef OASIS
+    pcpt = 0;
+#endif
+
     if ( !M_use_restart )
     {
         timer["state"].first.restart();
@@ -6456,12 +6444,10 @@ FiniteElement::init()
         LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
     }
 
-
     //! - 7) Initializes the moorings - if requested - using the initMoorings() function,
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
-
 
     //! - 8) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
@@ -6761,12 +6747,8 @@ FiniteElement::step()
     if(M_rank==0)
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0)
-#ifdef OASIS
-                              , pcpt);
-#else
-                              );
-#endif
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
+
     if (M_rank == 0)
         std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -7355,7 +7337,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
                 }
                 break;
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
@@ -7405,7 +7387,7 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
-            // Primarely coupling variables, but perhaps useful for debugging
+            // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("emp", GridOutput::variableID::emp)
             ("QNoSw", GridOutput::variableID::QNoSw)
@@ -7483,7 +7465,7 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
         
-        // Primarely coupling variables, but perhaps useful for debugging
+        // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below

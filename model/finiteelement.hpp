@@ -186,10 +186,7 @@ public:
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY, int const pcpt);
     void checkReloadMainDatasets(double const CRtime);
-    void checkReloadMainDatasets(double const CRtime, int const pcpt);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
