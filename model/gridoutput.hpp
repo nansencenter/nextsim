@@ -415,6 +415,7 @@ public:
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 //WIM variables
                 case (variableID::dfloe):
