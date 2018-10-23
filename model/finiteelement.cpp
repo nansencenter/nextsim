@@ -9028,7 +9028,10 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     M_external_data_elements_names.push_back("M_mld");
     M_external_data_elements.push_back(&M_mld);
     if ( M_qsrml.isInitialized() )
+    {
         M_external_data_elements.push_back(&M_qsrml);
+        M_external_data_elements_names.push_back("M_qsrml");
+    }
 }//forcingOcean
 
 
