@@ -659,6 +659,18 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
+    // TOPAZ needs special handling
+    if (   M_ocean_type == setup::OceanType::TOPAZR
+        || M_ocean_type == setup::OceanType::TOPAZR_atrest
+        || M_ocean_type == setup::OceanType::TOPAZF
+        || M_ocean_type == setup::OceanType::TOPAZR_ALTIMETER )
+    {
+        M_ocean_nodes_dataset.loaded=false;
+        M_ocean_elements_dataset.loaded=false;
+        M_ocean_nodes_dataset.grid.loaded=false;
+        M_ocean_elements_dataset.grid.loaded=false;
+    }
+
 #if 1
 /* This shouldn't be needed - and it messes up the coupling
  * But let's keep it commented for now, just in case.
