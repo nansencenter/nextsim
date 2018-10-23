@@ -373,6 +373,7 @@ public:
                     longName = "Eastward Stress at Ocean Surface";
                     stdName  = "eastward_stress_at_ocean_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tauy):
                     name     = "tauy";
