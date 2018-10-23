@@ -7343,7 +7343,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
                 }
                 break;
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
