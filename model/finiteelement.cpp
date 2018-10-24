@@ -5367,7 +5367,11 @@ FiniteElement::thermo(double dt)
             //Qsw_in=approxSW();
         }
 
-        double mld=( M_mld[i] > vm["ideal_simul.constant_mld"].as<double>() ) ? M_mld[i] : vm["ideal_simul.constant_mld"].as<double>();
+        double mld;
+        if (M_mld.isInitialized())
+            mld = M_mld[i];
+        else
+            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         //! 2) Calculates or sets the flux due to nudging
