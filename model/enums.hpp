@@ -101,6 +101,12 @@ namespace setup
         WINTON     = 1
     };
 
+    enum class FreezingPointType
+    {
+        LINEAR     = 0,
+        NON_LINEAR = 1
+    }
+
     enum class DynamicsType
     {
         DEFAULT         = 0,

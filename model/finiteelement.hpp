@@ -408,6 +408,7 @@ private:
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
 
+    setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;

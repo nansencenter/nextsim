@@ -1249,7 +1249,20 @@ FiniteElement::initOptAndParam()
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
-    
+
+    //! Sets options on the freezing point scheme
+    const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
+        ("linear", setup::FreezingPointType::LINEAR)
+        ("non-linear", setup::FreezingPointType::NON_LINEAR);
+    M_freezingpoint_type = str2fpt.find(vm["thermo.freezingpoint-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+#ifdef OASIS
+    // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
+#endif
+    LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
+
+
     //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -5916,14 +5929,21 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
     }
 }//iceOceanHeatflux
 
-//! Freezing point of sea water à la NEMO
+//! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(double sss)
 {
-    double zs  = std::sqrt(sss/35.16504);         // square root salinity
-    double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
-                - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-    return ptf*sss;
+    switch ( M_freezingpoint_type )
+    {
+        case setup::FreezingPointType::LINEAR:
+            return -physical::mu*sss;
+
+        case setup::FreezingPointType::NON_LINEAR:
+            double zs  = std::sqrt(sss/35.16504);         // square root salinity
+            double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
+                        - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
+            return ptf*sss;
+    }
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
