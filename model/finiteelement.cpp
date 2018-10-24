@@ -850,6 +850,12 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
+        case setup::AtmosphereType::EC2_AROME:
+            M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements_instaneous");//instantaneous fields at %H:00
+            M_atmosphere_bis_elements_dataset=DataSet("ec2_arome_elements_integrated");//integrated fields at %H:30
+            break;
+
         default:
             std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -1164,7 +1170,8 @@ FiniteElement::initOptAndParam()
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
-        ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
+        ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
     M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second; //! \param M_atmosphere_type (string) Option on the type of atm. forcing (constant or reanalyses)
         switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
@@ -8270,6 +8277,20 @@ FiniteElement::forcingAtmosphere()
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
+        case setup::AtmosphereType::EC2_AROME:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
         break;
 
         default:

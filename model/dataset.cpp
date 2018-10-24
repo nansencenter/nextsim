@@ -638,7 +638,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_arome_elements") == 0)
+    else if (strcmp (DatasetName, "ec2_arome_elements_instaneous") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
@@ -799,6 +799,140 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; //PSFC, a=1.
+
+        std::vector<Variable> variables_tmp(7);
+        variables_tmp[0] = tair;
+        variables_tmp[1] = sphuma;
+        variables_tmp[2] = mslp;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "ec2_arome_elements_integrated") == 0)
+    {
+        // Definition of asr grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: -0.5,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum,  // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+
+            dirname:"data",
+            prefix:"blended_",
+            postfix:".nc",
+            gridfile: "",
+            reference_date: "1970-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "NpsNextsim.mpp",
+            interpolation_in_latlon: false,
+
+            loaded: false,
+            dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+
+        // conversion factors: xnew = a*x + b
         Variable Qsw_in={
             name:"integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
             dimensions: dimensions,
@@ -864,14 +998,11 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        std::vector<Variable> variables_tmp(7);
-        variables_tmp[0] = tair;
-        variables_tmp[1] = sphuma;
-        variables_tmp[2] = mslp;
-        variables_tmp[3] = Qsw_in;
-        variables_tmp[4] = Qlw_in;
-        variables_tmp[5] = snowfall;
-        variables_tmp[6] = precip;
+        std::vector<Variable> variables_tmp(4);
+        variables_tmp[0] = Qsw_in;
+        variables_tmp[1] = Qlw_in;
+        variables_tmp[2] = snowfall;
+        variables_tmp[3] = precip;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -882,7 +1013,7 @@ DataSet::DataSet(char const *DatasetName)
         loaded=false;
         interpolated=false;
 
-        averaging_period=0.;
+        averaging_period=0.5/24.;
         time= time_tmp;
 #ifdef OASIS
         coupled = false;
