@@ -105,7 +105,7 @@ namespace setup
     {
         LINEAR     = 0,
         NON_LINEAR = 1
-    }
+    };
 
     enum class DynamicsType
     {
