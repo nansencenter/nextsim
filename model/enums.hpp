@@ -33,7 +33,8 @@ namespace setup
 		TOPAZF   = 2,
         MITGCM   = 3,
         TOPAZR_atrest   = 4,
-        TOPAZR_ALTIMETER   = 5
+        TOPAZR_ALTIMETER   = 5,
+        COUPLED  = 6
     };
 
     enum class IceType
@@ -99,6 +100,12 @@ namespace setup
     {
         ZERO_LAYER = 0,
         WINTON     = 1
+    };
+
+    enum class FreezingPointType
+    {
+        LINEAR     = 0,
+        NON_LINEAR = 1
     };
 
     enum class DynamicsType
