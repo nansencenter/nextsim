@@ -9,18 +9,27 @@ all:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
 	@cd $(NEXTSIMDIR)/core/src; make;
+ifdef USE_OASIS
+	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+endif
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean
 	@cd $(NEXTSIMDIR)/core/src; make clean
+ifdef USE_OASIS
+	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
+endif
 
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean mrproper
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean mrproper
 	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
+ifdef USE_OASIS
+	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
+endif
 # rules to compile model code as well as lib's
 All: all
 	@cd $(NEXTSIMDIR)/model; make;

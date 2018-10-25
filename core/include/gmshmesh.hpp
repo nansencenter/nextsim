@@ -25,6 +25,7 @@
 #include <entities.hpp>
 //#include <MElement.h>
 //#include <GModel.h>
+#include "debug.hpp"
 
 extern "C"
 {
@@ -156,6 +157,7 @@ private:
     std::string M_version;
     std::string M_ordering;
     std::string M_mppfile;
+    LogLevel M_log_level;
 
     std::vector<point_type> M_nodes_vec;
     std::map<int, point_type > M_nodes;

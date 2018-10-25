@@ -18,6 +18,7 @@
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
+#include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
 
@@ -55,21 +56,56 @@ public:
         elemental  =  1
     };
 
+    enum interpMethod
+    {
+        meshToMesh = 0,
+        conservative = 1
+    };
+
     typedef struct Grid
     {
+        Grid() {}
+
+        Grid(std::string file, std::string lat, std::string lon, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), transpose(transp),
+                thetaName(""), interp_method(interpMethod::meshToMesh),
+                loaded(false)
+        {}
+
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
+                interp_method(interpMethod::meshToMesh),
+                loaded(false)
+        {}
+
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
+                loaded(false)
+        {}
+
+        interpMethod interp_method;
+
         std::string gridFile;
-        std::string dirname;
-        std::string mpp_file;
-        std::string dimNameX;
-        std::string dimNameY;
         std::string latName;
         std::string lonName;
+        std::string thetaName;
 
         bool loaded;
+        bool transpose;
+
+        std::string dimNameX;
+        std::string dimNameY;
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
         std::vector<double> gridX;
         std::vector<double> gridY;
+
+        std::vector<double> gridTheta;
+        std::vector<double> gridCornerLat;
+        std::vector<double> gridCornerLon;
+        std::vector<double> gridCornerX;
+        std::vector<double> gridCornerY;
+
     } Grid;
 
     //////////////////////////////////////////////////////////////////////
@@ -84,6 +120,7 @@ public:
 
     enum variableID
     {
+        // Land-sea mask
         lsm         =  0,
 
         // Prognostic variables
@@ -128,6 +165,15 @@ public:
         // WIM variables
         dfloe       = 300,
 
+        // Coupling variables not already covered elsewhere
+        taux        = 901,
+        tauy        = 902,
+        taumod      = 903,
+        emp         = 904,
+        QNoSw       = 905,
+        QSwOcean    = 906,
+        Fsalt       = 907,
+
         // Non-output variables - all negative
         proc_mask   = -1,
         ice_mask    = -2
@@ -147,6 +193,7 @@ public:
         {
             switch (varID)
             {
+                // Land-sea mask
                 case (variableID::lsm):
                     name     = "lsm";
                     longName = "Land Sea Mask";
@@ -318,6 +365,56 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+                // Coupling variables
+                case (variableID::taux):
+                    name     = "taux";
+                    longName = "Eastward Stress at Ocean Surface";
+                    stdName  = "eastward_stress_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauy):
+                    name     = "tauy";
+                    longName = "Northward Stress at Ocean Surface";
+                    stdName  = "northward_stress_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::taumod):
+                    name     = "taumod";
+                    longName = "Downward Stress Magnitude at Ocean Surface";
+                    stdName  = "downward_stress_magnitude_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::emp):
+                    name     = "emp";
+                    longName = "Total Upward Ocean Surface Freshwater Flux";
+                    stdName  = "total_upward_ocean_surface_freshwater_flux";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::QNoSw):
+                    name     = "rsnos";
+                    longName = "Surface Net Downward Nonsolar Heatflux";
+                    stdName  = "surface_net_downward_nonsolar_heatflux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::QSwOcean):
+                    name     = "rsso";
+                    longName = "Ocean Net Downward Short Wave Flux";
+                    stdName  = "ocean_net_downward_short_wave_flux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::Fsalt):
+                    name     = "sfi";
+                    longName = "Downward Sea Ice Basal Salt Flux";
+                    stdName  = "downward_sea_ice_basal_salt_flux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
                 //WIM variables
                 case (variableID::dfloe):
                     name     = "dfloe";
@@ -434,6 +531,8 @@ public:
                     cell_methods = "";
                     break;
 
+                default:
+                    throw std::logic_error("GridOutput::Grid: variableID not defined: "+std::to_string(varID)+"\n");
             }
         }
 
@@ -448,47 +547,82 @@ public:
         std::vector<double> data_mesh;
         std::vector<double> data_grid;
 
+#ifdef OASIS
+        int cpl_id;
+#endif
+
     } Variable;
 
     typedef struct Vectorial_Variable
     {
-        std::vector<int> components_Id;
+        Vectorial_Variable() {}
+
+        Vectorial_Variable(std::pair<int,int> id)
+            : components_Id(id)
+        {}
+
+        std::pair<int,int> components_Id;
     } Vectorial_Variable;
+
+    typedef typename GmshMesh::bimap_type bimap_type;
 
     ///////////////////////////////////////////////////////////////////////
     // Constructors (and destructor)
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables,
-            variableKind kind, double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind,
-            double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
-            std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
-            double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables,
-            std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables, double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
-            std::vector<Vectorial_Variable> vectorial_variables, double const& averaging_period, bool const& false_easting);
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
+
+    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
+
+    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
     ~GridOutput();
 
-    void setLSM(GmshMeshSeq const& mesh);
-    std::vector<double> getMask(GmshMeshSeq const &mesh, variableKind kind);
+    void setLSM(BamgMesh* bamgmesh);
 
-    void updateGridMean(GmshMesh const& mesh);
+    void updateGridMean(BamgMesh* bamgmesh);
     void resetGridMean();
-    void resetMeshMean(GmshMesh const& mesh);
+    void resetMeshMean(BamgMesh* bamgmesh,
+            bool regrid = false,
+            bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+            BamgMesh* bamgmesh_root = NULL);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
+
+    // Return a mask
+    std::vector<int> const &getMask() const { return M_lsm; }
 
     int M_ncols;
     int M_nrows;
@@ -503,38 +637,60 @@ public:
 
     double M_miss_val = -1e+14; // Must be smaller than any expected result
 
+    std::vector<int> const &getGridP() const { return M_gridP; }
+    std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
+    std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
+
+    void info();
+
 private:
 
     double M_xmin;
     double M_ymax;
 
-    std::vector<double> M_lsm_nodes;
-    std::vector<double> M_lsm_elements;
+    std::vector<int> M_lsm;
+    bool M_use_lsm;
 
-    int M_proc_mask_indx;
     int M_ice_mask_indx;
 
-    GridOutput(std::vector<Variable> variables, variableKind kind);
+    GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, double averaging_period, bool false_easting);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
 
-    void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
+    void initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-    void initArbitraryGrid(Grid grid);
+    void initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const & comm,
+            BamgMesh* bamgmesh_root = NULL,
+            bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
-    void initCommon(GmshMesh const& mesh, double const& averaging_period, bool const& false_easting);
     void initMask();
 
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables);
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask);
+    void applyLSM();
 
-    void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
+
+    void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
     size_t M_nc_step;
+
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
+
+    void setProcMask(BamgMesh* bamgmesh);
+    std::vector<double> M_proc_mask;
+
+    Communicator M_comm;
+
+    void broadcastWeights(std::vector<int>& gridP,
+            std::vector<std::vector<int>>& triangles,
+            std::vector<std::vector<double>>& weights );
+
+    void stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
+        std::vector<double>& ps_x, std::vector<double>& ps_y);
 };
 } // Nextsim
 #endif // __GridOutput_H
