@@ -4,9 +4,9 @@
 /*Constructors/Destructors*/
 BamgMesh::BamgMesh(){/*{{{*/
 
-	this->VerticesSize[0]=0,                  this->VerticesSize[1]=0;                 this->Vertices=NULL;          this->PreviousNumbering = NULL;
+	this->VerticesSize[0]=0,                  this->VerticesSize[1]=0;                 this->VerticesSize[2]=0;      this->Vertices=NULL;          this->PreviousNumbering = NULL;
 	this->EdgesSize[0]=0,                     this->EdgesSize[1]=0;                    this->Edges=NULL;
-	this->TrianglesSize[0]=0,                 this->TrianglesSize[1]=0;                this->Triangles=NULL;
+	this->TrianglesSize[0]=0,                 this->TrianglesSize[1]=0;                this->TrianglesSize[2]=0;     this->Triangles=NULL;
 
 	this->SubDomainsSize[0]=0,                this->SubDomainsSize[1]=0;               this->SubDomains=NULL;
 	this->SubDomainsFromGeomSize[0]=0,        this->SubDomainsFromGeomSize[1]=0;       this->SubDomainsFromGeom=NULL;

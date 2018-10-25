@@ -6,6 +6,18 @@
 using namespace bamg;
 using namespace std;
 
+int BamgConvertMeshx(BamgMesh* bamgmesh,BamgGeom* bamggeom,int* index,double* x,double* y,int nods,int nels, int nods_local, int nels_local){
+
+    int return_value = BamgConvertMeshx(bamgmesh, bamggeom, index, x, y, nods, nels);
+
+    // Set the ghost information
+    bamgmesh->VerticesSize[2] = nods_local;
+    bamgmesh->TrianglesSize[2] = nels_local;
+
+    return return_value;
+}
+
+
 int BamgConvertMeshx(BamgMesh* bamgmesh,BamgGeom* bamggeom,int* index,double* x,double* y,int nods,int nels){
 
 	/*Options*/

@@ -17,6 +17,12 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
+#include <boost/unordered_map.hpp>
+#include <boost/assign/list_of.hpp>
+#include "debug.hpp"
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 namespace Nextsim
 {
@@ -79,6 +85,9 @@ public:
     //! return neXtSIM .mpp file
 	static std::string const& nextsimMppfile() { return nextsim_mppfile; }
 
+    //! return log level
+	static LogLevel const& logLevel() { return log_level; }
+
     //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
     //! and some sub-directories
     void setEnvironmentVariables();
@@ -99,6 +108,9 @@ private:
 
     //! .mpp file for nextsim
     static std::string nextsim_mppfile;
+
+    //! log level
+    static LogLevel log_level;
 };
 
 } // Nextsim

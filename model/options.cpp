@@ -42,8 +42,8 @@ namespace Nextsim
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
-            ("simul.timestep", po::value<double>()->default_value( 200. ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "Thermodynamic timestep in seconds.")
+            ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
+            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
                 "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
@@ -143,9 +143,10 @@ namespace Nextsim
                              "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
-                "Grid file with locations for moorings output (overrides mooring.spacing). Has to be a netcdf file with x, y as dimensions and latitude, longitude as variables")
-            ("moorings.mppfile", po::value<std::string>()->default_value( "" ),
-                "mpp file with projection for output grid (only used if grid_type = from_file)")
+                "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
+            ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
+            ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
+            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is y and the second x.")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
                 "true: we output vectors relative to the output grid; false: we give their north-south components")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
@@ -226,6 +227,7 @@ namespace Nextsim
             ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
             ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_SST_limit", po::value<double>()->default_value( 2. ), "")
 
             // - if atmosphere-type=constant
             // -- thermodynamics
@@ -318,6 +320,7 @@ namespace Nextsim
         
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
+            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or non-linear")
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
@@ -393,11 +396,12 @@ namespace Nextsim
              //-----------------------------------------------------------------------------------
         
 #if defined(OASIS)
-            ("coupler.timestep", po::value<double>()->default_value( 3600. ), "Coupling time step")
-            ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
-            ("coupler.atm_from_ocean", po::value<bool>()->default_value( false ), "Do we get atmospheric state from the ocean model?")
-            ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
-            ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            ("coupler.component_name", po::value<std::string>()->default_value( "nxtsim" ), "Component name (6 characters) same as in the namcouple")
+            ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
+            ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ), "File containing neccesary grid information for coupling.")
+            // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
+            // ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
 #if defined(WAVES)
