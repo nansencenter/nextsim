@@ -27,6 +27,11 @@ public:
 		super()
 	{}
 
+    Communicator(const MPI_Comm& comm, boost::mpi::comm_create_kind const& kind=boost::mpi::comm_attach)
+		:
+		super(comm, kind)
+	{}
+
     static communicator_type commSelf() { return communicator_type();}
 
 };

@@ -37,6 +37,9 @@
 #include <omp.h>
 #include <boost/random/linear_congruential.hpp>
 #include <boost/random/uniform_01.hpp>
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 extern "C"
 {
@@ -84,7 +87,9 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
-    FiniteElement();
+    FiniteElement(Communicator const& comm = Environment::comm());
+
+    // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
 
@@ -165,7 +170,7 @@ public:
 
     void nestingIce();
     void nestingDynamics();
-    void thermo(double dt);
+    void thermo(int dt);
     void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
                     double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
                     double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
@@ -173,15 +178,16 @@ public:
                       double Qlw_in, double Qsw_in, double mld, double snowfall,
                       double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
                       double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
+    inline double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
     void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
                      double &Qai, double &dQaidT, double &subl,
                      double &Qsh, double &Qlh, double &Qlw);
     double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
+    inline double freezingPoint(double sss);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const& CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadMainDatasets(double const& CRtime);
+                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
+    void checkReloadMainDatasets(double const CRtime);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -295,7 +301,7 @@ public:
 
     void bcMarkedNodes();
 
-    void finalise();
+    void finalise(std::string current_time_system);
 
 public:
     std::string gitRevision();
@@ -402,6 +408,7 @@ private:
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
 
+    setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;
@@ -515,14 +522,14 @@ private:
     double rhos;
     double days_in_sec;
     double time_init;
-    double output_time_step;
-    double ptime_step;
-    double mooring_output_time_step;
+    int output_time_step;
+    int ptime_step;
+    int mooring_output_time_step;
     double mooring_time_factor;
-    double drifter_output_time_step;
-    double restart_time_step;
-    double time_step;
-    double thermo_timestep;
+    int restart_time_step;
+    int time_step;
+    double dtime_step;
+    int thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;
@@ -531,6 +538,8 @@ private:
     double ridging_exponent;
     double quad_drag_coef_air;
     double quad_drag_coef_water;
+    double lin_drag_coef_air;
+    double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
 
@@ -619,6 +628,8 @@ private:
     external_data M_ocean_temp;   // Ocean temperature in top layer [C]
     external_data M_ocean_salt;   // Ocean salinity in top layer [C]
     external_data M_mld;          // Mixed-layer depth [m]
+
+    external_data M_qsrml;        // Fraction of short wave radiation absorbed by the mixed layer
 
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
@@ -726,6 +737,39 @@ private:
     bool M_moorings_false_easting;
     double M_moorings_averaging_period;
 
+#ifdef OASIS
+    // Coupling with OASIS
+    GridOutput M_cpl_out;
+    std::vector<int> var_id_snd;
+    std::vector<int> var_id_rcv;
+
+    const std::vector<std::string> var_snd{
+    //  "12345678" 8 characters field sent by neXtSIM to ocean
+        "I_taux",    // tau_u (at u-point)
+        "I_tauy",    // tau_v (at v-point)
+        "I_taumod",  // |tau| (at t-point)
+        "I_emp",     // Evap minus precip
+        "I_rsnos",   // Non-solar heatflux
+        "I_rsso",    // Solar/Shortwave radiation
+        "I_sfi",     // Salt/brine flux
+        "I_sic"   }; // Concentration
+
+    const std::vector<std::string> var_rcv{
+    //  "12345678"  8 characters field received by neXtSIM from ocean
+        "I_SST",   // Sea surface temperature
+        "I_SSS",   // Sea surface salinity
+        "I_Uocn",     // Ocean current - u
+        "I_Vocn",     // Ocean current - v
+        "I_SSH",   // Sea surface height
+        "I_MLD",   // Mixed layer depth
+        "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
+
+    int cpl_time_step;
+    void initOASIS();
+    void setCplId_rcv(DataSet &dataset);
+    void setCplId_snd(std::vector<GridOutput::Variable> &cpl_var);
+#endif
+
 private:
 
     void constantIce();
@@ -785,8 +829,14 @@ private:
     std::vector<double> D_Qlw; // Total long wave at surface [W/m2]
     std::vector<double> D_Qsh; // Total sensible heat flux at surface [W/m2]
     std::vector<double> D_Qlh; // Total latent heat flux at surface [W/m2]
+    std::vector<double> D_Qnosun; // Non-solar heat loss from ocean [W/m2]
+    std::vector<double> D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
     std::vector<double> D_delS; // Salt flux to ocean
+    std::vector<double> D_emp; // Evaporation minus Precipitation [kg/m2/s]
+    std::vector<double> D_brine; // Brine release into the ocean [kg/m2/s]
+    std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
+    std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
 
 };
 } // Nextsim

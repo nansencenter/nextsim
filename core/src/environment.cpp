@@ -14,7 +14,6 @@ namespace Nextsim
 Environment::Environment( int& argc, char** &argv )
     :
     mpienv(argc, argv)
-    //mpicomm()
 {
     mpicomm = Communicator::commSelf();
 
@@ -25,18 +24,12 @@ Environment::Environment( int& argc, char** &argv )
     CHKERRABORT( mpicomm, ierr );
 }
 
-Environment::Environment( int& argc, char** &argv, po::options_description desc)
+Environment::Environment( int& argc, char** &argv, po::options_description desc )
     :
     mpienv(argc, argv)
 {
-    mpicomm = Communicator::commSelf();
-
     //! - 1) Set NEXTSIM_[MESH,DATA]_DIR for inputs
     this->setEnvironmentVariables();
-
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
 
     //! - 2) Read the config files to get the run-time options
     try
@@ -123,7 +116,50 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::runtime_error("...");
     }
 
-    //! -3) set other useful variables it would be convenient to have access to
+    //! -3) Initialise communicator, PETSc, and OASIS (if compiled in)
+#ifdef OASIS
+    // For OASIS we need to get the local communicator first
+
+    MPI_Comm localComm, cplComm; // local and couple MPI communicators
+    //const std::string comp_name = std::string("nxtsim");  // Component name (6 characters) same as in the namcouple
+    const std::string comp_name = vmenv["coupler.component_name"].as<std::string>();
+
+    // Initialise OASIS
+    int comp_id;
+    int ierror = OASIS3::init_comp(&comp_id, comp_name);
+    if (ierror != 0) {
+        std::cout << "oasis_init_comp abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::init_comp");
+    }
+
+    // Get the local communicator
+    ierror = OASIS3::get_localcomm(&localComm);
+    if (ierror != 0) {
+        std::cout << "oasis_get_localcomm abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::get_localcomm");
+    }
+
+    // create a Nextsim::Communicator from the OASIS communicator
+    mpicomm = Communicator(localComm);
+
+    // Tell PETSc to use the right communicator
+    PETSC_COMM_WORLD = localComm;
+
+    // Create the coupler communicator - only root communicates with the coupler
+    ierror = OASIS3::create_couplcomm(mpicomm.rank()==0, &localComm, &cplComm);
+    if (ierror != 0) {
+        std::cout << "oasis_create_couplcomm abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::create_couplcomm");
+    }
+#else
+    mpicomm = Communicator::commSelf();
+#endif
+
+    int ierr = 0;
+    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
+    CHKERRABORT( mpicomm, ierr );
+
+    //! -4) set other useful variables it would be convenient to have access to
     //! across multiple classes
     //! * nextsim .mppfile
     nextsim_mppfile = (boost::format( "%1%/%2%" )

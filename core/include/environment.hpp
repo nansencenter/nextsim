@@ -17,6 +17,9 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
+#if defined OASIS
+#include<oasis_cpp_interface.h>
+#endif
 
 namespace Nextsim
 {
