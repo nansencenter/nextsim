@@ -5329,6 +5329,7 @@ FiniteElement::thermo(double dt)
             old_conc_thin  = M_conc_thin[i];
             old_hs_thin = M_hs_thin[i];
         }
+        double old_ow_fraction = 1. - old_conc - old_conc_thin;
 
         double sum_u=0.;
         double sum_v=0.;
@@ -5504,6 +5505,11 @@ FiniteElement::thermo(double dt)
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
 
+        // Element mean ice-ocean heat flux
+        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        // Element mean open water heat flux
+        double Qow_mean = Qow*old_ow_fraction;
+
         // -------------------------------------------------
         //! 5) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
@@ -5511,14 +5517,14 @@ FiniteElement::thermo(double dt)
         double tw_new, tfrw, newice, del_c, newsnow, h0;
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        tw_new = M_sst[i] - Qow*dt/(mld*physical::rhow*physical::cpw);
+        tw_new = M_sst[i] - dt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
         tfrw   = -physical::mu*M_sss[i];
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         if ( tw_new < tfrw )
         {
-            newice  = (1.-M_conc[i]-M_conc_thin[i])*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow  = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
+            newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow_mean -= newice*qi/dt;
             // evap = 0.;
         }
         else
@@ -5629,9 +5635,9 @@ FiniteElement::thermo(double dt)
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow)*dt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow_mean)*dt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                        Qow = (1.-PhiM)*Qow;
+                        Qow_mean *= (1.-PhiM);
                     }
                     else
                     {
@@ -5660,7 +5666,7 @@ FiniteElement::thermo(double dt)
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow = Qow + del_c*hs*qs/dt;
+                Qow_mean -= del_c*hs*qs/dt;
             }
             else
             {
@@ -5683,7 +5689,7 @@ FiniteElement::thermo(double dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow    = Qow + M_conc[i]*hi*qi/dt + M_conc[i]*hs*qs/dt;
+            Qow_mean  += M_conc[i]*hi*qi/dt + M_conc[i]*hs*qs/dt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5720,9 +5726,6 @@ FiniteElement::thermo(double dt)
         // open-water part plus rain in the ice-covered part.
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = (evap*(1.-old_conc-old_conc_thin)-rain);
-
-        Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
-        Qow_mean = Qow*(1.-old_conc-old_conc_thin);
 
         /* Heat-flux */
         M_sst[i] = M_sst[i] - dt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
@@ -5779,22 +5782,21 @@ FiniteElement::thermo(double dt)
         // -------------------------------------------------
 
         //! 9) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
-        double ow_fraction = 1. - old_conc - old_conc_thin;
 
         // Total heat flux to the atmosphere
-        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*ow_fraction;
+        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*old_ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*ow_fraction;
+        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*old_ow_fraction;
 
         // Long wave flux to the atmosphere
-        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*ow_fraction;
+        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*old_ow_fraction;
 
         // Sensible heat flux to the atmosphere
-        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*ow_fraction;
+        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*old_ow_fraction;
 
         // Latent heat flux to the atmosphere
-        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*ow_fraction;
+        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*old_ow_fraction;
 
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
