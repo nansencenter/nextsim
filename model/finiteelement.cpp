@@ -5733,7 +5733,7 @@ FiniteElement::thermo(double dt)
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
         double sss_old = M_sss[i];
-        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs*physical::rhos + (emp-Fdw)*dt) )
+        M_sss[i] = M_sss[i] + ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*dt) )
             / denominator;
 
         // -------------------------------------------------
