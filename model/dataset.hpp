@@ -19,6 +19,7 @@
 #include <netcdf>
 #include <BamgTriangulatex.h>
 #include <assert.hpp>
+#include <debug.hpp>
 extern "C"
 {
 #include <mapx.h>
@@ -236,6 +237,10 @@ public:
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
 #endif
+
+private:
+
+    LogLevel M_log_level;
 };
 
 } // Nextsim

@@ -166,6 +166,14 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
             % this->nextsimMeshDir().string()
             % this->vm()["mesh.mppfile"].as<std::string>()
             ).str();
+
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("info", INFO)
+        ("warning", WARNING)
+        ("debug", DEBUG)
+        ("error", ERROR);
+
+    log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
 }
 
 
@@ -208,6 +216,7 @@ po::variables_map Environment::vmenv;
 fs::path Environment::nextsim_data_dir_env;
 fs::path Environment::nextsim_mesh_dir_env;
 std::string Environment::nextsim_mppfile;
+LogLevel Environment::log_level;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)

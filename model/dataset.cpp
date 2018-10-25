@@ -27,6 +27,7 @@ DataSet::DataSet( )
 
 DataSet::DataSet(char const *DatasetName)
 {
+    M_log_level = Environment::logLevel();
 
     name = std::string(DatasetName);
     projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
@@ -7415,14 +7416,14 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
         current_timestr = to_date_string_ym(current_time);//yyyymm
 
         std::string myString = current_timestr.substr(4,2);
-        std::cout <<"month= "<< myString <<"\n";
+        LOG(DEBUG) <<"month= "<< myString <<"\n";
         int value_month = atoi(myString.c_str());
         myString = current_timestr.substr(0,4);
-        std::cout <<"year= "<< myString <<"\n";
+        LOG(DEBUG) <<"year= "<< myString <<"\n";
         int value_year = atoi(myString.c_str());
 
-        std::cout <<"value_year= "<< value_year <<"\n";
-                        std::cout <<"value_month= "<< value_month <<"\n";
+        LOG(DEBUG) <<"value_year= "<< value_year <<"\n";
+        LOG(DEBUG) <<"value_month= "<< value_month <<"\n";
 
         value_month+=jump;
         if(value_month==13)
@@ -7564,7 +7565,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 % grid_ptr->gridfile
                 ).str();
 
-    std::cout<<"GRID : FILENAME = "<< filename <<"\n";
+    LOG(DEBUG)<<"GRID : FILENAME = "<< filename <<"\n";
 
 	//std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
@@ -7599,9 +7600,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         double lonmin, lonmax;
         this->getLonRange(lonmin, lonmax, VLON);
         grid_ptr->branch_cut_lon = lonmin;
-        //TODO implement LOG(DEBUG) here
-        //if(Environment::comm().rank()==0)
-        //    std::cout<<name<<": branch_cut_lon = "<<lonmin<<"\n";
+        LOG(DEBUG)<<name<<": branch_cut_lon = "<<lonmin<<"\n";
 
         // TODO we could determine what cyclic should be here too, ie
         // grid_ptr.dimension_x.cyclic = (lonmin + 360. != lonmax);
@@ -7656,7 +7655,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
 
-		std::cout <<"GRID : READ NETCDF done\n";
+		LOG(DEBUG) <<"GRID : READ NETCDF done\n";
 	}//end regular lat=lon
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
 	{
@@ -7842,7 +7841,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             // Open the datafile
             std::string filename = getFilename(grid_ptr, init_time, init_time);
 
-            std::cout<<"GRID for masking: FILENAME = "<< filename <<"\n";
+            LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
             //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
@@ -7897,7 +7896,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             // Open the datafile
             std::string filename = getFilename(grid_ptr, init_time, init_time);
 
-            std::cout<<"GRID for masking: FILENAME = "<< filename <<"\n";
+            LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
         	//std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
@@ -8073,15 +8072,15 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 #endif
 		}
 
-		std::cout <<"GRID : Triangulate starts\n";
+		LOG(DEBUG) <<"GRID : Triangulate starts\n";
         int* pfindex;
         BamgTriangulatex(&pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
         grid_ptr->pfindex.resize(3*(grid_ptr->pfnels));
         for(int i=0;i<grid_ptr->pfindex.size();i++)
             grid_ptr->pfindex[i] = pfindex[i];
         xDelete<int>(pfindex);
-		std::cout <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
-		std::cout <<"GRID : Triangulate done\n";
+		LOG(DEBUG) <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
+		LOG(DEBUG) <<"GRID : Triangulate done\n";
 
 	}//interpolation_method==InterpolationType::FromMeshToMesh2dx
 #ifdef OASIS

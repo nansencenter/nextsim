@@ -74,7 +74,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     timer["meshread"].first.restart();
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
     if (M_rank == 0)
-        std::cout<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
 
     if (!start)
     {
@@ -94,7 +94,7 @@ FiniteElement::distributedMeshProcessing(bool start)
                      );
 
     if (M_rank == 0)
-        std::cout<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -111,23 +111,23 @@ FiniteElement::distributedMeshProcessing(bool start)
     timer["bcmarker"].first.restart();
     this->bcMarkedNodes();
     if (M_rank == 0)
-        std::cout<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
 
     timer["creategraph"].first.restart();
     this->createGraph();
     if (M_rank == 0)
-        std::cout<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
 
     timer["gathersize"].first.restart();
     this->gatherSizes();
     if (M_rank == 0)
-        std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
 #if 1
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     //if (M_rank == 0)
-    std::cout<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 #endif
 
 #if 0
@@ -360,9 +360,9 @@ FiniteElement::rootMeshProcessing()
         auto h = this->minMaxSide(M_mesh_root);
         M_res_root_mesh = this->resolution(M_mesh_root);
 
-        std::cout <<"MESH: HMIN= "<< h[0] <<"\n";
-        std::cout <<"MESH: HMAX= "<< h[1] <<"\n";
-        std::cout <<"MESH: RESOLUTION= "<< M_res_root_mesh <<"\n";
+        LOG(DEBUG) <<"MESH: HMIN= "<< h[0] <<"\n";
+        LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
+        LOG(DEBUG) <<"MESH: RESOLUTION= "<< M_res_root_mesh <<"\n";
 
         switch (M_mesh_type)
         {
@@ -423,11 +423,11 @@ FiniteElement::rootMeshProcessing()
             // Add information on the number of partition to mesh filename
             LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
-            std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            std::cout<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
 
             // save mesh (only root process)
@@ -442,14 +442,14 @@ FiniteElement::rootMeshProcessing()
             else if (M_partition_space == mesh::PartitionSpace::DISK)
                 M_mesh_root.writeToFile(M_partitioned_mesh_filename);
             //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-            std::cout <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             chrono.restart();
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
             //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-            std::cout <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
     }
 
@@ -1116,14 +1116,7 @@ void
 FiniteElement::initOptAndParam()
 {
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
-    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
-        ("info", INFO)
-        ("warning", WARNING)
-        ("debug", DEBUG)
-        ("error", ERROR);
-
-    M_log_level = str2log.find(vm["debugging.log-level"].as<std::string>())->second;
-
+    M_log_level = Environment::logLevel();
 
     //! Defines the export (output) path.
     M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
@@ -1432,12 +1425,12 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
         gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
                 << " -" << 2 << " -part " << 1 << " -clmax " << vm["mesh.hsize"].as<double>() << " " << gmshgeofile;
 
-        std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+        LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
         auto err = ::system( gmshstr.str().c_str() );
     }
     else
     {
-        std::cout << "Cannot found " << gmshgeofile <<"\n";
+        throw std::runtime_error("Cannot find " + gmshgeofile + "\n");
     }
 }//createGMSHMesh
 
@@ -3386,7 +3379,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
-        std::cout<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
     double* interp_elt_out;
     double* interp_nd_out;
@@ -3422,7 +3415,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
-            std::cout<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
+            LOG(DEBUG)<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();
@@ -3456,13 +3449,13 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     timer["distributed"].first.restart();
     this->distributedMeshProcessing();
     if (M_rank == 0)
-        std::cout<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
 
     timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
     this->scatterFieldsNode(interp_nd_out);
     if (M_rank == 0)
-        std::cout<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
@@ -3971,8 +3964,8 @@ FiniteElement::regrid(bool step)
 
         if(substep_nb!=1)
         {
-            std::cout << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
-            std::cout << "Warning: It is probably due to very high ice speed, check your fields!\n";
+            LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+            LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
         }
 
         LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
@@ -4006,7 +3999,7 @@ FiniteElement::regrid(bool step)
                 timer["interpvertices"].first.restart();
                 LOG(DEBUG) <<"Interp vertices starts\n";
                 this->interpVertices();
-                std::cout <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
+                LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
 #if 0
@@ -4026,7 +4019,7 @@ FiniteElement::regrid(bool step)
             timer["adaptmesh"].first.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            std::cout <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
 #if 0
             if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
@@ -4042,11 +4035,11 @@ FiniteElement::regrid(bool step)
 
             // save mesh (only root process)
 
-            std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            std::cout<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
             // Environment::logMemoryUsage("before partitioning...");
             timer["savemesh"].first.restart();
@@ -4055,14 +4048,14 @@ FiniteElement::regrid(bool step)
                 M_mesh_root.writeToGModel();
             else if (M_partition_space == mesh::PartitionSpace::DISK)
                 M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             timer["meshpartition"].first.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
-            std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -4082,12 +4075,12 @@ FiniteElement::regrid(bool step)
     timer["interpFields"].first.restart();
     this->interpFields(prv_rmap_nodes, sizes_nodes);
     if (M_rank == 0)
-        std::cout <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
     if (M_rank == 0)
-        std::cout <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
 
     this->assignVariables();
 }//regrid
@@ -4130,7 +4123,7 @@ FiniteElement::adaptMesh()
 
     timer["bamgmesh"].first.restart();
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    std::cout <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
     this->importBamg(bamgmesh_root);
@@ -6587,7 +6580,8 @@ FiniteElement::initOASIS()
 
     int ierror = OASIS3::def_partition(&part_id, ig_paral, (int) sizeof(ig_paral));
     if (ierror != 0) {
-        std::cout << "oasis_def_partition abort by nextsim with error code " << ierror << std::endl;
+        throw std::runtime_error("oasis_def_partition abort by nextsim with error code "
+                + std::to_string(ierror) + "\n");
         // TODO: Get this to work
         //OASIS3::abort(Environment::compId(), "FiniteElement::initOASIS", "Problem calling OASIS3::def_partition");
     }
@@ -6742,9 +6736,9 @@ FiniteElement::step()
         if (M_rank == 0)
         {
             if( pcpt*time_step % ptime_step == 0)
-                std::cout <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+                LOG(INFO) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
-            std::cout <<"REGRID ANGLE= "<< minang <<"\n";
+            LOG(INFO) <<"REGRID ANGLE= "<< minang <<"\n";
         }
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
@@ -6788,19 +6782,19 @@ FiniteElement::step()
         timer["FETensors"].first.restart();
         this->FETensors();
         if (M_rank == 0)
-            std::cout <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+            LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
 
         timer["calcCohesion"].first.restart();
         this->calcCohesion();
         if (M_rank == 0)
-            std::cout <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+            LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
 
         if (vm["dynamics.use_coriolis"].as<bool>())
         {
             timer["calcCoriolis"].first.restart();
             this->calcCoriolis();
             if (M_rank == 0)
-                std::cout <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+                LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
         }
     }
 
@@ -6810,7 +6804,7 @@ FiniteElement::step()
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
 
     if (M_rank == 0)
-        std::cout <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
     //======================================================================
     //! 2) Performs the thermodynamics
@@ -6820,7 +6814,7 @@ FiniteElement::step()
         timer["thermo"].first.restart();
         this->thermo(thermo_timestep);
         if (M_rank == 0)
-            std::cout <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
     //======================================================================
@@ -6858,7 +6852,7 @@ FiniteElement::step()
         timer["assemble"].first.restart();
         this->assemble(pcpt);
         if (M_rank == 0)
-            std::cout <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
 #if 0
         if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
@@ -6881,17 +6875,17 @@ FiniteElement::step()
         timer["solve"].first.restart();
         this->solve();
         if (M_rank == 0)
-            std::cout <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
 
         timer["updatevelocity"].first.restart();
         this->updateVelocity();
         if (M_rank == 0)
-            std::cout <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
 
         timer["update"].first.restart();
         this->update();
         if (M_rank == 0)
-            std::cout <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
 
     if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
@@ -7065,16 +7059,14 @@ FiniteElement::run()
 
         if (M_rank == 0)
         {
-            std::cout <<"---------------------- TIME STEP "<< pcpt << " : "
-                      << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step);
+            LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
+                      << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step) << "\n";
 
             if( pcpt*time_step % ptime_step == 0)
             {
                 std::string time_spent_str = time_spent(current_time_system);
-                std::cout <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
+                LOG(INFO) <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
             }
-
-            std::cout <<"\n";
         }
 
         is_running = ((pcpt+1)*dtime_step) < duration;
@@ -8361,11 +8353,11 @@ FiniteElement::partitionMeshRestart()
 
     if (M_rank == 0)
     {
-        std::cout<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-        std::cout<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-        std::cout<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-        std::cout<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-        std::cout<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+        LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+        LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+        LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+        LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+        LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
         // Environment::logMemoryUsage("before partitioning...");
         timer["savemesh"].first.restart();
@@ -8375,14 +8367,14 @@ FiniteElement::partitionMeshRestart()
         else if (M_partition_space == mesh::PartitionSpace::DISK)
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
 
-        std::cout <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
         timer["meshpartition"].first.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
         M_mesh_root.partition(M_partitioned_mesh_filename,
                 M_partitioner, M_partition_space, M_mesh_fileformat);
-        std::cout <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
     }
 
     M_prv_local_ndof = M_local_ndof;
@@ -9386,15 +9378,15 @@ FiniteElement::constantIce()
         boost::mpi::broadcast(M_comm, xmax, 0);
         double xedge = xmin + 0.3*(xmax-xmin);
 
-        std::cout<<"In constantIce (partial cover)\n";
-        std::cout<<"M_ice_type "<< (int)M_ice_type<<"\n";
-        std::cout<<"Min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"Max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"Min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"Max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"xmin="<<xmin<<"\n";
-        std::cout<<"xmax="<<xmax<<"\n";
-        std::cout<<"xedge="<<xedge<<"\n";
+        LOG(DEBUG)<<"In constantIce (partial cover)\n";
+        LOG(DEBUG)<<"M_ice_type "<< (int)M_ice_type<<"\n";
+        LOG(DEBUG)<<"Min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
+        LOG(DEBUG)<<"Max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
+        LOG(DEBUG)<<"Min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
+        LOG(DEBUG)<<"Max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
+        LOG(DEBUG)<<"xmin="<<xmin<<"\n";
+        LOG(DEBUG)<<"xmax="<<xmax<<"\n";
+        LOG(DEBUG)<<"xedge="<<xedge<<"\n";
 
         auto Bx = M_mesh.bCoordX();//set conc, etc on elements
         for (int i=0; i<M_conc.size(); ++i)
@@ -9406,10 +9398,10 @@ FiniteElement::constantIce()
                 M_snow_thick[i] = 0.;
             }
         }
-        std::cout<<"New min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"New max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
-        std::cout<<"New min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
-        std::cout<<"New max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
+        LOG(DEBUG)<<"New min conc = "<< *std::min_element(M_conc.begin(),M_conc.end()) <<"\n";
+        LOG(DEBUG)<<"New max conc = "<< *std::max_element(M_conc.begin(),M_conc.end()) <<"\n";
+        LOG(DEBUG)<<"New min thick = "<< *std::min_element(M_thick.begin(),M_thick.end()) <<"\n";
+        LOG(DEBUG)<<"New max thick = "<< *std::max_element(M_thick.begin(),M_thick.end()) <<"\n";
         //std::abort();
     }//partial ice cover
 
@@ -9461,7 +9453,7 @@ FiniteElement::targetIce()
             +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
             +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
             */
-        std::cout<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
+        LOG(DEBUG)<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
 
         //M_conc[i]  = std::max(vm["ideal_simul.init_concentration"].as<double>()*tmp_var,cmin);
     //    M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
@@ -10903,7 +10895,7 @@ FiniteElement::smosIce()
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology
 
-    std::cout << "month_id: " << month_id <<"\n";
+    LOG(DEBUG) << "month_id: " << month_id <<"\n";
 
     external_data M_init_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
 
@@ -11320,8 +11312,8 @@ FiniteElement::initIabpDrifterFiles()
     //skip header
     std::string header;
     std::getline(M_iabp_infile_fstream, header);
-    std::cout<<"open IABP drifter file: "<<filename_in<<"\n";
-    std::cout<<"header: "<<header<<"\n";
+    LOG(DEBUG)<<"open IABP drifter file: "<<filename_in<<"\n";
+    LOG(DEBUG)<<"header: "<<header<<"\n";
 
     int pos;    // To be able to rewind one line
     double time = from_date_string("1979-01-01");
@@ -12390,7 +12382,7 @@ FiniteElement::writeLogFile()
                % logfilename ).str();
 
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
-    std::cout << "Writing log file " << fileout << "...\n";
+    LOG(INFO) << "Writing log file " << fileout << "...\n";
 
     int log_width = 55;
     if (logfile.is_open())
@@ -12506,7 +12498,7 @@ FiniteElement::writeLogFile()
                 }
                 catch (const boost::bad_any_cast &)
                 {
-                    std::cout << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                    LOG(WARNING) << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
                 }
             }
         }
@@ -12692,10 +12684,10 @@ FiniteElement::finalise(std::string current_time_system)
 
     if (M_rank==0)
     {
-        std::cout <<"nb regrid total = " << M_nb_regrid <<"\n";
+        LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
-        std::cout << "[INFO]: " << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        std::cout << "[INFO]: " << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
+        LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+        LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
     }
 
 #ifdef OASIS
