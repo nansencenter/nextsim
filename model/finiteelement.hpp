@@ -104,7 +104,8 @@ public:
     vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
-    void initForcings();
+    void initExternalData();
+    void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(element_type const& element, mesh_type const& mesh) const;
@@ -186,10 +187,7 @@ public:
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY, int const pcpt);
     void checkReloadMainDatasets(double const CRtime);
-    void checkReloadMainDatasets(double const CRtime, int const pcpt);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -320,10 +318,19 @@ private:
     void redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc = false);
 
     // IO
-    void collectVariablesIO(std::vector<double>& interp_elt_in_local, bool ghosts, bool thin_ice);
-    void collectVariablesIO(std::vector<double>& interp_elt_in_local, std::vector<std::vector<double>*> data_elements,
+    void collectVariablesIO(std::vector<double>& elt_values_local,
+            std::vector<std::vector<double>*> const& data_elements,
+            std::vector<ExternalData*> const& ext_data_elements,
             bool const& ghosts);
-    void gatherFieldsElementIO(std::vector<double>& interp_in_elements, std::vector<std::vector<double>*> const& data_elements);
+    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
+            std::vector<std::vector<double>*> const& data_elements,
+            std::vector<ExternalData*> const& ext_data_elements);
+    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
+            std::vector<std::vector<double>*> const& data_elements)
+    {
+        std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
+        this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
+    }
 
     void getRestartNamesPointers(
             std::vector<std::string> &names,
@@ -401,6 +408,7 @@ private:
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
 
+    setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;
@@ -461,6 +469,7 @@ private:
     std::vector<double> M_h_ridged_thick_ice;
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
+    std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
@@ -625,12 +634,12 @@ private:
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
     external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
-    external_data M_ice_conc; // sea_ice_area_fraction from the outer domain
-    external_data M_ice_thick; // sea_ice_thickness from the outer domain
-    external_data M_ice_snow_thick; // surface_snow_thickness from the outer domain
-    external_data M_ice_h_thin ; // thin_ice_thickness from the outer domain
-    external_data M_ice_conc_thin ; // thin_ice_area_fraction from the outer domain
-    external_data M_ice_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
+    external_data M_nesting_conc; // sea_ice_area_fraction from the outer domain
+    external_data M_nesting_thick; // sea_ice_thickness from the outer domain
+    external_data M_nesting_snow_thick; // surface_snow_thickness from the outer domain
+    external_data M_nesting_h_thin ; // thin_ice_thickness from the outer domain
+    external_data M_nesting_conc_thin ; // thin_ice_area_fraction from the outer domain
+    external_data M_nesting_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
     external_data M_nesting_damage; // damage from the outer domain
     external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
     external_data M_nesting_VT1; // X-velocity from the outer domain

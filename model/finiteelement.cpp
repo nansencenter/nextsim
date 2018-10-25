@@ -505,8 +505,6 @@ FiniteElement::initVariables()
     chrono_tot.restart();
 
     // Global variables are assigned the prefix M_
-    M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
-
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
@@ -659,6 +657,18 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
+    // TOPAZ needs special handling
+    if (   M_ocean_type == setup::OceanType::TOPAZR
+        || M_ocean_type == setup::OceanType::TOPAZR_atrest
+        || M_ocean_type == setup::OceanType::TOPAZF
+        || M_ocean_type == setup::OceanType::TOPAZR_ALTIMETER )
+    {
+        M_ocean_nodes_dataset.loaded=false;
+        M_ocean_elements_dataset.loaded=false;
+        M_ocean_nodes_dataset.grid.loaded=false;
+        M_ocean_elements_dataset.grid.loaded=false;
+    }
+
 #if 1
 /* This shouldn't be needed - and it messes up the coupling
  * But let's keep it commented for now, just in case.
@@ -774,12 +784,53 @@ FiniteElement::initModelState()
 
     
 //------------------------------------------------------------------------------------------------------
-//! Initializes the datasets for forcing. Replaced the initDatasets() function of the serial code.
+//! Initializes the external data used by the model
+//! * Datasets objects
+//! * ExternalData objects
 //! Called by the init() function.
 void
-FiniteElement::initForcings()
+FiniteElement::initExternalData()
 {
-    //! - 1) Initializes the dataset definitions,
+    //! - 1) Init the datasets
+    this->initDatasets();
+
+    //! - 2) populates the forcing variables.
+    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
+    this->forcingAtmosphere();
+
+    LOG(DEBUG) <<"Initialize forcingOcean\n";
+    this->forcingOcean();
+
+    //! - 3) Initializes the bathymetry using the initBathymetry() function,
+    LOG(DEBUG) <<"Initialize bathymetry\n";
+    this->initBathymetry();
+
+    //! - 4) Check the external data objects
+    //       TODO add the nodes
+    if(M_external_data_elements.size() != M_external_data_elements_names.size())
+        throw std::runtime_error(
+                "M_external_data_elements and M_external_data_elements_names should be the same size");
+    for(int i=0; i<M_external_data_elements.size(); i++)
+    {
+        // check all the forcings on the elements are initialised
+        std::string const msg = "ExternalData object "
+            + M_external_data_elements_names[i] + " is not initialized";
+        if(!M_external_data_elements[i]->isInitialized())
+            throw std::logic_error(msg);
+    }
+
+}//initExternalData
+
+
+//------------------------------------------------------------------------------------------------------
+//! Initializes the Datasets used by the model
+//! * Datasets objects
+//! * ExternalData objects
+//! Called by the initExternalData() function.
+void
+FiniteElement::initDatasets()
+{
+    //! - 1) Initializes the atmospheric forcing dataset
     switch(M_atmosphere_type){
         case setup::AtmosphereType::CONSTANT:
             break;
@@ -824,6 +875,7 @@ FiniteElement::initForcings()
             std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
 
+    //! - 2) Initializes the oceanic forcing dataset
     switch (M_ocean_type)
     {
         case setup::OceanType::CONSTANT:
@@ -853,6 +905,8 @@ FiniteElement::initForcings()
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
+
+    //! - 3) Initializes the nesting datasets if needed
     if (M_use_nesting)
     {
         M_nesting_nodes_dataset=DataSet("nesting_nodes");
@@ -863,26 +917,20 @@ FiniteElement::initForcings()
         M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
 
+    //! - 4) Initializes the ice-init datasets
+    //       TODO these probably don't need to be global variables
+    //            - in fact they are probably taking up a significant
+    //              amount of memory
     M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
-
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
-
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
-
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
-
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
-
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
-
     M_ice_amsr2_elements_dataset=DataSet("ice_amsr2_elements");
-
     M_ice_nic_elements_dataset=DataSet("ice_nic_elements");
-
     M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements");
-
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements");
-
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements");
 
     // datasets that need to be re-interpolated after regridding
@@ -893,14 +941,7 @@ FiniteElement::initForcings()
     M_datasets_regrid.push_back(&M_atmosphere_bis_elements_dataset);
     M_datasets_regrid.push_back(&M_ocean_nodes_dataset);
     M_datasets_regrid.push_back(&M_ocean_elements_dataset);
-
-    //! - 2) populates the forcing variables.
-    LOG(DEBUG) <<"Initialize forcingAtmosphere\n";
-    this->forcingAtmosphere();
-
-    LOG(DEBUG) <<"Initialize forcingOcean\n";
-    this->forcingOcean();
-}//initForcings
+}//initDatasets
 
 #ifdef OASIS
 void
@@ -964,17 +1005,6 @@ void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
 {
-#ifdef OASIS
-    this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -cpl_time_step/time_step);
-#else
-    this->checkReloadDatasets(ext_data_vec, CRtime, RX, RY, -1);
-#endif
-}
-
-void
-FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY, const int pcpt)
-{
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -1007,30 +1037,20 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 void
 FiniteElement::checkReloadMainDatasets(double const CRtime)
 {
-#ifdef OASIS
-    this->checkReloadMainDatasets(CRtime, -cpl_time_step/time_step);
-#else
-    this->checkReloadMainDatasets(CRtime, -1.);
-#endif
-}
-
-void
-FiniteElement::checkReloadMainDatasets(double const CRtime, int const pcpt)
-{
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     if(M_rank==0)
         LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, pcpt);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
     if(M_rank==0)
         LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, pcpt);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
     
@@ -1137,7 +1157,7 @@ FiniteElement::initOptAndParam()
     {
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
-    // Temporarly disabling super-stepping of the thermodynamcis. The model hangs randomly when it's enabled
+    // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
     thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
@@ -1222,7 +1242,20 @@ FiniteElement::initOptAndParam()
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
-    
+
+    //! Sets options on the freezing point scheme
+    const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
+        ("linear", setup::FreezingPointType::LINEAR)
+        ("non-linear", setup::FreezingPointType::NON_LINEAR);
+    M_freezingpoint_type = str2fpt.find(vm["thermo.freezingpoint-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+#ifdef OASIS
+    // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
+#endif
+    LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
+
+
     //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -1753,7 +1786,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
             }
             else
             {
-                break;
+                continue;
             }
         }
 
@@ -2123,28 +2156,39 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 //------------------------------------------------------------------------------------------------------
 //! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.
 //! Called by the gatherFieldsElementIO() function.
-//  TODO make it a template function so data_elements can also be
-//       std::vector<ExternalData*> for exporting forcing as well
 void
 FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
-        std::vector<std::vector<double>*> data_elements, bool const& ghosts)
+        std::vector<std::vector<double>*> const& data_elements,
+        std::vector<ExternalData*> const& ext_data_elements,
+        bool const& ghosts)
 {
+
+    int const nb_data = data_elements.size();
+    int const nb_ext_data = ext_data_elements.size();
+    int const nb_var_element = nb_data + nb_ext_data;
+
     int num_elements = M_local_nelements;
     if (ghosts)
         num_elements = M_num_elements;
-
-    int const nb_var_element = data_elements.size();
     elt_values_local.resize(nb_var_element*num_elements);
 
     for (int i=0; i<num_elements; ++i)
-        for(int j=0; j<nb_var_element; j++)
+    {
+        int k = 0;
+        for(int j=0; j<nb_data; j++, k++)
         {
             auto ptr = data_elements[j];
-            elt_values_local[nb_var_element*i+j] = (*ptr)[i];
+            elt_values_local[nb_var_element*i+k] = (*ptr)[i];
         }
+        for(int j=0; j<nb_ext_data; j++, k++)
+        {
+            auto ptr = ext_data_elements[j];
+            elt_values_local[nb_var_element*i+k] = (*ptr)[i];
+        }
+    }
 }//collectVariablesIO
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates variables (other than velocities and displacements) onto the mesh grid once updated.
 //! Called by the updated() function, after the advect() function.
@@ -3056,24 +3100,23 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers information about the fields for outputting.
-//! Called by the writeRestart() function.
-//  TODO make it a template function so data_elements can also be
-//       std::vector<ExternalData*> for exporting forcing as well
+//! Called by the writeRestart() and exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
-        std::vector<std::vector<double>*> const& data_elements)
+        std::vector<std::vector<double>*> const& data_elements,
+        std::vector<ExternalData*> const& ext_data_elements)
 {
 
     timer["gather"].first.restart();
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
 
-    int const nb_var_element = data_elements.size();
+    int const nb_var_element = data_elements.size() + ext_data_elements.size();
     std::vector<double> elt_values_local;
     bool const ghosts = false;
-    this->collectVariablesIO(elt_values_local, data_elements, ghosts);
+    this->collectVariablesIO(elt_values_local, data_elements,
+            ext_data_elements, ghosts);
 
     std::vector<int> sizes_elements = M_sizes_elements;
-    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
 
     if (M_rank == 0)
@@ -4470,7 +4513,7 @@ FiniteElement::assemble(int pcpt)
             coef_Vair  *= coef_drag*physical::rhoa;
             coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
-            /* Skip gohst nodes */
+            /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
             {
                 l_j = l_j + 1;
@@ -5145,23 +5188,23 @@ FiniteElement::nestingIce()
                 fNudge = std::exp(-M_nesting_dist_elements[i]/nudge_scale);
 
             if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
-                M_conc_thin[i]  += (fNudge*(dtime_step/nudge_time)*(M_ice_conc_thin[i]-M_conc_thin[i]));
-                M_h_thin[i]     += (fNudge*(dtime_step/nudge_time)*(M_ice_h_thin[i]-M_h_thin[i]));
-                M_hs_thin[i]    += (fNudge*(dtime_step/nudge_time)*(M_ice_hs_thin[i]-M_hs_thin[i]));
-                M_conc[i]       += (fNudge*(dtime_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(dtime_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
-                M_snow_thick[i] +=(fNudge*(dtime_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
+                M_conc_thin[i]  += (fNudge*(time_step/nudge_time)*(M_nesting_conc_thin[i]-M_conc_thin[i]));
+                M_h_thin[i]     += (fNudge*(time_step/nudge_time)*(M_nesting_h_thin[i]-M_h_thin[i]));
+                M_hs_thin[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_hs_thin[i]-M_hs_thin[i]));
+                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
+                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
+                M_snow_thick[i] +=(fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
             }
             else {
-                M_conc[i]       += (fNudge*(dtime_step/nudge_time)*(M_ice_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(dtime_step/nudge_time)*(M_ice_thick[i]-M_thick[i]));
-                M_snow_thick[i] += (fNudge*(dtime_step/nudge_time)*(M_ice_snow_thick[i]-M_snow_thick[i]));
+                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
+                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
+                M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
             }
         }
     }
 }//nestingIce
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Nests the dynamical variable (velocity, damage, stress) from outer domain.
 //! Called by the step() function.
@@ -5211,7 +5254,7 @@ FiniteElement::nestingDynamics()
     }
 }//nestingDynamics
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Performs thermodynamics calculation based on the 1D thermodynamical model.
     
@@ -5879,14 +5922,21 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
     }
 }//iceOceanHeatflux
 
-//! Freezing point of sea water à la NEMO
+//! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(double sss)
 {
-    double zs  = std::sqrt(sss/35.16504);         // square root salinity
-    double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
-                - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-    return ptf*sss;
+    switch ( M_freezingpoint_type )
+    {
+        case setup::FreezingPointType::LINEAR:
+            return -physical::mu*sss;
+
+        case setup::FreezingPointType::NON_LINEAR:
+            double zs  = std::sqrt(sss/35.16504);         // square root salinity
+            double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
+                        - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
+            return ptf*sss;
+    }
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
@@ -6339,8 +6389,9 @@ FiniteElement::init()
     M_comm.barrier();
 
     pcpt = 0;
-    mesh_adapt_step=0;
-    had_remeshed=false;
+    M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
+    mesh_adapt_step = 0;//TODO not used
+    had_remeshed=false;//TODO not used
 
     this->initOptAndParam();
     M_current_time = time_init;
@@ -6402,19 +6453,23 @@ FiniteElement::init()
     }
 
 
-    //! - 4) Initializes atmospheric and oceanic forcings using the initForcings() function,
-    this->initForcings();
+    //! - 4) Initializes external data:
+    //!      * atmospheric and oceanic forcings
+    //!      * bathymetry
+    //!      * nesting (if needed)
+    this->initExternalData();
 
 #ifdef OASIS
     LOG(DEBUG) <<"Initialize OASIS coupler\n";
     this->initOASIS();
 #endif
 
-    //! - 5) Initializes the bathymetry using the initBathymetry() function,
-    LOG(DEBUG) <<"Initialize bathymetry\n";
-    this->initBathymetry();
+    //! - 5) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
+#ifdef OASIS
+    // OASIS needs the external data to be read in for the previous coupling time step
+    pcpt -= cpl_time_step/time_step;
+#endif
 
-    //! - 6) Loads the data from the datasets initialized in 1) using the checkReloadDatasets(),
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
@@ -6422,6 +6477,12 @@ FiniteElement::init()
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
+#ifdef OASIS
+    pcpt += cpl_time_step/time_step;
+#endif
+
+    //! - 6) If not using a restart, initializes the model from the datasets
+    //       or can do assimilation (optional) if using a restart
     if ( !M_use_restart )
     {
         timer["state"].first.restart();
@@ -6429,20 +6490,17 @@ FiniteElement::init()
         if (M_rank == 0)
             LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
     }
-
-    if ( M_use_restart && M_use_assimilation )
+    else if ( M_use_assimilation )
     {
         timer["assimilation"].first.restart();
         this->DataAssimilation();
         LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
     }
 
-
     //! - 7) Initializes the moorings - if requested - using the initMoorings() function,
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
-
 
     //! - 8) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
@@ -6495,10 +6553,9 @@ FiniteElement::initOASIS()
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
         vectorial_variables.push_back(tau);
 
-        // Define a grid - we need to wrap the "strings" in std::string() so that the constructor gives the expected results
+        // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
-                std::string("plat"), std::string("plon"), std::string("ptheta"),
-                GridOutput::interpMethod::conservative, true);
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
     } else {
         throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
@@ -6744,12 +6801,8 @@ FiniteElement::step()
     if(M_rank==0)
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0)
-#ifdef OASIS
-                              , pcpt);
-#else
-                              );
-#endif
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
+
     if (M_rank == 0)
         LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
@@ -7336,7 +7389,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
                 }
                 break;
-            default: std::logic_error("Updating of given variableID not implimented (nodes)");
+            default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
     }
 }//updateMeans
@@ -7386,7 +7439,7 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
-            // Primarely coupling variables, but perhaps useful for debugging
+            // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("emp", GridOutput::variableID::emp)
             ("QNoSw", GridOutput::variableID::QNoSw)
@@ -7464,7 +7517,7 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
         
-        // Primarely coupling variables, but perhaps useful for debugging
+        // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
@@ -8064,8 +8117,6 @@ FiniteElement::readRestart(std::string const& name_str)
     this->partitionMeshRestart();
 
     //set time and counters
-    mesh_adapt_step = 0;
-    M_nb_regrid = 0;
     if(M_rank==0)
     {
         // Set and check time
@@ -8726,19 +8777,15 @@ FiniteElement::forcingAtmosphere()
         throw std::logic_error("M_wind is not initialised");
 
     int i = M_external_data_elements.size();
+    M_external_data_elements_names.push_back("M_tair");
     M_external_data_elements.push_back(&M_tair);
+    M_external_data_elements_names.push_back("M_mslp");
     M_external_data_elements.push_back(&M_mslp);
+    M_external_data_elements_names.push_back("M_precip");
     M_external_data_elements.push_back(&M_precip);
-    std::vector<std::string> names = {"M_tair", "M_mslp", "M_precip"};//for debugging
-    for ( auto name: names )
-    {
-        std::string const msg = name + "is not initialized";
-        if(!M_external_data_elements[i]->isInitialized())
-            throw std::logic_error(msg);
-        i++;
-    }
 
     // specific error for M_Qsw_in
+    M_external_data_elements_names.push_back("M_Qsw_in");
     M_external_data_elements.push_back(&M_Qsw_in);
     if(!M_Qsw_in.isInitialized())
         throw std::logic_error(
@@ -8746,27 +8793,48 @@ FiniteElement::forcingAtmosphere()
 
     // either need the long wave input, or cloud cover to parameterise it
     if(M_Qlw_in.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_Qlw_in");
         M_external_data_elements.push_back(&M_Qlw_in);
+    }
     else if(M_tcc.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_tcc");
         M_external_data_elements.push_back(&M_tcc);
+    }
     else
         throw std::runtime_error("forcingAtmosphere: One of M_Qlw_in or M_tcc should be initialised");
 
     // - snowfall can come from M_snowfall, M_snowfr*M_precip, or just M_precip (if M_tair<0)
     if(M_snowfall.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_snowfall");
         M_external_data_elements.push_back(&M_snowfall);
+    }
     else if (M_snowfr.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_snowfr");
         M_external_data_elements.push_back(&M_snowfr);
+    }
 
     if(M_sphuma.isInitialized())
+    {
         // have specific humidity from the forcing
+        M_external_data_elements_names.push_back("M_sphuma");
         M_external_data_elements.push_back(&M_sphuma);
+    }
     else if(M_mixrat.isInitialized())
+    {
         // have mixing ratio (simple relationship to specific humidity) from the forcing
+        M_external_data_elements_names.push_back("M_mixrat");
         M_external_data_elements.push_back(&M_mixrat);
+    }
     else if(M_dair.isInitialized())
+    {
         // need to estimate the specific humidity from the dew point
+        M_external_data_elements_names.push_back("M_dair");
         M_external_data_elements.push_back(&M_dair);
+    }
     else
         throw std::runtime_error("forcingAtmosphere: One of M_sphuma, M_mixrat or M_dair should be initialised");
 
@@ -8779,41 +8847,67 @@ FiniteElement::forcingAtmosphere()
 void
 FiniteElement::forcingNesting()//(double const& u, double const& v)
 {
-    M_ice_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 0,false,time_init);
-    M_external_data_elements.push_back(&M_ice_thick);
-    M_ice_conc=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 1,false,time_init);
-    M_external_data_elements.push_back(&M_ice_conc);
-    M_ice_snow_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 2,false,time_init);
-    M_external_data_elements.push_back(&M_ice_snow_thick);
-    if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
-        M_ice_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
-        M_external_data_elements.push_back(&M_ice_h_thin);
-        M_ice_conc_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
-        M_external_data_elements.push_back(&M_ice_conc_thin);
-        M_ice_hs_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
-        M_external_data_elements.push_back(&M_ice_hs_thin);
-    }
     M_nesting_dist_elements=ExternalData(&M_nesting_distance_elements_dataset, M_mesh, 0,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_dist_elements");
     M_external_data_elements.push_back(&M_nesting_dist_elements);
+
+    M_nesting_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 0,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_thick");
+    M_external_data_elements.push_back(&M_nesting_thick);
+
+    M_nesting_conc=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 1,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_conc");
+    M_external_data_elements.push_back(&M_nesting_conc);
+
+    M_nesting_snow_thick=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 2,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_snow_thick");
+    M_external_data_elements.push_back(&M_nesting_snow_thick);
+
+    if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 )
+    {
+        M_nesting_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_h_thin");
+        M_external_data_elements.push_back(&M_nesting_h_thin);
+
+        M_nesting_conc_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_conc_thin");
+        M_external_data_elements.push_back(&M_nesting_conc_thin);
+
+        M_nesting_hs_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_hs_thin");
+        M_external_data_elements.push_back(&M_nesting_hs_thin);
+    }
+
+    M_nesting_sigma1=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 0,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_sigma1");
+    M_external_data_elements.push_back(&M_nesting_sigma1);
+
+    M_nesting_sigma2=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 1,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_sigma2");
+    M_external_data_elements.push_back(&M_nesting_sigma2);
+
+    M_nesting_sigma3=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 2,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_sigma3");
+    M_external_data_elements.push_back(&M_nesting_sigma3);
+
+    M_nesting_damage=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 3,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_damage");
+    M_external_data_elements.push_back(&M_nesting_damage);
+
+    M_nesting_ridge_ratio=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 4,false,time_init);
+    M_external_data_elements_names.push_back("M_nesting_ridge_ratio");
+    M_external_data_elements.push_back(&M_nesting_ridge_ratio);
+
     M_nesting_dist_nodes=ExternalData(&M_nesting_distance_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_dist_nodes);
     M_nesting_VT1=ExternalData(&M_nesting_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT1);
     M_nesting_VT2=ExternalData(&M_nesting_nodes_dataset, M_mesh, 1,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT2);
-    M_nesting_sigma1=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 0,false,time_init);
-    M_external_data_elements.push_back(&M_nesting_sigma1);
-    M_nesting_sigma2=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 1,false,time_init);
-    M_external_data_elements.push_back(&M_nesting_sigma2);
-    M_nesting_sigma3=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 2,false,time_init);
-    M_external_data_elements.push_back(&M_nesting_sigma3);
-    M_nesting_damage=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 3,false,time_init);
-    M_external_data_elements.push_back(&M_nesting_damage);
-    M_nesting_ridge_ratio=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 4,false,time_init);
-    M_external_data_elements.push_back(&M_nesting_ridge_ratio);
+
 }//forcingNesting
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the ocean according to the chosen ocean state and data (CONSTANT, TOPAZR, ...)
 //! Called by the initForcings() function.
@@ -8821,14 +8915,14 @@ void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
 
+    bool use_ocean_nesting = false;
     if(M_use_nesting)
     {
         if(M_use_ocean_nesting)
         {
+            use_ocean_nesting = true;
             M_ocean_temp=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 0,false,time_init);
-            M_external_data_elements.push_back(&M_ocean_temp);
             M_ocean_salt=ExternalData(&M_nesting_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_external_data_elements.push_back(&M_ocean_salt);
         }
     }
 
@@ -8843,7 +8937,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ssh=ExternalData(vm["ideal_simul.constant_ssh"].as<double>(),
                 time_init, vm["simul.spinup_duration"].as<double>());
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
                 M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
@@ -8861,7 +8955,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
@@ -8894,7 +8988,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
             time_init, vm["simul.spinup_duration"].as<double>());
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
@@ -8913,7 +9007,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
                 time_init, vm["simul.spinup_duration"].as<double>());
 
-            if ( (!M_use_nesting) || ( (M_use_nesting) && (!M_use_ocean_nesting) ) )
+            if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
                 M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
@@ -8931,13 +9025,22 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
     // for looping
+    // - nodes
     M_external_data_nodes.push_back(&M_ocean);
     M_external_data_nodes.push_back(&M_ssh);
+
+    // - elements
+    M_external_data_elements_names.push_back("M_ocean_temp");
     M_external_data_elements.push_back(&M_ocean_temp);
+    M_external_data_elements_names.push_back("M_ocean_salt");
     M_external_data_elements.push_back(&M_ocean_salt);
+    M_external_data_elements_names.push_back("M_mld");
     M_external_data_elements.push_back(&M_mld);
     if ( M_qsrml.isInitialized() )
+    {
         M_external_data_elements.push_back(&M_qsrml);
+        M_external_data_elements_names.push_back("M_qsrml");
+    }
 }//forcingOcean
 
 
@@ -11725,6 +11828,8 @@ FiniteElement::initBathymetry()//(double const& u, double const& v)
             std::cout << "invalid bathymetry"<<"\n";
             throw std::logic_error("invalid bathymetry");
     }
+
+    M_external_data_elements_names.push_back("M_element_depth");
     M_datasets_regrid.push_back(&M_bathymetry_elements_dataset);//this needs to be reloaded if we are regridding
 }//initBathymetry
 
@@ -12095,9 +12200,16 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // NB needs to be done on all processors
     std::vector<std::string> names_elements;
     std::vector<std::vector<double>*> data_elements;
+    std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
     this->getExportNamesPointers(names_elements, data_elements);
-    this->gatherFieldsElementIO(elt_values_root, data_elements);
+    if(vm["output.save_forcing_fields"].as<bool>())
+    {
+        ext_data_elements = M_external_data_elements;
+        for(auto name : M_external_data_elements_names)
+            names_elements.push_back(name);
+    }
+    this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
 
 
     M_comm.barrier();

@@ -770,7 +770,9 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
 
     // Create the projection variable
-    this->createProjectionVariable(dataFile);
+    // FIXME: This only works for the regular grid for now
+    if ( !M_grid.loaded )
+        this->createProjectionVariable(dataFile);
 
     // Create the time dimension
     netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
@@ -954,7 +956,7 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     M_nc_step++;
 }
 
-// Diagnostic output on stdout - for debuging
+// Diagnostic output on stdout - for debugging
 void
 GridOutput::info()
 {

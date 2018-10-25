@@ -320,6 +320,7 @@ namespace Nextsim
         
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
+            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or non-linear")
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
