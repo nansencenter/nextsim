@@ -5711,15 +5711,13 @@ FiniteElement::thermo(double dt)
 
         // local variables
         double del_vi;      // Change in ice volume
-        double del_vs;      // Change in snow volume
+        double del_vs_mlt;  // Change in snow volume due to melt
         double rain;        // Liquid precipitation
         double emp;         // Evaporation minus liquid precipitation
-        double Qio_mean;    // Element mean ice-ocean heat flux
-        double Qow_mean;    // Element mean open water heat flux
 
         //! * Calculates changes in ice and snow volumes to calculate salt rejection
         del_vi = M_thick[i] - old_vol + M_h_thin[i] - old_h_thin;
-        del_vs = M_snow_thick[i] - old_snow_vol + M_hs_thin[i] - old_hs_thin;
+        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + M_hs_thin[i] - old_hs_thin);
 
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
@@ -5731,7 +5729,7 @@ FiniteElement::thermo(double dt)
         M_sst[i] = M_sst[i] - dt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
-        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs*physical::rhos + (emp-Fdw)*dt) );
+        double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*dt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
         double sss_old = M_sss[i];
