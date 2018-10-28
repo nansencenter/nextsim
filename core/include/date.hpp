@@ -16,23 +16,22 @@
 namespace gregorian = boost::gregorian;
 namespace date_time = boost::date_time;
 namespace posix_time = boost::posix_time;
-
+ 
 namespace Nextsim
 {
-inline double dateStr2Num(std::string const& datestr)
+
+inline std::string replaceSubstring(std::string input, std::string const& str_from,  std::string const& str_to)
 {
-	gregorian::date epoch = date_time::parse_date<gregorian::date>( "1900-01-01", date_time::ymd_order_iso);
-	gregorian::date date = date_time::parse_date<gregorian::date>( datestr, date_time::ymd_order_iso);
-
-	if (date.year() < 1900 )
-	{
-		std::cout << "bad year: year should be greater or equal 1900"<<"\n";
-		throw std::logic_error("bad year: year should be greater or equal 1900");
-	}
-
-	gregorian::date_duration diff = date - epoch;
-	return diff.days();
+    if(str_from.empty())
+        return input;
+    size_t start_pos = 0;
+    while((start_pos = input.find(str_from, start_pos)) != std::string::npos)
+    {
+        input.replace(start_pos, str_from.length(), str_to);
+        start_pos += str_to.length(); // In case 'str_to' contains 'str_from', like replacing 'x' with 'yx'
+    }
 }
+
 
 inline boost::gregorian::date parse_date( double date_time )
 {
