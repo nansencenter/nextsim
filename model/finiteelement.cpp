@@ -40,10 +40,6 @@ void
 FiniteElement::initMesh()
 {
     this->initBamg();
-
-    // M_comm = M_mesh.comm();
-    M_rank = M_comm.rank();
-
     this->rootMeshProcessing();
 
     if (!M_use_restart)
@@ -1142,7 +1138,7 @@ FiniteElement::initOptAndParam()
     if (vm["simul.time_init"].as<std::string>() == "")
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
-        time_init = Nextsim::from_date_time_string(vm["simul.time_init"].as<std::string>()); //! \param time_init (string) Time at which the simulation is started
+        time_init = Nextsim::stringToDatenum(vm["simul.time_init"].as<std::string>()); //! \param time_init (string) Time at which the simulation is started
 
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step);
@@ -6387,6 +6383,7 @@ FiniteElement::init()
     //! - 1) Initializes everything that doesn't depend on the mesh (constants, dataset descriptions and time) using the initOptAndParam() function,
 
     M_comm.barrier();
+    M_rank = M_comm.rank();
 
     pcpt = 0;
     M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
@@ -6395,6 +6392,78 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
+    if(M_rank==0)
+    {
+        std::cout<<"test date functions\n";
+        std::string s1, s2;
+        boost::posix_time::ptime p_time;
+        double num;
+        s1 = "1991-08-20 08:05:00";
+        //s1 = "1991-08-20";
+        p_time = boost::posix_time::time_from_string(s1);
+
+        std::cout<<"test posixTimeToString\n";
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<s1<<" ?= "<<s2<<"\n";
+        s2 = Nextsim::posixTimeToString(p_time, "%Y%m%dT%H%M%SZ");
+        std::cout<<s1<<" ~ "<<s2<<"\n";
+
+        std::cout<<"test stringToPosixTime\n";
+        p_time = Nextsim::stringToPosixTime(s1);
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<s1<<" ?= "<<s2<<"\n";
+
+        s1 = "1991-8-20 8:05:00";
+        p_time = Nextsim::stringToPosixTime(s1);
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<s1<<" ~ "<<s2<<"\n";
+
+        s1 = "1991-08-20";
+        p_time = Nextsim::stringToPosixTime(s1);
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<s1<<" ?= "<<s2<<"\n";
+
+        std::cout<<"test posixTimeToDatenum\n";
+        p_time = boost::posix_time::time_from_string("1900-01-02 18:00:00");
+        num = Nextsim::posixTimeToDatenum(p_time);
+        std::cout<<1.75<<" ?= "<<num<<"\n";
+
+        std::cout<<"test stringToDatenum\n";
+        s1 = vm["simul.time_init"].as<std::string>();
+        num = Nextsim::stringToDatenum(s1);
+        std::cout<<M_current_time<<" = "<<num<<"\n";
+        s2 = Nextsim::datenumToString(num);
+        std::cout<<s1<<" ~ "<<s2<<"\n";
+
+        std::cout<<"test datenumToString\n";
+        s2 = Nextsim::datenumToString(1.75);
+        std::cout << "1900-01-02 18:00:00 = " << s2 <<"\n" ;
+        s2 = Nextsim::datenumToString(1.75, "%Y%m%dT%H%M%SZ");
+        std::cout << "19000102T180000Z = " << s2 <<"\n" ;
+
+        std::cout<<"test datenumToFilenameString\n";
+        s2 = Nextsim::datenumToFilenameString(1.75);
+        std::cout << "19000102T180000Z = " << s2 <<"\n" ;
+
+        std::cout<<"test getPosixTime\n";
+        p_time = Nextsim::getPosixTime(1932, 4, 8, 11, 31, 13);
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
+        p_time = Nextsim::getPosixTime(1932, 4, 8);
+        s2 = Nextsim::posixTimeToString(p_time);
+        std::cout<<"1932-04-08 00:00:00"<<" ?= "<<s2<<"\n";
+
+        std::cout<<"test getDatenum\n";
+        num = Nextsim::getDatenum(1900, 1, 2, 18);
+        std::cout<<1.75<<" ?= "<<num<<"\n";
+        s2 = Nextsim::datenumToString(num);
+        std::cout<<"1900-01-02 18:00:00"<<" ?= "<<s2<<"\n";
+        num = Nextsim::getDatenum(1932, 4, 8, 11, 31, 13);
+        s2 = Nextsim::datenumToString(num);
+        std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
+
+        std::abort();
+    }
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -7060,7 +7129,7 @@ FiniteElement::run()
         if (M_rank == 0)
         {
             LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
-                      << model_time_str(vm["simul.time_init"].as<std::string>(), pcpt*time_step) << "\n";
+                      << Nextsim::datenumToString(M_current_time) << "\n";
 
             if( pcpt*time_step % ptime_step == 0)
             {
@@ -7748,7 +7817,7 @@ FiniteElement::writeRestart()
     //Determines the name to be passed to writeRestart
     std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
-        name_str = to_date_time_string_for_filename(M_current_time);
+        name_str = datenumToFilenameString(M_current_time);
     else if(vm["restart.debugging"].as<bool>())
         name_str = (boost::format( "%1%" ) % pcpt).str();
     else
@@ -8127,8 +8196,8 @@ FiniteElement::readRestart(std::string const& name_str)
             if ( time_vec[0] != tmp )
             {
                 std::cout << "FiniteElement::readRestart: Time and Misc_int[0] (a.k.a pcpt) are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
-                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << to_date_time_string(tmp)<<"\n";
+                std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
+                std::cout << "time_init + pcpt*time_step/(24*3600.0) = " << tmp << " = " << datenumToString(tmp)<<"\n";
                 throw std::runtime_error("Inconsistent time information in restart file");
             }
 
@@ -8141,8 +8210,8 @@ FiniteElement::readRestart(std::string const& name_str)
             if ( time_vec[0] != time_init )
             {
                 std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << to_date_time_string(time_vec[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << to_date_time_string(time_init) <<"\n";
+                std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
+                std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
                 throw std::runtime_error("Inconsistent time information in restart file");
             }
 	    }
@@ -11168,7 +11237,7 @@ FiniteElement::initDrifterOpts()
     if (M_use_rgps_drifters)
     {
         std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
-        M_rgps_time_init = Nextsim::from_date_time_string(time_str);
+        M_rgps_time_init = Nextsim::stringToDatenum(time_str);
         M_rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
 
@@ -11291,7 +11360,7 @@ FiniteElement::initIabpDrifterFiles()
     // We should tag the file name with the init time in case of a re-start.
     std::stringstream filename_out;
     filename_out << M_export_path << "/IABP_drifters_simulated_"
-        << to_date_time_string_for_filename(M_current_time) << ".txt";
+        << datenumToFilenameString(M_current_time) << ".txt";
     M_iabp_outfile = filename_out.str();
     std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
     if ( ! iabp_out.good() )
@@ -11316,7 +11385,7 @@ FiniteElement::initIabpDrifterFiles()
     LOG(DEBUG)<<"header: "<<header<<"\n";
 
     int pos;    // To be able to rewind one line
-    double time = from_date_string("1979-01-01");
+    double time = getDatenum(1979, 1, 1);
     while ( time < M_drifters_time_init )
     {
         // Remember where we were
@@ -11326,9 +11395,7 @@ FiniteElement::initIabpDrifterFiles()
         int year, month, day, hour, number;
         double lat, lon;
         M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-
-        time = from_date_string(date) + hour/24.;
+        time = getDatenum(year, month, day, hour);
     }
 
     // We must rewind one line so that updateIabpDrifters works correctly
@@ -11427,8 +11494,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
             int year, month, day, hour, number;
             double lat, lon;
             M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-            std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-            time = from_date_string(date) + hour/24.;
+            time = getDatenum(year, month, day, hour);
 
             // Remember which buoys are in the ice according to IABP
             keepers.push_back(number);
@@ -11440,7 +11506,7 @@ FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
                 forward_mapx(map,lat,lon,&x,&y);
                 M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
                 LOG(DEBUG)<<"new IABP buoy: time, index, lon, lat, x, y: "
-                    <<to_date_time_string(time)<<", "<<number<<", "
+                    <<datenumToString(time)<<", "<<number<<", "
                     <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
             }
         }
@@ -11745,7 +11811,7 @@ FiniteElement::checkDrifters()
             // (eg in writeRestart)
             // - needs checking though
             LOG(DEBUG)<<"Reset M_UT_root: "
-                <<to_date_time_string(M_current_time)<<"\n";
+                <<datenumToString(M_current_time)<<"\n";
             std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
             auto movedmesh_root = M_mesh_root;
@@ -12134,7 +12200,7 @@ FiniteElement::exportResults(bool const& export_mesh,
 
     std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
-        name_str = to_date_time_string_for_filename(M_current_time);
+        name_str = datenumToFilenameString(M_current_time);
     else
     {
         int const output_step_num = pcpt*time_step/output_time_step;
@@ -12586,7 +12652,7 @@ FiniteElement::checkFields()
         {
             std::cout<<"In checkFields\n";
             std::cout<<"pcpt =  "<<pcpt<<"\n";
-            std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+            std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
             std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
             std::cout<<"M_rank = "<<M_rank<<"\n";
             std::cout<<"element number = "<<i<<"\n";
@@ -12615,7 +12681,7 @@ FiniteElement::checkFields()
                 std::cout<<"NaN in "<<name<<"\n";
                 std::cout<<"pcpt =  "<<pcpt<<"\n";
                 std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
-                std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+                std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
                 std::cout<<"M_rank = "<<M_rank<<"\n";
                 std::cout<<"element number = "<<i<<"\n";
                 throw std::runtime_error("found NaN");
@@ -12625,7 +12691,7 @@ FiniteElement::checkFields()
                 std::cout<<"M_thick too big(" <<val <<")\n";
                 std::cout<<"pcpt =  "<<pcpt<<"\n";
                 std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
-                std::cout<<"date =  "<<to_date_time_string(M_current_time)<<"\n";
+                std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
                 std::cout<<"M_rank = "<<M_rank<<"\n";
                 std::cout<<"element number = "<<i<<"\n";
                 throw std::runtime_error("M_thick too big");
