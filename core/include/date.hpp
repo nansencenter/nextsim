@@ -51,7 +51,6 @@ inline std::string posixTimeToString( boost::posix_time::ptime const& p_time,
         std::string const& format="%Y-%m-%d %H:%M:%S" )
 {
     std::stringstream ss;
-    std::cout<<format<<"\n";
     std::locale loc(ss.getloc(),
             new boost::posix_time::time_facet(format.c_str()));
         //NB pointer is deleted when loc is deleted (at the end of the function)
