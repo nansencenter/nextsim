@@ -76,13 +76,25 @@ inline boost::posix_time::ptime stringToPosixTime( std::string datestr)
 //! convert boost::posix_time::ptime to nextsim time (decimal days since 1900-1-1 0:00)
 inline double posixTimeToDatenum( boost::posix_time::ptime const& p_time)
 {
-    if(p_time.date().year()>1900)
-		throw std::logic_error("bad year: year should be >= 1900");
+    if(p_time.date().year()<1900)
+    {
+        std::string msg = "bad year (" + std::to_string(p_time.date().year())
+            + "): year should be >= 1900";
+		throw std::logic_error(msg);
+    }
 
     auto diff = p_time.date() - Nextsim::getEpoch();
     double datenum = diff.days();//get number of days
     datenum += p_time.time_of_day().total_seconds()/(24.*3600.);//add fractional day
     return datenum;
+}
+
+
+//! convert string to nextsim time (decimal days since 1900-1-1 0:00)
+inline double stringToDatenum( std::string const& datestr )
+{
+    return posixTimeToDatenum(
+            Nextsim::stringToPosixTime(datestr));
 }
 
 
@@ -222,23 +234,34 @@ inline std::string to_date_time_string( double date_time )
             ).str();
 }
 
-inline std::string to_date_time_string_for_filename( double date_time )
+
+//! convert nextsim time (double) to a standate date-time string for use
+//! in output filenames
+//! * eg 20180101T123143Z
+inline std::string datenumToFilenameString( double date_time )
 {
     return Nextsim::datenumToString(date_time, "%Y%m%dT%H%M%SZ");
 }
 
+
+//! get a string representation of the current local time
 inline std::string current_time_local()
 {
     posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
     return posix_time::to_simple_string(today_local);
 }
 
+
+//! get a string representation of the current UTC time
 inline std::string current_time_UTC()
 {
     posix_time::ptime today_utc(gregorian::day_clock::universal_day(), posix_time::second_clock::universal_time().time_of_day());
     return posix_time::to_simple_string(today_utc);
 }
 
+
+//! get a string representation of the time difference between the current time and the reference time
+//! given as input (as a string)
 inline std::string time_spent( const std::string& value )
 {
     posix_time::ptime epoch = posix_time::time_from_string( value );
