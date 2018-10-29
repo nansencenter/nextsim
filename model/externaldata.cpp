@@ -663,10 +663,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            LOG(DEBUG)<<"FILENAME (JUMPS) = "<< filename <<"\n";
+            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
-                //throw std::runtime_error("File not found: " + filename);
 
             index_start.resize(1);
             index_count.resize(1);
@@ -811,8 +810,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             // here we find the start and count index for each dimensions
             int dims = NcVars[j].getDimCount();
             if ( dims != dataset->variables[j].dimensions.size() )
+            {
+                LOG(ERROR)<< "Dataset: "<<dataset->name<<"\n";
+                LOG(ERROR)<< "Variable ["<<j<<"]: "<<dataset->variables[j].name<<"\n";
                 throw std::logic_error( "ExternalData::loadDataset: Wrong number of dimensions: " + std::to_string(dims) +
                         ". Should be " + std::to_string(dataset->variables[j].dimensions.size()) );
+            }
 
             LOG(DEBUG) << "dims: " << dims << "\n";
             index_count.resize(dims);

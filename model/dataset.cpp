@@ -538,7 +538,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 1./3600.,//convert seconds to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -610,10 +610,7 @@ DataSet::DataSet(char const *DatasetName)
                 masking: false
         };
 
-        std::vector<Variable> variables_tmp(2);
-        variables_tmp[0] = u;
-        variables_tmp[1] = v;
-
+        std::vector<Variable> variables_tmp = { u, v };
         std::vector<int> uv_tmp(2);
         uv_tmp[0] = 0;
         uv_tmp[1] = 1;
@@ -712,7 +709,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 1./3600.,//convert seconds to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -801,10 +798,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; //PSFC, a=1.
 
-        std::vector<Variable> variables_tmp(7);
-        variables_tmp[0] = tair;
-        variables_tmp[1] = sphuma;
-        variables_tmp[2] = mslp;
+        std::vector<Variable> variables_tmp = { tair, sphuma, mslp };
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -894,7 +888,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 1./3600.,//convert seconds to hours
             b: -0.5,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -999,11 +993,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        std::vector<Variable> variables_tmp(4);
-        variables_tmp[0] = Qsw_in;
-        variables_tmp[1] = Qlw_in;
-        variables_tmp[2] = snowfall;
-        variables_tmp[3] = precip;
+        
+        std::vector<Variable> variables_tmp = { Qsw_in, Qlw_in, snowfall, precip};
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 

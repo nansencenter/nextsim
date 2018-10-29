@@ -878,7 +878,7 @@ FiniteElement::initDatasets()
             break;
 
         default:
-            std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+            std::cout << "invalid atmospheric forcing"<<"\n";throw std::logic_error("invalid atmospheric forcing");
     }
 
     //! - 2) Initializes the oceanic forcing dataset
@@ -1283,6 +1283,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
+        case setup::AtmosphereType::EC2_AROME:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -8785,8 +8786,8 @@ FiniteElement::forcingAtmosphere()
         break;
 
         default:
-            std::cout << "invalid wind forcing"<<"\n";
-            throw std::logic_error("invalid wind forcing");
+            std::cout << "invalid atmospheric forcing"<<"\n";
+            throw std::logic_error("invalid atmospheric forcing");
     }
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
