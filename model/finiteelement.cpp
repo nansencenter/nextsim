@@ -6384,6 +6384,8 @@ FiniteElement::init()
 
     M_comm.barrier();
     M_rank = M_comm.rank();
+    if(M_rank==0)
+        Nextsim::test_date_functions();
 
     pcpt = 0;
     M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
@@ -6392,78 +6394,6 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
-    if(M_rank==0)
-    {
-        std::cout<<"test date functions\n";
-        std::string s1, s2;
-        boost::posix_time::ptime p_time;
-        double num;
-        s1 = "1991-08-20 08:05:00";
-        //s1 = "1991-08-20";
-        p_time = boost::posix_time::time_from_string(s1);
-
-        std::cout<<"test posixTimeToString\n";
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<s1<<" ?= "<<s2<<"\n";
-        s2 = Nextsim::posixTimeToString(p_time, "%Y%m%dT%H%M%SZ");
-        std::cout<<s1<<" ~ "<<s2<<"\n";
-
-        std::cout<<"test stringToPosixTime\n";
-        p_time = Nextsim::stringToPosixTime(s1);
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<s1<<" ?= "<<s2<<"\n";
-
-        s1 = "1991-8-20 8:05:00";
-        p_time = Nextsim::stringToPosixTime(s1);
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<s1<<" ~ "<<s2<<"\n";
-
-        s1 = "1991-08-20";
-        p_time = Nextsim::stringToPosixTime(s1);
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<s1<<" ?= "<<s2<<"\n";
-
-        std::cout<<"test posixTimeToDatenum\n";
-        p_time = boost::posix_time::time_from_string("1900-01-02 18:00:00");
-        num = Nextsim::posixTimeToDatenum(p_time);
-        std::cout<<1.75<<" ?= "<<num<<"\n";
-
-        std::cout<<"test stringToDatenum\n";
-        s1 = vm["simul.time_init"].as<std::string>();
-        num = Nextsim::stringToDatenum(s1);
-        std::cout<<M_current_time<<" = "<<num<<"\n";
-        s2 = Nextsim::datenumToString(num);
-        std::cout<<s1<<" ~ "<<s2<<"\n";
-
-        std::cout<<"test datenumToString\n";
-        s2 = Nextsim::datenumToString(1.75);
-        std::cout << "1900-01-02 18:00:00 = " << s2 <<"\n" ;
-        s2 = Nextsim::datenumToString(1.75, "%Y%m%dT%H%M%SZ");
-        std::cout << "19000102T180000Z = " << s2 <<"\n" ;
-
-        std::cout<<"test datenumToFilenameString\n";
-        s2 = Nextsim::datenumToFilenameString(1.75);
-        std::cout << "19000102T180000Z = " << s2 <<"\n" ;
-
-        std::cout<<"test getPosixTime\n";
-        p_time = Nextsim::getPosixTime(1932, 4, 8, 11, 31, 13);
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
-        p_time = Nextsim::getPosixTime(1932, 4, 8);
-        s2 = Nextsim::posixTimeToString(p_time);
-        std::cout<<"1932-04-08 00:00:00"<<" ?= "<<s2<<"\n";
-
-        std::cout<<"test getDatenum\n";
-        num = Nextsim::getDatenum(1900, 1, 2, 18);
-        std::cout<<1.75<<" ?= "<<num<<"\n";
-        s2 = Nextsim::datenumToString(num);
-        std::cout<<"1900-01-02 18:00:00"<<" ?= "<<s2<<"\n";
-        num = Nextsim::getDatenum(1932, 4, 8, 11, 31, 13);
-        s2 = Nextsim::datenumToString(num);
-        std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
-
-        std::abort();
-    }
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
