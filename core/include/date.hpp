@@ -187,12 +187,6 @@ inline std::string to_date_string_ym( double date_time )
             ).str();
 }
 
-inline std::string to_date_string_y( double date_time )
-{
-    // yyyy
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%" ) % dt.year()).str();
-}
 
 inline double from_date_time_string( const std::string& datestr )
 {
