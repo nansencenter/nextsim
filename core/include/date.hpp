@@ -177,16 +177,6 @@ inline std::string to_date_string_yd( double date_time )
             ).str();
 }
 
-inline std::string to_date_string_ym( double date_time )
-{
-    // yyyymm
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%" )
-            % dt.year()
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
-            ).str();
-}
-
 
 inline double from_date_time_string( const std::string& datestr )
 {
