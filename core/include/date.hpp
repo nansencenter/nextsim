@@ -149,6 +149,7 @@ inline double from_date_string( const std::string& datestr )
 }
 
 
+//! convert year, month, day, hour, minute, second info directly to boost::posix_time::ptime object
 inline boost::posix_time::ptime getPosixTime(int const& year, int const& month, int const& day,
         int const& hour=0, int const& minute=0, int const& seconds=0)
 {
@@ -159,22 +160,13 @@ inline boost::posix_time::ptime getPosixTime(int const& year, int const& month, 
 }
 
 
+//! convert year, month, day, hour, minute, second info directly to nextsim time
+//! (decimal days since 1900-1-1 0:00)
 inline double getDatenum(int const& year, int const& month, int const& day,
         int const& hour=0, int const& minute=0, int const& seconds=0)
 {
     auto p_time = Nextsim::getPosixTime(year, month, day, hour, minute, seconds);
     return Nextsim::posixTimeToDatenum(p_time);
-}
-
-inline std::string to_date_string_yd( double date_time )
-{
-    // yyyymmdd
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%%3%" )
-            % dt.year()
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
-            ).str();
 }
 
 
