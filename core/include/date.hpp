@@ -148,14 +148,22 @@ inline double from_date_string( const std::string& datestr )
     return diff.days();
 }
 
-inline std::string to_date_string( double date_time )
+
+inline boost::posix_time::ptime getPosixTime(int const& year, int const& month, int const& day,
+        int const& hour=0, int const& minute=0, int const& seconds=0)
 {
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%-%2%-%3%" )
-            % dt.year()
-            % dt.month().as_number()
-            % dt.day().as_number()
-            ).str();
+    boost::gregorian::date pdate(year, month, day);
+    boost::posix_time::time_duration dtime = boost::posix_time::hours(hour)
+        + boost::posix_time::minutes(minute) + boost::posix_time::seconds(seconds);
+    return boost::posix_time::ptime(pdate, dtime);
+}
+
+
+inline double getDatenum(int const& year, int const& month, int const& day,
+        int const& hour=0, int const& minute=0, int const& seconds=0)
+{
+    auto p_time = Nextsim::getPosixTime(year, month, day, hour, minute, seconds);
+    return Nextsim::posixTimeToDatenum(p_time);
 }
 
 inline std::string to_date_string_yd( double date_time )
