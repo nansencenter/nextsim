@@ -7380,7 +7380,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
         double inittime = std::floor(init_time);
         if(std::floor(current_time+jump)<inittime)
             inittime = std::floor(current_time + jump);
-        std::string init_timestr= to_date_string_yd(inittime);//yyyymmdd
+        std::string init_timestr = datenumToString(inittime, "%Y%m%d");//yyyymmdd
 
         if(is_ec_fc)
     {
@@ -7397,7 +7397,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     {
 
             // also need current time for filename
-            current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
+            current_timestr = datenumToString(current_time+jump, "%Y%m%d");//yyyymmdd
 
             filename = (boost::format( "%1%/%2%%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
@@ -7413,7 +7413,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     if(grid_ptr->dataset_frequency=="monthly")
     {
         //jump is in months
-        current_timestr = to_date_string_ym(current_time);//yyyymm
+        current_timestr = datenumToString(current_time, "%Y%m");//yyyymm
 
         std::string myString = current_timestr.substr(4,2);
         LOG(DEBUG) <<"month= "<< myString <<"\n";
@@ -7443,7 +7443,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     else if(grid_ptr->dataset_frequency=="yearly")
     {
         //jump is in years
-        current_timestr = to_date_string_y(std::floor(current_time));//yyyy
+        current_timestr = datenumToString(current_time, "%Y");//yyyy
         int value_year = atoi(current_timestr.c_str());
         value_year+=jump;
         current_timestr=(boost::format( "%1%" )
@@ -7451,7 +7451,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
     }
     else if(grid_ptr->dataset_frequency=="daily"
             || grid_ptr->dataset_frequency=="nearest_daily")
-        current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
+        current_timestr = datenumToString(current_time+jump, "%Y%m%d");//yyyymmdd
     else if(grid_ptr->dataset_frequency=="constant" || grid_ptr->dataset_frequency=="coupled")
         current_timestr = "";
     else
