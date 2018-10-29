@@ -26,6 +26,7 @@ inline boost::gregorian::date getEpoch()
     return boost::gregorian::date(1900, 1, 1);
 }
 
+
 //! replace a substring in a string with another substring
 inline std::string replaceSubstring(std::string input, std::string const& str_from,  std::string const& str_to)
 {
@@ -133,21 +134,6 @@ inline std::string datenumToString( double const& datenum, std::string const& fo
     return posixTimeToString(p_time, format);
 }
 
-inline double from_date_string( const std::string& datestr )
-{
-    boost::gregorian::date epoch = Nextsim::getEpoch();
-    boost::gregorian::date date = boost::date_time::parse_date<boost::gregorian::date>( datestr, boost::date_time::ymd_order_iso);
-
-    if (date.year() < 1900 )
-	{
-		std::cout << "bad year: year should be greater or equal 1900"<<"\n";
-		throw std::logic_error("bad year: year should be greater or equal 1900");
-	}
-
-    boost::gregorian::date_duration diff = date - epoch;
-    return diff.days();
-}
-
 
 //! convert year, month, day, hour, minute, second info directly to boost::posix_time::ptime object
 inline boost::posix_time::ptime getPosixTime(int const& year, int const& month, int const& day,
@@ -167,55 +153,6 @@ inline double getDatenum(int const& year, int const& month, int const& day,
 {
     auto p_time = Nextsim::getPosixTime(year, month, day, hour, minute, seconds);
     return Nextsim::posixTimeToDatenum(p_time);
-}
-
-
-inline double from_date_time_string( const std::string& datestr )
-{
-    double date = from_date_string( datestr );
-
-    if (datestr.find(" ") != std::string::npos)
-    {
-        //std::string date_time_str = datestr + " 00:00:00";
-        boost::posix_time::ptime t = boost::posix_time::time_from_string( datestr );
-        double seconds = static_cast<double>(t.time_of_day().total_seconds());
-        date += (seconds / 24.0 / 60.0 / 60.0);
-    }
-
-    // if milliseconds are needed
-    // double milliseconds = static_cast<double>(t.time_of_day().total_milliseconds());
-    // date += (milliseconds / 24.0 / 60.0 / 60.0 / 1000.0);
-
-    return date;
-}
-
-inline std::string to_date_time_string( double date_time )
-{
-    // yyyy-mm-dd hh:mm:ss.fss
-    boost::gregorian::date date_part = Nextsim::parse_date( date_time );
-    boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
-
-    long long fractional_seconds = time_part.fractional_seconds();
-    boost::date_time::time_resolutions resolution = time_part.resolution();
-    if ( resolution == boost::date_time::micro )
-    {
-        fractional_seconds /= 1000;
-    }
-    else
-    {
-        if (resolution != boost::date_time::milli)
-            throw std::logic_error( "Unexpected time resolution" );
-    }
-
-    return (boost::format( "%d-%02d-%02d %02d:%02d:%02d.%03d" )
-            % date_part.year()
-            % date_part.month().as_number()
-            % date_part.day().as_number()
-            % time_part.hours()
-            % time_part.minutes()
-            % time_part.seconds()
-            % fractional_seconds
-            ).str();
 }
 
 
