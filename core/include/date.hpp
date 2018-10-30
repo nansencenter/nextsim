@@ -26,21 +26,6 @@ inline boost::gregorian::date getEpoch()
     return boost::gregorian::date(1900, 1, 1);
 }
 
-
-//! replace a substring in a string with another substring
-inline std::string replaceSubstring(std::string input, std::string const& str_from,  std::string const& str_to)
-{
-    if(str_from.empty())
-        return input;
-    size_t start_pos = 0;
-    while((start_pos = input.find(str_from, start_pos)) != std::string::npos)
-    {
-        input.replace(start_pos, str_from.length(), str_to);
-        start_pos += str_to.length(); // In case 'str_to' contains 'str_from', like replacing 'x' with 'yx'
-    }
-    return input;
-}
-
  
 //! convert boost::posix_time::ptime object to a date-time string according to a given input
 //! format
