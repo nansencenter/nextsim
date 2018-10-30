@@ -5880,7 +5880,7 @@ FiniteElement::thermo(double dt)
             double old_age = M_age[i];
             
             // potential devision by zero and non-initialized old_vol (strange value) in the first time step
-            if (old_vol >= 0.)
+            if (old_vol >= 0.)  // This will result in some high values at the ice edge
             {    
                 M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(old_vol-M_thick[i])/M_thick[i];
             }
@@ -6766,15 +6766,12 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
-    std::cout << "6734\n";
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
-    std::cout << "6737\n";
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-    std::cout << "6742\n";
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
@@ -7255,9 +7252,7 @@ FiniteElement::initMoorings()
             elemental_variables.push_back(tmp);
         }
     }
-
-    std::cout << "7206\n";
-    
+  
     
     // Need a mask for the nodal variables
     if ( nodal_variables.size() > 0 )
@@ -7272,8 +7267,6 @@ FiniteElement::initMoorings()
         GridOutput::Variable ice_mask(GridOutput::variableID::ice_mask);
         elemental_variables.push_back(ice_mask);
     }
-
-    std::cout << "7223\n";
     
     if(vm["moorings.grid_type"].as<std::string>()=="regular")
     {
@@ -7352,7 +7345,6 @@ FiniteElement::initMoorings()
 
         M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
     }
-std::cout << "7289\n";
 }//initMoorings
 
 
