@@ -2407,6 +2407,12 @@ FiniteElement::setPointersElements(
             data.push_back(&M_sss); // SSS
         else if (name == "M_sst" || name == "SST")
             data.push_back(&M_sst); // SST
+        else if(name == "M_fyi_fraction" || name == "Fyi_fraction")
+            data.push_back(&M_fyi_fraction); // FYI fraction
+        else if(name == "M_age_obs" || name == "Age_o")
+            data.push_back(&M_age_obs); // observable ice age     
+        else if(name == "M_age" || name == "Age")
+            data.push_back(&M_age); // Ice age
         else if (name == "M_tice_0" || name == "Tice_0")
             data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
         else if (name == "M_tice_1" || name == "Tice_1")
@@ -3277,8 +3283,12 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
         "M_damage",
         "M_ridge_ratio",
         "M_random_number",
+        "M_sss",
         "M_sst",
-        "M_sss"};
+        "M_fyi_fraction",
+        "M_age_obs",
+        "M_age"
+    };
     
     for(int i=0; i<M_tice.size(); i++)
         names.push_back("M_tice_" + std::to_string(i));
@@ -3309,7 +3319,10 @@ FiniteElement::getExportNamesPointers(std::vector<std::string> & names,
              "Thickness",
              "Snow",
              "Damage",
-             "Ridge_ratio"
+             "Ridge_ratio",
+             "Fyi_fraction",
+             "Age_o",
+             "Age"
     };
 
     for(int i=0; i<M_tice.size(); i++)
@@ -5373,7 +5386,7 @@ FiniteElement::thermo(int dt)
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
-
+        double  old_conc_fyi=M_conc[i]*M_fyi_fraction[i];//conc of fy ice
         double  old_h_thin = 0.;
         double  old_hs_thin = 0.;
         double  old_conc_thin=0.;
@@ -5878,21 +5891,17 @@ FiniteElement::thermo(int dt)
         {
             
             // FYI fraction
-            double old_fyi=M_fyi_fraction[i];
             std::string date_string_md = to_date_string_md( M_current_time );
             
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
-            if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0)
+            if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_fyi_fraction[i] = 0.;
             }
-            else if (del_c > 0.)
-            {
-                M_fyi_fraction[i] = std::min(1.,old_fyi+del_c);
-            }
             else
             {
-                M_fyi_fraction[i] =  old_fyi;
+                double conc_fyi = old_conc_fyi + del_c;
+                M_fyi_fraction[i] = std::max(0.,std::min(1.,conc_fyi/M_conc[i]));
             }
             
             // Observable sea ice age tracer
@@ -8320,7 +8329,11 @@ FiniteElement::readRestart(std::string const& name_str)
         M_sss           = field_map_dbl["M_sss"];
         for (int i=0; i<M_tice.size(); i++)
             M_tice[i] = field_map_dbl["M_tice_"+std::to_string(i)];
-
+        
+        M_fyi_fraction  = field_map_dbl["M_fyi_fraction"];
+        M_age_obs       = field_map_dbl["M_age_obs"];
+        M_age           = field_map_dbl["M_age"];
+        
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
         M_VTM  = field_map_dbl["M_VTM"];
