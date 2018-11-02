@@ -15,6 +15,5 @@ class BamgOpts;
 
 /* local prototypes: */
 int BamgConvertMeshx(BamgMesh* bamgmesh,BamgGeom* bamggeom,int* index,double* x,double* y,int nods,int nels);
-int BamgConvertMeshx(BamgMesh* bamgmesh,BamgGeom* bamggeom,int* index,double* x,double* y,int nods,int nels, int nods_local, int nels_local);
 
 #endif

@@ -8,12 +8,12 @@ class BamgMesh{
 
 	public:
 
-		int     VerticesSize[3];
+		int     VerticesSize[2];
 		double* Vertices;
 		double* PreviousNumbering;
 		int     EdgesSize[2];
 		double* Edges;
-		int     TrianglesSize[3];
+		int     TrianglesSize[2];
 		double* Triangles;
 
 		int     VerticesOnGeomVertexSize[2];
