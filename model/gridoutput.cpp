@@ -48,23 +48,23 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, doubl
 }
 
 // Constructor for only one set of variables - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
         std::vector<Variable> variables, variableKind kind,
         double averaging_period, bool false_easting)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
-    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
+    this->initRegularGrid(bamgmesh, nb_local_el, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
         double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -72,25 +72,25 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> vari
 ////////////////////////////////////////////////////////////////////////////////
 
 // Constructor for one set of variables plus vectors - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin,
         std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
         double averaging_period, bool false_easting)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
     M_vectorial_variables = vectorial_variables;
-    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
+    this->initRegularGrid(bamgmesh, nb_local_el,  ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // Constructor for only one set of variables - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
         double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
     M_vectorial_variables = vectorial_variables;
-    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,24 +106,24 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 }
 
 // constructor for nodal and elemental variables only (no vectors) - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing,
                        double xmin, double ymin,
                        std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
                        double averaging_period, bool false_easting)
     :
     GridOutput(nodal_variables, elemental_variables, averaging_period, false_easting)
 {
-    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
+    this->initRegularGrid(bamgmesh, nb_local_el, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
         double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(nodal_variables, elemental_variables, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -138,25 +138,25 @@ GridOutput::GridOutput(std::vector<Variable> nodal_variables, std::vector<Variab
 {}
 
 // constructor for nodal, elemental and vectorial variables - regular grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing,
         double xmin, double ymin,
         std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
         double averaging_period, bool false_easting)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period, false_easting)
 {
-    this->initRegularGrid(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin);
+    this->initRegularGrid(bamgmesh, nb_local_el, ncols, nrows, mooring_spacing, xmin, ymin);
 }
 
 // constructor for nodal, elemental and vectorial variables - arbitrary grid
-GridOutput::GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables,
+GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables,
                        std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
                        double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
 }
 
 GridOutput::~GridOutput()
@@ -166,7 +166,7 @@ GridOutput::~GridOutput()
 // Initialisation routines
 ////////////////////////////////////////////////////////////////////////////////
 void
-GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
+GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin)
 {
     // Set the grid size
     M_ncols = ncols;
@@ -212,11 +212,11 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double moo
     M_lsm.assign(M_grid_size, 1);
     this->initMask();
     this->resetGridMean();
-    this->resetMeshMean(bamgmesh, true);
+    this->resetMeshMean(bamgmesh, true, nb_local_el);
 }
 
 void
-GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const & comm,
+GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
 {
     M_grid = grid;
@@ -307,9 +307,9 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const
     this->initMask();
     this->resetGridMean();
     if ( M_comm.rank() == 0 )
-        this->resetMeshMean(bamgmesh, true, transfer_map, bamgmesh_root);
+        this->resetMeshMean(bamgmesh, true, nb_local_el, transfer_map, bamgmesh_root);
     else
-        this->resetMeshMean(bamgmesh, true, transfer_map);
+        this->resetMeshMean(bamgmesh, true, nb_local_el, transfer_map);
 }
 
 void
@@ -357,8 +357,10 @@ GridOutput::initMask()
 }
 
 void
-GridOutput::setProcMask(BamgMesh* bamgmesh)
+GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
 {
+    assert(nb_local_el>0);
+
     // Call the worker routine using a vector of ones and give zero for missing values and gohsts
     std::vector<Variable> variables(1);
     variables[0] = Variable(variableID::proc_mask);
@@ -366,8 +368,8 @@ GridOutput::setProcMask(BamgMesh* bamgmesh)
     variables[0].data_grid.assign(M_grid_size,0);
     variables[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
 
-    std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + bamgmesh->TrianglesSize[2], 1. );
-    std::fill( variables[0].data_mesh.begin() + bamgmesh->TrianglesSize[2],variables[0].data_mesh.end(),  0. );
+    std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + nb_local_el, 1. );
+    std::fill( variables[0].data_mesh.begin() + nb_local_el, variables[0].data_mesh.end(),  0. );
 
     this->updateGridMeanWorker(bamgmesh, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
@@ -601,7 +603,7 @@ GridOutput::applyLSM()
 // Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
 void
 GridOutput::resetMeshMean(BamgMesh* bamgmesh,
-        bool regrid, bimap_type const & transfer_map, BamgMesh* bamgmesh_root)
+        bool regrid, int nb_local_el, bimap_type const & transfer_map, BamgMesh* bamgmesh_root)
 {
     for (int i=0; i<M_nodal_variables.size(); i++)
         M_nodal_variables[i].data_mesh.assign(bamgmesh->VerticesSize[0], 0.);
@@ -612,7 +614,7 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
     if ( regrid )
     {
         if ( M_nodal_variables.size() > 0 )
-            this->setProcMask(bamgmesh);
+            this->setProcMask(bamgmesh, nb_local_el);
 
         /* Calculate the weights on the root, broadcast them to ohers, and map from global to local
          * element id */
