@@ -22,7 +22,7 @@
 namespace Nextsim
 {
 
-class ModelVariable : public std::vector<double> // inherit from std::vector<double>
+class ModelVariable//: public std::vector<double> // inherit from std::vector<double>
 {
 
 public:
