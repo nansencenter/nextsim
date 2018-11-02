@@ -5795,7 +5795,7 @@ FiniteElement::thermo(int dt)
         // Salt balance of the ocean (all sources) - kg/day
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
 
-        // Freshwater ballance at the surface - kg/m^2/s
+        // Freshwater balance at the surface - kg/m^2/s
         D_emp[i] = 1./ddt * ( emp
                 - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
 
