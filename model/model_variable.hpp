@@ -22,8 +22,9 @@
 namespace Nextsim
 {
 
-class ModelVariable
+class ModelVariable : public std::vector<double> // inherit from std::vector<double>
 {
+
 public:
 
     //////////////////////////////////////////////////////////////////////
@@ -104,8 +105,8 @@ public:
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
 
 
-    ModelVariable(){}// empty constructor
-    ~ModelVariable();// destructor
+    ModelVariable(){}  // empty constructor
+    ~ModelVariable(){} // destructor
 
     // main constructor
     ModelVariable(variableID id, int comp_num=-1)
@@ -139,6 +140,7 @@ public:
 
     bool initElemental();
     bool initNodal() { return false; } // TODO implement nodal variables
+    void testCall();
 };
 
 } // Nextsim

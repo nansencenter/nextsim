@@ -379,4 +379,38 @@ ModelVariable::initElemental()
 }//initElemental
 
 
+void ModelVariable::testCall()
+{
+    // test basic attributes
+    std::cout<<"name = "<<this->name<<"\n";
+    std::cout<<"export name = "<<this->export_name<<"\n";
+
+    // test inherited methods
+    // - assign
+    // - begin
+    // - end
+    int N = 5;
+    int i = 0;
+    this->assign(N, 4.);
+    for(auto it=this->begin(); it!=this->end(); it++, i++)
+        std::cout<<"i<"<<N<<"? "<<i <<" value = 4? "<<*it<<"\n";
+
+    // - resize
+    // - std::fill
+    // - begin
+    // - end
+    N = 4;
+    i = 0;
+    this->resize(N);
+    std::fill(this->begin(), this->end(), 2.5);
+    for(auto it=this->begin(); it!=this->end(); it++, i++)
+        std::cout<<"i<"<<N<<"? "<<i <<" value = 2.5? "<<*it<<"\n";
+
+    // - size
+    std::cout<<"size = "<<N<<"? "<<this->size()<<"\n";
+
+    std::abort();
+}//testCall
+
+
 } // Nextsim

@@ -6362,6 +6362,12 @@ FiniteElement::init()
 
     M_comm.barrier();
     M_rank = M_comm.rank();
+    if(M_rank==0)
+    {
+        ModelVariable test(ModelVariable::variableID::M_conc);
+        test.testCall();
+    }
+    M_comm.barrier();
 
     pcpt = 0;
     M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run

@@ -31,6 +31,7 @@
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <model_variable.hpp>
 #include <drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
