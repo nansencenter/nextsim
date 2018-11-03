@@ -2326,7 +2326,6 @@ FiniteElement::setPointersElements(
         std::vector<std::string> const &names)
 {
 
-
     //!1st set pointers to the data requested in "names"
     for(auto name: names)
     {
@@ -2397,7 +2396,108 @@ FiniteElement::setPointersElements(
         else
             throw std::runtime_error("Unimplemented name: "+name);
     }
-}//getVariableIO
+}//setPointersElements
+
+
+void
+FiniteElement::setPointersElements(
+        std::vector<std::vector<double>*> &data,
+        std::vector<ModelVariable*> const &vars)
+{
+
+    //!1st set pointers to the data requested in "names"
+    for(auto var_ptr: vars)
+    {
+        if(M_rank==0)
+            LOG(DEBUG)<<"setPointersElements: adding "<<var_ptr->name() <<"\n";
+
+        int comp_num = var_ptr->componentNumber();//only used for vectors
+
+        switch(var_ptr->varID())
+        {
+            case(ModelVariable::variableID::M_conc):
+                data.push_back(&M_conc); // concentration of thick ice
+                break;
+            case(ModelVariable::variableID::M_thick):
+                data.push_back(&M_thick); // thickness of thick ice
+                break;
+            case(ModelVariable::variableID::M_snow_thick):
+                data.push_back(&M_snow_thick); // snow thickness on thick ice
+                break;
+            case(ModelVariable::variableID::D_conc):
+                data.push_back(&D_conc); // total concentration
+                break;
+            case(ModelVariable::variableID::D_thick):
+                data.push_back(&D_thick); // total thickness
+                break;
+            case(ModelVariable::variableID::D_snow_thick):
+                data.push_back(&D_snow_thick); // total snow thickness
+                break;
+            case(ModelVariable::variableID::D_tsurf):
+                data.push_back(&D_tsurf); // mean surface temperature
+                break;
+            case(ModelVariable::variableID::M_sigma):
+                data.push_back(&(M_sigma[comp_num])); // M_sigma[k] - stress component #k
+                break;
+            case(ModelVariable::variableID::D_sigma):
+                data.push_back(&(D_sigma[comp_num])); // D_sigma[k] - principal stress #k
+                break;
+            case(ModelVariable::variableID::M_damage):
+                data.push_back(&M_damage); // damage
+                break;
+            case(ModelVariable::variableID::M_ridge_ratio):
+                data.push_back(&M_ridge_ratio); // ridge ratio
+                break;
+            case(ModelVariable::variableID::M_random_number):
+                data.push_back(&M_random_number); // random_number
+                break;
+            case(ModelVariable::variableID::M_sss):
+                data.push_back(&M_sss); // SSS
+                break;
+            case(ModelVariable::variableID::M_sst):
+                data.push_back(&M_sst); // SST
+                break;
+            case(ModelVariable::variableID::M_tice):
+                data.push_back(&(M_tice[comp_num])); // M_tice[k] - thick ice temperature
+                break;
+            case(ModelVariable::variableID::M_h_thin):
+                data.push_back(&M_h_thin); // thin ice thickness
+                break;
+            case(ModelVariable::variableID::M_conc_thin):
+                data.push_back(&M_conc_thin); // thin ice concentration
+                break;
+            case(ModelVariable::variableID::M_hs_thin):
+                data.push_back(&M_hs_thin); // snow thickness on thin ice
+                break;
+            case(ModelVariable::variableID::M_tsurf_thin):
+                data.push_back(&M_tsurf_thin); // surface temperature over thin ice
+                break;
+            case(ModelVariable::variableID::D_Qa):
+                data.push_back(&D_Qa);
+                break;
+            case(ModelVariable::variableID::D_Qsw):
+                data.push_back(&D_Qsw);
+                break;
+            case(ModelVariable::variableID::D_Qlw):
+                data.push_back(&D_Qlw);
+                break;
+            case(ModelVariable::variableID::D_Qsh):
+                data.push_back(&D_Qsh);
+                break;
+            case(ModelVariable::variableID::D_Qlh):
+                data.push_back(&D_Qlh);
+                break;
+            case(ModelVariable::variableID::D_Qo):
+                data.push_back(&D_Qo);
+                break;
+            case(ModelVariable::variableID::D_delS):
+                data.push_back(&D_delS);
+                break;
+            default:
+                throw std::runtime_error("Unimplemented ID: name = "+var_ptr->name());
+        }
+    }
+}//setPointersElements
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6498,6 +6598,8 @@ FiniteElement::init()
 void
 FiniteElement::initModelVariables()
 {
+
+    //! -1) init all ModelVariable's and put them in M_variables
     // Prognostic variables
     vM_conc = ModelVariable(ModelVariable::variableID::M_conc);
     M_variables.push_back(&vM_conc);
@@ -6531,14 +6633,17 @@ FiniteElement::initModelVariables()
     M_variables.push_back(&vM_sst);
     vM_sss = ModelVariable(ModelVariable::variableID::M_sss);
     M_variables.push_back(&vM_sss);
-    vM_tsurf_thin_ice = ModelVariable(ModelVariable::variableID::M_tsurf_thin_ice);
-    M_variables.push_back(&vM_tsurf_thin_ice);
-    vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
-    M_variables.push_back(&vM_h_thin);
-    vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
-    M_variables.push_back(&vM_hs_thin);
-    vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
-    M_variables.push_back(&vM_conc_thin);
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        vM_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
+        M_variables.push_back(&vM_tsurf_thin);
+        vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
+        M_variables.push_back(&vM_h_thin);
+        vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
+        M_variables.push_back(&vM_hs_thin);
+        vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
+        M_variables.push_back(&vM_conc_thin);
+    }
     vM_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
     M_variables.push_back(&vM_random_number);
 #if 0
@@ -6583,7 +6688,60 @@ FiniteElement::initModelVariables()
     M_variables.push_back(&vD_emp);
     vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
     M_variables.push_back(&vD_brine);
-}
+
+    //! -2) loop over M_variables in order to sort them
+    //!     for restart/regrid/export
+    std::vector<std::string> export_names = vm["output.variables"].as<std::vector<std::string>>();
+    bool custom_export = (export_names.size() == 0 );
+    M_prognostic_variables_elt.resize(0);
+    M_restart_names_elt.resize(0);
+    M_export_variables_elt.resize(0);
+    M_export_names_elt.resize(0);
+    for(auto ptr: M_variables)
+    {
+
+        bool export_requested = (std::count( export_names.begin(),
+                    export_names.end(), ptr->name()) > 0 );
+
+        if(ptr->varKind() == ModelVariable::variableKind::elemental)
+        {
+            if(ptr->is_prognostic())
+            {
+                // restart, regrid variables
+                M_prognostic_variables_elt.push_back(ptr);
+                M_restart_names_elt.push_back(ptr->name());
+
+                // if we only want to export specific variables
+                // (specified in config file)
+                if (custom_export)
+                    ptr->setExporting(export_requested);
+            }
+            else if (vm["output.save_diagnostics"].as<bool>())
+                // export all diagnostic variables to binary
+                // - NB overrides "custom_export"
+                ptr->setExporting(true);
+            else if (custom_export)
+                // if we only want to export specific diagnostic variables
+                // (specified in config file)
+                ptr->setExporting(export_requested);
+
+            if(ptr->exporting())
+            {
+                // export variables
+                M_export_variables_elt.push_back(ptr);
+                M_export_names_elt.push_back(ptr->export_name());
+            }
+        }
+    }
+
+    //! -3) set pointers to data
+    // NB won't be needed after merging of data and metadata
+    M_prognostic_data_elt.resize(0);
+    M_export_data_elt.resize(0);
+    this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
+    this->setPointersElements(M_export_data_elt, M_export_variables_elt);
+}//initModelVariables
+
 
 #ifdef OASIS
 void

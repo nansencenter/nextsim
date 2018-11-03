@@ -341,6 +341,9 @@ private:
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);
+    void setPointersElements(
+            std::vector<std::vector<double>*> &data,
+            std::vector<ModelVariable*> const &vars);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<std::vector<double>*> &data);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
@@ -715,8 +718,12 @@ private:
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
-    std::vector<std::vector<double>*> M_prognostic_data_elt;
     std::vector<ModelVariable*> M_export_variables_elt;
+
+    // other vectors related to export/restart
+    std::vector<std::string> M_restart_names_elt;
+    std::vector<std::string> M_export_names_elt;
+    std::vector<std::vector<double>*> M_prognostic_data_elt;
     std::vector<std::vector<double>*> M_export_data_elt;
 
     // Diagnostic variables
@@ -729,7 +736,7 @@ private:
     std::vector<ModelVariable> vM_sigma;
     ModelVariable vM_sst;
     ModelVariable vM_sss;
-    ModelVariable vM_tsurf_thin_ice;
+    ModelVariable vM_tsurf_thin;
     ModelVariable vM_h_thin;
     ModelVariable vM_hs_thin;
     ModelVariable vM_conc_thin;
