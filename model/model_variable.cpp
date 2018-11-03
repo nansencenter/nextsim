@@ -152,9 +152,9 @@ ModelVariable::initElemental()
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
 
-        case (variableID::M_tsurf_thin_ice):
+        case (variableID::M_tsurf_thin):
             // surface temperature above thin ice [deg C]
-            M_name = "M_tsurf_thin_ice";
+            M_name = "M_tsurf_thin";
             M_export_name = "Tsurf_thin_ice";
             M_prognostic = true;
             M_exporting = true;
@@ -273,7 +273,7 @@ ModelVariable::initElemental()
             M_name = "D_tsurf";
             M_export_name = "Tsurf";
             M_prognostic = false;
-            M_exporting = true;
+            M_exporting = false;
             M_diffusivity = 0;
             break;
 

@@ -55,23 +55,23 @@ public:
     enum variableID
     {
         // Prognostic variables
-        M_conc           =  1,
-        M_thick          =  2,
-        M_damage         =  3,
-        M_snow_thick     =  4,
-        M_ridge_ratio    =  5,
-        M_tice           =  6,
-        M_sigma          =  7,
-        M_sst            =  8,
-        M_sss            =  9,
-        M_tsurf_thin_ice = 10,
-        M_h_thin         = 11,
-        M_hs_thin        = 12,
-        M_conc_thin      = 13,
-        M_random_number  = 14,
-        //M_fyi_fraction   = 15,
-        //M_age_obs        = 16,
-        //M_age            = 17,
+        M_conc          =  1,
+        M_thick         =  2,
+        M_damage        =  3,
+        M_snow_thick    =  4,
+        M_ridge_ratio   =  5,
+        M_tice          =  6,
+        M_sigma         =  7,
+        M_sst           =  8,
+        M_sss           =  9,
+        M_tsurf_thin    = 10,
+        M_h_thin        = 11,
+        M_hs_thin       = 12,
+        M_conc_thin     = 13,
+        M_random_number = 14,
+        //M_fyi_fraction  = 15,
+        //M_age_obs       = 16,
+        //M_age           = 17,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -91,6 +91,7 @@ public:
     };
 
 
+private:
     variableID M_varID;
     variableKind M_var_kind;
     int M_component_number;
@@ -105,6 +106,7 @@ public:
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
 
 
+public:
     ModelVariable(){}  // empty constructor
     ~ModelVariable(){} // destructor
 
@@ -138,8 +140,27 @@ public:
 
     }
 
+private:
     bool initElemental();
     bool initNodal() { return false; } // TODO implement nodal variables
+
+public:
+
+    // get attributes
+    variableID varID() { return M_varID; }
+    variableKind varKind() { return M_var_kind; }
+    int componentNumber() { return M_component_number; }
+    std::string name() { return M_name; }
+    std::string export_name() { return M_export_name; }
+    bool is_prognostic() {return M_prognostic; }
+    bool exporting() { return M_exporting; }
+    interpMethod interp_method() {return M_interp_method; }
+    interpTransformation interpTransform() { return M_interp_transformation; }
+    double diffusivity() { return M_diffusivity; }
+
+    // set attributes
+    void setExporting(bool const& do_export) { M_exporting = do_export; }
+
     void testCall();
 };
 
