@@ -6376,6 +6376,7 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
+    this->initModelVariables();
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6491,6 +6492,98 @@ FiniteElement::init()
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
 }//init
+
+
+// ==============================================================================
+void
+FiniteElement::initModelVariables()
+{
+    // Prognostic variables
+    vM_conc = ModelVariable(ModelVariable::variableID::M_conc);
+    M_variables.push_back(&vM_conc);
+    vM_thick = ModelVariable(ModelVariable::variableID::M_thick);
+    M_variables.push_back(&vM_thick);
+    vM_damage = ModelVariable(ModelVariable::variableID::M_damage);
+    M_variables.push_back(&vM_damage);
+    vM_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
+    M_variables.push_back(&vM_snow_thick);
+    vM_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
+    M_variables.push_back(&vM_ridge_ratio);
+
+    if ( M_thermo_type == setup::ThermoType::WINTON )
+        vM_tice.resize(3);
+    else
+        vM_tice.resize(1);
+    for(int k=0; k<vM_tice.size(); k++)
+    {
+        vM_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
+        M_variables.push_back(&vM_tice[k]);
+    }
+
+    vM_sigma.resize(3);
+    for(int k=0; k<vM_sigma.size(); k++)
+    {
+        vM_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
+        M_variables.push_back(&vM_sigma[k]);
+    }
+
+    vM_sst = ModelVariable(ModelVariable::variableID::M_sst);
+    M_variables.push_back(&vM_sst);
+    vM_sss = ModelVariable(ModelVariable::variableID::M_sss);
+    M_variables.push_back(&vM_sss);
+    vM_tsurf_thin_ice = ModelVariable(ModelVariable::variableID::M_tsurf_thin_ice);
+    M_variables.push_back(&vM_tsurf_thin_ice);
+    vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
+    M_variables.push_back(&vM_h_thin);
+    vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
+    M_variables.push_back(&vM_hs_thin);
+    vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
+    M_variables.push_back(&vM_conc_thin);
+    vM_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
+    M_variables.push_back(&vM_random_number);
+#if 0
+    vM_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
+    M_variables.push_back(&vM_fyi_fraction);
+    vM_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
+    M_variables.push_back(&vM_age_obs);
+    vM_age = ModelVariable(ModelVariable::variableID::M_age);
+    M_variables.push_back(&vM_age);
+#endif
+
+    // Diagnostic variables
+    vD_conc = ModelVariable(ModelVariable::variableID::D_conc);
+    M_variables.push_back(&vD_conc);
+    vD_thick = ModelVariable(ModelVariable::variableID::D_thick);
+    M_variables.push_back(&vD_thick);
+    vD_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
+    M_variables.push_back(&vD_snow_thick);
+    vD_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
+    M_variables.push_back(&vD_tsurf);
+    vD_sigma.resize(2);
+    for(int k=0; k<vD_sigma.size(); k++)
+    {
+        vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
+        M_variables.push_back(&vM_sigma[k]);
+    }
+    vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
+    M_variables.push_back(&vD_Qa);
+    vD_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
+    M_variables.push_back(&vD_Qsw);
+    vD_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
+    M_variables.push_back(&vD_Qlw);
+    vD_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
+    M_variables.push_back(&vD_Qsh);
+    vD_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
+    M_variables.push_back(&vD_Qlh);
+    vD_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
+    M_variables.push_back(&vD_Qo);
+    vD_delS = ModelVariable(ModelVariable::variableID::D_delS);
+    M_variables.push_back(&vD_delS);
+    vD_emp = ModelVariable(ModelVariable::variableID::D_emp);
+    M_variables.push_back(&vD_emp);
+    vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
+    M_variables.push_back(&vD_brine);
+}
 
 #ifdef OASIS
 void

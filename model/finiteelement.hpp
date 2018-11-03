@@ -261,6 +261,7 @@ public:
     void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
+    void initModelVariables();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -710,6 +711,50 @@ private:
     // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
+
+    // vectors of pointers to variables (for looping)
+    std::vector<ModelVariable*> M_variables;
+    std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
+    std::vector<std::vector<double>*> M_prognostic_data_elt;
+    std::vector<ModelVariable*> M_export_variables_elt;
+    std::vector<std::vector<double>*> M_export_data_elt;
+
+    // Diagnostic variables
+    ModelVariable vM_conc;
+    ModelVariable vM_thick;
+    ModelVariable vM_damage;
+    ModelVariable vM_snow_thick;
+    ModelVariable vM_ridge_ratio;
+    std::vector<ModelVariable> vM_tice;
+    std::vector<ModelVariable> vM_sigma;
+    ModelVariable vM_sst;
+    ModelVariable vM_sss;
+    ModelVariable vM_tsurf_thin_ice;
+    ModelVariable vM_h_thin;
+    ModelVariable vM_hs_thin;
+    ModelVariable vM_conc_thin;
+    ModelVariable vM_random_number;
+#if 0
+    ModelVariable vM_fyi_fraction;
+    ModelVariable vM_age_obs;
+    ModelVariable vM_age;
+#endif
+
+    // Diagnostic variables
+    ModelVariable vD_conc;
+    ModelVariable vD_thick;
+    ModelVariable vD_snow_thick;
+    ModelVariable vD_tsurf;
+    std::vector<ModelVariable> vD_sigma;
+    ModelVariable vD_Qa;
+    ModelVariable vD_Qsw;
+    ModelVariable vD_Qlw;
+    ModelVariable vD_Qsh;
+    ModelVariable vD_Qlh;
+    ModelVariable vD_Qo;
+    ModelVariable vD_delS;
+    ModelVariable vD_emp;
+    ModelVariable vD_brine;
 
 
 private:
