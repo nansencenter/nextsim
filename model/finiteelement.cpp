@@ -606,6 +606,14 @@ FiniteElement::initVariables()
     }
 
     this->assignVariables();
+
+    // set pointers to data 
+    // - couldn't do it in initModelVariables, since M_tice, M_sigma, D_sigma weren't resized yet
+    // NB won't be needed after merging of data and metadata
+    M_prognostic_data_elt.resize(0);
+    M_export_data_elt.resize(0);
+    this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
+    this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initVariables
 
     
@@ -2410,10 +2418,12 @@ FiniteElement::setPointersElements(
     //!1st set pointers to the data requested in "names"
     for(auto var_ptr: vars)
     {
-        if(M_rank==0)
-            LOG(DEBUG)<<"setPointersElements: adding "<<var_ptr->name() <<"\n";
 
         int comp_num = var_ptr->componentNumber();//only used for vectors
+
+        if(M_rank==0)
+            LOG(DEBUG)<<"setPointersElements: adding "<<var_ptr->name()
+                <<": comp_num = "<<comp_num<<"\n";
 
         switch(var_ptr->varID())
         {
@@ -6733,13 +6743,6 @@ FiniteElement::initModelVariables()
             }
         }
     }
-
-    //! -3) set pointers to data
-    // NB won't be needed after merging of data and metadata
-    M_prognostic_data_elt.resize(0);
-    M_export_data_elt.resize(0);
-    this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
-    this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initModelVariables
 
 
