@@ -2320,6 +2320,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 //! adds a pointer to the appropriate vector
 //! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
 //! Called from the readRestart() function.
+#if 0
 void
 FiniteElement::setPointersElements(
         std::vector<std::vector<double>*> &data,
@@ -2397,6 +2398,7 @@ FiniteElement::setPointersElements(
             throw std::runtime_error("Unimplemented name: "+name);
     }
 }//setPointersElements
+#endif
 
 
 void
@@ -3310,6 +3312,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 }//scatterFieldsElement
 
     
+#if 0
 //------------------------------------------------------------------------------------------------------
 //! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts,
 //! and set pointers to the appropriate vectors
@@ -3345,8 +3348,10 @@ FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
 
     this->setPointersElements(data_elements, names);
 }//getRestartNamesPointers
+#endif
 
 
+#if 0
 //------------------------------------------------------------------------------------------------------
 //! Gets the names of the variables that need to be gathered and scattered when exporting results,
 //! and set pointers to the appropriate vectors
@@ -3394,6 +3399,7 @@ FiniteElement::getExportNamesPointers(std::vector<std::string> & names,
 
     this->setPointersElements(data_elements, names);
 }//getExportNamesPointers
+#endif
 
 
 //------------------------------------------------------------------------------------------------------

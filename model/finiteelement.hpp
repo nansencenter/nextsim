@@ -333,6 +333,7 @@ private:
         this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
     }
 
+#if 0
     void getRestartNamesPointers(
             std::vector<std::string> &names,
             std::vector<std::vector<double>*> &data);
@@ -341,6 +342,7 @@ private:
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<std::string> const &names);
+#endif
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
             std::vector<ModelVariable*> const &vars);
