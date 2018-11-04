@@ -6619,14 +6619,14 @@ FiniteElement::initModelVariables()
     for(int k=0; k<vM_tice.size(); k++)
     {
         vM_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
-        M_variables.push_back(&vM_tice[k]);
+        M_variables.push_back(&(vM_tice[k]));
     }
 
     vM_sigma.resize(3);
     for(int k=0; k<vM_sigma.size(); k++)
     {
         vM_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
-        M_variables.push_back(&vM_sigma[k]);
+        M_variables.push_back(&(vM_sigma[k]));
     }
 
     vM_sst = ModelVariable(ModelVariable::variableID::M_sst);
@@ -6668,7 +6668,7 @@ FiniteElement::initModelVariables()
     for(int k=0; k<vD_sigma.size(); k++)
     {
         vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
-        M_variables.push_back(&vM_sigma[k]);
+        M_variables.push_back(&(vM_sigma[k]));
     }
     vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
     M_variables.push_back(&vD_Qa);
@@ -8011,11 +8011,16 @@ FiniteElement::writeRestart(std::string const& name_str)
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
+#if 1
+    std::vector<double> elt_values_root;
+    this->gatherFieldsElementIO(elt_values_root, M_prognostic_data_elt);
+#else
     std::vector<std::string> names_elements;
     std::vector<std::vector<double>*> data_elements;
     std::vector<double> elt_values_root;
     this->getRestartNamesPointers(names_elements, data_elements);
     this->gatherFieldsElementIO(elt_values_root, data_elements);
+#endif
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -8151,6 +8156,19 @@ FiniteElement::writeRestart(std::string const& name_str)
 
         // loop over the elemental variables that have been
         // gathered to elt_values_root
+#if 1
+        int const nb_var_element = M_restart_names_elt.size();
+        for(int j=0; j<nb_var_element; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
+        }
+#else
         int const nb_var_element = names_elements.size();
         for(int j=0; j<nb_var_element; j++)
         {
@@ -8162,6 +8180,7 @@ FiniteElement::writeRestart(std::string const& name_str)
             }
             exporter.writeField(outbin, tmp, names_elements[j]);
         }
+#endif
 
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
@@ -8409,6 +8428,57 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
+#if 1
+    std::vector<double> elt_values_root;
+    if (M_rank == 0)
+    {
+        // set pointers to appropriate vector in field_map_dbl (read from the restart file)
+        std::vector<std::vector<double>*> data_elements_root;
+        for (auto name: M_restart_names_elt)
+        {
+            if(field_map_dbl.count(name)==0)
+            {
+                std::string msg = name + "is not in the restart file";
+                throw std::runtime_error(msg);
+            }
+            data_elements_root.push_back(&(field_map_dbl[name]));
+        }
+
+        // transfer data from data_elements_root to elt_values_root
+        this->collectElementsRestart(elt_values_root, data_elements_root);
+
+        // Pre-processing
+        M_VT   = field_map_dbl["M_VT"];
+        M_VTM  = field_map_dbl["M_VTM"];
+        M_VTMM = field_map_dbl["M_VTMM"];
+        M_UM   = field_map_dbl["M_UM"];
+        M_UT   = field_map_dbl["M_UT"];
+        if(vm["restart.restart_at_rest"].as<bool>())
+        {
+            // reset M_sigma, M_VT[,M,MM] = 0
+            // NB don't reset M_UT = 0 (for drifters)
+            // TODO should M_UM = 0 ? - this is the mesh displacement (not part of the rheology)
+            for(int k=0; k<3; k++)
+                std::fill(M_sigma[k].begin(), M_sigma[k].end(), 0.);
+
+            for (int i=0; i < M_VT.size(); i++)
+            {
+                M_VT[i]   = 0.;
+                M_VTM[i]  = 0.;
+                M_VTMM[i] = 0.;
+                M_UM[i]   = 0.;
+            }
+        }
+
+        if (M_use_iabp_drifters)
+            this->restartIabpDrifters(field_map_int, field_map_dbl);
+    }//M_rank==0
+
+    // Scatter elemental fields from root and put them in M_prognostic_data_elt
+    // - M_prognostic_data_elt is a vector of pointers so the required
+    //   variables are now set
+    this->scatterFieldsElementIO(elt_values_root, M_prognostic_data_elt);
+#else
     std::vector<std::string> names_elements;
     std::vector<std::vector<double>*> data_elements(names_elements.size());
     this->getRestartNamesPointers(names_elements, data_elements);
@@ -8461,6 +8531,7 @@ FiniteElement::readRestart(std::string const& name_str)
     // - data_elements is a vector of pointers so the required
     //   variables are now set
     this->scatterFieldsElementIO(elt_values_root, data_elements);
+#endif/**/
 
     // Scatter nodal fields from root
     std::vector<double> interp_nd_out;
