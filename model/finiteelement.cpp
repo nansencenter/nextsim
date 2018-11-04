@@ -2484,6 +2484,17 @@ FiniteElement::setPointersElements(
             case(ModelVariable::variableID::M_tsurf_thin):
                 data.push_back(&M_tsurf_thin); // surface temperature over thin ice
                 break;
+#if 0
+            case(ModelVariable::variableID::M_fyi_fraction):
+                data.push_back(&M_fyi_fraction); // FYI fraction
+                break;
+            case(ModelVariable::variableID::M_age_obs):
+                data.push_back(&M_age_obs); // observable ice age
+                break;
+            case(ModelVariable::variableID::M_age):
+                data.push_back(&M_age); // ice age
+                break;
+#endif
             case(ModelVariable::variableID::D_Qa):
                 data.push_back(&D_Qa);
                 break;
@@ -2504,6 +2515,12 @@ FiniteElement::setPointersElements(
                 break;
             case(ModelVariable::variableID::D_delS):
                 data.push_back(&D_delS);
+                break;
+            case(ModelVariable::variableID::D_emp):
+                data.push_back(&D_emp);
+                break;
+            case(ModelVariable::variableID::D_brine):
+                data.push_back(&D_brine);
                 break;
             default:
                 throw std::runtime_error("Unimplemented ID: name = "+var_ptr->name());
@@ -6702,7 +6719,7 @@ FiniteElement::initModelVariables()
     //! -2) loop over M_variables in order to sort them
     //!     for restart/regrid/export
     std::vector<std::string> export_names = vm["output.variables"].as<std::vector<std::string>>();
-    bool custom_export = (export_names.size() == 0 );
+    bool custom_export = (export_names.size() > 0 );
     M_prognostic_variables_elt.resize(0);
     M_restart_names_elt.resize(0);
     M_export_variables_elt.resize(0);
