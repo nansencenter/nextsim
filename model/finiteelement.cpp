@@ -8289,7 +8289,6 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
-#if 1
     std::vector<double> elt_values_root;
     if (M_rank == 0)
     {
@@ -8339,60 +8338,6 @@ FiniteElement::readRestart(std::string const& name_str)
     // - M_prognostic_data_elt is a vector of pointers so the required
     //   variables are now set
     this->scatterFieldsElementIO(elt_values_root, M_prognostic_data_elt);
-#else
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements(names_elements.size());
-    this->getRestartNamesPointers(names_elements, data_elements);
-    std::vector<double> elt_values_root;
-    if (M_rank == 0)
-    {
-        // set pointers to appropriate vector in field_map_dbl (read from the restart file)
-        std::vector<std::vector<double>*> data_elements_root;
-        for (auto name: names_elements)
-        {
-            if(field_map_dbl.count(name)==0)
-            {
-                std::string msg = name + "is not in the restart file";
-                throw std::runtime_error(msg);
-            }
-            data_elements_root.push_back(&(field_map_dbl[name]));
-        }
-
-        // transfer data from data_elements_root to elt_values_root
-        this->collectElementsRestart(elt_values_root, data_elements_root);
-
-        // Pre-processing
-        M_VT   = field_map_dbl["M_VT"];
-        M_VTM  = field_map_dbl["M_VTM"];
-        M_VTMM = field_map_dbl["M_VTMM"];
-        M_UM   = field_map_dbl["M_UM"];
-        M_UT   = field_map_dbl["M_UT"];
-        if(vm["restart.restart_at_rest"].as<bool>())
-        {
-            // reset M_sigma, M_VT[,M,MM] = 0
-            // NB don't reset M_UT = 0 (for drifters)
-            // TODO should M_UM = 0 ? - this is the mesh displacement (not part of the rheology)
-            for(int k=0; k<3; k++)
-                std::fill(M_sigma[k].begin(), M_sigma[k].end(), 0.);
-
-            for (int i=0; i < M_VT.size(); i++)
-            {
-                M_VT[i]   = 0.;
-                M_VTM[i]  = 0.;
-                M_VTMM[i] = 0.;
-                M_UM[i]   = 0.;
-            }
-        }
-
-        if (M_use_iabp_drifters)
-            this->restartIabpDrifters(field_map_int, field_map_dbl);
-    }//M_rank==0
-
-    // Scatter elemental fields from root and put them in data_elements
-    // - data_elements is a vector of pointers so the required
-    //   variables are now set
-    this->scatterFieldsElementIO(elt_values_root, data_elements);
-#endif/**/
 
     // Scatter nodal fields from root
     std::vector<double> interp_nd_out;
