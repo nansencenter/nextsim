@@ -6730,8 +6730,11 @@ FiniteElement::initModelVariables()
     for(auto ptr: M_variables)
     {
 
+#if 0
+        //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
         bool export_requested = (std::count( export_names.begin(),
                     export_names.end(), ptr->name()) > 0 );
+#endif
 
         if(ptr->varKind() == ModelVariable::variableKind::elemental)
         {
