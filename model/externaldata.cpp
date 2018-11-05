@@ -147,7 +147,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if(M_dataset->grid.dataset_frequency=="constant")
             to_be_reloaded=!M_dataset->loaded;
         else if(M_dataset->grid.dataset_frequency=="nearest_daily")
-            to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->loaded);
+            to_be_reloaded=(
+                    Nextsim::datenumToString(current_time, "%Y%m%d") != Nextsim::datenumToString(M_dataset->ftime_range[0], "%Y%m%d")
+                    || !M_dataset->loaded);
 #ifdef OASIS
         else if(M_dataset->grid.dataset_frequency=="coupled")
             to_be_reloaded=((cpl_time < M_dataset->ftime_range[0] ) || (M_dataset->ftime_range[1] <= cpl_time) || !M_dataset->loaded );
@@ -542,14 +544,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 // use forecast.time_init_atm_fc option to get init_time
                 std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
             else
             {
                 // use forecast.time_init_ocean_fc option to get init_time
                 std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
         }
         //only need init_time to get grid
@@ -622,9 +624,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         file_jump ={-1,0,1};
 
         LOG(DEBUG)<<"LOAD DATASET TIMES:\n";
-        LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
-        LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
-        LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
+        LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<datenumToString(init_time)<<"\n";
+        LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<datenumToString(M_current_time)<<"\n";
+        LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<datenumToString(ftime)<<"\n";
         if((is_ec_fc||is_topaz_fc)&&true_forecast)
         {
             // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
@@ -635,13 +637,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 file_jump ={0};
                 std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
             else
             {
                 std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
         }//forecasts
 
@@ -707,13 +709,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
                  if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
-                     f = from_date_string((boost::format( "%1%-%2%-%3%" )
+                     f = stringToDatenum((boost::format( "%1%-%2%-%3%" )
                                  % f_timestr.substr(0,4)
                                  % f_timestr.substr(4,2)
                                  % f_timestr.substr(6,2)).str())+0.5;
                  else
                      f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
-                          + from_date_string(dataset->grid.reference_date);
+                          + stringToDatenum(dataset->grid.reference_date);
 
                  if(f>M_current_time && index_next==-1)
                  {
@@ -754,11 +756,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
-            f_timestr = to_date_string_yd(std::floor(ftime));
-            double f=from_date_string((boost::format( "%1%-%2%-%3%" )
-                        % f_timestr.substr(0,4)
-                        % f_timestr.substr(4,2)
-                        % f_timestr.substr(6,2)).str());
+            double f= std::floor(ftime);
+            f_timestr = datenumToString(f, "%Y%m%d");
             dataset->ftime_range = {f+.5};
         }
         else
