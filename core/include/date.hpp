@@ -46,7 +46,7 @@ inline std::string posixTimeToString( boost::posix_time::ptime const& p_time,
 
 
 //! convert date string to boost::posix_time::ptime object
-//! * accepts %Y-%m-%d %H:%M:%S format or %Y-%m-%d
+//! * \note only accepts %Y-%m-%d %H:%M:%S or %Y-%m-%d date formats
 inline boost::posix_time::ptime stringToPosixTime( std::string datestr)
 {
     if (datestr.find(" ") != std::string::npos)
@@ -76,6 +76,7 @@ inline double posixTimeToDatenum( boost::posix_time::ptime const& p_time)
 
 
 //! convert string to nextsim time (decimal days since 1900-1-1 0:00)
+//! * \note only accepts %Y-%m-%d %H:%M:%S or %Y-%m-%d date formats
 inline double stringToDatenum( std::string const& datestr )
 {
     return posixTimeToDatenum(
