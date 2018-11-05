@@ -6556,6 +6556,8 @@ FiniteElement::initModelVariables()
     M_restart_names_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
+    M_interp_methods.resize(0);
+    M_diffusivity_parameters.resize(0);
     for(auto ptr: M_variables)
     {
 
@@ -6572,6 +6574,8 @@ FiniteElement::initModelVariables()
                 // restart, regrid variables
                 M_prognostic_variables_elt.push_back(ptr);
                 M_restart_names_elt.push_back(ptr->name());
+                M_interp_methods.push_back((int) ptr->interpMethod());
+                M_diffusivity_parameters.push_back(ptr->diffusivity());
 
 #if 0
                 //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
@@ -6597,7 +6601,7 @@ FiniteElement::initModelVariables()
             {
                 // export variables
                 M_export_variables_elt.push_back(ptr);
-                M_export_names_elt.push_back(ptr->export_name());
+                M_export_names_elt.push_back(ptr->exportName());
             }
         }
     }

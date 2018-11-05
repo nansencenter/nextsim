@@ -38,13 +38,13 @@ public:
         elemental  =  1
     };
 
-    enum interpMethod
+    enum InterpMethod
     {
         meshToMesh   = 0,
         conservative = 1
     };
 
-    enum interpTransformation
+    enum InterpTransformation
     {
         none     = 0,//do nothing (conservative variable already)
         conc     = 1,//multiply by M_conc
@@ -99,8 +99,8 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    interpMethod M_interp_method;//interpolation method during regridding
-    interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
+    InterpMethod M_interp_method;//interpolation method during regridding
+    InterpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
@@ -151,11 +151,11 @@ public:
     variableKind varKind() { return M_var_kind; }
     int componentNumber() { return M_component_number; }
     std::string name() { return M_name; }
-    std::string export_name() { return M_export_name; }
+    std::string exportName() { return M_export_name; }
     bool is_prognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    interpMethod interp_method() {return M_interp_method; }
-    interpTransformation interpTransform() { return M_interp_transformation; }
+    InterpMethod interpMethod() {return M_interp_method; }
+    InterpTransformation interpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
 
     // set attributes
