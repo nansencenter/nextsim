@@ -718,7 +718,7 @@ private:
     std::vector<std::vector<double>*> M_prognostic_data_elt;
     std::vector<std::vector<double>*> M_export_data_elt;
 
-    // Diagnostic variables
+    // Prognostic variables
     ModelVariable vM_conc;
     ModelVariable vM_thick;
     ModelVariable vM_damage;

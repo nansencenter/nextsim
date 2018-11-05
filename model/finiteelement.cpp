@@ -12251,32 +12251,19 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // get names of the variables in the output file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-#if 1
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
-    if(vm["output.save_forcing_fields"].as<bool>())
+    if(export_fields)
     {
-        ext_data_elements = M_external_data_elements;
-        for(auto name : M_external_data_elements_names)
-            names_elements.push_back(name);
+        if(vm["output.save_forcing_fields"].as<bool>())
+        {
+            ext_data_elements = M_external_data_elements;
+            for(auto name : M_external_data_elements_names)
+                names_elements.push_back(name);
+        }
+        this->gatherFieldsElementIO(elt_values_root, M_export_data_elt, ext_data_elements);
     }
-    this->gatherFieldsElementIO(elt_values_root, M_export_data_elt, ext_data_elements);
-#else
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
-    std::vector<ExternalData*> ext_data_elements;
-    std::vector<double> elt_values_root;
-    this->getExportNamesPointers(names_elements, data_elements);
-    if(vm["output.save_forcing_fields"].as<bool>())
-    {
-        ext_data_elements = M_external_data_elements;
-        for(auto name : M_external_data_elements_names)
-            names_elements.push_back(name);
-    }
-    this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
-#endif
-
 
     M_comm.barrier();
     if (M_rank == 0)
