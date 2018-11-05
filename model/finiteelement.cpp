@@ -2040,8 +2040,8 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     }
 
     interp_elt_in_local.resize(nb_var_element*num_elements);
-    M_interp_method.resize(nb_var_element); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
-    M_diffusivity_parameters.resize(nb_var_element); // 0 for non added diffusion, positive value for active diffusion in [m^2/s] (only non conservative implementation available)
+    M_interp_methods_old.resize(nb_var_element); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
+    M_diffusivity_parameters_old.resize(nb_var_element); // 0 for non added diffusion, positive value for active diffusion in [m^2/s] (only non conservative implementation available)
 
     int tmp_nb_var=0;
     for (int i=0; i<num_elements; ++i)
@@ -2050,101 +2050,101 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 
         // concentration
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
-        M_interp_method[tmp_nb_var] = 1; // crash if equal 1
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1; // crash if equal 1
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // snow thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // integrated_stresses
         for(int k=0; k<3; k++, tmp_nb_var++)
         {
             interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[k][i];
-            M_interp_method[tmp_nb_var] = 1;
-            M_diffusivity_parameters[tmp_nb_var]=0.;
+            M_interp_methods_old[tmp_nb_var] = 1;
+            M_diffusivity_parameters_old[tmp_nb_var]=0.;
         }
 
         // damage
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_damage[i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // ridge_ratio
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // random_number
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_random_number[i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // sea surface salinity
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sss[i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=vm["thermo.diffusivity_sss"].as<double>();
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=vm["thermo.diffusivity_sss"].as<double>();
         tmp_nb_var++;
 
 		// sea surface temperature
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sst[i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=vm["thermo.diffusivity_sst"].as<double>();
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=vm["thermo.diffusivity_sst"].as<double>();
         tmp_nb_var++;
 
         // Ice temperature
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         if ( M_thermo_type == setup::ThermoType::WINTON )
         {
             interp_elt_in_local[nb_var_element*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
-            M_interp_method[tmp_nb_var] = 1;
-            M_diffusivity_parameters[tmp_nb_var]=0.;
+            M_interp_methods_old[tmp_nb_var] = 1;
+            M_diffusivity_parameters_old[tmp_nb_var]=0.;
             tmp_nb_var++;
 
             interp_elt_in_local[nb_var_element*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
-            M_interp_method[tmp_nb_var] = 1;
-            M_diffusivity_parameters[tmp_nb_var]=0.;
+            M_interp_methods_old[tmp_nb_var] = 1;
+            M_diffusivity_parameters_old[tmp_nb_var]=0.;
             tmp_nb_var++;
         }
 
         // thin ice thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // thin ice thickness
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // snow on thin ice
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-        M_interp_method[tmp_nb_var] = 1;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 1;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         // Ice surface temperature for thin ice
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-        M_interp_method[tmp_nb_var] = 0;
-        M_diffusivity_parameters[tmp_nb_var]=0.;
+        M_interp_methods_old[tmp_nb_var] = 0;
+        M_diffusivity_parameters_old[tmp_nb_var]=0.;
         tmp_nb_var++;
 
         if(tmp_nb_var>nb_var_element)
@@ -2677,7 +2677,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
         for(int j=0; j<M_nb_var_element; j++)
         {
-            if(M_interp_method[j]==1)
+            if(M_interp_methods_old[j]==1)
             {
                 integrated_variable = interp_elt_in[cpt*M_nb_var_element+j]*surface
                     - (
@@ -2896,7 +2896,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 #if 1
             for(int j=0; j<M_nb_var_element; j++)
             {
-                if(M_interp_method[j]==1)
+                if(M_interp_methods_old[j]==1)
                 {
                     integrated_variable = interp_elt_in_root[cpt*M_nb_var_element+j]*surface
                         - (
@@ -3347,7 +3347,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_method[0], M_nb_var_element,
+                                       &M_interp_methods_old[0], M_nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)

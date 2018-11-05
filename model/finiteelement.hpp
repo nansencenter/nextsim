@@ -425,10 +425,10 @@ private:
     std::vector<bool> M_mask_dirichlet_root;
 
     // interpolation method
-    std::vector<int> M_interp_method;
+    std::vector<int> M_interp_methods_old;
 
     // diffusivity parameters
-    std::vector<double> M_diffusivity_parameters;
+    std::vector<double> M_diffusivity_parameters_old;
 
     std::vector<double> M_surface;
     std::vector<std::vector<double>> M_sigma;
