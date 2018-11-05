@@ -6718,8 +6718,11 @@ FiniteElement::initModelVariables()
 
     //! -2) loop over M_variables in order to sort them
     //!     for restart/regrid/export
+#if 0
+    //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
     std::vector<std::string> export_names = vm["output.variables"].as<std::vector<std::string>>();
     bool custom_export = (export_names.size() > 0 );
+#endif
     M_prognostic_variables_elt.resize(0);
     M_restart_names_elt.resize(0);
     M_export_variables_elt.resize(0);
@@ -6738,19 +6741,25 @@ FiniteElement::initModelVariables()
                 M_prognostic_variables_elt.push_back(ptr);
                 M_restart_names_elt.push_back(ptr->name());
 
+#if 0
+                //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
                 // if we only want to export specific variables
                 // (specified in config file)
                 if (custom_export)
                     ptr->setExporting(export_requested);
+#endif
             }
             else if (vm["output.save_diagnostics"].as<bool>())
                 // export all diagnostic variables to binary
                 // - NB overrides "custom_export"
                 ptr->setExporting(true);
+#if 0
+            //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
             else if (custom_export)
                 // if we only want to export specific diagnostic variables
                 // (specified in config file)
                 ptr->setExporting(export_requested);
+#endif
 
             if(ptr->exporting())
             {
