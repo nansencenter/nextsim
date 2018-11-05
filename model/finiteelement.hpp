@@ -286,7 +286,6 @@ public:
     void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
             boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
-    void restartScatterElementVariables();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements);
