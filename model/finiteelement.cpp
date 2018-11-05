@@ -6695,7 +6695,7 @@ FiniteElement::initModelVariables()
     for(int k=0; k<vD_sigma.size(); k++)
     {
         vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
-        M_variables.push_back(&(vM_sigma[k]));
+        M_variables.push_back(&(vD_sigma[k]));
     }
     vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
     M_variables.push_back(&vD_Qa);

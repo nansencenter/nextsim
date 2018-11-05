@@ -202,7 +202,7 @@ ModelVariable::initElemental()
             M_name = "M_random_number";
             M_export_name = "M_random_number";
             M_prognostic = true;
-            M_exporting = true;
+            M_exporting = false;
             M_interp_method = interpMethod::meshToMesh;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
@@ -293,7 +293,7 @@ ModelVariable::initElemental()
         case (variableID::D_Qa):
             // Total heat flux to the atmosphere [W/m^2]
             M_name = "D_Qa";
-            M_export_name = "Qa";
+            M_export_name = "Qatm";
             M_prognostic = false;
             M_exporting = false;
             M_diffusivity = 0;
