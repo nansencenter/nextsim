@@ -2154,6 +2154,42 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     }
 }//collectVariables
 
+void
+FiniteElement::collectVariables2(std::vector<double>& interp_elt_in_local, bool ghosts)
+{
+    // ELEMENT INTERPOLATION With Cavities
+    int nb_var_element = M_prognostic_variables_elt.size();
+    int num_elements = M_local_nelements;
+    if (ghosts)
+        num_elements = M_num_elements;
+
+    interp_elt_in_local.resize(nb_var_element*num_elements);
+    for (int i=0; i<num_elements; ++i)
+    {
+        for (int tmp_nb_var=0; tmp_nb_var<nb_var_element; tmp_nb_var++)
+        {
+            auto vptr = M_prognostic_variables_elt[tmp_nb_var];
+            auto ptr = M_prognostic_data_elt[tmp_nb_var];
+            double val = (*ptr)[i];
+            switch(vptr->interpTransformation())
+            {
+                case ModelVariable::InterpTransformation::conc:
+                    val *= M_conc[i];
+                    break;
+                case ModelVariable::InterpTransformation::thick:
+                    val *= M_thick[i];
+                    break;
+                case ModelVariable::InterpTransformation::enthalpy:
+                    val = ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i];
+                        // val = M_tice[1][i]
+                        // (Winton, 2000, eqn 39) times volume with f1=1
+                    break;
+            }
+            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = val;
+        }
+    }
+}//collectVariables2
+
 
 //------------------------------------------------------------------------------------------------------
 //! Collects model variables and stores them into a single vector, interp_elt_in_local, for outputting.

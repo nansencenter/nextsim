@@ -316,7 +316,9 @@ private:
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts = false);
+    void collectVariables2(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc = false);
+    void redistributeVariables2(std::vector<double> const& out_elt_values, bool check_conc = false);
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
