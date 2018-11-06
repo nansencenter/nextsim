@@ -2016,139 +2016,6 @@ FiniteElement::gatherSizes()
 }//gatherSizes
 
     
-//------------------------------------------------------------------------------------------------------
-//! Collects model variables and stores them into a single vector, interp_elt_in_local: called by the update() function,
-//! before updating all variables after solving.
-//! Called by the gatherFieldsElement() function.
-#if 0
-void
-FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts)
-{
-    // ELEMENT INTERPOLATION With Cavities
-    int nb_var_element = M_nb_var_element;
-
-    int num_elements = M_local_nelements;
-    if (ghosts)
-    {
-        num_elements = M_num_elements;
-    }
-
-    interp_elt_in_local.resize(nb_var_element*num_elements);
-    M_interp_methods_old.resize(nb_var_element); // 0 for non conservative method, 1 for conservative method (for variables defined in terms of blabla/per unit area)
-    M_diffusivity_parameters_old.resize(nb_var_element); // 0 for non added diffusion, positive value for active diffusion in [m^2/s] (only non conservative implementation available)
-
-    int tmp_nb_var=0;
-    for (int i=0; i<num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_thick[i];
-        M_interp_methods_old[tmp_nb_var] = 1; // crash if equal 1
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // snow thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_snow_thick[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // integrated_stresses
-        for(int k=0; k<3; k++, tmp_nb_var++)
-        {
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sigma[k][i];
-            M_interp_methods_old[tmp_nb_var] = 1;
-            M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        }
-
-        // damage
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_damage[i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // ridge_ratio
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_ridge_ratio[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // random_number
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_random_number[i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // sea surface salinity
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sss[i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=vm["thermo.diffusivity_sss"].as<double>();
-        tmp_nb_var++;
-
-		// sea surface temperature
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_sst[i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=vm["thermo.diffusivity_sst"].as<double>();
-        tmp_nb_var++;
-
-        // Ice temperature
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tice[0][i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = ( M_tice[1][i] - physical::mu*physical::si*physical::Lf/(physical::C*M_tice[1][i]) ) * M_thick[i]; // (39) times volume with f1=1
-            M_interp_methods_old[tmp_nb_var] = 1;
-            M_diffusivity_parameters_old[tmp_nb_var]=0.;
-            tmp_nb_var++;
-
-            interp_elt_in_local[nb_var_element*i+tmp_nb_var] = ( M_tice[2][i] ) * M_thick[i]; // (39) times volume with f1=0
-            M_interp_methods_old[tmp_nb_var] = 1;
-            M_diffusivity_parameters_old[tmp_nb_var]=0.;
-            tmp_nb_var++;
-        }
-
-        // thin ice thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_h_thin[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // thin ice thickness
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc_thin[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // snow on thin ice
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_hs_thin[i];
-        M_interp_methods_old[tmp_nb_var] = 1;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_tsurf_thin[i];
-        M_interp_methods_old[tmp_nb_var] = 0;
-        M_diffusivity_parameters_old[tmp_nb_var]=0.;
-        tmp_nb_var++;
-
-        if(tmp_nb_var>nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-    }
-}//collectVariables
-#endif
-
 void
 FiniteElement::sortPrognosticVars(std::vector<int> &j_none,
         std::vector<int> &j_conc,
@@ -2207,8 +2074,13 @@ FiniteElement::sortPrognosticVars(
     }
 }
 
+
+//------------------------------------------------------------------------------------------------------
+//! Collects model variables and stores them into a single vector, interp_elt_in_local: called by the update() function,
+//! before updating all variables after solving.
+//! Called by the gatherFieldsElement() function.
 void
-FiniteElement::collectVariables2(std::vector<double>& interp_elt_in_local, bool ghosts)
+FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts)
 {
     // ELEMENT INTERPOLATION With Cavities
     int nb_var_element = M_prognostic_variables_elt.size();
@@ -2255,7 +2127,7 @@ FiniteElement::collectVariables2(std::vector<double>& interp_elt_in_local, bool 
                 ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i];
         }
     }
-}//collectVariables2
+}//collectVariables
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2297,139 +2169,8 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 //------------------------------------------------------------------------------------------------------
 //! Interpolates variables (other than velocities and displacements) onto the mesh grid once updated.
 //! Called by the updated() function, after the advect() function.
-#if 0
 void
-FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc)
-{
-    int nb_var_element = M_nb_var_element;
-
-    int tmp_nb_var=0;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_nb_var=0;
-
-        // concentration
-        M_conc[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // thickness
-        M_thick[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // snow thickness
-        M_snow_thick[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        if (M_thick[i] != 0.)
-        {
-            // integrated_stresses
-            for (int k=0; k<3; k++, tmp_nb_var++)
-                M_sigma[k][i] = out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/;
-
-            // damage
-            M_damage[i] = std::max(0., std::min(1.,out_elt_values[nb_var_element*i+tmp_nb_var]));
-            tmp_nb_var++;
-
-            // ridge_ratio
-            M_ridge_ratio[i] = std::max(0., std::min(1.,out_elt_values[nb_var_element*i+tmp_nb_var]/*/M_thick[i]*/));
-            tmp_nb_var++;
-        }
-        else
-        {
-            // integrated_stresses
-            for (int k=0; k<3; k++, tmp_nb_var++)
-                M_sigma[k][i] = 0.;
-
-            // damage
-            M_damage[i] = 0.;
-            tmp_nb_var++;
-
-            // damage
-            M_ridge_ratio[i] = 0.;
-            tmp_nb_var++;
-        }
-
-        // random_number
-        M_random_number[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SSS
-        M_sss[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // SST
-        M_sst[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        // Ice temperature
-        M_tice[0][i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            if(M_thick[i]>0.)
-            {
-                double tmp = out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i];
-                M_tice[1][i] = 0.5*( tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
-                tmp_nb_var++;
-
-                M_tice[2][i] = out_elt_values[nb_var_element*i+tmp_nb_var]/M_thick[i]; // (40) divided with volume with f1=0
-                tmp_nb_var++;
-            }
-            else
-            {
-                M_tice[1][i] = -physical::mu*physical::si;
-                tmp_nb_var++;
-
-                M_tice[2][i] = -physical::mu*physical::si;
-                tmp_nb_var++;
-            }
-        }
-
-        // thin ice thickness
-        M_h_thin[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // thin ice concentration
-        M_conc_thin[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // snow on thin ice
-        M_hs_thin[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
-        tmp_nb_var++;
-
-        // Ice surface temperature for thin ice
-        M_tsurf_thin[i] = out_elt_values[nb_var_element*i+tmp_nb_var];
-        tmp_nb_var++;
-
-        if(tmp_nb_var!=nb_var_element)
-        {
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
-        }
-
-        if (check_conc)
-        {
-            M_conc[i]=(M_conc[i]>1.) ? 1. : M_conc[i];
-            double conc_thin_tmp = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
-            double h_thin_tmp = 0.;
-
-            if(M_conc_thin[i]>0.)
-            {
-                h_thin_tmp = M_h_thin[i]*conc_thin_tmp/M_conc_thin[i];
-            }
-
-            M_thick[i] += M_h_thin[i] - h_thin_tmp;
-            M_h_thin[i] = h_thin_tmp;
-            M_conc_thin[i] = conc_thin_tmp;
-        }
-    }
-}//redistributeVariables
-#endif
-
-
-void
-FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
+FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
 {
     //! -1) sort according to how they are transformed before/after interpolation
     int nb_var_element = M_prognostic_variables_elt.size();
@@ -2510,7 +2251,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
 #endif
 
     }
-}//redistributeVariables2
+}//redistributeVariables
 
 
 //------------------------------------------------------------------------------------------------------
@@ -3171,11 +2912,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 
     std::vector<double> interp_elt_in_local;
     bool ghosts = false;
-#if 1
-    this->collectVariables2(interp_elt_in_local, ghosts);
-#else
     this->collectVariables(interp_elt_in_local, ghosts);
-#endif
 
     if (M_rank == 0)
     {
@@ -3286,58 +3023,19 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
     // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
 
-#if 1
     for(int j=0; j<M_variables_elt.size(); j++)
     {
         auto ptr = M_variables_elt[j];
         if(ptr->isPrognostic())
             // resize prognostic variables
-            // - they are set in redistributeVariables2
+            // - they are set in redistributeVariables
             ptr->resize(M_num_elements);
         else
             // assign diagnostic variables
             // - they are not interpolated
             ptr->assign(M_num_elements, 0.);
     }
-    this->redistributeVariables2(out_elt_values);
-#else
-    M_conc.assign(M_num_elements,0.);
-    M_thick.assign(M_num_elements,0.);
-    M_snow_thick.assign(M_num_elements,0.);
-    for (int k=0; k<3; k++)
-        M_sigma[k].assign(M_num_elements, 0.);
-    M_damage.assign(M_num_elements,0.);
-    M_ridge_ratio.assign(M_num_elements,0.);
-    M_random_number.resize(M_num_elements);
-
-    M_sst.resize(M_num_elements);
-    M_sss.resize(M_num_elements);
-
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        it->assign(M_num_elements,0.);
-
-    M_h_thin.assign(M_num_elements,0.);
-    M_conc_thin.assign(M_num_elements,0.);
-    M_hs_thin.assign(M_num_elements,0.);
-    M_tsurf_thin.assign(M_num_elements,0.);
-
-    // Diagnostics
-    D_Qa.assign(M_num_elements,0.);
-    D_Qsh.assign(M_num_elements,0.);
-    D_Qlh.assign(M_num_elements,0.);
-    D_Qlw.assign(M_num_elements,0.);
-    D_Qsw.assign(M_num_elements,0.);
-    D_Qo.assign(M_num_elements,0.);
-    D_Qnosun.assign(M_num_elements,0.);
-    D_Qsw_ocean.assign(M_num_elements,0.);
-    D_delS.assign(M_num_elements,0.);
-    D_emp.assign(M_num_elements,0.);
-    D_brine.assign(M_num_elements,0.);
-    D_tau_w.assign(2*M_num_nodes,0.);
-    D_tau_a.assign(2*M_num_nodes,0.); 
-
-    this->redistributeVariables(out_elt_values,true);
-#endif
+    this->redistributeVariables(out_elt_values);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElement
@@ -6661,7 +6359,7 @@ FiniteElement::initModelVariables()
             {
                 // restart, regrid variables
                 // - 1st sort them according to the way they are transformed at interpolation time
-                // - this will make redistributeVariables2 slightly more efficient
+                // - this will make redistributeVariables slightly more efficient
                 switch(ptr->interpTransformation())
                 {
                     case ModelVariable::InterpTransformation::none:
