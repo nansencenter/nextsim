@@ -399,7 +399,6 @@ void ModelVariable::testCall()
     std::cout<<"name = "<<this->M_name<<"\n";
     std::cout<<"export_name = "<<this->M_export_name<<"\n";
 
-#if 0
     // test inherited methods
     // - assign
     // - begin
@@ -423,7 +422,6 @@ void ModelVariable::testCall()
 
     // - size
     std::cout<<"size = "<<N<<"? "<<this->size()<<"\n";
-#endif
 
     std::abort();
 }//testCall
