@@ -612,6 +612,7 @@ FiniteElement::initVariables()
     // NB won't be needed after merging of data and metadata
     M_prognostic_data_elt.resize(0);
     M_export_data_elt.resize(0);
+    this->setPointersElements(M_data_elt, M_variables_elt);
     this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
     this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initVariables
@@ -747,7 +748,7 @@ FiniteElement::assignVariables()
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
     M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
-    
+
 #if 1
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
@@ -2501,6 +2502,17 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
             M_h_thin[i] = h_thin_new;
             M_conc_thin[i] = conc_thin_new;
         }
+
+#if 0
+        for(int j=0; j<nb_var_element; j++)
+            if(has_max[j])
+            {
+                ptr = M_prognostic_data_elt[j];
+                double val = (*ptr)[i];
+                (*ptr)[i] = has_max[j] ? std::min(max_val[j], val) : val;
+            }
+#endif
+
     }
 }//redistributeVariables2
 
@@ -3287,7 +3299,12 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local;
-    this->collectVariables(interp_elt_in_local, false);
+    bool ghosts = false;
+#if 1
+    this->collectVariables2(interp_elt_in_local, ghosts);
+#else
+    this->collectVariables(interp_elt_in_local, ghosts);
+#endif
 
     if (M_rank == 0)
     {
@@ -3398,7 +3415,22 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
     // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
 
-
+#if 1
+    for(int j=0; j<M_variables_elt.size(); j++)
+    {
+        auto vptr = M_variables_elt[j];
+        auto ptr = M_data_elt[j];
+        if(vptr->isPrognostic())
+            // resize prognostic variables
+            // - they are set in redistributeVariables2
+            ptr->resize(M_num_elements);
+        else
+            // assign diagnostic variables
+            // - they are not interpolated
+            ptr->assign(M_num_elements, 0.);
+    }
+    this->redistributeVariables2(out_elt_values);
+#else
     M_conc.assign(M_num_elements,0.);
     M_thick.assign(M_num_elements,0.);
     M_snow_thick.assign(M_num_elements,0.);
@@ -3435,6 +3467,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_tau_a.assign(2*M_num_nodes,0.); 
 
     this->redistributeVariables(out_elt_values,true);
+#endif
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElement
@@ -6637,18 +6670,18 @@ void
 FiniteElement::initModelVariables()
 {
 
-    //! -1) init all ModelVariable's and put them in M_variables
+    //! -1) init all ModelVariable's and put them in M_variables_elt
     // Prognostic variables
     vM_conc = ModelVariable(ModelVariable::variableID::M_conc);
-    M_variables.push_back(&vM_conc);
+    M_variables_elt.push_back(&vM_conc);
     vM_thick = ModelVariable(ModelVariable::variableID::M_thick);
-    M_variables.push_back(&vM_thick);
+    M_variables_elt.push_back(&vM_thick);
     vM_damage = ModelVariable(ModelVariable::variableID::M_damage);
-    M_variables.push_back(&vM_damage);
+    M_variables_elt.push_back(&vM_damage);
     vM_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
-    M_variables.push_back(&vM_snow_thick);
+    M_variables_elt.push_back(&vM_snow_thick);
     vM_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
-    M_variables.push_back(&vM_ridge_ratio);
+    M_variables_elt.push_back(&vM_ridge_ratio);
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
         vM_tice.resize(3);
@@ -6657,77 +6690,77 @@ FiniteElement::initModelVariables()
     for(int k=0; k<vM_tice.size(); k++)
     {
         vM_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
-        M_variables.push_back(&(vM_tice[k]));
+        M_variables_elt.push_back(&(vM_tice[k]));
     }
 
     vM_sigma.resize(3);
     for(int k=0; k<vM_sigma.size(); k++)
     {
         vM_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
-        M_variables.push_back(&(vM_sigma[k]));
+        M_variables_elt.push_back(&(vM_sigma[k]));
     }
 
     vM_sst = ModelVariable(ModelVariable::variableID::M_sst);
-    M_variables.push_back(&vM_sst);
+    M_variables_elt.push_back(&vM_sst);
     vM_sss = ModelVariable(ModelVariable::variableID::M_sss);
-    M_variables.push_back(&vM_sss);
+    M_variables_elt.push_back(&vM_sss);
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         vM_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
-        M_variables.push_back(&vM_tsurf_thin);
+        M_variables_elt.push_back(&vM_tsurf_thin);
         vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
-        M_variables.push_back(&vM_h_thin);
+        M_variables_elt.push_back(&vM_h_thin);
         vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
-        M_variables.push_back(&vM_hs_thin);
+        M_variables_elt.push_back(&vM_hs_thin);
         vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
-        M_variables.push_back(&vM_conc_thin);
+        M_variables_elt.push_back(&vM_conc_thin);
     }
     vM_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
-    M_variables.push_back(&vM_random_number);
+    M_variables_elt.push_back(&vM_random_number);
 #if 0
     vM_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
-    M_variables.push_back(&vM_fyi_fraction);
+    M_variables_elt.push_back(&vM_fyi_fraction);
     vM_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
-    M_variables.push_back(&vM_age_obs);
+    M_variables_elt.push_back(&vM_age_obs);
     vM_age = ModelVariable(ModelVariable::variableID::M_age);
-    M_variables.push_back(&vM_age);
+    M_variables_elt.push_back(&vM_age);
 #endif
 
     // Diagnostic variables
     vD_conc = ModelVariable(ModelVariable::variableID::D_conc);
-    M_variables.push_back(&vD_conc);
+    M_variables_elt.push_back(&vD_conc);
     vD_thick = ModelVariable(ModelVariable::variableID::D_thick);
-    M_variables.push_back(&vD_thick);
+    M_variables_elt.push_back(&vD_thick);
     vD_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
-    M_variables.push_back(&vD_snow_thick);
+    M_variables_elt.push_back(&vD_snow_thick);
     vD_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
-    M_variables.push_back(&vD_tsurf);
+    M_variables_elt.push_back(&vD_tsurf);
     vD_sigma.resize(2);
     for(int k=0; k<vD_sigma.size(); k++)
     {
         vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
-        M_variables.push_back(&(vD_sigma[k]));
+        M_variables_elt.push_back(&(vD_sigma[k]));
     }
     vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
-    M_variables.push_back(&vD_Qa);
+    M_variables_elt.push_back(&vD_Qa);
     vD_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
-    M_variables.push_back(&vD_Qsw);
+    M_variables_elt.push_back(&vD_Qsw);
     vD_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
-    M_variables.push_back(&vD_Qlw);
+    M_variables_elt.push_back(&vD_Qlw);
     vD_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
-    M_variables.push_back(&vD_Qsh);
+    M_variables_elt.push_back(&vD_Qsh);
     vD_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
-    M_variables.push_back(&vD_Qlh);
+    M_variables_elt.push_back(&vD_Qlh);
     vD_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
-    M_variables.push_back(&vD_Qo);
+    M_variables_elt.push_back(&vD_Qo);
     vD_delS = ModelVariable(ModelVariable::variableID::D_delS);
-    M_variables.push_back(&vD_delS);
+    M_variables_elt.push_back(&vD_delS);
     vD_emp = ModelVariable(ModelVariable::variableID::D_emp);
-    M_variables.push_back(&vD_emp);
+    M_variables_elt.push_back(&vD_emp);
     vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
-    M_variables.push_back(&vD_brine);
+    M_variables_elt.push_back(&vD_brine);
 
-    //! -2) loop over M_variables in order to sort them
+    //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
 #if 0
     //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
@@ -6740,7 +6773,7 @@ FiniteElement::initModelVariables()
     std::vector<ModelVariable*> prog_conc;
     std::vector<ModelVariable*> prog_thick;
     std::vector<ModelVariable*> prog_enthalpy;
-    for(auto ptr: M_variables)
+    for(auto ptr: M_variables_elt)
     {
 
 #if 0
@@ -6751,7 +6784,7 @@ FiniteElement::initModelVariables()
 
         if(ptr->varKind() == ModelVariable::variableKind::elemental)
         {
-            if(ptr->is_prognostic())
+            if(ptr->isPrognostic())
             {
                 // restart, regrid variables
                 // - 1st sort them according to the way they are transformed at interpolation time
@@ -6799,7 +6832,7 @@ FiniteElement::initModelVariables()
                 M_export_names_elt.push_back(ptr->exportName());
             }
         }
-    }// loop over M_variables
+    }// loop over M_variables_elt
 
     // finally collect the sorted prognostic variables
     M_prognostic_variables_elt.resize(0);

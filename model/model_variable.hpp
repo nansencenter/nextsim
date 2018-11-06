@@ -156,7 +156,7 @@ public:
     int componentNumber() { return M_component_number; }
     std::string name() { return M_name; }
     std::string exportName() { return M_export_name; }
-    bool is_prognostic() {return M_prognostic; }
+    bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
     InterpMethod interpMethod() {return M_interp_method; }
     InterpTransformation interpTransformation() { return M_interp_transformation; }

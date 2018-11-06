@@ -727,13 +727,14 @@ private:
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
     // vectors of pointers to variables (for looping)
-    std::vector<ModelVariable*> M_variables;
+    std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
     std::vector<ModelVariable*> M_export_variables_elt;
 
     // other vectors related to export/restart
     std::vector<std::string> M_restart_names_elt;
     std::vector<std::string> M_export_names_elt;
+    std::vector<std::vector<double>*> M_data_elt;
     std::vector<std::vector<double>*> M_prognostic_data_elt;
     std::vector<std::vector<double>*> M_export_data_elt;
 
