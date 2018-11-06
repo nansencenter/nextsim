@@ -3130,7 +3130,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_methods_old[0], M_nb_var_element,
+                                       &M_interp_methods[0], M_nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
