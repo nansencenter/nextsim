@@ -315,6 +315,21 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
+    void sortPrognosticVars(
+        std::vector<int> &j_none,
+        std::vector<int> &j_conc,
+        std::vector<int> &j_thick,
+        std::vector<int> &j_enthalpy);
+    void sortPrognosticVars(
+        std::vector<int> &j_none,
+        std::vector<int> &j_conc,
+        std::vector<int> &j_thick,
+        std::vector<int> &j_enthalpy,
+        std::vector<bool> &has_min,
+        std::vector<bool> &has_max,
+        std::vector<double> &min_val,
+        std::vector<double> &max_val);
+
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts = false);
     void collectVariables2(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc = false);
