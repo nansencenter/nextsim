@@ -290,7 +290,7 @@ public:
     void partitionMeshRestart();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
-            std::vector<std::vector<double>*> &data_elements);
+            std::vector<std::vector<double>*> &data_elements_root);
 
     void rootMeshProcessing();
 
@@ -337,26 +337,23 @@ private:
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
-            std::vector<std::vector<double>*> const& data_elements,
+            std::vector<ModelVariable*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements,
             bool const& ghosts);
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<std::vector<double>*> const& data_elements,
+            std::vector<ModelVariable*> const& data_elements,
             std::vector<ExternalData*> const& ext_data_elements);
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<std::vector<double>*> const& data_elements)
+            std::vector<ModelVariable*> const& data_elements)
     {
         std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
         this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
     }
 
-    void setPointersElements(
-            std::vector<std::vector<double>*> &data,
-            std::vector<ModelVariable*> const &vars);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
-            std::vector<std::vector<double>*> &data);
+            std::vector<ModelVariable*> &data_elements);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<std::vector<double>*> &data_elements);
+        std::vector<ModelVariable*> &data_elements);
 
     void scatterElementConnectivity();
 
@@ -450,8 +447,6 @@ private:
     std::vector<double> M_diffusivity_parameters_old;
 
     std::vector<double> M_surface;
-    std::vector<std::vector<double>> M_sigma;
-    std::vector<std::vector<double>> D_sigma;
 
     std::vector<double> M_UM;
     std::vector<double> M_UT;
@@ -459,7 +454,6 @@ private:
     std::vector<double> M_VTM;
     std::vector<double> M_VTMM;
 
-    std::vector<double> M_bathy_depth;
 
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
@@ -469,19 +463,6 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
-    std::vector<double> M_h_thin;
-    std::vector<double> M_conc_thin;
-    std::vector<double> M_hs_thin;
-
-    std::vector<double> D_thick;
-    std::vector<double> D_conc;
-    std::vector<double> D_snow_thick;
-    std::vector<double> D_tsurf;
-
-
-    std::vector<double> M_ridge_ratio;
-    std::vector<double> M_h_ridged_thin_ice;
-    std::vector<double> M_h_ridged_thick_ice;
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
@@ -509,7 +490,6 @@ private:
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
     //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
-    std::vector<double> M_random_number;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -712,19 +692,6 @@ private:
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
 
-    // Prognostic ice variables
-    std::vector<double> M_conc;         // Ice concentration
-    std::vector<double> M_thick;        // Effective ice thickness [m]
-    std::vector<double> M_damage;       // Ice damage
-    std::vector<double> M_snow_thick;   // Effective snow thickness [m]
-
-	// Prognostic slab ocean variables
-    std::vector<double> M_sst;          // Sea-surface temperature [C]
-    std::vector<double> M_sss;          // Sea-surface salinity [psu]
-
-    // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
-    std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
-    std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
 
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables_elt;
@@ -734,46 +701,48 @@ private:
     // other vectors related to export/restart
     std::vector<std::string> M_restart_names_elt;
     std::vector<std::string> M_export_names_elt;
-    std::vector<std::vector<double>*> M_data_elt;
-    std::vector<std::vector<double>*> M_prognostic_data_elt;
-    std::vector<std::vector<double>*> M_export_data_elt;
 
     // Prognostic variables
-    ModelVariable vM_conc;
-    ModelVariable vM_thick;
-    ModelVariable vM_damage;
-    ModelVariable vM_snow_thick;
-    ModelVariable vM_ridge_ratio;
-    std::vector<ModelVariable> vM_tice;
-    std::vector<ModelVariable> vM_sigma;
-    ModelVariable vM_sst;
-    ModelVariable vM_sss;
-    ModelVariable vM_tsurf_thin;
-    ModelVariable vM_h_thin;
-    ModelVariable vM_hs_thin;
-    ModelVariable vM_conc_thin;
-    ModelVariable vM_random_number;
+    ModelVariable M_conc;                       // Ice concentration
+    ModelVariable M_thick;// Effective ice thickness [m]
+    ModelVariable M_damage;// Ice damage
+    ModelVariable M_snow_thick;// Effective snow thickness [m]
+    ModelVariable M_ridge_ratio;
+    std::vector<ModelVariable> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
+    std::vector<ModelVariable> M_sigma;
+    ModelVariable M_sst;// Sea-surface (slab ocean) temperature [C]
+    ModelVariable M_sss;// Sea-surface (slab ocean) salinity [psu]
+    ModelVariable M_tsurf_thin;// Ice surface temperature of thin ice [C]
+    ModelVariable M_h_thin;
+    ModelVariable M_hs_thin;
+    ModelVariable M_conc_thin;
+    ModelVariable M_random_number;
 #if 0
-    ModelVariable vM_fyi_fraction;
-    ModelVariable vM_age_obs;
-    ModelVariable vM_age;
+    ModelVariable M_fyi_fraction;
+    ModelVariable M_age_obs;
+    ModelVariable M_age;
 #endif
 
     // Diagnostic variables
-    ModelVariable vD_conc;
-    ModelVariable vD_thick;
-    ModelVariable vD_snow_thick;
-    ModelVariable vD_tsurf;
-    std::vector<ModelVariable> vD_sigma;
-    ModelVariable vD_Qa;
-    ModelVariable vD_Qsw;
-    ModelVariable vD_Qlw;
-    ModelVariable vD_Qsh;
-    ModelVariable vD_Qlh;
-    ModelVariable vD_Qo;
-    ModelVariable vD_delS;
-    ModelVariable vD_emp;
-    ModelVariable vD_brine;
+    ModelVariable D_conc; //total concentration
+    ModelVariable D_thick; // total thickness [m]
+    ModelVariable D_snow_thick;// total snow thickness [m]
+    ModelVariable D_tsurf; //mean surface temperature (thick + thin ice + slab ocean) [deg C]
+    std::vector<ModelVariable> D_sigma; //principal stresses [Pa]
+    ModelVariable D_Qa; // Heat loss to atmosphere [W/m2]
+    ModelVariable D_Qsw; // Total short wave at surface [W/m2]
+    ModelVariable D_Qlw; // Total long wave at surface [W/m2]
+    ModelVariable D_Qsh; // Total sensible heat flux at surface [W/m2]
+    ModelVariable D_Qlh; // Total latent heat flux at surface [W/m2]
+    ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
+    ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
+    ModelVariable D_Qo; // Heat loss from ocean [W/m2]
+    ModelVariable D_delS; // Salt flux to ocean
+    ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
+    ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
+
+    std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
+    std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
 
 
 private:
@@ -888,19 +857,6 @@ private:
 private:
 
     // Diagnostic variables
-    std::vector<double> D_Qa; // Heat loss to atmosphere [W/m2]
-    std::vector<double> D_Qsw; // Total short wave at surface [W/m2]
-    std::vector<double> D_Qlw; // Total long wave at surface [W/m2]
-    std::vector<double> D_Qsh; // Total sensible heat flux at surface [W/m2]
-    std::vector<double> D_Qlh; // Total latent heat flux at surface [W/m2]
-    std::vector<double> D_Qnosun; // Non-solar heat loss from ocean [W/m2]
-    std::vector<double> D_Qsw_ocean; // SW flux out of the ocean [W/m2]
-    std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
-    std::vector<double> D_delS; // Salt flux to ocean
-    std::vector<double> D_emp; // Evaporation minus Precipitation [kg/m2/s]
-    std::vector<double> D_brine; // Brine release into the ocean [kg/m2/s]
-    std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
-    std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
 
 };
 } // Nextsim

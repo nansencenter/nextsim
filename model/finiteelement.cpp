@@ -516,10 +516,10 @@ FiniteElement::initVariables()
     M_tsurf_thin.assign(M_num_elements,0.); //! \param M_tsurf_thin (double) Temperature at the surface of thin ice [C]
     
     // stresses
-    M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
+    //M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
     for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
         it->assign(M_num_elements, 0.);
-    D_sigma.resize(2); //! \param D_sigma (double) Principal stresses (diagnostics) [N/m2]
+    //D_sigma.resize(2); //! \param D_sigma (double) Principal stresses (diagnostics) [N/m2]
     
     // random numbers
     // - 1st set on root
@@ -607,14 +607,6 @@ FiniteElement::initVariables()
 
     this->assignVariables();
 
-    // set pointers to data 
-    // - couldn't do it in initModelVariables, since M_tice, M_sigma, D_sigma weren't resized yet
-    // NB won't be needed after merging of data and metadata
-    M_prognostic_data_elt.resize(0);
-    M_export_data_elt.resize(0);
-    this->setPointersElements(M_data_elt, M_variables_elt);
-    this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
-    this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initVariables
 
     
@@ -2239,25 +2231,25 @@ FiniteElement::collectVariables2(std::vector<double>& interp_elt_in_local, bool 
         for(int j: j_none)
         {
             // no transformation
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i];
         }
         for(int j: j_conc)
         {
             // weighted by M_conc
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_conc[i];
         }
         for(int j: j_thick)
         {
             // weighted by M_thick
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_thick[i];
         }
         for(int j: j_enthalpy)
         {
             // enthalpy transformation
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             double val = (*ptr)[j];
             interp_elt_in_local[nb_var_element*i+j] =
                 ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i];
@@ -2271,7 +2263,7 @@ FiniteElement::collectVariables2(std::vector<double>& interp_elt_in_local, bool 
 //! Called by the gatherFieldsElementIO() function.
 void
 FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
-        std::vector<std::vector<double>*> const& data_elements,
+        std::vector<ModelVariable*> const& data_elements,
         std::vector<ExternalData*> const& ext_data_elements,
         bool const& ghosts)
 {
@@ -2461,7 +2453,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
         {
             // no transformation
             // NB must be done first! (others may need M_conc and M_thick)
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             val = out_elt_values[nb_var_element*i+j];
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
             (*ptr)[i] = val;
@@ -2469,7 +2461,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
         for(int j: j_conc)
         {
             // weighted by M_conc
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             val = M_conc[i]>0. ?
                 out_elt_values[nb_var_element*i+j]/M_conc[i] : 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -2478,7 +2470,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
         for(int j: j_thick)
         {
             // weighted by M_thick
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             val = M_thick[i]>0. ?
                 out_elt_values[nb_var_element*i+j]/M_thick[i] : 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -2487,7 +2479,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
         for(int j: j_enthalpy)
         {
             // enthalpy transformation
-            auto ptr = M_prognostic_data_elt[j];
+            auto ptr = M_prognostic_variables_elt[j];
             double tmp = out_elt_values[nb_var_element*i+j];
             (*ptr)[i] = 0.5*(
                     tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
@@ -2511,7 +2503,7 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
         for(int j=0; j<nb_var_element; j++)
             if(has_max[j])
             {
-                ptr = M_prognostic_data_elt[j];
+                ptr = M_prognostic_variables_elt[j];
                 double val = (*ptr)[i];
                 (*ptr)[i] = has_max[j] ? std::min(max_val[j], val) : val;
             }
@@ -2519,131 +2511,6 @@ FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
 
     }
 }//redistributeVariables2
-
-    
-//------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables in the run restart file, takes a list of names and for each name,
-//! adds a pointer to the appropriate vector
-//! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
-//! Called from the readRestart() function.
-void
-FiniteElement::setPointersElements(
-        std::vector<std::vector<double>*> &data,
-        std::vector<ModelVariable*> const &vars)
-{
-
-    //!1st set pointers to the data requested in "names"
-    for(auto var_ptr: vars)
-    {
-
-        int comp_num = var_ptr->componentNumber();//only used for vectors
-
-        if(M_rank==0)
-            LOG(DEBUG)<<"setPointersElements: adding "<<var_ptr->name()
-                <<": comp_num = "<<comp_num<<"\n";
-
-        switch(var_ptr->varID())
-        {
-            case(ModelVariable::variableID::M_conc):
-                data.push_back(&M_conc); // concentration of thick ice
-                break;
-            case(ModelVariable::variableID::M_thick):
-                data.push_back(&M_thick); // thickness of thick ice
-                break;
-            case(ModelVariable::variableID::M_snow_thick):
-                data.push_back(&M_snow_thick); // snow thickness on thick ice
-                break;
-            case(ModelVariable::variableID::D_conc):
-                data.push_back(&D_conc); // total concentration
-                break;
-            case(ModelVariable::variableID::D_thick):
-                data.push_back(&D_thick); // total thickness
-                break;
-            case(ModelVariable::variableID::D_snow_thick):
-                data.push_back(&D_snow_thick); // total snow thickness
-                break;
-            case(ModelVariable::variableID::D_tsurf):
-                data.push_back(&D_tsurf); // mean surface temperature
-                break;
-            case(ModelVariable::variableID::M_sigma):
-                data.push_back(&(M_sigma[comp_num])); // M_sigma[k] - stress component #k
-                break;
-            case(ModelVariable::variableID::D_sigma):
-                data.push_back(&(D_sigma[comp_num])); // D_sigma[k] - principal stress #k
-                break;
-            case(ModelVariable::variableID::M_damage):
-                data.push_back(&M_damage); // damage
-                break;
-            case(ModelVariable::variableID::M_ridge_ratio):
-                data.push_back(&M_ridge_ratio); // ridge ratio
-                break;
-            case(ModelVariable::variableID::M_random_number):
-                data.push_back(&M_random_number); // random_number
-                break;
-            case(ModelVariable::variableID::M_sss):
-                data.push_back(&M_sss); // SSS
-                break;
-            case(ModelVariable::variableID::M_sst):
-                data.push_back(&M_sst); // SST
-                break;
-            case(ModelVariable::variableID::M_tice):
-                data.push_back(&(M_tice[comp_num])); // M_tice[k] - thick ice temperature
-                break;
-            case(ModelVariable::variableID::M_h_thin):
-                data.push_back(&M_h_thin); // thin ice thickness
-                break;
-            case(ModelVariable::variableID::M_conc_thin):
-                data.push_back(&M_conc_thin); // thin ice concentration
-                break;
-            case(ModelVariable::variableID::M_hs_thin):
-                data.push_back(&M_hs_thin); // snow thickness on thin ice
-                break;
-            case(ModelVariable::variableID::M_tsurf_thin):
-                data.push_back(&M_tsurf_thin); // surface temperature over thin ice
-                break;
-#if 0
-            case(ModelVariable::variableID::M_fyi_fraction):
-                data.push_back(&M_fyi_fraction); // FYI fraction
-                break;
-            case(ModelVariable::variableID::M_age_obs):
-                data.push_back(&M_age_obs); // observable ice age
-                break;
-            case(ModelVariable::variableID::M_age):
-                data.push_back(&M_age); // ice age
-                break;
-#endif
-            case(ModelVariable::variableID::D_Qa):
-                data.push_back(&D_Qa);
-                break;
-            case(ModelVariable::variableID::D_Qsw):
-                data.push_back(&D_Qsw);
-                break;
-            case(ModelVariable::variableID::D_Qlw):
-                data.push_back(&D_Qlw);
-                break;
-            case(ModelVariable::variableID::D_Qsh):
-                data.push_back(&D_Qsh);
-                break;
-            case(ModelVariable::variableID::D_Qlh):
-                data.push_back(&D_Qlh);
-                break;
-            case(ModelVariable::variableID::D_Qo):
-                data.push_back(&D_Qo);
-                break;
-            case(ModelVariable::variableID::D_delS):
-                data.push_back(&D_delS);
-                break;
-            case(ModelVariable::variableID::D_emp):
-                data.push_back(&D_emp);
-                break;
-            case(ModelVariable::variableID::D_brine):
-                data.push_back(&D_brine);
-                break;
-            default:
-                throw std::runtime_error("Unimplemented ID: name = "+var_ptr->name());
-        }
-    }
-}//setPointersElements
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2654,7 +2521,7 @@ FiniteElement::setPointersElements(
 //! * data is a vector of pointers to the variables to be assigned values from elt_values_local
 void
 FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_local,
-        std::vector<std::vector<double>*> &data)
+        std::vector<ModelVariable*> &data)
 {
     int nb_var_element = data.size();
     for(int j=0; j<data.size(); j++)
@@ -3344,7 +3211,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 //! Called by the writeRestart() and exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
-        std::vector<std::vector<double>*> const& data_elements,
+        std::vector<ModelVariable*> const& data_elements,
         std::vector<ExternalData*> const& ext_data_elements)
 {
 
@@ -3422,9 +3289,8 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 #if 1
     for(int j=0; j<M_variables_elt.size(); j++)
     {
-        auto vptr = M_variables_elt[j];
-        auto ptr = M_data_elt[j];
-        if(vptr->isPrognostic())
+        auto ptr = M_variables_elt[j];
+        if(ptr->isPrognostic())
             // resize prognostic variables
             // - they are set in redistributeVariables2
             ptr->resize(M_num_elements);
@@ -3483,7 +3349,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 //! Called by the restartScatterElementVariables() function.
 void
 FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root,
-        std::vector<std::vector<double>*> &data_elements)
+        std::vector<ModelVariable*> &data_elements)
 {
     //! * elt_values_root is a vector containing all the variables to be
     //!   redistributed (eg after scattering from root) into the
@@ -6679,93 +6545,93 @@ FiniteElement::initModelVariables()
 
     //! -1) init all ModelVariable's and put them in M_variables_elt
     // Prognostic variables
-    vM_conc = ModelVariable(ModelVariable::variableID::M_conc);
-    M_variables_elt.push_back(&vM_conc);
-    vM_thick = ModelVariable(ModelVariable::variableID::M_thick);
-    M_variables_elt.push_back(&vM_thick);
-    vM_damage = ModelVariable(ModelVariable::variableID::M_damage);
-    M_variables_elt.push_back(&vM_damage);
-    vM_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
-    M_variables_elt.push_back(&vM_snow_thick);
-    vM_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
-    M_variables_elt.push_back(&vM_ridge_ratio);
+    M_conc = ModelVariable(ModelVariable::variableID::M_conc);
+    M_variables_elt.push_back(&M_conc);
+    M_thick = ModelVariable(ModelVariable::variableID::M_thick);
+    M_variables_elt.push_back(&M_thick);
+    M_damage = ModelVariable(ModelVariable::variableID::M_damage);
+    M_variables_elt.push_back(&M_damage);
+    M_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
+    M_variables_elt.push_back(&M_snow_thick);
+    M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
+    M_variables_elt.push_back(&M_ridge_ratio);
 
     if ( M_thermo_type == setup::ThermoType::WINTON )
-        vM_tice.resize(3);
+        M_tice.resize(3);
     else
-        vM_tice.resize(1);
-    for(int k=0; k<vM_tice.size(); k++)
+        M_tice.resize(1);
+    for(int k=0; k<M_tice.size(); k++)
     {
-        vM_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
-        M_variables_elt.push_back(&(vM_tice[k]));
+        M_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
+        M_variables_elt.push_back(&(M_tice[k]));
     }
 
-    vM_sigma.resize(3);
-    for(int k=0; k<vM_sigma.size(); k++)
+    M_sigma.resize(3);
+    for(int k=0; k<M_sigma.size(); k++)
     {
-        vM_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
-        M_variables_elt.push_back(&(vM_sigma[k]));
+        M_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
+        M_variables_elt.push_back(&(M_sigma[k]));
     }
 
-    vM_sst = ModelVariable(ModelVariable::variableID::M_sst);
-    M_variables_elt.push_back(&vM_sst);
-    vM_sss = ModelVariable(ModelVariable::variableID::M_sss);
-    M_variables_elt.push_back(&vM_sss);
+    M_sst = ModelVariable(ModelVariable::variableID::M_sst);
+    M_variables_elt.push_back(&M_sst);
+    M_sss = ModelVariable(ModelVariable::variableID::M_sss);
+    M_variables_elt.push_back(&M_sss);
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
-        vM_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
-        M_variables_elt.push_back(&vM_tsurf_thin);
-        vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
-        M_variables_elt.push_back(&vM_h_thin);
-        vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
-        M_variables_elt.push_back(&vM_hs_thin);
-        vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
-        M_variables_elt.push_back(&vM_conc_thin);
+        M_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
+        M_variables_elt.push_back(&M_tsurf_thin);
+        M_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
+        M_variables_elt.push_back(&M_h_thin);
+        M_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
+        M_variables_elt.push_back(&M_hs_thin);
+        M_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
+        M_variables_elt.push_back(&M_conc_thin);
     }
-    vM_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
-    M_variables_elt.push_back(&vM_random_number);
+    M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
+    M_variables_elt.push_back(&M_random_number);
 #if 0
-    vM_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
-    M_variables_elt.push_back(&vM_fyi_fraction);
-    vM_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
-    M_variables_elt.push_back(&vM_age_obs);
-    vM_age = ModelVariable(ModelVariable::variableID::M_age);
-    M_variables_elt.push_back(&vM_age);
+    M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
+    M_variables_elt.push_back(&M_fyi_fraction);
+    M_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
+    M_variables_elt.push_back(&M_age_obs);
+    M_age = ModelVariable(ModelVariable::variableID::M_age);
+    M_variables_elt.push_back(&M_age);
 #endif
 
     // Diagnostic variables
-    vD_conc = ModelVariable(ModelVariable::variableID::D_conc);
-    M_variables_elt.push_back(&vD_conc);
-    vD_thick = ModelVariable(ModelVariable::variableID::D_thick);
-    M_variables_elt.push_back(&vD_thick);
-    vD_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
-    M_variables_elt.push_back(&vD_snow_thick);
-    vD_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
-    M_variables_elt.push_back(&vD_tsurf);
-    vD_sigma.resize(2);
-    for(int k=0; k<vD_sigma.size(); k++)
+    D_conc = ModelVariable(ModelVariable::variableID::D_conc);
+    M_variables_elt.push_back(&D_conc);
+    D_thick = ModelVariable(ModelVariable::variableID::D_thick);
+    M_variables_elt.push_back(&D_thick);
+    D_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
+    M_variables_elt.push_back(&D_snow_thick);
+    D_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
+    M_variables_elt.push_back(&D_tsurf);
+    D_sigma.resize(2);
+    for(int k=0; k<D_sigma.size(); k++)
     {
-        vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
-        M_variables_elt.push_back(&(vD_sigma[k]));
+        D_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
+        M_variables_elt.push_back(&(D_sigma[k]));
     }
-    vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
-    M_variables_elt.push_back(&vD_Qa);
-    vD_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
-    M_variables_elt.push_back(&vD_Qsw);
-    vD_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
-    M_variables_elt.push_back(&vD_Qlw);
-    vD_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
-    M_variables_elt.push_back(&vD_Qsh);
-    vD_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
-    M_variables_elt.push_back(&vD_Qlh);
-    vD_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
-    M_variables_elt.push_back(&vD_Qo);
-    vD_delS = ModelVariable(ModelVariable::variableID::D_delS);
-    M_variables_elt.push_back(&vD_delS);
-    vD_emp = ModelVariable(ModelVariable::variableID::D_emp);
-    M_variables_elt.push_back(&vD_emp);
-    vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
-    M_variables_elt.push_back(&vD_brine);
+    D_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
+    M_variables_elt.push_back(&D_Qa);
+    D_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
+    M_variables_elt.push_back(&D_Qsw);
+    D_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
+    M_variables_elt.push_back(&D_Qlw);
+    D_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
+    M_variables_elt.push_back(&D_Qsh);
+    D_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
+    M_variables_elt.push_back(&D_Qlh);
+    D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
+    M_variables_elt.push_back(&D_Qo);
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);
+    M_variables_elt.push_back(&D_delS);
+    D_emp = ModelVariable(ModelVariable::variableID::D_emp);
+    M_variables_elt.push_back(&D_emp);
+    D_brine = ModelVariable(ModelVariable::variableID::D_brine);
+    M_variables_elt.push_back(&D_brine);
 
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -8127,16 +7993,8 @@ FiniteElement::writeRestart(std::string const& name_str)
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-#if 1
     std::vector<double> elt_values_root;
-    this->gatherFieldsElementIO(elt_values_root, M_prognostic_data_elt);
-#else
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
-    std::vector<double> elt_values_root;
-    this->getRestartNamesPointers(names_elements, data_elements);
-    this->gatherFieldsElementIO(elt_values_root, data_elements);
-#endif
+    this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -8589,10 +8447,10 @@ FiniteElement::readRestart(std::string const& name_str)
             this->restartIabpDrifters(field_map_int, field_map_dbl);
     }//M_rank==0
 
-    // Scatter elemental fields from root and put them in M_prognostic_data_elt
-    // - M_prognostic_data_elt is a vector of pointers so the required
+    // Scatter elemental fields from root and put them in M_prognostic_variables_elt
+    // - M_prognostic_variables_elt is a vector of pointers so the required
     //   variables are now set
-    this->scatterFieldsElementIO(elt_values_root, M_prognostic_data_elt);
+    this->scatterFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
     // Scatter nodal fields from root
     std::vector<double> interp_nd_out;
@@ -8703,7 +8561,7 @@ FiniteElement::partitionMeshRestart()
 //! called by restartScatterElementVariables()
 void
 FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
-        std::vector<std::vector<double>*> &data_elements)
+        std::vector<std::vector<double>*> &data_elements_root)
 {
 
     // get the variables (only on the root processor so far)
@@ -8712,15 +8570,15 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
     std::vector<double> out_elt_values;
 
     int num_elements_root = M_id_elements.size();
-    int const nb_var_element = data_elements.size();
+    int const nb_var_element = data_elements_root.size();
     interp_elt_out.resize(nb_var_element*num_elements_root);
 
     for (int i=0; i<num_elements_root; ++i)
     {
         int ri = M_id_elements[i]-1;
-        for(int j=0; j<data_elements.size(); j++)
+        for(int j=0; j<data_elements_root.size(); j++)
         {
-            auto ptr = data_elements[j];
+            auto ptr = data_elements_root[j];
             interp_elt_out[nb_var_element*i+j] = (*ptr)[ri];
         }
     }
@@ -12517,7 +12375,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             for(auto name : M_external_data_elements_names)
                 names_elements.push_back(name);
         }
-        this->gatherFieldsElementIO(elt_values_root, M_export_data_elt, ext_data_elements);
+        this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
     }
 
     M_comm.barrier();
