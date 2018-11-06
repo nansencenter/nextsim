@@ -2028,6 +2028,7 @@ FiniteElement::gatherSizes()
 //! Collects model variables and stores them into a single vector, interp_elt_in_local: called by the update() function,
 //! before updating all variables after solving.
 //! Called by the gatherFieldsElement() function.
+#if 0
 void
 FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts)
 {
@@ -2154,6 +2155,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         }
     }
 }//collectVariables
+#endif
 
 void
 FiniteElement::sortPrognosticVars(std::vector<int> &j_none,
@@ -2303,6 +2305,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 //------------------------------------------------------------------------------------------------------
 //! Interpolates variables (other than velocities and displacements) onto the mesh grid once updated.
 //! Called by the updated() function, after the advect() function.
+#if 0
 void
 FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool check_conc)
 {
@@ -2430,6 +2433,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         }
     }
 }//redistributeVariables
+#endif
 
 
 void
@@ -5078,7 +5082,7 @@ FiniteElement::update()
 
         double ridge_thin_ice_aspect_ratio=10.;
 
-#if 1
+        double conc_thin = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             if(M_conc_thin[cpt]>0. )
@@ -5116,10 +5120,10 @@ FiniteElement::update()
                 M_h_thin[cpt]=0.;
                 M_hs_thin[cpt]=0.;
             }
+            conc_thin = M_conc_thin[cpt];
         }
-#endif
 
-        double new_conc=std::min(1.,std::max(1.-M_conc_thin[cpt]-open_water_concentration+del_c,0.));
+        double new_conc=std::min(1.,std::max(1.-conc_thin-open_water_concentration+del_c,0.));
 
         if((new_conc+M_conc_thin[cpt])>1.)
             new_conc=1.-M_conc_thin[cpt];
@@ -5135,7 +5139,7 @@ FiniteElement::update()
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-M_conc_thin[cpt],M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1.-conc_thin,M_thick[cpt]/test_h_thick);
         }
         else
         {
@@ -5338,18 +5342,14 @@ FiniteElement::nestingIce()
             if ( M_nudge_function == "exponential" )
                 fNudge = std::exp(-M_nesting_dist_elements[i]/nudge_scale);
 
-            if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
+            M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
+            M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
+            M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
                 M_conc_thin[i]  += (fNudge*(time_step/nudge_time)*(M_nesting_conc_thin[i]-M_conc_thin[i]));
                 M_h_thin[i]     += (fNudge*(time_step/nudge_time)*(M_nesting_h_thin[i]-M_h_thin[i]));
                 M_hs_thin[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_hs_thin[i]-M_hs_thin[i]));
-                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
-                M_snow_thick[i] +=(fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
-            }
-            else {
-                M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
-                M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
-                M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
             }
         }
     }
@@ -5875,8 +5875,15 @@ FiniteElement::thermo(int dt)
         double emp;         // Evaporation minus liquid precipitation
 
         //! * Calculates changes in ice and snow volumes to calculate salt rejection
-        del_vi = M_thick[i] - old_vol + M_h_thin[i] - old_h_thin;
-        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + M_hs_thin[i] - old_hs_thin);
+        double del_h_thin = 0; // change in thin ice volume
+        double del_hs_thin = 0; // change in snow-on-thin-ice volume
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            del_h_thin = M_h_thin[i] - old_h_thin;
+            del_hs_thin = M_hs_thin[i] - old_hs_thin;
+        }
+        del_vi = M_thick[i] - old_vol + del_h_thin;
+        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + del_hs_thin);
 
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
