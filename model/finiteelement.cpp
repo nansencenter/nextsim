@@ -2358,6 +2358,95 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
     }
 }//redistributeVariables
 
+
+void
+FiniteElement::redistributeVariables2(std::vector<double> const& out_elt_values)
+{
+    int nb_var_element = M_prognostic_variables_elt.size();
+    std::vector<int> j_none;
+    std::vector<int> j_conc;
+    std::vector<int> j_thick;
+    std::vector<int> j_enthalpy;
+    std::vector<bool> has_min(nb_var_element);
+    std::vector<bool> has_max(nb_var_element);
+    std::vector<double> min_val(nb_var_element);
+    std::vector<double> max_val(nb_var_element);
+    for(int j=0; j<nb_var_element; j++)
+    {
+        auto vptr = M_prognostic_variables_elt[j];
+        has_min[j] = vptr->hasMinVal();
+        has_max[j] = vptr->hasMinVal();
+        min_val[j] = has_min[j] ? vptr->minVal() : 0.;
+        max_val[j] = has_max[j] ? vptr->maxVal() : 0.;
+        switch(vptr->interpTransformation())
+        {
+            case ModelVariable::InterpTransformation::none:
+                j_none.push_back(j);
+                break;
+            case ModelVariable::InterpTransformation::conc:
+                j_conc.push_back(j);
+                break;
+            case ModelVariable::InterpTransformation::thick:
+                j_thick.push_back(j);
+                break;
+            case ModelVariable::InterpTransformation::enthalpy:
+                j_enthalpy.push_back(j);
+                break;
+        }
+    }
+
+
+    double val = 0.;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        for(int j: j_none)
+        {
+            auto ptr = M_prognostic_data_elt[j];
+            val = out_elt_values[nb_var_element*i+j];
+            val = has_min[j] ?  std::max(min_val[j], val ) : val ;
+            val = has_max[j] ?  std::min(max_val[j], val ) : val ;
+            (*ptr)[i] = val;
+        }
+        for(int j: j_conc)
+        {
+            auto ptr = M_prognostic_data_elt[j];
+            val = M_conc[i]>0. ?
+                out_elt_values[nb_var_element*i+j]/M_conc[i] : 0.;
+            val = has_min[j] ?  std::max(min_val[j], val ) : val ;
+            val = has_max[j] ?  std::min(max_val[j], val ) : val ;
+            (*ptr)[i] = val;
+        }
+        for(int j: j_thick)
+        {
+            auto ptr = M_prognostic_data_elt[j];
+            val = M_thick[i]>0. ?
+                out_elt_values[nb_var_element*i+j]/M_thick[i] : 0.;
+            val = has_min[j] ?  std::max(min_val[j], val ) : val ;
+            val = has_max[j] ?  std::min(max_val[j], val ) : val ;
+            (*ptr)[i] = val;
+        }
+        for(int j: j_enthalpy)
+        {
+            auto ptr = M_prognostic_data_elt[j];
+            double tmp = out_elt_values[nb_var_element*i+j];
+            (*ptr)[i] = 0.5*(
+                    tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
+        }
+
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
+            double h_thin_new = 0.;
+            if(M_conc_thin[i]>0.)
+                h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
+
+            M_thick[i] += M_h_thin[i] - h_thin_new;
+            M_h_thin[i] = h_thin_new;
+            M_conc_thin[i] = conc_thin_new;
+        }
+    }
+}//redistributeVariables2
+
     
 //------------------------------------------------------------------------------------------------------
 //! Gets the names of the variables in the run restart file, takes a list of names and for each name,

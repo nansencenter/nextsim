@@ -104,6 +104,10 @@ private:
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
+    bool M_has_min = false;
+    bool M_has_max = false;
+    double M_min_val;
+    double M_max_val;
 
 
 public:
@@ -157,6 +161,10 @@ public:
     InterpMethod interpMethod() {return M_interp_method; }
     InterpTransformation interpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
+    bool hasMinVal() { return M_has_min; }
+    bool hasMaxVal() { return M_has_max; }
+    double minVal() { return M_min_val; }
+    double maxVal() { return M_max_val; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }
