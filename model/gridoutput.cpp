@@ -178,6 +178,7 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
 
     M_grid = Grid();
     M_grid.loaded = false;
+    M_grid.interp_method = interpMethod::meshToMesh;
 
     // Calculate lat and lon
     M_grid.gridLAT.assign(M_grid_size, 0.);
