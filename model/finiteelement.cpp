@@ -516,10 +516,10 @@ FiniteElement::initVariables()
     M_tsurf_thin.assign(M_num_elements,0.); //! \param M_tsurf_thin (double) Temperature at the surface of thin ice [C]
     
     // stresses
-    //M_sigma.resize(3); //! \param M_sigma (double) Internal stress tensor [N/m2]
     for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
         it->assign(M_num_elements, 0.);
-    //D_sigma.resize(2); //! \param D_sigma (double) Principal stresses (diagnostics) [N/m2]
+    for(int k=0; k<2; k++)
+        D_sigma[k].assign(M_num_elements, 0.);
     
     // random numbers
     // - 1st set on root
@@ -552,19 +552,6 @@ FiniteElement::initVariables()
     M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
     M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
     
-    switch (M_thermo_type)
-    {
-        case (setup::ThermoType::ZERO_LAYER):
-            M_tice.resize(1);   //! \param M_tice (double) Ice temperature [C]
-            break;
-        case (setup::ThermoType::WINTON):
-            M_tice.resize(3);
-            break;
-        default:
-            std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
-            throw std::logic_error("Wrong thermo_type");
-    }
-
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
         it->assign(M_num_elements,0.);
 
@@ -757,9 +744,6 @@ FiniteElement::assignVariables()
         }
     }
 #endif
-
-    // number of variables to interpolate
-    M_nb_var_element = /*11*/15 + M_tice.size();
 }//assignVariables
     
 
@@ -2122,7 +2106,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         {
             // enthalpy transformation
             auto ptr = M_prognostic_variables_elt[j];
-            double val = (*ptr)[j];
+            double val = (*ptr)[i];
             interp_elt_in_local[nb_var_element*i+j] =
                 ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i];
         }
@@ -2135,12 +2119,12 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
 //! Called by the gatherFieldsElementIO() function.
 void
 FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
-        std::vector<ModelVariable*> const& data_elements,
+        std::vector<ModelVariable*> const& vars_elements,
         std::vector<ExternalData*> const& ext_data_elements,
         bool const& ghosts)
 {
 
-    int const nb_data = data_elements.size();
+    int const nb_data = vars_elements.size();
     int const nb_ext_data = ext_data_elements.size();
     int const nb_var_element = nb_data + nb_ext_data;
 
@@ -2154,7 +2138,7 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
         int k = 0;
         for(int j=0; j<nb_data; j++, k++)
         {
-            auto ptr = data_elements[j];
+            auto ptr = vars_elements[j];
             elt_values_local[nb_var_element*i+k] = (*ptr)[i];
         }
         for(int j=0; j<nb_ext_data; j++, k++)
@@ -2195,6 +2179,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             // no transformation
             // NB must be done first! (others may need M_conc and M_thick)
             auto ptr = M_prognostic_variables_elt[j];
+            if(M_rank + i==0)
+                LOG(DEBUG)<<"redistribute (none): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = out_elt_values[nb_var_element*i+j];
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
             (*ptr)[i] = val;
@@ -2203,6 +2189,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         {
             // weighted by M_conc
             auto ptr = M_prognostic_variables_elt[j];
+            if(M_rank + i==0)
+                LOG(DEBUG)<<"redistribute (conc): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = M_conc[i]>0. ?
                 out_elt_values[nb_var_element*i+j]/M_conc[i] : 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -2212,6 +2200,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         {
             // weighted by M_thick
             auto ptr = M_prognostic_variables_elt[j];
+            if(M_rank + i==0)
+                LOG(DEBUG)<<"redistribute (thick): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = M_thick[i]>0. ?
                 out_elt_values[nb_var_element*i+j]/M_thick[i] : 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -2221,6 +2211,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         {
             // enthalpy transformation
             auto ptr = M_prognostic_variables_elt[j];
+            if(M_rank + i==0)
+                LOG(DEBUG)<<"redistribute (enthalpy): variable "<<j<<" = "<<ptr->name()<<"\n";
             double tmp = out_elt_values[nb_var_element*i+j];
             (*ptr)[i] = 0.5*(
                     tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
@@ -2898,16 +2890,12 @@ FiniteElement::scatterElementConnectivity()
 void
 FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
-    //M_comm.barrier();
-
-    int nb_var_element = M_nb_var_element;
+    int nb_var_element = M_prognostic_variables_elt.size();
 
     timer["gather"].first.restart();
-
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements;
-    //std::cout<<"------------------------------------------------------------------------------------M_nb_var_element= "<< M_nb_var_element <<"\n";
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
 
     std::vector<double> interp_elt_in_local;
@@ -2920,22 +2908,16 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         boost::mpi::gatherv(M_comm, interp_elt_in_local, &interp_in_elements[0], sizes_elements, 0);
     }
     else
-    {
         boost::mpi::gatherv(M_comm, interp_elt_in_local, 0);
-    }
 
     if (M_rank == 0)
     {
         auto interp_in_elements_nrd = interp_in_elements;
-
         for (int i=0; i<M_mesh_previous_root.numTriangles(); ++i)
         {
             int ri = M_rmap_elements[i];
-
             for (int j=0; j<nb_var_element; ++j)
-            {
                 interp_in_elements[nb_var_element*i+j] = interp_in_elements_nrd[nb_var_element*ri+j];
-            }
         }
     }
 
@@ -2948,17 +2930,17 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 //! Called by the writeRestart() and exportResults() function.
 void
 FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
-        std::vector<ModelVariable*> const& data_elements,
+        std::vector<ModelVariable*> const& vars_elements,
         std::vector<ExternalData*> const& ext_data_elements)
 {
 
     timer["gather"].first.restart();
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
 
-    int const nb_var_element = data_elements.size() + ext_data_elements.size();
+    int const nb_var_element = vars_elements.size() + ext_data_elements.size();
     std::vector<double> elt_values_local;
     bool const ghosts = false;
-    this->collectVariablesIO(elt_values_local, data_elements,
+    this->collectVariablesIO(elt_values_local, vars_elements,
             ext_data_elements, ghosts);
 
     std::vector<int> sizes_elements = M_sizes_elements;
@@ -2985,47 +2967,34 @@ void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
     timer["scatter"].first.restart();
-
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
-    int nb_var_element = M_nb_var_element;
-
+    int nb_var_element = M_prognostic_variables_elt.size();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     std::vector<double> in_elt_values;
 
     if (M_rank == 0)
     {
         in_elt_values.resize(nb_var_element*M_id_elements.size());
-
         for (int i=0; i<M_id_elements.size(); ++i)
         {
             int ri = M_id_elements[i]-1;
-
             for (int j=0; j<nb_var_element; ++j)
-            {
                 in_elt_values[nb_var_element*i+j] = interp_elt_out[nb_var_element*ri+j];
-            }
         }
     }
 
     std::vector<double> out_elt_values(nb_var_element*M_num_elements);
-
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
         boost::mpi::scatterv(M_comm, in_elt_values, sizes_elements, &out_elt_values[0], 0);
     }
     else
-    {
         boost::mpi::scatterv(M_comm, &out_elt_values[0], nb_var_element*M_num_elements, 0);
-    }
 
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Min val= "<< *std::min_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-    // LOG(DEBUG) <<"["<< M_rank <<"]: " <<"Max val= "<< *std::max_element(out_elt_values.begin(), out_elt_values.end()) <<"\n";
-
-    for(int j=0; j<M_variables_elt.size(); j++)
+    for(auto ptr: M_variables_elt)
     {
-        auto ptr = M_variables_elt[j];
         if(ptr->isPrognostic())
             // resize prognostic variables
             // - they are set in redistributeVariables
@@ -3047,7 +3016,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
 //! Called by the restartScatterElementVariables() function.
 void
 FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root,
-        std::vector<ModelVariable*> &data_elements)
+        std::vector<ModelVariable*> &vars_elements)
 {
     //! * elt_values_root is a vector containing all the variables to be
     //!   redistributed (eg after scattering from root) into the
@@ -3062,7 +3031,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-    int const nb_var_element = data_elements.size();
+    int const nb_var_element = vars_elements.size();
 
     std::vector<double> elt_values_local(nb_var_element*M_num_elements);
     if (M_rank == 0)
@@ -3078,8 +3047,8 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
                 nb_var_element*M_num_elements, 0);
     }
 
-    // transfer data from elt_values_local to data_elements
-    this->redistributeVariablesIO(elt_values_local, data_elements);
+    // transfer data from elt_values_local to vars_elements
+    this->redistributeVariablesIO(elt_values_local, vars_elements);
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
@@ -3095,6 +3064,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     std::vector<double> interp_in_nodes;
 
     timer["gather"].first.restart();
+    int nb_var_element = M_prognostic_variables_elt.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
@@ -3130,7 +3100,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
         timer["cavities"].first.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_methods[0], M_nb_var_element,
+                                       &M_interp_methods[0], nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
         if (M_rank == 0)
@@ -3721,36 +3691,11 @@ FiniteElement::regrid(bool step)
                 LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
             }
 
-#if 0
-            had_remeshed=true;
-            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
-            {
-
-                std::string tmp_string1    = (boost::format( "before_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
-                                                                                 % step
-                                                                                 % mesh_adapt_step
-                                              % substep ).str();
-
-                this->exportResults(tmp_string1,true,true,false);
-            }
-#endif
-
             timer["adaptmesh"].first.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
             LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
 
-#if 0
-            if(step && (vm["numerics.regrid_output_flag"].as<bool>()))
-            {
-                std::string tmp_string2    = (boost::format( "after_adaptMesh_%1%_mesh_adapt_step_%2%_substep_%3%" )
-                                              % step
-                                              % mesh_adapt_step
-                                              % substep ).str();
-
-                this->exportResults(tmp_string2,true,false,false);
-            }
-#endif
 
             // save mesh (only root process)
 
@@ -3962,10 +3907,12 @@ void
 FiniteElement::assemble(int pcpt)
 {
     M_comm.barrier();
-    LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
+    if(M_rank==0)
+        LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
     M_matrix->zero();
     M_vector->zero();
-    LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
+    if(M_rank==0)
+        LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
@@ -4001,7 +3948,8 @@ FiniteElement::assemble(int pcpt)
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
     // ---------- Assembling starts -----------
-    LOG(DEBUG) <<"Assembling starts\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"Assembling starts\n";
     timer["assembly"].first.restart();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -4315,14 +4263,18 @@ FiniteElement::assemble(int pcpt)
     }
 
     // close petsc matrix
-    LOG(DEBUG) <<"Closing matrix starts\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"Closing matrix starts\n";
     M_matrix->close();
-    LOG(DEBUG) <<"Closing matrix done\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"Closing matrix done\n";
 
     // close petsc vector
-    LOG(DEBUG) <<"Closing vector starts\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
-    LOG(DEBUG) <<"Closing vector done\n";
+    if(M_rank==0)
+        LOG(DEBUG) <<"Closing vector done\n";
 
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
@@ -5854,10 +5806,12 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
 			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
-                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
+                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i
+                << " (on processor "<< M_rank <<").\n";
             h2 = 0.;
             h1 = 0.;
             hs = 0.;
+            this->checkFields(M_rank, i);
         }
 
         // Bottom melt/freezing
@@ -6152,6 +6106,7 @@ FiniteElement::init()
         //write fields from restart to file (needed?)
         if(M_rank==0)
             LOG(DEBUG) <<"export starts\n";
+        this->updateIceDiagnostics();
         this->exportResults("restart", true, true, true);
         if(M_rank==0)
             LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
@@ -6254,10 +6209,18 @@ FiniteElement::initModelVariables()
     M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
     M_variables_elt.push_back(&M_ridge_ratio);
 
-    if ( M_thermo_type == setup::ThermoType::WINTON )
-        M_tice.resize(3);
-    else
-        M_tice.resize(1);
+    switch (M_thermo_type)
+    {
+        case (setup::ThermoType::ZERO_LAYER):
+            M_tice.resize(1);   //! \param M_tice (double) Ice temperature [C]
+            break;
+        case (setup::ThermoType::WINTON):
+            M_tice.resize(3);
+            break;
+        default:
+            std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
+            throw std::logic_error("Wrong thermo_type");
+    }
     for(int k=0; k<M_tice.size(); k++)
     {
         M_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
@@ -6663,14 +6626,16 @@ FiniteElement::step()
 #ifdef OASIS
             M_cpl_out.updateGridMean(bamgmesh);
 #endif
-            LOG(DEBUG) <<"Regridding starts\n";
+            if(M_rank==0)
+                LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
+            if(M_rank==0)
+                LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(bamgmesh, M_regrid);
 
@@ -6714,9 +6679,20 @@ FiniteElement::step()
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-
     if (M_rank == 0)
         LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+
+    if(M_regrid)
+    {
+        if(vm["debugging.check_fields"].as<bool>())
+            this->checkFields();
+        if(vm["debugging.export_after_regrid"].as<bool>())
+        {
+            this->updateIceDiagnostics();
+            std::string str = datenumToString(M_current_time, "regrid_%Y%m%dT%H%M%SZ");
+            this->exportResults(str, true, true, true);
+        }
+    }
 
     //======================================================================
     //! 2) Performs the thermodynamics
@@ -6766,18 +6742,6 @@ FiniteElement::step()
         if (M_rank == 0)
             LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
-#if 0
-        if(had_remeshed && (vm["numerics.regrid_output_flag"].as<bool>()))
-        {
-            std::string tmp_string3    = (boost::format( "after_assemble_%1%_mesh_adapt_step_%2%" )
-                                   % pcpt
-                                   % mesh_adapt_step ).str();
-
-            this->exportResults(tmp_string3, true, true, true);
-
-            had_remeshed=false;
-        }
-#endif
 
         //======================================================================
         //! - 5.2) Solves the linear problem by calling the solve() function
@@ -6997,6 +6961,7 @@ FiniteElement::run()
     // **********************************************************************
     // Exporting results
     // **********************************************************************
+    this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
 
     // **********************************************************************
@@ -8290,12 +8255,8 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
 void
 FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
 {
-    // * output: interp_elt_out is vector containing all the variables
-    //   on the elements to be scattered from root during readRestart
     // * output: interp_nd_out is vector containing all the variables
     //   on the nodes to be scattered from root during readRestart
-    // * data_elements is a vector of pointers to the elemental variables to go
-    //   into interp_elt_out
 
     M_nb_var_node = 10;
     if (M_rank == 0)
@@ -12039,10 +12000,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
-    // update the diagnostic variables before output
-    // - needed here for "spontaneous" exports
-    this->updateIceDiagnostics();
-
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
 
@@ -12393,107 +12350,108 @@ FiniteElement::writeLogFile()
 void
 FiniteElement::checkFields()
 {
-
     int itest = vm["debugging.test_element_number"].as<int>();
-    bool printout = (
-            M_rank == vm["debugging.test_proc_number"].as<int>()
-            && itest>0);
-    double xtest = 0.;
-    double ytest = 0.;
-    double lat_test = 0.;
-    double lon_test = 0.;
+    int rank = vm["debugging.test_proc_number"].as<int>();
+    this->checkFields(rank, itest);
+}
+
+
+void
+FiniteElement::checkFields(int const& rank_test, int const& itest)
+{
+
+    bool printout = (M_rank == rank_test && itest>0);
     if(printout)
     {
-        auto movedmesh = M_mesh;
-        movedmesh.move(M_UM, 1.);
-        xtest = movedmesh.bCoordX()[itest];
-        ytest = movedmesh.bCoordY()[itest];
-
-        // get lon, lat at test position
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-        inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
-        close_mapx(map);
     }
-    std::vector< std::vector<double>* > vecs_to_check;
-    std::vector< std::string > vec_names;
-    std::vector< ExternalData* > forcings_to_check;
-    std::vector< std::string > forcing_names;
-
-    vecs_to_check.push_back(&M_conc);
-    vec_names.push_back("M_conc");
-    vecs_to_check.push_back(&M_thick);
-    vec_names.push_back("M_thick");
-    vecs_to_check.push_back(&(M_tice[0]));
-    vec_names.push_back("M_tice[0]");
-    vecs_to_check.push_back(&(M_sss));
-    vec_names.push_back("M_sss");
-    vecs_to_check.push_back(&(M_sst));
-    vec_names.push_back("M_sst");
-
-    forcings_to_check.push_back(&M_ocean_temp);
-    forcing_names.push_back("SST_forcing");
-    forcings_to_check.push_back(&M_ocean_salt);
-    forcing_names.push_back("SSS_forcing");
 
     for(int i=0; i<M_num_elements; i++)
     {
-        int j = 0;
-        if(printout && i==itest)
+        std::vector<double> values;
+        auto names = M_external_data_elements_names;
+        std::vector<std::string> nan_names;
+        bool too_thick = false;
+
+        // check the forcings 1st
+        for (int j=0; j<M_external_data_elements.size(); j++)
         {
-            std::cout<<"In checkFields\n";
-            std::cout<<"pcpt =  "<<pcpt<<"\n";
-            std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
-            std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
-            std::cout<<"M_rank = "<<M_rank<<"\n";
-            std::cout<<"element number = "<<i<<"\n";
-            std::cout<<"x,y = " <<xtest <<"," <<ytest <<"\n";
-            std::cout<<"lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
-            for (int j=0; j<vec_names.size(); j++)
+            auto ptr = M_external_data_elements[j];
+            double val = ptr->get(i);
+            values.push_back(val);
+            if(std::isnan(val))
+                nan_names.push_back(names[j]);
+        }
+
+        // check the variables 2nd
+        for (auto ptr: M_variables_elt)
+        {
+            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
+            std::string name = ptr->name();
+            values.push_back(val);
+            names.push_back(name);
+            if(std::isnan(val))
+                nan_names.push_back(name);
+        }
+
+        bool crash = too_thick || nan_names.size()>0;
+        bool printout_now = (printout && i==itest) || crash;
+
+        if(printout_now)
+        {
+            // get x,y and lon, lat at current position
+            double xtest = 0.;
+            double ytest = 0.;
+            double lat_test = 0.;
+            double lon_test = 0.;
+
+            auto movedmesh = M_mesh;
+            movedmesh.move(M_UM, 1.);
+            xtest = movedmesh.bCoordX()[i];
+            ytest = movedmesh.bCoordY()[i];
+
+            // get lon, lat at test position
+            mapx_class *map;
+            std::string configfile = (boost::format( "%1%/%2%" )
+                % Environment::nextsimMeshDir().string()
+                % Environment::vm()["mesh.mppfile"].as<std::string>()
+                ).str();
+
+            std::vector<char> str(configfile.begin(), configfile.end());
+            str.push_back('\0');
+            map = init_mapx(&str[0]);
+            inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+            close_mapx(map);
+
+            std::cout<<"["<< M_rank<<"] In checkFields\n";
+            std::cout<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
+            std::cout<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
+            std::cout<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
+            std::cout<<"["<< M_rank<<"] element number = "<<i<<"\n";
+            std::cout<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
+            std::cout<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+
+            for(int j=0; j<names.size(); j++)
             {
-                double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
-                std::string name = vec_names[j];
-                std::cout<<name <<" = "<< val <<"\n";
-            }
-            for (int j=0; j<forcing_names.size(); j++)
-            {
-                double val = forcings_to_check[j]->get(i);//forcings_to_check[j] is a pointer
-                std::string name = forcing_names[j];
-                std::cout<<name <<" = "<< val <<"\n";
+                if(j<M_external_data_elements_names.size())
+                    std::cout<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                else
+                    std::cout<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
             }
             std::cout<<"\n";
         }
-        for (int j=0; j<vec_names.size(); j++)
+
+        if(crash)
         {
-            double val = ( *(vecs_to_check[j]) )[i];//vecs_to_check[j] is a pointer, so dereference
-            std::string name = vec_names[j];
-            if(std::isnan(val))
+            std::stringstream msg;
+            if(too_thick)
+                msg << "["<< M_rank<< "] Ice is too thick: " << std::to_string(M_thick[i]) << " m\n";
+            if (nan_names.size()>0)
             {
-                std::cout<<"NaN in "<<name<<"\n";
-                std::cout<<"pcpt =  "<<pcpt<<"\n";
-                std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
-                std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
-                std::cout<<"M_rank = "<<M_rank<<"\n";
-                std::cout<<"element number = "<<i<<"\n";
-                throw std::runtime_error("found NaN");
+                msg << "["<< M_rank<<"] Found nans in variables:\n";
+                for (auto name: nan_names)
+                    msg << "["<< M_rank<<"]"<< name<<"\n";
             }
-            if(name=="M_thick" && val>25.)
-            {
-                std::cout<<"M_thick too big(" <<val <<")\n";
-                std::cout<<"pcpt =  "<<pcpt<<"\n";
-                std::cout<<"M_nb_regrid = "<<M_nb_regrid<<"\n";
-                std::cout<<"date =  "<<datenumToString(M_current_time)<<"\n";
-                std::cout<<"M_rank = "<<M_rank<<"\n";
-                std::cout<<"element number = "<<i<<"\n";
-                throw std::runtime_error("M_thick too big");
-            }
+            throw std::runtime_error(msg.str());
         }
     }
 }//checkFields

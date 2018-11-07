@@ -335,23 +335,23 @@ private:
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
-            std::vector<ModelVariable*> const& data_elements,
+            std::vector<ModelVariable*> const& vars_elements,
             std::vector<ExternalData*> const& ext_data_elements,
             bool const& ghosts);
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<ModelVariable*> const& data_elements,
+            std::vector<ModelVariable*> const& vars_elements,
             std::vector<ExternalData*> const& ext_data_elements);
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<ModelVariable*> const& data_elements)
+            std::vector<ModelVariable*> const& vars_elements)
     {
         std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
-        this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
+        this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data_elements);
     }
 
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
-            std::vector<ModelVariable*> &data_elements);
+            std::vector<ModelVariable*> &vars_elements);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<ModelVariable*> &data_elements);
+        std::vector<ModelVariable*> &vars_elements);
 
     void scatterElementConnectivity();
 
@@ -383,7 +383,6 @@ private:
     int M_rank;
     Communicator M_comm;
 
-    int M_nb_var_element;
     int M_nb_var_node;
 
     int M_prv_local_ndof;
@@ -849,6 +848,7 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
+    void checkFields(int const& rank_test, int const& itest);
 
 private:
 
