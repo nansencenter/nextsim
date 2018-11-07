@@ -5890,7 +5890,7 @@ FiniteElement::thermo(int dt)
         else    //If there is ice
         {
             
-            // FYI fraction
+            // FYI fraction (in the cell/triangle). Divide by M_conc[i] in post processing to get the FYI of any ice present.
             std::string date_string_md = to_date_string_md( M_current_time );
             
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
@@ -5901,7 +5901,7 @@ FiniteElement::thermo(int dt)
             else
             {
                 double conc_fyi = old_conc_fyi + del_c;
-                M_fyi_fraction[i] = std::max(0.,std::min(1.,conc_fyi/M_conc[i]));
+                M_fyi_fraction[i] = std::max(0.,std::min(1.,conc_fyi));
             }
             
             // Observable sea ice age tracer
