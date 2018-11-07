@@ -5386,7 +5386,6 @@ FiniteElement::thermo(int dt)
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
-        double  old_conc_fyi=M_conc[i]*M_fyi_fraction[i];//conc of fy ice
         double  old_h_thin = 0.;
         double  old_hs_thin = 0.;
         double  old_conc_thin=0.;
@@ -5900,7 +5899,7 @@ FiniteElement::thermo(int dt)
             }
             else
             {
-                double conc_fyi = old_conc_fyi + del_c;
+                double conc_fyi = M_fyi_fraction[i] + del_c;
                 M_fyi_fraction[i] = std::max(0.,std::min(1.,conc_fyi));
             }
             
