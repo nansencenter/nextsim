@@ -38,7 +38,7 @@ ModelVariable::initElemental()
             M_has_min = true;
             M_min_val = 0.;
             M_has_max = true;
-            M_min_val = 1.;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_thick):
@@ -93,6 +93,8 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_ridge_ratio):
@@ -106,6 +108,8 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_tice):
@@ -213,7 +217,7 @@ ModelVariable::initElemental()
             M_has_min = true;
             M_min_val = 0.;
             M_has_max = true;
-            M_min_val = 1.;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_random_number):
@@ -235,12 +239,12 @@ ModelVariable::initElemental()
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::conc;
+            M_interp_transformation = InterpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
             M_has_max = true;
-            M_min_val = 1.;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_age_obs):
