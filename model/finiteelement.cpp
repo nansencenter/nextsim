@@ -6289,6 +6289,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qo);
     D_delS = ModelVariable(ModelVariable::variableID::D_delS);
     M_variables_elt.push_back(&D_delS);
+    D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);
+    M_variables_elt.push_back(&D_Qnosun);
+    D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);
+    M_variables_elt.push_back(&D_Qsw_ocean);
     D_emp = ModelVariable(ModelVariable::variableID::D_emp);
     M_variables_elt.push_back(&D_emp);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);

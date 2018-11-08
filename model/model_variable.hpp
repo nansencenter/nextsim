@@ -85,9 +85,11 @@ public:
         D_Qsh        = 108,
         D_Qlh        = 109,
         D_Qo         = 110,
-        D_delS       = 111,
-        D_emp        = 112,
-        D_brine      = 113
+        D_Qnosun     = 111,
+        D_Qsw_ocean  = 112,
+        D_delS       = 113,
+        D_emp        = 114,
+        D_brine      = 115
     };
 
 

@@ -365,6 +365,22 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_Qnosun):
+            // Non-solar fluxes to ocean [W/m^2]
+            M_name = "D_Qnosun";
+            M_export_name = "Qnosun";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_Qsw_ocean):
+            // Short-wave fluxes to ocean [W/m^2]
+            M_name = "D_Qsw_ocean";
+            M_export_name = "Qsw_ocean";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_delS):
             // Salt balance of the ocean (all sources) [kg/day]
             M_name = "D_delS";
