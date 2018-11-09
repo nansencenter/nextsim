@@ -2108,7 +2108,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
             auto ptr = M_prognostic_variables_elt[j];
             double val = (*ptr)[i];
             interp_elt_in_local[nb_var_element*i+j] =
-                ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i];
+                ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
         }
     }
 }//collectVariables
@@ -2202,8 +2202,12 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             auto ptr = M_prognostic_variables_elt[j];
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (thick): variable "<<j<<" = "<<ptr->name()<<"\n";
-            val = M_thick[i]>0. ?
-                out_elt_values[nb_var_element*i+j]/M_thick[i] : 0.;
+            if (M_thick[i]>0.)
+                val = out_elt_values[nb_var_element*i+j]/M_thick[i];
+            else if (ptr->varID() == ModelVariable::variableID::M_tice)
+                val = -physical::mu*physical::si;// in open water just use the freezing point of ice
+            else
+                val = 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
             (*ptr)[i] = val;
         }
@@ -2213,15 +2217,20 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             auto ptr = M_prognostic_variables_elt[j];
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (enthalpy): variable "<<j<<" = "<<ptr->name()<<"\n";
-            double tmp = out_elt_values[nb_var_element*i+j];
-            (*ptr)[i] = 0.5*(
-                    tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (38) divided with volume with f1=1
+            if(M_thick[i]>0)
+            {
+                double tmp = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
+                (*ptr)[i] = 0.5*(
+                        tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
+            }
+            else
+                (*ptr)[i] = -physical::mu*physical::si;// in open water just use the freezing point of ice
         }
 
         // check the total conc is <= 1
+        M_conc[i] = std::min(1., M_conc[i]);
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_conc[i] = std::min(1., M_conc[i]);
             double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
             double h_thin_new = 0.;
             if(M_conc_thin[i]>0.)
@@ -3267,11 +3276,14 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     }
 
 
-    M_VT.assign(2*M_num_nodes,0.);
-    M_VTM.assign(2*M_num_nodes,0.);
-    M_VTMM.assign(2*M_num_nodes,0.);
-    M_UM.assign(2*M_num_nodes,0.);
-    M_UT.assign(2*M_num_nodes,0.);
+    M_VT.resize(2*M_num_nodes);
+    M_VTM.resize(2*M_num_nodes);
+    M_VTMM.resize(2*M_num_nodes);
+    M_UM.resize(2*M_num_nodes);
+    M_UT.resize(2*M_num_nodes);
+
+    D_tau_w.assign(2*M_num_nodes,0.);
+    D_tau_a.assign(2*M_num_nodes,0.);
 
 
     for (int i=0; i<M_num_nodes; ++i)
@@ -4133,7 +4145,7 @@ FiniteElement::assemble(int pcpt)
         std::vector<double> data(36);
         std::vector<double> fvdata(6,0.);
 
-        int l_j = -1; // node counter to skip gohsts
+        int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1) */
@@ -4641,8 +4653,8 @@ FiniteElement::update()
 
         double new_conc=std::min(1.,std::max(1.-conc_thin-open_water_concentration+del_c,0.));
 
-        if((new_conc+M_conc_thin[cpt])>1.)
-            new_conc=1.-M_conc_thin[cpt];
+        if((new_conc+conc_thin)>1.)
+            new_conc=1.-conc_thin;
 
         if(new_conc<M_conc[cpt])
         {
@@ -4863,9 +4875,9 @@ FiniteElement::nestingIce()
             M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
             if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
             {
-                M_conc_thin[i]  += (fNudge*(time_step/nudge_time)*(M_nesting_conc_thin[i]-M_conc_thin[i]));
-                M_h_thin[i]     += (fNudge*(time_step/nudge_time)*(M_nesting_h_thin[i]-M_h_thin[i]));
-                M_hs_thin[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_hs_thin[i]-M_hs_thin[i]));
+                M_conc_thin[i] += (fNudge*(time_step/nudge_time)*(M_nesting_conc_thin[i]-M_conc_thin[i]));
+                M_h_thin[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_h_thin[i]-M_h_thin[i]));
+                M_hs_thin[i]   += (fNudge*(time_step/nudge_time)*(M_nesting_hs_thin[i]-M_hs_thin[i]));
             }
         }
     }
@@ -6122,17 +6134,18 @@ FiniteElement::init()
         this->initVariables();
     }
 
-    // Check the minimum angle of the grid
-    // - needs to be after readRestart, otherwise M_mesh is not initialised yet
+    //! - 4) Initialise the auxiliary variables and check the minimum angle of the grid
+    //!      \note needs to be after readRestart, otherwise M_mesh is not initialised yet
     double minang = this->minAngle(M_mesh);
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
         LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
+    this->calcAuxiliaryVariables();
 
 
-    //! - 4) Initializes external data:
+    //! - 5) Initializes external data:
     //!      * atmospheric and oceanic forcings
     //!      * bathymetry
     //!      * nesting (if needed)
@@ -6143,7 +6156,7 @@ FiniteElement::init()
     this->initOASIS();
 #endif
 
-    //! - 5) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
+    //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
 #ifdef OASIS
     // OASIS needs the external data to be read in for the previous coupling time step
     pcpt -= cpl_time_step/time_step;
@@ -6160,7 +6173,7 @@ FiniteElement::init()
     pcpt += cpl_time_step/time_step;
 #endif
 
-    //! - 6) If not using a restart, initializes the model from the datasets
+    //! - 7) If not using a restart, initializes the model from the datasets
     //       or can do assimilation (optional) if using a restart
     if ( !M_use_restart )
     {
@@ -6176,12 +6189,12 @@ FiniteElement::init()
         LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
     }
 
-    //! - 7) Initializes the moorings - if requested - using the initMoorings() function,
+    //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
 
-    //! - 8) Checks if anything has to be output now using the checkOutputs() function.
+    //! - 9) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
     // - check if we are adding snapshot to netcdf file
     // 2. do we need to init any drifters (also save output at init time)
@@ -6190,8 +6203,39 @@ FiniteElement::init()
     this->checkOutputs(true);
 }//init
 
+// ==============================================================================
+//! calculate the FETensors, cohesion, and Coriolis force
+//! - needs to be done at init and after regrid
+//! called by init() and step()
+void
+FiniteElement::calcAuxiliaryVariables()
+{
+    timer["FETensors"].first.restart();
+    this->FETensors();
+    if (M_rank == 0)
+        LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+
+    timer["calcCohesion"].first.restart();
+    this->calcCohesion();
+    if (M_rank == 0)
+        LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+
+    if (vm["dynamics.use_coriolis"].as<bool>())
+    {
+        timer["calcCoriolis"].first.restart();
+        this->calcCoriolis();
+        if (M_rank == 0)
+            LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+    }
+}
+
 
 // ==============================================================================
+//! init the ModelVariable objects
+//! - 1) Instantiate them
+//! - 2) Loop over them and sort them into prognostic variables
+//!      and ones we will export to binary files
+//! \note we don't resize yet
 void
 FiniteElement::initModelVariables()
 {
@@ -6602,10 +6646,6 @@ FiniteElement::step()
         this->checkFields();
 
     //! 1) Remeshes and remaps the prognostic variables
-
-    // The first time step we behave as if we just did a regrid
-    M_regrid = (pcpt==0);
-
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
@@ -6658,26 +6698,6 @@ FiniteElement::step()
 
     M_comm.barrier();
 
-    if ( M_regrid || M_use_restart )
-    {
-        timer["FETensors"].first.restart();
-        this->FETensors();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
-
-        timer["calcCohesion"].first.restart();
-        this->calcCohesion();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
-
-        if (vm["dynamics.use_coriolis"].as<bool>())
-        {
-            timer["calcCoriolis"].first.restart();
-            this->calcCoriolis();
-            if (M_rank == 0)
-                LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
-        }
-    }
 
     if(M_rank==0)
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
@@ -6686,10 +6706,16 @@ FiniteElement::step()
     if (M_rank == 0)
         LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
-    if(M_regrid)
+
+    if (M_regrid)
     {
+        this->calcAuxiliaryVariables();
+
+        // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
             this->checkFields();
+
+        // save outputs after regrid
         if(vm["debugging.export_after_regrid"].as<bool>())
         {
             this->updateIceDiagnostics();
@@ -6697,6 +6723,11 @@ FiniteElement::step()
             this->exportResults(str, true, true, true);
         }
     }
+
+    // The first time step we behave as if we just did a regrid
+    // (after this point)
+    M_regrid = (pcpt==0);
+
 
     //======================================================================
     //! 2) Performs the thermodynamics
@@ -6709,20 +6740,20 @@ FiniteElement::step()
             LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
-    //======================================================================
-    //! 3) Performs the nesting of the tracers
-    //======================================================================
+
     if( M_use_nesting )
     {
+        //======================================================================
+        //! 3) Performs the nesting of the tracers
+        //======================================================================
         chrono.restart();
         LOG(DEBUG) <<"nestingIce starts\n";
         this->nestingIce();
         LOG(DEBUG) <<"nestingIce done in "<< chrono.elapsed() <<"s\n";
 
-   //======================================================================
-   //! 4) Performs the nesting of the dynamical variables
-   //======================================================================
-
+        //======================================================================
+        //! 4) Performs the nesting of the dynamical variables
+        //======================================================================
         if( M_nest_dynamic_vars )
         {
             chrono.restart();
@@ -6735,7 +6766,6 @@ FiniteElement::step()
     //======================================================================
     //! 5) Performs the dynamics
     //======================================================================
-
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
@@ -6767,17 +6797,14 @@ FiniteElement::step()
         if (M_rank == 0)
             LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
-
-    if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
-    {
+    else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
-    }
 
 
-    //======================================================================
-    //! 6) Updates the time
-    //======================================================================
 #ifdef OASIS
+    //======================================================================
+    //! 6) Update the info on the coupling grid
+    //======================================================================
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
@@ -6814,12 +6841,16 @@ FiniteElement::step()
         M_cpl_out.resetGridMean();
     }
 #endif
+
+    //======================================================================
+    //! 7) Update the time
+    //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
 
 
     //======================================================================
-    //! 7) Does the post-processing, checks the output and updates moorings.
+    //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
     
     // 1. moorings:
@@ -12374,7 +12405,12 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
         std::vector<double> values;
         auto names = M_external_data_elements_names;
         std::vector<std::string> nan_names;
-        bool too_thick = false;
+        bool out_of_usual_range = false;
+        if( M_thick[i]>35.)
+        {
+            std::cout<<"ice is too thick: "<<M_thick[i]<<"m\n";
+            out_of_usual_range = true;
+        }
 
         // check the forcings 1st
         for (int j=0; j<M_external_data_elements.size(); j++)
@@ -12397,7 +12433,7 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
                 nan_names.push_back(name);
         }
 
-        bool crash = too_thick || nan_names.size()>0;
+        bool crash = out_of_usual_range || nan_names.size()>0;
         bool printout_now = (printout && i==itest) || crash;
 
         if(printout_now)
@@ -12447,8 +12483,8 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
         if(crash)
         {
             std::stringstream msg;
-            if(too_thick)
-                msg << "["<< M_rank<< "] Ice is too thick: " << std::to_string(M_thick[i]) << " m\n";
+            if(out_of_usual_range)
+                msg << "Some variables are out of the usual range\n";
             if (nan_names.size()>0)
             {
                 msg << "["<< M_rank<<"] Found nans in variables:\n";
