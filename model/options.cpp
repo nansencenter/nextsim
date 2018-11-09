@@ -61,6 +61,8 @@ namespace Nextsim
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
                 "call checkFields")
+            ("debugging.export_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
             ("debugging.export_after_regrid", po::value<bool>()->default_value( false ),
                 "if true, export results after regrid")
             ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
