@@ -6646,6 +6646,7 @@ FiniteElement::step()
         this->checkFields();
 
     //! 1) Remeshes and remaps the prognostic variables
+    M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
@@ -6663,6 +6664,13 @@ FiniteElement::step()
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
+
+            if(vm["debugging.export_before_regrid"].as<bool>())
+            {
+                this->updateIceDiagnostics();
+                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+                this->exportResults(str, true, true, true);
+            }
 
             if ( M_use_moorings && !M_moorings_snapshot )
                 M_moorings.updateGridMean(bamgmesh);
@@ -6709,6 +6717,7 @@ FiniteElement::step()
 
     if (M_regrid)
     {
+        // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
 
         // check the fields for nans etc after regrid
@@ -6719,14 +6728,16 @@ FiniteElement::step()
         if(vm["debugging.export_after_regrid"].as<bool>())
         {
             this->updateIceDiagnostics();
-            std::string str = datenumToString(M_current_time, "regrid_%Y%m%dT%H%M%SZ");
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
             this->exportResults(str, true, true, true);
         }
     }
-
-    // The first time step we behave as if we just did a regrid
-    // (after this point)
-    M_regrid = (pcpt==0);
+    else if(pcpt==0)
+    {
+        // The first time step we also behave as if we just did a regrid
+        // (after this point)
+        M_regrid = true;
+    }
 
 
     //======================================================================
@@ -12396,9 +12407,6 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
 {
 
     bool printout = (M_rank == rank_test && itest>0);
-    if(printout)
-    {
-    }
 
     for(int i=0; i<M_num_elements; i++)
     {
