@@ -6738,6 +6738,9 @@ FiniteElement::step()
                 M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
 #ifdef OASIS
+            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+             * are needed iff we do conservative remapping and this is only supported in the coupled
+             * case (so far). */
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
