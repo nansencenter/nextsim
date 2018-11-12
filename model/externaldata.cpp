@@ -616,10 +616,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	if(dataset->grid.dataset_frequency!="constant"
             && dataset->grid.dataset_frequency!="nearest_daily")
 	{
-        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
-        bool is_ec_dataset = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
-        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
-
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
 
@@ -647,9 +643,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
         }//forecasts
 
-        for (auto jump_ptr = file_jump.begin() ; jump_ptr != file_jump.end(); ++jump_ptr)
+        for (int jump: file_jump)
         {
-            int jump = *jump_ptr;//get jump as an integer
             if(is_ec_fc||is_topaz_fc)
             {
                 double inittime = init_time;
