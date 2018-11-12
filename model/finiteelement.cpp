@@ -609,7 +609,7 @@ FiniteElement::initVariables()
 
     // set pointers to data 
     // - couldn't do it in initModelVariables, since M_tice, M_sigma, D_sigma weren't resized yet
-    // NB won't be needed after merging of data and metadata
+    // TODO merge metadata and data: this will no longer be needed
     M_prognostic_data_elt.resize(0);
     M_export_data_elt.resize(0);
     this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
@@ -2328,6 +2328,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 //! adds a pointer to the appropriate vector
 //! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
 //! Called from the readRestart() function.
+// TODO merge metadata and data: this will no longer be needed
 void
 FiniteElement::setPointersElements(
         std::vector<std::vector<double>*> &data,
@@ -7872,16 +7873,8 @@ FiniteElement::writeRestart(std::string const& name_str)
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-#if 1
     std::vector<double> elt_values_root;
     this->gatherFieldsElementIO(elt_values_root, M_prognostic_data_elt);
-#else
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
-    std::vector<double> elt_values_root;
-    this->getRestartNamesPointers(names_elements, data_elements);
-    this->gatherFieldsElementIO(elt_values_root, data_elements);
-#endif
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -8017,7 +8010,6 @@ FiniteElement::writeRestart(std::string const& name_str)
 
         // loop over the elemental variables that have been
         // gathered to elt_values_root
-#if 1
         int const nb_var_element = M_restart_names_elt.size();
         for(int j=0; j<nb_var_element; j++)
         {
@@ -8029,20 +8021,6 @@ FiniteElement::writeRestart(std::string const& name_str)
             }
             exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
         }
-#else
-        int const nb_var_element = names_elements.size();
-        for(int j=0; j<nb_var_element; j++)
-        {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                int ri = M_rmap_elements[i];
-                tmp[i] = elt_values_root[nb_var_element*ri+j];
-            }
-            exporter.writeField(outbin, tmp, names_elements[j]);
-        }
-#endif
-
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
