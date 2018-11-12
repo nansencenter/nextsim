@@ -602,6 +602,10 @@ GridOutput::applyLSM()
 }
 
 // Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
+/* When not called after a remesh (e.g. after output) only bamgmesh is required as input
+ * When called after a remesh we should set regrid == true and provide nb_local_el
+ * When called after a remesh and when doing conservative remapping we also
+ * need to provide transfer_map and bamgmesh_root */
 void
 GridOutput::resetMeshMean(BamgMesh* bamgmesh,
         bool regrid, int nb_local_el, bimap_type const & transfer_map, BamgMesh* bamgmesh_root)

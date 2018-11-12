@@ -6735,13 +6735,16 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
-                M_moorings.resetMeshMean(bamgmesh, M_regrid);
+                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
 #ifdef OASIS
+            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+             * are needed iff we do conservative remapping and this is only supported in the coupled
+             * case (so far). */
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
