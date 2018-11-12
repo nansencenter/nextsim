@@ -888,8 +888,8 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./3600.,//convert seconds to hours
-            b: -0.5,
+            a: 1./3600.,// convert seconds to hours
+            b: -0.5,    // mid-point of interval is .5h before the time in the netcdf file
             Units: "hours",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
@@ -937,7 +937,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./3600.,//integrated for 1 hour
+            a:1./3600.,//integrated for 1 hour - convert from total to rate
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
@@ -953,7 +953,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./3600.,//integrated for 1 hour
+            a:1./3600.,//integrated for 1 hour - convert from total to rate
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
@@ -969,7 +969,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./3600.,//integrated for 1 hour
+            a:1./3600.,//integrated for 1 hour - convert from total to rate
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
@@ -985,7 +985,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./3600.,//integrated for 1 hour
+            a:1./3600.,//integrated for 1 hour - convert from total to rate
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
@@ -1005,7 +1005,7 @@ DataSet::DataSet(char const *DatasetName)
         loaded=false;
         interpolated=false;
 
-        averaging_period=0.5/24.;
+        averaging_period = 1./24.;//variables were integrated for 1 hour
         time= time_tmp;
 #ifdef OASIS
         coupled = false;
