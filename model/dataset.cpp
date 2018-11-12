@@ -4796,7 +4796,7 @@ DataSet::DataSet(char const *DatasetName)
         Dimension dimension_x={
             name:"lon", // for ETOPO_Arctic_1arcmin.nc
             //name:"x", // for ETOPO1_Ice_g_gmt4.grd
-            cyclic:false
+            cyclic:true
         };
 
         Dimension dimension_y={
