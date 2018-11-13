@@ -85,9 +85,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles(),
-                     M_mesh.numLocalNodesWithoutGhost(), M_mesh.numTrianglesWithoutGhost()
-                     );
+                     M_mesh.numNodes(), M_mesh.numTriangles());
 
     if (M_rank == 0)
         LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
@@ -602,6 +600,14 @@ FiniteElement::initVariables()
     }
 
     this->assignVariables();
+
+    // set pointers to data 
+    // - couldn't do it in initModelVariables, since M_tice, M_sigma, D_sigma weren't resized yet
+    // TODO merge metadata and data: this will no longer be needed
+    M_prognostic_data_elt.resize(0);
+    M_export_data_elt.resize(0);
+    this->setPointersElements(M_prognostic_data_elt, M_prognostic_variables_elt);
+    this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initVariables
 
     
@@ -2316,84 +2322,125 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 //! adds a pointer to the appropriate vector
 //! These outputs are then used in loops in collectVariablesIO and scatterFieldsElementIO.
 //! Called from the readRestart() function.
+// TODO merge metadata and data: this will no longer be needed
 void
 FiniteElement::setPointersElements(
         std::vector<std::vector<double>*> &data,
-        std::vector<std::string> const &names)
+        std::vector<ModelVariable*> const &vars)
 {
 
-
     //!1st set pointers to the data requested in "names"
-    for(auto name: names)
+    for(auto var_ptr: vars)
     {
+
+        int comp_num = var_ptr->componentNumber();//only used for vectors
+
         if(M_rank==0)
-            LOG(DEBUG)<<"setPointersElements: adding "<<name <<"\n";
-        if (name == "M_conc")
-            data.push_back(&M_conc); // concentration of thick ice
-        else if (name == "M_thick")
-            data.push_back(&M_thick); // thickness of thick ice
-        else if (name == "M_snow_thick")
-            data.push_back(&M_snow_thick); // snow thickness on thick ice
-        else if (name == "Concentration")
-            data.push_back(&D_conc); // total concentration
-        else if (name == "Thickness")
-            data.push_back(&D_thick); // total thickness
-        else if (name == "Snow")
-            data.push_back(&D_snow_thick); // total snow thickness
-        else if (name == "Tsurf")
-            data.push_back(&D_tsurf); // mean surface temperature
-        else if (name == "M_sigma_0")
-            data.push_back(&(M_sigma[0])); // M_sigma[0] - stress
-        else if (name == "M_sigma_1")
-            data.push_back(&(M_sigma[1])); // M_sigma[1] - stress
-        else if (name == "M_sigma_2")
-            data.push_back(&(M_sigma[2])); // M_sigma[2] - stress
-        else if (name == "Sigma1")
-            data.push_back(&(D_sigma[0])); // D_sigma[0] - 1st principal stress
-        else if (name == "Sigma2")
-            data.push_back(&(D_sigma[1])); // D_sigma[1] - 2nd principal stress
-        else if (name == "M_damage" || name == "Damage")
-            data.push_back(&M_damage); // damage
-        else if (name == "M_ridge_ratio" || name == "Ridge_ratio")
-            data.push_back(&M_ridge_ratio); // ridge ratio
-        else if (name == "M_random_number")
-            data.push_back(&M_random_number); // random_number
-        else if (name == "M_sss" || name == "SSS")
-            data.push_back(&M_sss); // SSS
-        else if (name == "M_sst" || name == "SST")
-            data.push_back(&M_sst); // SST
-        else if (name == "M_tice_0" || name == "Tice_0")
-            data.push_back(&(M_tice[0])); // M_tice[0] - Thick ice temperature (surface)
-        else if (name == "M_tice_1" || name == "Tice_1")
-            data.push_back(&(M_tice[1])); // M_tice[1] - Thick ice temperature (middle level) (Winton)
-        else if (name == "M_tice_2" || name == "Tice_2")
-            data.push_back(&(M_tice[2])); // M_tice[2] - Thick ice temperature (lower level) (Winton)
-        else if (name == "M_h_thin" || name == "Thin_ice")
-            data.push_back(&M_h_thin); // thin ice thickness
-        else if (name == "M_conc_thin" || name == "Concentration_thin_ice")
-            data.push_back(&M_conc_thin); // thin ice concentration
-        else if (name == "M_hs_thin" || name == "Snow_thin_ice")
-            data.push_back(&M_hs_thin); // snow thickness on thin ice
-        else if (name == "M_tsurf_thin" || name == "Tsurf_thin_ice")
-            data.push_back(&M_tsurf_thin); // surface temperature over thin ice
-        else if (name == "Qatm")
-            data.push_back(&D_Qa);
-        else if (name == "Qsw")
-            data.push_back(&D_Qsw);
-        else if (name == "Qlw")
-            data.push_back(&D_Qlw);
-        else if (name == "Qsh")
-            data.push_back(&D_Qsh);
-        else if (name == "Qlh")
-            data.push_back(&D_Qlh);
-        else if (name == "Qocean")
-            data.push_back(&D_Qo);
-        else if (name == "Saltflux")
-            data.push_back(&D_delS);
-        else
-            throw std::runtime_error("Unimplemented name: "+name);
+            LOG(DEBUG)<<"setPointersElements: adding "<<var_ptr->name()
+                <<": comp_num = "<<comp_num<<"\n";
+
+        switch(var_ptr->varID())
+        {
+            case(ModelVariable::variableID::M_conc):
+                data.push_back(&M_conc); // concentration of thick ice
+                break;
+            case(ModelVariable::variableID::M_thick):
+                data.push_back(&M_thick); // thickness of thick ice
+                break;
+            case(ModelVariable::variableID::M_snow_thick):
+                data.push_back(&M_snow_thick); // snow thickness on thick ice
+                break;
+            case(ModelVariable::variableID::D_conc):
+                data.push_back(&D_conc); // total concentration
+                break;
+            case(ModelVariable::variableID::D_thick):
+                data.push_back(&D_thick); // total thickness
+                break;
+            case(ModelVariable::variableID::D_snow_thick):
+                data.push_back(&D_snow_thick); // total snow thickness
+                break;
+            case(ModelVariable::variableID::D_tsurf):
+                data.push_back(&D_tsurf); // mean surface temperature
+                break;
+            case(ModelVariable::variableID::M_sigma):
+                data.push_back(&(M_sigma[comp_num])); // M_sigma[k] - stress component #k
+                break;
+            case(ModelVariable::variableID::D_sigma):
+                data.push_back(&(D_sigma[comp_num])); // D_sigma[k] - principal stress #k
+                break;
+            case(ModelVariable::variableID::M_damage):
+                data.push_back(&M_damage); // damage
+                break;
+            case(ModelVariable::variableID::M_ridge_ratio):
+                data.push_back(&M_ridge_ratio); // ridge ratio
+                break;
+            case(ModelVariable::variableID::M_random_number):
+                data.push_back(&M_random_number); // random_number
+                break;
+            case(ModelVariable::variableID::M_sss):
+                data.push_back(&M_sss); // SSS
+                break;
+            case(ModelVariable::variableID::M_sst):
+                data.push_back(&M_sst); // SST
+                break;
+            case(ModelVariable::variableID::M_tice):
+                data.push_back(&(M_tice[comp_num])); // M_tice[k] - thick ice temperature
+                break;
+            case(ModelVariable::variableID::M_h_thin):
+                data.push_back(&M_h_thin); // thin ice thickness
+                break;
+            case(ModelVariable::variableID::M_conc_thin):
+                data.push_back(&M_conc_thin); // thin ice concentration
+                break;
+            case(ModelVariable::variableID::M_hs_thin):
+                data.push_back(&M_hs_thin); // snow thickness on thin ice
+                break;
+            case(ModelVariable::variableID::M_tsurf_thin):
+                data.push_back(&M_tsurf_thin); // surface temperature over thin ice
+                break;
+#if 0
+            case(ModelVariable::variableID::M_fyi_fraction):
+                data.push_back(&M_fyi_fraction); // FYI fraction
+                break;
+            case(ModelVariable::variableID::M_age_obs):
+                data.push_back(&M_age_obs); // observable ice age
+                break;
+            case(ModelVariable::variableID::M_age):
+                data.push_back(&M_age); // ice age
+                break;
+#endif
+            case(ModelVariable::variableID::D_Qa):
+                data.push_back(&D_Qa);
+                break;
+            case(ModelVariable::variableID::D_Qsw):
+                data.push_back(&D_Qsw);
+                break;
+            case(ModelVariable::variableID::D_Qlw):
+                data.push_back(&D_Qlw);
+                break;
+            case(ModelVariable::variableID::D_Qsh):
+                data.push_back(&D_Qsh);
+                break;
+            case(ModelVariable::variableID::D_Qlh):
+                data.push_back(&D_Qlh);
+                break;
+            case(ModelVariable::variableID::D_Qo):
+                data.push_back(&D_Qo);
+                break;
+            case(ModelVariable::variableID::D_delS):
+                data.push_back(&D_delS);
+                break;
+            case(ModelVariable::variableID::D_emp):
+                data.push_back(&D_emp);
+                break;
+            case(ModelVariable::variableID::D_brine):
+                data.push_back(&D_brine);
+                break;
+            default:
+                throw std::runtime_error("Unimplemented ID: name = "+var_ptr->name());
+        }
     }
-}//getVariableIO
+}//setPointersElements
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2409,10 +2456,6 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_loc
     int nb_var_element = data.size();
     for(int j=0; j<data.size(); j++)
     {
-        //! - 1) initializes the data
-        data[j]->assign(M_num_elements, 0.);
-
-        //! - 2) loops over the elements to get their values from elt_values_local
         for (int i=0; i<M_num_elements; ++i)
         {
             auto ptr = data[j];
@@ -3209,92 +3252,6 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElement
 
-    
-//------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables that need to be gathered and scattered when reading or saving restarts,
-//! and set pointers to the appropriate vectors
-//! Called by the readRestart() and writeRestart() functions.
-void
-FiniteElement::getRestartNamesPointers(std::vector<std::string> & names,
-        std::vector<std::vector<double>*> & data_elements)
-{
-
-    names = {
-        "M_conc",
-        "M_thick",
-        "M_snow_thick",
-        "M_sigma_0",
-        "M_sigma_1",
-        "M_sigma_2",
-        "M_damage",
-        "M_ridge_ratio",
-        "M_random_number",
-        "M_sst",
-        "M_sss"};
-    
-    for(int i=0; i<M_tice.size(); i++)
-        names.push_back("M_tice_" + std::to_string(i));
-
-    if( M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-    {
-        names.push_back("M_h_thin");
-        names.push_back("M_conc_thin");
-        names.push_back("M_hs_thin");
-        names.push_back("M_tsurf_thin");
-    }
-
-    this->setPointersElements(data_elements, names);
-}//getRestartNamesPointers
-
-
-//------------------------------------------------------------------------------------------------------
-//! Gets the names of the variables that need to be gathered and scattered when exporting results,
-//! and set pointers to the appropriate vectors
-//! Called by the exportResults() function.
-void
-FiniteElement::getExportNamesPointers(std::vector<std::string> & names,
-        std::vector<std::vector<double>*> & data_elements)
-{
-
-    names = {
-             "Concentration",
-             "Thickness",
-             "Snow",
-             "Damage",
-             "Ridge_ratio"
-    };
-
-    for(int i=0; i<M_tice.size(); i++)
-        names.push_back("Tice_" + std::to_string(i));
-
-    names.push_back("SST");
-    names.push_back("SSS");
-
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-    {
-        names.push_back("Thin_ice");
-        names.push_back("Snow_thin_ice");
-        names.push_back("Tsurf_thin_ice");
-        names.push_back("Concentration_thin_ice");
-    }
-
-    names.push_back("Sigma1");
-    names.push_back("Sigma2");
-
-    if (vm["output.save_diagnostics"].as<bool>())
-    {
-        names.push_back("Qatm");
-        names.push_back("Qsw");
-        names.push_back("Qlw");
-        names.push_back("Qsh");
-        names.push_back("Qlh");
-        names.push_back("Qocean");
-        names.push_back("Saltflux");
-    }
-
-    this->setPointersElements(data_elements, names);
-}//getExportNamesPointers
-
 
 //------------------------------------------------------------------------------------------------------
 //! scatter from root to local
@@ -3318,29 +3275,13 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     int const nb_var_element = data_elements.size();
-    std::vector<double> elt_values_root_remapped;
-
-    if (M_rank == 0)
-    {
-        elt_values_root_remapped.resize(nb_var_element*M_id_elements.size());
-
-        for (int i=0; i<M_id_elements.size(); ++i)
-        {
-            int ri = M_id_elements[i]-1;
-            for (int j=0; j<nb_var_element; ++j)
-            {
-                elt_values_root_remapped[nb_var_element*i+j]
-                    = elt_values_root[nb_var_element*ri+j];
-            }
-        }
-    }
 
     std::vector<double> elt_values_local(nb_var_element*M_num_elements);
     if (M_rank == 0)
     {
         std::for_each(sizes_elements.begin(), sizes_elements.end(),
                 [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, elt_values_root_remapped, sizes_elements,
+        boost::mpi::scatterv(M_comm, elt_values_root, sizes_elements,
                 &elt_values_local[0], 0);
     }
     else
@@ -5811,7 +5752,7 @@ FiniteElement::thermo(int dt)
         // Salt balance of the ocean (all sources) - kg/day
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
 
-        // Freshwater ballance at the surface - kg/m^2/s
+        // Freshwater balance at the surface - kg/m^2/s
         D_emp[i] = 1./ddt * ( emp
                 - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
 
@@ -6386,6 +6327,7 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
+    this->initModelVariables();
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6502,6 +6444,161 @@ FiniteElement::init()
     this->checkOutputs(true);
 }//init
 
+
+// ==============================================================================
+void
+FiniteElement::initModelVariables()
+{
+
+    //! -1) init all ModelVariable's and put them in M_variables
+    // Prognostic variables
+    vM_conc = ModelVariable(ModelVariable::variableID::M_conc);
+    M_variables.push_back(&vM_conc);
+    vM_thick = ModelVariable(ModelVariable::variableID::M_thick);
+    M_variables.push_back(&vM_thick);
+    vM_damage = ModelVariable(ModelVariable::variableID::M_damage);
+    M_variables.push_back(&vM_damage);
+    vM_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
+    M_variables.push_back(&vM_snow_thick);
+    vM_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
+    M_variables.push_back(&vM_ridge_ratio);
+
+    if ( M_thermo_type == setup::ThermoType::WINTON )
+        vM_tice.resize(3);
+    else
+        vM_tice.resize(1);
+    for(int k=0; k<vM_tice.size(); k++)
+    {
+        vM_tice[k] = ModelVariable(ModelVariable::variableID::M_tice, k);
+        M_variables.push_back(&(vM_tice[k]));
+    }
+
+    vM_sigma.resize(3);
+    for(int k=0; k<vM_sigma.size(); k++)
+    {
+        vM_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
+        M_variables.push_back(&(vM_sigma[k]));
+    }
+
+    vM_sst = ModelVariable(ModelVariable::variableID::M_sst);
+    M_variables.push_back(&vM_sst);
+    vM_sss = ModelVariable(ModelVariable::variableID::M_sss);
+    M_variables.push_back(&vM_sss);
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        vM_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
+        M_variables.push_back(&vM_tsurf_thin);
+        vM_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
+        M_variables.push_back(&vM_h_thin);
+        vM_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
+        M_variables.push_back(&vM_hs_thin);
+        vM_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
+        M_variables.push_back(&vM_conc_thin);
+    }
+    vM_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
+    M_variables.push_back(&vM_random_number);
+#if 0
+    vM_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
+    M_variables.push_back(&vM_fyi_fraction);
+    vM_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
+    M_variables.push_back(&vM_age_obs);
+    vM_age = ModelVariable(ModelVariable::variableID::M_age);
+    M_variables.push_back(&vM_age);
+#endif
+
+    // Diagnostic variables
+    vD_conc = ModelVariable(ModelVariable::variableID::D_conc);
+    M_variables.push_back(&vD_conc);
+    vD_thick = ModelVariable(ModelVariable::variableID::D_thick);
+    M_variables.push_back(&vD_thick);
+    vD_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
+    M_variables.push_back(&vD_snow_thick);
+    vD_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
+    M_variables.push_back(&vD_tsurf);
+    vD_sigma.resize(2);
+    for(int k=0; k<vD_sigma.size(); k++)
+    {
+        vD_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
+        M_variables.push_back(&(vD_sigma[k]));
+    }
+    vD_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
+    M_variables.push_back(&vD_Qa);
+    vD_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
+    M_variables.push_back(&vD_Qsw);
+    vD_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
+    M_variables.push_back(&vD_Qlw);
+    vD_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
+    M_variables.push_back(&vD_Qsh);
+    vD_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
+    M_variables.push_back(&vD_Qlh);
+    vD_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
+    M_variables.push_back(&vD_Qo);
+    vD_delS = ModelVariable(ModelVariable::variableID::D_delS);
+    M_variables.push_back(&vD_delS);
+    vD_emp = ModelVariable(ModelVariable::variableID::D_emp);
+    M_variables.push_back(&vD_emp);
+    vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
+    M_variables.push_back(&vD_brine);
+
+    //! -2) loop over M_variables in order to sort them
+    //!     for restart/regrid/export
+#if 0
+    //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+    std::vector<std::string> export_names = vm["output.variables"].as<std::vector<std::string>>();
+    bool custom_export = (export_names.size() > 0 );
+#endif
+    M_prognostic_variables_elt.resize(0);
+    M_restart_names_elt.resize(0);
+    M_export_variables_elt.resize(0);
+    M_export_names_elt.resize(0);
+    for(auto ptr: M_variables)
+    {
+
+#if 0
+        //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+        bool export_requested = (std::count( export_names.begin(),
+                    export_names.end(), ptr->name()) > 0 );
+#endif
+
+        if(ptr->varKind() == ModelVariable::variableKind::elemental)
+        {
+            if(ptr->is_prognostic())
+            {
+                // restart, regrid variables
+                M_prognostic_variables_elt.push_back(ptr);
+                M_restart_names_elt.push_back(ptr->name());
+
+#if 0
+                //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+                // if we only want to export specific variables
+                // (specified in config file)
+                if (custom_export)
+                    ptr->setExporting(export_requested);
+#endif
+            }
+            else if (vm["output.save_diagnostics"].as<bool>())
+                // export all diagnostic variables to binary
+                // - NB overrides "custom_export"
+                ptr->setExporting(true);
+#if 0
+            //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+            else if (custom_export)
+                // if we only want to export specific diagnostic variables
+                // (specified in config file)
+                ptr->setExporting(export_requested);
+#endif
+
+            if(ptr->exporting())
+            {
+                // export variables
+                M_export_variables_elt.push_back(ptr);
+                M_export_names_elt.push_back(ptr->export_name());
+            }
+        }
+    }
+}//initModelVariables
+
+
 #ifdef OASIS
 void
 FiniteElement::initOASIS()
@@ -6552,7 +6649,7 @@ FiniteElement::initOASIS()
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
 
-    M_cpl_out = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+    M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
     M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
@@ -6751,13 +6848,16 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
-                M_moorings.resetMeshMean(bamgmesh, M_regrid);
+                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
 #ifdef OASIS
+            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+             * are needed iff we do conservative remapping and this is only supported in the coupled
+             * case (so far). */
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
@@ -7566,7 +7666,7 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+        M_moorings = GridOutput(bamgmesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
@@ -7578,7 +7678,7 @@ FiniteElement::initMoorings()
                 Environment::vm()["moorings.grid_transpose"].as<std::string>() );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, grid, nodal_variables, elemental_variables, vectorial_variables,
+        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, M_moorings_false_easting);
     }
     else
@@ -7770,11 +7870,8 @@ FiniteElement::writeRestart(std::string const& name_str)
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
     std::vector<double> elt_values_root;
-    this->getRestartNamesPointers(names_elements, data_elements);
-    this->gatherFieldsElementIO(elt_values_root, data_elements);
+    this->gatherFieldsElementIO(elt_values_root, M_prognostic_data_elt);
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
@@ -7910,7 +8007,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 
         // loop over the elemental variables that have been
         // gathered to elt_values_root
-        int const nb_var_element = names_elements.size();
+        int const nb_var_element = M_restart_names_elt.size();
         for(int j=0; j<nb_var_element; j++)
         {
             std::vector<double> tmp(M_mesh_root.numTriangles());
@@ -7919,9 +8016,8 @@ FiniteElement::writeRestart(std::string const& name_str)
                 int ri = M_rmap_elements[i];
                 tmp[i] = elt_values_root[nb_var_element*ri+j];
             }
-            exporter.writeField(outbin, tmp, names_elements[j]);
+            exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
         }
-
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
@@ -8166,48 +8262,25 @@ FiniteElement::readRestart(std::string const& name_str)
     // then resized back later on
     this->initVariables();
 
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    std::vector<double> elt_values_root;
     if (M_rank == 0)
     {
-        int num_elements_root = M_mesh_root.numTriangles();
-
-        for (int i=0; i<M_tice.size(); ++i)
-            LOG(DEBUG)<<"size M_tice["<<i<<"]= "<< (M_tice[i]).size() <<"\n";
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        // set pointers to appropriate vector in field_map_dbl (read from the restart file)
+        std::vector<std::vector<double>*> data_elements_root;
+        for (auto name: M_restart_names_elt)
         {
-            M_h_thin.resize(num_elements_root);
-            M_conc_thin.resize(num_elements_root);
-            M_hs_thin.resize(num_elements_root);
-            M_tsurf_thin.resize(num_elements_root);
+            if(field_map_dbl.count(name)==0)
+            {
+                std::string msg = name + "is not in the restart file";
+                throw std::runtime_error(msg);
+            }
+            data_elements_root.push_back(&(field_map_dbl[name]));
         }
 
-        M_conc          = field_map_dbl["M_conc"];
-        M_thick         = field_map_dbl["M_thick"];
-        M_snow_thick    = field_map_dbl["M_snow_thick"];
-        if(field_map_dbl.count("M_sigma")==0)
-            // stresses were saved in new format (components were separated)
-            for(int k=0; k<3; k++)
-            {
-                std::string name = "M_sigma_"+std::to_string(k);
-                M_sigma[k] = field_map_dbl[name];
-            }
-        else
-        {
-            // stresses were saved in old format (3 components in the same vector)
-            for(int k=0; k<3; k++)
-            {
-                M_sigma[k].resize(num_elements_root);
-                for(int i=0; i<num_elements_root; i++)
-                    M_sigma[k][i] = field_map_dbl["M_sigma"][3*i+k];
-            }
-        }
-        M_damage        = field_map_dbl["M_damage"];
-        M_ridge_ratio   = field_map_dbl["M_ridge_ratio"];
-        M_random_number = field_map_dbl["M_random_number"];
-        M_sst           = field_map_dbl["M_sst"];
-        M_sss           = field_map_dbl["M_sss"];
-        for (int i=0; i<M_tice.size(); i++)
-            M_tice[i] = field_map_dbl["M_tice_"+std::to_string(i)];
+        // transfer data from data_elements_root to elt_values_root
+        this->collectElementsRestart(elt_values_root, data_elements_root);
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
@@ -8232,21 +8305,14 @@ FiniteElement::readRestart(std::string const& name_str)
             }
         }
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_h_thin     = field_map_dbl["M_h_thin"];
-            M_conc_thin  = field_map_dbl["M_conc_thin"];
-            M_hs_thin    = field_map_dbl["M_hs_thin"];
-            M_tsurf_thin = field_map_dbl["M_tsurf_thin"];
-        }
-
         if (M_use_iabp_drifters)
             this->restartIabpDrifters(field_map_int, field_map_dbl);
     }//M_rank==0
 
-
-    // set the elemental variables
-    this->restartScatterElementVariables();
+    // Scatter elemental fields from root and put them in M_prognostic_data_elt
+    // - M_prognostic_data_elt is a vector of pointers so the required
+    //   variables are now set
+    this->scatterFieldsElementIO(elt_values_root, M_prognostic_data_elt);
 
     // Scatter nodal fields from root
     std::vector<double> interp_nd_out;
@@ -8254,32 +8320,6 @@ FiniteElement::readRestart(std::string const& name_str)
     this->scatterFieldsNode(&interp_nd_out[0]);
 }//readRestart
 
-
-//! scatter the elemental variables from the restart file read from the restart file
-//! called by readRestart()
-void
-FiniteElement::restartScatterElementVariables()
-{
-    // get names of the variables in the restart file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
-    this->getRestartNamesPointers(names_elements, data_elements);
-
-    // transfer data from data_elements to elt_values_root
-    // - on root
-    // - inside a loop (automatic)
-    std::vector<double> elt_values_root, elt_values_local;
-    this->collectElementsRestart(elt_values_root, data_elements);
-
-    // Scatter elemental fields from root and put them in data_elements
-    // - data_elements is a vector of pointers so the required
-    //   variables are now set
-    // - from root to each processor
-    // - inside a loop (automatic)
-    this->scatterFieldsElementIO(elt_values_root, data_elements);
-}//restartScatterElementVariables
-    
 
 //! initialise the IABP drifters from the restart fields (if possible)
 //! called by readRestart()
@@ -8385,19 +8425,19 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
     // TODO do something similar for the nodes
     std::vector<double> out_elt_values;
 
-    int num_elements_root = M_mesh_root.numTriangles();
+    int num_elements_root = M_id_elements.size();
     int const nb_var_element = data_elements.size();
     interp_elt_out.resize(nb_var_element*num_elements_root);
 
-    if (M_rank == 0)
+    for (int i=0; i<num_elements_root; ++i)
     {
-        for (int i=0; i<num_elements_root; ++i)
-            for(int j=0; j<data_elements.size(); j++)
-            {
-                auto ptr = data_elements[j];
-                interp_elt_out[nb_var_element*i+j] = (*ptr)[i];
-            }
-    }//M_rank == 0: collect elemental variables
+        int ri = M_id_elements[i]-1;
+        for(int j=0; j<data_elements.size(); j++)
+        {
+            auto ptr = data_elements[j];
+            interp_elt_out[nb_var_element*i+j] = (*ptr)[ri];
+        }
+    }
 
 }//collectElementsRestart
 
@@ -12173,19 +12213,19 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // get names of the variables in the output file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-    std::vector<std::string> names_elements;
-    std::vector<std::vector<double>*> data_elements;
+    auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
-    this->getExportNamesPointers(names_elements, data_elements);
-    if(vm["output.save_forcing_fields"].as<bool>())
+    if(export_fields)
     {
-        ext_data_elements = M_external_data_elements;
-        for(auto name : M_external_data_elements_names)
-            names_elements.push_back(name);
+        if(vm["output.save_forcing_fields"].as<bool>())
+        {
+            ext_data_elements = M_external_data_elements;
+            for(auto name : M_external_data_elements_names)
+                names_elements.push_back(name);
+        }
+        this->gatherFieldsElementIO(elt_values_root, M_export_data_elt, ext_data_elements);
     }
-    this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
-
 
     M_comm.barrier();
     if (M_rank == 0)
