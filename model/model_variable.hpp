@@ -40,12 +40,15 @@ public:
 
     enum InterpMethod
     {
-        meshToMesh   = 0,
-        conservative = 1
+        // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
+        nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
+        conservative      = 1  // integral of all the dead elements in a cavity is redistributed
+                               //  among the new elements in proportion to their area
     };
 
     enum InterpTransformation
     {
+        // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
         none     = 0,//do nothing (conservative variable already)
         conc     = 1,//multiply by M_conc
         thick    = 2,//multiply by M_thick
@@ -131,6 +134,7 @@ public:
             // if it's not an elemental variable, see if is nodal
             nodal = this->initNodal();
 
+        // TODO add the nodes
         if(nodal)
             M_var_kind = variableKind::nodal;
         else if(!elemental)

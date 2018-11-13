@@ -88,7 +88,7 @@ ModelVariable::initElemental()
             M_export_name = "Damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::meshToMesh;
+            M_interp_method = InterpMethod::nearest_neighbour;
             M_interp_transformation = InterpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -123,8 +123,8 @@ ModelVariable::initElemental()
             {
                 case(0):
                     // surface temperature
-                    M_interp_method = InterpMethod::meshToMesh;
-                    M_interp_transformation = InterpTransformation::none;
+                    M_interp_method = interpMethod::nearest_neighbour;
+                    M_interp_transformation = interpTransformation::none;
                     break;
 
                 case(1):
@@ -152,8 +152,8 @@ ModelVariable::initElemental()
             M_export_name = "SST";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::meshToMesh;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sst"].as<double>();
             break;
 
@@ -163,8 +163,8 @@ ModelVariable::initElemental()
             M_export_name = "SSS";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::meshToMesh;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
 
@@ -174,9 +174,9 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::meshToMesh;
-            M_interp_transformation = InterpTransformation::none;
-            M_diffusivity = 0.;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0;
             break;
 
         case (variableID::M_h_thin):
@@ -227,9 +227,9 @@ ModelVariable::initElemental()
             M_export_name = "M_random_number";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::meshToMesh;
-            M_interp_transformation = InterpTransformation::none;
-            M_diffusivity = 0.;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0;
             break;
 
 #if 0

@@ -2240,21 +2240,10 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             M_h_thin[i] = h_thin_new;
             M_conc_thin[i] = conc_thin_new;
         }
-
-#if 0
-        for(int j=0; j<nb_var_element; j++)
-            if(has_max[j])
-            {
-                ptr = M_prognostic_variables_elt[j];
-                double val = (*ptr)[i];
-                (*ptr)[i] = has_max[j] ? std::min(max_val[j], val) : val;
-            }
-#endif
-
     }
 }//redistributeVariables
 
-
+    
 //------------------------------------------------------------------------------------------------------
 //! Redistributes variables (parallel computing).
 //! Called by function scatterFieldsElementIO().
@@ -6689,13 +6678,16 @@ FiniteElement::step()
             if(M_rank==0)
                 LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
-                M_moorings.resetMeshMean(bamgmesh, M_regrid);
+                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
 #ifdef OASIS
+            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+             * are needed iff we do conservative remapping and this is only supported in the coupled
+             * case (so far). */
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
@@ -7839,7 +7831,6 @@ FiniteElement::writeRestart(std::string const& name_str)
 
         // loop over the elemental variables that have been
         // gathered to elt_values_root
-#if 1
         int const nb_var_element = M_restart_names_elt.size();
         for(int j=0; j<nb_var_element; j++)
         {
@@ -7851,20 +7842,6 @@ FiniteElement::writeRestart(std::string const& name_str)
             }
             exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
         }
-#else
-        int const nb_var_element = names_elements.size();
-        for(int j=0; j<nb_var_element; j++)
-        {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                int ri = M_rmap_elements[i];
-                tmp[i] = elt_values_root[nb_var_element*ri+j];
-            }
-            exporter.writeField(outbin, tmp, names_elements[j]);
-        }
-#endif
-
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
