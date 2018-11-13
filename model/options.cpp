@@ -204,6 +204,12 @@ namespace Nextsim
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+#if 0
+            //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+            ("output.variables", po::value<std::vector<std::string>>()->multitoken()
+                ->default_value( std::vector<std::string>{}, "")->composing(),
+                "list of variable names (put on separate lines in config file)")
+#endif
 
             // --exporter
             ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
