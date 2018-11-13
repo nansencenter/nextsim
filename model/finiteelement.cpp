@@ -2172,12 +2172,19 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
 
     //! -2) loop over elements and assign the values to the different variables
     double val = 0.;
+    double tfr_ice = -physical::mu*physical::si;
+        // freezing point of ice
+        // - value for M_tice[i] in open water
+        // - in rest of code it is freezing point of water,
+        //   but we don't do this here to remove depenency on M_sss
+        //   (could have it, but if M_sss changes InterpolationType from 'none',
+        //    there could be trouble)
     for (int i=0; i<M_num_elements; ++i)
     {
         for(int j: j_none)
         {
             // no transformation
-            // NB must be done first! (others may need M_conc and M_thick)
+            // NB must be done first! (others may need M_conc, M_thick)
             auto ptr = M_prognostic_variables_elt[j];
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (none): variable "<<j<<" = "<<ptr->name()<<"\n";
@@ -2205,7 +2212,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             if (M_thick[i]>0.)
                 val = out_elt_values[nb_var_element*i+j]/M_thick[i];
             else if (ptr->varID() == ModelVariable::variableID::M_tice)
-                val = -physical::mu*physical::si;// in open water just use the freezing point of ice
+                val = tfr_ice;// in open water just use the freezing point of ice
             else
                 val = 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -2224,7 +2231,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
                         tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
             }
             else
-                (*ptr)[i] = -physical::mu*physical::si;// in open water just use the freezing point of ice
+                (*ptr)[i] = tfr_ice;// in open water just use the freezing point of ice
         }
 
         // check the total conc is <= 1
