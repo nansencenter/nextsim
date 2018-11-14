@@ -6664,7 +6664,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            prefix: "ECMWF_forecast_arctic/ec2_start",
+            prefix: "ec2_start",
             postfix:".nc",
             gridfile: "",
             reference_date:"1950-01-01",
@@ -7356,7 +7356,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
         if(is_ec_fc)
         {
                 //get filename
-                filename = (boost::format( "%1%/%2/%3%%4%%5%" )
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                         % Environment::nextsimDataDir().string()
                         % grid_ptr->dirname
                         % grid_ptr->prefix
@@ -7371,10 +7371,10 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                 // also need current time for filename
                 current_timestr = to_date_string_yd(std::floor(current_time+jump));//yyyymmdd
 
-                filename = (boost::format( "%1%/%2/%3%%4%%5%%6%" )
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
                         % Environment::nextsimDataDir().string()
-                        % current_timestr
                         % grid_ptr->dirname
+                        % current_timestr
                         % grid_ptr->prefix
                         % init_timestr
                         % grid_ptr->postfix
@@ -7432,7 +7432,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                 "This option for grid_ptr->dataset_frequency is not implemented: "
                 + grid_ptr->dataset_frequency);
 
-    filename = (boost::format( "%1%/%2/%3%%4%%5%" )
+    filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
                     % grid_ptr->dirname
                     % grid_ptr->prefix
