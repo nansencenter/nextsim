@@ -35,8 +35,11 @@ mkdir -p $DATA_LINKS_DIR
 cd $DATA_LINKS_DIR
 echo "We link the data from $ROOT_DATA_DIR"; 
 
+# link these folders, not the individual files
+ln -s $ROOT_DATA_DIR/BATHYMETRY .
+ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic .
+
 # link the netcdf data
-ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
 ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI/*.nc .
 ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
@@ -49,7 +52,6 @@ ln -s $ROOT_DATA_DIR/SIT_data/icesat_filled_10prods/*.nc .
 ln -s $ROOT_DATA_DIR/currents_from_altimeter/*.nc .
 ln -s $ROOT_DATA_DIR/RGPS_ice_drift/trajectories/*.txt .
 ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
-ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI_waves_1deg/*.nc .
 ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
 
@@ -70,12 +72,9 @@ ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/*/*.nc .
 # script links weekly files to 7 daily files
 $thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
 
-# Other links (just so they don't get buried by all the .nc files)
-# - eg drifters
+# Other links
+# - drifters
 ln -s $ROOT_DATA_DIR/IABP/IABP_buoys*.txt .
-
-# Link some other files (possibly for testing) (TODO needed?)
-ln -s $thisdir/../misc/* .
 
 # lot of links so update the list of files
 ls -lh > FileList.txt
