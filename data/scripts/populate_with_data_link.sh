@@ -8,7 +8,7 @@
 # Link the files from ROOT_DATA_DIR (1st command line input to script)
 # which has all the needed data (eg /Data/sim/data on johansen)"
 # 
-# Usage: `basename $thisfile` [ROOT_DATA_DIR]"
+# Usage: populate_with_data_links.sh [ROOT_DATA_DIR]"
 # Where ROOT_DATA_DIR is the directory where the data will be linked from"
 
 thisfile=`readlink -f $0`
@@ -36,10 +36,10 @@ cd $DATA_LINKS_DIR
 echo "We link the data from $ROOT_DATA_DIR"; 
 
 # link these folders, not the individual files
-ln -s $ROOT_DATA_DIR/BATHYMETRY .
 ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic .
 
 # link the netcdf data
+ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
 ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI/*.nc .
 ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
