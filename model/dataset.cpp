@@ -4856,7 +4856,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"BATHYMETRY",
+            dirname:"",
             prefix:"ETOPO_Arctic_2arcmin.nc",
             //prefix:"ETOPO1_Ice_g_gmt4.grd",
             postfix:"",
