@@ -115,4 +115,15 @@ namespace setup
     };
 
 } // setup
+
+namespace schemes
+{
+    enum class specificHumidity
+    {
+        ATMOSPHERE = 0,
+        WATER      = 1,
+        ICE        = 2
+    };
+} // schemes
+
 } // Nextsim

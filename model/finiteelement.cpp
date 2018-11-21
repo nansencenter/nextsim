@@ -5191,6 +5191,130 @@ FiniteElement::nestingDynamics()
     }
 }//nestingDynamics
 
+//! Calculate specific humidity - salinity is optional and only for calculating specific humidity at the ocean surface
+//! Use the dew point, sea surface temperature, or ice surface temperature for input variable temp to
+//! calculate specific humidity of the atmosphere, at the ocean surface, or the ice surface, respectively.
+inline std::pair<double,double>
+FiniteElement::specificHumidity(schemes::specificHumidity scheme, double temp, double mslp, double salinity)
+{
+     //! \param alpha, beta (double const) Constants for the calculation of specific humidity
+     //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity
+     //! \param A, B, C (double const) Other set of constants for the calculation of specific humidity
+    double A, B, C, a, b, c, d, alpha, beta;
+
+    switch (scheme)
+    {
+        case schemes::specificHumidity::ATMOSPHERE:
+            salinity = 0; // Just to be sure
+        case schemes::specificHumidity::WATER:
+            A=7.2e-4,   B=3.20e-6, C=5.9e-10;
+            a=6.1121e2, b=18.729,  c=257.87, d=227.3;
+            alpha=0.62197, beta=0.37803;
+            break;
+        case schemes::specificHumidity::ICE:
+            A=2.2e-4,   B=3.83e-6, C=6.4e-10;
+            a=6.1115e2, b=23.036,  c=279.82, d=333.7;
+            alpha=0.62197, beta=0.37803;
+            salinity = 0; // Just to be sure
+            break;
+    }
+
+    double f   = 1. + A + mslp*1e-2*( B + C*temp*temp );
+    double est = a*std::exp( (b-temp/d)*temp/(temp+c) )*(1-5.37e-4*salinity);
+    double sphum = alpha*f*est/(mslp-beta*f*est);
+
+    if ( scheme == schemes::specificHumidity::ICE )
+    {
+        double dsphumdest = alpha/(mslp-beta*f*est)*( 1. + beta*f*est/(mslp-beta*f*est) );
+        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
+        double dfdT       = 2.*C*B*temp;
+        double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
+
+        return std::make_pair(alpha*f*est/(mslp-beta*f*est), dsphumdT);
+    } else {
+        return std::make_pair(sphum, 0.);
+    }
+}
+
+
+//! Calculates ocean-atmosphere fluxes through bulk formula.
+//! Called by the thermo() function.
+//! \param Qow (double) Open water heat flux
+//! \param Qsw (double) Short-wave atmosphere-ocean heat flux
+//! \param Qlw (double) Latent atmosphere-ocean heat flux
+//! \param Qsh (double) Sensible atmosphere-ocean heat flux
+//! \param Qlh (double) Long-wave atmosphere-ocean heat flux
+//! \param evap (double) Evaporation [kg/m^2/s]
+void
+FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap)
+{
+    // Constants
+    double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
+    double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>(); //! \param drag_ocean_q (double const) Ocean drag parameter, to calculate latent heat flux
+    double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param Qdw_const (double const) Ocean albedo
+
+    for ( int i=0; i<M_num_elements; ++i )
+    {
+        /* Out-going long-wave flux */
+        double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
+
+        // -------------------------------------------------
+        //! Calculates specific humidity of the atmosphere.
+        //! - There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
+        double sphuma;
+        if ( M_sphuma.isInitialized() )
+        {
+            sphuma = M_sphuma[i];
+        }
+        else if ( M_mixrat.isInitialized() )
+        {
+            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
+        }
+        else if ( M_dair.isInitialized() )
+        {
+            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, M_dair[i], M_mslp[i]);
+            sphuma = tmp.first;
+        }
+
+        // -------------------------------------------------
+        //! Calculates specific humidity at saturation at the ocean surface
+        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::WATER, M_sst[i], M_mslp[i], M_sss[i]);
+        double sphumw = tmp.first;
+
+        // -------------------------------------------------
+        /* Density of air */
+        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+
+        /* Wind speed */
+        double  wspeed = this->windSpeedElement(i);
+
+        /* Sensible heat flux */
+        Qsh[i] = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
+
+        /* Latent heat flux */
+        double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
+        Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+
+        /* Evaporation */
+        evap[i] = Qlh[i]/(physical::rhofw*Lv);
+
+        // Sum them up:
+        // Qow>0 => flux out of ocean:
+        // - subtract shortwave and longwave input;
+        // add heat loss from longwave radiation, sensible heat loss (temp changes)
+        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
+        Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qsw[i] *= M_qsrml[i];
+#endif
+        Qlw[i] = Qlw_out - this->incomingLongwave(i);
+        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+    }
+}
+
 
 //------------------------------------------------------------------------------------------------------
 //! Performs thermodynamics calculation based on the 1D thermodynamical model.
@@ -5213,10 +5337,6 @@ FiniteElement::thermo(int dt)
     double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>(); //! \param Qdw_const (double const) Heat flux from ocean nudging
     double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>(); //! \param Qdw_const (double const) Fresh water flux from ocean nudging
 
-    double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param Qdw_const (double const) Ocean albedo
-    double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
-    double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>(); //! \param drag_ocean_q (double const) Ocean drag parameter, to calculate latent heat flux
-
     double const rh0   = 1./vm["thermo.hnull"].as<double>(); //! \param rh0 (double const)
     double const rPhiF = 1./vm["thermo.PhiF"].as<double>(); //! \param rPhiF (double const)
     
@@ -5228,10 +5348,45 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     
-    const double aw=6.1121e2, bw=18.729, cw=257.87, dw=227.3; //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity (atmosphere)
-    const double Aw=7.2e-4, Bw=3.20e-6, Cw=5.9e-10; //! \param Aw, Bw, Cw (double const) Other set of constants for the calculation of specific humidity (atmosphere)
+    //! Calculate the ocean-atmosphere fluxes
+    std::vector<double> Qow(M_num_elements);
+    std::vector<double> Qlw_ow(M_num_elements);
+    std::vector<double> Qsw_ow(M_num_elements);
+    std::vector<double> Qlh_ow(M_num_elements);
+    std::vector<double> Qsh_ow(M_num_elements);
+    std::vector<double> evap(M_num_elements);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap);
 
-    const double alpha=0.62197, beta=0.37803; //! \param alpha, beta (double const) Constants for the calculation of specific humidity (at the ocean surface)
+    //! Calculate the ice-atmosphere fluxes
+    std::vector<double> Qia(M_num_elements);
+    std::vector<double> Qlwi(M_num_elements);
+    std::vector<double> Qswi(M_num_elements);
+    std::vector<double> Qlhi(M_num_elements);
+    std::vector<double> Qshi(M_num_elements);
+    std::vector<double> subl(M_num_elements);
+    std::vector<double> dQiadT(M_num_elements);
+    this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi, Qswi, Qlhi, Qshi, subl, dQiadT);
+
+    //! Calculate the ice-atmosphere fluxes over thin ice
+    std::vector<double> Qia_thin(M_num_elements);
+    std::vector<double> Qlw_thin(M_num_elements);
+    std::vector<double> Qsw_thin(M_num_elements);
+    std::vector<double> Qlh_thin(M_num_elements);
+    std::vector<double> Qsh_thin(M_num_elements);
+    std::vector<double> subl_thin(M_num_elements);
+    std::vector<double> dQiadT_thin(M_num_elements);
+    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+    {
+        this->IABulkFluxes(M_tsurf_thin, M_hs_thin, M_conc_thin, Qia_thin, Qlw_thin, Qsw_thin, Qlh_thin, Qsh_thin, subl_thin, dQiadT_thin);
+    } else {
+        Qia_thin.assign(M_num_elements, 0.);
+        Qlw_thin.assign(M_num_elements, 0.);
+        Qsw_thin.assign(M_num_elements, 0.);
+        Qlh_thin.assign(M_num_elements, 0.);
+        Qsh_thin.assign(M_num_elements, 0.);
+        subl_thin.assign(M_num_elements, 0.);
+        dQiadT_thin.assign(M_num_elements, 0.);
+    }
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5249,26 +5404,13 @@ FiniteElement::thermo(int dt)
         double  del_hi=0.;      //! \param del_hi (double) Rate of change in ice thickness (slab only) [m/s]
         double  del_hi_thin=0.; //! \param del_hi_thin (double) Rate of change in thin ice thickness (slab only) [m/s]
 
-        double  evap=0.;        //! \param evap (double) Evaporation (rate or amount?)
-
         double  Qdw=0.;         //! \param Qdw (double) Heat flux from ocean nudging
         double  Fdw=0.;         //! \param Fdw (double) Fresh water flux from ocean nudging
 
         double  Qio=0.;         //! \param Qio (double) Ice-ocean heat flux
         double  Qio_thin=0.;    //! \param Qio_thin (double) Ice-ocean heat flux through thin ice
-        double  Qai=0.;         //! \param Qai (double) Total atmosphere-ice heat flux
-        double  Qai_thin=0.;    //! \param Qai_thin (double) Total atmosphere-ice heat flux over thin ice
-        double  Qswi=0.;        //! \param Qswi (double) Short-wave atmosphere-ice heat flux
-        double  Qsw_thin=0.;    //! \param Qsw_thin (double) Short-wave atmosphere-ice heat flux over thin ice
-        double  Qlwi=0.;        //! \param Qlwi (double) Latent atmosphere-ice heat flux
-        double  Qlw_thin=0.;    //! \param Qlw_thin (double) Latent atmosphere-ice heat flux over thin ice
-        double  Qshi=0.;        //! \param Qshi (double) Sensible atmosphere-ice heat flux
-        double  Qsh_thin=0.;    //! \param Qsh_thin (double) Sensible atmosphere-ice heat flux over thin ice
-        double  Qlhi=0.;        //! \param Qlhi (double) Long-wave atmosphere-ice heat flux
-        double  Qlh_thin=0.;    //! \param Qlh_thin (double) Long-wave atmosphere-ice heat flux over thin ice
-        double  Qow=0.;         //! \param Qow (double) Open water heat flux
 
-        //! 1.2) Saves old _volumes_ and concentrations and calculates wind speed
+        //! 1.2) Saves old _volumes_ and concentrations
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
@@ -5284,17 +5426,6 @@ FiniteElement::thermo(int dt)
         }
         double old_ow_fraction = 1. - old_conc - old_conc_thin;
 
-        double sum_u=0.;
-        double sum_v=0.;
-
-        for (int j=0; j<3; ++j)
-        {
-            // calculate wind per element
-            sum_u += M_wind[M_elements[i].indices[j]-1];
-            sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
-        }
-        double  wspeed = std::hypot(sum_u, sum_v)/3.;
-
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall = 0.;
         if(M_snowfr.isInitialized())
@@ -5304,8 +5435,6 @@ FiniteElement::thermo(int dt)
         else
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
-
-        double Qsw_in=M_Qsw_in[i];
 
         double mld;
         if (M_mld.isInitialized())
@@ -5351,102 +5480,32 @@ FiniteElement::thermo(int dt)
         // SYL: Calculate the drag coefficients missing??
 
         // -------------------------------------------------
-        //! 3) Calculates fluxes in the open water portion
-        //(openWaterFlux in old c code, Qow_mex in matlab)
-        double sphuma, sphumw;
-
-        // Calculate atmospheric fluxes
-
-        /* Out-going long-wave flux */
-        double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
-
-        // -------------------------------------------------
-        //! 3.1) Calculates specific humidity of the atmosphere.
-        //! - There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
-        if ( M_sphuma.isInitialized() )
-            sphuma = M_sphuma[i];
-        else if ( M_mixrat.isInitialized() )
-            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        else if ( M_dair.isInitialized() )
-        {
-            double fa     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_dair[i]*M_dair[i] );
-            double esta   = fa*aw*std::exp( (bw-M_dair[i]/dw)*M_dair[i]/(M_dair[i]+cw) );
-            sphuma = alpha*fa*esta/(M_mslp[i]-beta*fa*esta) ;
-        }
-
-        // -------------------------------------------------
-        //! 3.2) Calculates specific humidity at the ocean surface
-        double fw     = 1. + Aw + M_mslp[i]*1e-2*( Bw + Cw*M_sst[i]*M_sst[i] );
-        double estw   = aw*std::exp( (bw-M_sst[i]/dw)*M_sst[i]/(M_sst[i]+cw) )*(1-5.37e-4*M_sss[i]);
-        sphumw = alpha*fw*estw/(M_mslp[i]-beta*fw*estw) ;
-
-        // -------------------------------------------------
-        /* Density of air */
-        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
-
-        /* Sensible heat flux */
-        double Qsh_ow = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
-
-        /* Latent heat flux */
-        double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
-        double Qlh_ow = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
-
-        /* Evaporation */
-        evap = Qlh_ow/(physical::rhofw*Lv);
-
-        // Long wave radiation input
-        double Qlw_in;
-        if(M_Qlw_in.isInitialized())
-            Qlw_in=M_Qlw_in[i];
-        else
-        {
-            double tsa = M_tice[0][i] + physical::tfrwK;
-            double taa = M_tair[i]  + physical::tfrwK;
-            // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
-        	Qlw_in = sigma_sb*std::pow(taa,4) \
-        			*( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
-        			*( 1. + 0.275*M_tcc[i] );
-        }
-
-        // Sum them up:
-        // Qow>0 => flux out of ocean:
-        // - subtract shortwave and longwave input;
-        // add heat loss from longwave radiation, sensible heat loss (temp changes)
-        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
-        double Qsw_ow = -Qsw_in*(1.-ocean_albedo);
-#ifdef OASIS
-        // The ocean model tells us how much SW is absorbed in the top layer
-        if ( M_ocean_type == setup::OceanType::COUPLED )
-            Qsw_ow *= M_qsrml[i];
-#endif
-        double Qlw_ow = -Qlw_in + Qlw_out;
-        Qow = Qsw_ow + Qlw_ow + Qsh_ow + Qlh_ow;
-
-        // -------------------------------------------------
         //! 4) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
+        /* Heatflux from ocean */
+        Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
+        /* Temperature at the base of the ice */
+        const double tfrw = this->freezingPoint(M_sss[i]);
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
-                this->thermoIce0(i, ddt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                        Qlw_in, Qsw_in, mld, tmp_snowfall,//end of inputs - rest are outputs
-                        hi, hs, hi_old, Qio, del_hi, M_tice[0][i],
-                        Qai, Qswi, Qlwi, Qshi, Qlhi);
+                this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                        Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(i, ddt, wspeed, sphuma, M_conc[i], M_thick[i], M_snow_thick[i],
-                        Qlw_in, Qsw_in, mld, tmp_snowfall,//end of inputs - rest are outputs
-                        hi, hs, hi_old, Qio, del_hi,
-                        M_tice[0][i], M_tice[1][i], M_tice[2][i],
-                        Qai, Qswi, Qlwi, Qshi, Qlhi);
+                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                        Qio, hi, hs, hi_old, del_hi,
+                        M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
-            this->thermoIce0(i, ddt, wspeed, sphuma, old_conc_thin, M_h_thin[i], M_hs_thin[i],
-                    Qlw_in, Qsw_in, mld, tmp_snowfall, hi_thin, hs_thin, hi_thin_old, Qio_thin, del_hi_thin, M_tsurf_thin[i],
-                        Qai_thin, Qsw_thin, Qlw_thin, Qsh_thin, Qlh_thin);
+            this->thermoIce0(ddt, M_conc_thin[i], M_h_thin[i], M_hs_thin[i],
+                    mld, tmp_snowfall, Qia_thin[i], dQiadT_thin[i], subl_thin[i], tfrw,//end of inputs - rest are outputs or in/out
+                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -5454,33 +5513,26 @@ FiniteElement::thermo(int dt)
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
         // Element mean open water heat flux
-        double Qow_mean = Qow*old_ow_fraction;
+        double Qow_mean = Qow[i]*old_ow_fraction;
 
         // -------------------------------------------------
         //! 5) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
-        /* Local variables */
-        double newice, del_c, newsnow, h0;
-
         /* dT/dt due to heatflux ocean->atmosphere */
         double const tw_new = M_sst[i] - ddt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
-        double const tfrw   = this->freezingPoint(M_sss[i]);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
+        double newice = 0;
         if ( tw_new < tfrw )
         {
             newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow_mean -= newice*qi/ddt;
         }
-        else
-        {
-            newice  = 0.;
-        }
 
         /* Decide the change in ice fraction (del_c) */
         /* Initialise to be safe */
-        del_c = 0.;
-        newsnow = 0.;
+        double del_c = 0.;
+        double newsnow = 0.;
 
         /* Freezing conditions */
         switch ( newice_type )
@@ -5504,10 +5556,13 @@ FiniteElement::thermo(int dt)
                 }
                 break;
             case 3:
-                /* Olason and Harms (09) */
-                h0    = (1.+0.1*wspeed)/15.;
-                del_c = newice/std::max(rPhiF*hi_old,h0);
-                break;
+                {
+                    /* Olason and Harms (09) */
+                    double wspeed = this->windSpeedElement(i);
+                    double h0     = (1.+0.1*wspeed)/15.;
+                    del_c = newice/std::max(rPhiF*hi_old,h0);
+                    break;
+                }
             case 4:
                 /* Thin ice category */
                 M_h_thin[i]+=newice;
@@ -5524,7 +5579,7 @@ FiniteElement::thermo(int dt)
                     }
                     else
                     {
-                        h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        double h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
                         if(h0>h_thin_max)
                         {
                             del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
@@ -5668,7 +5723,7 @@ FiniteElement::thermo(int dt)
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
-        emp  = evap*(1.-old_conc-old_conc_thin) - rain;
+        emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
 
         /* Heat-flux */
 #ifdef OASIS
@@ -5732,28 +5787,28 @@ FiniteElement::thermo(int dt)
         //! 9) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
 
         // Total heat flux to the atmosphere
-        D_Qa[i] = Qai*old_conc + Qai_thin*old_conc_thin + (Qsw_ow+Qlw_ow+Qsh_ow+Qlh_ow)*old_ow_fraction;
+        D_Qa[i] = Qia[i]*old_conc + Qia_thin[i]*old_conc_thin + Qow[i]*old_ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qsw[i] = Qswi*old_conc + Qsw_thin*old_conc_thin + Qsw_ow*old_ow_fraction;
+        D_Qsw[i] = Qswi[i]*old_conc + Qsw_thin[i]*old_conc_thin + Qsw_ow[i]*old_ow_fraction;
 
         // Long wave flux to the atmosphere
-        D_Qlw[i] = Qlwi*old_conc + Qlw_thin*old_conc_thin + Qlw_ow*old_ow_fraction;
+        D_Qlw[i] = Qlwi[i]*old_conc + Qlw_thin[i]*old_conc_thin + Qlw_ow[i]*old_ow_fraction;
 
         // Sensible heat flux to the atmosphere
-        D_Qsh[i] = Qshi*old_conc + Qsh_thin*old_conc_thin + Qsh_ow*old_ow_fraction;
+        D_Qsh[i] = Qshi[i]*old_conc + Qsh_thin[i]*old_conc_thin + Qsh_ow[i]*old_ow_fraction;
 
         // Latent heat flux to the atmosphere
-        D_Qlh[i] = Qlhi*old_conc + Qlh_thin*old_conc_thin + Qlh_ow*old_ow_fraction;
+        D_Qlh[i] = Qlhi[i]*old_conc + Qlh_thin[i]*old_conc_thin + Qlh_ow[i]*old_ow_fraction;
 
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
         // Non-solar fluxes to ocean
-        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow;
+        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
 
         // SW fluxes to ocean - TODO: Add penetrating SW
-        D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow;
+        D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
 
         // Salt balance of the ocean (all sources) - kg/day
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
@@ -5770,68 +5825,131 @@ FiniteElement::thermo(int dt)
     
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates atmospheric fluxes through bulk formula.
-//! Called by the thermoWinton() and thermoIce0() functions.
+//! Calculates ice-atmosphere fluxes through bulk formula.
+//! Called by the thermo() function.
+//! \param Qia (double) Total atmosphere-ice heat flux
+//! \param Qsw (double) Short-wave atmosphere-ice heat flux
+//! \param Qlw (double) Latent atmosphere-ice heat flux
+//! \param Qsh (double) Sensible atmosphere-ice heat flux
+//! \param Qlh (double) Long-wave atmosphere-ice heat flux
 void
-FiniteElement::atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
-        double &Qai, double &dQaidT, double &subl,
-        double &Qsh, double &Qlh, double &Qlw)
+FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+        std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT)
 {
     // Constants
-    const double ai=6.1115e2, bi=23.036, ci=279.82, di=333.7;
-    const double Ai=2.2e-4, Bi=3.83e-6, Ci=6.4e-10;
+    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
+    double const I_0        = vm["thermo.I_0"].as<double>();
 
-    const double alpha=0.62197, beta=0.37803;
+    for ( int i=0; i<M_num_elements; ++i )
+    {
+        // -------------------------------------------------
+        /* Out-going long-wave flux and derivative */
+        double Qlw_out =   physical::eps * physical::sigma_sb * std::pow(Tsurf[i]+physical::tfrwK,4);
+        double dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(Tsurf[i]+physical::tfrwK,3);
 
-    // -------------------------------------------------
-    // 4.1) BULK ICE
-    /* Out-going long-wave flux and derivative */
-    double Qlw_out =   physical::eps * physical::sigma_sb * std::pow(Tsurf+physical::tfrwK,4);
-    double dQlwdT  = 4.*physical::eps * physical::sigma_sb * std::pow(Tsurf+physical::tfrwK,3);
+        // -------------------------------------------------
+        /* Specific humidity and its derivative wrt. tsurf - ice surface */
+        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ICE, Tsurf[i], M_mslp[i]);
+        double sphumi    = tmp.first;
+        double dsphumidT = tmp.second;
+        // Calculates specific humidity of the atmosphere.
+        // There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
+        double sphuma;
+        if ( M_sphuma.isInitialized() )
+        {
+            sphuma = M_sphuma[i];
+        }
+        else if ( M_mixrat.isInitialized() )
+        {
+            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
+        }
+        else if ( M_dair.isInitialized() )
+        {
+            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, M_dair[i], M_mslp[i]);
+            sphuma = tmp.first;
+        }
 
-    // -------------------------------------------------
-    // calcSphumI
-    /* Specific humidity - ice surface */
-    double fi      = 1. + Ai + M_mslp[i]*1e-2*( Bi + Ci*Tsurf*Tsurf );
-    double esti    = ai*std::exp( (bi-Tsurf/di)*Tsurf/(Tsurf+ci) );
-    double sphumi = alpha*fi*esti/(M_mslp[i]-beta*fi*esti);
+        // -------------------------------------------------
 
-    /* We need the derivative of sphumi wrt. tsurf */
-    double dsphumdesti = alpha/(M_mslp[i]-beta*fi*esti)*( 1. + beta*fi*esti/(M_mslp[i]-beta*fi*esti) );
-    double destidT     = ( bi*ci*di-Tsurf*( 2.*ci+Tsurf) )/( di*std::pow(ci+Tsurf,2) )*esti;
-    double dfidT       = 2.*Ci*Bi*Tsurf;
-    double dsphumidT   = dsphumdesti*(fi*destidT+esti*dfidT);
+        /* Density of air */
+        double tairK  = M_tair[i] + physical::tfrwK;
+        double rhoair = M_mslp[i]/(physical::Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
 
-    // -------------------------------------------------
+        /* Wind speed */
+        double  wspeed = this->windSpeedElement(i);
 
-    /* Density of air */
-    double tairK  = M_tair[i] + physical::tfrwK;
-    double rhoair = M_mslp[i]/(physical::Ra*tairK) * (1.+sphuma)/(1.+1.609*sphuma);
+        /* Sensible heat flux and derivative */
+        Qsh[i] = drag_ice_t * rhoair * physical::cpa * wspeed*( Tsurf[i] - M_tair[i] );
+        double dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
 
-    /* Sensible heat flux and derivative */
-    Qsh    = drag_ice_t * rhoair * physical::cpa * wspeed*( Tsurf - M_tair[i] );
-    double dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
+        /* Latent heat flux and derivative */
+        Qlh[i] = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
 
-    /* Latent heat flux and derivative */
-    Qlh    = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-    double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+        /* Sum them up */
+        dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
-    /* Sum them up */
-    dQaidT = dQlwdT + dQshdT + dQlhdT;
+        /* Sublimation */
+        subl[i] = Qlh[i]/(physical::Lf+physical::Lv0);
 
-    /* Sublimation */
-    subl    = Qlh/(physical::Lf+physical::Lv0);
+        // Shortwave is modulated by the albedo
+        double hs;
+        if ( conc[i] > 0 )
+            hs = snow_thick[i]/conc[i];
+        else
+            hs = 0;
 
-    /* Sum them up */
-    Qlw = Qlw_out - Qlw_in;
-    Qai = Qsw + Qlw + Qsh + Qlh;
-}//atmFluxBulk
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs));
+
+        /* Sum them up */
+        Qlw[i] = Qlw_out - this->incomingLongwave(i);
+        Qia[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+    }
+}//IABulkFluxes
+
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates wind speed on the element
+inline double
+FiniteElement::windSpeedElement(int i)
+{
+    double sum_u=0.;
+    double sum_v=0.;
+    for (int j=0; j<3; ++j)
+    {
+        // calculate wind per element
+        sum_u += M_wind[M_elements[i].indices[j]-1];
+        sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+    }
+    return std::hypot(sum_u, sum_v)/3.;
+}
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates incoming long-wave radiation
+//! This is only strictly needed when the incoming long wave of the reanalysis is unreliable
+inline double
+FiniteElement::incomingLongwave(int i)
+{
+    if(M_Qlw_in.isInitialized())
+        return M_Qlw_in[i];
+    else
+    {
+        double tsa = M_tice[0][i] + physical::tfrwK;
+        double taa = M_tair[i]  + physical::tfrwK;
+        // s.b.idso & r.d.jackson, thermal radiation from the atmosphere, j. geophys. res. 74, 5397-5403, 1969
+        return sigma_sb*std::pow(taa,4) \
+                *( 1. - 0.261*std::exp(-7.77e-4*std::pow(taa-physical::tfrwK,2)) ) \
+                *( 1. + 0.275*M_tcc[i] );
+    }
+}
+
     
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-ocean heat fluxes.
 //! Called by the thermoWinton() and thermoIce0() functions.
-double
+inline double
 FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
@@ -5880,8 +5998,14 @@ FiniteElement::freezingPoint(double sss)
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0)
+FiniteElement::albedo(double Tsurf, double hs)
 {
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
+
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    double const I_0     = vm["thermo.I_0"].as<double>();
+
     double albedo;
 
     /* Calculate albedo - we can impliment different schemes if we want */
@@ -5941,32 +6065,22 @@ FiniteElement::albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, do
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
-void
-FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
-        double Qlw_in, double Qsw_in, double mld, double snowfall,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
-        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
+inline void
+FiniteElement::thermoWinton(double dt, double conc, double voli, double vols, double mld, double snowfall,
+            double Qia, double dQiadT, double Qsw, double subl, double Tbot,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
+            double &Tsurf, double &T1, double &T2)
 {
     // Constants
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
-
     bool const flooding = vm["thermo.flooding"].as<bool>();
+    double const I_0    = vm["thermo.I_0"].as<double>();
 
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
     double const qs   = physical::Lf * physical::rhos;
     double const Crho = physical::C * physical::rhoi;
 
-    double const Tbot     = this->freezingPoint(M_sss[i]);  // Temperature at ice base (bottom), also freezing point of sea-water
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
-
-    /* Local variables */
-    double dQaidT, subl;
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -5974,16 +6088,10 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         hi       = 0.;
         hs       = 0.;
         hi_old   = 0.;
-        Qio      = 0.;
-        Qai      = 0.;
         del_hi   = 0.;
         Tsurf    = Tbot;
         T1       = Tbot;
         T2       = Tbot;
-        Qsw      = 0.;
-        Qlw      = 0.;
-        Qsh      = 0.;
-        Qlh      = 0.;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -5998,17 +6106,10 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
          * Numers in parentheses refer to equations in the paper
          */
 
-        /* Calculate atmospheric fluxes */
-        // Shortwave is modulated by the albedo
-        Qsw = -Qsw_in*(1.-this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0))*(1.-I_0);
-        // The rest is calculated by bulk formula
-        this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
-                Qsh, Qlh, Qlw);
-
         // First some coefficients based on temperatures from the previous time step
         double K12 = 4*physical::ki*physical::ks / ( physical::ks*hi + 4*physical::ki*hs ); // (5)
-        double A   = Qai - Tsurf*dQaidT; // (7)
-        double B   = dQaidT; // (8)
+        double A   = Qia - Tsurf*dQiadT; // (7)
+        double B   = dQiadT; // (8)
         double K32 = 2*physical::ki/hi; // (10)
 
         double A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12*B/(K12+B); // (16)
@@ -6069,14 +6170,13 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
 			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
-                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i << ".\n";
+                << ocn_evap_err*1e3 << " mm over the current time step.\n";
             h2 = 0.;
             h1 = 0.;
             hs = 0.;
         }
 
         // Bottom melt/freezing
-        Qio    = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
@@ -6181,20 +6281,12 @@ FiniteElement::thermoWinton(int i, double dt, double wspeed, double sphuma, doub
 //------------------------------------------------------------------------------------------------------
 //! Calculates heat fluxes through the ice according to the Semtner zero layer model.
 //! Called by the thermo() function.
-void
-FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
-        double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
-        double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh)
+inline void
+FiniteElement::thermoIce0(double dt, double conc, double voli, double vols, double mld, double snowfall,
+        double Qia, double dQiadT, double subl, double Tbot,
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
-
     // Constants
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
-
     bool const flooding = vm["thermo.flooding"].as<bool>();
 
     double const qi = physical::Lf * physical::rhoi;
@@ -6207,13 +6299,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         hi_old  = 0.;
         hs      = 0.;
         Tsurf   = 0.;
-        Qio     = 0.;
-        Qai     = 0.;
         del_hi  = 0.;
-        Qsw     = 0.;
-        Qlw     = 0.;
-        Qsh     = 0.;
-        Qlh     = 0.;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -6221,33 +6307,24 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         hs     = vols/conc;
 
         /* Local variables */
-        double dQaidT, subl;
         double Qic, del_hs, del_ht, del_hb, draft;
 
         /* ---------------------------------------------------------------
         * Calculate the surface temperature within a while-loop
         * --------------------------------------------------------------- */
-        double albedo = this->albedo(alb_scheme, Tsurf, hs, alb_sn, alb_ice, I_0);
+        double albedo = this->albedo(Tsurf, hs);
         double dtsurf   = 1.;
-        double Tbot     = this->freezingPoint(M_sss[i]);
         int nb_iter_while=0;
         while ( dtsurf > 1e-4 )
         {
             nb_iter_while++;
 
-            /* Calculate atmospheric fluxes */
-            // Shortwave is modulated by the albedo
-            Qsw = -Qsw_in*(1.-albedo)*(1.-I_0);
-            // The rest is calculated by bulk formula
-            this->atmFluxBulk(i, Tsurf, sphuma, drag_ice_t, Qsw, Qlw_in, wspeed, Qai, dQaidT,subl,
-                    Qsh, Qlh, Qlw);
-
             // -------------------------------------------------
             /* Recalculate Tsurf */
             dtsurf = Tsurf;
             Qic    = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
-            Tsurf = Tsurf + ( Qic - Qai )/
-                ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQaidT );
+            Tsurf = Tsurf + ( Qic - Qia )/
+                ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
 
             /* Set Tsurf to the freezing point of snow or ice */
             if ( hs > 0. )
@@ -6259,6 +6336,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
             dtsurf = std::abs(dtsurf-Tsurf);
         }
 
+        // TODO: This should be an assert within the loop, e.g. assert(nv_iter_while<1000);
         if(nb_iter_while>10)
         {
             LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
@@ -6274,7 +6352,7 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs = std::min(Qai-Qic,0.)*dt/qs - subl*dt/physical::rhos;
+        del_hs = std::min(Qia-Qic,0.)*dt/qs - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
@@ -6282,8 +6360,6 @@ FiniteElement::thermoIce0(int i, double dt, double wspeed, double sphuma, double
         // snowfall in kg/m^2/s
         hs  = hs + del_hs + snowfall/physical::rhos*dt;
 
-        /* Heatflux from ocean */
-        Qio = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*dt/qi;
 

@@ -172,19 +172,24 @@ public:
     void nestingIce();
     void nestingDynamics();
     void thermo(int dt);
-    void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
-                    double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
-                    double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
-                      double Qlw_in, double Qsw_in, double mld, double snowfall,
-                      double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
-                      double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    inline double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
-    void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
-                     double &Qai, double &dQaidT, double &subl,
-                     double &Qsh, double &Qlh, double &Qlw);
-    double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
+    inline void thermoIce0(double dt, double conc, double voli, double vols, double mld, double snowfall,
+            double Qia, double dQiadT, double subl, double Tbot,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf);
+    inline void thermoWinton(double dt, double conc, double voli, double vols, double mld, double snowfall,
+            double Qia, double dQiadT, double Qsw, double subl, double Tbot,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
+            double &Tsurf, double &T1, double &T2);
+    void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap);
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+                 std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
+    inline double albedo(double Tsurf, double hs);
+    inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, double temp, double mslp, double salinity = 0.);
+    inline double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
+    inline double incomingLongwave(int i);
     inline double freezingPoint(double sss);
+    inline double windSpeedElement(int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
