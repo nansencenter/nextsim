@@ -5245,9 +5245,10 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, double temp, d
 //! \param Qsh (double) Sensible atmosphere-ocean heat flux
 //! \param Qlh (double) Long-wave atmosphere-ocean heat flux
 //! \param evap (double) Evaporation [kg/m^2/s]
+//! \param tau (double) Bulk drag coefficient (need to multiply with u or v wind to get drag) [N s/m^3]
 void
 FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap)
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau)
 {
     // Constants
     double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
@@ -5312,6 +5313,11 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 #endif
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
         Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+
+        /* Drag the ocean experiences from the wind - still only used in the coupled case */
+        // Drag coefficient from Gill(1982) / Smith (1980)
+        double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+        tau[i] = rhoair*coef_Vair*wspeed;
     }
 }
 
@@ -5355,7 +5361,8 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qlh_ow(M_num_elements);
     std::vector<double> Qsh_ow(M_num_elements);
     std::vector<double> evap(M_num_elements);
-    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap);
+    M_tau_ow.resize(M_num_elements);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -7477,25 +7484,23 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
                     double tau_i = D_tau_w[index_u];
 
-                    // Drag coefficient from Gill(1982) / Smith (1980)
-                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
-                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-                    double tau_a     = physical::rhoa*coef_Vair*wspeed*M_wind[index_u];
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
+                    // Concentration and bulk drag is the area-weighted mean over all neighbouring elements
+                    double tau_a = 0;
                     double conc = 0;
                     double surface = 0;
                     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
                     for (int j=0; j<num_elements; j++)
                     {
                         int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Negative elt_num means there are no more elements belonging to this node
-                        if ( elt_num < 0 ) break;
+                        // Skip negative elt_num
+                        if ( elt_num < 0 ) continue;
 
+                        tau_a   += M_tau_ow[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
-                    conc /= surface;
+                    tau_a /= surface;
+                    conc  /= surface;
 
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
                 }
@@ -7508,24 +7513,22 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
                     double tau_i = D_tau_w[index_v];
 
-                    // Drag coefficient from Gill(1982) / Smith (1980)
-                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
-                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-                    double tau_a     = physical::rhoa*coef_Vair*wspeed*M_wind[index_v];
-
                     // Concentration is the area-weighted mean over all neighbouring elements
+                    double tau_a = 0;
                     double conc = 0;
                     double surface = 0;
                     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
                     for (int j=0; j<num_elements; j++)
                     {
                         int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Negative elt_num means there are no more elements belonging to this node
-                        if ( elt_num < 0 ) break;
+                        // Skip Negative elt_num
+                        if ( elt_num < 0 ) continue;
 
+                        tau_a   += M_tau_ow[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
+                    tau_a /= surface;
                     conc /= surface;
 
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
@@ -7539,24 +7542,22 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
                     double tau_i = std::hypot(D_tau_w[index_v], D_tau_w[index_v]);
 
-                    // Drag coefficient from Gill(1982) / Smith (1980)
-                    double wspeed    = std::hypot(M_wind[index_u], M_wind[index_v]);
-                    double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-                    double tau_a     = physical::rhoa*coef_Vair*wspeed*wspeed;
-
                     // Concentration is the area-weighted mean over all neighbouring elements
+                    double tau_a = 0;
                     double conc = 0;
                     double surface = 0;
                     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
                     for (int j=0; j<num_elements; j++)
                     {
                         int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Negative elt_num means there are no more elements belonging to this node
-                        if ( elt_num < 0 ) break;
+                        // Skip Negative elt_num
+                        if ( elt_num < 0 ) continue;
 
+                        tau_a   += M_tau_ow[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
+                    tau_a /= surface;
                     conc /= surface;
 
                     it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;

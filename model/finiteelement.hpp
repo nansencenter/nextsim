@@ -180,7 +180,7 @@ public:
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap);
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau);
     void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
@@ -464,6 +464,7 @@ private:
     std::vector<double> D_snow_thick;
     std::vector<double> D_tsurf;
 
+    std::vector<double> M_tau_ow;
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;
