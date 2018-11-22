@@ -5191,7 +5191,7 @@ FiniteElement::nestingDynamics()
     }
 }//nestingDynamics
 
-//! Calculate specific humidity - salinity is optional and only for calculating specific humidity at the ocean surface
+//! Calculate specific humidity
 //! Use the dew point, sea surface temperature, or ice surface temperature for input variable temp to
 //! calculate specific humidity of the atmosphere, at the ocean surface, or the ice surface, respectively.
 inline std::pair<double,double>
