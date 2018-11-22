@@ -5264,11 +5264,9 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>(); //! \param drag_ocean_q (double const) Ocean drag parameter, to calculate latent heat flux
     double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param Qdw_const (double const) Ocean albedo
 
+    /* Turbulent fluxes and drag */
     for ( int i=0; i<M_num_elements; ++i )
     {
-        /* Out-going long-wave flux */
-        double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
-
         // -------------------------------------------------
         //! Calculates specific humidity of the atmosphere.
         std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
@@ -5296,24 +5294,29 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         /* Evaporation */
         evap[i] = Qlh[i]/(physical::rhofw*Lv);
 
-        // Sum them up:
-        // Qow>0 => flux out of ocean:
-        // - subtract shortwave and longwave input;
-        // add heat loss from longwave radiation, sensible heat loss (temp changes)
-        // and evaporation (latent heat loss - temp doesn't change, but phase changes)
+        /* Drag the ocean experiences from the wind - still only used in the coupled case */
+        // Drag coefficient from Gill(1982) / Smith (1980)
+        double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+        tau[i] = rhoair*coef_Vair*wspeed;
+    }
+
+    /* Radiative fluxes and total flux */
+    for ( int i=0; i<M_num_elements; ++i )
+    {
+
         Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
 #ifdef OASIS
         // The ocean model tells us how much SW is absorbed in the top layer
         if ( M_ocean_type == setup::OceanType::COUPLED )
             Qsw[i] *= M_qsrml[i];
 #endif
+        /* Out-going long-wave flux */
+        double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
-        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
 
-        /* Drag the ocean experiences from the wind - still only used in the coupled case */
-        // Drag coefficient from Gill(1982) / Smith (1980)
-        double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-        tau[i] = rhoair*coef_Vair*wspeed;
+        // Sum them up:
+        // Qow>0 => flux out of ocean:
+        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
     }
 }
 
