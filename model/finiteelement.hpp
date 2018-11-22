@@ -185,7 +185,7 @@ public:
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(double Tsurf, double hs);
-    inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, double temp, double mslp, double salinity = 0.);
+    inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, int i, double temp = -999.);
     inline double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
     inline double incomingLongwave(int i);
     inline double freezingPoint(double sss);

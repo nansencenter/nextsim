@@ -5195,42 +5195,51 @@ FiniteElement::nestingDynamics()
 //! Use the dew point, sea surface temperature, or ice surface temperature for input variable temp to
 //! calculate specific humidity of the atmosphere, at the ocean surface, or the ice surface, respectively.
 inline std::pair<double,double>
-FiniteElement::specificHumidity(schemes::specificHumidity scheme, double temp, double mslp, double salinity)
+FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double temp)
 {
      //! \param alpha, beta (double const) Constants for the calculation of specific humidity
      //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity
      //! \param A, B, C (double const) Other set of constants for the calculation of specific humidity
     double A, B, C, a, b, c, d, alpha, beta;
+    double salinity;
 
     switch (scheme)
     {
         case schemes::specificHumidity::ATMOSPHERE:
-            salinity = 0; // Just to be sure
+            if ( M_sphuma.isInitialized() )
+                return std::make_pair(M_sphuma[i], 0.);
+            else if ( M_mixrat.isInitialized() )
+                return std::make_pair(M_mixrat[i]/(1.+M_mixrat[i]), 0.);
+            temp     = M_dair[i];
+            salinity = 0;
         case schemes::specificHumidity::WATER:
             A=7.2e-4,   B=3.20e-6, C=5.9e-10;
             a=6.1121e2, b=18.729,  c=257.87, d=227.3;
             alpha=0.62197, beta=0.37803;
+            temp     = M_sst[i];
+            salinity = M_sss[i];
             break;
         case schemes::specificHumidity::ICE:
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
             alpha=0.62197, beta=0.37803;
-            salinity = 0; // Just to be sure
+            assert( temp > -999 );
+            salinity = 0;
             break;
     }
 
-    double f   = 1. + A + mslp*1e-2*( B + C*temp*temp );
+    double f   = 1. + A + M_mslp[i]*1e-2*( B + C*temp*temp );
     double est = a*std::exp( (b-temp/d)*temp/(temp+c) )*(1-5.37e-4*salinity);
-    double sphum = alpha*f*est/(mslp-beta*f*est);
+    double sphum = alpha*f*est/(M_mslp[i]-beta*f*est);
 
     if ( scheme == schemes::specificHumidity::ICE )
     {
-        double dsphumdest = alpha/(mslp-beta*f*est)*( 1. + beta*f*est/(mslp-beta*f*est) );
+        double dsphumdest = alpha/(M_mslp[i]-beta*f*est)*( 1. + beta*f*est/(M_mslp[i]-beta*f*est) );
         double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
         double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
 
-        return std::make_pair(alpha*f*est/(mslp-beta*f*est), dsphumdT);
+        return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
     } else {
         return std::make_pair(sphum, 0.);
     }
@@ -5262,25 +5271,12 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
         // -------------------------------------------------
         //! Calculates specific humidity of the atmosphere.
-        //! - There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
-        double sphuma;
-        if ( M_sphuma.isInitialized() )
-        {
-            sphuma = M_sphuma[i];
-        }
-        else if ( M_mixrat.isInitialized() )
-        {
-            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        }
-        else if ( M_dair.isInitialized() )
-        {
-            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, M_dair[i], M_mslp[i]);
-            sphuma = tmp.first;
-        }
+        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+        double sphuma = tmp.first;
 
         // -------------------------------------------------
         //! Calculates specific humidity at saturation at the ocean surface
-        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::WATER, M_sst[i], M_mslp[i], M_sss[i]);
+        tmp = this->specificHumidity(schemes::specificHumidity::WATER, i);
         double sphumw = tmp.first;
 
         // -------------------------------------------------
@@ -5857,25 +5853,12 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 
         // -------------------------------------------------
         /* Specific humidity and its derivative wrt. tsurf - ice surface */
-        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ICE, Tsurf[i], M_mslp[i]);
+        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, Tsurf[i]);
         double sphumi    = tmp.first;
         double dsphumidT = tmp.second;
         // Calculates specific humidity of the atmosphere.
-        // There are 3 ways to calculate this. We decide which one by checking mixrat - the calling routine must set this to a negative value if the dewpoint should be used.
-        double sphuma;
-        if ( M_sphuma.isInitialized() )
-        {
-            sphuma = M_sphuma[i];
-        }
-        else if ( M_mixrat.isInitialized() )
-        {
-            sphuma = M_mixrat[i]/(1.+M_mixrat[i]) ;
-        }
-        else if ( M_dair.isInitialized() )
-        {
-            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, M_dair[i], M_mslp[i]);
-            sphuma = tmp.first;
-        }
+        tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+        double sphuma = tmp.first;
 
         // -------------------------------------------------
 
