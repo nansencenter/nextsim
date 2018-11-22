@@ -41,6 +41,9 @@
 #if defined OASIS
 #include<oasis_cpp_interface.h>
 #endif
+#ifdef AEROBULK
+#include "aerobulk.hpp"
+#endif
 
 extern "C"
 {
@@ -408,6 +411,10 @@ private:
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
+
+#ifdef AEROBULK
+    aerobulk::algorithm M_ocean_bulk_formula;
+#endif
 
     setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;

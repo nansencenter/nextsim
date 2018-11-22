@@ -47,6 +47,10 @@ CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+ifdef USE_AEROBULK
+		CXXFLAGS += -I $(NEXTSIMDIR)/modules/aerobulk/include
+		CXXFLAGS += -DAEROBULK
+endif
 
 # openmpi
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -109,6 +113,11 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+ifdef USE_AEROBULK
+		LDFLAGS += -L $(NEXTSIMDIR)/lib -laerobulk_nextsim
+		LDFLAGS += -L /opt/local/aerobulk/lib -laerobulk
+		LDFLAGS += -lgfortran
+endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))

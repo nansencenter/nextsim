@@ -1258,6 +1258,18 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
 
 
+#ifdef AEROBULK
+    //! Sets options on the ocean-atmosphere bulk formula
+    const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
+        ("nextsim", aerobulk::algorithm::neXtSIM)
+        ("coare", aerobulk::algorithm::COARE)
+        ("coare3.5", aerobulk::algorithm::COARE35)
+        ("ncar", aerobulk::algorithm::NCAR)
+        ("ecmwf", aerobulk::algorithm::ECMWF);
+    M_ocean_bulk_formula = str2oblk.find(vm["thermo.ocean_bulk_formula"].as<std::string>())->second; //! \param M_ocean_bulk_formula (string) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
+#endif
+
+
     //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
@@ -5265,6 +5277,40 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param Qdw_const (double const) Ocean albedo
 
     /* Turbulent fluxes and drag */
+#ifdef AEROBULK
+    if ( vm["thermo.ocean_bulk_formula"].as<std::string>() != "neXtSIM" )
+    {
+        std::vector<double> sst(M_num_elements);
+        std::vector<double> t2m(M_num_elements);
+        std::vector<double> sphuma(M_num_elements);
+        std::vector<double> wspeed(M_num_elements);
+        std::vector<double> mslp(M_num_elements);
+        std::vector<double> Qsw_in(M_num_elements);
+        std::vector<double> Qlw_in(M_num_elements);
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            sst[i] = M_sst[i];
+            t2m[i] = M_tair[i] + physical::tfrwK;
+            mslp[i] = M_mslp[i];
+            Qsw_in[i] = M_Qsw_in[i];
+            Qlw_in[i] = this->incomingLongwave(i);
+            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+            sphuma[i] = tmp.first;
+            wspeed[i] = this->windSpeedElement(i);
+            Qsw_in[i] = M_Qsw_in[i];
+            Qlw_in[i] = this->incomingLongwave(i);
+        }
+        const std::vector<double>& sst_c = sst;
+        const std::vector<double>& t2m_c = t2m;
+        const std::vector<double>& sphuma_c = sphuma;
+        const std::vector<double>& wspeed_c = wspeed;
+        const std::vector<double>& mslp_c = mslp;
+        const std::vector<double>& Qsw_in_c = Qsw_in;
+        const std::vector<double>& Qlw_in_c = Qlw_in;
+        aerobulk::model(M_ocean_bulk_formula, 2., 10.,
+                sst_c, t2m_c, sphuma_c, wspeed_c, mslp_c, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+    } else {
+#endif
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -5299,6 +5345,9 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
         tau[i] = rhoair*coef_Vair*wspeed;
     }
+#ifdef AEROBULK
+    }
+#endif
 
     /* Radiative fluxes and total flux */
     for ( int i=0; i<M_num_elements; ++i )
