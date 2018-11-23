@@ -46,9 +46,9 @@ CXXFLAGS += -I $(NEXTSIMDIR)/modules/aerobulk/include
 # ========================================================
 # Fortran files
 FCSRCDIR=.
-FCSRC=$(wildcard $(FCSRCDIR)/*.F90)
-FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
-FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
+FCSRC=$(wildcard $(FCSRCDIR)/*.f90)
+FCOBJS=$(FCSRC:%.f90=$(OBJECTDIR)%.o)
+FCDEPS=$(FCSRC:%.f90=$(DEPENDDIR)%.d)
 
 FC = gfortran
 FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC

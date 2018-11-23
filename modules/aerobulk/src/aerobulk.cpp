@@ -52,9 +52,9 @@ int aerobulk::check_sizes(int count, ...)
 }
 
 // Interface to calculate fluxes and drag
-void aerobulk::model( algorithm algo, const double z_t, const double z_u,
-        const std::vector<double>& sst, const std::vector<double>& t_zt, const std::vector<double>& q_zt,
-        const std::vector<double>& U_zu, const std::vector<double>& slp,
+void aerobulk::model( algorithm algo, double z_t, double z_u,
+        std::vector<double>& sst, std::vector<double>& t_zt, std::vector<double>& q_zt,
+        std::vector<double>& U_zu, std::vector<double>& slp,
         std::vector<double>& QL, std::vector<double>& QH, std::vector<double>& Cd_rho_U,
         const std::vector<double>& rad_sw, const std::vector<double>& rad_lw)
 {

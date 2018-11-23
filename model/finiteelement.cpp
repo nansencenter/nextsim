@@ -5300,51 +5300,47 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qsw_in[i] = M_Qsw_in[i];
             Qlw_in[i] = this->incomingLongwave(i);
         }
-        const std::vector<double>& sst_c = sst;
-        const std::vector<double>& t2m_c = t2m;
-        const std::vector<double>& sphuma_c = sphuma;
-        const std::vector<double>& wspeed_c = wspeed;
-        const std::vector<double>& mslp_c = mslp;
-        const std::vector<double>& Qsw_in_c = Qsw_in;
-        const std::vector<double>& Qlw_in_c = Qlw_in;
+        // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
+        const std::vector<double>& Qsw_in_c = Q_sw;
+        const std::vector<double>& Qlw_in_c = Q_lw;
         aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst_c, t2m_c, sphuma_c, wspeed_c, mslp_c, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
     } else {
 #endif
-    for ( int i=0; i<M_num_elements; ++i )
-    {
-        // -------------------------------------------------
-        //! Calculates specific humidity of the atmosphere.
-        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
-        double sphuma = tmp.first;
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            // -------------------------------------------------
+            //! Calculates specific humidity of the atmosphere.
+            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+            double sphuma = tmp.first;
 
-        // -------------------------------------------------
-        //! Calculates specific humidity at saturation at the ocean surface
-        tmp = this->specificHumidity(schemes::specificHumidity::WATER, i);
-        double sphumw = tmp.first;
+            // -------------------------------------------------
+            //! Calculates specific humidity at saturation at the ocean surface
+            tmp = this->specificHumidity(schemes::specificHumidity::WATER, i);
+            double sphumw = tmp.first;
 
-        // -------------------------------------------------
-        /* Density of air */
-        double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
+            // -------------------------------------------------
+            /* Density of air */
+            double rhoair = M_mslp[i]/(physical::Ra*(M_tair[i]+physical::tfrwK)) * (1.+sphuma)/(1.+1.609*sphuma);
 
-        /* Wind speed */
-        double  wspeed = this->windSpeedElement(i);
+            /* Wind speed */
+            double  wspeed = this->windSpeedElement(i);
 
-        /* Sensible heat flux */
-        Qsh[i] = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
+            /* Sensible heat flux */
+            Qsh[i] = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
 
-        /* Latent heat flux */
-        double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
-        Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+            /* Latent heat flux */
+            double Lv  = physical::Lv0 - 2.36418e3*M_tair[i] + 1.58927*M_tair[i]*M_tair[i] - 6.14342e-2*std::pow(M_tair[i],3.);
+            Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
-        /* Evaporation */
-        evap[i] = Qlh[i]/(physical::rhofw*Lv);
+            /* Evaporation */
+            evap[i] = Qlh[i]/(physical::rhofw*Lv);
 
-        /* Drag the ocean experiences from the wind - still only used in the coupled case */
-        // Drag coefficient from Gill(1982) / Smith (1980)
-        double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-        tau[i] = rhoair*coef_Vair*wspeed;
-    }
+            /* Drag the ocean experiences from the wind - still only used in the coupled case */
+            // Drag coefficient from Gill(1982) / Smith (1980)
+            double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+            tau[i] = rhoair*coef_Vair*wspeed;
+        }
 #ifdef AEROBULK
     }
 #endif
