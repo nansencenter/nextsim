@@ -5332,7 +5332,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             double  wspeed = this->windSpeedElement(i);
 
             /* Sensible heat flux */
-            Qsh[i] = drag_ocean_t*rhoair*physical::cpa*wspeed*( M_sst[i] - M_tair[i] );
+            Qsh[i] = drag_ocean_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed * ( M_sst[i] - M_tair[i] );
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
@@ -5927,8 +5927,8 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         double  wspeed = this->windSpeedElement(i);
 
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ice_t * rhoair * physical::cpa * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ice_t * rhoair * physical::cpa * wspeed;
+        Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
+        double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
         /* Latent heat flux and derivative */
         Qlh[i] = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
