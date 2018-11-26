@@ -50,7 +50,10 @@ namespace physical
     const double mu = 0.055;
 
     //! Gas constant for dry air [J/kg/K]
-    const double Ra = 286.9;
+    const double Ra_dry = 287.058;
+
+    //! Gas constant for water vapour [J/kg/K]
+    const double Ra_vap = 461.5;
 
     //! Density of ice (same as in NEMO-LIM) [kg/m3]
     const double rhoi = 917.;
