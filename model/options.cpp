@@ -131,8 +131,13 @@ namespace Nextsim
 
             // -- moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
+#ifdef OASIS
+            ("moorings.grid_type", po::value<std::string>()->default_value( "coupled" ),
+                "[coupled|regular|from_file] for using the coupling grid, a regular spaced grid, or a grid read in from the file moorings.grid_file (default: coupled)")
+#else
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+#endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
