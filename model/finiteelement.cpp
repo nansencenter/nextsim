@@ -5343,8 +5343,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Drag the ocean experiences from the wind - still only used in the coupled case */
             // Drag coefficient from Gill(1982) / Smith (1980)
-            double coef_Vair = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-            tau[i] = rhoair*coef_Vair*wspeed;
+            double drag_ocean_m = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
+            tau[i] = rhoair*drag_ocean_m*wspeed;
         }
 #ifdef AEROBULK
     }
