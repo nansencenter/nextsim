@@ -5326,7 +5326,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             // -------------------------------------------------
             /* Density of air */
-            double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-R_vap/R_dry) );
+            double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
 
             /* Wind speed */
             double  wspeed = this->windSpeedElement(i);
@@ -5921,7 +5921,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 
         /* Density of air */
         double tairK  = M_tair[i] + physical::tfrwK;
-        double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-R_vap/R_dry) );
+        double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
 
         /* Wind speed */
         double  wspeed = this->windSpeedElement(i);
