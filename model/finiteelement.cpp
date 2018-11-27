@@ -7702,7 +7702,10 @@ FiniteElement::initMoorings()
     else if(vm["moorings.grid_type"].as<std::string>()=="coupled")
     {
         // If we're coupled then all output is by default on the coupling grid and using the conservative remapping
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, M_cpl_out.M_grid, nodal_variables, elemental_variables, vectorial_variables,
+        GridOutput::Grid grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
+
+        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
     }
 #endif
