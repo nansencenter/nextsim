@@ -7524,7 +7524,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
                     double tau_i = D_tau_w[index_u];
 
-                    // Concentration and bulk drag is the area-weighted mean over all neighbouring elements
+                    // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
                     double conc = 0;
                     double surface = 0;
