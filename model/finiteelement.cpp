@@ -1266,7 +1266,10 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    M_ocean_bulk_formula = str2oblk.find(vm["thermo.ocean_bulk_formula"].as<std::string>())->second; //! \param M_ocean_bulk_formula (string) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
+    std::string option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
+    if ( str2oblk.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.ocean_bulk_formula: " + option_str);
+    M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (string) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
 #endif
 
 
