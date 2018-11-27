@@ -22,7 +22,7 @@ namespace physical
     //! Specific heat of air [J/K/kg]
     const double cpa = 1004.64;
 
-    //! Specific heat of vapour [J/K/kg]
+    //! Specific heat of water vapour [J/K/kg]
     const double cpv = 1860.;
 
     //! Specific heat of sea water [J/K/kg]
