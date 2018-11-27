@@ -14,7 +14,6 @@ endif
 # output names/locations
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
-BINARYDIR=bin/
 LIBRARYDIR=$(NEXTSIMDIR)/lib
 # ========================================================
 
@@ -76,11 +75,7 @@ clean:
 
 # Delete the object and dependancy files, and the executable
 vclean: clean
-	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)/*
-
-# Delete the executable
-execlean:
-	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
+	$(RM) $(LIBRARYDIR)/libaerobulk_nextsim.*
 
 # ================================================================
 # Rules for .F90 files
