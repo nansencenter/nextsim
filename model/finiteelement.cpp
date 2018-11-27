@@ -5203,7 +5203,8 @@ FiniteElement::nestingDynamics()
     }
 }//nestingDynamics
 
-//! Calculate specific humidity
+//! Calculate specific humidity and its derivative w.r.t. surface temperature
+//! Output is a std::pair of the specific humidity (first) and the derivative (second)
 //! Use the dew point, sea surface temperature, or ice surface temperature for input variable temp to calculate
 //! specific humidity of the atmosphere, at the ocean surface, or at the ice surface, respectively.
 //! When scheme is ATMOSPHERE or WATER temp is an optional input and overwritten by M_dair[i] or M_sst[i] respectively
@@ -5306,6 +5307,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlw_in[i] = this->incomingLongwave(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
+        // We implicitly assume that the temperature is taken at 2 m and the wind at 10 - hence 2.
+        // and 10. in the function call.
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
         aerobulk::model(M_ocean_bulk_formula, 2., 10.,
