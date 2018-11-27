@@ -22,6 +22,9 @@ namespace physical
     //! Specific heat of air [J/K/kg]
     const double cpa = 1004.64;
 
+    //! Specific heat of water vapour [J/K/kg]
+    const double cpv = 1860.;
+
     //! Specific heat of sea water [J/K/kg]
     const double cpw = 4186.84;
 
@@ -50,7 +53,10 @@ namespace physical
     const double mu = 0.055;
 
     //! Gas constant for dry air [J/kg/K]
-    const double Ra = 286.9;
+    const double Ra_dry = 287.058;
+
+    //! Gas constant for water vapour [J/kg/K]
+    const double Ra_vap = 461.5;
 
     //! Density of ice (same as in NEMO-LIM) [kg/m3]
     const double rhoi = 917.;
