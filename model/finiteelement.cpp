@@ -5959,7 +5959,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 //------------------------------------------------------------------------------------------------------
 //! Calculates wind speed on the element
 inline double
-FiniteElement::windSpeedElement(int i)
+FiniteElement::windSpeedElement(const int i)
 {
     double sum_u=0.;
     double sum_v=0.;
@@ -5976,7 +5976,7 @@ FiniteElement::windSpeedElement(int i)
 //! Calculates incoming long-wave radiation
 //! This is only strictly needed when the incoming long wave of the reanalysis is unreliable
 inline double
-FiniteElement::incomingLongwave(int i)
+FiniteElement::incomingLongwave(const int i)
 {
     if(M_Qlw_in.isInitialized())
         return M_Qlw_in[i];
@@ -5997,7 +5997,7 @@ FiniteElement::incomingLongwave(int i)
 //! Calculates ice-ocean heat fluxes.
 //! Called by the thermoWinton() and thermoIce0() functions.
 inline double
-FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, double dt)
+FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double sss, const double mld, const double dt)
 {
     /* Use all excess heat to melt or grow ice. This is not
      * accurate, but will have to do for now! */
@@ -6026,7 +6026,7 @@ FiniteElement::iceOceanHeatflux(int cpt, double sst, double sss, double mld, dou
 
 //! Freezing point of sea water
 inline double
-FiniteElement::freezingPoint(double sss)
+FiniteElement::freezingPoint(const double sss)
 {
     switch ( M_freezingpoint_type )
     {
@@ -6045,7 +6045,7 @@ FiniteElement::freezingPoint(double sss)
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(double Tsurf, double hs)
+FiniteElement::albedo(const double Tsurf, const double hs)
 {
     int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
 
@@ -6113,8 +6113,8 @@ FiniteElement::albedo(double Tsurf, double hs)
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(double dt, double conc, double voli, double vols, double mld, double snowfall,
-        double Qia, double dQiadT, double Qsw, double subl, double Tbot,
+FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+        const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
         double &Tsurf, double &T1, double &T2)
 {
@@ -6329,8 +6329,8 @@ FiniteElement::thermoWinton(double dt, double conc, double voli, double vols, do
 //! Calculates heat fluxes through the ice according to the Semtner zero layer model.
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoIce0(double dt, double conc, double voli, double vols, double mld, double snowfall,
-        double Qia, double dQiadT, double subl, double Tbot,
+FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+        const double Qia, const double dQiadT, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
     // Constants
