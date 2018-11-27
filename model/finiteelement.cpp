@@ -6853,16 +6853,6 @@ FiniteElement::step()
                 this->regrid(pcpt);
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
-            if ( M_use_moorings )
-            {
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                else
-#endif
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-            }
 
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
@@ -6876,7 +6866,20 @@ FiniteElement::step()
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
+
+            if ( M_use_moorings )
+            {
+#ifdef OASIS
+                if(vm["moorings.grid_type"].as<std::string>()=="coupled")
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                            M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+                else
+#endif
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+            }
+
             ++M_nb_regrid;
+
         }//M_regrid
     }//bamg-regrid
 
