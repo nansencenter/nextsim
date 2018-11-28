@@ -2156,8 +2156,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
-            postfix: "",
+            prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
+            postfix: ".nc",
             gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
             reference_date: "1900-01-01",
 
