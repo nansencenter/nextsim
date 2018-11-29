@@ -256,9 +256,9 @@ namespace Nextsim
         
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")  // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.young", po::value<double>()->default_value( 5.00e+8 ), "Pa") // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
+            ("dynamics.cfix", po::value<double>()->default_value( 25e+3 ), "Pa") // Default used in scaling paper was 40 kPa.
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
