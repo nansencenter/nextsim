@@ -613,6 +613,8 @@ public:
 
     void updateGridMean(BamgMesh* bamgmesh);
     void resetGridMean();
+    void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
+            const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
     void resetMeshMean(BamgMesh* bamgmesh,
             bool regrid = false,
             int nb_local_el = 0,

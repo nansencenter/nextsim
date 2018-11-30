@@ -757,8 +757,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         else
             f_timestr ="";
 
-        filename = (boost::format( "%1%/%2%%3%%4%" )
+        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
+                    % dataset->grid.dirname
                     % dataset->grid.prefix
                     % f_timestr
                     % dataset->grid.postfix
