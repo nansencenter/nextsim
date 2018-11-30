@@ -587,7 +587,7 @@ DataSet::DataSet(char const *DatasetName)
                 interp_type : BilinearInterpEnum,
                 //interp_type : NearestInterpEnum,
 
-                dirname:"data",
+                dirname:"",
                 prefix: "blended_",
                 postfix:".nc",
                 gridfile: "",
@@ -724,7 +724,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"data",
+            dirname:"",
             prefix:"blended_",
             postfix:".nc",
             gridfile: "",
@@ -903,7 +903,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"data",
+            dirname:"",
             prefix:"blended_",
             postfix:".nc",
             gridfile: "",
