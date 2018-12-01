@@ -5968,12 +5968,11 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
 			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
-                << ocn_evap_err*1e3 << " mm over the current time step, in element " << i
-                << " (on processor "<< M_rank <<").\n";
+                << ocn_evap_err*1e3 << " mm over the current time step\n";
             h2 = 0.;
             h1 = 0.;
             hs = 0.;
-            this->checkFields(M_rank, i);
+            this->checkFields();
         }
 
         // Bottom melt/freezing
