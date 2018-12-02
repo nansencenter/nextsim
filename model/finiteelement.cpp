@@ -1255,7 +1255,10 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    M_freezingpoint_type = str2fpt.find(vm["thermo.freezingpoint-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
+    if ( str2fpt.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
+    M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
@@ -1272,7 +1275,7 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    std::string option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
+    option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
     if ( str2oblk.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.ocean_bulk_formula: " + option_str);
     M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (string) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
@@ -1290,8 +1293,15 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME);
-    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second; //! \param M_atmosphere_type (string) Option on the type of atm. forcing (constant or reanalyses)
-        switch(M_atmosphere_type){
+
+    option_str = vm["setup.atmosphere-type"].as<std::string>();
+    if ( str2atmosphere.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.atmosphere-type: " + option_str);
+    M_atmosphere_type = str2atmosphere.find(option_str)->second; //! \param M_atmosphere_type (string) Option on the type of atm. forcing (constant or reanalyses)
+
+    // set the drag coefficient for air
+    switch(M_atmosphere_type)
+    {
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
@@ -1308,7 +1318,6 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
-    
     if (M_use_nesting)
     {
         M_use_ocean_nesting = vm["nesting.use_ocean_nesting"].as<bool>();
