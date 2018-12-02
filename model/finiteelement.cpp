@@ -1259,6 +1259,7 @@ FiniteElement::initOptAndParam()
     if ( str2fpt.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
     M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
