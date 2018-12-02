@@ -588,7 +588,7 @@ DataSet::DataSet(char const *DatasetName)
                 //interp_type : NearestInterpEnum,
 
                 dirname:"",
-                prefix: "blended_",
+                prefix: "ec2_arome_blended_",
                 postfix:".nc",
                 gridfile: "",
                 reference_date: "1970-01-01",
@@ -725,7 +725,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix:"blended_",
+            prefix:"ec2_arome_blended_2.5km_",
             postfix:".nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -904,7 +904,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix:"blended_",
+            prefix:"ec2_arome_blended_",
             postfix:".nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -7862,6 +7862,9 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "ec_elements\n");
         fprintf (stderr, "ec2_nodes\n");
         fprintf (stderr, "ec2_elements\n");
+        fprintf (stderr, "ec2_arome_nodes\n");
+        fprintf (stderr, "ec2_arome_elements_instaneous\n");
+        fprintf (stderr, "ec2_arome_elements_integrated\n");
         fprintf (stderr, "cfsr_nodes\n");
         fprintf (stderr, "cfsr_elements\n");
         fprintf (stderr, "cfsr_nodes_hi\n");
