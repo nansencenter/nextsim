@@ -588,7 +588,7 @@ DataSet::DataSet(char const *DatasetName)
                 //interp_type : NearestInterpEnum,
 
                 dirname:"",
-                prefix: "ec2_arome_blended_",
+                prefix: "ec2_arome_blended_2.5km_",
                 postfix:".nc",
                 gridfile: "",
                 reference_date: "1970-01-01",
@@ -904,7 +904,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix:"ec2_arome_blended_",
+            prefix:"ec2_arome_blended_2.5km_",
             postfix:".nc",
             gridfile: "",
             reference_date: "1970-01-01",
