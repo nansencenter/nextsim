@@ -498,7 +498,7 @@ FiniteElement::initVariables()
 {
     chrono_tot.restart();
 
-    // Global variables are assigned the prefix M_
+    //! Global variables are assigned the prefix M_
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
