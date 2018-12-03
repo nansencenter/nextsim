@@ -501,8 +501,6 @@ FiniteElement::initVariables()
     chrono_tot.restart();
 
     //! Global variables are assigned the prefix M_
-    M_nb_regrid = 0;
-
     M_solver = solver_ptrtype(new solver_type());
     M_matrix = matrix_ptrtype(new matrix_type());
     M_vector = vector_ptrtype(new vector_type());
@@ -6343,8 +6341,9 @@ FiniteElement::init()
     M_comm.barrier();
 
     pcpt = 0;
-    mesh_adapt_step=0;
-    had_remeshed=false;
+    M_nb_regrid = 0; //! \param M_nb_regrid (int) Number of times remeshing has been called since the beginning of the run
+    mesh_adapt_step = 0;//TODO not used
+    had_remeshed=false;//TODO not used
 
     this->initOptAndParam();
     M_current_time = time_init;
@@ -7807,8 +7806,6 @@ FiniteElement::readRestart(std::string const& name_str)
     this->partitionMeshRestart();
 
     //set time and counters
-    mesh_adapt_step = 0;
-    M_nb_regrid = 0;
     if(M_rank==0)
     {
         // Set and check time
