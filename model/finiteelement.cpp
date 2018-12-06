@@ -5911,15 +5911,20 @@ FiniteElement::thermo(int dt)
         
             // Real (volume weighted and conserving) sea ice age 
             double old_age = M_age[i];
+            double del_vi = M_thick[i] - old_vol;
             
             // potential devision by zero and non-initialized old_vol (strange value) in the first time step
-            if (old_vol >= 0.)  // This will result in some high values at the ice edge
+            if (old_vol > 0. && del_vi > 0.) // freezing
             {    
-                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(old_vol-M_thick[i])/M_thick[i];
+                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi)/M_thick[i];
             }
-            else
+            else if (old_vol > 0. && del_vi < 0.) // melting
             {
-                M_age[i] =  0.;
+                M_age[i] = old_age+dt;
+            }
+            else //new ice 
+            {
+                M_age[i] =  dt;
             }
         }
         
