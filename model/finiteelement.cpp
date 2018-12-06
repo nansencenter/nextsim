@@ -873,8 +873,14 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
+        case setup::AtmosphereType::EC2_AROME:
+            M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements_instaneous");//instantaneous fields at %H:00
+            M_atmosphere_bis_elements_dataset=DataSet("ec2_arome_elements_integrated");//integrated fields at %H:30
+            break;
+
         default:
-            std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
+            std::cout << "invalid atmospheric forcing"<<"\n";throw std::logic_error("invalid atmospheric forcing");
     }
 
     //! - 2) Initializes the oceanic forcing dataset
@@ -1249,7 +1255,11 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    M_freezingpoint_type = str2fpt.find(vm["thermo.freezingpoint-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
+    if ( str2fpt.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
+    M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
@@ -1266,10 +1276,10 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    std::string option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
+    option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
     if ( str2oblk.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.ocean_bulk_formula: " + option_str);
-    M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (string) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
+    M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
 #endif
 
 
@@ -1282,9 +1292,17 @@ FiniteElement::initOptAndParam()
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
-        ("cfsr_hi", setup::AtmosphereType::CFSR_HI);
-    M_atmosphere_type = str2atmosphere.find(vm["setup.atmosphere-type"].as<std::string>())->second; //! \param M_atmosphere_type (string) Option on the type of atm. forcing (constant or reanalyses)
-        switch(M_atmosphere_type){
+        ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
+
+    option_str = vm["setup.atmosphere-type"].as<std::string>();
+    if ( str2atmosphere.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.atmosphere-type: " + option_str);
+    M_atmosphere_type = str2atmosphere.find(option_str)->second; //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+
+    // set the drag coefficient for air
+    switch(M_atmosphere_type)
+    {
         case setup::AtmosphereType::CONSTANT:   quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
@@ -1293,6 +1311,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
+        case setup::AtmosphereType::EC2_AROME:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -1300,7 +1319,6 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
-    
     if (M_use_nesting)
     {
         M_use_ocean_nesting = vm["nesting.use_ocean_nesting"].as<bool>();
@@ -8945,9 +8963,23 @@ FiniteElement::forcingAtmosphere()
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
+        case setup::AtmosphereType::EC2_AROME:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, vm["simul.spinup_duration"].as<double>());
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+        break;
+
         default:
-            std::cout << "invalid wind forcing"<<"\n";
-            throw std::logic_error("invalid wind forcing");
+            std::cout << "invalid atmospheric forcing"<<"\n";
+            throw std::logic_error("invalid atmospheric forcing");
     }
 
     // add the external data objects to M_external_data_nodes or M_external_data_elements
