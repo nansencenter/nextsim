@@ -1,0 +1,64 @@
+INCPATH = .:../include
+
+OBJS=../objs
+
+
+.SUFFIXES:
+.SUFFIXES: .o .F90 .F .cpp
+
+include ../Make.inc/make.osx.cpp.inc
+
+
+ifneq (,$(findstring -DAIX,$(CPPFLAGS)))
+   subs=-WF,-
+   CPPFLAGS:=$(subst -,$(subs),$(CPPFLAGS))
+endif
+
+
+# Rules for running cpp and updating files in include directory
+.F90.o:
+	cd ./$(OBJS) ; $(CF90) -c $(CPPFLAGS) $(FFLAGS) $(F90FLG) $(INCLUDE) -o $*.o ../src/$<
+
+.F.o:
+	cd ./$(OBJS) ; $(CF77) -c $(CPPFLAGS) $(FFLAGS) $(F77FLG) $(INCLUDE) -o $*.o ../src/$<
+
+.cpp.o:
+	cd ./$(OBJS) ; $(CC) -c $(CPPFLG) $(CINCLUDE) -o $*.o ../src/$<
+
+
+P_L = ../lib/libpseudo2D.so.1.0
+
+P_E = ../bin/p_pseudo2D
+
+
+all  : $(P_L)\
+       	$(P_E) 
+
+#############################################################################
+FOBJECTS= \
+			memory_stack.o \
+			m_set_random_seed.o \
+			sangoma_base.o \
+			mod_pseudo.o \
+			mod_random_forcing.o \
+			p_pseudo2D_fld.o 
+
+COBJECTS= \
+			ensemble.o \
+		        main.o	
+
+$(P_L): $(FOBJECTS)
+	cd ./$(OBJS) ; $(CF90) $(SFLAGS) $(LIBS) $(FOBJECTS) -o $(P_L) 
+
+$(P_E): $(COBJECTS) 
+	cd ./$(OBJS) ; $(CC) $(CLIBS) $(LINKFLAGS) $(COBJECTS) -o $(P_E) 
+#############################################################################
+
+
+lib  : $(P_L)
+
+bin  : $(P_E) 
+
+clean:
+	cd ./$(OBJS); rm -f *.o *.mod
+	rm -f $(P_L) $(P_E) 
