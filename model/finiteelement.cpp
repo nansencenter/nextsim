@@ -1190,7 +1190,10 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
-    restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+    if(vm["restart.output_time_step_units"].as<std::string>() == "days")
+        restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else if (vm["restart.output_time_step_units"].as<std::string>() == "number_of_time_steps")
+        restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
     M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
     M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
@@ -7991,8 +7994,6 @@ FiniteElement::writingRestart()
     //check if it's time to write a restart
     if(!vm["restart.write_restart"].as<bool>())
         return false;
-    else if(vm["restart.debugging"].as<bool>())
-        return true;
     else if ( pcpt*time_step % restart_time_step == 0)
         return true;
     else
@@ -8009,8 +8010,6 @@ FiniteElement::writeRestart()
     std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
         name_str = datenumToFilenameString(M_current_time);
-    else if(vm["restart.debugging"].as<bool>())
-        name_str = (boost::format( "%1%" ) % pcpt).str();
     else
     {
         int rstep = pcpt*time_step/restart_time_step;

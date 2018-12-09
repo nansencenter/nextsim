@@ -201,8 +201,8 @@ namespace Nextsim
             // -- outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging")
+            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "days or number_of_time_steps")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
