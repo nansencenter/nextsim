@@ -4007,7 +4007,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable conc={
-            name: "ice_concentration",
+            name: "ice_conc",
+            //name: "ice_concentration",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -4024,7 +4025,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable thickness={
-            name: "analysis_thickness",
+            name: "analysis_ice_thickness",
+            //name: "analysis_thickness",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
