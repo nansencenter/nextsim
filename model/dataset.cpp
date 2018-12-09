@@ -3975,7 +3975,8 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_latlon[1] = dimension_x;
 
         Variable latitude={
-            name: "latitude",
+            //name: "latitude",
+            name: "lat",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -3991,7 +3992,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
-            name: "longitude",
+            //name: "longitude",
+            name: "lon",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
