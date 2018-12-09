@@ -5777,7 +5777,7 @@ FiniteElement::thermo(int dt)
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-#if 1
+
         /* Check limits */
         if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin) )
         {
@@ -5787,13 +5787,13 @@ FiniteElement::thermo(int dt)
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
-                M_tice[j][i] = tfrw;
+                M_tice[j][i] = -physical::mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
 
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
         }
-#endif
+
         // -------------------------------------------------
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
