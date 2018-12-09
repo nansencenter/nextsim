@@ -44,7 +44,6 @@ ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
 ln -s $ROOT_DATA_DIR/ERAI/*.nc .
 ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
 ln -s $ROOT_DATA_DIR/CFSR/*.nc .
-ln -s $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc .
 ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/*.nc .
 ln -s $ROOT_DATA_DIR/NIC_ice_charts/*.nc .
 ln -s $ROOT_DATA_DIR/NIC_weekly_ice_charts/*.nc .
@@ -70,7 +69,7 @@ ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/*/*.nc .
 
 # CS2-SMOS ice thickness
 # script links weekly files to 7 daily files
-$thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
+$thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v2.0/*.nc
 
 # Other links
 # - drifters
