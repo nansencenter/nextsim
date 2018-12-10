@@ -56,13 +56,13 @@ do
            # I use the -v option so the script prints out the links as it creates them
            for ((t=$t0;t<=$t1;t=t+$sday))
            do
-                   ln -vs $file cs2_smos_ice_thickness_$( date -j -f %s $t +%Y%m%d ).nc
+                   ln -vs $file cs2_smos_ice_thickness_$( date -j -f %s $t +%Y%m%d )-fv2p0.nc
            done
         else
            for i in `seq 0 6`
            do
               t1=`date --date="$date0 +${i}days" +%Y%m%d`
-              ln -vs `readlink -f $file` cs2_smos_ice_thickness_${t1}.nc
+              ln -vs `readlink -f $file` cs2_smos_ice_thickness_${t1}-fv2p0.nc
            done
         fi
 done
