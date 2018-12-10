@@ -722,7 +722,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 // other cases
                 else{
                     tmpDim = dataFile.getDim(dimension_name);
-
                     index_start[k] = 0;
                     index_count[k] = tmpDim.getSize();
                 }
