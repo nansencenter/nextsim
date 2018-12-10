@@ -1396,11 +1396,12 @@ FiniteElement::initOptAndParam()
                        % Environment::nextsimMeshDir().string()
             % M_mesh_basename
             ).str();
-    M_partitioned_mesh_filename = (boost::format( "%1%/par%2%%3%" )
-            % M_export_path
-            % M_comm.size()
-            % M_mesh_basename
-            ).str();
+
+    if ( M_rank == 0 )
+        M_partitioned_mesh_filename = fs::unique_path( fs::temp_directory_path().string() + "/neXtSIM_mesh_%%%%%%%%%%.msh" ).string();
+
+    boost::mpi::broadcast(M_comm, M_partitioned_mesh_filename, 0);
+
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
     M_mesh.setOrdering("bamg");
     
@@ -12857,6 +12858,10 @@ FiniteElement::finalise(std::string current_time_system)
     {
         M_iabp_infile_fstream.close();
     }
+
+    // Remove the temporary remeshing file - if it exists
+    if ( fs::exists(M_partitioned_mesh_filename) )
+        fs::remove(M_partitioned_mesh_filename);
 
     // Clear ponters etc
     M_comm.barrier();
