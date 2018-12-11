@@ -6747,7 +6747,10 @@ FiniteElement::initOASIS()
     std::vector<GridOutput::Variable> nodal_variables;
     std::vector<GridOutput::Variable> elemental_variables;
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+
     GridOutput::Grid grid;
+
+    // TODO: should we use M_ocean_type == setup::OceanType::COUPLED or vm["coupler.with_ocean"]???
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         // Output variables - nodes
@@ -6760,9 +6763,9 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(taumod);
 
         // same as in namcouple: 8 characters field sent by neXtSIM to ocean
-        var_snd.push_back(std::string("I_taux"));
-        var_snd.push_back(std::string("I_tauy"));
-        var_snd.push_back(std::string("I_taumod"));
+        var_snd.push_back(std::string("I_"+taux.name));
+        var_snd.push_back(std::string("I_"+tauy.name));
+        var_snd.push_back(std::string("I_"+taumod.name));
 
         // Output variables - elements
         GridOutput::Variable emp(GridOutput::variableID::emp);
@@ -6777,11 +6780,11 @@ FiniteElement::initOASIS()
         elemental_variables.push_back(Sflx);
         elemental_variables.push_back(conc);
 
-        var_snd.push_back(std::string("I_emp"));
-        var_snd.push_back(std::string("I_rsnos"));
-        var_snd.push_back(std::string("I_rsso"));
-        var_snd.push_back(std::string("I_sfi"));
-        var_snd.push_back(std::string("I_sic"));
+        var_snd.push_back(std::string("I_"+emp.name));
+        var_snd.push_back(std::string("I_"+QNoSw.name));
+        var_snd.push_back(std::string("I_"+QSwOcean.name));
+        var_snd.push_back(std::string("I_"+Sflx.name));
+        var_snd.push_back(std::string("I_"+conc.name));
 
         // The vectorial variables are ...
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
@@ -6790,10 +6793,37 @@ FiniteElement::initOASIS()
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
-    } else {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
+
+    // Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        // Output variables - elements
+        GridOutput::Variable conc(GridOutput::variableID::conc);
+        GridOutput::Variable thick(GridOutput::variableID::thick);
+
+        elemental_variables.push_back(conc);
+        elemental_variables.push_back(thick);
+
+        var_snd.push_back(std::string("I_"+conc.name));
+        var_snd.push_back(std::string("I_"+thick.name));
+
+        // The vectorial variables are ...
+        GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
+        vectorial_variables.push_back(tau);
+
+        // Define a grid
+        if ( grid.defined )
+            LOG(WARNING) << "FiniteElement::initOASIS: Redefining exchange grid to couple with a wave model\n";
+
+        grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
+    }
+
+    // Error handling if nothing was done
+    if ( !grid.defined )
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
+                + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
@@ -6870,6 +6900,7 @@ FiniteElement::initOASIS()
     this->setCplId_snd(M_cpl_out.M_elemental_variables);
 
     // Prepare var_rcv
+    // Ocean
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         // same as in namcouple: 8 characters field recived by neXtSIM from ocean
@@ -6881,6 +6912,8 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
+
+    // Waves - FSD and tau in the future
 
     // Ask OASIS to link var_rcv and var_id_rcv
     var_id_rcv.resize(var_rcv.size());
