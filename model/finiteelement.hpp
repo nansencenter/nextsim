@@ -800,26 +800,8 @@ private:
     std::vector<int> var_id_snd;
     std::vector<int> var_id_rcv;
 
-    const std::vector<std::string> var_snd{
-    //  "12345678" 8 characters field sent by neXtSIM to ocean
-        "I_taux",    // tau_u (at u-point)
-        "I_tauy",    // tau_v (at v-point)
-        "I_taumod",  // |tau| (at t-point)
-        "I_emp",     // Evap minus precip
-        "I_rsnos",   // Non-solar heatflux
-        "I_rsso",    // Solar/Shortwave radiation
-        "I_sfi",     // Salt/brine flux
-        "I_sic"   }; // Concentration
-
-    const std::vector<std::string> var_rcv{
-    //  "12345678"  8 characters field received by neXtSIM from ocean
-        "I_SST",   // Sea surface temperature
-        "I_SSS",   // Sea surface salinity
-        "I_Uocn",     // Ocean current - u
-        "I_Vocn",     // Ocean current - v
-        "I_SSH",   // Sea surface height
-        "I_MLD",   // Mixed layer depth
-        "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
+    std::vector<std::string> var_snd;
+    std::vector<std::string> var_rcv;
 
     int cpl_time_step;
     void initOASIS();

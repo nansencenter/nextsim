@@ -6759,6 +6759,11 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(tauy);
         nodal_variables.push_back(taumod);
 
+        // same as in namcouple: 8 characters field sent by neXtSIM to ocean
+        var_snd.push_back(std::string("I_taux"));
+        var_snd.push_back(std::string("I_tauy"));
+        var_snd.push_back(std::string("I_taumod"));
+
         // Output variables - elements
         GridOutput::Variable emp(GridOutput::variableID::emp);
         GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
@@ -6771,6 +6776,12 @@ FiniteElement::initOASIS()
         elemental_variables.push_back(QSwOcean);
         elemental_variables.push_back(Sflx);
         elemental_variables.push_back(conc);
+
+        var_snd.push_back(std::string("I_emp"));
+        var_snd.push_back(std::string("I_rsnos"));
+        var_snd.push_back(std::string("I_rsso"));
+        var_snd.push_back(std::string("I_sfi"));
+        var_snd.push_back(std::string("I_sic"));
 
         // The vectorial variables are ...
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
@@ -6858,7 +6869,20 @@ FiniteElement::initOASIS()
     this->setCplId_snd(M_cpl_out.M_nodal_variables);
     this->setCplId_snd(M_cpl_out.M_elemental_variables);
 
-    // TODO: This is not flexible enough - it'll only work for coupling with the ocean.
+    // Prepare var_rcv
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        // same as in namcouple: 8 characters field recived by neXtSIM from ocean
+        var_rcv.push_back(std::string("I_SST"));
+        var_rcv.push_back(std::string("I_SSS"));
+        var_rcv.push_back(std::string("I_Uocn"));
+        var_rcv.push_back(std::string("I_Vocn"));
+        var_rcv.push_back(std::string("I_SSH"));
+        var_rcv.push_back(std::string("I_MLD"));
+        var_rcv.push_back(std::string("I_FrcQsr"));
+    }
+
+    // Ask OASIS to link var_rcv and var_id_rcv
     var_id_rcv.resize(var_rcv.size());
     for (int i=0; i<var_rcv.size(); ++i)
     {
@@ -6866,7 +6890,7 @@ FiniteElement::initOASIS()
                 var_actual_shape, var_type);
         if (ierror)
             throw std::runtime_error("FinitElement::initOASIS: OASIS3::def_var failed with exit code "
-                    +std::to_string(ierror)+" on "+var_snd[i]);
+                    +std::to_string(ierror)+" on "+var_rcv[i]);
     }
 
     // Associate OASIS variable ids with neXtSIM DataSet variables
