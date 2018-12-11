@@ -10317,7 +10317,6 @@ FiniteElement::cs2SmosIce()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
             M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }

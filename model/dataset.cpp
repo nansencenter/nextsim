@@ -4040,7 +4040,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
