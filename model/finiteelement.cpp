@@ -919,6 +919,13 @@ FiniteElement::initDatasets()
         M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
 
+#ifdef OASIS
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        M_wave_nodes_dataset = DataSet("waves_cpl_nodes");
+    }
+#endif
+
     //! - 4) Initializes the ice-init datasets
     //       TODO these probably don't need to be global variables
     //            - in fact they are probably taking up a significant
@@ -5374,7 +5381,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         // Qow>0 => flux out of ocean:
         Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
     }
-}
+}//OWBulkFluxes
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6912,6 +6919,11 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
+    //else if (vm["coupler.with_waves"].as<bool>())
+    //{
+    //    var_rcv.push_back(std::string("I_tauwix"));
+    //    var_rcv.push_back(std::string("I_tauwiy"));
+    //}
 
     // Waves - FSD and tau in the future
 

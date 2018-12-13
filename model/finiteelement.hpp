@@ -204,6 +204,10 @@ public:
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
+#ifdef OASIS
+    Dataset M_wave_nodes_dataset;
+    //Dataset M_wave_elements_dataset;
+#endif
 
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
@@ -472,6 +476,9 @@ private:
     std::vector<double> D_tsurf;
 
     std::vector<double> M_tau_ow;
+#ifdef OASIS
+    std::vector<double> M_tau_wi;
+#endif
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;
