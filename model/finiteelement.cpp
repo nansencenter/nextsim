@@ -923,6 +923,7 @@ FiniteElement::initDatasets()
     if (vm["coupler.with_waves"].as<bool>())
     {
         M_wave_nodes_dataset = DataSet("waves_cpl_nodes");
+        M_datasets_regrid.push_back(&M_wave_nodes_dataset);
     }
 #endif
 
