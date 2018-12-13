@@ -4543,12 +4543,17 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
-        dimensions_latlon[1] = dimension_x;
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_latlon = {dimension_y, dimension_x};
+        std::vector<Dimension> dimensions = {dimension_time, dimension_y, dimension_x};
 
         Variable latitude={
-            name: "latitude",
+            //name: "latitude",
+            name: "lat",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -4564,7 +4569,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
-            name: "longitude",
+            //name: "longitude",
+            name: "lon",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -4580,8 +4586,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable conc={
-            name: "ice_concentration",
-            dimensions: dimensions_latlon,
+            name: "ice_conc",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4597,8 +4603,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable thickness={
-            name: "analysis_thickness",
-            dimensions: dimensions_latlon,
+            name: "analysis_ice_thickness",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4607,7 +4613,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -4617,10 +4623,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            //prefix:"cs2_smos_ice_thickness_20130121_20130127.nc",
-            //postfix: "",
             prefix:"cs2_smos_ice_thickness_",
-            postfix: ".nc",
+            postfix: "-fv2p0.nc",
             gridfile: "",
             reference_date: "",
 
