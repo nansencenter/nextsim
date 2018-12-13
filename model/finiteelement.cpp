@@ -6934,7 +6934,9 @@ FiniteElement::initOASIS()
 
         if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
             throw std::logic_error("Not all coupling variables assigned - exiting");
-    } else {
+    }
+    else if (!vm["coupler.with_waves"].as<bool>())
+    {
         throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
