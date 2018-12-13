@@ -840,7 +840,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             	    index_start[0] = index;
             	    index_count[0] = 1;
 			    }
-                    else // We take the first slice of the depth dimension
+                else // We take the first slice of the depth dimension
 			    {
                     index_start[i] = 0;
                     index_count[i] = 1;

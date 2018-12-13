@@ -4552,7 +4552,6 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions = {dimension_time, dimension_y, dimension_x};
 
         Variable latitude={
-            //name: "latitude",
             name: "lat",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -4569,7 +4568,6 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
-            //name: "longitude",
             name: "lon",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
