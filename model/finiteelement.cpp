@@ -10992,7 +10992,9 @@ FiniteElement::cs2SmosIce()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            // we assume the thin ice is not seen by passive microwave
+            // so arbitrarily increase the total conc by 20%, putting this into thin ice
+            // at a constant absolute thickness (default=27.5cm)
             M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
@@ -11090,7 +11092,9 @@ FiniteElement::cs2SmosAmsr2Ice()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            // we assume the thin ice is not seen by passive microwave
+            // so arbitrarily increase the total conc by 20%, putting this into thin ice
+            // at a constant absolute thickness (default=27.5cm)
             M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
