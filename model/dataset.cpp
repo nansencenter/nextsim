@@ -1432,8 +1432,6 @@ DataSet::DataSet(char const *DatasetName)
                 // following the mpp_file defined for the grid
             };
         vectorial_variables = {tau_xy};
-        //vectorial_variables.resize(1);
-        //vectorial_variables[0] = tau_xy;
 
         loaded=false;
         interpolated=false;
