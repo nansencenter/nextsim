@@ -5073,8 +5073,10 @@ FiniteElement::update()
 
         //double effective_cohesion = mult_factor * M_Cohesion[cpt];
         //double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
-        double effective_cohesion = 1. * M_Cohesion[cpt];
-        double effective_compressive_strength = 1. * M_Compressive_strength[cpt];
+        //double effective_cohesion = (1.0-old_damage) * M_Cohesion[cpt];
+        //double effective_compressive_strength = (1.0-old_damage) * M_Compressive_strength[cpt];
+        double effective_cohesion = 1.0 * M_Cohesion[cpt];
+        double effective_compressive_strength = 1.0 * M_Compressive_strength[cpt];
             
         q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
@@ -5101,6 +5103,8 @@ FiniteElement::update()
             } */
             
             
+        /* Calculate td based on the local value of E (damage-dependence) */
+            //    td = min(M_res_root_mesh*pow(young*(1.0-old_damage)/(2.0*(1.0+nu0)*rhoi),-0.5), time_step);
             
         /* Calculate the adjusted level of damage */
             //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
@@ -5112,11 +5116,11 @@ FiniteElement::update()
             //Sylvain
             //tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
             //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
-            tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,random_number_for_damage_prediction);
             
@@ -5135,11 +5139,11 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //vero, implicit
             //tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //Vero, recursive scheme
-            tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
             //Vero, recursive scheme + random nb of damage events
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),random_number_for_damage_prediction);
             //std::cout << "d = " << tmp << "\n";
@@ -5157,11 +5161,11 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
             //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
-            tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,random_number_for_damage_prediction);
 
