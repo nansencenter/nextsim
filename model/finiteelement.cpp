@@ -716,7 +716,7 @@ FiniteElement::assignVariables()
     M_atmosphere_bis_elements_dataset.interpolated=false;
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
-#if 1
+#ifdef OASIS 
     M_wave_nodes_dataset.interpolated = false;
     //M_wave_elements_dataset.interpolated = false;
 #endif
