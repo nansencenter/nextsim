@@ -229,6 +229,18 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
+            // add synoptic perturbations on the wind field here 
+            // can be done as M_dataset.perturb()
+#ifdef ENSEMBLE
+            std::string forcing_name="asr_nodes";
+            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0)
+            {
+            ensemble perturbation;
+            perturbation.generate_ensemble(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->grid.dimension_x_count_netcdf, M_dataset->grid.dimension_y_count_netcdf);
+            perturbation.generate_ensemble(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->grid.dimension_x_count_netcdf, M_dataset->grid.dimension_y_count_netcdf);
+            }
+#endif
+
             this->transformData(M_dataset);
             LOG(DEBUG) << "Done\n";
 
