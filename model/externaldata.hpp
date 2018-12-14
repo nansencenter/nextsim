@@ -21,6 +21,9 @@
 #include <dataset.hpp>
 #include "debug.hpp"
 
+#if defined ENSEMBLE 
+#include "ensemble.hpp"
+#endif
 
 /**
  * @class ExternalData
