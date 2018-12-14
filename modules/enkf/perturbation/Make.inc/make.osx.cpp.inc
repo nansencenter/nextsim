@@ -26,7 +26,7 @@ FFLAGS= -O2 -fconvert=big-endian -fdefault-real-8
 CFLAGS= -O2 -fast -fastsse -Wall 
 
 #SFLAGS= -dynamiclib
-SFLAGS= -shared -fPIC
+SFLAGS= -shared
 
 #Netcdf, FFTW and lapack Libraries
 #NETCDF_DIR = /y1/aydogdu/Anaconda/anaconda/pkgs/netcdf-fortran-4.4.4-3
