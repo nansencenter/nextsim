@@ -5116,9 +5116,9 @@ FiniteElement::update()
             //Sylvain
             //tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
-            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
@@ -5139,9 +5139,9 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
             //Vero, explicit
-            tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            //tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //vero, implicit
-            //tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
             //Vero, recursive scheme + random nb of damage events
@@ -5161,9 +5161,9 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
-            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
