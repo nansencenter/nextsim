@@ -1,6 +1,6 @@
 /*
 Header file for ensemble.cpp
-author= -aLi-
+@author= -aLi- <ali.aydogdu@nersc.no>
 - This class calls fortran objects in order to create synoptic perturbations to generate an ensemble using neXtSIM
 - It reads the output file from ran_update and ports it to related forcing data in neXtSIM 
 */
@@ -30,6 +30,9 @@ extern "C" {
 }
 
 using namespace std;
+
+namespace Nextsim 
+{
 class ensemble
 {
 public:
@@ -77,7 +80,7 @@ public:
 
 private: 
 	
-	static constexpr const char* ranfile = "IO/ranfld.dat";
+	static constexpr const char* ranfile = "ranfld_prev.dat";
 
 public:
 
@@ -85,8 +88,13 @@ public:
 
 	void generate_ensemble(int, int);
 
+	void generate_ensemble(std::vector<double>&, std::vector<double>&, int, int);
+	
+//	void generate_ensemble(std::vector<double>, std::vector<double>);
+
 	void compute_minmax(const std::vector<double> &, const char*); 
 
 	void compute_vmean(const std::vector<double> &, const char*);
 
+};
 };
