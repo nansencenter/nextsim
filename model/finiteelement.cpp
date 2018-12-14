@@ -671,7 +671,6 @@ FiniteElement::assignVariables()
         M_ocean_elements_dataset.grid.loaded=false;
     }
 
-#if 1
 /* This shouldn't be needed - and it messes up the coupling
  * But let's keep it commented for now, just in case.
  *    // reload the dataset
@@ -717,7 +716,10 @@ FiniteElement::assignVariables()
     M_atmosphere_bis_elements_dataset.interpolated=false;
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
-
+#if 1
+    M_wave_nodes_dataset.interpolated = false;
+    //M_wave_elements_dataset.interpolated = false;
+#endif
     M_ice_topaz_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
@@ -728,9 +730,8 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
-#endif
 
-    // //loop over vector of pointers to datasets defined in initForcings()
+    // //loop over vector of pointers to datasets defined in initExternalData()
     // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
     // {
     //     if (M_rank == 0)
@@ -802,6 +803,11 @@ FiniteElement::initExternalData()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
+#ifdef OASIS
+    LOG(DEBUG) <<"Initialize forcingWaves\n";
+    this->forcingWaves();
+#endif
 
     //! - 3) Initializes the bathymetry using the initBathymetry() function,
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -4268,7 +4274,7 @@ FiniteElement::assemble(int pcpt)
         double coef_min = 100.;
 
         // values used when no ice or when ice too thin
-        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
+        double forcing_switch    = 0.;  // forcing_switch is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
         double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
@@ -4383,7 +4389,7 @@ FiniteElement::assemble(int pcpt)
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
 
-            coef_drag  = 1.;
+            forcing_switch  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
             coef_V     = mass_e/dtime_step;               /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
@@ -4469,9 +4475,9 @@ FiniteElement::assemble(int pcpt)
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
 
             // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+            coef_Voce  *= forcing_switch*physical::rhow;
+            coef_Vair  *= forcing_switch*physical::rhoa;
+            coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
@@ -4518,7 +4524,6 @@ FiniteElement::assemble(int pcpt)
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
-                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4531,7 +4536,6 @@ FiniteElement::assemble(int pcpt)
                                                - b0tj_sigma_hu/3);
 
                     fvdata[2*i+1] += surface_e*( mloc*(
-                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -4542,6 +4546,13 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
                                                  - b0tj_sigma_hv/3);
+#ifdef OASIS
+                    if( vm["coupler.with_waves"].as<bool>() )
+                    {
+                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                    }
+#endif
                 }
             }
         }
@@ -6836,7 +6847,8 @@ FiniteElement::initOASIS()
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
-    M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -6920,11 +6932,11 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
-    //else if (vm["coupler.with_waves"].as<bool>())
-    //{
-    //    var_rcv.push_back(std::string("I_tauwix"));
-    //    var_rcv.push_back(std::string("I_tauwiy"));
-    //}
+    else if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        var_rcv.push_back(std::string("I_tauwix"));
+        var_rcv.push_back(std::string("I_tauwiy"));
+    }
 
     // Waves - FSD and tau in the future
 
@@ -6948,9 +6960,19 @@ FiniteElement::initOASIS()
         if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
             throw std::logic_error("Not all coupling variables assigned - exiting");
     }
-    else if (!vm["coupler.with_waves"].as<bool>())
+    else if (vm["coupler.with_waves"].as<bool>())
     {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
+        this->setCplId_rcv(M_wave_nodes_dataset);
+        //this->setCplId_rcv(M_wave_elements_dataset);
+
+        if ( M_wave_nodes_dataset.M_cpl_id.size() != var_rcv.size() )
+        //if ( M_wave_nodes_dataset.M_cpl_id.size() + M_wave_elements_dataset.M_cpl_id.size() != var_rcv.size() )
+            throw std::logic_error("Not all coupling variables assigned - exiting");
+    }
+    else
+    {
+        //TODO ???
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implemented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -8909,7 +8931,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERAi, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingAtmosphere()
 {
@@ -9164,7 +9186,7 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the ocean according to the chosen ocean state and data (CONSTANT, TOPAZR, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
@@ -9296,6 +9318,21 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         M_external_data_elements_names.push_back("M_qsrml");
     }
 }//forcingOcean
+
+
+//------------------------------------------------------------------------------------------------------
+//! Sets the physical variables relevant to the couple wave model
+//! Called by the initExternalData() function.
+#ifdef OASIS
+void
+FiniteElement::forcingWaves()//(double const& u, double const& v)
+{
+
+    M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
+                time_init, vm["simul.spinup_duration"].as<double>());
+    M_external_data_nodes.push_back(&M_tau_wi);
+}
+#endif
 
 
 //------------------------------------------------------------------------------------------------------

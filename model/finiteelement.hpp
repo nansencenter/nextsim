@@ -254,6 +254,9 @@ public:
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+#ifdef OASIS
+    void forcingWaves();
+#endif
     void forcingNesting();
 	void initBathymetry();
 
@@ -477,7 +480,7 @@ private:
 
     std::vector<double> M_tau_ow;
 #ifdef OASIS
-    std::vector<double> M_tau_wi;
+    ExternalData M_tau_wi;
 #endif
 
     std::vector<double> M_ridge_ratio;
