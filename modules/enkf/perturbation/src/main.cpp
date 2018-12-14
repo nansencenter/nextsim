@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 	/*
 	 * Here we pass the dimensions of the forcing fields to generate_ensemble
 	 */
-	ensemble ens;
+	Nextsim::ensemble ens;
 	int a = 129600;
 	int b = 8;
 
