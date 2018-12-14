@@ -132,12 +132,12 @@ contains
       call initfftdim(idm,jdm)
       ! Init 
       call set_random_seed2
+
+      !-- CHeCK: a conditional here to check ranfld_next.dat exists \
+      !-- IF exists, load and move to ranfld_prev.dat, IF NOT run ranfields(ran,rh) --!
+
       call ranfields(ran,rh)
-!      call limits_randf()
-      !print *,minval(ran%airtmp)
-      !print *,maxval(ran%airtmp)
-      !print *,'(stop in init_rand_update)'
-      !stop 'in init_rand_update'
+
       end subroutine
 
       subroutine set_random_seed2
@@ -439,21 +439,10 @@ contains
 ! end if rf_prsflag=0 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
-      ! ran1 is new random forcing. ran is nondimensional
-      ! "Brownian increment".
-      call ranfields(ran1,rh)
-
-      !ran= alpha*ran + sqrt(1-alpha*alpha)* ran 
-      call ran_update_ran1(ran,ran1,alpha)
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Diagnostics section -- Spatial field dumped on first run
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       if (lfirst) then
          ! Test for ranfld .... only done for first pass
          lfirst=.false.
-            open(10,file=trim(iopath)//'/ranfld.dat',status='replace')
+            open(10,file='ranfld_prev.dat',status='replace')
             do jy=1,jdm
             do ix=1,idm
                write(10,'(2i5,6e14.3)') ix,jy,  &
@@ -464,19 +453,35 @@ contains
             end do
             close(10)
       end if
+
+      ! ran1 is new random forcing. ran is nondimensional
+      ! "Brownian increment".
+      call ranfields(ran1,rh)
+
+      !ran= alpha*ran + sqrt(1-alpha*alpha)* ran 
+      call ran_update_ran1(ran,ran1,alpha)
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Diagnostics section -- time series at test point
+! Diagnostics section -- Spatial field dumped on first run
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      if (randf_test) then
-         open(10,file=trim(iopath)//'/rantest.dat',status='unknown', position='append')
-         write(10,'(i6,5f14.3)') ccount, &
-             ran%taux  (50,80)*sqrt(vars%taux),  &
-             ran%tauy  (50,80)*sqrt(vars%tauy), &
-             ran%airtmp(50,80)*sqrt(vars%airtmp), &
-             ran%taux(50,80), &
-             ran%tauy(50,80)
-         close(10)
+      lfirst=.true.
+      if (lfirst) then
+         ! Test for ranfld .... only done for first pass
+         lfirst=.false.
+            open(11,file='ranfld_next.dat',status='replace')
+            do jy=1,jdm
+            do ix=1,idm
+               write(11,'(2i5,6e14.3)') ix,jy,  &
+               synuwind(ix,jy), synvwind(ix,jy), &
+               synairtmp(ix,jy), synslp(ix,jy), &
+               synprecip(ix,jy), synrelhum(ix,jy)
+            end do
+            end do
+            close(11)
       end if
+
+      print *,'random update finished'
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! End Diagnostics section 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -636,19 +641,19 @@ contains
    implicit none
      ! Allocate fields - some are not used...
 
-     allocate(synuwind (idm,jdm))
-     allocate(synvwind (idm,jdm))
-     allocate(synwndspd(idm,jdm))
-     allocate(syntaux  (idm,jdm))
-     allocate(syntauy  (idm,jdm))
-     allocate(synvapmix(idm,jdm))
-     allocate(synairtmp(idm,jdm))
-     allocate(synrelhum(idm,jdm))
-     allocate(synprecip(idm,jdm))
-     allocate(synclouds(idm,jdm))
-     allocate(synradflx(idm,jdm))
-     allocate(synshwflx(idm,jdm))
-     allocate(synslp   (idm,jdm))
+     IF( .NOT. ALLOCATED( synuwind  ) ) allocate(synuwind (idm,jdm)) 
+     IF( .NOT. ALLOCATED( synvwind  ) ) allocate(synvwind (idm,jdm))
+     IF( .NOT. ALLOCATED( synwndspd ) ) allocate(synwndspd(idm,jdm))
+     IF( .NOT. ALLOCATED( syntaux   ) ) allocate(syntaux  (idm,jdm))
+     IF( .NOT. ALLOCATED( syntauy   ) ) allocate(syntauy  (idm,jdm))
+     IF( .NOT. ALLOCATED( synvapmix ) ) allocate(synvapmix(idm,jdm))
+     IF( .NOT. ALLOCATED( synairtmp ) ) allocate(synairtmp(idm,jdm))
+     IF( .NOT. ALLOCATED( synrelhum ) ) allocate(synrelhum(idm,jdm))
+     IF( .NOT. ALLOCATED( synprecip ) ) allocate(synprecip(idm,jdm))
+     IF( .NOT. ALLOCATED( synclouds ) ) allocate(synclouds(idm,jdm))
+     IF( .NOT. ALLOCATED( synradflx ) ) allocate(synradflx(idm,jdm))
+     IF( .NOT. ALLOCATED( synshwflx ) ) allocate(synshwflx(idm,jdm))
+     IF( .NOT. ALLOCATED( synslp    ) ) allocate(synslp   (idm,jdm))
      synuwind (:,:)=0.
      synvwind (:,:)=0.
      synwndspd(:,:)=0.
