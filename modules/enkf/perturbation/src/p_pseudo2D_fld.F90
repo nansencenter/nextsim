@@ -18,6 +18,9 @@ contains
         real rv,rh, alp,bet
         integer i,j,n1,n2
 
+        !-- CHeCK: idm, jdm to be read from namelist file --!
+        !-- CHeCK: remove the computations in this routine \
+        !-- they should  be called from mod_random_forcing --!
         integer, parameter :: idm=360
         integer, parameter :: jdm=360
 
@@ -40,7 +43,7 @@ contains
         n1=2**(ceiling(log(float(idm))/log(2.)))
         n2=2**(ceiling(log(float(jdm))/log(2.)))
         ! set file names
-        outfile='IO/PERT.txt'
+        outfile='pseudo2D_fields.dat'
 
 
         call init_fvars
@@ -58,11 +61,9 @@ contains
         end do  
         end do  
 
-        ! Close up shop
         close(801)
 
         deallocate(accranfld,fld2d,ranfld)
-
       end subroutine p_pseudo2D_fld_sub
 
 end module p_pseudo2D_fld
