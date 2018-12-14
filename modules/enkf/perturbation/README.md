@@ -74,3 +74,26 @@ __06.12.18__
 __07.12.18__
 
 - Compile with ensemble.cpp
+
+
+__10.12.18__
+
+- To compile nextsim with any module including enkf, module should be copied to
+  the image in Dockerfile i.e. COPY module $NEXTSIMDIR/module should be added.
+
+- Added FFTW into Dockerfile
+
+__12.12.18__
+
+- Ensemble is run successfully for the first time. Time-correlation should be
+  added to two perturbation fields.
+
+__13.12.18__
+
+- Time correlated perturbations are generated in ran_update_ran1 in
+  mod_random_forcing.F90. Write the new perturbations in there and save two
+outputs to feed t-1 and t+1 of forcing.
+
+__14.12.18__
+
+- grep 'CHeCK' to see where to improve in the code for generating two different perturbation
