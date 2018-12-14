@@ -8,21 +8,23 @@ BIN=./bin/p_pseudo2D
 LIB=./lib/libpseudo2D.dylib
 SRC=${WD}/src
 
+MAKEFILE='make -f makefile.standalone'
+
 export DYLD_LIBRARY_PATH=${BOOST_LIBDIR}:${WD}/lib
 
 echo "number of args: $#"
 
 # Compiles the whole code if there are more than 2 arguments
 [[ $# -ge 3 ]] &&\
-       	cd ${SRC} && make clean && make all && cd ../
+       	cd ${SRC} && ${MAKEFILE} clean && ${MAKEFILE} all && cd ../
 
 # Compiles the if fortran library is missing
 [[ !  -f ${LIB} ]] &&\
-       	cd ${SRC} && make clean && make lib && make bin && cd ../
+       	cd ${SRC} && ${MAKEFILE} clean && ${MAKEFILE} lib && ${MAKEFILE} bin && cd ../
 
 # Compiles the binary if the executable is missing
 [[ !  -f ${BIN} ]] &&\
-       	cd ${SRC} && make bin && cd ../
+       	cd ${SRC} && ${MAKEFILE} bin && cd ../
 
 [[ $# -eq 0 ]] && \
 	echo "Usage: args -> run and/or make and/or plot " &&\
