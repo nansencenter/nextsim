@@ -14,7 +14,7 @@
 # NFIELDS : total number of fields being exchanged.
 #
  $NFIELDS
-         2
+         4
  $END
 #
 ###############################################################################
@@ -66,5 +66,34 @@ P  2  P  2
 INSTANT
 #
 # --- end field 2 ---
+#
+############################################################################
+#                      WAVES  --->>> ICE 
+############################################################################
+#
+# --- start Field 3 --- wave radiation stress (x-component)
+#
+WW3_TWIX I_tauwix 25  2400  1  waves_ww3.nc  EXPORTED
+118 149  118 149 ww3t tor2  SEQ=1 LAG=200
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 3 ---
+#
+#
+# --- start Field 4 --- wave radiation stress (y-component)
+#
+WW3_TWIY I_tauwiy 26  2400  1  waves_ww3.nc  EXPORTED
+118 149  118 149 ww3t tor2  SEQ=1 LAG=200
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 4 ---
 #
  $END
