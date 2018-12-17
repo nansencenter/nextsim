@@ -1139,11 +1139,8 @@ FiniteElement::initOptAndParam()
     compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strenght as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
-    // scale_coef = vm["dynamics.scale_coef"].as<double>();
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     cfix = vm["dynamics.cfix"].as<double>(); //! \param cfix (double) Fixed part of the cohesion [Pa]
-    // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
-    // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
     
 
@@ -4769,7 +4766,6 @@ void
 FiniteElement::calcCohesion()
 {
     for (int i=0; i<M_Cohesion.size(); ++i)
-        //M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
     
     for (int i=0; i<M_Compressive_strength.size(); ++i)
@@ -5037,7 +5033,6 @@ FiniteElement::update()
                 sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
             }
 
-            //sigma_pred[i] = (M_sigma[3*cpt+i]+4.*time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
             sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
 
@@ -5087,28 +5082,14 @@ FiniteElement::update()
         /* Generate a random number for the recursive discretization scheme of the damage evolution equation */
         random_number_for_damage_prediction = min(ceil(gen()*time_step/td+0.00001), time_step/td);    //Random number in uniform distribution
         //std::cout << "rand_nb = " << random_number_for_damage_prediction << "\n";
-        /* To generate a random number from another type of distribution, use something like below (from V.D.'s rheolef code)
-         #include <iostream>
-         #include <stdlib.h>
-         #include <time.h>
-         #include <random>
-            using namespace rheolef;
-            using namespace std;
-            
-            Float Cin (const point& x) {
-                random_device rd;
-                mt19937 gen(rd());
-                uniform_real_distribution<> dis(1,2.0);
-                return dis(gen);
-            } */
             
             
         /* Calculate td based on the local value of E (damage-dependence) */
             //    td = min(M_res_root_mesh*pow(young*(1.0-old_damage)/(2.0*(1.0+nu0)*rhoi),-0.5), time_step);
             
         /* Calculate the adjusted level of damage */
-            //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
-        if(sigma_n>effective_compressive_strength)
+           
+            if(sigma_n>effective_compressive_strength)
         {
             sigma_target=effective_compressive_strength;
             tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
@@ -5116,9 +5097,9 @@ FiniteElement::update()
             //Sylvain
             //tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
-            tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
@@ -5139,9 +5120,9 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //vero, implicit
-            tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            //tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
             //Vero, recursive scheme + random nb of damage events
@@ -5161,9 +5142,9 @@ FiniteElement::update()
             //Sylvain
             //tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
             //Vero, explicit
-            //tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, implicit
-            tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
             //Vero, recursive scheme
             //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
             //Vero, recursive scheme + random nb of damage events
@@ -6446,9 +6427,9 @@ FiniteElement::init()
     }
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
-    // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
-    scale_coef = 1.0;//std::sqrt(74.5/M_res_root_mesh);
+    scale_coef = std::sqrt(0.1/M_res_root_mesh);
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
