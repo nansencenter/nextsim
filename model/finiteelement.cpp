@@ -7202,7 +7202,6 @@ FiniteElement::step()
 #endif
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
-    std::cout<<"7205 "<<pcpt<<", "<<datenumToString(M_current_time)<<"\n";
 
 
     //======================================================================
@@ -7250,7 +7249,6 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
-            std::cout<<"7253 "<<pcpt<<"\n";
 
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
@@ -7906,12 +7904,8 @@ FiniteElement::updateMoorings()
         this->updateMeans(M_moorings, mooring_time_factor);
 
     //check if we are outputting
-    std::cout<<"7908 "<<pcpt<<", "<<M_current_time<<"\n";
-    std::cout<<"7909 "<<pcpt*time_step/mooring_output_time_step<<"\n";
-    std::cout<<"7910 "<<pcpt*time_step%mooring_output_time_step<<"\n";
     if ( pcpt*time_step % mooring_output_time_step == 0 )
     {
-        std::cout<<"7913 "<<pcpt<<", "<<M_current_time<<"\n";
         double output_time = M_current_time;
         if ( M_moorings_snapshot )
         {
