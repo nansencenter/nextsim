@@ -809,7 +809,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     netCDF::NcDim nvDim = dataFile.addDim("nv", 2);
 
     // Create the time variable
-    netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
+    netCDF::NcVar time = dataFile.addVar("time", netCDF::ncDouble, tDim);
     time.putAtt("standard_name", "time");
     time.putAtt("long_name", "simulation time");
     time.putAtt("units", "days since 1900-01-01 00:00:00");
@@ -818,7 +818,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // Create the time_bnds variable (specify the time period each record applies to)
     std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
-    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncFloat, dims_bnds);
+    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncDouble, dims_bnds);
     time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
 
     M_nc_step=0;
