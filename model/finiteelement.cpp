@@ -1153,7 +1153,7 @@ FiniteElement::initOptAndParam()
         time_init = Nextsim::stringToDatenum(vm["simul.time_init"].as<std::string>()); //! \param time_init (string) Time at which the simulation is started
 
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
-    dtime_step = double(time_step);
+    dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
     ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>(); //! \param ptime_step (int) Debugging time step?
     // Round ptime_step to the nearest multple of time_step
@@ -6170,9 +6170,9 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
         hs       = 0.;
         hi_old   = 0.;
         del_hi   = 0.;
-        Tsurf    = Tbot;
-        T1       = Tbot;
-        T2       = Tbot;
+        Tsurf    = Tfr_ice;
+        T1       = Tfr_ice;
+        T2       = Tfr_ice;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -6351,9 +6351,9 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
-            Tsurf  = Tbot;
-            T1     = Tbot;
-            T2     = Tbot;
+            Tsurf  = Tfr_ice;
+            T1     = Tfr_ice;
+            T2     = Tfr_ice;
         }
     }
 }//thermoWinton
@@ -6372,6 +6372,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
+    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6379,7 +6380,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         hi      = 0.;
         hi_old  = 0.;
         hs      = 0.;
-        Tsurf   = 0.;
+        Tsurf   = Tfr_ice;
         del_hi  = 0.;
     } else {
         /* Calculate the slab thickness */
@@ -6465,7 +6466,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
             hi      = 0.;
             hs      = 0.;
-            Tsurf   = Tbot;
+            Tsurf   = Tfr_ice;
         }
     }
 }//thermoIce0
@@ -7201,6 +7202,7 @@ FiniteElement::step()
 #endif
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
+    std::cout<<"7205 "<<pcpt<<", "<<datenumToString(M_current_time)<<"\n";
 
 
     //======================================================================
@@ -7244,10 +7246,11 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
-                && pcpt*time_step % mooring_output_time_step == 0 )
+                && (pcpt*time_step) % mooring_output_time_step == 0 )
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
+            std::cout<<"7253 "<<pcpt<<"\n";
 
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
@@ -7903,8 +7906,12 @@ FiniteElement::updateMoorings()
         this->updateMeans(M_moorings, mooring_time_factor);
 
     //check if we are outputting
+    std::cout<<"7908 "<<pcpt<<", "<<M_current_time<<"\n";
+    std::cout<<"7909 "<<pcpt*time_step/mooring_output_time_step<<"\n";
+    std::cout<<"7910 "<<pcpt*time_step%mooring_output_time_step<<"\n";
     if ( pcpt*time_step % mooring_output_time_step == 0 )
     {
+        std::cout<<"7913 "<<pcpt<<", "<<M_current_time<<"\n";
         double output_time = M_current_time;
         if ( M_moorings_snapshot )
         {
@@ -9480,7 +9487,10 @@ FiniteElement::checkConsistency()
         }
 
         //init thick ice temperature
-        M_tice[0][i] = tsurf;
+        if ( M_thick[i] <= 0. )
+            M_tice[0][i] = Tfr_ice;
+        else
+            M_tice[0][i] = tsurf;
 
         //if using Winton, init T1 and T2
         if ( M_thermo_type == setup::ThermoType::WINTON )
