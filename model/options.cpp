@@ -204,7 +204,7 @@ namespace Nextsim
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
             ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
-                "units of restart.output_time_step: days or number_of_time_steps")
+                "units of restart.output_time_step: days or time_steps")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
