@@ -1185,7 +1185,7 @@ FiniteElement::initOptAndParam()
     else if (vm["moorings.output_time_step_units"].as<std::string>() == "time_steps")
         mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*time_step;
     else
-        throw std::runtime_error("moorings.output_time_step_units should be days or number_of_time_steps");
+        throw std::runtime_error("moorings.output_time_step_units should be days or time_steps");
     mooring_time_factor = dtime_step/double(mooring_output_time_step);
     if ( mooring_output_time_step % time_step != 0)
     {
