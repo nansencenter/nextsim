@@ -258,7 +258,7 @@ namespace Nextsim
             // - Internal stresses
             ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")  // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
             ("dynamics.young", po::value<double>()->default_value( 5.00e+8 ), "Pa") // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.cfix", po::value<double>()->default_value( 6.8222e+6 ), "Pa") // Default value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.C_lab", po::value<double>()->default_value( 6.8222e+6 ), "Pa") // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
