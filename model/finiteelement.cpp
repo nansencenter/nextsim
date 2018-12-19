@@ -1130,7 +1130,7 @@ FiniteElement::initOptAndParam()
         time_init = Nextsim::stringToDatenum(vm["simul.time_init"].as<std::string>()); //! \param time_init (string) Time at which the simulation is started
 
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
-    dtime_step = double(time_step);
+    dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
     ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>(); //! \param ptime_step (int) Debugging time step?
     // Round ptime_step to the nearest multple of time_step
@@ -1157,7 +1157,12 @@ FiniteElement::initOptAndParam()
 #endif
 
     output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
-    mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
+    if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
+        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
+    else if (vm["moorings.output_time_step_units"].as<std::string>() == "number_of_time_steps")
+        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*time_step;
+    else
+        throw std::runtime_error("moorings.output_time_step_units should be days or number_of_time_steps");
     mooring_time_factor = dtime_step/double(mooring_output_time_step);
     if ( mooring_output_time_step % time_step != 0)
     {
@@ -1167,7 +1172,12 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
-    restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+    if(vm["restart.output_time_step_units"].as<std::string>() == "days")
+        restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else if (vm["restart.output_time_step_units"].as<std::string>() == "number_of_time_steps")
+        restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
+    else
+        throw std::runtime_error("restart.output_time_step_units should be days or number_of_time_steps");
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
     M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
     M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
@@ -1399,7 +1409,7 @@ FiniteElement::initOptAndParam()
         //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
     if(!M_moorings_snapshot)
-        M_moorings_averaging_period = vm["moorings.output_timestep"].as<double>();
+        M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
 
     //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
@@ -5505,7 +5515,7 @@ FiniteElement::thermo(int dt)
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
-#if 1
+
         /* Check limits */
         if ( (M_conc[i] < physical::cmin) || (hi < physical::hmin) )
         {
@@ -5515,13 +5525,13 @@ FiniteElement::thermo(int dt)
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
-                M_tice[j][i] = tfrw;
+                M_tice[j][i] = -physical::mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
 
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
         }
-#endif
+
         // -------------------------------------------------
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
@@ -5905,9 +5915,9 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
         hs       = 0.;
         hi_old   = 0.;
         del_hi   = 0.;
-        Tsurf    = Tbot;
-        T1       = Tbot;
-        T2       = Tbot;
+        Tsurf    = Tfr_ice;
+        T1       = Tfr_ice;
+        T2       = Tfr_ice;
     } else {
         /* Calculate the slab thickness */
         hi     = voli/conc;
@@ -6087,9 +6097,9 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
-            Tsurf  = Tbot;
-            T1     = Tbot;
-            T2     = Tbot;
+            Tsurf  = Tfr_ice;
+            T1     = Tfr_ice;
+            T2     = Tfr_ice;
         }
     }
 }//thermoWinton
@@ -6108,6 +6118,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
+    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6115,7 +6126,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         hi      = 0.;
         hi_old  = 0.;
         hs      = 0.;
-        Tsurf   = 0.;
+        Tsurf   = Tfr_ice;
         del_hi  = 0.;
     } else {
         /* Calculate the slab thickness */
@@ -6201,7 +6212,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
             hi      = 0.;
             hs      = 0.;
-            Tsurf   = Tbot;
+            Tsurf   = Tfr_ice;
         }
     }
 }//thermoIce0
@@ -7817,8 +7828,6 @@ FiniteElement::writingRestart()
     //check if it's time to write a restart
     if(!vm["restart.write_restart"].as<bool>())
         return false;
-    else if(vm["restart.debugging"].as<bool>())
-        return true;
     else if ( pcpt*time_step % restart_time_step == 0)
         return true;
     else
@@ -7835,8 +7844,6 @@ FiniteElement::writeRestart()
     std::string name_str;
     if (vm["output.datetime_in_filename"].as<bool>())
         name_str = datenumToFilenameString(M_current_time);
-    else if(vm["restart.debugging"].as<bool>())
-        name_str = (boost::format( "%1%" ) % pcpt).str();
     else
     {
         int rstep = pcpt*time_step/restart_time_step;
@@ -9296,7 +9303,10 @@ FiniteElement::checkConsistency()
         }
 
         //init thick ice temperature
-        M_tice[0][i] = tsurf;
+        if ( M_thick[i] <= 0. )
+            M_tice[0][i] = Tfr_ice;
+        else
+            M_tice[0][i] = tsurf;
 
         //if using Winton, init T1 and T2
         if ( M_thermo_type == setup::ThermoType::WINTON )
@@ -10808,7 +10818,9 @@ FiniteElement::cs2SmosIce()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            // we assume the thin ice is not seen by passive microwave
+            // so arbitrarily increase the total conc by 20%, putting this into thin ice
+            // at a constant absolute thickness (default=27.5cm)
             M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
@@ -10906,7 +10918,9 @@ FiniteElement::cs2SmosAmsr2Ice()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            //M_conc_thin[i]=std::max(M_conc_amsre[i]-M_conc[i],0.);
+            // we assume the thin ice is not seen by passive microwave
+            // so arbitrarily increase the total conc by 20%, putting this into thin ice
+            // at a constant absolute thickness (default=27.5cm)
             M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }

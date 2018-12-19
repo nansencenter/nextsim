@@ -819,28 +819,31 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_start.resize(dims);
 
             for (int i=0; i<dims; ++i)
-                {
+            {
                 netCDF::NcDim tmpDim = NcVars[j].getDim(i);
                 std::string name = tmpDim.getName();
                 if ( name == dataset->grid.dimension_x.name )
                 {
+                    //x dimension
                     index_start[i] = dataset->grid.dimension_x_start;
                     index_count[i] = dataset->grid.dimension_x_count;
                 }
                 else if ( name == dataset->grid.dimension_y.name )
                 {
+                    //y dimension
                     index_start[i] = dataset->grid.dimension_y_start;
                     index_count[i] = dataset->grid.dimension_y_count;
-            }
+                }
                 else if ( tmpDim.isUnlimited()
                     && dataset->grid.dataset_frequency!="constant"
                     && dataset->grid.dataset_frequency!="nearest_daily")
-			{
-            	index_start[0] = index;
-            	index_count[0] = 1;
-			}
+			    {
+                    //time dimension
+            	    index_start[0] = index;
+            	    index_count[0] = 1;
+			    }
                 else // We take the first slice of the depth dimension
-			{
+			    {
                     index_start[i] = 0;
                     index_count[i] = 1;
                 }
