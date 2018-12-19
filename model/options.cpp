@@ -344,6 +344,10 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
+            // - relating to thermodynamic forcing
+            ("thermo.use_ecmwf_long_wave_radiation", po::value<bool>()->default_value(false),
+                "false: use total cloud cover parameterisation of long wave incoming radiation instead of that from datasets. Only active for setup.atmosphere-type=ec2")
+
             /*
              *-----------------------------------------------------------------------------------
              * NESTING
