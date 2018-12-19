@@ -1200,7 +1200,7 @@ FiniteElement::initOptAndParam()
     else if (vm["restart.output_time_step_units"].as<std::string>() == "time_steps")
         restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
     else
-        throw std::runtime_error("restart.output_time_step_units should be days or number_of_time_steps");
+        throw std::runtime_error("restart.output_time_step_units should be days or time_steps");
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
     M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
     M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
