@@ -1197,7 +1197,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("Set simul.duration >= 0\n");
     if(vm["restart.output_time_step_units"].as<std::string>() == "days")
         restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
-    else if (vm["restart.output_time_step_units"].as<std::string>() == "number_of_time_steps")
+    else if (vm["restart.output_time_step_units"].as<std::string>() == "time_steps")
         restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
     else
         throw std::runtime_error("restart.output_time_step_units should be days or number_of_time_steps");
