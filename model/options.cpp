@@ -142,6 +142,8 @@ namespace Nextsim
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
+            ("moorings.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
@@ -201,8 +203,8 @@ namespace Nextsim
             // -- outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging")
+            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of restart.output_time_step: days or time_steps")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
