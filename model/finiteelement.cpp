@@ -10270,7 +10270,7 @@ FiniteElement::cs2SmosIce()
     double oo_y = 9.56918815e+01, oo_s = 6.78723750e-02, oo_o = 6.78723750e-02;
 
     // fraction of young ice
-    double fy0 = 0.2;
+    double fy0 = 0.50;
     // mean allowed thickness of young ice
     double ty0 = h_thin_min+0.5*(h_thin_max-h_thin_min);
 
