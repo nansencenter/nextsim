@@ -10262,15 +10262,15 @@ FiniteElement::cs2SmosIce()
     this->warrenClimatology();
 
     double tmp_var, correction_factor_warren;
-    // Observational operator for correctinc thin ice concentrations
+    // Observational operator for correcting thin ice concentrations
     // Coeffitients are fitted using data (figure) from Thomas Lavergne
     // Atot = Aosisaf / OO(H)
     // OO(H) = 2y(exp(H/s + 0) / (1 + exp(H/s + 0)) - y
     // OO is applied only if H < 0.5
-    double oo_y = 9.56918815e+01, oo_s = 6.78723750e-02, oo_o = 6.78723750e-02;
+    double oo_y = 0.95691881, oo_s = 0.06787237, oo_o = 0.42548199;
 
     // fraction of young ice
-    double fy0 = 0.50;
+    double fy0 = 0.0;
     // mean allowed thickness of young ice
     double ty0 = h_thin_min+0.5*(h_thin_max-h_thin_min);
 
