@@ -6832,7 +6832,7 @@ FiniteElement::step()
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
+                this->writeRestart(str);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -6908,7 +6908,7 @@ FiniteElement::step()
         {
             this->updateIceDiagnostics();
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
+            this->writeRestart(str);
         }
     }
     else if(pcpt==0)
