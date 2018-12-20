@@ -2042,23 +2042,14 @@ FiniteElement::gatherSizes()
     // -------------------------------------------------------------
 }//gatherSizes
 
-    
-void
-FiniteElement::sortPrognosticVars(std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy)
-{
-        std::vector<bool> has_min;
-        std::vector<bool> has_max;
-        std::vector<double> min_val;
-        std::vector<double> max_val;
-        this->sortPrognosticVars(
-                j_none, j_conc, j_thick, j_enthalpy,
-                has_min, has_max, min_val, max_val);
-}
 
-
+//------------------------------------------------------------------------------------------------------
+//! Sort the prognostic variables by the transformation needed to be done at interpolation (regrid) time.
+//! The main reason this is done is to make sure the "none" type is redistributed first,
+//! since the "conc" type needs M_conc to be defined, and the "thick" and "enthalpy" types
+//! need M_thick. This ordering also ensures collectVariables and redistributeVariables() insert and
+//! read variables from the interpolation function in the same order.
+//! Called by collectVariables() and redistributeVariables().
 void
 FiniteElement::sortPrognosticVars(
         std::vector<int> &j_none,
@@ -2099,7 +2090,23 @@ FiniteElement::sortPrognosticVars(
                 break;
         }
     }
-}
+}//sortPrognosticVars
+
+
+void
+FiniteElement::sortPrognosticVars(std::vector<int> &j_none,
+        std::vector<int> &j_conc,
+        std::vector<int> &j_thick,
+        std::vector<int> &j_enthalpy)
+{
+        std::vector<bool> has_min;
+        std::vector<bool> has_max;
+        std::vector<double> min_val;
+        std::vector<double> max_val;
+        this->sortPrognosticVars(
+                j_none, j_conc, j_thick, j_enthalpy,
+                has_min, has_max, min_val, max_val);
+}//sortPrognosticVars
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2256,6 +2263,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
                 val = out_elt_values[nb_var_element*i+j]/M_thick[i];
             else if (ptr->varID() == ModelVariable::variableID::M_tice)
                 val = tfr_ice;// in open water just use the freezing point of ice
+                              // TODO don't like this hard-coding - could have another loop that is done if
+                              // there is no ice present and use another attribute "value_if_no_ice" or something like that
             else
                 val = 0.;
             val = has_min[j] ? std::max(min_val[j], val ) : val ;
@@ -6356,6 +6365,7 @@ FiniteElement::init()
     this->checkOutputs(true);
 }//init
 
+
 // ==============================================================================
 //! calculate the FETensors, cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
@@ -6380,7 +6390,7 @@ FiniteElement::calcAuxiliaryVariables()
         if (M_rank == 0)
             LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
     }
-}
+}//calcAuxiliaryVariables
 
 
 // ==============================================================================
