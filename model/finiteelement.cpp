@@ -10270,9 +10270,10 @@ FiniteElement::cs2SmosIce()
     double oo_y = 0.95691881, oo_s = 0.06787237, oo_o = 0.42548199;
 
     // fraction of young ice
-    double fy0 = 0.0;
+    double fy0 = 0.20;
     // mean allowed thickness of young ice
     double ty0 = h_thin_min+0.5*(h_thin_max-h_thin_min);
+    //double ty0 = 0.10;
 
     for (int i=0; i<M_num_elements; ++i)
     {
@@ -10285,6 +10286,7 @@ FiniteElement::cs2SmosIce()
             tmp_var = std::exp(M_thick[i] / oo_s + oo_o);
             tmp_var = 2 * oo_y * tmp_var / (1 + tmp_var) - oo_y;
             M_conc[i] /= tmp_var;
+            M_conc[i] = std::min(1., M_conc[i]);
         }
 
         double ratio_FYI=0.3;
@@ -10338,12 +10340,12 @@ FiniteElement::cs2SmosIce()
             // In case of young ice
             // Concentration is split into 0.2 and 0.8 for young and old ice
             M_conc_thin[i] = fy0 * M_conc[i];
-            M_conc[i]  *= (1 - fy0);
+            M_conc[i]  *= (1. - fy0);
             if (M_thick[i] / M_conc[i] <= ty0) {
                 // if absolute thickness (To = Ho / Ao) is below ty0 (see ty0 above):
                 // thickness is also split into 0.2 and 0.8
                 M_h_thin[i] = fy0 * M_thick[i];
-                M_thick[i] *= (1 - fy0);
+                M_thick[i] *= (1. - fy0);
             } else {
                 // if absolute thickness (To = Ho / Ao) is above ty0:
                 // young ice thickness is maximum: h = ty0 * a
