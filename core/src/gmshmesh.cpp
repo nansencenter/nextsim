@@ -790,21 +790,40 @@ GmshMesh::writeToFile(std::string const& gmshmshfile)
     }
 }
 
+
 void
 GmshMesh::move(std::vector<double> const& um, double factor)
 {
-    if ((um.size() != 0) && (factor != 0))
+    if ((um.size() == 0) || (factor == 0))
+        return;
+    ASSERT(2*M_nodes.size()==um.size(),"invalid size of displacement vector");
+
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
     {
-        ASSERT(2*M_nodes.size()==um.size(),"invalid size of displacement vector");
+        it->second.coords[0] += factor*um[cpt];
+        it->second.coords[1] += factor*um[cpt+M_num_nodes];
+        ++cpt;
+    }
+}
 
-        int cpt = 0;
-        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-        {
-            it->second.coords[0] += factor*um[cpt];
-            it->second.coords[1] += factor*um[cpt+M_num_nodes];
 
-            ++cpt;
-        }
+void
+GmshMesh::move(std::vector<std::vector<double>> const& um, double factor)
+{
+    if ((um.size() == 0) || (factor == 0))
+        return;
+    if(um[0].size()==0 && um[1].size()==0)
+        return;
+    ASSERT(M_nodes.size()==um[0].size(),"invalid size of displacement vector");
+    ASSERT(M_nodes.size()==um[1].size(),"invalid size of displacement vector");
+
+    int cpt = 0;
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        it->second.coords[0] += factor*um[0][cpt];
+        it->second.coords[1] += factor*um[1][cpt];
+        ++cpt;
     }
 }
 

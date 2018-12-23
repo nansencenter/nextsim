@@ -506,9 +506,32 @@ FiniteElement::initVariables()
 
     M_reuse_prec = true;
 
-    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
-    M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
-    M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
+    M_restart_names_nodes = {
+        "M_VT_0",
+        "M_VT_1",
+        "M_VTM_0",
+        "M_VTM_1",
+        "M_VTMM_0",
+        "M_VTMM_1",
+        "M_UM_0",
+        "M_UM_1",
+        "M_UT_0",
+        "M_UT_1"
+    };
+    for (int k=0; k<2; k++)
+        M_nodal_vars.push_back(&(M_VT[k])); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
+    for (int k=0; k<2; k++)
+        M_nodal_vars.push_back(&(M_VTM[k])); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
+    for (int k=0; k<2; k++)
+        M_nodal_vars.push_back(&(M_VTMM[k])); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
+    for (int k=0; k<2; k++)
+        M_nodal_vars.push_back(&(M_UM[k])); //! \param M_UM (double) Mesh displacement [m]
+    for (int k=0; k<2; k++)
+        // For drifters:
+        M_nodal_vars.push_back(&(M_UT[k])); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
+
+    for (auto ptr: M_nodal_vars)
+        ptr->assign(M_num_nodes, 0.);
     
     M_h_thin.assign(M_num_elements,0.); //! \param M_h_thin (double) Thickness of thin ice [m]
     M_conc_thin.assign(M_num_elements,0.); //! \param M_conc_thin (double) Concentration thin ice
@@ -571,9 +594,6 @@ FiniteElement::initVariables()
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
     
-    // For drifters:
-    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
-    
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
@@ -634,7 +654,8 @@ FiniteElement::assignVariables()
     M_vector->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
-    M_UM.assign(2*M_num_nodes,0.);
+    M_UM[0].assign(M_num_nodes, 0.);
+    M_UM[1].assign(M_num_nodes, 0.);
     //M_UT.assign(2*M_num_nodes,0.);
 
     M_fcor.assign(M_num_elements, 0.);
@@ -1500,6 +1521,28 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
 }//jacobian
 
 
+double
+FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
+                        std::vector<std::vector<double>> const& um, double factor) const
+{
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
+
+    for (int i=0; i<2; ++i)
+    {
+        vertex_0[i] += factor*um[i][element.indices[0]-1];
+        vertex_1[i] += factor*um[i][element.indices[1]-1];
+        vertex_2[i] += factor*um[i][element.indices[2]-1];
+    }
+
+    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
+    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
+
+    return  jac;
+}//jacobian
+
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
 //! * This is used to calculate the finite element shape coefficient.
@@ -1589,6 +1632,31 @@ FiniteElement::sides(element_type const& element, mesh_type const& mesh,
 
 
 std::vector<double>
+FiniteElement::sides(element_type const& element, mesh_type const& mesh,
+                     std::vector<std::vector<double>> const& um, double factor) const
+{
+    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
+    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
+    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
+
+    for (int i=0; i<2; ++i)
+    {
+        vertex_0[i] += factor*um[i][element.indices[0]-1];
+        vertex_1[i] += factor*um[i][element.indices[1]-1];
+        vertex_2[i] += factor*um[i][element.indices[2]-1];
+    }
+
+    std::vector<double> side(3);
+
+    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
+    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
+    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
+
+    return side;
+}//sides
+
+
+std::vector<double>
 FiniteElement::sides(element_type const& element, mesh_type_root const& mesh) const
 {
     std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
@@ -1620,6 +1688,33 @@ FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
         vertex_0[i] += factor*um[element.indices[0]-1+i*(num_nodes)];
         vertex_1[i] += factor*um[element.indices[1]-1+i*(num_nodes)];
         vertex_2[i] += factor*um[element.indices[2]-1+i*(num_nodes)];
+    }
+
+    std::vector<double> side(3);
+
+    side[0] = std::hypot(vertex_1[0]-vertex_0[0], vertex_1[1]-vertex_0[1]);
+    side[1] = std::hypot(vertex_2[0]-vertex_1[0], vertex_2[1]-vertex_1[1]);
+    side[2] = std::hypot(vertex_2[0]-vertex_0[0], vertex_2[1]-vertex_0[1]);
+
+    return side;
+}//sides
+
+
+std::vector<double>
+FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
+                     std::vector<std::vector<double>> const& um, double factor) const
+{
+    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
+    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
+    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
+
+    int num_nodes = M_mesh_root.numNodes();
+
+    for (int i=0; i<2; ++i)
+    {
+        vertex_0[i] += factor*um[i][element.indices[0]-1];
+        vertex_1[i] += factor*um[i][element.indices[1]-1];
+        vertex_2[i] += factor*um[i][element.indices[2]-1];
     }
 
     std::vector<double> side(3);
@@ -1678,10 +1773,10 @@ FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh) co
 }//minAngles
 
 
-template<typename FEMeshType>
+template<typename FEMeshType, typename UMType>
 double
 FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh,
-                         std::vector<double> const& um, double factor) const
+                         UMType const& um, double factor) const
 {
     std::vector<double> side = this->sides(element,mesh,um,factor);
     //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
@@ -1715,9 +1810,9 @@ FiniteElement::minAngle(FEMeshType const& mesh) const
 }//minAngle
 
 
-template<typename FEMeshType>
+template<typename FEMeshType, typename UMType>
 double
-FiniteElement::minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor, bool root) const
+FiniteElement::minAngle(FEMeshType const& mesh, UMType const& um, double factor, bool root) const
 {
     std::vector<double> all_min_angle(mesh.numTriangles());
 
@@ -1848,10 +1943,10 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh) cons
 //------------------------------------------------------------------------------------------------------
 //! Calculates the area of triangular mesh elements.
 //! Called by the advect() and other functions.
-template<typename FEMeshType>
+template<typename FEMeshType, typename UMType>
 double
 FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
-                       std::vector<double> const& um, double factor) const
+                       UMType const& um, double factor) const
 {
     return (1./2)*std::abs(jacobian(element,mesh,um,factor));
 }//measure
@@ -3122,6 +3217,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
     timer["gather"].first.restart();
     int nb_var_element = M_prognostic_variables_elt.size();
+    int nb_var_node = M_nodal_vars.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
@@ -3187,7 +3283,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                 &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
                                 M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
                                 &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
+                                M_mesh_previous_root.numNodes(),nb_var_node,
                                 &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
                                 false);
     } // rank 0
@@ -3221,41 +3317,25 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = 10;
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    int nb_var_node = M_nodal_vars.size();
+    std::vector<double> interp_node_in_local(nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
     //std::cout<<"NODAL: Interp starts\n";
 
     for (int i=0; i<M_prv_local_ndof; ++i)
-    {
-        // VT
-        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
+        for (int k=0; k<nb_var_node; k++)
+        {
+            auto ptr = M_nodal_vars[k];
+            interp_node_in_local[nb_var_node*i+k] = (*ptr)[i];
+        }
 
-        // VTM
-        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
-        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
-
-        // VTMM
-        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
-        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
-
-        // UM
-        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
-        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
-
-        // UT
-        interp_node_in_local[M_nb_var_node*i+8] = M_UT[i];
-        interp_node_in_local[M_nb_var_node*i+9] = M_UT[i+M_prv_num_nodes];
-    }
-
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var_node*f; });
 
     if (M_rank == 0)
     {
-        interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
+        interp_in_nodes.resize(nb_var_node*M_prv_global_num_nodes);
         boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
     }
     else
@@ -3271,9 +3351,9 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
         {
             int ri =  rmap_nodes[i];
 
-            for (int j=0; j<M_nb_var_node; ++j)
+            for (int j=0; j<nb_var_node; ++j)
             {
-                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
+                interp_in_nodes[nb_var_node*i+j] = interp_in_nodes_nrd[nb_var_node*ri+j];
             }
         }
     }
@@ -3292,71 +3372,50 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
 
+    int nb_var_node = M_nodal_vars.size();
     std::vector<double> in_nd_values;
 
     if (M_rank == 0)
     {
-        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+        in_nd_values.resize(nb_var_node*M_id_nodes.size());
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
             //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
 
-            for (int j=0; j<M_nb_var_node; ++j)
+            for (int j=0; j<nb_var_node; ++j)
             {
-                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
+                in_nd_values[nb_var_node*i+j] = interp_nd_out[nb_var_node*ri+j];
             }
         }
     }
 
-    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<double> out_nd_values(nb_var_node*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
     {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var_node*f; });
         boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values[0], nb_var_node*M_num_nodes, 0);
     }
 
+    for (auto ptr: M_nodal_vars)
+        ptr->resize(M_num_nodes);
+    for (int i=0; i<M_num_nodes; ++i)
+        for (int k=0; k<nb_var_node; k++)
+        {
+            auto ptr = M_nodal_vars[k];
+            (*ptr)[i] = out_nd_values[nb_var_node*i+k];
+        }
 
-    M_VT.resize(2*M_num_nodes);
-    M_VTM.resize(2*M_num_nodes);
-    M_VTMM.resize(2*M_num_nodes);
-    M_UM.resize(2*M_num_nodes);
-    M_UT.resize(2*M_num_nodes);
-
+    //resize diagnostics
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.);
-
-
-    for (int i=0; i<M_num_nodes; ++i)
-    {
-        // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
-
-        // VTM
-        M_VTM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_VTM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
-
-        // VTMM
-        M_VTMM[i] = out_nd_values[M_nb_var_node*i+4];
-        M_VTMM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
-
-        // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+6];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+7];
-
-        // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+8];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+9];
-    }
-
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
 }//scatterFieldsNode
@@ -3368,21 +3427,46 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
-    std::vector<double> um_local(2*M_local_ndof,0.);
+    int const nb_var = nb_var;
+    std::vector<double> um_local(nb_var*M_local_ndof,0.);
     for (int i=0; i<M_local_ndof; ++i)
     {
-        um_local[2*i] = field_local[i]; //M_UM[i];
-        um_local[2*i+1] = field_local[i+M_num_nodes]; //M_UM[i+M_num_nodes];
+        um_local[nb_var*i] = field_local[i]; //M_UM[0][i];
+        um_local[nb_var*i+1] = field_local[i+M_num_nodes]; //M_UM[1][i];
     }
+    this->gatherNodalFieldMain(um_local, field_root, nb_var);
+}//gatherNodalField
 
+
+//------------------------------------------------------------------------------------------------------
+//! Sends displacement vector to the root process.
+//! Called by the regrid() function.
+void
+FiniteElement::gatherNodalField(std::vector<std::vector<double>> const& field_local, std::vector<double>& field_root)
+{
+    int nb_var = field_local.size();
+    std::vector<double> um_local(nb_var*M_local_ndof,0.);
+    for (int i=0; i<M_local_ndof; ++i)
+        for (int k=0; k<nb_var; ++k)
+            um_local[nb_var*i+k] = field_local[k][i];
+    this->gatherNodalFieldMain(um_local, field_root, nb_var);
+}//gatherNodalField
+
+
+//------------------------------------------------------------------------------------------------------
+//! Sends displacement vector to the root process.
+//! Called by the regrid() function.
+void
+FiniteElement::gatherNodalFieldMain(std::vector<double> const& um_local, std::vector<double>& field_root, int const& nb_var)
+{
     std::vector<int> sizes_nodes = M_sizes_nodes;
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = nb_var*f; });
 
     // send displacement vector to the root process (rank 0)
 
     if (M_rank == 0)
     {
-        field_root.resize(2*M_ndof);
+        field_root.resize(nb_var*M_ndof);
         boost::mpi::gatherv(M_comm, um_local, &field_root[0], sizes_nodes, 0);
     }
     else
@@ -3405,6 +3489,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
         }
     }
 }//gatherNodalField
+
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers nodal fields.
@@ -4202,8 +4287,8 @@ FiniteElement::assemble(int pcpt)
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
 
-            double vt_u = M_VT[index_u];
-            double vt_v = M_VT[index_v];
+            double vt_u = M_VT[0][index_u];
+            double vt_v = M_VT[1][index_u];
 
             double ocean_u = M_ocean[index_u];
             double ocean_v = M_ocean[index_v];
@@ -4211,8 +4296,8 @@ FiniteElement::assemble(int pcpt)
             double wind_u = M_wind[index_u];
             double wind_v = M_wind[index_v];
 
-            Vcor_index_v = beta0*vt_v + beta1*M_VTM[index_v] + beta2*M_VTMM[index_v];
-            Vcor_index_u = beta0*vt_u + beta1*M_VTM[index_u] + beta2*M_VTMM[index_u];
+            Vcor_index_v = beta0*vt_v + beta1*M_VTM[1][index_u] + beta2*M_VTMM[1][index_u];
+            Vcor_index_u = beta0*vt_u + beta1*M_VTM[0][index_u] + beta2*M_VTMM[0][index_u];
 
             norm_Voce_ice = std::hypot(vt_u-ocean_u,vt_v-ocean_v);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
@@ -4512,12 +4597,14 @@ FiniteElement::update()
     // // redistribute the interpolated values
     // this->redistributeVariables(interp_elt_out);
 
-    std::vector<double> UM_P = M_UM;
+    auto UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
-        M_UM[nd] += time_step*M_VT[nd];
+        for (int k=0; k<2; k++)
+            M_UM[k][nd] += time_step*M_VT[k][nd];
 
     for (const int& nd : M_neumann_nodes)
-        M_UM[nd] = UM_P[nd];
+        for (int k=0; k<2; k++)
+            M_UM[k][nd] = UM_P[k][nd];
 
     // Horizontal diffusion
 #ifdef OASIS
@@ -4571,8 +4658,8 @@ FiniteElement::update()
             for(int j=0;j<3;j++)
             {
                 /* deformation */
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[0][(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[1][(M_elements[cpt]).indices[j]-1];
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
@@ -4975,8 +5062,8 @@ FiniteElement::nestingDynamics()
                 fNudge = 1. - std::min(1.,(M_nesting_dist_nodes[i]/nudge_scale));
             if ( M_nudge_function == "exponential" )
                 fNudge = std::exp(-M_nesting_dist_nodes[i]/nudge_scale);
-            M_VT[i]             += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT1[i]-M_VT[i]));
-            M_VT[i+M_num_nodes] += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT2[i]-M_VT[i+M_num_nodes]));
+            M_VT[0][i] += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT1[i]-M_VT[0][i]));
+            M_VT[1][i] += (fNudge*(dtime_step/nudge_time)*(M_nesting_VT2[i]-M_VT[1][i]));
         }
     }
 }//nestingDynamics
@@ -5801,7 +5888,8 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
         for (int i=0; i<3; ++i)
         {
             int nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            welt_oce_ice += std::hypot(M_VT[0][nind]-M_ocean[nind],
+                    M_VT[1][nind]-M_ocean[nind+M_num_nodes]);
         }
         double norm_Voce_ice = welt_oce_ice/3.;
         double Csens_io = 1e-3;
@@ -7388,12 +7476,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
         {
             case (GridOutput::variableID::VT_x):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i]*time_factor;
+                    it->data_mesh[i] += M_VT[0][i]*time_factor;
                 break;
 
             case (GridOutput::variableID::VT_y):
                 for (int i=0; i<M_num_nodes; i++)
-                    it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
+                    it->data_mesh[i] += M_VT[1][i]*time_factor;
                 break;
 
             // Coupling variables (not covered elsewhere)
@@ -7462,7 +7550,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int index_u = i;
                     int index_v = i + M_num_nodes;
 
-                    double tau_i = std::hypot(D_tau_w[index_v], D_tau_w[index_v]);
+                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7886,75 +7974,8 @@ FiniteElement::writeRestart(std::string const& name_str)
     this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
     // fields defined on mesh nodes
-    std::vector<double> interp_in_nodes;
-    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
-
-    std::vector<double> M_VT_root;
-    std::vector<double> M_VTM_root;
-    std::vector<double> M_VTMM_root;
-    std::vector<double> M_UM_root;
-    std::vector<double> M_UT_root;
-
-    int tmp_nb_var=0;
-
-    if (M_rank == 0)
-    {
-        M_VT_root.resize(2*M_ndof);
-        M_VTM_root.resize(2*M_ndof);
-        M_VTMM_root.resize(2*M_ndof);
-        M_UM_root.resize(2*M_ndof);
-        M_UT_root.resize(2*M_ndof);
-
-        for (int i=0; i<M_ndof; ++i)
-        {
-            tmp_nb_var = 0;
-
-            // VT_X
-            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VT_Y
-            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTM_X
-            M_VTM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTM_Y
-            M_VTM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTMM_X
-            M_VTMM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTMM_Y
-            M_VTMM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_X
-            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_Y
-            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_X
-            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_Y
-            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>M_nb_var_node)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
-    }
+    std::vector<double> nodal_values_root;
+    this->gatherFieldsNode(nodal_values_root, M_rmap_nodes, M_sizes_nodes);
 
     M_comm.barrier();
 
@@ -8031,11 +8052,19 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
         }
 
-        exporter.writeField(outbin, M_VT_root, "M_VT");
-        exporter.writeField(outbin, M_VTM_root, "M_VTM");
-        exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
-        exporter.writeField(outbin, M_UM_root, "M_UM");
-        exporter.writeField(outbin, M_UT_root, "M_UT");
+        // loop over the nodal variables that have been
+        // gathered to nodal_values_root
+        int const nb_var_nodes = M_restart_names_nodes.size();
+        for(int j=0; j<nb_var_nodes; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numNodes());
+            for (int i=0; i<M_mesh_root.numNodes(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = nodal_values_root[nb_var_nodes*ri+j];
+            }
+            exporter.writeField(outbin, tmp, M_restart_names_nodes[j]);
+        }
 
         if (       M_use_iabp_drifters
                 && M_iabp_drifters.size()>0)
@@ -8277,6 +8306,7 @@ FiniteElement::readRestart(std::string const& name_str)
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
     std::vector<double> elt_values_root;
+    std::vector<double> nodal_values_root;
     if (M_rank == 0)
     {
         // set pointers to appropriate vector in field_map_dbl (read from the restart file)
@@ -8295,11 +8325,18 @@ FiniteElement::readRestart(std::string const& name_str)
         this->collectElementsRestart(elt_values_root, data_elements_root);
 
         // Pre-processing
-        M_VT   = field_map_dbl["M_VT"];
-        M_VTM  = field_map_dbl["M_VTM"];
-        M_VTMM = field_map_dbl["M_VTMM"];
-        M_UM   = field_map_dbl["M_UM"];
-        M_UT   = field_map_dbl["M_UT"];
+        std::vector<std::vector<double>*> data_nodes_root;
+        for (auto name: M_restart_names_nodes)
+        {
+            if(field_map_dbl.count(name)==0)
+            {
+                std::string msg = name + "is not in the restart file";
+                throw std::runtime_error(msg);
+            }
+            data_nodes_root.push_back(&(field_map_dbl[name]));
+        }
+        this->collectNodesRestart(nodal_values_root, data_nodes_root);
+#if 0
         if(vm["restart.restart_at_rest"].as<bool>())
         {
             // reset M_sigma, M_VT[,M,MM] = 0
@@ -8316,6 +8353,7 @@ FiniteElement::readRestart(std::string const& name_str)
                 M_UM[i]   = 0.;
             }
         }
+#endif
 
         if (M_use_iabp_drifters)
             this->restartIabpDrifters(field_map_int, field_map_dbl);
@@ -8327,9 +8365,7 @@ FiniteElement::readRestart(std::string const& name_str)
     this->scatterFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
     // Scatter nodal fields from root
-    std::vector<double> interp_nd_out;
-    this->collectNodesRestart(interp_nd_out);
-    this->scatterFieldsNode(&interp_nd_out[0]);
+    this->scatterFieldsNode(&nodal_values_root[0]);
 }//readRestart
 
 
@@ -8371,7 +8407,8 @@ FiniteElement::restartIabpDrifters(
         this->updateIabpDrifterPosition();
 
         // M_UT, M_UT_root can be set to zero now we have moved the drifters
-        std::fill(M_UT.begin(), M_UT.end(), 0.);
+        for(int k=0; k<2; k++)
+            std::fill(M_UT[k].begin(), M_UT[k].end(), 0.);
         std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
 
         // still need to get M_conc at these positions
@@ -8464,63 +8501,27 @@ FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
 //! Gets the variables (only on the root processor so far) from data and store it in a structure (interp_elt_out)
 //! Called by the readRestart() function.
 void
-FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
+FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out,
+        std::vector<std::vector<double>*> const& data_fields_nodes)
 {
     // * output: interp_nd_out is vector containing all the variables
     //   on the nodes to be scattered from root during readRestart
 
-    M_nb_var_node = 10;
+    int nb_var_node = M_nodal_vars.size();
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();
-        interp_nd_out.resize(M_nb_var_node*num_nodes_root,0.);
+        interp_nd_out.resize(nb_var_node*num_nodes_root);
 
         int tmp_nb_var = 0;
+        
 
         for (int i=0; i<num_nodes_root; ++i)
-        {
-            tmp_nb_var = 0;
-
-            // VT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTMM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // UM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // UT
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes_root];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>M_nb_var_node)
+            for(int k=0; k<nb_var_node; k++)
             {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
+                auto ptr = data_fields_nodes[k];
+                interp_nd_out[nb_var_node*i+k] = (*ptr)[i];
             }
-        }
     }
 }//collectRootRestart
     
@@ -8533,13 +8534,15 @@ FiniteElement::updateVelocity()
 {
     M_VTMM = M_VTM;
     M_VTM = M_VT;
-    M_VT = M_solution->container();
+    auto VT = M_solution->container();
 
     // increment M_UT that is used for the drifters
-    for (int nd=0; nd<M_UT.size(); ++nd)
-    {
-        M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
-    }
+    for (int i=0; i<M_num_nodes; ++i)
+        for(int k=0; k<2; k++)
+        {
+            M_VT[k][i] = VT[i+k*M_num_nodes];
+            M_UT[k][i] += dtime_step*M_VT[k][i]; // Total displacement (for drifters)
+        }
 }//updateVelocity
 
 
@@ -8566,24 +8569,24 @@ FiniteElement::updateFreeDriftVelocity()
             index_v = nd+M_num_nodes;
 
             // Free drift case
-            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = std::hypot(M_VT[0][index_u]-M_ocean[index_u],M_VT[1][index_u]-M_ocean[index_v]);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
             coef_Voce = lin_drag_coef_water + quad_drag_coef_water*norm_Voce_ice;
             coef_Voce *= physical::rhow;
 
-            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = std::hypot(M_VT[0][index_u]-M_wind [index_u],M_VT[1][index_u]-M_wind [index_v]);
             norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
             coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
             coef_Vair *= (physical::rhoa);
 
-            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
-            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
+            M_VT[0][index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
+            M_VT[1][index_u] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
 
             // increment M_UT that is used for the drifters
-            M_UT[index_u] += dtime_step*M_VT[index_u]; // Total displacement (for drifters)
-            M_UT[index_v] += dtime_step*M_VT[index_v]; // Total displacement (for drifters)
+            M_UT[0][index_u] += dtime_step*M_VT[0][index_u]; // Total displacement (for drifters)
+            M_UT[1][index_u] += dtime_step*M_VT[1][index_u]; // Total displacement (for drifters)
         }
     }
 }//updateFreeDriftVelocity
@@ -11779,7 +11782,8 @@ FiniteElement::checkDrifters()
         this->gatherElementField(M_conc, M_conc_root);
 
         // can now reset M_UT to 0
-        std::fill(M_UT.begin(), M_UT.end(), 0.);
+        for(int k=0; k<2; k++)
+            std::fill(M_UT[k].begin(), M_UT[k].end(), 0.);
 
         if(M_rank==0)
         {

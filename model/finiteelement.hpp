@@ -115,6 +115,8 @@ public:
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     double jacobian(element_type const& element, mesh_type const& mesh,
                     std::vector<double> const& um, double factor = 1.) const;
+    double jacobian(element_type const& element, mesh_type const& mesh,
+                    std::vector<std::vector<double>> const& um, double factor = 1.) const;
 
     double jacobian(element_type const& element, mesh_type_root const& mesh) const;
     double jacobian(element_type const& element, mesh_type_root const& mesh,
@@ -123,19 +125,23 @@ public:
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
                               std::vector<double> const& um, double factor) const;
+    std::vector<double> sides(element_type const& element, mesh_type const& mesh,
+                              std::vector<std::vector<double>> const& um, double factor) const;
 
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
                               std::vector<double> const& um, double factor) const;
+    std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
+                              std::vector<std::vector<double>> const& um, double factor) const;
 
     std::vector<double> minMaxSide(mesh_type_root const& mesh) const;
 
     template<typename FEMeshType>
     double measure(element_type const& element, FEMeshType const& mesh) const;
 
-    template<typename FEMeshType>
+    template<typename FEMeshType, typename UMType>
     double measure(element_type const& element, FEMeshType const& mesh,
-                   std::vector<double> const& um, double factor = 1.) const;
+                   UMType const& um, double factor = 1.) const;
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
 
@@ -152,6 +158,9 @@ public:
 
     //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
+    void gatherNodalField(std::vector<std::vector<double>> const& field_local, std::vector<double>& field_root);
+    void gatherNodalFieldMain(std::vector<double> const& um_local, std::vector<double>& field_root, int const& nb_var);
+
     void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
 
     // other interfaces
@@ -227,14 +236,14 @@ public:
 
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
-    template<typename FEMeshType>
+template<typename FEMeshType, typename UMType>
     double minAngles(element_type const& element, FEMeshType const& mesh,
-                     std::vector<double> const& um, double factor) const;
+                     UMType const& um, double factor) const;
 
     template<typename FEMeshType>
     double minAngle(FEMeshType const& mesh) const;
-    template<typename FEMeshType>
-    double minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor, bool root = false) const;
+    template<typename FEMeshType, typename UMType>
+    double minAngle(FEMeshType const& mesh, UMType const& um, double factor, bool root = false) const;
 
     template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
@@ -297,7 +306,8 @@ public:
     void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
             boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
-    void collectNodesRestart(std::vector<double>& interp_nd_out);
+    void collectNodesRestart(std::vector<double>& interp_nd_out,
+            std::vector<std::vector<double>*> const& data_nodes_root);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
 
@@ -456,11 +466,13 @@ private:
 
     std::vector<double> M_surface;
 
-    std::vector<double> M_UM;
-    std::vector<double> M_UT;
-    std::vector<double> M_VT;
-    std::vector<double> M_VTM;
-    std::vector<double> M_VTMM;
+    std::vector<std::vector<double>*> M_nodal_vars;
+    std::vector<std::string> M_restart_names_nodes;
+    std::vector<std::vector<double>> M_UM;
+    std::vector<std::vector<double>> M_UT;
+    std::vector<std::vector<double>> M_VT;
+    std::vector<std::vector<double>> M_VTM;
+    std::vector<std::vector<double>> M_VTMM;
 
 
     std::vector<double> M_hminVertices;

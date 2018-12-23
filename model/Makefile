@@ -18,6 +18,7 @@ CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
+CXXFLAGS += -Wfatal-errors
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
