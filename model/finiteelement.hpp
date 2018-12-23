@@ -363,8 +363,19 @@ private:
     void gatherFieldsElementIO(std::vector<double>& elt_values_root,
             std::vector<ModelVariable*> const& vars_elements)
     {
-        std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
-        this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data_elements);
+        std::vector<ExternalData*> ext_data = {};// add a place-holder
+        this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data);
+    }
+    void gatherFieldsNodesIO(std::vector<double>& field_root,
+        std::vector<std::vector<double>*> const& data_ptrs,
+        std::vector<ExternalData*> const& ext_data_nodes
+        );
+    void gatherFieldsNodesIO(std::vector<double>& field_root,
+        std::vector<std::vector<double>*> const& data_ptrs
+        )
+    {
+        std::vector<ExternalData*> ext_data = {};// add a place-holder
+        this->gatherFieldsNodesIO(field_root, data_ptrs, ext_data);
     }
 
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
@@ -487,6 +498,7 @@ private:
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
+    std::vector<std::string> M_external_data_nodes_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;

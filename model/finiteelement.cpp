@@ -3453,6 +3453,41 @@ FiniteElement::gatherNodalField(std::vector<std::vector<double>> const& field_lo
 }//gatherNodalField
 
 
+void
+FiniteElement::gatherFieldsNodesIO(std::vector<double>& fields_root,
+        std::vector<std::vector<double>*> const& data_ptrs,
+        std::vector<ExternalData*> const& ext_data_nodes
+        )
+{
+    int nb_var = data_ptrs.size() + ext_data_nodes.size();
+    for (auto ptr : ext_data_nodes)
+        if (ptr->isVector())
+            nb_var += 1;
+
+    std::vector<double> um_local(nb_var*M_local_ndof,0.);
+    for (int i=0; i<M_local_ndof; ++i)
+    {
+        int k = 0;
+        for (auto ptr: data_ptrs)
+        {
+            um_local[nb_var*i+k] = (*ptr)[i];
+            k++;
+        }
+        for (auto ptr: ext_data_nodes)
+        {
+            um_local[nb_var*i+k] = (*ptr)[i];
+            k++;
+            if(ptr->isVector())
+            {
+                um_local[nb_var*i+k] = (*ptr)[i+M_num_nodes];
+                k++;
+            }
+        }
+    }
+    this->gatherNodalFieldMain(um_local, fields_root, nb_var);
+}//gatherFieldsNodesIO
+
+
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
 //! Called by the regrid() function.
@@ -8828,6 +8863,7 @@ FiniteElement::forcingAtmosphere()
     // for looping
     // - these are common to all the forcings
     // - check if they are initialised here
+    M_external_data_nodes_names.push_back("M_wind");
     M_external_data_nodes.push_back(&M_wind);
     if(!M_wind.isInitialized())
         throw std::logic_error("M_wind is not initialised");
@@ -8955,10 +8991,13 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
     M_external_data_elements.push_back(&M_nesting_ridge_ratio);
 
     M_nesting_dist_nodes=ExternalData(&M_nesting_distance_nodes_dataset, M_mesh, 0,false,time_init);
+    M_external_data_nodes_names.push_back("M_nesting_dist_nodes");
     M_external_data_nodes.push_back(&M_nesting_dist_nodes);
     M_nesting_VT1=ExternalData(&M_nesting_nodes_dataset, M_mesh, 0,false,time_init);
+    M_external_data_nodes_names.push_back("M_nesting_VT1");
     M_external_data_nodes.push_back(&M_nesting_VT1);
     M_nesting_VT2=ExternalData(&M_nesting_nodes_dataset, M_mesh, 1,false,time_init);
+    M_external_data_nodes_names.push_back("M_nesting_VT2");
     M_external_data_nodes.push_back(&M_nesting_VT2);
 
 }//forcingNesting
@@ -9083,7 +9122,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     // for looping
     // - nodes
     M_external_data_nodes.push_back(&M_ocean);
+    M_external_data_nodes_names.push_back("M_ocean");
     M_external_data_nodes.push_back(&M_ssh);
+    M_external_data_nodes_names.push_back("M_ssh");
 
     // - elements
     M_external_data_elements_names.push_back("M_ocean_temp");
@@ -12236,9 +12277,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
-    std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT,M_VT_root);
-
     std::vector<double> M_UM_root;
     if (apply_displacement)
     {
@@ -12258,6 +12296,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
+
+    //TODO put this in init
+    std::vector<std::string> names_nodes = {"M_VT_0", "M_VT_1"};
+    std::vector<std::vector<double>*> data_ptrs_nodes = {&(M_VT[0]), &(M_VT[1])};
+    std::vector<ExternalData*> ext_data_nodes;
+    std::vector<double> nodal_values_root;
     if(export_fields)
     {
         if(vm["output.save_forcing_fields"].as<bool>())
@@ -12265,8 +12309,21 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             ext_data_elements = M_external_data_elements;
             for(auto name : M_external_data_elements_names)
                 names_elements.push_back(name);
+            ext_data_nodes = M_external_data_nodes;
+            for(int k=0; k<M_external_data_nodes.size(); k++)
+            {
+                auto name = M_external_data_nodes_names[k];
+                if(!M_external_data_nodes[k]->isVector())
+                    names_nodes.push_back(name);
+                else
+                {
+                    names_nodes.push_back(name+"_0");
+                    names_nodes.push_back(name+"_1");
+                }
+            }
         }
         this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
+        this->gatherFieldsNodesIO(nodal_values_root, data_ptrs_nodes, ext_data_nodes);
     }
 
     M_comm.barrier();
@@ -12327,8 +12384,18 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, timevec, "Time");
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
-            exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            //
+            // loop over the nodal variables that have been
+            // gathered to nodal_values_root
+            int const nb_var_node = names_nodes.size();
+            for(int j=0; j<nb_var_node; j++)
+            {
+                std::vector<double> tmp(M_mesh_root.numTriangles());
+                for (int i=0; i<M_mesh_root.numNodes(); ++i)
+                    tmp[i] = nodal_values_root[nb_var_node*i+j];
+                exporter.writeField(outbin, tmp, names_elements[j]);
+            }
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root

@@ -95,6 +95,7 @@ public:
 
     std::vector<double> getVector();
 
+    bool isVector() { return M_is_vector; }
 	void clear();
 
     //void loadDataset(Dataset *dataset, GmshMesh const& mesh);
