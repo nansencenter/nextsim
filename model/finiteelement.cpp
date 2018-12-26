@@ -6761,7 +6761,7 @@ FiniteElement::initModelVariablesNodes()
     //!     for restart/regrid/export
     M_nodal_vars_export.resize(0);
     M_export_names_nodes.resize(0);
-    M_prognostic_variables_elt.resize(0);
+    M_nodal_vars_prognostic.resize(0);
     M_restart_names_nodes.resize(0);
     for(auto ptr: M_nodal_vars)
     {
@@ -8135,10 +8135,12 @@ FiniteElement::writeRestart(std::string const& name_str)
         // loop over the elemental variables that have been
         // gathered to elt_values_root
         int const nb_var_element = M_restart_names_elt.size();
+        int const Nel = M_mesh_root.numTriangles();
+        ASSERT(elt_values_root.size() == Nel*nb_var_element, "elt_values_root has wrong size");
         for(int j=0; j<nb_var_element; j++)
         {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            std::vector<double> tmp(Nel);
+            for (int i=0; i<Nel; ++i)
             {
                 int ri = M_rmap_elements[i];
                 tmp[i] = elt_values_root[nb_var_element*ri+j];
@@ -8149,13 +8151,14 @@ FiniteElement::writeRestart(std::string const& name_str)
         // loop over the nodal variables that have been
         // gathered to nodal_values_root
         int const nb_var_nodes = M_restart_names_nodes.size();
+        int const Nnod = M_mesh_root.numNodes();
+        ASSERT(nodal_values_root.size() == Nnod*nb_var_nodes, "nodal_values_root has wrong size");
         for(int j=0; j<nb_var_nodes; j++)
         {
-            std::vector<double> tmp(M_mesh_root.numNodes());
-            for (int i=0; i<M_mesh_root.numNodes(); ++i)
+            std::vector<double> tmp(Nnod);
+            for (int i=0; i<Nnod; ++i)
             {
-                int ri = M_rmap_elements[i];
-                tmp[i] = nodal_values_root[nb_var_nodes*ri+j];
+                tmp[i] = nodal_values_root[nb_var_nodes*i+j];
             }
             exporter.writeField(outbin, tmp, M_restart_names_nodes[j]);
         }
