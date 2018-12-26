@@ -158,7 +158,7 @@ public:
 
     //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
-    void gatherNodalField(std::vector<std::vector<double>> const& field_local, std::vector<double>& field_root);
+    void gatherNodalField(std::vector<ModelVariable> const& field_local, std::vector<double>& field_root);
     void gatherNodalFieldMain(std::vector<double> const& um_local, std::vector<double>& field_root, int const& nb_var);
 
     void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
@@ -279,7 +279,8 @@ template<typename FEMeshType, typename UMType>
     void assignVariables();
     void initVariables();
     void calcAuxiliaryVariables();
-    void initModelVariables();
+    void initModelVariablesElements();
+    void initModelVariablesNodes();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -367,15 +368,15 @@ private:
         this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data);
     }
     void gatherFieldsNodesIO(std::vector<double>& field_root,
-        std::vector<std::vector<double>*> const& data_ptrs,
+        std::vector<ModelVariable*> const& nodal_vars,
         std::vector<ExternalData*> const& ext_data_nodes
         );
     void gatherFieldsNodesIO(std::vector<double>& field_root,
-        std::vector<std::vector<double>*> const& data_ptrs
+        std::vector<ModelVariable*> const& nodal_vars
         )
     {
         std::vector<ExternalData*> ext_data = {};// add a place-holder
-        this->gatherFieldsNodesIO(field_root, data_ptrs, ext_data);
+        this->gatherFieldsNodesIO(field_root, nodal_vars, ext_data);
     }
 
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
@@ -477,13 +478,16 @@ private:
 
     std::vector<double> M_surface;
 
-    std::vector<std::vector<double>*> M_nodal_vars;
+    std::vector<ModelVariable*> M_nodal_vars;
+    std::vector<ModelVariable*> M_nodal_vars_prognostic;
+    std::vector<ModelVariable*> M_nodal_vars_export;
     std::vector<std::string> M_restart_names_nodes;
-    std::vector<std::vector<double>> M_UM;
-    std::vector<std::vector<double>> M_UT;
-    std::vector<std::vector<double>> M_VT;
-    std::vector<std::vector<double>> M_VTM;
-    std::vector<std::vector<double>> M_VTMM;
+    std::vector<std::string> M_export_names_nodes;
+    std::vector<ModelVariable> M_VT;
+    std::vector<ModelVariable> M_VTM;
+    std::vector<ModelVariable> M_VTMM;
+    std::vector<ModelVariable> M_UM;
+    std::vector<ModelVariable> M_UT;
 
 
     std::vector<double> M_hminVertices;
@@ -774,8 +778,8 @@ private:
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
 
-    std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
-    std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
+    std::vector<ModelVariable> D_tau_w; // Ice-ocean drag [Pa]
+    std::vector<ModelVariable> D_tau_a; // Ice-atmosphere drag [Pa]
 
 
 private:
@@ -887,6 +891,7 @@ private:
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
     void checkFields(int const& rank_test, int const& itest);
+    std::vector<std::vector<double>> modelVarsToVectors(std::vector<ModelVariable> const& model_vars) const;
 
 private:
 

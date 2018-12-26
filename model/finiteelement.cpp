@@ -506,31 +506,8 @@ FiniteElement::initVariables()
 
     M_reuse_prec = true;
 
-    M_restart_names_nodes = {
-        "M_VT_0",
-        "M_VT_1",
-        "M_VTM_0",
-        "M_VTM_1",
-        "M_VTMM_0",
-        "M_VTMM_1",
-        "M_UM_0",
-        "M_UM_1",
-        "M_UT_0",
-        "M_UT_1"
-    };
-    for (int k=0; k<2; k++)
-        M_nodal_vars.push_back(&(M_VT[k])); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
-    for (int k=0; k<2; k++)
-        M_nodal_vars.push_back(&(M_VTM[k])); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
-    for (int k=0; k<2; k++)
-        M_nodal_vars.push_back(&(M_VTMM[k])); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
-    for (int k=0; k<2; k++)
-        M_nodal_vars.push_back(&(M_UM[k])); //! \param M_UM (double) Mesh displacement [m]
-    for (int k=0; k<2; k++)
-        // For drifters:
-        M_nodal_vars.push_back(&(M_UT[k])); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
 
-    for (auto ptr: M_nodal_vars)
+    for (auto ptr: M_nodal_vars_prognostic)
         ptr->assign(M_num_nodes, 0.);
     
     M_h_thin.assign(M_num_elements,0.); //! \param M_h_thin (double) Thickness of thin ice [m]
@@ -591,8 +568,11 @@ FiniteElement::initVariables()
     D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
     D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
-    D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
-    D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
+    for(int k=0; k<2; k++)
+    {
+        D_tau_w[k].resize(M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
+        D_tau_a[k].resize(M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
+    }
     
     if (M_rank == 0)
     {
@@ -1778,7 +1758,7 @@ double
 FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh,
                          UMType const& um, double factor) const
 {
-    std::vector<double> side = this->sides(element,mesh,um,factor);
+    std::vector<double> side = this->sides(element, mesh, um, factor);
     //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
     std::sort(side.begin(),side.end());
     double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
@@ -2598,7 +2578,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
             if(outer_fluxes_area[i]>=0)
             {
-                surface = this->measure(M_elements[cpt],M_mesh, UM_P);
+                surface = this->measure(M_elements[cpt],M_mesh, this->modelVarsToVectors(UM_P));
                 outer_fluxes_area[i] = std::min(surface/dtime_step/3.,outer_fluxes_area[i]);
                 fluxes_source_id[i]  = cpt;
             }
@@ -2612,7 +2592,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
 
 		        if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
-                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
+                    surface = this->measure(M_elements[neighbour_int-1],M_mesh, this->modelVarsToVectors(UM_P));
                     outer_fluxes_area[i] = -std::min(surface/dtime_step/3.,-outer_fluxes_area[i]);
                     fluxes_source_id[i]  = neighbour_int-1;
                 }
@@ -2621,8 +2601,8 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
         }
 
-        surface = this->measure(M_elements[cpt],M_mesh, UM_P);
-        surface_new = this->measure(M_elements[cpt],M_mesh,M_UM);
+        surface = this->measure(M_elements[cpt],M_mesh, this->modelVarsToVectors(UM_P));
+        surface_new = this->measure(M_elements[cpt], M_mesh, this->modelVarsToVectors(UM));
         M_surface[cpt] = surface_new;
 
         for(int j=0; j<M_nb_var_element; j++)
@@ -2886,7 +2866,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
+        M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, this->modelVarsToVectors(UM));
     }
 #endif
 }//advectRoot
@@ -3217,7 +3197,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
     timer["gather"].first.restart();
     int nb_var_element = M_prognostic_variables_elt.size();
-    int nb_var_node = M_nodal_vars.size();
+    int nb_var_node = M_nodal_vars_prognostic.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
     if (M_rank == 0)
@@ -3317,7 +3297,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
 
-    int nb_var_node = M_nodal_vars.size();
+    int nb_var_node = M_nodal_vars_prognostic.size();
     std::vector<double> interp_node_in_local(nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
@@ -3327,7 +3307,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     for (int i=0; i<M_prv_local_ndof; ++i)
         for (int k=0; k<nb_var_node; k++)
         {
-            auto ptr = M_nodal_vars[k];
+            auto ptr = M_nodal_vars_prognostic[k];
             interp_node_in_local[nb_var_node*i+k] = (*ptr)[i];
         }
 
@@ -3372,7 +3352,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
 
-    int nb_var_node = M_nodal_vars.size();
+    int nb_var_node = M_nodal_vars_prognostic.size();
     std::vector<double> in_nd_values;
 
     if (M_rank == 0)
@@ -3404,23 +3384,26 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
         boost::mpi::scatterv(M_comm, &out_nd_values[0], nb_var_node*M_num_nodes, 0);
     }
 
-    for (auto ptr: M_nodal_vars)
+    for (auto ptr: M_nodal_vars_prognostic)
         ptr->resize(M_num_nodes);
     for (int i=0; i<M_num_nodes; ++i)
         for (int k=0; k<nb_var_node; k++)
         {
-            auto ptr = M_nodal_vars[k];
+            auto ptr = M_nodal_vars_prognostic[k];
             (*ptr)[i] = out_nd_values[nb_var_node*i+k];
         }
 
     //resize diagnostics
-    D_tau_w.assign(2*M_num_nodes,0.);
-    D_tau_a.assign(2*M_num_nodes,0.);
+    for(int k=0; k<2; k++)
+    {
+        D_tau_w[k].assign(M_num_nodes, 0.);
+        D_tau_a[k].assign(M_num_nodes, 0.);
+    }
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
 }//scatterFieldsNode
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
 //! Called by the regrid() function.
@@ -3442,7 +3425,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
 //! Sends displacement vector to the root process.
 //! Called by the regrid() function.
 void
-FiniteElement::gatherNodalField(std::vector<std::vector<double>> const& field_local, std::vector<double>& field_root)
+FiniteElement::gatherNodalField(std::vector<ModelVariable> const& field_local, std::vector<double>& field_root)
 {
     int nb_var = field_local.size();
     std::vector<double> um_local(nb_var*M_local_ndof,0.);
@@ -3455,11 +3438,11 @@ FiniteElement::gatherNodalField(std::vector<std::vector<double>> const& field_lo
 
 void
 FiniteElement::gatherFieldsNodesIO(std::vector<double>& fields_root,
-        std::vector<std::vector<double>*> const& data_ptrs,
+        std::vector<ModelVariable*> const& nodal_vars,
         std::vector<ExternalData*> const& ext_data_nodes
         )
 {
-    int nb_var = data_ptrs.size() + ext_data_nodes.size();
+    int nb_var = nodal_vars.size() + ext_data_nodes.size();
     for (auto ptr : ext_data_nodes)
         if (ptr->isVector())
             nb_var += 1;
@@ -3468,7 +3451,7 @@ FiniteElement::gatherFieldsNodesIO(std::vector<double>& fields_root,
     for (int i=0; i<M_local_ndof; ++i)
     {
         int k = 0;
-        for (auto ptr: data_ptrs)
+        for (auto ptr: nodal_vars)
         {
             um_local[nb_var*i+k] = (*ptr)[i];
             k++;
@@ -4331,8 +4314,8 @@ FiniteElement::assemble(int pcpt)
             double wind_u = M_wind[index_u];
             double wind_v = M_wind[index_v];
 
-            Vcor_index_v = beta0*vt_v + beta1*M_VTM[1][index_u] + beta2*M_VTMM[1][index_u];
             Vcor_index_u = beta0*vt_u + beta1*M_VTM[0][index_u] + beta2*M_VTMM[0][index_u];
+            Vcor_index_v = beta0*vt_v + beta1*M_VTM[1][index_u] + beta2*M_VTMM[1][index_u];
 
             norm_Voce_ice = std::hypot(vt_u-ocean_u,vt_v-ocean_v);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
@@ -4350,10 +4333,10 @@ FiniteElement::assemble(int pcpt)
             coef_basal = basal_k2/norm_Vice;
 
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
-            D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
-            D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
-            D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
-            D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
+            D_tau_w[0][index_u] = coef_Voce * (vt_u-ocean_u);
+            D_tau_w[1][index_u] = coef_Voce * (vt_v-ocean_v);
+            D_tau_a[0][index_u] = coef_Vair * (vt_u-wind_u);
+            D_tau_a[1][index_u] = coef_Vair * (vt_v-wind_v);
 
             // Multply with rho and mask out no-ice points
             coef_Voce  *= coef_drag*physical::rhow;
@@ -4725,7 +4708,8 @@ FiniteElement::update()
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
-            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
+            double surf_ratio = this->measure(M_elements[cpt], M_mesh, this->modelVarsToVectors(UM_P)) /
+                this->measure(M_elements[cpt], M_mesh, this->modelVarsToVectors(M_UM));
 
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
@@ -6369,7 +6353,8 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
-    this->initModelVariables();
+    this->initModelVariablesElements();
+    this->initModelVariablesNodes();
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6523,7 +6508,7 @@ FiniteElement::calcAuxiliaryVariables()
 //!      and ones we will export to binary files
 //! \note we don't resize yet
 void
-FiniteElement::initModelVariables()
+FiniteElement::initModelVariablesElements()
 {
 
     //! -1) init all ModelVariable's and put them in M_variables_elt
@@ -6717,7 +6702,87 @@ FiniteElement::initModelVariables()
             M_interp_methods.push_back((int) ptr->interpMethod());
             M_diffusivity_parameters.push_back(ptr->diffusivity());
         }
-}//initModelVariables
+}//initModelVariablesElements
+
+
+void
+FiniteElement::initModelVariablesNodes()
+{
+
+    //! -1) init all ModelVariable's and put them in M_variables_elt
+    // Prognostic variables
+    M_VT.resize(2);
+    M_VTM.resize(2);
+    M_VTMM.resize(2);
+    M_UM.resize(2);
+    M_UT.resize(2);
+    for(int k=0; k<2; k++)
+    {
+        M_VT[k] = ModelVariable(ModelVariable::variableID::M_VT, k);
+        M_nodal_vars.push_back(&(M_VT[k]));
+    }
+    for(int k=0; k<2; k++)
+    {
+        M_VTM[k] = ModelVariable(ModelVariable::variableID::M_VTM, k);
+        M_nodal_vars.push_back(&(M_VTM[k]));
+    }
+    for(int k=0; k<2; k++)
+    {
+        M_VTMM[k] = ModelVariable(ModelVariable::variableID::M_VTMM, k);
+        M_nodal_vars.push_back(&(M_VTMM[k]));
+    }
+    for(int k=0; k<2; k++)
+    {
+        M_UM[k] = ModelVariable(ModelVariable::variableID::M_UM, k);
+        M_nodal_vars.push_back(&(M_UM[k]));
+    }
+    for(int k=0; k<2; k++)
+    {
+        M_UT[k] = ModelVariable(ModelVariable::variableID::M_UT, k);
+        M_nodal_vars.push_back(&(M_UT[k]));
+    }
+
+
+    // Diagnostic variables
+    D_tau_w.resize(2);
+    D_tau_a.resize(2);
+    for(int k=0; k<2; k++)
+    {
+        D_tau_w[k] = ModelVariable(ModelVariable::variableID::D_tau_w, k);
+        M_nodal_vars.push_back(&(D_tau_w[k]));
+    }
+    for(int k=0; k<2; k++)
+    {
+        D_tau_a[k] = ModelVariable(ModelVariable::variableID::D_tau_a, k);
+        M_nodal_vars.push_back(&(D_tau_a[k]));
+    }
+
+    //! -2) loop over M_variables_elt in order to sort them
+    //!     for restart/regrid/export
+    M_nodal_vars_export.resize(0);
+    M_export_names_nodes.resize(0);
+    M_prognostic_variables_elt.resize(0);
+    M_restart_names_nodes.resize(0);
+    for(auto ptr: M_nodal_vars)
+    {
+        if(ptr->isPrognostic())
+        {
+            // restart, regrid variables
+            M_nodal_vars_prognostic.push_back(ptr);
+            M_restart_names_nodes.push_back(ptr->name());
+        }
+        else if (vm["output.save_diagnostics"].as<bool>())
+            // export all diagnostic variables to binary
+            ptr->setExporting(true);
+
+        if(ptr->exporting())
+        {
+            // export variables
+            M_nodal_vars_export.push_back(ptr);
+            M_export_names_nodes.push_back(ptr->exportName());
+        }
+    }
+}//initModelVariablesNodes
 
 
 #ifdef OASIS
@@ -6936,7 +7001,7 @@ FiniteElement::step()
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         double displacement_factor = 1.;
-        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
+        double minang = this->minAngle(M_mesh, this->modelVarsToVectors(M_UM) ,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
         if (M_rank == 0)
@@ -7524,10 +7589,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taux):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
 
-                    double tau_i = D_tau_w[index_u];
+                    double tau_i = D_tau_w[0][i];
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7553,10 +7616,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::tauy):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
 
-                    double tau_i = D_tau_w[index_v];
+                    double tau_i = D_tau_w[1][i];
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7582,10 +7643,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
 
-                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
+                    double tau_i = std::hypot(D_tau_w[0][i], D_tau_w[1][i]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -8542,14 +8601,11 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out,
     // * output: interp_nd_out is vector containing all the variables
     //   on the nodes to be scattered from root during readRestart
 
-    int nb_var_node = M_nodal_vars.size();
+    int nb_var_node = M_nodal_vars_prognostic.size();
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();
         interp_nd_out.resize(nb_var_node*num_nodes_root);
-
-        int tmp_nb_var = 0;
-        
 
         for (int i=0; i<num_nodes_root; ++i)
             for(int k=0; k<nb_var_node; k++)
@@ -8558,7 +8614,7 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out,
                 interp_nd_out[nb_var_node*i+k] = (*ptr)[i];
             }
     }
-}//collectRootRestart
+}//collectNodesRestart
     
 
 //------------------------------------------------------------------------------------------------------
@@ -12298,8 +12354,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<double> elt_values_root;
 
     //TODO put this in init
-    std::vector<std::string> names_nodes = {"M_VT_0", "M_VT_1"};
-    std::vector<std::vector<double>*> data_ptrs_nodes = {&(M_VT[0]), &(M_VT[1])};
+    std::vector<std::string> names_nodes = M_export_names_nodes;
     std::vector<ExternalData*> ext_data_nodes;
     std::vector<double> nodal_values_root;
     if(export_fields)
@@ -12323,7 +12378,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             }
         }
         this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
-        this->gatherFieldsNodesIO(nodal_values_root, data_ptrs_nodes, ext_data_nodes);
+        this->gatherFieldsNodesIO(nodal_values_root, M_nodal_vars_export, ext_data_nodes);
     }
 
     M_comm.barrier();
@@ -12394,7 +12449,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                 std::vector<double> tmp(M_mesh_root.numTriangles());
                 for (int i=0; i<M_mesh_root.numNodes(); ++i)
                     tmp[i] = nodal_values_root[nb_var_node*i+j];
-                exporter.writeField(outbin, tmp, names_elements[j]);
+                exporter.writeField(outbin, tmp, names_nodes[j]);
             }
 
             // loop over the elemental variables that have been
@@ -12710,7 +12765,7 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
             double lon_test = 0.;
 
             auto movedmesh = M_mesh;
-            movedmesh.move(M_UM, 1.);
+            movedmesh.move(this->modelVarsToVectors(M_UM), 1.);
             xtest = movedmesh.bCoordX()[i];
             ytest = movedmesh.bCoordY()[i];
 
@@ -12760,6 +12815,17 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
         }
     }
 }//checkFields
+
+
+std::vector<std::vector<double>>
+FiniteElement::modelVarsToVectors(std::vector<ModelVariable> const& model_vars) const
+{
+    int N = model_vars.size();
+    std::vector<std::vector<double>> vecs(N);
+    for(int i=0; i<N; i++)
+        vecs[i] = model_vars[i].toVector();
+    return vecs;
+}
 
     
 // -------------------------------------------------------------------------------------
