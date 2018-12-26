@@ -413,6 +413,77 @@ ModelVariable::initElemental()
 }//initElemental
 
 
+bool
+ModelVariable::initNodal()
+{
+    bool nodal = true;
+    switch (M_varID)
+    {
+
+        case (variableID::M_VT):
+            // sea ice velocity [m/s]
+            M_name = "M_VT";
+            M_export_name = "M_VT";
+            M_prognostic = true;
+            M_exporting = true;
+            break;
+
+        case (variableID::M_VTM):
+            // sea ice velocity at previous time step [m/s]
+            M_name = "M_VTM";
+            M_export_name = "M_VTM";
+            M_prognostic = true;
+            M_exporting = false;
+            break;
+
+        case (variableID::M_VTMM):
+            // sea ice velocity at the time step before last [m/s]
+            M_name = "M_VTMM";
+            M_export_name = "M_VTMM";
+            M_prognostic = true;
+            M_exporting = false;
+            break;
+
+        case (variableID::M_UM):
+            // mesh displacement [m]
+            M_name = "M_UM";
+            M_export_name = "M_UM";
+            M_prognostic = true;
+            M_exporting = false;
+            break;
+
+        case (variableID::M_UT):
+            // total displacement [m]
+            M_name = "M_UT";
+            M_export_name = "M_UT";
+            M_prognostic = true;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_tau_w):
+            // Drag stress for water on ice [Pa]
+            M_name = "D_tau_w";
+            M_export_name = "D_tau_w";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_tau_a):
+            // Drag stress for air on ice [Pa]
+            M_name = "D_tau_a";
+            M_export_name = "D_tau_a";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        default:
+            nodal = false;
+    }
+
+    return nodal;
+}//initNodal
+
+
 void ModelVariable::testCall()
 {
     // test basic attributes

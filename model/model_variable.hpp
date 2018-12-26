@@ -58,6 +58,7 @@ public:
     enum variableID
     {
         // Prognostic variables
+        // - elements
         M_conc          =  1,
         M_thick         =  2,
         M_damage        =  3,
@@ -77,6 +78,7 @@ public:
         //M_age           = 17,
 
         // Diagnostic variables
+        // - elements
         D_conc       = 100,
         D_thick      = 101,
         D_snow_thick = 102,
@@ -92,7 +94,20 @@ public:
         D_Qsw_ocean  = 112,
         D_delS       = 113,
         D_emp        = 114,
-        D_brine      = 115
+        D_brine      = 115,
+
+        // Prognostic variables
+        // - nodes
+        M_VT        = 200,
+        M_VTM       = 201,
+        M_VTMM      = 202,
+        M_UM        = 203,
+        M_UT        = 204,
+
+        // Diagnostic variables
+        // - nodes
+        D_tau_w     = 300,
+        D_tau_a     = 301
     };
 
 
@@ -121,23 +136,18 @@ public:
 
     // main constructor
     ModelVariable(variableID id, int comp_num=-1)
-        : M_varID(id), M_component_number(comp_num)
+        :
+            M_varID(id),
+            M_component_number(comp_num)
     {
 
-        // see if it is an elemental variable
-        bool elemental = this->initElemental();
-        bool nodal = false;
-
-        if(elemental)
+        if(this->initElemental())
+            // try to init as elemental variable
             M_var_kind = variableKind::elemental;
-        else
-            // if it's not an elemental variable, see if is nodal
-            nodal = this->initNodal();
-
-        // TODO add the nodes
-        if(nodal)
+        else if(this->initNodal())
+            // try to init as nodal variable
             M_var_kind = variableKind::nodal;
-        else if(!elemental)
+        else
             //if it's neither elemental nor nodal raise an error
             throw std::logic_error("ModelVariable: variable ID not defined: "+std::to_string(M_varID));
 
@@ -152,7 +162,7 @@ public:
 
 private:
     bool initElemental();
-    bool initNodal() { return false; } // TODO implement nodal variables
+    bool initNodal();
 
 public:
 
@@ -174,6 +184,15 @@ public:
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }
+
+    std::vector<double> toVector() const
+    {
+        int N = this->size();
+        std::vector<double> vec(N);
+        for (int i=0; i<N; i++)
+            vec[i] = (*this)[i];
+        return vec;
+    }
 
     void testCall();
 };
