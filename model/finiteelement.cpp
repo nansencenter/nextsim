@@ -12449,8 +12449,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             int const nb_var_node = names_nodes.size();
             for(int j=0; j<nb_var_node; j++)
             {
-                std::vector<double> tmp(M_mesh_root.numTriangles());
-                for (int i=0; i<M_mesh_root.numNodes(); ++i)
+                int Nnod = M_mesh_root.numNodes();
+                std::vector<double> tmp(Nnod);
+                for (int i=0; i<Nnod; ++i)
                     tmp[i] = nodal_values_root[nb_var_node*i+j];
                 exporter.writeField(outbin, tmp, names_nodes[j]);
             }
@@ -12460,8 +12461,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             int const nb_var_element = names_elements.size();
             for(int j=0; j<nb_var_element; j++)
             {
-                std::vector<double> tmp(M_mesh_root.numTriangles());
-                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+                int Nel = M_mesh_root.numTriangles();
+                std::vector<double> tmp(Nel);
+                for (int i=0; i<Nel; ++i)
                 {
                     int ri = M_rmap_elements[i];
                     tmp[i] = elt_values_root[nb_var_element*ri+j];
