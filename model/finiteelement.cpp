@@ -8044,28 +8044,13 @@ FiniteElement::writeRestart()
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
-    M_prv_local_ndof = M_local_ndof;
-    M_prv_num_nodes = M_num_nodes;
-    M_prv_num_elements = M_local_nelements;
-    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
-    M_prv_global_num_elements = M_mesh.numGlobalElements();
-
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<< "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
-
-    // get names of the variables in the restart file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    // NB needs to be done on all processors
+    // gather fields defined on mesh elements
     std::vector<double> elt_values_root;
     this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
-    // fields defined on mesh nodes
+    // gather fields defined on mesh nodes
     std::vector<double> nodal_values_root;
-    this->gatherFieldsNode(nodal_values_root, M_rmap_nodes, M_sizes_nodes);
+    this->gatherFieldsNodesIO(nodal_values_root, M_nodal_vars_prognostic);
 
     M_comm.barrier();
 
