@@ -3494,16 +3494,12 @@ FiniteElement::gatherNodalFieldMain(std::vector<double> const& um_local, std::ve
 
     if (M_rank == 0)
     {
-        int global_num_nodes = M_mesh.numGlobalNodes();
-
         auto field_root_nrd = field_root;
-
-        for (int i=0; i<global_num_nodes; ++i)
+        for (int i=0; i<M_ndof; ++i)
         {
             int ri =  M_rmap_nodes[i];
-
-            field_root[i] = field_root_nrd[2*ri];
-            field_root[i+global_num_nodes] = field_root_nrd[2*ri+1];
+            for(int j=0; j<nb_var; j++)
+                field_root[nb_var*i+j] = field_root_nrd[nb_var*ri+j];
         }
     }
 }//gatherNodalField
