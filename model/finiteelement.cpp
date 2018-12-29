@@ -4612,13 +4612,13 @@ FiniteElement::update()
     // this->redistributeVariables(interp_elt_out);
 
     auto UM_P = M_UM;
-    for (int nd=0; nd<M_UM.size(); ++nd)
+    for (int i=0; i<M_num_nodes; ++i)
         for (int k=0; k<2; k++)
-            M_UM[k][nd] += time_step*M_VT[k][nd];
+            M_UM[k][i] += time_step*M_VT[k][i];
 
-    for (const int& nd : M_neumann_nodes)
+    for (const int& i : M_neumann_nodes)
         for (int k=0; k<2; k++)
-            M_UM[k][nd] = UM_P[k][nd];
+            M_UM[k][i] = UM_P[k][i];
 
     // Horizontal diffusion
 #ifdef OASIS
@@ -12706,6 +12706,114 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
 
     bool printout = (M_rank == rank_test && itest>0);
 
+    // check nodal var's
+    for(int i=0; i<M_num_nodes; i++)
+    {
+        std::vector<double> values;
+        std::vector<std::string> names;
+        std::vector<std::string> nan_names;
+
+        // check the forcings 1st
+        for (int j=0; j<M_external_data_nodes.size(); j++)
+        {
+            auto ptr = M_external_data_nodes[j];
+            if(!ptr->isVector())
+            {
+                double val = ptr->get(i);
+                auto name = M_external_data_nodes_names[j];
+                names.push_back(name);
+                values.push_back(val);
+                if(std::isnan(val))
+                    nan_names.push_back(names[j]);
+            }
+            else
+            {
+                auto name = M_external_data_nodes_names[j];
+                for(int k=0; k<2; k++)
+                {
+                    double val = ptr->get(i+k*M_num_nodes);
+                    values.push_back(val);
+                    std::string name_ = name + "_" + std::to_string(k);
+                    names.push_back(name_);
+                    if(std::isnan(val))
+                        nan_names.push_back(name_);
+                }
+            }
+        }
+        int Nforcing = names.size();
+
+        // check the variables 2nd
+        for (auto ptr: M_nodal_vars)
+        {
+            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
+            std::string name = ptr->name();
+            values.push_back(val);
+            names.push_back(name);
+            if(std::isnan(val))
+                nan_names.push_back(name);
+        }
+
+        bool crash = nan_names.size()>0;
+        bool printout_now = crash;
+
+        if(printout_now)
+        {
+            // get x,y and lon, lat at current position
+            double xtest = 0.;
+            double ytest = 0.;
+            double lat_test = 0.;
+            double lon_test = 0.;
+
+            auto movedmesh = M_mesh;
+            movedmesh.move(this->modelVarsToVectors(M_UM), 1.);
+            xtest = movedmesh.coordX()[i];
+            ytest = movedmesh.coordY()[i];
+
+            // get lon, lat at test position
+            mapx_class *map;
+            std::string configfile = (boost::format( "%1%/%2%" )
+                % Environment::nextsimMeshDir().string()
+                % Environment::vm()["mesh.mppfile"].as<std::string>()
+                ).str();
+
+            std::vector<char> str(configfile.begin(), configfile.end());
+            str.push_back('\0');
+            map = init_mapx(&str[0]);
+            inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+            close_mapx(map);
+
+            std::cout<<"["<< M_rank<<"] In checkFields\n";
+            std::cout<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
+            std::cout<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
+            std::cout<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
+            std::cout<<"["<< M_rank<<"] node number = "<<i<<"\n";
+            std::cout<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
+            std::cout<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+
+            for(int j=0; j<names.size(); j++)
+            {
+                if(j<Nforcing)
+                    std::cout<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                else
+                    std::cout<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
+            }
+            std::cout<<"\n";
+        }
+
+        if(crash)
+        {
+            std::stringstream msg;
+            if (nan_names.size()>0)
+            {
+                msg << "["<< M_rank<<"] Found nans in variables:\n";
+                for (auto name: nan_names)
+                    msg << "["<< M_rank<<"]"<< name<<"\n";
+            }
+            throw std::runtime_error(msg.str());
+        }
+    }//check nodes
+
+    // check elemental var's
     for(int i=0; i<M_num_elements; i++)
     {
         std::vector<double> values;
@@ -12799,7 +12907,7 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
             }
             throw std::runtime_error(msg.str());
         }
-    }
+    }// check elemental var's
 }//checkFields
 
 
