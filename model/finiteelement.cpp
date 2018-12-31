@@ -273,12 +273,6 @@ FiniteElement::bcMarkedNodes()
         M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
     }
 
-    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
-    for (int i=0; i<M_neumann_flags.size(); ++i)
-    {
-        M_neumann_nodes[2*i] = M_neumann_flags[i];
-        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
-    }
 }//bcMarkedNodes
 
     
@@ -4616,7 +4610,7 @@ FiniteElement::update()
         for (int k=0; k<2; k++)
             M_UM[k][i] += time_step*M_VT[k][i];
 
-    for (const int& i : M_neumann_nodes)
+    for (const int& i : M_neumann_flags)
         for (int k=0; k<2; k++)
             M_UM[k][i] = UM_P[k][i];
 
@@ -6112,6 +6106,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             h2 = 0.;
             h1 = 0.;
             hs = 0.;
+            LOG(WARNING)<<"Calling checkFields from thermoWinton";
             this->checkFields();
         }
 
@@ -6990,6 +6985,8 @@ FiniteElement::step()
 {
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
+        if(M_rank==0)
+            LOG(DEBUG)<<"calling checkFields at start of time step\n";
         this->checkFields();
 
     //! 1) Remeshes and remaps the prognostic variables
@@ -7085,7 +7082,11 @@ FiniteElement::step()
 
         // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
+        {
+            if(M_rank==0)
+                LOG(DEBUG)<<"Checking fields after regrid\n";
             this->checkFields();
+        }
 
         // save outputs after regrid
         if(vm["debugging.export_after_regrid"].as<bool>())

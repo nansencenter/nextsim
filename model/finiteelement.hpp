@@ -433,7 +433,6 @@ private:
     std::vector<int> M_dirichlet_flags;
     std::vector<int> M_dirichlet_nodes;
     std::vector<int> M_neumann_flags;
-    std::vector<int> M_neumann_nodes;
 
     boost::mpi::timer chrono, chrono_tot;
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
