@@ -6961,13 +6961,13 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
-    else if ( vm["coupler.with_waves"].as<bool>() )
+
+    //Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
     {
         var_rcv.push_back(std::string("I_tauwix"));
         var_rcv.push_back(std::string("I_tauwiy"));
     }
-
-    // Waves - FSD and tau in the future
 
     // Ask OASIS to link var_rcv and var_id_rcv
     var_id_rcv.resize(var_rcv.size());
@@ -6981,28 +6981,33 @@ FiniteElement::initOASIS()
     }
 
     // Associate OASIS variable ids with neXtSIM DataSet variables
+    int n_cpl_id = 0;
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         this->setCplId_rcv(M_ocean_nodes_dataset);
         this->setCplId_rcv(M_ocean_elements_dataset);
+        n_cpl_id += M_ocean_nodes_dataset.M_cpl_id.size();
+        n_cpl_id += M_ocean_elements_dataset.M_cpl_id.size();
 
-        if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
-            throw std::logic_error("Not all coupling variables assigned - exiting");
     }
-    else if (vm["coupler.with_waves"].as<bool>())
+    if (vm["coupler.with_waves"].as<bool>())
     {
         this->setCplId_rcv(M_wave_nodes_dataset);
         //this->setCplId_rcv(M_wave_elements_dataset);
-
-        if ( M_wave_nodes_dataset.M_cpl_id.size() != var_rcv.size() )
-        //if ( M_wave_nodes_dataset.M_cpl_id.size() + M_wave_elements_dataset.M_cpl_id.size() != var_rcv.size() )
-            throw std::logic_error("Not all coupling variables assigned - exiting");
+        n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
+        //n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
     }
-    else
+
+    if ( n_cpl_id != var_rcv.size() )
+        throw std::logic_error("Not all coupling variables assigned - exiting");
+
+    if( n_cpl_id == 0 )
     {
-        //TODO ???
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implemented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
+        //TODO make it possible to run the model without coupling, even if we have compiled with OASIS
+        throw std::runtime_error(
+                std::string("FiniteElement::initOASIS: No coupling option selected. ")
+              + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.")
+              );
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //         TERMINATION OF DEFINITION PHASE
@@ -12514,7 +12519,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->updateIceDiagnostics();
 
     std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT,M_VT_root);
+    this->gatherNodalField(M_VT, M_VT_root);
+#if defined (OASIS)
+    std::vector<double> M_tau_wi_root;
+    if (vm["coupler.with_waves"].as<bool>())
+        this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
+#endif
 
     std::vector<double> M_UM_root;
     if (apply_displacement)
@@ -12605,6 +12615,10 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
+#if defined (OASIS)
+            if (vm["coupler.with_waves"].as<bool>())
+                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+#endif
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
             // loop over the elemental variables that have been
