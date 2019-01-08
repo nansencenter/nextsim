@@ -6362,6 +6362,9 @@ FiniteElement::init()
     // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(74.5/M_res_root_mesh);
+
+    /* NB: Temporary change to reduce cohesion: */ scale_coef *= 0.5;
+
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
@@ -10267,7 +10270,13 @@ FiniteElement::cs2SmosIce()
     // Atot = Aosisaf / OO(H)
     // OO(H) = 2y(exp(H/s + 0) / (1 + exp(H/s + 0)) - y
     // OO is applied only if H < 0.5
-    double oo_y = 0.95691881, oo_s = 0.06787237, oo_o = 0.42548199;
+
+    // These coefs are fitting exactly data from Thomas. 5% gap for thickness above 0.5 m.
+    // double oo_y = 0.95691881, oo_s = 0.06787237, oo_o = 0.42548199;
+
+    // These coeffs are fitted to slightly modified data from Thomas - last 3 points are set to 1.
+    // No gap  for thickness above 0.5 m.
+    double oo_y = 0.99853900, oo_s = 0.09128844, oo_o = 0.65327181;
 
     // fraction of young ice
     double fy0 = 0.20;
@@ -10281,13 +10290,10 @@ FiniteElement::cs2SmosIce()
         M_conc[i] = std::min(1., M_init_conc[i]);
 
         // correction of concentration by thickness using OO
-        if (M_thick[i] < 0.5)
-        {
-            tmp_var = std::exp(M_thick[i] / oo_s + oo_o);
-            tmp_var = 2 * oo_y * tmp_var / (1 + tmp_var) - oo_y;
-            M_conc[i] /= tmp_var;
-            M_conc[i] = std::min(1., M_conc[i]);
-        }
+        tmp_var = std::exp(M_thick[i] / oo_s + oo_o);
+        tmp_var = 2 * oo_y * tmp_var / (1 + tmp_var) - oo_y;
+        M_conc[i] /= tmp_var;
+        M_conc[i] = std::min(1., M_conc[i]);
 
         double ratio_FYI=0.3;
         double ratio_MYI=0.9;
