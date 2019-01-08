@@ -74,10 +74,8 @@ INSTANT
 # --- start Field 3 --- wave stress on ice (x)
 #
 WW3_TWIX I_tau_wix 22  300 1 r-ww3.nc EXPOUT
-118 149  118 149 ww3t tor2 LAG=+300
+118 149  118 149 ww3t tor2 LAG=300
 P  2  P  2
-SCRIPR
-DISTWGT LR SCALAR LATLON 1 4
 #
 INSTANT
 #
@@ -87,10 +85,8 @@ INSTANT
 # --- start Field 4 --- wave stress on ice (y)
 #
 WW3_TWIY I_tau_wiy 23  300 1 r-ww3.nc EXPOUT
-118 149  118 149 ww3t tor2 LAG=+300
+118 149  118 149 ww3t tor2 LAG=300
 P  2  P  2
-SCRIPR
-DISTWGT LR SCALAR LATLON 1 4
 #
 INSTANT
 #
