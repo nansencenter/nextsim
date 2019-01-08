@@ -44,7 +44,7 @@
 #
 # --- start Field 1 --- ice concentration
 #
-I_sic WW3__ICE   23  2400  1  ice_nextsim.nc  EXPORTED
+I_sic WW3__ICE   20  2400  1  ice_nextsim.nc  EXPORTED
 118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
 P  2  P  2
 #
@@ -57,7 +57,7 @@ INSTANT
 #
 # --- start Field 2 --- ice thickness
 #
-I_sit WW3__IC1   24  2400  1  ice_nextsim.nc  EXPORTED
+I_sit WW3__IC1   21  2400  1  ice_nextsim.nc  EXPORTED
 118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
 P  2  P  2
 #
@@ -68,32 +68,33 @@ INSTANT
 # --- end field 2 ---
 #
 ############################################################################
-#                      WAVES  --->>> ICE 
+#                      WAVES  --->>>  ICE
 ############################################################################
 #
-# --- start Field 3 --- wave radiation stress (x-component)
+# --- start Field 3 --- wave stress on ice (x)
 #
-WW3_TWIX I_tauwix 25  2400  1  waves_ww3.nc  EXPORTED
-118 149  118 149 ww3t tor2  SEQ=1 LAG=200
+WW3_TWIX I_tau_wix 22  300 1 r-ww3.nc EXPOUT
+118 149  118 149 ww3t tor2 LAG=+300
 P  2  P  2
-#
- LOCTRANS 
+SCRIPR
+DISTWGT LR SCALAR LATLON 1 4
 #
 INSTANT
 #
 # --- end field 3 ---
 #
 #
-# --- start Field 4 --- wave radiation stress (y-component)
+# --- start Field 4 --- wave stress on ice (y)
 #
-WW3_TWIY I_tauwiy 26  2400  1  waves_ww3.nc  EXPORTED
-118 149  118 149 ww3t tor2  SEQ=1 LAG=200
+WW3_TWIY I_tau_wiy 23  300 1 r-ww3.nc EXPOUT
+118 149  118 149 ww3t tor2 LAG=+300
 P  2  P  2
-#
- LOCTRANS 
+SCRIPR
+DISTWGT LR SCALAR LATLON 1 4
 #
 INSTANT
 #
 # --- end field 4 ---
+#
 #
  $END
