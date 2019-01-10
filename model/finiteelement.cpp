@@ -6429,7 +6429,7 @@ FiniteElement::init()
     scale_coef = std::sqrt(0.1/M_res_root_mesh);
     C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
+    LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
 
     if ( M_use_restart )
     {
