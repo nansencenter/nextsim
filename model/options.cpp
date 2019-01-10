@@ -256,13 +256,16 @@ namespace Nextsim
         
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")  // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
-            ("dynamics.young", po::value<double>()->default_value( 5.00e+8 ), "Pa") // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.cfix", po::value<double>()->default_value( 6.8465e+6 ), "Pa") // Default value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")   // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
+                                                                                        // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
+                                                                                        // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
+                                                                                        // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
+            ("dynamics.cfix", po::value<double>()->default_value( 6.8465e+6 ), "Pa")    // Default value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -306,6 +309,12 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
+        
+            // - Damage equation discretization
+            //   disc_scheme is either : explicit, implicit, recursive
+            //   td_type is either : fixed or damage_dependent
+            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
+            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
 
         
              //-----------------------------------------------------------------------------------

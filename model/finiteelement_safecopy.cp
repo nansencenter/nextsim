@@ -4801,18 +4801,13 @@ FiniteElement::update()
     this->diffuse(M_sst,vm["thermo.diffusivity_sst"].as<double>(),M_res_root_mesh);
     this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     
-
-    // Type of discretization scheme for the damage equation, set in options.cpp
-    // Can be either explicit, implicit or recursive
-    std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
-
     
-    // Characteristic time for damage
-    // Can be either fixed or damage-dependent
-        double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
-        double td = td0;
-    //std::cout << "td0 = " << td0 << "\n";
-        std::string td_type = vm["damage.td_type"].as<std::string>();
+    // Variables for the discretization of the damage equation
+    double td = 0.1*time_step;                      //Characteristic time for the propagation of damage: here, the value should be based on the resolution and value of Young modulus
+    double random_number_for_damage_prediction;     //Random number for recursive scheme for damage equation
+    boost::minstd_rand intgen;                      //Random number generator
+    boost::uniform_01<boost::minstd_rand> gen(intgen);
+    
     
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4833,7 +4828,7 @@ FiniteElement::update()
         double G_star=0.15;
         double e_factor=2.;
 
-        std::vector<double> sigma(3);  //Storing M_sigma into temporary array for distance to damage criterion calculation
+        std::vector<double> sigma_pred(3);
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
@@ -5038,8 +5033,8 @@ FiniteElement::update()
                 sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
             }
 
-            sigma[i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
-            sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+            sigma_pred[i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
+            sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
 
             M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
             M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
@@ -5052,8 +5047,8 @@ FiniteElement::update()
 
         /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        sigma_n =-          (sigma[0]+sigma[1])/2.;
+        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+        sigma_n =-          (sigma_pred[0]+sigma_pred[1])/2.;
 
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
@@ -5068,9 +5063,11 @@ FiniteElement::update()
         else
             hi = M_thick[cpt]/0.1;
 
-        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION ACCORDING TO THICKNESS OF ICE
-        //double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
+        double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
+        //double effective_cohesion = mult_factor * M_Cohesion[cpt];
+        //double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
         //double effective_cohesion = (1.0-old_damage) * M_Cohesion[cpt];
         //double effective_compressive_strength = (1.0-old_damage) * M_Compressive_strength[cpt];
         double effective_cohesion = 1.0 * M_Cohesion[cpt];
@@ -5081,12 +5078,14 @@ FiniteElement::update()
         sigma_t=-sigma_c/q;
         tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
             
-        
-        /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent") {
-             td = min(td0*pow(1-old_damage,-0.5), time_step);
-            }
             
+        /* Generate a random number for the recursive discretization scheme of the damage evolution equation */
+        random_number_for_damage_prediction = min(ceil(gen()*time_step/td+0.00001), time_step/td);    //Random number in uniform distribution
+        //std::cout << "rand_nb = " << random_number_for_damage_prediction << "\n";
+            
+            
+        /* Calculate td based on the local value of E (damage-dependence) */
+            //    td = min(M_res_root_mesh*pow(young*(1.0-old_damage)/(2.0*(1.0+nu0)*rhoi),-0.5), time_step);
             
         /* Calculate the adjusted level of damage */
            
@@ -5095,15 +5094,17 @@ FiniteElement::update()
             sigma_target=effective_compressive_strength;
             tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
 
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
+            //Sylvain
+            //tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+            //Vero, explicit
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //Vero, implicit
+            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //Vero, recursive scheme
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+            //Vero, recursive scheme + random nb of damage events
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,random_number_for_damage_prediction);
+            
             
             if(tmp>M_damage[cpt])
             {
@@ -5116,16 +5117,17 @@ FiniteElement::update()
             sigma_target = sigma_c;
             tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + 1.0);
 
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
-            }
-
+            //Sylvain
+            //tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+            //Vero, explicit
+            tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            //vero, implicit
+            //tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+            //Vero, recursive scheme
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
+            //Vero, recursive scheme + random nb of damage events
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),random_number_for_damage_prediction);
+            //std::cout << "d = " << tmp << "\n";
             if(tmp>M_damage[cpt])
             {
                 M_damage[cpt] = min(tmp, 1.0);
@@ -5137,16 +5139,17 @@ FiniteElement::update()
             sigma_target = tract_max;
             tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
 
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
-            
+            //Sylvain
+            //tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
+            //Vero, explicit
+            tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //Vero, implicit
+            //tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+            //Vero, recursive scheme
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+            //Vero, recursive scheme + random nb of damage events
+            //tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,random_number_for_damage_prediction);
+
             if(tmp>M_damage[cpt])
             {
                 M_damage[cpt] = min(tmp, 1.0);
