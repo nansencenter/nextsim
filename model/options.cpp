@@ -256,18 +256,11 @@ namespace Nextsim
         
 
             // - Internal stresses
-<<<<<<< HEAD
             ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
-            ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")   // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
-                                                                                        // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
+            ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson). Schulson).
-=======
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")  // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
-            ("dynamics.young", po::value<double>()->default_value( 5.00e+8 ), "Pa") // 5.49e+9 is more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.C_lab", po::value<double>()->default_value( 6.8222e+6 ), "Pa") // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
->>>>>>> 82aa3cb55c9a62b2dfcd24bb88bc148626f37847
+            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
