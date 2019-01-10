@@ -520,7 +520,7 @@ private:
     double tract_coef;
     double scale_coef;
     double alea_factor;
-    double cfix;
+    double C_lab;
     double C_fix;
     double C_alea;
     double tan_phi;

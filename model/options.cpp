@@ -261,7 +261,7 @@ namespace Nextsim
                                                                                         // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.cfix", po::value<double>()->default_value( 6.8465e+6 ), "Pa")    // Default value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson). Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")

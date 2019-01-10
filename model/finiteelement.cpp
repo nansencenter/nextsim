@@ -1140,7 +1140,7 @@ FiniteElement::initOptAndParam()
     tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strenght as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
-    cfix = vm["dynamics.cfix"].as<double>(); //! \param cfix (double) Fixed part of the cohesion [Pa]
+    C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
     
 
@@ -6427,7 +6427,7 @@ FiniteElement::init()
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(0.1/M_res_root_mesh);
-    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
 
