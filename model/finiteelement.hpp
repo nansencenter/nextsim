@@ -271,6 +271,7 @@ public:
     void initVariables();
     void calcAuxiliaryVariables();
     void initModelVariables();
+    void initFsd();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -731,6 +732,9 @@ private:
     ModelVariable M_age_obs;
     ModelVariable M_age;
 #endif
+    std::vector<ModelVariable> M_conc_fsd;
+    int const M_num_fsd_bins = 3;
+    std::vector<double> M_fsd_bin_centres;
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration

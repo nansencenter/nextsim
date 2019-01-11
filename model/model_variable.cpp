@@ -232,6 +232,21 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
+        case (variableID::M_conc_fsd):
+            // concentration of thin ice
+            M_name = "M_conc_fsd";
+            M_export_name = "Concentration_fsd";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
 #if 0
         case (variableID::M_fyi_fraction):
             M_name = "M_fyi_fraction";

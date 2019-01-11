@@ -553,7 +553,9 @@ FiniteElement::initVariables()
     M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
     
     for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        it->assign(M_num_elements,0.);
+        it->assign(M_num_elements, 0.);
+    for (auto it=M_conc_fsd.begin(); it!=M_conc_fsd.end(); it++)
+        it->assign(M_num_elements, 0.);
 
     // Diagnostic variables are assigned the prefix D_
     D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
@@ -4618,6 +4620,10 @@ FiniteElement::update()
                 M_conc_thin[cpt] *= surf_ratio;
                 M_hs_thin[cpt] *= surf_ratio;
             }
+
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_fsd[k][cpt] *= surf_ratio;
+
         }
 
         /*======================================================================
@@ -4659,8 +4665,10 @@ FiniteElement::update()
         double ridge_thin_ice_aspect_ratio=10.;
 
         double conc_thin = 0.;
+        double conc_tot_old = M_conc[cpt];//to modify M_conc_fsd;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
+            conc_tot_old += M_conc_thin[cpt];
             if(M_conc_thin[cpt]>0. )
             {
                 new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
@@ -4699,14 +4707,23 @@ FiniteElement::update()
             conc_thin = M_conc_thin[cpt];
         }
 
+        double conc_tot_new = conc_thin;//to modify M_conc_fsd;
         double new_conc=std::min(1.,std::max(1.-conc_thin-open_water_concentration+del_c,0.));
 
         if((new_conc+conc_thin)>1.)
             new_conc=1.-conc_thin;
+        conc_tot_new += new_conc;
 
         if(new_conc<M_conc[cpt])
         {
+            //need to do ridging
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
+            for(int k=0; k<M_num_fsd_bins; k++)
+            {
+                // TODO use Smoluchowski coagulation equation here?
+                // (could add function to be used here and by refreezing code) (see Loach et al, 2018)
+                M_conc_fsd[k][cpt] *= conc_tot_new/conc_tot_old;
+            }
         }
         M_conc[cpt]=new_conc;
 
@@ -5455,8 +5472,9 @@ FiniteElement::thermo(int dt)
                 std::cout << "newice_type = " << newice_type << "\n";
                 throw std::logic_error("Wrong newice_type");
             }
-            /* Check bounds on del_c */
-            del_c = std::min( 1.-M_conc[i], del_c );
+
+        /* Check bounds on del_c */
+        del_c = std::min( 1.-M_conc[i], del_c );
 
         if ( del_hi < 0. )
         {
@@ -5539,6 +5557,40 @@ FiniteElement::thermo(int dt)
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
+
+            // FSD
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_fsd[k][i] += 0.;
+        }
+        else
+        {
+            // FSD
+            double del_c_thin = 0;
+            double del_c = M_conc[i] - old_conc;
+            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            {
+                del_c += M_conc_thin[i] - old_conc_thin;
+                if(M_conc_thin[i] > old_conc_thin)
+                {
+                    // new thin ice
+                    del_c_thin = M_conc_thin[i] - old_conc_thin;
+                    del_c -= del_c_thin;
+                }
+            }
+            if(del_c_thin>0)
+            {
+                //add increase in thin ice conc to 
+                M_conc_fsd[0][i] += del_c_thin;
+                //distribute the remaining change in conc evenly over all the other FSD bins
+                for(int k=1; k<M_num_fsd_bins; k++)
+                    M_conc_fsd[k][i] += del_c/(M_num_fsd_bins-1);
+            }
+            else
+            {
+                //distribute the change in conc evenly over all the FSD bins
+                for(int k=0; k<M_num_fsd_bins; k++)
+                    M_conc_fsd[k][i] += del_c/M_num_fsd_bins;
+            }
         }
 
         // -------------------------------------------------
@@ -6458,6 +6510,13 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
     M_variables_elt.push_back(&M_random_number);
+
+    M_conc_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_fsd, k);
+        M_variables_elt.push_back(&(M_conc_fsd[k]));
+    }
 #if 0
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
     M_variables_elt.push_back(&M_fyi_fraction);
@@ -6595,6 +6654,27 @@ FiniteElement::initModelVariables()
             M_diffusivity_parameters.push_back(ptr->diffusivity());
         }
 }//initModelVariables
+
+// -----------------------------------------------------------------
+//! simple function to init the floe size
+void
+FiniteElement::initFsd()
+{
+    for(int i=0; i<M_num_elements; i++)
+    {
+        // all the thick ice in the highest bin
+        M_conc_fsd[M_num_fsd_bins - 1][i] = M_conc[i]; 
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            // all the thin ice in the lowest bin
+            M_conc_fsd[0][i] = M_conc_thin[i]; 
+        else
+            M_conc_fsd[0][i] = 0.; 
+        
+        //nothing in the other bins
+        for(int k=1; k<M_num_fsd_bins-1; k++)
+            M_conc_fsd[k][i] = 0.; 
+    }
+}//init FSD
 
 
 #ifdef OASIS
@@ -9235,6 +9315,7 @@ FiniteElement::initIce()
 
     // check consistency of fields after initialisation
     // - init ice temp everywhere
+    // - init FSD
     this->checkConsistency();
 }//initIce
 
@@ -9351,6 +9432,10 @@ FiniteElement::checkConsistency()
             }
         }//Winton
     }
+
+    //FSD
+    if(M_num_fsd_bins>0)
+        this->initFsd();
 }//checkConsistency
 
     
