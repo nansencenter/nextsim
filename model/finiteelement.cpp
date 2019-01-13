@@ -4722,6 +4722,7 @@ FiniteElement::update()
             {
                 // TODO use Smoluchowski coagulation equation here?
                 // (could add function to be used here and by refreezing code) (see Loach et al, 2018)
+                // this implementation assumes ridging is within floes - no rafting
                 M_conc_fsd[k][cpt] *= conc_tot_new/conc_tot_old;
             }
         }
@@ -4758,93 +4759,93 @@ FiniteElement::update()
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
-        for(int i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            for(int i=0;i<3;i++)
             {
-                sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                sigma_dot_i = 0.0;
+                for(int j=0;j<3;j++)
+                {
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                }
+
+                sigma_pred[i] = (M_sigma[i][cpt]+4.*time_step*sigma_dot_i)*multiplicator;
+                sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+
+                M_sigma[i][cpt] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                M_sigma[i][cpt] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[i][cpt]):0.;
             }
 
-            sigma_pred[i] = (M_sigma[i][cpt]+4.*time_step*sigma_dot_i)*multiplicator;
-            sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+            /*======================================================================
+             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
+             *======================================================================
+             */
 
-            M_sigma[i][cpt] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-            M_sigma[i][cpt] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[i][cpt]):0.;
-        }
+            /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
 
-        /*======================================================================
-         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-         *======================================================================
-         */
+            sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
+            sigma_n =-          (sigma_pred[0]+sigma_pred[1])/2.;
 
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
+            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-        sigma_n =-          (sigma_pred[0]+sigma_pred[1])/2.;
+            double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
+            double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
+            double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
 
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            double hi=0.;
+            if(M_conc[cpt]>0.1)
+                hi = M_thick[cpt]/M_conc[cpt];
+            else
+                hi = M_thick[cpt]/0.1;
 
-        double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
-        double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
-        double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
+            //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
+            double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
 
-        double hi=0.;
-        if(M_conc[cpt]>0.1)
-            hi = M_thick[cpt]/M_conc[cpt];
-        else
-            hi = M_thick[cpt]/0.1;
+            double effective_cohesion = mult_factor * M_Cohesion[cpt];
+            double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
 
-        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
-        double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
-
-        double effective_cohesion = mult_factor * M_Cohesion[cpt];
-        double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
-
-        q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
-        tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
-            
-            
-        /* Calculate the adjusted level of damage */
-            //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
-        if(sigma_n>effective_compressive_strength)
-        {
-            sigma_target=effective_compressive_strength;
-
-            tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
+            q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+            sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
+            tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
+                
+                
+            /* Calculate the adjusted level of damage */
+                //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
+            if(sigma_n>effective_compressive_strength)
             {
-                M_damage[cpt]=tmp;
+                sigma_target=effective_compressive_strength;
+
+                tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt]=tmp;
+                }
             }
-        }
 
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target = sigma_c;
-
-            tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
+            if((sigma_1-q*sigma_2)>sigma_c)
             {
-                M_damage[cpt] = tmp;
+                sigma_target = sigma_c;
+
+                tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = tmp;
+                }
             }
-        }
 
-        if(sigma_n<tract_max)
-        {
-            sigma_target = tract_max;
-
-            tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-            if(tmp>M_damage[cpt])
+            if(sigma_n<tract_max)
             {
-                M_damage[cpt] = tmp;
+                sigma_target = tract_max;
+
+                tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = tmp;
+                }
             }
-        }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.
@@ -5560,36 +5561,44 @@ FiniteElement::thermo(int dt)
 
             // FSD
             for(int k=0; k<M_num_fsd_bins; k++)
-                M_conc_fsd[k][i] += 0.;
+                M_conc_fsd[k][i] = 0.;
         }
         else
         {
             // FSD
-            double del_c_thin = 0;
-            double del_c = M_conc[i] - old_conc;
-            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            // - add/remove ice from bins, keeping them in interval [0,1]
+            if(M_num_fsd_bins==1)
             {
-                del_c += M_conc_thin[i] - old_conc_thin;
-                if(M_conc_thin[i] > old_conc_thin)
+                M_conc_fsd[0][i] = M_conc[i];
+                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                    M_conc_fsd[0][i] += M_conc_thin[i];
+            }
+            else if (M_num_fsd_bins>1)
+            {
+                double del_c_thin = 0;
+                double del_c_fsd = M_conc[i] - old_conc;
+                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
                 {
-                    // new thin ice
-                    del_c_thin = M_conc_thin[i] - old_conc_thin;
-                    del_c -= del_c_thin;
+                    if(M_conc_thin[i] > old_conc_thin)
+                        del_c_thin = M_conc_thin[i] - old_conc_thin;//>0: only treat thin ice differently if freezing new ice
+                    del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
-            }
-            if(del_c_thin>0)
-            {
-                //add increase in thin ice conc to 
-                M_conc_fsd[0][i] += del_c_thin;
-                //distribute the remaining change in conc evenly over all the other FSD bins
+
+                //smallest floe size category first
+                double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
+                double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
+                    + del_c_thin;                      // new ice goes into this bin
+                M_conc_fsd[0][i] = std::min(1., c_0_new);
+                double del_c_redist = c_0_new - M_conc_fsd[0][i];
+
+                //larger FSD bins
                 for(int k=1; k<M_num_fsd_bins; k++)
-                    M_conc_fsd[k][i] += del_c/(M_num_fsd_bins-1);
-            }
-            else
-            {
-                //distribute the change in conc evenly over all the FSD bins
-                for(int k=0; k<M_num_fsd_bins; k++)
-                    M_conc_fsd[k][i] += del_c/M_num_fsd_bins;
+                {
+                    double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
+                        + del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
+                    M_conc_fsd[k][i] = std::min(1., c_k_new);
+                    del_c_redist = c_k_new - M_conc_fsd[k][i];
+                }
             }
         }
 
@@ -12678,27 +12687,32 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
 {
 
     bool printout = (M_rank == rank_test && itest>0);
+    std::stringstream crash_msg;
+    bool crash = false;
 
     for(int i=0; i<M_num_elements; i++)
     {
         std::vector<double> values;
         auto names = M_external_data_elements_names;
-        std::vector<std::string> nan_names;
-        bool out_of_usual_range = false;
-        if( M_thick[i]>35.)
-        {
-            std::cout<<"ice is too thick: "<<M_thick[i]<<"m\n";
-            out_of_usual_range = true;
-        }
+
+        // common sense maxima (not absolute maxima)
+        boost::unordered_map<std::string, double>
+            too_high_values = boost::assign::map_list_of
+                ("M_thick", 35.)
+                ;
 
         // check the forcings 1st
         for (int j=0; j<M_external_data_elements.size(); j++)
         {
             auto ptr = M_external_data_elements[j];
+            auto name = names[j];
             double val = ptr->get(i);
             values.push_back(val);
             if(std::isnan(val))
-                nan_names.push_back(names[j]);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            }
         }
 
         // check the variables 2nd
@@ -12708,15 +12722,55 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
             std::string name = ptr->name();
             values.push_back(val);
             names.push_back(name);
+
+            // is it nan?
             if(std::isnan(val))
-                nan_names.push_back(name);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            }
+
+            // is it < min allowed value?
+            if(ptr->hasMinVal())
+            {
+                double thresh = ptr->minVal() - 1.e-8;
+                if(val<thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                        << val << " < " << thresh << "\n";
+                }
+            }
+
+            // is it > max allowed value?
+            if(ptr->hasMaxVal())
+            {
+                double thresh = ptr->maxVal() + 1.e-8;
+                if(val>thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
+
+            // check if it is too high for common sense
+            if(too_high_values.count(name)>0)
+            {
+                double thresh = too_high_values[name];
+                if(val > thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
         }
 
-        bool crash = out_of_usual_range || nan_names.size()>0;
-        bool printout_now = (printout && i==itest) || crash;
-
-        if(printout_now)
+        if((printout && i==itest) || crash)
         {
+            // printout all the variables' values
+
             // get x,y and lon, lat at current position
             double xtest = 0.;
             double ytest = 0.;
@@ -12760,18 +12814,7 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
         }
 
         if(crash)
-        {
-            std::stringstream msg;
-            if(out_of_usual_range)
-                msg << "Some variables are out of the usual range\n";
-            if (nan_names.size()>0)
-            {
-                msg << "["<< M_rank<<"] Found nans in variables:\n";
-                for (auto name: nan_names)
-                    msg << "["<< M_rank<<"]"<< name<<"\n";
-            }
-            throw std::runtime_error(msg.str());
-        }
+            throw std::runtime_error(crash_msg.str());
     }
 }//checkFields
 
