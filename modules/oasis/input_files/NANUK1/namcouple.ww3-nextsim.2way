@@ -45,7 +45,7 @@
 # --- start Field 1 --- ice concentration
 #
 I_sic WW3__ICE   20  2400  1  ice_nextsim.nc  EXPORTED
-118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
+118 149  118 149 tor2 ww3t  LAG=200
 P  2  P  2
 #
  LOCTRANS 
@@ -58,7 +58,7 @@ INSTANT
 # --- start Field 2 --- ice thickness
 #
 I_sit WW3__IC1   21  2400  1  ice_nextsim.nc  EXPORTED
-118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
+118 149  118 149 tor2 ww3t  LAG=200
 P  2  P  2
 #
  LOCTRANS 
@@ -73,9 +73,11 @@ INSTANT
 #
 # --- start Field 3 --- wave stress on ice (x)
 #
-WW3_TWIX I_tau_wix 22  2400  1  r-ww3.nc  EXPOUT
+WW3_TWIX I_tauwix 22  2400  1  r-ww3.nc  EXPORTED
 118 149  118 149  ww3t tor2  LAG=300
 P  2  P  2
+#
+ LOCTRANS 
 #
 INSTANT
 #
@@ -84,9 +86,11 @@ INSTANT
 #
 # --- start Field 4 --- wave stress on ice (y)
 #
-WW3_TWIY I_tau_wiy  23  2400  1  r-ww3.nc  EXPOUT
+WW3_TWIY I_tauwiy  23  2400  1  r-ww3.nc  EXPORTED
 118 149  118 149  ww3t tor2  LAG=300
 P  2  P  2
+#
+ LOCTRANS 
 #
 INSTANT
 #
