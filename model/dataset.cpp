@@ -1841,7 +1841,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable tau_wi_y={
-            name: "I_tauwix",
+            name: "I_tauwiy",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8073,6 +8073,8 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "ice_cs2_smos_elements\n");
         fprintf (stderr, "ice_smos_elements\n");
         fprintf (stderr, "ocean_currents_nodes\n");
+        fprintf (stderr, "wave_cpl_nodes\n");
+        throw std::runtime_error(std::string("Unknown dataset: ")+DatasetName);
 
         //close_Dataset (this);
     }
