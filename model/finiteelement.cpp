@@ -934,7 +934,7 @@ FiniteElement::initDatasets()
 #ifdef OASIS
     if (vm["coupler.with_waves"].as<bool>())
     {
-        M_wave_nodes_dataset = DataSet("waves_cpl_nodes");
+        M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
         M_datasets_regrid.push_back(&M_wave_nodes_dataset);
     }
 #endif
@@ -6999,7 +6999,13 @@ FiniteElement::initOASIS()
     }
 
     if ( n_cpl_id != var_rcv.size() )
-        throw std::logic_error("Not all coupling variables assigned - exiting");
+    {
+        std::stringstream msg;
+        msg << "\nNumber of variables in var_rcv = "<<var_rcv.size()<<"\n";
+        msg << "Number of variables in coupled datasets = "<< n_cpl_id <<"\n";
+        msg << "Not all coupling variables assigned - exiting\n";
+        throw std::logic_error(msg.str());
+    }
 
     if( n_cpl_id == 0 )
     {
