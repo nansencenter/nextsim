@@ -345,8 +345,8 @@ namespace Nextsim
                 "relaxation time of slab ocean salinity to ocean forcing")
 
             // - relating to thermodynamic forcing
-            ("thermo.use_ecmwf_long_wave_radiation", po::value<bool>()->default_value(false),
-                "false: use total cloud cover parameterisation of long wave incoming radiation instead of that from datasets. Only active for setup.atmosphere-type=ec2")
+            ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
+                "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
             /*
              *-----------------------------------------------------------------------------------
