@@ -4805,14 +4805,16 @@ FiniteElement::update()
     // Type of discretization scheme for the damage equation, set in options.cpp
     // Can be either explicit, implicit or recursive
     std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
-
     
     // Characteristic time for damage
     // Can be either fixed or damage-dependent
         double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
         double td = td0;
-    //std::cout << "td0 = " << td0 << "\n";
         std::string td_type = vm["damage.td_type"].as<std::string>();
+    
+    // Slope of the MC enveloppe
+    double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+    
     
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4833,15 +4835,15 @@ FiniteElement::update()
         double G_star=0.15;
         double e_factor=2.;
 
-        std::vector<double> sigma(3);  //Storing M_sigma into temporary array for distance to damage criterion calculation
+        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double tract_max, sigma_t, sigma_c, q;
+        double tract_max, sigma_t, sigma_c;
         double tmp, sigma_target, tmp_factor;
-       
         
+    
         
         // Temporary memory
         old_damage = M_damage[cpt];
@@ -5029,7 +5031,10 @@ FiniteElement::update()
 
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+time_step);
+            
 
+            
+        //Calculating the new state of stress
         for(int i=0;i<3;i++)
         {
             sigma_dot_i = 0.0;
@@ -5041,8 +5046,8 @@ FiniteElement::update()
             sigma[i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
             sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
-            M_sigma[3*cpt+i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
-            M_sigma[3*cpt+i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[3*cpt+i]):0.;
+            M_sigma[3*cpt+i] = sigma[i];
+  
         }
 
         /*======================================================================
@@ -5050,14 +5055,14 @@ FiniteElement::update()
          *======================================================================
          */
 
-        /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
-
+            
+        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
         sigma_n =-          (sigma[0]+sigma[1])/2.;
 
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
+    
         double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
         double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
         double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
@@ -5076,7 +5081,6 @@ FiniteElement::update()
         double effective_cohesion = 1.0 * M_Cohesion[cpt];
         double effective_compressive_strength = 1.0 * M_Compressive_strength[cpt];
             
-        q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
         tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */

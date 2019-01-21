@@ -285,7 +285,7 @@ namespace Nextsim
             ("dynamics.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             ("dynamics.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
             // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
+            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 5. ), "")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
@@ -297,7 +297,7 @@ namespace Nextsim
             ("dynamics.lin_drag_coef_air", po::value<double>()->default_value( 0. ), "")
             ("dynamics.quad_drag_coef_water", po::value<double>()->default_value( 0.0055 ), "")
             ("dynamics.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
-
+    
             // - Coriolis parameters
             ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("dynamics.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
@@ -314,7 +314,7 @@ namespace Nextsim
             //   td_type is either : fixed or damage_dependent
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
-
+        
         
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
