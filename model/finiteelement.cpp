@@ -6363,8 +6363,6 @@ FiniteElement::init()
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(74.5/M_res_root_mesh);
 
-    /* NB: Temporary change to reduce cohesion: */ scale_coef *= 0.5;
-
     C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
