@@ -1832,7 +1832,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: physical::rhow,//1., //WW3 WRS has unit m^2/s^2 TODO could be different in other models (option)
             b: 0.,
             Units: "Pa",
             loaded_data: loaded_data_tmp,
@@ -1849,7 +1849,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: physical::rhow,//1., //WW3 WRS has unit m^2/s^2 TODO could be different in other models (option)
             b: 0.,
             Units: "Pa",
             loaded_data: loaded_data_tmp,
