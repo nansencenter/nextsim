@@ -44,12 +44,13 @@ module mod_random_forcing
    private
 
    logical, save :: randf ! Switches on/off random forcing
-   character*80  :: iopath 
+   logical       :: file_exists ! Check if file exists
    real   , save :: rf_hradius  ! Horizontal decorr length for rand forc [m]
    real   , save :: rf_tradius  ! Temporal decorr length for rand forc
    real   , save :: rh          ! Horizontal decorr length for rand forc [grid cells]
    real   , save :: rv
    integer, save :: rf_prsflg=2 ! initial value
+   character(10) :: iopath = '/docker_io'
    integer, parameter :: idm=360, jdm=360
    real,parameter     :: airdns  =  1.2
    real, parameter    :: radian  = 57.2957795
@@ -136,7 +137,21 @@ contains
       !-- CHeCK: a conditional here to check ranfld_next.dat exists \
       !-- IF exists, load and move to ranfld_prev.dat, IF NOT run ranfields(ran,rh) --!
 
-      call ranfields(ran,rh)
+      INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
+
+      if (file_exists) then 
+              print *, 'reading from file...'
+              call randfld_rd('01')
+              call synforc_rd('01')
+              call randfld_wr('00')
+              call synforc_wr('00')
+              call rand_update('01')
+      else 
+              print *, 'generating initial random field...'
+              call ranfields(ran,rh)
+              call rand_update('00')
+              call rand_update('01')
+      end if
 
       end subroutine
 
@@ -210,7 +225,7 @@ contains
 ! --- the random forcing is added to the forcing fields.
    
 
-      subroutine rand_update
+      subroutine rand_update(time_index)
       implicit none
 
       ! rt       -- Information on time (mod_year_info)
@@ -222,7 +237,8 @@ contains
       !type(forcing_variances) , intent(in)    :: vars
 
       integer :: ix,jy
-      real :: alpha, autocorr, nsteps, wspd
+      real :: alpha, autocorr, nsteps, wspd, mtime 
+      character(2) :: time_index
 
       logical, save :: first=.true.
       integer, save :: ccount=1
@@ -244,7 +260,6 @@ contains
 
      
 
-      iopath = 'IO'
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
       autocorr = exp(-1.0)
@@ -265,6 +280,7 @@ contains
       ! Add new random forcing field to the newly read
       ! fields from ecmwf or ncep (:,:,4)
       !ran1=sqrt(vars)*ran
+
       call calc_forc_update(ran1,ran,sqrt(vars))
 
 
@@ -420,7 +436,6 @@ contains
          synvwind(ix,jy) = syntauy (ix,jy) / (wspd*cdfac*rhoa)
 
 
-
          synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
          synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
          synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
@@ -439,51 +454,22 @@ contains
 ! end if rf_prsflag=0 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      if (lfirst) then
-         ! Test for ranfld .... only done for first pass
-         lfirst=.false.
-            open(10,file='ranfld_prev.dat',status='replace')
-            do jy=1,jdm
-            do ix=1,idm
-               write(10,'(2i5,6e14.3)') ix,jy,  &
-               synuwind(ix,jy), synvwind(ix,jy), &
-               synairtmp(ix,jy), synslp(ix,jy), &
-               synprecip(ix,jy), synrelhum(ix,jy)
-            end do
-            end do
-            close(10)
-      end if
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! write output files  -- Spatial field dumped on first run
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+      call synforc_wr(time_index)
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
+
       call ranfields(ran1,rh)
 
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran 
       call ran_update_ran1(ran,ran1,alpha)
 
+      call randfld_wr(time_index) 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Diagnostics section -- Spatial field dumped on first run
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      lfirst=.true.
-      if (lfirst) then
-         ! Test for ranfld .... only done for first pass
-         lfirst=.false.
-            open(11,file='ranfld_next.dat',status='replace')
-            do jy=1,jdm
-            do ix=1,idm
-               write(11,'(2i5,6e14.3)') ix,jy,  &
-               synuwind(ix,jy), synvwind(ix,jy), &
-               synairtmp(ix,jy), synslp(ix,jy), &
-               synprecip(ix,jy), synrelhum(ix,jy)
-            end do
-            end do
-            close(11)
-      end if
 
-      print *,'random update finished'
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! End Diagnostics section 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ccount=ccount+1
       end subroutine rand_update
@@ -507,9 +493,6 @@ contains
       call pseudo2D(ranfld%clouds,idm,jdm,1,scorr,fnx,fny)
       call pseudo2D(ranfld%precip,idm,jdm,1,scorr,fnx,fny)
       end subroutine ranfields
-
-
-
 
 
    subroutine calc_forc_update(A,B,C)
@@ -668,6 +651,107 @@ contains
      synshwflx(:,:)=0.
      synslp   (:,:)=0.
   
+   end subroutine
+
+   subroutine randfld_rd(time_index) 
+
+           character(2)  :: time_index 
+           character(80) :: filename
+           integer :: ix,jy
+
+           filename = trim(iopath)//'/randfld.'//time_index
+
+           print*, 'reading randfile ', filename
+
+           open(10, file=filename, status="old", action="read") 
+
+           do jy=1,jdm 
+             do ix=1,idm 
+             read(10, '(10e14.3)') & 
+                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), & 
+                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), & 
+                        ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
+             end do !ix
+           end do !jy 
+           close(10)
+           print *, 'read from file'
+
+   end subroutine
+
+   subroutine synforc_rd(time_index) 
+
+           character(2)  :: time_index 
+           character(80) :: filename
+           integer       :: ix,jy, xx, yy 
+
+           filename = trim(iopath)//'/synforc.'//time_index
+
+           print*, 'reading synforc ', filename
+
+           open(11, file=filename, status="old", action="read") 
+
+           do jy=1,jdm 
+             do ix=1,idm 
+                read(11,'(2i5,6e14.3)') xx, yy,  & 
+                        synuwind(ix,jy), synvwind(ix,jy), & 
+                        synairtmp(ix,jy), synslp(ix,jy), & 
+                        synprecip(ix,jy), synrelhum(ix,jy) 
+             end do !ix
+           end do !jy
+
+           close(11)
+
+   end subroutine
+
+   subroutine randfld_wr(time_index) 
+
+           character(2)  :: time_index 
+           character(80) :: filename
+           integer :: ix,jy
+
+           filename = trim(iopath)//'/randfld.'//time_index
+
+
+           print*, 'writing randfile ', filename
+           
+           open(12,file=filename,status='replace') 
+
+           do jy=1,jdm 
+             do ix=1,idm 
+                write(12,'(10e14.3)') & 
+                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), & 
+                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), & 
+                        ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
+             end do !ix
+           end do !jy
+
+           close(12)
+
+   end subroutine
+
+   subroutine synforc_wr(time_index) 
+
+           character(2)  :: time_index 
+           character(80) :: filename
+           integer       :: ix,jy 
+
+           filename = trim(iopath)//'/synforc.'//time_index
+
+           print*, 'writing synforc ', filename
+
+           open(13,file=filename, status='replace') 
+
+           do jy=1,jdm 
+             do ix=1,idm 
+                write(13,'(2i5,6e14.3)') ix,jy,  & 
+                        synuwind(ix,jy), synvwind(ix,jy), & 
+                        synairtmp(ix,jy), synslp(ix,jy), & 
+                        synprecip(ix,jy), synrelhum(ix,jy) 
+             end do !ix
+           end do !jy
+
+           close(13)
+
    end subroutine
 
 end module mod_random_forcing
