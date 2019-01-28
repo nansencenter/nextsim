@@ -227,17 +227,52 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             }
             else {
 #endif
+//            LOG(INFO) <<"RX_in "<< RX_in.size() <<"\n";
+//            LOG(INFO) <<"RY_in "<< RY_in.size() <<"\n";
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
-            // add synoptic perturbations on the wind field here 
+
+            // add synoptic perturbations on the wind field here
             // can be done as M_dataset.perturb()
 #ifdef ENSEMBLE
-            std::string forcing_name="asr_nodes";
-            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0)
-            {
+            int M_full  = M_dataset->grid.dimension_y_count_netcdf;
+            int N_full  = M_dataset->grid.dimension_x_count_netcdf;
+            int MN_full = M_full*N_full;
+
+            Communicator comm;
+            LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
+            if ( comm.rank() == 0 )
+                LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
+
             ensemble perturbation;
-            perturbation.generate_ensemble(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->grid.dimension_x_count_netcdf, M_dataset->grid.dimension_y_count_netcdf);
-            perturbation.generate_ensemble(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->grid.dimension_x_count_netcdf, M_dataset->grid.dimension_y_count_netcdf);
+            std::string forcing_name="asr_nodes";
+            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0) //remove this when generalized to ECMWF
+            { 
+                comm.barrier();
+                LOG(DEBUG) << "### Rank: " << comm.rank() << " of " << comm.size() << ".\n";
+                if (comm.rank() == 0) {
+                    int ranstep = 0;
+                    perturbation.synopticPerturbation(ranstep);
+                    perturbation.addPerturbation(
+                            M_dataset->variables[0].loaded_data[ranstep], M_dataset->variables[1].loaded_data[ranstep], MN_full, ranstep);
+                    ranstep = 1;
+                    perturbation.addPerturbation(
+                            M_dataset->variables[0].loaded_data[ranstep], M_dataset->variables[1].loaded_data[ranstep], MN_full, ranstep);
+                }
+                comm.barrier();
+                LOG(DEBUG) << "### FORCING SIZE: " << M_dataset->variables[0].loaded_data[0].size() << "\n";
+                boost::mpi::broadcast(comm, & M_dataset->variables[0].loaded_data[0][0], MN_full, 0);
+                double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
+/*
+                if (comm.rank() == 0) {
+                    boost::filesystem::path mySourcePath("/docker_io/synforc.01");
+                    boost::filesystem::path myTargetPath("/docker_io/synforc.02");
+                    boost::filesystem::copy_file(mySourcePath, myTargetPath, boost::filesystem::copy_option::overwrite_if_exists);
+                  //  boost::filesystem::copy_file(mySourcePath, myTargetPath, boost::filesystem::copy_option::fail_if_exists);
+                }
+*/
             }
 #endif
 
