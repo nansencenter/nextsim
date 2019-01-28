@@ -571,37 +571,37 @@ public:
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
             double averaging_period, bool false_easting);
 
-    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
-    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting);
 
-    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
-    GridOutput(BamgMesh* bamgmesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
@@ -613,8 +613,11 @@ public:
 
     void updateGridMean(BamgMesh* bamgmesh);
     void resetGridMean();
+    void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
+            const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
     void resetMeshMean(BamgMesh* bamgmesh,
             bool regrid = false,
+            int nb_local_el = 0,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
             BamgMesh* bamgmesh_root = NULL);
     std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
@@ -660,9 +663,9 @@ private:
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
-    void initRegularGrid(BamgMesh* bamgmesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
+    void initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-    void initArbitraryGrid(BamgMesh* bamgmesh, Grid& grid, Communicator const & comm,
+    void initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
             BamgMesh* bamgmesh_root = NULL,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
@@ -680,7 +683,7 @@ private:
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
 
-    void setProcMask(BamgMesh* bamgmesh);
+    void setProcMask(BamgMesh* bamgmesh, int nb_local_el);
     std::vector<double> M_proc_mask;
 
     Communicator M_comm;

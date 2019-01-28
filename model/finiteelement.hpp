@@ -31,6 +31,7 @@
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
+#include <model_variable.hpp>
 #include <drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
@@ -39,6 +40,9 @@
 #include <boost/random/uniform_01.hpp>
 #if defined OASIS
 #include<oasis_cpp_interface.h>
+#endif
+#ifdef AEROBULK
+#include "aerobulk.hpp"
 #endif
 
 extern "C"
@@ -171,19 +175,24 @@ public:
     void nestingIce();
     void nestingDynamics();
     void thermo(int dt);
-    void thermoIce0(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols, double Qlw_in, double Qsw_in, double mld, double snowfall,
-                    double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf,
-                    double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    void thermoWinton(int i, double dt, double wspeed, double sphuma, double conc, double voli, double vols,
-                      double Qlw_in, double Qsw_in, double mld, double snowfall,
-                      double &hi, double &hs, double &hi_old, double &Qio, double &del_hi, double &Tsurf, double &T1, double &T2,
-                      double &Qai, double &Qsw, double &Qlw, double &Qsh, double &Qlh);
-    inline double albedo(int alb_scheme, double Tsurf, double hs, double alb_sn, double alb_ice, double I_0);
-    void atmFluxBulk(int i, double Tsurf, double sphuma, double drag_ice_t, double Qsw, double Qlw_in, double wspeed,
-                     double &Qai, double &dQaidT, double &subl,
-                     double &Qsh, double &Qlh, double &Qlw);
-    double iceOceanHeatflux(int cpt, double sst, double tbot, double mld, double dt);
-    inline double freezingPoint(double sss);
+    inline void thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+            const double Qia, const double dQiadT, const double subl, const double Tbot,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf);
+    inline void thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+            double const Qia, double const dQiadT, const double Qsw, const double subl, const double Tbot,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
+            double &Tsurf, double &T1, double &T2);
+    void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau);
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+                 std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
+    inline double albedo(const double Tsurf, const double hs);
+    inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
+    inline double iceOceanHeatflux(const int cpt, const double sst, const double tbot, const double mld, const double dt);
+    inline double incomingLongwave(const int i);
+    inline double freezingPoint(const double sss);
+    inline double windSpeedElement(const int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
@@ -260,6 +269,7 @@ public:
     void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
+    void initModelVariables();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -286,7 +296,6 @@ public:
     void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
             boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
-    void restartScatterElementVariables();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements);
@@ -332,14 +341,9 @@ private:
         this->gatherFieldsElementIO(elt_values_root, data_elements, ext_data_elements);
     }
 
-    void getRestartNamesPointers(
-            std::vector<std::string> &names,
-            std::vector<std::vector<double>*> &data);
-    void getExportNamesPointers(std::vector<std::string> & names,
-        std::vector<std::vector<double>*> & data_elements);
     void setPointersElements(
             std::vector<std::vector<double>*> &data,
-            std::vector<std::string> const &names);
+            std::vector<ModelVariable*> const &vars);
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<std::vector<double>*> &data);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
@@ -408,6 +412,10 @@ private:
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
 
+#ifdef AEROBULK
+    aerobulk::algorithm M_ocean_bulk_formula;
+#endif
+
     setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
@@ -463,6 +471,7 @@ private:
     std::vector<double> D_snow_thick;
     std::vector<double> D_tsurf;
 
+    std::vector<double> M_tau_ow;
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;
@@ -710,6 +719,54 @@ private:
     // Non-prognostic variables used to speed up the convergence of a non-linear equation in thermodynamics
     std::vector<std::vector<double>> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<double> M_tsurf_thin;   // Ice surface temperature of thin ice [C]
+
+    // vectors of pointers to variables (for looping)
+    std::vector<ModelVariable*> M_variables;
+    std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
+    std::vector<ModelVariable*> M_export_variables_elt;
+
+    // other vectors related to export/restart
+    std::vector<std::string> M_restart_names_elt;
+    std::vector<std::string> M_export_names_elt;
+    std::vector<std::vector<double>*> M_prognostic_data_elt;
+    std::vector<std::vector<double>*> M_export_data_elt;
+
+    // Prognostic variables
+    ModelVariable vM_conc;
+    ModelVariable vM_thick;
+    ModelVariable vM_damage;
+    ModelVariable vM_snow_thick;
+    ModelVariable vM_ridge_ratio;
+    std::vector<ModelVariable> vM_tice;
+    std::vector<ModelVariable> vM_sigma;
+    ModelVariable vM_sst;
+    ModelVariable vM_sss;
+    ModelVariable vM_tsurf_thin;
+    ModelVariable vM_h_thin;
+    ModelVariable vM_hs_thin;
+    ModelVariable vM_conc_thin;
+    ModelVariable vM_random_number;
+#if 0
+    ModelVariable vM_fyi_fraction;
+    ModelVariable vM_age_obs;
+    ModelVariable vM_age;
+#endif
+
+    // Diagnostic variables
+    ModelVariable vD_conc;
+    ModelVariable vD_thick;
+    ModelVariable vD_snow_thick;
+    ModelVariable vD_tsurf;
+    std::vector<ModelVariable> vD_sigma;
+    ModelVariable vD_Qa;
+    ModelVariable vD_Qsw;
+    ModelVariable vD_Qlw;
+    ModelVariable vD_Qsh;
+    ModelVariable vD_Qlh;
+    ModelVariable vD_Qo;
+    ModelVariable vD_delS;
+    ModelVariable vD_emp;
+    ModelVariable vD_brine;
 
 
 private:
