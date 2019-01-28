@@ -80,21 +80,24 @@ public:
 
 private: 
 	
-	static constexpr const char* ranfile = "ranfld_prev.dat";
+
+	std::vector<std::string> ranfile = { "/docker_io/synforc.00", "/docker_io/synforc.01" };
 
 public:
 
-	void generate_ensemble();
+	void synopticPerturbation();
 
-	void generate_ensemble(int, int);
+	void synopticPerturbation(int);
 
-	void generate_ensemble(std::vector<double>&, std::vector<double>&, int, int);
+	void addPerturbation();
+
+	void addPerturbation(int);
+
+	void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
 	
-//	void generate_ensemble(std::vector<double>, std::vector<double>);
+	void computeMinMax(const std::vector<double> &, const char*); 
 
-	void compute_minmax(const std::vector<double> &, const char*); 
-
-	void compute_vmean(const std::vector<double> &, const char*);
+	void computeVecMean(const std::vector<double> &, const char*);
 
 };
 };
