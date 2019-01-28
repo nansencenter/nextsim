@@ -36,46 +36,46 @@ cd $DATA_LINKS_DIR
 echo "We link the data from $ROOT_DATA_DIR"; 
 
 # link the netcdf data
-ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
-ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
-ln -s $ROOT_DATA_DIR/ERAI/*.nc .
-ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
-ln -s $ROOT_DATA_DIR/CFSR/*.nc .
-ln -s $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc .
-ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/*.nc .
-ln -s $ROOT_DATA_DIR/NIC_ice_charts/*.nc .
-ln -s $ROOT_DATA_DIR/NIC_weekly_ice_charts/*.nc .
-ln -s $ROOT_DATA_DIR/SIT_data/icesat_filled_10prods/*.nc .
-ln -s $ROOT_DATA_DIR/currents_from_altimeter/*.nc .
-ln -s $ROOT_DATA_DIR/RGPS_ice_drift/trajectories/*.txt .
-ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
-ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic/*.nc .
-ln -s $ROOT_DATA_DIR/ERAI_waves_1deg/*.nc .
-ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
+# ln -s $ROOT_DATA_DIR/BATHYMETRY/*.nc .
+# ln -s $ROOT_DATA_DIR/TOPAZ4/198910_201512/*.nc .
+# ln -s $ROOT_DATA_DIR/ERAI/*.nc .
+# ln -s $ROOT_DATA_DIR/ASR_FINAL/*.nc .
+ln -s $ROOT_DATA_DIR/CFSR/cfsr.6h.2000*.nc .
+# ln -s $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc .
+# ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/*.nc .
+# ln -s $ROOT_DATA_DIR/NIC_ice_charts/*.nc .
+# ln -s $ROOT_DATA_DIR/NIC_weekly_ice_charts/*.nc .
+# ln -s $ROOT_DATA_DIR/SIT_data/icesat_filled_10prods/*.nc .
+# ln -s $ROOT_DATA_DIR/currents_from_altimeter/*.nc .
+# ln -s $ROOT_DATA_DIR/RGPS_ice_drift/trajectories/*.txt .
+# ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
+# ln -s $ROOT_DATA_DIR/ECMWF_forecast_arctic/*.nc .
+# ln -s $ROOT_DATA_DIR/ERAI_waves_1deg/*.nc .
+# ln -s $ROOT_DATA_DIR/WW3arctic_RT/*.nc .
 
-# OSISAF products
-ln -s $ROOT_DATA_DIR/OSISAF_ice_conc/polstere/*_nh_polstere/*.nc .
-ln -s $ROOT_DATA_DIR/OSISAF_ice_type/*/*/*.nc .
-ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/*/*/*.nc .
-
-# - example files needed for OSISAF drifters grids
-ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
-ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/ice_drift*refined*.nc .
-
-# For the Moorings
-ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
-ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/*/*.nc .
-
-# CS2-SMOS ice thickness
-# script links weekly files to 7 daily files
-$thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
-
-# Other links (just so they don't get buried by all the .nc files)
-# - eg drifters
-ln -s $ROOT_DATA_DIR/IABP/IABP_buoys*.txt .
-
-# Link some other files (possibly for testing) (TODO needed?)
-ln -s $thisdir/../misc/* .
-
-# lot of links so update the list of files
-ls -lh > FileList.txt
+# # OSISAF products
+# ln -s $ROOT_DATA_DIR/OSISAF_ice_conc/polstere/*_nh_polstere/*.nc .
+# ln -s $ROOT_DATA_DIR/OSISAF_ice_type/*/*/*.nc .
+# ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/*/*/*.nc .
+# 
+# # - example files needed for OSISAF drifters grids
+# ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/2017/07/ice_drift_nh_polstere-625_multi-oi_201707101200-201707121200.nc ice_drift_nh_polstere-625_multi-oi.nc
+# ln -s $ROOT_DATA_DIR/OSISAF_ice_drift/ice_drift*refined*.nc .
+# 
+# # For the Moorings
+# ln -s $ROOT_DATA_DIR/AMSR2_ice_conc/Arc_20170710_res3.125_pyres.nc Arc_res3.125_pyres.nc
+# ln -s $ROOT_DATA_DIR/AMSRE_ice_conc/*/*.nc .
+# 
+# # CS2-SMOS ice thickness
+# # script links weekly files to 7 daily files
+# $thisdir/CS2_SMOS_pp.sh $ROOT_DATA_DIR/CS2_SMOS_v13/*.nc
+# 
+# # Other links (just so they don't get buried by all the .nc files)
+# # - eg drifters
+# ln -s $ROOT_DATA_DIR/IABP/IABP_buoys*.txt .
+# 
+# # Link some other files (possibly for testing) (TODO needed?)
+# ln -s $thisdir/../misc/* .
+# 
+# # lot of links so update the list of files
+# ls -lh > FileList.txt
