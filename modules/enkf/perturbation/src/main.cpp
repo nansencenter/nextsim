@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 	int a = 129600;
 	int b = 8;
 
-	ens.generate_ensemble(a, b);
+	ens.addPerturbation(a);
 
 	cout<< "Size of uwind : \t" << ens.synoptic.uwind.data.size()  << '\n';
 	cout<< "Size of vwind : \t" << ens.synoptic.vwind.data.size()  << '\n';
@@ -24,14 +24,14 @@ int main(int argc, char** argv)
 	cout<< "Size of precip: \t" << ens.synoptic.precip.data.size() << '\n';
 	cout<< "Size of relhum: \t" << ens.synoptic.relhum.data.size() << '\n';
 
-	ens.compute_minmax( ens.synoptic.uwind.data, ens.synoptic.uwind.name );
-	ens.compute_vmean(  ens.synoptic.uwind.data, ens.synoptic.uwind.name );
-	ens.compute_minmax( ens.synoptic.vwind.data, ens.synoptic.vwind.name );
-	ens.compute_vmean(  ens.synoptic.vwind.data, ens.synoptic.vwind.name );
-	ens.compute_minmax( ens.synoptic.t2air.data, ens.synoptic.t2air.name );
-	ens.compute_vmean(  ens.synoptic.t2air.data, ens.synoptic.t2air.name );
-	ens.compute_minmax( ens.synoptic.slp.data  , ens.synoptic.slp.name   );
-	ens.compute_vmean(  ens.synoptic.slp.data  , ens.synoptic.slp.name   );
+	ens.computeMinMax( ens.synoptic.uwind.data, ens.synoptic.uwind.name );
+	ens.computeVecMean(  ens.synoptic.uwind.data, ens.synoptic.uwind.name );
+	ens.computeMinMax( ens.synoptic.vwind.data, ens.synoptic.vwind.name );
+	ens.computeVecMean(  ens.synoptic.vwind.data, ens.synoptic.vwind.name );
+	ens.computeMinMax( ens.synoptic.t2air.data, ens.synoptic.t2air.name );
+	ens.computeVecMean(  ens.synoptic.t2air.data, ens.synoptic.t2air.name );
+	ens.computeMinMax( ens.synoptic.slp.data  , ens.synoptic.slp.name   );
+	ens.computeVecMean(  ens.synoptic.slp.data  , ens.synoptic.slp.name   );
 
 	return 0;
 }
