@@ -131,12 +131,19 @@ namespace Nextsim
 
             // -- moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
+#ifdef OASIS
+            ("moorings.grid_type", po::value<std::string>()->default_value( "coupled" ),
+                "[coupled|regular|from_file] for using the coupling grid, a regular spaced grid, or a grid read in from the file moorings.grid_file (default: coupled)")
+#else
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+#endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
+            ("moorings.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
@@ -196,14 +203,20 @@ namespace Nextsim
             // -- outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging")
+            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of restart.output_time_step: days or time_steps")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+#if 0
+            //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
+            ("output.variables", po::value<std::vector<std::string>>()->multitoken()
+                ->default_value( std::vector<std::string>{}, "")->composing(),
+                "list of variable names (put on separate lines in config file)")
+#endif
 
             // --exporter
             ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
@@ -352,6 +365,9 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
+#ifdef AEROBULK
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
+#endif
         
              //-----------------------------------------------------------------------------------
              //! - Nesting

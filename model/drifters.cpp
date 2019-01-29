@@ -140,8 +140,7 @@ Drifters::Drifters(std::string const& filename,
             old_number = number;
 
         drifter_text_file >> year >> month >> day >> hour >> number >> lat >> lon;
-        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = from_date_string(date) + hour/24.;
+        time = Nextsim::getDatenum(year, month, day, hour);
 
         // may not be eof if \n at end of file
         // - this can lead to repetition of the last line

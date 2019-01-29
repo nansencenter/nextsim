@@ -16,89 +16,91 @@
 namespace gregorian = boost::gregorian;
 namespace date_time = boost::date_time;
 namespace posix_time = boost::posix_time;
-
+ 
 namespace Nextsim
 {
-inline double dateStr2Num(std::string const& datestr)
+
+//! get the nextsim reference time as a boost::gregorian::date object
+inline boost::gregorian::date getEpoch()
 {
-	gregorian::date epoch = date_time::parse_date<gregorian::date>( "1900-01-01", date_time::ymd_order_iso);
-	gregorian::date date = date_time::parse_date<gregorian::date>( datestr, date_time::ymd_order_iso);
-
-	if (date.year() < 1900 )
-	{
-		std::cout << "bad year: year should be greater or equal 1900"<<"\n";
-		throw std::logic_error("bad year: year should be greater or equal 1900");
-	}
-
-	gregorian::date_duration diff = date - epoch;
-	return diff.days();
+    return boost::gregorian::date(1900, 1, 1);
 }
 
+ 
+//! convert boost::posix_time::ptime object to a date-time string according to a given input
+//! format
+//! * for available formats see:
+//!   https://www.boost.org/doc/libs/1_68_0/doc/html/date_time/date_time_io.html
+//! * eg 2005-12-06 would come from format="%Y-%m-%d" (this is the default)
+inline std::string posixTimeToString( boost::posix_time::ptime const& p_time,
+        std::string const& format="%Y-%m-%d %H:%M:%S" )
+{
+    std::stringstream ss;
+    std::locale loc(ss.getloc(),
+            new boost::posix_time::time_facet(format.c_str()));
+        //NB pointer is deleted when loc is deleted (at the end of the function)
+    ss.imbue(loc);
+    ss << p_time;
+    return ss.str();
+}
+
+
+//! convert date string to boost::posix_time::ptime object
+//! * \note only accepts %Y-%m-%d %H:%M:%S or %Y-%m-%d date formats
+inline boost::posix_time::ptime stringToPosixTime( std::string datestr)
+{
+    if (datestr.find(" ") != std::string::npos)
+        return boost::posix_time::time_from_string(datestr);
+    else
+        return boost::posix_time::ptime(
+                boost::date_time::parse_date<boost::gregorian::date>(
+                    datestr, boost::date_time::ymd_order_iso));
+}
+
+
+//! convert boost::posix_time::ptime to nextsim time (decimal days since 1900-1-1 0:00)
+inline double posixTimeToDatenum( boost::posix_time::ptime const& p_time)
+{
+    if(p_time.date().year()<1900)
+    {
+        std::string msg = "bad year (" + std::to_string(p_time.date().year())
+            + "): year should be >= 1900";
+		throw std::logic_error(msg);
+    }
+
+    auto diff = p_time.date() - Nextsim::getEpoch();
+    double datenum = diff.days();//get number of days
+    datenum += p_time.time_of_day().total_seconds()/(24.*3600.);//add fractional day
+    return datenum;
+}
+
+
+//! convert string to nextsim time (decimal days since 1900-1-1 0:00)
+//! * \note only accepts %Y-%m-%d %H:%M:%S or %Y-%m-%d date formats
+inline double stringToDatenum( std::string const& datestr )
+{
+    return posixTimeToDatenum(
+            Nextsim::stringToPosixTime(datestr));
+}
+
+
+//! convert nextsim time (decimal days since 1900-1-1 0:00) to boost::gregorian::date
+//! * \note this just gets the date and ignores the time
 inline boost::gregorian::date parse_date( double date_time )
 {
-    boost::gregorian::date dt = boost::date_time::parse_date<boost::gregorian::date>( "1900-01-01", boost::date_time::ymd_order_iso );
-    dt += boost::gregorian::date_duration( static_cast<long>( floor(date_time) ) );
+    boost::gregorian::date dt = Nextsim::getEpoch();
+    dt += boost::gregorian::date_duration( static_cast<long>(date_time) );
     return dt;
 }
 
+
+//! convert nextsim time (decimal days since 1900-1-1 0:00) to boost::posix_time::time_duration
+//! * \note this just gets the time and ignores the date
 inline boost::posix_time::time_duration parse_time( double date_time )
 {
     double fractionalDay = date_time - floor(date_time);
     long milliseconds = static_cast<long>( floor( fractionalDay * 24.0 * 60.0 * 60.0 * 1000.0 + 0.5) );
     return boost::posix_time::milliseconds( milliseconds );
-}
-
-inline double from_date_string( const std::string& datestr )
-{
-    boost::gregorian::date epoch = boost::date_time::parse_date<boost::gregorian::date>( "1900-01-01", boost::date_time::ymd_order_iso);
-    boost::gregorian::date date = boost::date_time::parse_date<boost::gregorian::date>( datestr, boost::date_time::ymd_order_iso);
-
-    if (date.year() < 1900 )
-	{
-		std::cout << "bad year: year should be greater or equal 1900"<<"\n";
-		throw std::logic_error("bad year: year should be greater or equal 1900");
-	}
-
-    boost::gregorian::date_duration diff = date - epoch;
-    return diff.days();
-}
-
-inline std::string to_date_string( double date_time )
-{
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%-%2%-%3%" )
-            % dt.year()
-            % dt.month().as_number()
-            % dt.day().as_number()
-            ).str();
-}
-
-inline std::string to_date_string_yd( double date_time )
-{
-    // yyyymmdd
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%%3%" )
-            % dt.year()
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
-            ).str();
-}
-
-inline std::string to_date_string_ym( double date_time )
-{
-    // yyyymm
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%" )
-            % dt.year()
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
-            ).str();
-}
-
-inline std::string to_date_string_y( double date_time )
-{
-    // yyyy
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%" ) % dt.year()).str();
 }
 
 inline std::string to_date_string_md( double date_time )
@@ -111,82 +113,70 @@ inline std::string to_date_string_md( double date_time )
             ).str();
 }
 
-inline double from_date_time_string( const std::string& datestr )
+//! convert nextsim time (decimal days since 1900-1-1 0:00) to boost::posix_time::ptime
+inline boost::posix_time::ptime datenumToPosixTime( double const& datenum)
 {
-    double date = from_date_string( datestr );
-
-    if (datestr.find(" ") != std::string::npos)
-    {
-        //std::string date_time_str = datestr + " 00:00:00";
-        boost::posix_time::ptime t = boost::posix_time::time_from_string( datestr );
-        double seconds = static_cast<double>(t.time_of_day().total_seconds());
-        date += (seconds / 24.0 / 60.0 / 60.0);
-    }
-
-    // if milliseconds are needed
-    // double milliseconds = static_cast<double>(t.time_of_day().total_milliseconds());
-    // date += (milliseconds / 24.0 / 60.0 / 60.0 / 1000.0);
-
-    return date;
+    return boost::posix_time::ptime( Nextsim::parse_date(datenum),
+            Nextsim::parse_time(datenum) );
 }
 
-inline std::string to_date_time_string( double date_time )
+
+//! convert nextsim time (decimal days since 1900-1-1 0:00) to string
+inline std::string datenumToString( double const& datenum, std::string const& format="%Y-%m-%d %H:%M:%S")
 {
-    // yyyy-mm-dd hh:mm:ss.fss
-    boost::gregorian::date date_part = Nextsim::parse_date( date_time );
-    boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
-
-    long long fractional_seconds = time_part.fractional_seconds();
-    boost::date_time::time_resolutions resolution = time_part.resolution();
-    if ( resolution == boost::date_time::micro )
-    {
-        fractional_seconds /= 1000;
-    }
-    else
-    {
-        if (resolution != boost::date_time::milli)
-            throw std::logic_error( "Unexpected time resolution" );
-    }
-
-    return (boost::format( "%d-%02d-%02d %02d:%02d:%02d.%03d" )
-            % date_part.year()
-            % date_part.month().as_number()
-            % date_part.day().as_number()
-            % time_part.hours()
-            % time_part.minutes()
-            % time_part.seconds()
-            % fractional_seconds
-            ).str();
+    auto p_time = datenumToPosixTime(datenum);
+    return posixTimeToString(p_time, format);
 }
 
-inline std::string to_date_time_string_for_filename( double date_time )
-{
-    // yyyymmddThhmmssZ
-    boost::gregorian::date date_part = Nextsim::parse_date( date_time );
-    boost::posix_time::time_duration time_part = Nextsim::parse_time( date_time );
 
-    return (boost::format( "%d%02d%02dT%02d%02d%02dZ" )
-            % date_part.year()
-            % date_part.month().as_number()
-            % date_part.day().as_number()
-            % time_part.hours()
-            % time_part.minutes()
-            % time_part.seconds()
-            ).str();
+//! convert year, month, day, hour, minute, second info directly to boost::posix_time::ptime object
+inline boost::posix_time::ptime getPosixTime(int const& year, int const& month, int const& day,
+        int const& hour=0, int const& minute=0, int const& seconds=0)
+{
+    boost::gregorian::date pdate(year, month, day);
+    boost::posix_time::time_duration dtime = boost::posix_time::hours(hour)
+        + boost::posix_time::minutes(minute) + boost::posix_time::seconds(seconds);
+    return boost::posix_time::ptime(pdate, dtime);
 }
 
+
+//! convert year, month, day, hour, minute, second info directly to nextsim time
+//! (decimal days since 1900-1-1 0:00)
+inline double getDatenum(int const& year, int const& month, int const& day,
+        int const& hour=0, int const& minute=0, int const& seconds=0)
+{
+    auto p_time = Nextsim::getPosixTime(year, month, day, hour, minute, seconds);
+    return Nextsim::posixTimeToDatenum(p_time);
+}
+
+
+//! convert nextsim time (double) to a standate date-time string for use
+//! in output filenames
+//! * eg 20180101T123143Z
+inline std::string datenumToFilenameString( double date_time )
+{
+    return Nextsim::datenumToString(date_time, "%Y%m%dT%H%M%SZ");
+}
+
+
+//! get a string representation of the current local time
 inline std::string current_time_local()
 {
     posix_time::ptime today_local(gregorian::day_clock::local_day(), posix_time::second_clock::local_time().time_of_day());
     return posix_time::to_simple_string(today_local);
 }
 
+
+//! get a string representation of the current UTC time
 inline std::string current_time_UTC()
 {
     posix_time::ptime today_utc(gregorian::day_clock::universal_day(), posix_time::second_clock::universal_time().time_of_day());
     return posix_time::to_simple_string(today_utc);
 }
 
+
+//! get a string representation of the time difference between the current time and the reference time
+//! given as input (as a string)
 inline std::string time_spent( const std::string& value )
 {
     posix_time::ptime epoch = posix_time::time_from_string( value );
@@ -195,17 +185,79 @@ inline std::string time_spent( const std::string& value )
     return posix_time::to_simple_string(diff);
 }
 
-inline std::string model_time_str( const std::string& datestr, double time_in_seconds = 0)
-{
-    std::string date_time_str = datestr;
-    if (date_time_str.find(" ") == std::string::npos)
-    {
-        date_time_str += " 00:00:00";
-    }
 
-    boost::posix_time::ptime posixtime = boost::posix_time::time_from_string( date_time_str );
-    posixtime += boost::posix_time::time_duration(0,0,time_in_seconds);
-    return to_simple_string(posixtime);
+// function that can be called to test the date functions
+// NB calls std::abort() so stops the run
+inline void test_date_functions()
+{
+    std::cout<<"test date functions\n";
+    std::string s1, s2;
+    boost::posix_time::ptime p_time;
+    double num;
+    s1 = "1991-08-20 08:05:00";
+    p_time = boost::posix_time::time_from_string(s1);
+
+    std::cout<<"test posixTimeToString\n";
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<s1<<" ?= "<<s2<<"\n";
+    s2 = Nextsim::posixTimeToString(p_time, "%Y%m%dT%H%M%SZ");
+    std::cout<<s1<<" ~ "<<s2<<"\n";
+
+    std::cout<<"test stringToPosixTime\n";
+    p_time = Nextsim::stringToPosixTime(s1);
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<s1<<" ?= "<<s2<<"\n";
+
+    s1 = "1991-8-20 8:05:00";
+    p_time = Nextsim::stringToPosixTime(s1);
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<s1<<" ~ "<<s2<<"\n";
+
+    s1 = "1991-08-20";
+    p_time = Nextsim::stringToPosixTime(s1);
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<s1<<" ?= "<<s2<<"\n";
+
+    std::cout<<"test posixTimeToDatenum\n";
+    p_time = boost::posix_time::time_from_string("1900-01-02 18:00:00");
+    num = Nextsim::posixTimeToDatenum(p_time);
+    std::cout<<1.75<<" ?= "<<num<<"\n";
+
+    std::cout<<"test stringToDatenum\n";
+    s1 = "2006-12-01 00:00:00";
+    num = Nextsim::stringToDatenum(s1);
+    std::cout<<39050<<" = "<<num<<"\n";
+    s2 = Nextsim::datenumToString(num);
+    std::cout<<s1<<" ~ "<<s2<<"\n";
+
+    std::cout<<"test datenumToString\n";
+    s2 = Nextsim::datenumToString(1.75);
+    std::cout << "1900-01-02 18:00:00 = " << s2 <<"\n" ;
+    s2 = Nextsim::datenumToString(1.75, "%Y%m%dT%H%M%SZ");
+    std::cout << "19000102T180000Z = " << s2 <<"\n" ;
+
+    std::cout<<"test datenumToFilenameString\n";
+    s2 = Nextsim::datenumToFilenameString(1.75);
+    std::cout << "19000102T180000Z = " << s2 <<"\n" ;
+
+    std::cout<<"test getPosixTime\n";
+    p_time = Nextsim::getPosixTime(1932, 4, 8, 11, 31, 13);
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
+    p_time = Nextsim::getPosixTime(1932, 4, 8);
+    s2 = Nextsim::posixTimeToString(p_time);
+    std::cout<<"1932-04-08 00:00:00"<<" ?= "<<s2<<"\n";
+
+    std::cout<<"test getDatenum\n";
+    num = Nextsim::getDatenum(1900, 1, 2, 18);
+    std::cout<<1.75<<" ?= "<<num<<"\n";
+    s2 = Nextsim::datenumToString(num);
+    std::cout<<"1900-01-02 18:00:00"<<" ?= "<<s2<<"\n";
+    num = Nextsim::getDatenum(1932, 4, 8, 11, 31, 13);
+    s2 = Nextsim::datenumToString(num);
+    std::cout<<"1932-04-08 11:31:13"<<" ?= "<<s2<<"\n";
+
+    std::abort();
 }
 
 

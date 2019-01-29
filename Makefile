@@ -12,6 +12,9 @@ all:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
 endif
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make
+endif
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
@@ -21,6 +24,9 @@ clean:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
 endif
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make clean
+endif
 
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
@@ -29,6 +35,9 @@ mrproper: clean
 	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
+endif
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make mrproper
 endif
 # rules to compile model code as well as lib's
 All: all
