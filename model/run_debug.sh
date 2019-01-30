@@ -9,9 +9,9 @@ export MPIWRAP_DEBUG=warn
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-    echo "Usage: $0 config_file.cfg num_cpus"
+    echo "Usage: $0 [CONFIG_FILE NUM_CPUS]"
     echo "Or: $0 [CONFIG_FILE NUM_CPUS MUMPS_MEM]"
-    echo where MUMPS_MEM is the memory reserved for the solver
+    echo "where MUMPS_MEM is the memory reserved for the solver (%)"
     exit 1
 fi
 

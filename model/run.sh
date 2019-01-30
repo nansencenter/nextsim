@@ -2,26 +2,22 @@
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-   echo "Usage: $0 config_file.cfg num_cpus"
-   echo "Usage: $0 config_file.cfg num_cpus envfile"
-   echo envfile is a file to be sourced to set some environment variables
+   echo "Usage: $0 CONFIG_FILE NUM_CPUS"
+   echo "Usage: $0 CONFIG_FILE NUM_CPUS MUMPS_MEM"
+   echo "where MUMPS_MEM is the memory reserved for the solver (%)"
    exit 1
 fi
 
 CONFIG=$1
 NCPU=$2
-
 if [ $NCPU -lt 2 ]
 then
-   echo "Error: num_cpus cannot be less than 2"
+   echo "Error: input NUM_CPUS cannot be less than 2"
    exit 2
 fi
 
-if [ $# -ge 3 ]
-then
-   echo "source $3"
-   source $3
-fi
+# Memory reserved for solver
+MUMPS_MEM=${3-60}
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code

@@ -23,7 +23,7 @@ then
     echo "       NUM_CPUS, number of CPUs. Must be >= 2."
     echo ""
     echo "If CONFIG_FILE NUM_CPUS are not given /bin/bash is executed"
-    echo MUMPS_MEM is the memory reserved for the solver
+    echo "MUMPS_MEM is the memory reserved for the solver (%)"
     exit 0
 fi
 
