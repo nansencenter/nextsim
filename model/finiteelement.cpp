@@ -760,7 +760,6 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
-    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
     
 #if 1
@@ -1136,8 +1135,6 @@ FiniteElement::initOptAndParam()
     
     
     //! Sets mechanical parameter values
-    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
-    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strenght as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
@@ -4767,10 +4764,8 @@ FiniteElement::calcCohesion()
 {
     for (int i=0; i<M_Cohesion.size(); ++i)
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-    
-    for (int i=0; i<M_Compressive_strength.size(); ++i)
-        M_Compressive_strength[i] = compr_strength*scale_coef;
-}//calcCohesion
+}
+//calcCohesion
 
     
 //------------------------------------------------------------------------------------------------------
@@ -4831,7 +4826,7 @@ FiniteElement::update()
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double tract_max, sigma_t, sigma_c;
+        double sigma_t, sigma_c;
         double tmp, sigma_target, tmp_factor;
     
         
@@ -5041,9 +5036,6 @@ FiniteElement::update()
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
     
-        double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
-        double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
-        double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
 
         double hi=0.;
         if(M_conc[cpt]>0.1)
@@ -5053,13 +5045,10 @@ FiniteElement::update()
 
 
         //double effective_cohesion = (1.0-old_damage) * M_Cohesion[cpt];
-        //double effective_compressive_strength = (1.0-old_damage) * M_Compressive_strength[cpt];
         double effective_cohesion = 1.0 * M_Cohesion[cpt];
-        double effective_compressive_strength = 1.0 * M_Compressive_strength[cpt];
             
         sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
-        tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
             
         
         /* Calculate the characteristic time for damage */
@@ -5069,28 +5058,7 @@ FiniteElement::update()
             
             
         /* Calculate the adjusted level of damage */
-           
-            if(sigma_n>effective_compressive_strength)
-        {
-            sigma_target=effective_compressive_strength;
-            tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
-            
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt] = min(tmp, 1.0);
-            }
-        }
-
+       
         if((sigma_1-q*sigma_2)>sigma_c)
         {
             sigma_target = sigma_c;
@@ -5112,26 +5080,6 @@ FiniteElement::update()
             }
         }
 
-        if(sigma_n<tract_max)
-        {
-            sigma_target = tract_max;
-            tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
-            
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt] = min(tmp, 1.0);
-            }
-        }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.
