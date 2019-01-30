@@ -8,10 +8,10 @@ then
    exit 1
 fi
 
-config=$1
-ncpu=$2
+CONFIG=$1
+NCPU=$2
 
-if [ $ncpu -lt 2 ]
+if [ $NCPU -lt 2 ]
 then
    echo "Error: num_cpus cannot be less than 2"
    exit 2
@@ -55,14 +55,16 @@ then
 fi
 
 # Run the nextsim model
-logfile=$(basename $config .cfg).log
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=$config 2>&1 | tee $logfile
+logfile=$(basename $CONFIG .cfg).log
+# Memory reserved for solver
+mumps_mem=60
+mpirun $opts -np $NCPU $prog -mat_mumps_icntl_23 $mumps_mem --config-files=$CONFIG 2>&1 | tee $logfile
 
 if [ "$MAILTO" != "" ]
 then
    # send email at finish of run
    # export MAILTO=... to activate
-   mail -s "neXtSIM run finished ($config)" -a $logfile $MAILTO
+   mail -s "neXtSIM run finished ($CONFIG)" -a $logfile $MAILTO
 fi
 
 # Run the CPU profiler (google perftools)
