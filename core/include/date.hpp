@@ -103,15 +103,6 @@ inline boost::posix_time::time_duration parse_time( double date_time )
     return boost::posix_time::milliseconds( milliseconds );
 }
 
-inline std::string to_date_string_md( double date_time )
-{
-    // mmdd
-    boost::gregorian::date dt = Nextsim::parse_date( date_time );
-    return (boost::format( "%1%%2%" )
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.month().as_number())
-            % boost::io::group(std::setw(2), std::setfill('0'), dt.day().as_number())
-            ).str();
-}
 
 //! convert nextsim time (decimal days since 1900-1-1 0:00) to boost::posix_time::ptime
 inline boost::posix_time::ptime datenumToPosixTime( double const& datenum)
