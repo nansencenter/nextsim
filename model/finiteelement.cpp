@@ -4778,10 +4778,9 @@ FiniteElement::update()
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
         double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
         double td = td0;
-        if (time_step/td0 > 10.0) {
+        if (dtime_step/td0 > 10.0) {
             std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
         }
-    }
         std::string td_type = vm["damage.td_type"].as<std::string>();
     
     // Slope of the MC enveloppe
@@ -4990,10 +4989,10 @@ FiniteElement::update()
                 sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
             }
 
-            sigma[i] = (M_sigma[3*cpt+i]+time_step*sigma_dot_i)*multiplicator;
+            sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
             sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
-            M_sigma[3*cpt+i] = sigma[i];
+            M_sigma[i][cpt] = sigma[i];
   
         }
 
@@ -5027,7 +5026,7 @@ FiniteElement::update()
         
         /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent") {
-             td = min(td0*pow(1-old_damage,-0.5), time_step);
+             td = min(td0*pow(1-old_damage,-0.5), dtime_step);
             }
             
             
@@ -5036,16 +5035,16 @@ FiniteElement::update()
         if((sigma_1-q*sigma_2)>sigma_c)
         {
             sigma_target = sigma_c;
-            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + 1.0);
+            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
 
             if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
             }
             if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + old_damage;
+                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
             }
             if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),time_step/td);
+                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
             }
 
             if(tmp>M_damage[cpt])
