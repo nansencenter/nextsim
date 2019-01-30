@@ -835,7 +835,7 @@ hminVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh)
             }
             else
             {
-                break;
+                continue;
             }
         }
 
@@ -866,7 +866,7 @@ hmaxVertices(T_gmsh const& mesh, BamgMesh const* bamg_mesh)
             }
             else
             {
-                break;
+                continue;
             }
         }
 

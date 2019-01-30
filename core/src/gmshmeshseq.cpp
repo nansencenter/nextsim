@@ -73,10 +73,7 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
 void
 GmshMeshSeq::setMppFile()
 {
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+	M_mppfile = Environment::nextsimMppfile();
 }
 
 // GmshMeshSeq::~GmshMeshSeq()
@@ -397,6 +394,9 @@ GmshMeshSeq::initGModel()
 
     Msg::SetVerbosity(5);
     CTX::instance()->terminal = 1;
+    //CTX::instance()->mesh.saveTopology;
+    CTX::instance()->mesh.fileFormat = FORMAT_MSH;
+    CTX::instance()->mesh.mshFileVersion = 2.2;
     //M_partition_options.num_partitions = Environment::comm().size();
     CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
 }
@@ -517,14 +517,16 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
     std::ostringstream gmshstr;
     gmshstr << BOOST_PP_STRINGIZE( gmsh )
             << " -" << 2
-            << " -part " << Environment::comm().size();
+            << " -part " << Environment::comm().size()
+            << " -format " << "msh2";
 
     if (format == "binary")
     {
         gmshstr << " -bin";
     }
 
-    gmshstr << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
+    gmshstr << " -string " << "\"Mesh.MshFileVersion="<< 2.2 <<";\""
+            << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
             << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
             << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
             << " -string " << "\"General.Verbosity=0;\""

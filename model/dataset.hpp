@@ -18,6 +18,8 @@
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>
 #include <BamgTriangulatex.h>
+#include <assert.hpp>
+#include <debug.hpp>
 extern "C"
 {
 #include <mapx.h>
@@ -41,6 +43,9 @@ namespace Nextsim
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
+#if defined OASIS
+        ConservativeRemapping = 3
+#endif
     };
 
     typedef struct WaveOptions
@@ -126,7 +131,7 @@ public:
     typedef struct Grid
     {
         InterpolationType interpolation_method;
-		int interp_type;
+        int interp_type;
         std::string dirname;
         std::string prefix;
         std::string postfix;
@@ -140,17 +145,28 @@ public:
         Dimension dimension_y;
 
         std::string mpp_file;
-		bool interpolation_in_latlon;
-		double branch_cut_lon;//where the discontinuity in lon is (only for if interpolation_in_latlon=true)
+        bool interpolation_in_latlon;
 
         bool loaded;
         std::string dataset_frequency;
 
         WaveOptions waveOptions;
 
-		bool masking;
-		Variable masking_variable;
-		std::vector<int> reduced_nodes_ind;
+        bool masking;
+        Variable masking_variable;
+
+        // optional variables below here...
+#if defined OASIS
+        bool gridded_rotation_angle;
+        Variable vector_rotation_variable;
+
+        std::vector<double> gridTheta;
+#endif
+
+		double branch_cut_lon;
+                // where the discontinuity in lon is (only used if interpolation_in_latlon=true,
+                // and is now determined automatically in loadGrid)
+        std::vector<int> reduced_nodes_ind;
 
         std::vector<int> pfindex;
         int pfnels;
@@ -194,6 +210,8 @@ public:
 
     void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
 
+    std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
+    void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);
     void getLatLonRegularLatLon(double* LAT, double* LON,
                                   netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
@@ -211,7 +229,18 @@ public:
 
 #if defined OASIS
     bool coupled;
+    std::vector<int> M_cpl_id;
+
+    void setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
+
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
 #endif
+
+private:
+
+    LogLevel M_log_level;
 };
 
 } // Nextsim
