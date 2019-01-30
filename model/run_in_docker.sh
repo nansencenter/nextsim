@@ -37,7 +37,7 @@ then
 fi
 
 # Memory reserved for solver
-MUMPS_MEM=${3-60}
+MUMPS_MEM=${3-200}
 
 # Run the nextsim model usin MPI
 mpirun --allow-run-as-root -np $NCPU nextsim.exec -mat_mumps_icntl_23 $MUMPS_MEM --config-files=$CONFIG

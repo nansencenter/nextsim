@@ -18,7 +18,7 @@ fi
 CONFIG=$1
 NCPU=$2
 # Memory reserved for solver
-MUMPS_MEM=${3-60}
+MUMPS_MEM=${3-200}
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code

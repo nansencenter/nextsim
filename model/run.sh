@@ -17,7 +17,7 @@ then
 fi
 
 # Memory reserved for solver
-MUMPS_MEM=${3-60}
+MUMPS_MEM=${3-200}
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -52,9 +52,7 @@ fi
 
 # Run the nextsim model
 logfile=$(basename $CONFIG .cfg).log
-# Memory reserved for solver
-mumps_mem=60
-mpirun $opts -np $NCPU $prog -mat_mumps_icntl_23 $mumps_mem --config-files=$CONFIG 2>&1 | tee $logfile
+mpirun $opts -np $NCPU $prog -mat_mumps_icntl_23 $MUMPS_MEM --config-files=$CONFIG 2>&1 | tee $logfile
 
 if [ "$MAILTO" != "" ]
 then
