@@ -7523,7 +7523,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::age_o):
+            case (GridOutput::variableID::age_d):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_age_det[i]*time_factor;
                 break;
@@ -7811,7 +7811,7 @@ FiniteElement::initMoorings()
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
-            ("age_o", GridOutput::variableID::age_o)
+            ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
 
         ;

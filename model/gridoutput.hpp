@@ -140,7 +140,7 @@ public:
         hs_thin     = 14,
         conc_thin   = 15,
         fyi_fraction    = 16,
-        age_o       = 17,
+        age_d       = 17,
         age         = 18,
 
         // Diagnostic variables
@@ -323,10 +323,10 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::age_o):
-                    name     = "sia_obs";
-                    longName = "Observable sea ice age";
-                    stdName  = "obs_sea_ice_age";
+                case (variableID::age_d):
+                    name     = "sia_det";
+                    longName = "Detectable sea ice age";
+                    stdName  = "det_sea_ice_age";
                     Units    = "s";
                     cell_methods = "area: mean";
                     break;
