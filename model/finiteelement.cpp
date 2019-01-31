@@ -2270,7 +2270,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
     {
         tmp_nb_var=0;
 
-        // Order of variables has be same as in collectVariables!
+        // Order of variables has to be the same as in collectVariables!
         // concentration
         M_conc[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
