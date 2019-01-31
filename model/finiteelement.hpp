@@ -780,7 +780,6 @@ private:
     std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
     std::vector<double> M_age_obs_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
-   
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
@@ -789,8 +788,6 @@ private:
     std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
     std::vector<double> M_age_obs_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
-    
-    
 
 private:
     // Variables for the moorings

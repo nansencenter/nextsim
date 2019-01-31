@@ -329,15 +329,15 @@ public:
                     stdName  = "obs_sea_ice_age";
                     Units    = "s";
                     cell_methods = "area: mean";
-                    break;   
+                    break;
                 case (variableID::age):
                     name     = "sia";
                     longName = "Sea ice age";
                     stdName  = "aea_ice_age";
                     Units    = "s";
                     cell_methods = "area: mean";
-                    break;   
-                    
+                    break;
+
                 // Diagnostic variables
                 case (variableID::Qa):
                     name     = "hfs";
