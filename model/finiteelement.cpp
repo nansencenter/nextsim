@@ -5961,7 +5961,7 @@ FiniteElement::thermo(int dt)
         {
 
             // FYI fraction (in the cell/triangle).
-            std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
+            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
             if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
