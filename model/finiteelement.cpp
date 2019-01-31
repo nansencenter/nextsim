@@ -549,7 +549,7 @@ FiniteElement::initVariables()
     M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
     M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
-    M_age_obs.assign(M_num_elements,0.); //! \param M_age_obs (double) Sea ice age observable from space [s]
+    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
     M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
     
     M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
@@ -2201,7 +2201,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
         tmp_nb_var++;
 
         // Ice age observable from space (area weighted) [s]
-        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_age_obs[i];
+        interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_age_det[i];
         M_interp_method[tmp_nb_var] = 1;
         M_diffusivity_parameters[tmp_nb_var]=0.;
         tmp_nb_var++;
@@ -2370,7 +2370,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         tmp_nb_var++;
 
         // Ice age observable from space (area weighted) [s]
-        M_age_obs[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
+        M_age_det[i] = std::max(0., out_elt_values[nb_var_element*i+tmp_nb_var]);
         tmp_nb_var++;
 
         // Effective ice age [s]
@@ -2485,8 +2485,8 @@ FiniteElement::setPointersElements(
             case(ModelVariable::variableID::M_fyi_fraction):
                 data.push_back(&M_fyi_fraction); // FYI fraction
                 break;
-            case(ModelVariable::variableID::M_age_obs):
-                data.push_back(&M_age_obs); // observable ice age
+            case(ModelVariable::variableID::M_age_det):
+                data.push_back(&M_age_det); // observable ice age
                 break;
             case(ModelVariable::variableID::M_age):
                 data.push_back(&M_age); // ice age
@@ -3304,7 +3304,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     M_random_number.resize(M_num_elements);
     M_fyi_fraction.assign(M_num_elements,0.);
     M_age.assign(M_num_elements,0.);
-    M_age_obs.assign(M_num_elements,0.);
+    M_age_det.assign(M_num_elements,0.);
 
     M_sst.resize(M_num_elements);
     M_sss.resize(M_num_elements);
@@ -5954,7 +5954,7 @@ FiniteElement::thermo(int dt)
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
         {
             M_fyi_fraction[i] = 0.;
-            M_age_obs[i] = 0.;
+            M_age_det[i] = 0.;
             M_age[i] =  0.;
         }
         else    //If there is ice
@@ -5976,20 +5976,18 @@ FiniteElement::thermo(int dt)
 
             // Observable sea ice age tracer
             // Melt does not effect the age, growth makes it younger
-            double old_age_obs = M_age_obs[i];
-
-            M_age_obs[i] = old_age_obs+dt*M_conc[i];
+            M_age_det[i] += dt*M_conc[i];
 
             // Real (volume weighted and conserving) sea ice age
             double old_age = M_age[i];
-            double del_vi = M_thick[i] - old_vol;
+            double del_vi_thick = M_thick[i] - old_vol;
 
             // potential devision by zero and non-initialized old_vol (strange value) in the first time step
-            if (old_vol > 0. && del_vi > 0.) // freezing
+            if (old_vol > 0. && del_vi_thick > 0.) // freezing
             {
-                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi)/M_thick[i];
+                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
             }
-            else if (old_vol > 0. && del_vi < 0.) // melting
+            else if (old_vol > 0. && del_vi_thick < 0.) // melting
             {
                 M_age[i] = old_age+dt;
             }
@@ -6748,8 +6746,8 @@ FiniteElement::initModelVariables()
     M_variables.push_back(&vM_random_number);
     vM_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
     M_variables.push_back(&vM_fyi_fraction);
-    vM_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
-    M_variables.push_back(&vM_age_obs);
+    vM_age_det = ModelVariable(ModelVariable::variableID::M_age_det);
+    M_variables.push_back(&vM_age_det);
     vM_age = ModelVariable(ModelVariable::variableID::M_age);
     M_variables.push_back(&vM_age);
 
@@ -7527,7 +7525,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::age_o):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_age_obs[i]*time_factor;
+                    it->data_mesh[i] += M_age_det[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::age):
@@ -12898,8 +12896,8 @@ FiniteElement::checkFields()
     vec_names.push_back("M_sst");
     vecs_to_check.push_back(&M_fyi_fraction);
     vec_names.push_back("M_fyi_frac");
-    vecs_to_check.push_back(&M_age_obs);
-    vec_names.push_back("M_age_obs");
+    vecs_to_check.push_back(&M_age_det);
+    vec_names.push_back("M_age_det");
     vecs_to_check.push_back(&M_age);
     vec_names.push_back("M_age");
 

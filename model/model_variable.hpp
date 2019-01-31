@@ -73,7 +73,7 @@ public:
         M_conc_thin     = 13,
         M_random_number = 14,
         M_fyi_fraction  = 15,
-        M_age_obs       = 16,
+        M_age_det       = 16,
         M_age           = 17,
 
         // Diagnostic variables
