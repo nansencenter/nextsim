@@ -2094,7 +2094,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     {
         tmp_nb_var=0;
 
-        // Order of variables has be same as in redistributeVariables!
+        // Order of variables has to be the same as in redistributeVariables!
         // concentration
         interp_elt_in_local[nb_var_element*i+tmp_nb_var] = M_conc[i];
         M_interp_method[tmp_nb_var] = 1;
