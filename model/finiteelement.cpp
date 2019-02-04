@@ -4871,7 +4871,7 @@ FiniteElement::update()
          *======================================================================
          */
         double open_water_concentration=1.-M_conc[cpt];
-        
+
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
