@@ -4776,12 +4776,12 @@ FiniteElement::update()
     // Characteristic time for damage
     // Can be either fixed or damage-dependent
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
-        double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
-        double td = td0;
-        if (dtime_step/td0 > 10.0) {
-            std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
-        }
-        std::string td_type = vm["damage.td_type"].as<std::string>();
+    double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
+    double td = td0;
+    if (dtime_step/td0 > 10.0) {
+        std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
+    }
+    std::string td_type = vm["damage.td_type"].as<std::string>();
     
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
@@ -4877,7 +4877,7 @@ FiniteElement::update()
         {
             open_water_concentration -= M_conc_thin[cpt];
         }
-        
+
         // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
@@ -5001,7 +5001,6 @@ FiniteElement::update()
          *======================================================================
          */
 
-            
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
         sigma_n =-          (sigma[0]+sigma[1])/2.;
@@ -5016,11 +5015,7 @@ FiniteElement::update()
         else
             hi = M_thick[cpt]/0.1;
 
-
-        //double effective_cohesion = (1.0-old_damage) * M_Cohesion[cpt];
-        double effective_cohesion = 1.0 * M_Cohesion[cpt];
-            
-        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        sigma_c=2./(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
             
         
