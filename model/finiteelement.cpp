@@ -5015,7 +5015,7 @@ FiniteElement::update()
         else
             hi = M_thick[cpt]/0.1;
 
-        sigma_c=2./(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
             
         
