@@ -5020,13 +5020,10 @@ FiniteElement::update()
             
         
         /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent") {
-             td = min(td0*pow(1-old_damage,-0.5), dtime_step);
-            }
-            
-            
+        if (td_type == "damage_dependent")
+            td = min(td0*pow(1-old_damage,-0.5), dtime_step);
+
         /* Calculate the adjusted level of damage */
-       
         if((sigma_1-q*sigma_2)>sigma_c)
         {
             sigma_target = sigma_c;
