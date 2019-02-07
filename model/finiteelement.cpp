@@ -11030,7 +11030,7 @@ FiniteElement::cs2SmosIce()
 
     double tmp_var, correction_factor_warren;
     // Observational operator for correcting thin ice concentrations
-    // Coeffitients are fitted using data (figure) from Thomas Lavergne
+    // Coefficients are fitted using data (figure) from Thomas Lavergne
     // Atot = Aosisaf / OO(H)
     // OO(H) = 2y(exp(H/s + 0) / (1 + exp(H/s + 0)) - y
     // OO is applied only if H < 0.5
@@ -11108,12 +11108,12 @@ FiniteElement::cs2SmosIce()
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // In case of young ice
-            // Concentration is split into 0.2 and 0.8 for young and old ice
+            // Concentration is split into fy0 and 1 - fy0 for young and old ice
             M_conc_thin[i] = fy0 * M_conc[i];
             M_conc[i]  *= (1. - fy0);
             if (M_thick[i] / M_conc[i] <= ty0) {
                 // if absolute thickness (To = Ho / Ao) is below ty0 (see ty0 above):
-                // thickness is also split into 0.2 and 0.8
+                // thickness is also split into fy0 and 1 - fy0
                 M_h_thin[i] = fy0 * M_thick[i];
                 M_thick[i] *= (1. - fy0);
             } else {
