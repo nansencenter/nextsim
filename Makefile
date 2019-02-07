@@ -15,6 +15,9 @@ endif
 ifdef USE_AEROBULK
 	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make
 endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make
+endif
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
@@ -27,6 +30,9 @@ endif
 ifdef USE_AEROBULK
 	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make clean
 endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make clean
+endif
 
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
@@ -38,6 +44,9 @@ ifdef USE_OASIS
 endif
 ifdef USE_AEROBULK
 	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make mrproper
+endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make mrproper
 endif
 # rules to compile model code as well as lib's
 All: all
