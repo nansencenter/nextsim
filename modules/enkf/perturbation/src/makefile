@@ -22,6 +22,7 @@ BINARYDIR=./../bin/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
+
 CPPFLAGS=-DIARGC -DFFTW -DLAPACK
 # ========================================================
 
@@ -66,7 +67,6 @@ FCOBJS= \
  
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
-FFTW_DIR   = /usr
 FFTW_INC   = $(FFTW_DIR)/include
 FFTW_LIB   = $(FFTW_DIR)/lib
 
