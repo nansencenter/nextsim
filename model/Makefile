@@ -123,6 +123,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 ifdef USE_ENSEMBLE 
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
 	LDFLAGS += -lgfortran
+	LDFLAGS += -L${FFTW_DIR}/lib -lfftw3
 endif
 
 ifdef USE_AEROBULK
