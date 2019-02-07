@@ -56,7 +56,7 @@ fi
 
 # Run the nextsim model
 logfile=$(basename $config .cfg).log
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_14 60 --config-files=$config 2>&1 | tee $logfile
+mpirun $opts -np $ncpu $prog -mat_mumps_icntl_23 400 --config-files=$config 2>&1 | tee $logfile
 
 if [ "$MAILTO" != "" ]
 then
