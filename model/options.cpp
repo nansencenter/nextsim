@@ -44,8 +44,7 @@ namespace Nextsim
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
-            ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
-                "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
+            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
         
              //-----------------------------------------------------------------------------------
@@ -131,12 +130,19 @@ namespace Nextsim
 
             // -- moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")
+#ifdef OASIS
+            ("moorings.grid_type", po::value<std::string>()->default_value( "coupled" ),
+                "[coupled|regular|from_file] for using the coupling grid, a regular spaced grid, or a grid read in from the file moorings.grid_file (default: coupled)")
+#else
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+#endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
             ("moorings.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
             ("moorings.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
+            ("moorings.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
                             {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
@@ -196,8 +202,8 @@ namespace Nextsim
             // -- outputs
             ("restart.write_restart", po::value<bool>()->default_value( false ), "")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.debugging", po::value<bool>()->default_value( false ),
-                "save restart every time step for debugging")
+            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of restart.output_time_step: days or time_steps")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
@@ -268,13 +274,13 @@ namespace Nextsim
         
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
+                                                                                        // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
+                                                                                        // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
+            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -283,19 +289,13 @@ namespace Nextsim
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
-            // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
-            ("dynamics.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
-            ("dynamics.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
-            // - scaling with respect to horizontal resolution
-            // Calculated depending on resolution
-            // ("dynamics.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("dynamics.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             ("dynamics.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
             // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
+            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 5. ), "")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
@@ -318,7 +318,13 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
-
+        
+            // - Damage equation discretization
+            //   disc_scheme is either : explicit, implicit, recursive
+            //   td_type is either : fixed or damage_dependent
+            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
+            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+        
         
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
@@ -358,6 +364,9 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
+#ifdef AEROBULK
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
+#endif
         
              //-----------------------------------------------------------------------------------
              //! - Nesting

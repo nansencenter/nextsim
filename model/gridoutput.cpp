@@ -604,8 +604,29 @@ GridOutput::applyLSM()
 // Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
 /* When not called after a remesh (e.g. after output) only bamgmesh is required as input
  * When called after a remesh we should set regrid == true and provide nb_local_el
- * When called after a remesh and when doing conservative remapping we also
- * need to provide transfer_map and bamgmesh_root */
+ * When called after a remesh and when doing conservative remapping we also need to provide
+ * transfer_map and bamgmesh_root
+ * When called after a remesh and when doing conservative remapping we can also supply the gridP,
+ * triangles, and weights vectors so we don't spend time re-calculating those */
+void
+GridOutput::resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
+        const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights)
+{
+    /* Set M_grid.interp_method to meshToMesh before calling resetMesh mean.
+     * This way we can set M_gridP, M_triangles, and M_weights, without calling
+     * ConservativeRemappingWeights */
+    interpMethod method = M_grid.interp_method;
+    M_grid.interp_method = interpMethod::meshToMesh;
+
+    this->resetMeshMean(bamgmesh, regrid, nb_local_el);
+
+    M_grid.interp_method = method;
+
+    M_gridP = gridP;
+    M_triangles = triangles;
+    M_weights = weights;
+}
+
 void
 GridOutput::resetMeshMean(BamgMesh* bamgmesh,
         bool regrid, int nb_local_el, bimap_type const & transfer_map, BamgMesh* bamgmesh_root)
@@ -788,7 +809,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     netCDF::NcDim nvDim = dataFile.addDim("nv", 2);
 
     // Create the time variable
-    netCDF::NcVar time = dataFile.addVar("time", netCDF::ncFloat, tDim);
+    netCDF::NcVar time = dataFile.addVar("time", netCDF::ncDouble, tDim);
     time.putAtt("standard_name", "time");
     time.putAtt("long_name", "simulation time");
     time.putAtt("units", "days since 1900-01-01 00:00:00");
@@ -797,7 +818,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // Create the time_bnds variable (specify the time period each record applies to)
     std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
-    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncFloat, dims_bnds);
+    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncDouble, dims_bnds);
     time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
 
     M_nc_step=0;
