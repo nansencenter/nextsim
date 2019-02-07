@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function leadingzero { 
+function leadingzero {
 	zeros=$1
 	input=$2
 	printf "%0${zeros}d" ${input}
@@ -9,14 +9,17 @@ function leadingzero {
 # get pid to control work submission
 # last argument is the log file; others are the script and its arguments
 function getpid() {
-	 shrun=${@:1:$#-1}
-	 logfile="${!#}"
-	 ${shrun} &> ${logfile} &
-	 echo $!
-	}
+  runfile=$1
+  confile=$2
+  nproc=$3
+  envfile=$4
+  logfile=sbmt.log
+  ${runfile} ${confile} ${nproc} ${envfile} &> ${logfile} &
+  echo $!
+}
 
 function wait_docker(){
-     
+
      checkid=$1
 
      A=($(cat docker.sample.ls | awk '{print $NF}' |\
@@ -58,7 +61,7 @@ function anywait_w_status2() {
     echo 'All processes terminated'
 	}
 
-function checkpath { path=$1 
+function checkpath { path=$1
 	[ -d ${path} ] && echo "!----------- WARNING --------------------!  "\
                        && echo "! Ensemble directory ${path} exists!        "\
                        && echo "!------------- STOP ---------------------!  "\
