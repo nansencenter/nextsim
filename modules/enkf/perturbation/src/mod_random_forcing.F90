@@ -50,7 +50,7 @@ module mod_random_forcing
    real   , save :: rh          ! Horizontal decorr length for rand forc [grid cells]
    real   , save :: rv
    integer, save :: rf_prsflg=2 ! initial value
-   character(10) :: iopath = '/docker_io'
+   character(10) :: iopath = '.'
    integer, parameter :: idm=360, jdm=360
    real,parameter     :: airdns  =  1.2
    real, parameter    :: radian  = 57.2957795
