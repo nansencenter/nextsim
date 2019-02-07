@@ -32,7 +32,7 @@ FiniteElement::FiniteElement(Communicator const& comm)
     timer()
 {}
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initialisation of the mesh.
 //! Called by the init() function.
@@ -48,7 +48,7 @@ FiniteElement::initMesh()
     }
 }//initMesh
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Distribution of mesh processing for parallel computing.
 //! Called by the interpFields(), initMesh() and distributedMeshProcessing() functions.
@@ -152,8 +152,8 @@ FiniteElement::distributedMeshProcessing(bool start)
 #endif
 
 }//distributedMeshProcessing
-    
-    
+
+
 //------------------------------------------------------------------------------------------------------
 //! Marks the mesh nodes where boundary conditions should apply.
 //! Called by the distributedMeshProcessing() function.
@@ -281,7 +281,7 @@ FiniteElement::bcMarkedNodes()
     }
 }//bcMarkedNodes
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Reads, converts and applies boundary conditions to the mesh.
 //! Called by the initMesh() function.
@@ -451,7 +451,7 @@ FiniteElement::rootMeshProcessing()
 
 }//rootMeshProcessing
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Performs a re-numbering of the mesh nodes and elements
 //! !Does not seem to be used!
@@ -483,7 +483,7 @@ FiniteElement::rootMeshRenumbering()
 #endif
 }//rootMeshRenumbering
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the size of all physical variables with values set to zero.
 //! Called by the init() and readRestart() functions.
@@ -616,7 +616,7 @@ FiniteElement::initVariables()
     this->setPointersElements(M_export_data_elt, M_export_variables_elt);
 }//initVariables
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calls the functions for assimilation of ocean and ice data: assimilateSlabOcean() and assimilateIce().
 //! Called by the init() function.
@@ -631,7 +631,7 @@ FiniteElement::DataAssimilation()
     this->assimilateIce();
 }//DataAssimilation
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
 //! Called by the regrid() and initVariables() functions.
@@ -767,7 +767,7 @@ FiniteElement::assignVariables()
     // number of variables to interpolate
     M_nb_var_element = /*11*/15 + M_tice.size();
 }//assignVariables
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Initializes the physical state of the model - ocean and ice - by calling the initSlabOcean() and initIce() functions.
@@ -783,7 +783,7 @@ FiniteElement::initModelState()
     this->initIce();
 }//initModelState
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the external data used by the model
 //! * Datasets objects
@@ -1060,7 +1060,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes a Bamg mesh grid.
 //! Called by the initMesh() function.
@@ -1114,7 +1114,7 @@ FiniteElement::initBamg()
     bamgopt->Check();
 }//initBamg
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
 //! Called by the init() function.
@@ -1445,7 +1445,7 @@ FiniteElement::initOptAndParam()
 
 }//initOptAndParam
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Creates a GMSH mesh grid.
 //! !Does not seem to be used!
@@ -1473,7 +1473,7 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
     }
 }//createGMSHMesh
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
 //! Called by the flip(), measure() and shapeCoeff() functions.
@@ -1648,7 +1648,7 @@ FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
     return side;
 }//sides
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the maximum and minimum sizes of the vertices of the triangular mesh elements
 //! Called by the rootMeshProcessing function.
@@ -1677,7 +1677,7 @@ FiniteElement::minMaxSide(mesh_type_root const& mesh) const
     return minmax;
 }//minMaxSide
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the minimum angle of each triangular mesh element.
 //! Called by the minAngle() function.
@@ -1709,7 +1709,7 @@ FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh,
     return minang;
 }//minAngles
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Finds the minimum angle within all mesh elements: condition for the remeshing.
 //! Called by the init() function.
@@ -1836,7 +1836,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
     return hmin;
 }//hminVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Returns the maximum height (i.e., dimension) of all mesh elements
 //! Called by the rootMeshProcessing() function.
@@ -1850,7 +1850,7 @@ FiniteElement::hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
     return hmax;
 }//hmaxVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the area of triangular mesh elements.
 //! Called by the advect() and other functions.
@@ -1873,7 +1873,7 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
     return (1./2)*std::abs(jacobian(element,mesh,um,factor));
 }//measure
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
 //! Called by the FETensors() function.
@@ -1910,7 +1910,7 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
     return coeff;
 }//shapeCoeff
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
 //! Called by the FETensors() function.
@@ -1947,7 +1947,7 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mes
     return coeff;
 }//shapeCoeff
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the rootMeshProcessing() and regrid() functions.
@@ -1956,7 +1956,7 @@ FiniteElement::interpVertices()
 {
     chrono.restart();
     LOG(DEBUG) <<"Interpolate hminVertices starts\n";
-    
+
     // NODAL INTERPOLATION
     int init_num_nodes = M_mesh_init_root.numNodes();
 
@@ -1991,7 +1991,7 @@ FiniteElement::interpVertices()
     LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 }//interpVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the distributedMeshProcessing() function.
@@ -2059,7 +2059,7 @@ FiniteElement::gatherSizes()
     // -------------------------------------------------------------
 }//gatherSizes
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Collects model variables and stores them into a single vector, interp_elt_in_local: called by the update() function,
 //! before updating all variables after solving.
@@ -2359,7 +2359,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
     }
 }//redistributeVariables
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Gets the names of the variables in the run restart file, takes a list of names and for each name,
 //! adds a pointer to the appropriate vector
@@ -2507,7 +2507,7 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& elt_values_loc
     }
 }//redistributeVariablesIO
 
-    
+
 // Hotfix for issue #53 - we only have pure Lagrangian now.
 //------------------------------------------------------------------------------------------------------
 //! Performs the advection, using a Eulerian or ALE scheme
@@ -3042,7 +3042,7 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -3438,7 +3438,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     }
 }//interpFields
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Gathers field values (velocities, displacements) at the nodes into a single structure, interp_node_in_local.
 //! Called by the interpFields() function.
@@ -3586,7 +3586,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
 }//scatterFieldsNode
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
 //! Called by the regrid() function.
@@ -3838,7 +3838,7 @@ FiniteElement::scatterElementField(std::vector<double> const& field_root, std::v
     }
 }//scatterElementField
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sends the displacement vector to the root process
 //! !Does not seem to be used!
@@ -4149,7 +4149,7 @@ FiniteElement::updateNodeIds()
     M_mesh_root.setId(new_nodes_id);
 }//updateNodeIds
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
 //! Called by the adaptMesh() function.
@@ -4208,7 +4208,7 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Assembles matrices for solver: fvdata and data, with each term of the momentum equation.
@@ -4723,7 +4723,7 @@ FiniteElement::FETensors()
     }
 }//FETensors
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the cohesion field (sum of a fixed value and a random component) and the maximum compressive strength of sea ice.
 //! Called by the step() function.
@@ -4735,7 +4735,7 @@ FiniteElement::calcCohesion()
 }
 //calcCohesion
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
 void
@@ -5884,7 +5884,7 @@ FiniteElement::thermo(int dt)
 
     }// end for loop
 }//thermo
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
@@ -5993,7 +5993,6 @@ FiniteElement::incomingLongwave(const int i)
     }
 }
 
-    
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-ocean heat fluxes.
@@ -6326,7 +6325,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
     }
 }//thermoWinton
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates heat fluxes through the ice according to the Semtner zero layer model.
 //! Called by the thermo() function.
@@ -6439,7 +6438,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     }
 }//thermoIce0
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
 //! * Also outputs initial mooring snapshots, drifter outputs, normal outputs and  restarts.
@@ -6929,6 +6928,7 @@ FiniteElement::updateIceDiagnostics()
     }
 }
     
+
 //------------------------------------------------------------------------------------------------------
 //! Increments the model by one time step. Called by the run() function.
 //!    * updates drifters,
@@ -7175,7 +7175,7 @@ FiniteElement::step()
     //======================================================================
     //! 7) Does the post-processing, checks the output and updates moorings.
     //======================================================================
-    
+
     // 1. moorings:
     // - update fields on grid if outputting mean fields
     // - check if we are adding records to netcdf file
@@ -7994,7 +7994,7 @@ FiniteElement::writeRestart()
     this->writeRestart(name_str);
 }//writeRestart
 
-    
+
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
@@ -8200,6 +8200,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
         
         // Add the previous numbering to the restart file
+
         // used in adaptMesh (updateNodeIds)
         std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
@@ -8222,7 +8223,7 @@ FiniteElement::writeRestart(std::string const& name_str)
     }
 }//writeRestart
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Reads restart files. Called by the init() function.
 void
@@ -8518,6 +8519,7 @@ FiniteElement::restartIabpDrifters(
     }
 }//restartIabpDrifters
     
+
 //------------------------------------------------------------------------------------------------------
 //! Partitions the mesh during a restart.
 //! Called by the readRestart() function.
@@ -8659,7 +8661,7 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
         }
     }
 }//collectRootRestart
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Updates the ice velocity and total displacement (that is used for the drifters).
@@ -8724,7 +8726,7 @@ FiniteElement::updateFreeDriftVelocity()
     }
 }//updateFreeDriftVelocity
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! ??
 //! !Does not seem to be used!
@@ -8848,7 +8850,10 @@ FiniteElement::forcingAtmosphere()
             M_mixrat=ExternalData(vm["ideal_simul.constant_mixrat"].as<double>());
             M_mslp=ExternalData(vm["ideal_simul.constant_mslp"].as<double>());
             M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_Qlw_in=ExternalData(vm["ideal_simul.constant_Qlw_in"].as<double>());
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(vm["ideal_simul.constant_Qlw_in"].as<double>());
+            else
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=constant. Use thermo.use_parameterised_long_wave_radiation=false");
             M_snowfr=ExternalData(vm["ideal_simul.constant_snowfr"].as<double>());
             M_precip=ExternalData(vm["ideal_simul.constant_precip"].as<double>());
             M_dair=ExternalData(vm["ideal_simul.constant_dair"].as<double>());
@@ -8863,7 +8868,10 @@ FiniteElement::forcingAtmosphere()
             M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=asr. Use thermo.use_parameterised_long_wave_radiation=false");
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
@@ -8877,7 +8885,10 @@ FiniteElement::forcingAtmosphere()
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=erai. Use thermo.use_parameterised_long_wave_radiation=true");
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
@@ -8890,7 +8901,10 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            else
+                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec. Use thermo.use_parameterised_long_wave_radiation=true");
 
             // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
             M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
@@ -8906,7 +8920,10 @@ FiniteElement::forcingAtmosphere()
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
@@ -8918,7 +8935,10 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            else
+                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec_erai. Use thermo.use_parameterised_long_wave_radiation=true");
             M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
             M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
         break;
@@ -8933,7 +8953,10 @@ FiniteElement::forcingAtmosphere()
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=cfsr/cfsr_hi");
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
@@ -9267,8 +9290,8 @@ FiniteElement::initSlabOcean()
             throw std::logic_error("invalid ocean forcing");
     }
 }//initSlabOcean
-    
-    
+
+
 //------------------------------------------------------------------------------------------------------
 //! Performs data assimilation (of sss and sst) in the slab ocean.
 //! Called by the DataAssimilation() function.
@@ -9311,7 +9334,7 @@ FiniteElement::assimilateSlabOcean()
     }
 }//assimilateSlabOcean
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the ice state (CONSTANT, TOPAZ4, PIOMAS, SMOS, ...).
 //! Called by the initModelState() function.
@@ -9489,7 +9512,7 @@ FiniteElement::checkConsistency()
     }
 }//checkConsistency
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Performs the sea ice data assimilation. Different data sets available. Calls the appropriate function depending on the dataset.
 //! Called by the DataAssimilation() function.
@@ -9687,7 +9710,7 @@ FiniteElement::targetIce()
     }
 }//targetIce
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the ice and snow states from Topaz outputs.
 //! Called by the initIce() function.
@@ -9806,7 +9829,7 @@ FiniteElement::topazIceOsisafIcesat()
                     <<"we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 hi = thick_FYI;
-            } 
+            }
             else
             {
                 if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
@@ -9866,8 +9889,8 @@ FiniteElement::topazIceOsisafIcesat()
         M_damage[i]=0.;
     }
 }//topazIceOsisafIcesat
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes ice state from Topaz forecasts.
 //! Called by the initIce() function.
@@ -9916,7 +9939,7 @@ FiniteElement::topazForecastIce()
         M_damage[i]=0.;
     }
 }//topazForecastIce
-    
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes ice state from Topaz-AMSR2.
@@ -9997,7 +10020,7 @@ FiniteElement::topazForecastAmsr2Ice()
     }
 }//topazForecastAmsr2Ice
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Get the maximum and minimum ice concentration corresponding to the original
 //! NIC ice charts
@@ -10061,7 +10084,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min, double &thin_conc_obs_max,
     }
 }//concBinsNic
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecasts, Amsr2, Osisaf and Nic ice state data
 //! Called by the assimilateIce() function.
@@ -10102,8 +10125,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         if(c_model>0.01)
         {
-            M_thick[i]=(h_model/c_model)*M_conc[i];            
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+            M_thick[i]=(h_model/c_model)*M_conc[i];
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i];
             M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
@@ -10224,7 +10247,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }//loop over elements
 }//assimilate_topazForecastAmsr2OsisafNicIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecast, Amsr2 and Osisaf ice data.
 //! Called by the assimilateIce() function.
@@ -10307,8 +10330,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
         if(c_model>0.01)
         {
-            M_thick[i]=(h_model/c_model)*M_conc[i];            
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+            M_thick[i]=(h_model/c_model)*M_conc[i];
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i];
             M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
@@ -10344,7 +10367,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     }
 }//assimilate_topazForecastAmsr2OsisafIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2 and Osisaf data.
 //! Called by the initIce() function.
@@ -10491,7 +10514,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     }//loop over elements
 }//topazForecastAmsr2OsisafIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2, Osisaf and NIC ice charts data.
 //! Called by the initIce() function.
@@ -10695,7 +10718,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from PIOMAS outputs.
 //! Called by the initIce() function.
@@ -10738,8 +10761,8 @@ FiniteElement::piomasIce()
         M_damage[i]=0.;
     }
 }//piomasIce
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSRE data.
 //! Called by the initIce() function.
@@ -10884,7 +10907,7 @@ FiniteElement::topazAmsr2Ice()
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
 //! Called by the initIce() function.
@@ -10909,12 +10932,35 @@ FiniteElement::cs2SmosIce()
     this->warrenClimatology();
 
     double tmp_var, correction_factor_warren;
+    // Observational operator for correcting thin ice concentrations
+    // Coeffitients are fitted using data (figure) from Thomas Lavergne
+    // Atot = Aosisaf / OO(H)
+    // OO(H) = 2y(exp(H/s + 0) / (1 + exp(H/s + 0)) - y
+    // OO is applied only if H < 0.5
+
+    // These coefs are fitting exactly data from Thomas. 5% gap for thickness above 0.5 m.
+    // double oo_y = 0.95691881, oo_s = 0.06787237, oo_o = 0.42548199;
+
+    // These coeffs are fitted to slightly modified data from Thomas - last 3 points are set to 1.
+    // No gap  for thickness above 0.5 m.
+    double oo_y = 0.99853900, oo_s = 0.09128844, oo_o = 0.65327181;
+
+    // fraction of young ice
+    double fy0 = 0.10;
+    // mean allowed thickness of young ice
+    double ty0 = h_thin_min + 0.5 * (h_thin_max - h_thin_min);
+    //double ty0 = 0.05;
+
     for (int i=0; i<M_num_elements; ++i)
     {
-        tmp_var=std::min(1.,M_init_conc[i]);
-        M_conc[i] = tmp_var;
-        tmp_var=M_init_thick[i];
-        M_thick[i] = tmp_var ;
+        M_thick[i] = M_init_thick[i];
+        M_conc[i] = std::min(1., M_init_conc[i]);
+
+        // correction of concentration by thickness using OO
+        tmp_var = std::exp(M_thick[i] / oo_s + oo_o);
+        tmp_var = 2 * oo_y * tmp_var / (1 + tmp_var) - oo_y;
+        M_conc[i] /= tmp_var;
+        M_conc[i] = std::min(1., M_conc[i]);
 
         double ratio_FYI=0.3;
         double ratio_MYI=0.9;
@@ -10964,11 +11010,22 @@ FiniteElement::cs2SmosIce()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            // we assume the thin ice is not seen by passive microwave
-            // so arbitrarily increase the total conc by 20%, putting this into thin ice
-            // at a constant absolute thickness (default=27.5cm)
-            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
-            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+            // In case of young ice
+            // Concentration is split into 0.2 and 0.8 for young and old ice
+            M_conc_thin[i] = fy0 * M_conc[i];
+            M_conc[i]  *= (1. - fy0);
+            if (M_thick[i] / M_conc[i] <= ty0) {
+                // if absolute thickness (To = Ho / Ao) is below ty0 (see ty0 above):
+                // thickness is also split into 0.2 and 0.8
+                M_h_thin[i] = fy0 * M_thick[i];
+                M_thick[i] *= (1. - fy0);
+            } else {
+                // if absolute thickness (To = Ho / Ao) is above ty0:
+                // young ice thickness is maximum: h = ty0 * a
+                // old ice thickness is the remaining part: H = H0 - h
+                M_h_thin[i] = ty0 * M_conc_thin[i];
+                M_thick[i] -= M_h_thin[i];
+            }
         }
 
         // Check that the snow is not so thick that the ice is flooded
@@ -10978,7 +11035,7 @@ FiniteElement::cs2SmosIce()
     }
 }//cs2SmosIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2, SMOS, AMSR2 data.
 //! Called by the initIce() function.
@@ -11077,8 +11134,8 @@ FiniteElement::cs2SmosAmsr2Ice()
 
     }
 }//cs2SmosAmsr2Ice
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from SMOS data.
 //! Called by the initIce() function.
@@ -11132,7 +11189,7 @@ FiniteElement::smosIce()
     }
 }//smosIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2, SMOS, AMSR2 data.
 //! Called by the cs2SmosIce() and cs2SmosAmsr2Ice() functions.
@@ -11419,7 +11476,7 @@ FiniteElement::initDrifterOpts()
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initialise the drifters if it's the right time
-//! * Input init_names  is set by initialisingDrifters() 
+//! * Input init_names  is set by initialisingDrifters()
 //!   - determines which (if any) need to be initialised this time step
 //! Called by the checkDrifters() function.
 void
@@ -11454,7 +11511,7 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
         // to make sure the last time record is present
         // for the drifters that will be terminated
         this->initOsisafDrifters(movedmesh_root);
-    
+
 }//initDrifters
 
 
@@ -11922,16 +11979,16 @@ FiniteElement::checkDrifters()
             //! - 4) Move the drifters
             // NB M_UT is relative to the fixed mesh, not the moved mesh
             // NB to update the conc we need to move the mesh
-            //! * IABP drifters 
+            //! * IABP drifters
             if ( M_use_iabp_drifters )
                 if(M_current_time>M_drifters_time_init)
                     this->updateIabpDrifterPosition();
 
-            //! * other drifters 
+            //! * other drifters
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
                 if ((*it)->isInitialised())
                     (*it)->move(M_mesh_root, M_UT_root);
-            
+
             // reset M_UT_root
             // TODO do we need to do this?
             // - it isn't used and seems to be gathered each time it's needed
@@ -11967,7 +12024,7 @@ FiniteElement::checkDrifters()
                     (*it)->updateConc(movedmesh_root, M_conc_root);
                     (*it)->appendNetCDF(M_current_time);
                 }
-             
+
             //! - 6) Do we need to initialise any drifters?
             //  * Do initialisation after moving,
             //    to avoid moving drifters that are only just initialised
@@ -12080,7 +12137,7 @@ FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
         M_rgps_drifters.appendNetCDF(M_current_time);
     }
 }//initRGPSDrifters
-    
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the SIDFEX drifters, and saves the first netcdf time record
@@ -12096,7 +12153,7 @@ FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
         M_sidfex_drifters = Drifters(filename, movedmesh_root, M_conc_root,
                 -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
                 M_current_time, M_sidfex_drifters_output_time_step);
-        
+
         M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
         M_sidfex_drifters.appendNetCDF(M_current_time);
     }
@@ -12134,7 +12191,7 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
         osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
         osi_output_path = M_export_path+"/OSISAF_refined9_";
     }
-        
+
     M_osisaf_drifters[0] = Drifters(osi_grid_file,
             "xc", "yc",
             "lat", "lon", movedmesh_root,
@@ -12145,7 +12202,7 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
     M_osisaf_drifters[0].appendNetCDF(M_current_time);
 }//initOsisafDrifters()
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Imports a BAMG mesh grid.
 //! Called by the readRestart() and adaptMesh functions.
@@ -12205,7 +12262,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"\n";
 }//importBamg
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Creates a new graphmpi_type object.
 //! Called by the distributeMeshProcessing() function.
@@ -12310,7 +12367,7 @@ FiniteElement::createGraph()
 #endif
 
 }//createGraph
-    
+
 
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
@@ -12497,7 +12554,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 }// exportResults()
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Gets GitHub revision version of the model code.
 //! Called by the writeLogFile() function.
@@ -12508,7 +12565,7 @@ FiniteElement::gitRevision()
     return this->system("git rev-parse HEAD");
 }//gitRevision
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Run a system command
 //! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
@@ -12553,7 +12610,7 @@ FiniteElement::getEnv(std::string const& envname)
         senv = "NULL";
     return std::string(senv);
 }//getEnv
-    
+
 
 // -------------------------------------------------------------------------------------
 //! Writes a log file with the location of libraries and system information.
@@ -12716,7 +12773,7 @@ FiniteElement::writeLogFile()
     }
 }//writeLogFile
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
 //! Called by the step() function.
@@ -12828,7 +12885,7 @@ FiniteElement::checkFields()
     }
 }//checkFields
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Finalizes the run: clears meshes and some matrices used by the solver.
 //! Called by the step() function.
