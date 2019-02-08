@@ -1173,7 +1173,8 @@ FiniteElement::initOptAndParam()
     cpl_time_step = vm["coupler.timestep"].as<int>();
     // for now thermo_timestep must be equal to cpl_time_step
     // this is preferable anyway, but less flexible than allowing thermo_timestep <= cpl_time_step
-    thermo_timestep = cpl_time_step;
+    // This is deactivated for now as per issue 255 - but a better solution is needed.
+    // thermo_timestep = cpl_time_step;
 
     if ( cpl_time_step % time_step != 0)
     {
