@@ -7271,6 +7271,8 @@ FiniteElement::step()
     //! 6) Updates the time
     //======================================================================
 #ifdef OASIS
+    // Calling updateIceDiagnostics here is a temporary fix to issue 254.
+    this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
