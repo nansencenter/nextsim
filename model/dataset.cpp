@@ -49,7 +49,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -60,12 +60,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -173,7 +173,7 @@ DataSet::DataSet(char const *DatasetName)
                 longitude: longitude,
 
                 dimension_x: dimension_x,
-                dimension_y: dimension_y,
+                spatial_dim_1: spatial_dim_1,
 
                 mpp_file: "NpsASR.mpp",
                 interpolation_in_latlon: false,
@@ -223,7 +223,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -234,12 +234,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -313,7 +313,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsASR.mpp",
             interpolation_in_latlon: false,
@@ -473,7 +473,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -484,12 +484,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -597,7 +597,7 @@ DataSet::DataSet(char const *DatasetName)
                 longitude: longitude,
 
                 dimension_x: dimension_x,
-                dimension_y: dimension_y,
+                spatial_dim_1: spatial_dim_1,
 
                 mpp_file: "NpsNextsim.mpp",
                 interpolation_in_latlon: false,
@@ -644,7 +644,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -655,12 +655,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -734,7 +734,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
@@ -823,7 +823,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -834,12 +834,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -913,7 +913,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
@@ -1019,7 +1019,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -1037,16 +1037,16 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_uv(4);
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
+        dimensions_uv[2] = spatial_dim_1;
         dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -1164,7 +1164,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -1218,7 +1218,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -1236,16 +1236,16 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_uv(4);
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
+        dimensions_uv[2] = spatial_dim_1;
         dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -1363,7 +1363,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -1406,14 +1406,14 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = dimension_x;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
 
         // Variables recieved through OASIS
         Variable u={
@@ -1563,7 +1563,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -1618,14 +1618,14 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = dimension_x;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
 
         // Variables recieved through OASIS
         Variable sst={
@@ -1775,7 +1775,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -1817,7 +1817,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -1828,11 +1828,11 @@ DataSet::DataSet(char const *DatasetName)
         };
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -1933,7 +1933,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -1975,7 +1975,7 @@ DataSet::DataSet(char const *DatasetName)
                 cyclic:false
             };
 
-            Dimension dimension_y={
+            Dimension spatial_dim_1={
                 name:"y",
                 cyclic:false
             };
@@ -1986,11 +1986,11 @@ DataSet::DataSet(char const *DatasetName)
             };
             std::vector<Dimension> dimensions(3);
             dimensions[0] = dimension_time;
-            dimensions[1] = dimension_y;
+            dimensions[1] = spatial_dim_1;
             dimensions[2] = dimension_x;
 
             std::vector<Dimension> dimensions_latlon(2);
-            dimensions_latlon[0] = dimension_y;
+            dimensions_latlon[0] = spatial_dim_1;
             dimensions_latlon[1] = dimension_x;
 
             std::vector<Dimension> dimensions_time(1);
@@ -2159,7 +2159,7 @@ DataSet::DataSet(char const *DatasetName)
                 longitude: longitude,
 
                 dimension_x: dimension_x,
-                dimension_y: dimension_y,
+                spatial_dim_1: spatial_dim_1,
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
@@ -2203,7 +2203,7 @@ DataSet::DataSet(char const *DatasetName)
               cyclic:false
           };
 
-          Dimension dimension_y={
+          Dimension spatial_dim_1={
               name:"y",
               cyclic:false
           };
@@ -2214,11 +2214,11 @@ DataSet::DataSet(char const *DatasetName)
           };
           std::vector<Dimension> dimensions(3);
           dimensions[0] = dimension_time;
-          dimensions[1] = dimension_y;
+          dimensions[1] = spatial_dim_1;
           dimensions[2] = dimension_x;
 
           std::vector<Dimension> dimensions_latlon(2);
-          dimensions_latlon[0] = dimension_y;
+          dimensions_latlon[0] = spatial_dim_1;
           dimensions_latlon[1] = dimension_x;
 
           std::vector<Dimension> dimensions_time(1);
@@ -2336,7 +2336,7 @@ DataSet::DataSet(char const *DatasetName)
               longitude: longitude,
 
               dimension_x: dimension_x,
-              dimension_y: dimension_y,
+              spatial_dim_1: spatial_dim_1,
 
               mpp_file: projfilename,
               interpolation_in_latlon: false,
@@ -2380,7 +2380,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -2391,11 +2391,11 @@ DataSet::DataSet(char const *DatasetName)
         };
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -2549,7 +2549,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -2593,7 +2593,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -2604,11 +2604,11 @@ DataSet::DataSet(char const *DatasetName)
         };
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -2711,7 +2711,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -2752,13 +2752,13 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_y;
+        dimensions[0] = spatial_dim_1;
         dimensions[1] = dimension_x;
 
 
@@ -2823,7 +2823,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -2862,13 +2862,13 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_y;
+        dimensions[0] = spatial_dim_1;
         dimensions[1] = dimension_x;
 
 
@@ -2933,7 +2933,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -2972,7 +2972,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -2990,16 +2990,16 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_uv(4);
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
+        dimensions_uv[2] = spatial_dim_1;
         dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -3117,7 +3117,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -3169,7 +3169,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -3187,16 +3187,16 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_uv(4);
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
+        dimensions_uv[2] = spatial_dim_1;
         dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -3365,7 +3365,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -3410,7 +3410,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -3428,16 +3428,16 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_uv(4);
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
+        dimensions_uv[2] = spatial_dim_1;
         dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -3555,7 +3555,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -3597,7 +3597,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -3609,11 +3609,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -3731,7 +3731,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -3774,7 +3774,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -3786,11 +3786,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -3911,7 +3911,7 @@ DataSet::DataSet(char const *DatasetName)
                 longitude: longitude,
 
                 dimension_x: dimension_x,
-                dimension_y: dimension_y,
+                spatial_dim_1: spatial_dim_1,
 
                 mpp_file: projfilename,
                 interpolation_in_latlon: false,
@@ -3960,7 +3960,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -3972,11 +3972,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4060,7 +4060,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4100,7 +4100,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"yc",
             cyclic:false
         };
@@ -4112,11 +4112,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4217,7 +4217,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4258,7 +4258,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"yc",
             cyclic:false
         };
@@ -4270,11 +4270,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4358,7 +4358,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4398,7 +4398,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -4410,11 +4410,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4498,7 +4498,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4538,7 +4538,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"yc",
             cyclic:false
         };
@@ -4548,8 +4548,8 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon = {dimension_y, dimension_x};
-        std::vector<Dimension> dimensions = {dimension_time, dimension_y, dimension_x};
+        std::vector<Dimension> dimensions_latlon = {spatial_dim_1, dimension_x};
+        std::vector<Dimension> dimensions = {dimension_time, spatial_dim_1, dimension_x};
 
         Variable latitude={
             name: "lat",
@@ -4630,7 +4630,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4670,7 +4670,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -4682,11 +4682,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4787,7 +4787,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4827,7 +4827,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -4839,11 +4839,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -4944,7 +4944,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -4984,7 +4984,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"y",
             cyclic:false
         };
@@ -4996,11 +4996,11 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         std::vector<Dimension> dimensions_time(1);
@@ -5101,7 +5101,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -5141,13 +5141,13 @@ DataSet::DataSet(char const *DatasetName)
              cyclic:false
      	};
 
-         Dimension dimension_y={
+         Dimension spatial_dim_1={
              name:"x",
              cyclic:false
      	};
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         Variable latitude={
@@ -5214,7 +5214,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
      		interpolation_in_latlon: false,
@@ -5252,7 +5252,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -5261,10 +5261,10 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_y;
+        dimensions[0] = spatial_dim_1;
         dimensions[1] = dimension_x;
 
         Variable latitude={
@@ -5317,7 +5317,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -5374,7 +5374,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat", // for ETOPO_Arctic_1arcmin.nc
             //name:"y", // for ETOPO1_Ice_g_gmt4.grd
             cyclic:false
@@ -5384,10 +5384,10 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_y;
+        dimensions[0] = spatial_dim_1;
         dimensions[1] = dimension_x;
 
         Variable latitude={
@@ -5442,7 +5442,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -5498,7 +5498,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -5513,7 +5513,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -5564,7 +5564,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -5586,7 +5586,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -5752,7 +5752,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -5766,7 +5766,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -5818,7 +5818,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -5841,7 +5841,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -5932,7 +5932,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -5946,7 +5946,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -5997,7 +5997,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -6020,7 +6020,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -6111,7 +6111,7 @@ DataSet::DataSet(char const *DatasetName)
              cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
              name:"latitude",
              cyclic:false
         };
@@ -6126,7 +6126,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "latitude",
@@ -6177,7 +6177,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -6199,7 +6199,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -6367,7 +6367,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"latitude",
             cyclic:false
         };
@@ -6381,7 +6381,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "latitude",
@@ -6430,7 +6430,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -6453,7 +6453,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -6544,7 +6544,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -6559,7 +6559,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -6610,7 +6610,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -6632,7 +6632,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -6748,7 +6748,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -6762,7 +6762,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -6813,7 +6813,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -6836,7 +6836,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -6927,7 +6927,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -6942,7 +6942,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -6993,7 +6993,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -7015,7 +7015,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -7183,7 +7183,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"lat",
             cyclic:false
         };
@@ -7197,7 +7197,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         Variable latitude={
             name: "lat",
@@ -7248,7 +7248,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -7271,7 +7271,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
@@ -7362,7 +7362,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"latitude",
             cyclic:false
         };
@@ -7374,7 +7374,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         Variable latitude={
@@ -7416,7 +7416,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
 
@@ -7555,7 +7555,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
             interpolation_in_latlon: false,
@@ -7621,7 +7621,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:true //need to add extra column, so that 1st and last are the same
         };
 
-        Dimension dimension_y={
+        Dimension spatial_dim_1={
             name:"latitude",
             cyclic:false
         };
@@ -7636,10 +7636,10 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_lon[0] = dimension_x;
 
         std::vector<Dimension> dimensions_lat(1);
-        dimensions_lat[0] = dimension_y;
+        dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[0] = spatial_dim_1;
         dimensions_latlon[1] = dimension_x;
 
         Variable latitude={
@@ -7693,7 +7693,7 @@ DataSet::DataSet(char const *DatasetName)
             longitude: longitude,
 
             dimension_x: dimension_x,
-            dimension_y: dimension_y,
+            spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
             interpolation_in_latlon: true,
@@ -7715,7 +7715,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
+        dimensions[1] = spatial_dim_1;
         dimensions[2] = dimension_x;
 
 
@@ -8129,10 +8129,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     netCDF::NcDim tmpDim;
 
     // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
-    tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-	grid_ptr->dimension_y_count_netcdf  =  tmpDim.getSize();
-    grid_ptr->dimension_y_count  = grid_ptr->dimension_y_count_netcdf;
-    grid_ptr->dimension_y_start = 0;
+    tmpDim = dataFile.getDim(grid_ptr->spatial_dim_1.name);
+	grid_ptr->spatial_dim_1_count_netcdf  =  tmpDim.getSize();
+    grid_ptr->spatial_dim_1_count  = grid_ptr->spatial_dim_1_count_netcdf;
+    grid_ptr->spatial_dim_1_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
 	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
@@ -8161,7 +8161,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         // although that wouldn't work for a reduced grid but you get the idea
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count);
+		std::vector<double> LAT(grid_ptr->spatial_dim_1_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
@@ -8178,8 +8178,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        grid_ptr->spatial_dim_1_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->spatial_dim_1_count = std::min(grid_ptr->spatial_dim_1_count, tmp_end+1-tmp_start+2*halo_size);
 
         tmp_start=-1;
         tmp_end=-1;
@@ -8195,7 +8195,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
         grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
 
-		LAT.resize(grid_ptr->dimension_y_count);
+		LAT.resize(grid_ptr->spatial_dim_1_count);
 		LON.resize(grid_ptr->dimension_x_count);
 
         std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
@@ -8221,7 +8221,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         // We load the full grid
     	std::vector<double> X(grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count);
+		std::vector<double> Y(grid_ptr->spatial_dim_1_count);
 
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
 #if 0
@@ -8238,8 +8238,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        grid_ptr->spatial_dim_1_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->spatial_dim_1_count = std::min(grid_ptr->spatial_dim_1_count, tmp_end+1-tmp_start+2*halo_size);
 
         tmp_start=-1;
         tmp_end=-1;
@@ -8255,7 +8255,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
         grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
 
-		Y.resize(grid_ptr->dimension_y_count);
+		Y.resize(grid_ptr->spatial_dim_1_count);
 		X.resize(grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
@@ -8280,11 +8280,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
-		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
@@ -8295,14 +8295,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         std::vector<int> tmp_y_start(0);
         std::vector<int> tmp_y_end(0);
 
-        std::vector<int> tmp_x_start(grid_ptr->dimension_y_count,-1);
-        std::vector<int> tmp_x_end(grid_ptr->dimension_y_count,-1);
+        std::vector<int> tmp_x_start(grid_ptr->spatial_dim_1_count,-1);
+        std::vector<int> tmp_x_end(grid_ptr->spatial_dim_1_count,-1);
         std::vector<int> tmp_y_start(grid_ptr->dimension_x_count,-1);
         std::vector<int> tmp_y_end(grid_ptr->dimension_x_count,-1);
 
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
 		{
-			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
+			for (int j=0; j<grid_ptr->spatial_dim_1_count; ++j)
 			{
                 if((Y[grid_ptr->dimension_x_count*j+i]>=RY_min) && (Y[grid_ptr->dimension_x_count*j+i]<=RY_max))
                 {
@@ -8313,7 +8313,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             }
         }
 
-        for (int i=0; i<grid_ptr->dimension_y_count; ++i)
+        for (int i=0; i<grid_ptr->spatial_dim_1_count; ++i)
 		{
 			for (int j=0; j<grid_ptr->dimension_x_count; ++j)
 			{
@@ -8329,8 +8329,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         int tmp_start=*std::min_element(tmp_y_start.begin(),tmp_y_start.end());
         int tmp_end=*std::max_element(tmp_y_end.begin(),tmp_y_end.end());
 
-        grid_ptr->dimension_y_start=tmp_start;
-        grid_ptr->dimension_y_count=tmp_end-tmp_start+1;
+        grid_ptr->spatial_dim_1_start=tmp_start;
+        grid_ptr->spatial_dim_1_count=tmp_end-tmp_start+1;
 
         tmp_start=*std::min_element(tmp_x_start.begin(),tmp_x_start.end());
         tmp_end=*std::max_element(tmp_x_end.begin(),tmp_x_end.end());
@@ -8344,7 +8344,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         std::vector<int> tmp_tmp_y_id(0);
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
 		{
-			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
+			for (int j=0; j<grid_ptr->spatial_dim_1_count; ++j)
 			{
                 if(
                     (Y[grid_ptr->dimension_x_count*j+i]>=RY_min) &&
@@ -8364,9 +8364,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         // Add a halo - keeping in mind that grid_ptr->dimension_(x|y)_count is the total dimension
         // size at the moment.
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        tmp_end = std::min(grid_ptr->dimension_y_count, tmp_end+halo_size);
-        grid_ptr->dimension_y_count = tmp_end - grid_ptr->dimension_y_start;
+        grid_ptr->spatial_dim_1_start = std::max(0,tmp_start-halo_size);
+        tmp_end = std::min(grid_ptr->spatial_dim_1_count, tmp_end+halo_size);
+        grid_ptr->spatial_dim_1_count = tmp_end - grid_ptr->spatial_dim_1_start;
 
         // Do the same for x
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
@@ -8377,11 +8377,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
 
         // Resize and read
-		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		LAT.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		LON.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
-		X.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		X.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		Y.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
@@ -8425,10 +8425,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     index_start[i] = grid_ptr->dimension_x_start;
                     index_count[i] = grid_ptr->dimension_x_count;
                 }
-                else if ( name == grid_ptr->dimension_y.name )
+                else if ( name == grid_ptr->spatial_dim_1.name )
                 {
-                    index_start[i] = grid_ptr->dimension_y_start;
-                    index_count[i] = grid_ptr->dimension_y_count;
+                    index_start[i] = grid_ptr->spatial_dim_1_start;
+                    index_count[i] = grid_ptr->spatial_dim_1_count;
                 }
                 else // We take the first slice of the time and/or depth dimension
                 {
@@ -8437,7 +8437,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-            Theta.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
             VTHETA.getVar(index_start,index_count,&Theta[0]);
         }
 #endif
@@ -8491,10 +8491,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     index_start[i] = grid_ptr->dimension_x_start;
                     index_count[i] = grid_ptr->dimension_x_count;
                 }
-                else if ( name == grid_ptr->dimension_y.name )
+                else if ( name == grid_ptr->spatial_dim_1.name )
                 {
-                    index_start[i] = grid_ptr->dimension_y_start;
-                    index_count[i] = grid_ptr->dimension_y_count;
+                    index_start[i] = grid_ptr->spatial_dim_1_start;
+                    index_count[i] = grid_ptr->spatial_dim_1_count;
                 }
                 else // We take the first slice of the time and/or depth dimension
                 {
@@ -8503,7 +8503,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+			data_in.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 			VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
@@ -8581,7 +8581,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
             double tmp_data;
 
-			for (int i=0; i<grid_ptr->dimension_y_count; ++i)
+			for (int i=0; i<grid_ptr->spatial_dim_1_count; ++i)
 			{
 				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
 				{
@@ -8644,11 +8644,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
-		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
 
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
@@ -8678,10 +8678,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     index_start[i] = grid.dimension_x_start;
                     index_count[i] = grid.dimension_x_count;
                 }
-                else if ( name == grid_ptr->dimension_y.name )
+                else if ( name == grid_ptr->spatial_dim_1.name )
                 {
-                    index_start[i] = grid.dimension_y_start;
-                    index_count[i] = grid.dimension_y_count;
+                    index_start[i] = grid.spatial_dim_1_start;
+                    index_count[i] = grid.spatial_dim_1_count;
                 }
                 else // We take the first slice of the time and/or depth dimension
                 {
@@ -8690,7 +8690,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-            Theta.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
             VTHETA.getVar(index_start,index_count,&Theta[0]);
 
         }
@@ -8720,8 +8720,8 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
 	std::vector<size_t> index_x_start(1);
 	std::vector<size_t> index_y_start(1);
 
-	index_y_start[0] = grid.dimension_y_start;
-	index_y_count[0] = grid.dimension_y_count;
+	index_y_start[0] = grid.spatial_dim_1_start;
+	index_y_count[0] = grid.spatial_dim_1_count;
 
 	index_x_start[0] = grid.dimension_x_start;
 	index_x_count[0] = grid.dimension_x_count;
@@ -8792,10 +8792,10 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
 
 	// We the initial grid is actually regular, we can still use FromGridToMesh
     // by only taking the first line and column into account (only used for ASR so far)
-	index_py_start[0] = grid.dimension_y_start;
+	index_py_start[0] = grid.spatial_dim_1_start;
 	index_py_start[1] = 0;
 
-	index_py_count[0] = grid.dimension_y_count;
+	index_py_count[0] = grid.spatial_dim_1_count;
 	index_py_count[1] = 1;
 
 	index_px_start[0] = 0;
@@ -8974,10 +8974,10 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
             index_start[i] = grid.dimension_x_start;
             index_count[i] = grid.dimension_x_count;
         }
-        else if ( name == grid.dimension_y.name )
+        else if ( name == grid.spatial_dim_1.name )
         {
-            index_start[i] = grid.dimension_y_start;
-            index_count[i] = grid.dimension_y_count;
+            index_start[i] = grid.spatial_dim_1_start;
+            index_count[i] = grid.spatial_dim_1_count;
         }
         else
             throw std::logic_error("DataSet::getXTLatLonFromLatLon: unknown dimension name " + name);

@@ -142,7 +142,7 @@ public:
         Variable longitude;
 
         Dimension dimension_x;
-        Dimension dimension_y;
+        Dimension spatial_dim_1;
 
         std::string mpp_file;
         bool interpolation_in_latlon;
@@ -179,9 +179,9 @@ public:
         int dimension_x_start;
         int dimension_x_count;
         int dimension_x_count_netcdf;
-        int dimension_y_start;
-        int dimension_y_count;
-        int dimension_y_count_netcdf;
+        int spatial_dim_1_start;
+        int spatial_dim_1_count;
+        int spatial_dim_1_count_netcdf;
     } Grid;
 
     DataSet();
