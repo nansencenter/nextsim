@@ -141,7 +141,7 @@ public:
         Variable latitude;
         Variable longitude;
 
-        Dimension dimension_x;
+        Dimension spatial_dim_2;
         Dimension spatial_dim_1;
 
         std::string mpp_file;
@@ -176,9 +176,9 @@ public:
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
 
-        int dimension_x_start;
-        int dimension_x_count;
-        int dimension_x_count_netcdf;
+        int spatial_dim_2_start;
+        int spatial_dim_2_count;
+        int spatial_dim_2_count_netcdf;
         int spatial_dim_1_start;
         int spatial_dim_1_count;
         int spatial_dim_1_count_netcdf;

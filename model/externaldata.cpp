@@ -408,7 +408,7 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             int M_full  = dataset->grid.spatial_dim_1_count_netcdf;
-            int N_full  = dataset->grid.dimension_x_count_netcdf;
+            int N_full  = dataset->grid.spatial_dim_2_count_netcdf;
             int MN_full = M_full*N_full;
             std::vector<double> data_in_tmp(MN_full);
 
@@ -419,15 +419,15 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
             boost::mpi::broadcast(comm, &data_in_tmp[0], MN_full, 0);
 
             int y_start = dataset->grid.spatial_dim_1_start;
-            int x_start = dataset->grid.dimension_x_start;
+            int x_start = dataset->grid.spatial_dim_2_start;
             int M       = dataset->grid.spatial_dim_1_count;
-            int N       = dataset->grid.dimension_x_count;
+            int N       = dataset->grid.spatial_dim_2_count;
             int MN      = M*N;
             int final_MN = MN;
 
             if(dataset->grid.reduced_nodes_ind.size()!=0)
             {
-                if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.dimension_x.cyclic))
+                if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.spatial_dim_2.cyclic))
                     throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
 
                 final_MN=dataset->grid.reduced_nodes_ind.size();
@@ -565,13 +565,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // size of the data
     int M        = dataset->grid.spatial_dim_1_count;
-    int N        = dataset->grid.dimension_x_count;
+    int N        = dataset->grid.spatial_dim_2_count;
     int MN       = M*N;
     int final_MN = MN;
 
 	if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
-        if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.dimension_x.cyclic))
+        if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.spatial_dim_2.cyclic))
             throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
 
     	final_MN=dataset->grid.reduced_nodes_ind.size();
@@ -820,11 +820,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             {
                 netCDF::NcDim tmpDim = NcVars[j].getDim(i);
                 std::string name = tmpDim.getName();
-                if ( name == dataset->grid.dimension_x.name )
+                if ( name == dataset->grid.spatial_dim_2.name )
                 {
                     //x dimension
-                    index_start[i] = dataset->grid.dimension_x_start;
-                    index_count[i] = dataset->grid.dimension_x_count;
+                    index_start[i] = dataset->grid.spatial_dim_2_start;
+                    index_count[i] = dataset->grid.spatial_dim_2_count;
                 }
                 else if ( name == dataset->grid.spatial_dim_1.name )
                 {
@@ -936,13 +936,13 @@ ExternalData::transformData(Dataset *dataset)
 
     // size of the data
     int M        = dataset->grid.spatial_dim_1_count;
-    int N        = dataset->grid.dimension_x_count;
+    int N        = dataset->grid.spatial_dim_2_count;
     int MN       = M*N;
     int final_MN = MN;
 
     if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
-        if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.dimension_x.cyclic))
+        if((dataset->grid.spatial_dim_1.cyclic) || (dataset->grid.spatial_dim_2.cyclic))
             throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
 
         final_MN=dataset->grid.reduced_nodes_ind.size();
@@ -1304,7 +1304,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     // size of the data
     int M  = dataset->grid.spatial_dim_1_count;
-    int N  = dataset->grid.dimension_x_count;
+    int N  = dataset->grid.spatial_dim_2_count;
 
     int MN = M*N;
 
@@ -1327,7 +1327,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         }
 
         double delta_x=dataset->grid.gridX[N-1]-dataset->grid.gridX[N-2];
-        if(dataset->grid.dimension_x.cyclic && ((dataset->grid.dimension_x_start+N)==(0+dataset->grid.dimension_x_count_netcdf)))
+        if(dataset->grid.spatial_dim_2.cyclic && ((dataset->grid.spatial_dim_2_start+N)==(0+dataset->grid.spatial_dim_2_count_netcdf)))
         {
             cyclic_N=N+1;
             dataset->grid.gridX.push_back(dataset->grid.gridX[N-1]+delta_x);

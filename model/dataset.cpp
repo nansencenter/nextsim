@@ -44,7 +44,7 @@ DataSet::DataSet(char const *DatasetName)
     if (strcmp (DatasetName, "asr_nodes") == 0)
     {
         // Definition of asr grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -61,12 +61,12 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -172,7 +172,7 @@ DataSet::DataSet(char const *DatasetName)
                 latitude: latitude,
                 longitude: longitude,
 
-                dimension_x: dimension_x,
+                spatial_dim_2: spatial_dim_2,
                 spatial_dim_1: spatial_dim_1,
 
                 mpp_file: "NpsASR.mpp",
@@ -218,7 +218,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "asr_elements") == 0)
     {
         // Definition of asr grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -235,12 +235,12 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -312,7 +312,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsASR.mpp",
@@ -468,7 +468,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec2_arome_nodes") == 0)
     {
         // Definition of asr grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -485,12 +485,12 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -596,7 +596,7 @@ DataSet::DataSet(char const *DatasetName)
                 latitude: latitude,
                 longitude: longitude,
 
-                dimension_x: dimension_x,
+                spatial_dim_2: spatial_dim_2,
                 spatial_dim_1: spatial_dim_1,
 
                 mpp_file: "NpsNextsim.mpp",
@@ -639,7 +639,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec2_arome_elements_instaneous") == 0)
     {
         // Definition of asr grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -656,12 +656,12 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -733,7 +733,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsNextsim.mpp",
@@ -818,7 +818,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec2_arome_elements_integrated") == 0)
     {
         // Definition of asr grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -835,12 +835,12 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -912,7 +912,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "NpsNextsim.mpp",
@@ -1014,7 +1014,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "topaz_nodes") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -1038,16 +1038,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
         dimensions_uv[2] = spatial_dim_1;
-        dimensions_uv[3] = dimension_x;
+        dimensions_uv[3] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -1163,7 +1163,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -1213,7 +1213,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "topaz_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -1237,16 +1237,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
         dimensions_uv[2] = spatial_dim_1;
-        dimensions_uv[3] = dimension_x;
+        dimensions_uv[3] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -1362,7 +1362,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -1401,7 +1401,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ocean_cpl_nodes") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -1412,7 +1412,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_x;
+        dimensions[0] = spatial_dim_2;
         dimensions[1] = spatial_dim_1;
 
         // Variables recieved through OASIS
@@ -1562,7 +1562,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -1613,7 +1613,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ocean_cpl_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -1624,7 +1624,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_x;
+        dimensions[0] = spatial_dim_2;
         dimensions[1] = spatial_dim_1;
 
         // Variables recieved through OASIS
@@ -1774,7 +1774,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -1812,7 +1812,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "nesting_ocean_elements") == 0)
     {
         // Definition of besting grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -1829,11 +1829,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -1932,7 +1932,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -1970,7 +1970,7 @@ DataSet::DataSet(char const *DatasetName)
     {
         if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 ) {
             // Definition of nesting grid and datasets
-            Dimension dimension_x={
+            Dimension spatial_dim_2={
                 name:"x",
                 cyclic:false
             };
@@ -1987,11 +1987,11 @@ DataSet::DataSet(char const *DatasetName)
             std::vector<Dimension> dimensions(3);
             dimensions[0] = dimension_time;
             dimensions[1] = spatial_dim_1;
-            dimensions[2] = dimension_x;
+            dimensions[2] = spatial_dim_2;
 
             std::vector<Dimension> dimensions_latlon(2);
             dimensions_latlon[0] = spatial_dim_1;
-            dimensions_latlon[1] = dimension_x;
+            dimensions_latlon[1] = spatial_dim_2;
 
             std::vector<Dimension> dimensions_time(1);
             dimensions_time[0] = dimension_time;
@@ -2158,7 +2158,7 @@ DataSet::DataSet(char const *DatasetName)
                 latitude: latitude,
                 longitude: longitude,
 
-                dimension_x: dimension_x,
+                spatial_dim_2: spatial_dim_2,
                 spatial_dim_1: spatial_dim_1,
 
                 mpp_file: projfilename,
@@ -2198,7 +2198,7 @@ DataSet::DataSet(char const *DatasetName)
         }
         else{
           // Definition of nesting grid and datasets
-          Dimension dimension_x={
+          Dimension spatial_dim_2={
               name:"x",
               cyclic:false
           };
@@ -2215,11 +2215,11 @@ DataSet::DataSet(char const *DatasetName)
           std::vector<Dimension> dimensions(3);
           dimensions[0] = dimension_time;
           dimensions[1] = spatial_dim_1;
-          dimensions[2] = dimension_x;
+          dimensions[2] = spatial_dim_2;
 
           std::vector<Dimension> dimensions_latlon(2);
           dimensions_latlon[0] = spatial_dim_1;
-          dimensions_latlon[1] = dimension_x;
+          dimensions_latlon[1] = spatial_dim_2;
 
           std::vector<Dimension> dimensions_time(1);
           dimensions_time[0] = dimension_time;
@@ -2335,7 +2335,7 @@ DataSet::DataSet(char const *DatasetName)
               latitude: latitude,
               longitude: longitude,
 
-              dimension_x: dimension_x,
+              spatial_dim_2: spatial_dim_2,
               spatial_dim_1: spatial_dim_1,
 
               mpp_file: projfilename,
@@ -2375,7 +2375,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "nesting_dynamics_elements") == 0)
     {
         // Definition of nesting grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -2392,11 +2392,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -2548,7 +2548,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -2588,7 +2588,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "nesting_nodes") == 0)
     {
         // Definition of nesting grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -2605,11 +2605,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -2710,7 +2710,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -2747,7 +2747,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "nesting_distance_nodes") == 0)
     {
         // Definition of nesting grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -2759,7 +2759,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = spatial_dim_1;
-        dimensions[1] = dimension_x;
+        dimensions[1] = spatial_dim_2;
 
 
         Variable latitude={
@@ -2822,7 +2822,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -2857,7 +2857,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "nesting_distance_elements") == 0)
     {
         // Definition of nesting grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -2869,7 +2869,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = spatial_dim_1;
-        dimensions[1] = dimension_x;
+        dimensions[1] = spatial_dim_2;
 
 
         Variable latitude={
@@ -2932,7 +2932,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -2967,7 +2967,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -2991,16 +2991,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
         dimensions_uv[2] = spatial_dim_1;
-        dimensions_uv[3] = dimension_x;
+        dimensions_uv[3] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -3116,7 +3116,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -3164,7 +3164,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -3188,16 +3188,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
         dimensions_uv[2] = spatial_dim_1;
-        dimensions_uv[3] = dimension_x;
+        dimensions_uv[3] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -3364,7 +3364,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -3405,7 +3405,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -3429,16 +3429,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_uv[0] = dimension_time;
         dimensions_uv[1] = dimension_depth;
         dimensions_uv[2] = spatial_dim_1;
-        dimensions_uv[3] = dimension_x;
+        dimensions_uv[3] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -3554,7 +3554,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -3592,7 +3592,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -3610,11 +3610,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -3730,7 +3730,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -3769,7 +3769,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ocean_currents_nodes") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -3787,11 +3787,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -3910,7 +3910,7 @@ DataSet::DataSet(char const *DatasetName)
                 latitude: latitude,
                 longitude: longitude,
 
-                dimension_x: dimension_x,
+                spatial_dim_2: spatial_dim_2,
                 spatial_dim_1: spatial_dim_1,
 
                 mpp_file: projfilename,
@@ -3955,7 +3955,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -3973,11 +3973,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4059,7 +4059,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4095,7 +4095,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"xc",
             cyclic:false
         };
@@ -4113,11 +4113,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4216,7 +4216,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4253,7 +4253,7 @@ DataSet::DataSet(char const *DatasetName)
      else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
      {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"xc",
             cyclic:false
         };
@@ -4271,11 +4271,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4357,7 +4357,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4393,7 +4393,7 @@ DataSet::DataSet(char const *DatasetName)
      else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -4411,11 +4411,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4497,7 +4497,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4533,7 +4533,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_cs2_smos_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"xc",
             cyclic:false
         };
@@ -4548,8 +4548,8 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon = {spatial_dim_1, dimension_x};
-        std::vector<Dimension> dimensions = {dimension_time, spatial_dim_1, dimension_x};
+        std::vector<Dimension> dimensions_latlon = {spatial_dim_1, spatial_dim_2};
+        std::vector<Dimension> dimensions = {dimension_time, spatial_dim_1, spatial_dim_2};
 
         Variable latitude={
             name: "lat",
@@ -4629,7 +4629,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4665,7 +4665,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -4683,11 +4683,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4786,7 +4786,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4822,7 +4822,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_nic_weekly_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -4840,11 +4840,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -4943,7 +4943,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -4979,7 +4979,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ice_nic_elements") == 0)
     {
         // Definition of topaz grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"x",
             cyclic:false
         };
@@ -4997,11 +4997,11 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
@@ -5100,7 +5100,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -5136,7 +5136,7 @@ DataSet::DataSet(char const *DatasetName)
      else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
      	// Definition of the icesat grid and datasets
-         Dimension dimension_x={
+         Dimension spatial_dim_2={
              name:"y",
              cyclic:false
      	};
@@ -5148,7 +5148,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         Variable latitude={
             name: "Lat",
@@ -5213,7 +5213,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -5247,7 +5247,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "dist2coast_elements") == 0)
     {
         // Definition of dist2coast grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:true
         };
@@ -5258,14 +5258,14 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = spatial_dim_1;
-        dimensions[1] = dimension_x;
+        dimensions[1] = spatial_dim_2;
 
         Variable latitude={
             name: "lat",
@@ -5316,7 +5316,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -5368,7 +5368,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "etopo_elements") == 0)
     {
         // Definition of etopo grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon", // for ETOPO_Arctic_1arcmin.nc
             //name:"x", // for ETOPO1_Ice_g_gmt4.grd
             cyclic:true
@@ -5381,14 +5381,14 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions(2);
         dimensions[0] = spatial_dim_1;
-        dimensions[1] = dimension_x;
+        dimensions[1] = spatial_dim_2;
 
         Variable latitude={
             name: "lat",  // for ETOPO_Arctic_1arcmin.nc
@@ -5441,7 +5441,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -5493,7 +5493,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "cfsr_elements") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:false
         };
@@ -5510,7 +5510,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -5563,7 +5563,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -5587,7 +5587,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time0",
@@ -5747,7 +5747,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "cfsr_nodes") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:false
         };
@@ -5763,7 +5763,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -5817,7 +5817,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -5842,7 +5842,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time0",
@@ -5927,7 +5927,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "cfsr_nodes_hi") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:false
         };
@@ -5943,7 +5943,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -5996,7 +5996,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -6021,7 +6021,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time0",
@@ -6106,7 +6106,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ERAi_elements") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
              name:"longitude",
              cyclic:true
         };
@@ -6123,7 +6123,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -6176,7 +6176,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -6200,7 +6200,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -6362,7 +6362,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ERAi_nodes") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"longitude",
             cyclic:true
         };
@@ -6378,7 +6378,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -6429,7 +6429,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -6454,7 +6454,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -6539,7 +6539,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec_elements") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:false
         };
@@ -6556,7 +6556,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -6609,7 +6609,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -6633,7 +6633,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -6743,7 +6743,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec_nodes") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:false
         };
@@ -6759,7 +6759,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -6812,7 +6812,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -6837,7 +6837,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -6922,7 +6922,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec2_elements") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:true
         };
@@ -6939,7 +6939,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -6992,7 +6992,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -7016,7 +7016,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -7178,7 +7178,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ec2_nodes") == 0)
     {
         // Definition of dimensions
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"lon",
             cyclic:true
         };
@@ -7194,7 +7194,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
@@ -7247,7 +7247,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -7272,7 +7272,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
         Variable time_tmp={
             name: "time",
@@ -7357,7 +7357,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "ww3a_elements") == 0)
     {
         // Definition of WW3 Arctic analysed - grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"longitude",
             cyclic:false
         };
@@ -7375,7 +7375,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of the grid
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         Variable latitude={
             name: "latitude",
@@ -7417,7 +7417,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
 
         std::vector<Dimension> dimensions_time(1);
@@ -7554,7 +7554,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: projfilename,
@@ -7616,7 +7616,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "erai_waves_1deg_elements") == 0)
     {
         // ERAI 1deg waves - grid and datasets
-        Dimension dimension_x={
+        Dimension spatial_dim_2={
             name:"longitude",
             cyclic:true //need to add extra column, so that 1st and last are the same
         };
@@ -7633,14 +7633,14 @@ DataSet::DataSet(char const *DatasetName)
 
         // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
-        dimensions_lon[0] = dimension_x;
+        dimensions_lon[0] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = dimension_x;
+        dimensions_latlon[1] = spatial_dim_2;
 
         Variable latitude={
             name: "latitude",
@@ -7692,7 +7692,7 @@ DataSet::DataSet(char const *DatasetName)
             latitude: latitude,
             longitude: longitude,
 
-            dimension_x: dimension_x,
+            spatial_dim_2: spatial_dim_2,
             spatial_dim_1: spatial_dim_1,
 
             mpp_file: "",
@@ -7716,7 +7716,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = spatial_dim_1;
-        dimensions[2] = dimension_x;
+        dimensions[2] = spatial_dim_2;
 
 
         std::vector<Dimension> dimensions_time(1);
@@ -8037,7 +8037,7 @@ DataSet::getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON)
     double lon0 = LON[0];
 
     // - check last element
-    size_t Nlon = grid.dimension_x_count_netcdf;
+    size_t Nlon = grid.spatial_dim_2_count_netcdf;
     index_lon_start = {Nlon - 1};
     LON = this->getNcVarData(VLON, index_lon_start, index_lon_count);
     double lon1 = LON[0];
@@ -8134,10 +8134,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     grid_ptr->spatial_dim_1_count  = grid_ptr->spatial_dim_1_count_netcdf;
     grid_ptr->spatial_dim_1_start = 0;
 
-    tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
-    grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
-    grid_ptr->dimension_x_start = 0;
+    tmpDim = dataFile.getDim(grid_ptr->spatial_dim_2.name);
+	grid_ptr->spatial_dim_2_count_netcdf =  tmpDim.getSize();
+    grid_ptr->spatial_dim_2_count =  grid_ptr->spatial_dim_2_count_netcdf;
+    grid_ptr->spatial_dim_2_start = 0;
 
 	if(grid_ptr->interpolation_in_latlon)
 	{
@@ -8157,12 +8157,12 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         LOG(DEBUG)<<name<<": branch_cut_lon = "<<lonmin<<"\n";
 
         // TODO we could determine what cyclic should be here too, ie
-        // grid_ptr.dimension_x.cyclic = (lonmin + 360. != lonmax);
+        // grid_ptr.spatial_dim_2.cyclic = (lonmin + 360. != lonmax);
         // although that wouldn't work for a reduced grid but you get the idea
 
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->spatial_dim_1_count);
-		std::vector<double> LON(grid_ptr->dimension_x_count);
+		std::vector<double> LON(grid_ptr->spatial_dim_2_count);
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
         // Then, we determine the reduced dimension
@@ -8192,11 +8192,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     tmp_start=i;
             }
         }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
+        grid_ptr->spatial_dim_2_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->spatial_dim_2_count = std::min(grid_ptr->spatial_dim_2_count, tmp_end+1-tmp_start+2*halo_size);
 
 		LAT.resize(grid_ptr->spatial_dim_1_count);
-		LON.resize(grid_ptr->dimension_x_count);
+		LON.resize(grid_ptr->spatial_dim_2_count);
 
         std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
@@ -8220,7 +8220,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-    	std::vector<double> X(grid_ptr->dimension_x_count);
+    	std::vector<double> X(grid_ptr->spatial_dim_2_count);
 		std::vector<double> Y(grid_ptr->spatial_dim_1_count);
 
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
@@ -8252,11 +8252,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                     tmp_start=i;
             }
         }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
+        grid_ptr->spatial_dim_2_start = std::max(0,tmp_start-halo_size);
+        grid_ptr->spatial_dim_2_count = std::min(grid_ptr->spatial_dim_2_count, tmp_end+1-tmp_start+2*halo_size);
 
 		Y.resize(grid_ptr->spatial_dim_1_count);
-		X.resize(grid_ptr->dimension_x_count);
+		X.resize(grid_ptr->spatial_dim_2_count);
 
         // Then we load the reduced grid
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
@@ -8280,11 +8280,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
-		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
@@ -8297,14 +8297,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         std::vector<int> tmp_x_start(grid_ptr->spatial_dim_1_count,-1);
         std::vector<int> tmp_x_end(grid_ptr->spatial_dim_1_count,-1);
-        std::vector<int> tmp_y_start(grid_ptr->dimension_x_count,-1);
-        std::vector<int> tmp_y_end(grid_ptr->dimension_x_count,-1);
+        std::vector<int> tmp_y_start(grid_ptr->spatial_dim_2_count,-1);
+        std::vector<int> tmp_y_end(grid_ptr->spatial_dim_2_count,-1);
 
-        for (int i=0; i<grid_ptr->dimension_x_count; ++i)
+        for (int i=0; i<grid_ptr->spatial_dim_2_count; ++i)
 		{
 			for (int j=0; j<grid_ptr->spatial_dim_1_count; ++j)
 			{
-                if((Y[grid_ptr->dimension_x_count*j+i]>=RY_min) && (Y[grid_ptr->dimension_x_count*j+i]<=RY_max))
+                if((Y[grid_ptr->spatial_dim_2_count*j+i]>=RY_min) && (Y[grid_ptr->spatial_dim_2_count*j+i]<=RY_max))
                 {
                     tmp_y_end[i]=j;
                     if(tmp_y_start[i]==-1)
@@ -8315,9 +8315,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         for (int i=0; i<grid_ptr->spatial_dim_1_count; ++i)
 		{
-			for (int j=0; j<grid_ptr->dimension_x_count; ++j)
+			for (int j=0; j<grid_ptr->spatial_dim_2_count; ++j)
 			{
-                if((X[grid_ptr->dimension_x_count*i+j]>=RX_min) && (X[grid_ptr->dimension_x_count*i+j]<=RX_max))
+                if((X[grid_ptr->spatial_dim_2_count*i+j]>=RX_min) && (X[grid_ptr->spatial_dim_2_count*i+j]<=RX_max))
                 {
                     tmp_x_end[i]=j;
                     if(tmp_x_start[i]==-1)
@@ -8335,22 +8335,22 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         tmp_start=*std::min_element(tmp_x_start.begin(),tmp_x_start.end());
         tmp_end=*std::max_element(tmp_x_end.begin(),tmp_x_end.end());
 
-        grid_ptr->dimension_x_start=tmp_start;
-        grid_ptr->dimension_x_count=tmp_end-tmp_start+1;
+        grid_ptr->spatial_dim_2_start=tmp_start;
+        grid_ptr->spatial_dim_2_count=tmp_end-tmp_start+1;
 #endif
 
         // we just store the indices of all the points included in [RY_min, RY_max]
         std::vector<int> tmp_tmp_x_id(0);
         std::vector<int> tmp_tmp_y_id(0);
-        for (int i=0; i<grid_ptr->dimension_x_count; ++i)
+        for (int i=0; i<grid_ptr->spatial_dim_2_count; ++i)
 		{
 			for (int j=0; j<grid_ptr->spatial_dim_1_count; ++j)
 			{
                 if(
-                    (Y[grid_ptr->dimension_x_count*j+i]>=RY_min) &&
-                    (Y[grid_ptr->dimension_x_count*j+i]<=RY_max) &&
-                    (X[grid_ptr->dimension_x_count*j+i]>=RX_min) &&
-                    (X[grid_ptr->dimension_x_count*j+i]<=RX_max) )
+                    (Y[grid_ptr->spatial_dim_2_count*j+i]>=RY_min) &&
+                    (Y[grid_ptr->spatial_dim_2_count*j+i]<=RY_max) &&
+                    (X[grid_ptr->spatial_dim_2_count*j+i]>=RX_min) &&
+                    (X[grid_ptr->spatial_dim_2_count*j+i]<=RX_max) )
                 {
                     tmp_tmp_y_id.push_back(j);
                     tmp_tmp_x_id.push_back(i);
@@ -8372,16 +8372,16 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
 
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        tmp_end = std::min(grid_ptr->dimension_x_count, tmp_end+halo_size);
-        grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
+        grid_ptr->spatial_dim_2_start = std::max(0,tmp_start-halo_size);
+        tmp_end = std::min(grid_ptr->spatial_dim_2_count, tmp_end+halo_size);
+        grid_ptr->spatial_dim_2_count = tmp_end - grid_ptr->spatial_dim_2_start;
 
         // Resize and read
-		LAT.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		LON.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		LAT.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		LON.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
-		X.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		Y.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		X.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		Y.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
         // Then we load the reduced grid
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
@@ -8420,10 +8420,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             {
                 netCDF::NcDim tmpDim = VTHETA.getDim(i);
                 std::string name = tmpDim.getName();
-                if ( name == grid_ptr->dimension_x.name )
+                if ( name == grid_ptr->spatial_dim_2.name )
                 {
-                    index_start[i] = grid_ptr->dimension_x_start;
-                    index_count[i] = grid_ptr->dimension_x_count;
+                    index_start[i] = grid_ptr->spatial_dim_2_start;
+                    index_count[i] = grid_ptr->spatial_dim_2_count;
                 }
                 else if ( name == grid_ptr->spatial_dim_1.name )
                 {
@@ -8437,7 +8437,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
             VTHETA.getVar(index_start,index_count,&Theta[0]);
         }
 #endif
@@ -8486,10 +8486,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             {
                 netCDF::NcDim tmpDim = VMASK.getDim(i);
                 std::string name = tmpDim.getName();
-                if ( name == grid_ptr->dimension_x.name )
+                if ( name == grid_ptr->spatial_dim_2.name )
                 {
-                    index_start[i] = grid_ptr->dimension_x_start;
-                    index_count[i] = grid_ptr->dimension_x_count;
+                    index_start[i] = grid_ptr->spatial_dim_2_start;
+                    index_count[i] = grid_ptr->spatial_dim_2_count;
                 }
                 else if ( name == grid_ptr->spatial_dim_1.name )
                 {
@@ -8503,7 +8503,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-			data_in.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+			data_in.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 			VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
@@ -8583,9 +8583,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
 			for (int i=0; i<grid_ptr->spatial_dim_1_count; ++i)
 			{
-				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
+				for (int j=0; j<grid_ptr->spatial_dim_2_count; ++j)
 				{
-                    tmp_data=data_in[grid_ptr->dimension_x_count*i+j];
+                    tmp_data=data_in[grid_ptr->spatial_dim_2_count*i+j];
 					if (    (!find_FillValue        || (tmp_data != FillValue)          )&&
                             (!find_missing_value    || (tmp_data != missing_value)      )&&
                             //(!find_valid_min        || (tmp_data >= valid_min)         )&&
@@ -8594,14 +8594,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                             (!find_NaN_mask         || (tmp_data != NaN_mask_value)     )&&
                             (!std::isnan(tmp_data)                                      )   )
 					{
-						reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
-						reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);
-						reduced_LAT.push_back(LAT[grid_ptr->dimension_x_count*i+j]);
-						reduced_LON.push_back(LON[grid_ptr->dimension_x_count*i+j]);
-						reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
+						reduced_X.push_back(X[grid_ptr->spatial_dim_2_count*i+j]);
+						reduced_Y.push_back(Y[grid_ptr->spatial_dim_2_count*i+j]);
+						reduced_LAT.push_back(LAT[grid_ptr->spatial_dim_2_count*i+j]);
+						reduced_LON.push_back(LON[grid_ptr->spatial_dim_2_count*i+j]);
+						reduced_nodes_ind.push_back(grid_ptr->spatial_dim_2_count*i+j);
 #ifdef OASIS
                         if(grid_ptr->gridded_rotation_angle)
-                            reduced_Theta.push_back(Theta[grid_ptr->dimension_x_count*i+j]);
+                            reduced_Theta.push_back(Theta[grid_ptr->spatial_dim_2_count*i+j]);
 #endif
 					}
 				}
@@ -8644,11 +8644,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> LAT(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		std::vector<double> LON(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
-		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+		std::vector<double> X(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
+		std::vector<double> Y(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
 
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
@@ -8673,10 +8673,10 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             {
                 netCDF::NcDim tmpDim = VTHETA.getDim(i);
                 std::string name = tmpDim.getName();
-                if ( name == grid_ptr->dimension_x.name )
+                if ( name == grid_ptr->spatial_dim_2.name )
                 {
-                    index_start[i] = grid.dimension_x_start;
-                    index_count[i] = grid.dimension_x_count;
+                    index_start[i] = grid.spatial_dim_2_start;
+                    index_count[i] = grid.spatial_dim_2_count;
                 }
                 else if ( name == grid_ptr->spatial_dim_1.name )
                 {
@@ -8690,7 +8690,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->dimension_x_count);
+            Theta.resize(grid_ptr->spatial_dim_1_count*grid_ptr->spatial_dim_2_count);
             VTHETA.getVar(index_start,index_count,&Theta[0]);
 
         }
@@ -8723,8 +8723,8 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
 	index_y_start[0] = grid.spatial_dim_1_start;
 	index_y_count[0] = grid.spatial_dim_1_count;
 
-	index_x_start[0] = grid.dimension_x_start;
-	index_x_count[0] = grid.dimension_x_count;
+	index_x_start[0] = grid.spatial_dim_2_start;
+	index_x_count[0] = grid.spatial_dim_2_count;
 	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
     //std::cout<<"getLatLonRegularLatLon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
 	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
@@ -8799,10 +8799,10 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
 	index_py_count[1] = 1;
 
 	index_px_start[0] = 0;
-	index_px_start[1] = grid.dimension_x_start;
+	index_px_start[1] = grid.spatial_dim_2_start;
 
 	index_px_count[0] = 1;
-	index_px_count[1] = grid.dimension_x_count;
+	index_px_count[1] = grid.spatial_dim_2_count;
 
 	std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
 	std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
@@ -8969,10 +8969,10 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     {
         netCDF::NcDim tmpDim = VLAT_ptr->getDim(i);
         std::string name = tmpDim.getName();
-        if ( name == grid.dimension_x.name )
+        if ( name == grid.spatial_dim_2.name )
         {
-            index_start[i] = grid.dimension_x_start;
-            index_count[i] = grid.dimension_x_count;
+            index_start[i] = grid.spatial_dim_2_start;
+            index_count[i] = grid.spatial_dim_2_count;
         }
         else if ( name == grid.spatial_dim_1.name )
         {
