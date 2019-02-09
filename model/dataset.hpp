@@ -80,7 +80,7 @@ public:
     {
         // Information on the input data
         std::string name;   //! name of the variable in the input file
-        std::vector<Dimension> dimensions; //! dimensions in the input file
+        std::vector<Dimension> dimensions; //! dimensions in the input file TODO needed? only dimensions.size() is used now
 
         // Information on the fill values and land mask when not available through the netcdf Attributes
         bool land_mask_defined;
