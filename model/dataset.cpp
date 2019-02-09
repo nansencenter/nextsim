@@ -59,9 +59,9 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -73,7 +73,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             name: "XLAT",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -90,7 +90,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "XLONG",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -233,9 +233,9 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -247,7 +247,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             name: "XLAT",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -264,7 +264,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "XLONG",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -483,9 +483,9 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -497,7 +497,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -514,7 +514,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -654,9 +654,9 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -668,7 +668,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -685,7 +685,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -833,9 +833,9 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -847,7 +847,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -864,7 +864,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1045,16 +1045,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1070,7 +1070,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1244,16 +1244,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1269,7 +1269,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1831,16 +1831,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1856,7 +1856,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1989,16 +1989,16 @@ DataSet::DataSet(char const *DatasetName)
             dimensions[1] = spatial_dim_1;
             dimensions[2] = spatial_dim_2;
 
-            std::vector<Dimension> dimensions_latlon(2);
-            dimensions_latlon[0] = spatial_dim_1;
-            dimensions_latlon[1] = spatial_dim_2;
+            std::vector<Dimension> spatial_dims(2);
+            spatial_dims[0] = spatial_dim_1;
+            spatial_dims[1] = spatial_dim_2;
 
             std::vector<Dimension> dimensions_time(1);
             dimensions_time[0] = dimension_time;
 
             Variable latitude={
                 name: "latitude",
-                dimensions: dimensions_latlon,
+                dimensions: spatial_dims,
                 land_mask_defined: false,
                 land_mask_value: 0.,
                 NaN_mask_defined: false,
@@ -2014,7 +2014,7 @@ DataSet::DataSet(char const *DatasetName)
 
             Variable longitude={
                 name: "longitude",
-                dimensions: dimensions_latlon,
+                dimensions: spatial_dims,
                 land_mask_defined: false,
                 land_mask_value: 0.,
                 NaN_mask_defined: false,
@@ -2217,16 +2217,16 @@ DataSet::DataSet(char const *DatasetName)
           dimensions[1] = spatial_dim_1;
           dimensions[2] = spatial_dim_2;
 
-          std::vector<Dimension> dimensions_latlon(2);
-          dimensions_latlon[0] = spatial_dim_1;
-          dimensions_latlon[1] = spatial_dim_2;
+          std::vector<Dimension> spatial_dims(2);
+          spatial_dims[0] = spatial_dim_1;
+          spatial_dims[1] = spatial_dim_2;
 
           std::vector<Dimension> dimensions_time(1);
           dimensions_time[0] = dimension_time;
 
           Variable latitude={
               name: "latitude",
-              dimensions: dimensions_latlon,
+              dimensions: spatial_dims,
               land_mask_defined: false,
               land_mask_value: 0.,
               NaN_mask_defined: false,
@@ -2242,7 +2242,7 @@ DataSet::DataSet(char const *DatasetName)
 
           Variable longitude={
               name: "longitude",
-              dimensions: dimensions_latlon,
+              dimensions: spatial_dims,
               land_mask_defined: false,
               land_mask_value: 0.,
               NaN_mask_defined: false,
@@ -2394,16 +2394,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2419,7 +2419,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2607,16 +2607,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2632,7 +2632,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2998,16 +2998,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3023,7 +3023,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3195,16 +3195,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3220,7 +3220,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3436,16 +3436,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3461,7 +3461,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3612,16 +3612,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3637,7 +3637,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3789,16 +3789,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3814,7 +3814,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -3975,16 +3975,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4000,7 +4000,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
              name: "longitude",
-             dimensions: dimensions_latlon,
+             dimensions: spatial_dims,
              land_mask_defined: false,
              land_mask_value: 0.,
              NaN_mask_defined: false,
@@ -4115,16 +4115,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "lat",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4140,7 +4140,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "lon",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4273,16 +4273,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "lat",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4298,7 +4298,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "lon",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4413,16 +4413,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4438,7 +4438,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4548,12 +4548,12 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions_latlon = {spatial_dim_1, spatial_dim_2};
+        std::vector<Dimension> spatial_dims = {spatial_dim_1, spatial_dim_2};
         std::vector<Dimension> dimensions = {dimension_time, spatial_dim_1, spatial_dim_2};
 
         Variable latitude={
             name: "lat",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4569,7 +4569,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "lon",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4685,16 +4685,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4710,7 +4710,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4759,7 +4759,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mask={
             name: "land",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: true,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4842,16 +4842,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4867,7 +4867,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4916,7 +4916,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mask={
             name: "land",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: true,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4999,16 +4999,16 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = spatial_dim_1;
         dimensions[2] = spatial_dim_2;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -5024,7 +5024,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -5073,7 +5073,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mask={
             name: "land",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: true,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -5146,13 +5146,13 @@ DataSet::DataSet(char const *DatasetName)
              cyclic:false
      	};
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         Variable latitude={
             name: "Lat",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -5169,7 +5169,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "Lon",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -5186,7 +5186,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thickness={
      		name: "Th",
-     		dimensions: dimensions_latlon,
+     		dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -7373,13 +7373,13 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         // Definition of the grid
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         Variable latitude={
             name: "latitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -7396,7 +7396,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             name: "longitude",
-            dimensions: dimensions_latlon,
+            dimensions: spatial_dims,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -7638,9 +7638,9 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_lat(1);
         dimensions_lat[0] = spatial_dim_1;
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = spatial_dim_1;
-        dimensions_latlon[1] = spatial_dim_2;
+        std::vector<Dimension> spatial_dims(2);
+        spatial_dims[0] = spatial_dim_1;
+        spatial_dims[1] = spatial_dim_2;
 
         Variable latitude={
             name: "latitude",
