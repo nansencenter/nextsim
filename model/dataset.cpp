@@ -5137,12 +5137,12 @@ DataSet::DataSet(char const *DatasetName)
      {
      	// Definition of the icesat grid and datasets
          Dimension dimension_x={
-             name:"x",
+             name:"y",
              cyclic:false
      	};
 
          Dimension dimension_y={
-             name:"y",
+             name:"x",
              cyclic:false
      	};
 
