@@ -6417,38 +6417,19 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         * Calculate the surface temperature within a while-loop
         * --------------------------------------------------------------- */
         double albedo = this->albedo(Tsurf, hs);
-        double dtsurf   = 1.;
-        int nb_iter_while=0;
-        while ( dtsurf > 1e-4 )
-        {
-            nb_iter_while++;
 
-            // -------------------------------------------------
-            /* Recalculate Tsurf */
-            dtsurf = Tsurf;
-            Qic    = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
-            Tsurf = Tsurf + ( Qic - Qia )/
-                ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
-
-            /* Set Tsurf to the freezing point of snow or ice */
-            if ( hs > 0. )
-                Tsurf = std::min(0., Tsurf);
-            else
-                Tsurf = std::min(-physical::mu*physical::si, Tsurf);
-
-            /* Re-evaluate the exit condition */
-            dtsurf = std::abs(dtsurf-Tsurf);
-        }
-
-        // TODO: This should be an assert within the loop, e.g. assert(nv_iter_while<1000);
-        if(nb_iter_while>10)
-        {
-            LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
-            //throw std::logic_error("nb_iter_while larger than 10");
-        }
-
+        // -------------------------------------------------
+        /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
+        Qic   = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
+        Tsurf = Tsurf + ( Qic - Qia )/
+            ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
+
+        /* Limit Tsurf to the freezing point of snow or ice */
+        if ( hs > 0. )
+            Tsurf = std::min(0., Tsurf);
+        else
+            Tsurf = std::min(-physical::mu*physical::si, Tsurf);
 
         /* ---------------------------------------------------------------
          * Melt and growth
