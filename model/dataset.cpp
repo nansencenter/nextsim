@@ -1412,8 +1412,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_x;
-        dimensions[1] = dimension_y;
+        dimensions[0] = dimension_y;
+        dimensions[1] = dimension_x;
 
         // Variables recieved through OASIS
         Variable u={
@@ -1624,8 +1624,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         std::vector<Dimension> dimensions(2);
-        dimensions[0] = dimension_x;
-        dimensions[1] = dimension_y;
+        dimensions[0] = dimension_y;
+        dimensions[1] = dimension_x;
 
         // Variables recieved through OASIS
         Variable sst={
