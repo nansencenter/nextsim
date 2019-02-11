@@ -22,7 +22,7 @@
 namespace Nextsim
 {
 
-class ModelVariable//: public std::vector<double> // inherit from std::vector<double>
+class ModelVariable: public std::vector<double> // inherit from std::vector<double>
 {
 
 public:
@@ -38,7 +38,7 @@ public:
         elemental  =  1
     };
 
-    enum interpMethod
+    enum InterpMethod
     {
         // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
         nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
@@ -46,7 +46,7 @@ public:
                                //  among the new elements in proportion to their area
     };
 
-    enum interpTransformation
+    enum InterpTransformation
     {
         // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
         none     = 0,//do nothing (conservative variable already)
@@ -72,9 +72,10 @@ public:
         M_hs_thin       = 12,
         M_conc_thin     = 13,
         M_random_number = 14,
-        //M_fyi_fraction  = 15,
-        //M_age_obs       = 16,
-        //M_age           = 17,
+        M_conc_fsd      = 15,
+        //M_fyi_fraction  = 16,
+        //M_age_obs       = 17,
+        //M_age           = 18,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -88,9 +89,11 @@ public:
         D_Qsh        = 108,
         D_Qlh        = 109,
         D_Qo         = 110,
-        D_delS       = 111,
-        D_emp        = 112,
-        D_brine      = 113
+        D_Qnosun     = 111,
+        D_Qsw_ocean  = 112,
+        D_delS       = 113,
+        D_emp        = 114,
+        D_brine      = 115
     };
 
 
@@ -102,11 +105,15 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    interpMethod M_interp_method;//interpolation method during regridding
-    interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
+    InterpMethod M_interp_method;//interpolation method during regridding
+    InterpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
+    bool M_has_min = false;
+    bool M_has_max = false;
+    double M_min_val;
+    double M_max_val;
 
 
 public:
@@ -155,12 +162,16 @@ public:
     variableKind varKind() { return M_var_kind; }
     int componentNumber() { return M_component_number; }
     std::string name() { return M_name; }
-    std::string export_name() { return M_export_name; }
-    bool is_prognostic() {return M_prognostic; }
+    std::string exportName() { return M_export_name; }
+    bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    interpMethod interp_method() {return M_interp_method; }
-    interpTransformation interpTransform() { return M_interp_transformation; }
+    InterpMethod interpMethod() {return M_interp_method; }
+    InterpTransformation interpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
+    bool hasMinVal() { return M_has_min; }
+    bool hasMaxVal() { return M_has_max; }
+    double minVal() { return M_min_val; }
+    double maxVal() { return M_max_val; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }

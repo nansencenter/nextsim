@@ -318,7 +318,9 @@ ExternalData::get(const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_target_size, "invalid index for scalar id = "
-                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
+                        + std::to_string(M_VariableId)+" ("+M_datasetname+"): i = "
+                        + std::to_string(i)+"; M_target_size = "
+                        + std::to_string(M_target_size));
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
