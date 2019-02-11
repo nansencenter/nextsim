@@ -73,7 +73,7 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
+	#LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
 endif

@@ -26,7 +26,7 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -39,7 +39,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -I $(MPI_ROOT)/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 # ========================================================
@@ -57,14 +57,14 @@ FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
 FFLAGS += -I $(NETCDF_FOR_DIR)/include
-FFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+FFLAGS += -I $(MPI_ROOT)/include
 # ========================================================
 
 # ========================================================
 # Libraries
 LDFLAGS += -fopenmp
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+#LDFLAGS += -Wl,-rpath,$(MPI_ROOT)/lib
+#LDFLAGS += -L $(MPI_ROOT)/lib -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 LDFLAGS += -L $(OASIS_DIR)/lib
 #LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
 #LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
@@ -140,9 +140,10 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
+	# $(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
+	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
+	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
+	ar rcs $(LIBRARYDIR)/liboasis.a $^
 else
 lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)

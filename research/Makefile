@@ -4,7 +4,7 @@ PROGNAME=laplacian.exec
 
 #NEXTSIMDIR=..
 
-CXX = g++
+CXX = mpicxx
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
