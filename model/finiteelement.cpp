@@ -936,6 +936,8 @@ FiniteElement::initDatasets()
     {
         M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
         M_datasets_regrid.push_back(&M_wave_nodes_dataset);
+        M_wave_elements_dataset = DataSet("wave_cpl_elements");
+        M_datasets_regrid.push_back(&M_wave_elements_dataset);
     }
 #endif
 
@@ -6988,14 +6990,13 @@ FiniteElement::initOASIS()
         this->setCplId_rcv(M_ocean_elements_dataset);
         n_cpl_id += M_ocean_nodes_dataset.M_cpl_id.size();
         n_cpl_id += M_ocean_elements_dataset.M_cpl_id.size();
-
     }
     if (vm["coupler.with_waves"].as<bool>())
     {
         this->setCplId_rcv(M_wave_nodes_dataset);
-        //this->setCplId_rcv(M_wave_elements_dataset);
+        this->setCplId_rcv(M_wave_elements_dataset);
         n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
-        //n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
+        n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
     }
 
     if ( n_cpl_id != var_rcv.size() )
@@ -9381,6 +9382,14 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
     M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
     M_external_data_nodes.push_back(&M_tau_wi);
+    M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+    M_external_data_elements.push_back(&M_str_var);
+    M_external_data_elements_names.push_back("M_str_var");
+    M_tm02 = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+    M_external_data_elements.push_back(&M_tm02);
+    M_external_data_elements_names.push_back("M_tm02");
 }
 #endif
 

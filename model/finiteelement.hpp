@@ -481,6 +481,8 @@ private:
     std::vector<double> M_tau_ow;
 #ifdef OASIS
     ExternalData M_tau_wi;
+    ExternalData M_str_var;
+    ExternalData M_tm02;
 #endif
 
     std::vector<double> M_ridge_ratio;
