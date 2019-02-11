@@ -44,8 +44,7 @@ namespace Nextsim
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
-            ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
-                "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
+            ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
         
              //-----------------------------------------------------------------------------------
@@ -277,13 +276,13 @@ namespace Nextsim
         
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0. ), "")
-            ("dynamics.young", po::value<double>()->default_value( 5.49e+9 ), "Pa") // 5.49e+9 is a more reasonable than 9GPa, and same as used in WIM paper.
-            ("dynamics.cfix", po::value<double>()->default_value( 40e+3 ), "Pa")
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
+                                                                                        // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
+                                                                                        // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
+            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 750e+3 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -292,19 +291,13 @@ namespace Nextsim
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
-            // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
-            ("dynamics.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
-            ("dynamics.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
-            // - scaling with respect to horizontal resolution
-            // Calculated depending on resolution
-            // ("dynamics.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
             ("dynamics.deltaT_relaxation_damage", po::value<double>()->default_value( 20. ), "Kelvin")
             ("dynamics.undamaged_time_relaxation_sigma", po::value<double>()->default_value( 1e7 ), "seconds")
             // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
-            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 4. ), "")
+            ("dynamics.exponent_relaxation_sigma", po::value<double>()->default_value( 5. ), "")
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
@@ -327,7 +320,13 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
-
+        
+            // - Damage equation discretization
+            //   disc_scheme is either : explicit, implicit, recursive
+            //   td_type is either : fixed or damage_dependent
+            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
+            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+        
         
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics

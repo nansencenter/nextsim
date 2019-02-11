@@ -548,6 +548,9 @@ FiniteElement::initVariables()
     M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
     M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
+    M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
+    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
+    M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
     
     M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
     M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
@@ -728,7 +731,6 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
-    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
 #if 1
@@ -1166,7 +1168,8 @@ FiniteElement::initOptAndParam()
     cpl_time_step = vm["coupler.timestep"].as<int>();
     // for now thermo_timestep must be equal to cpl_time_step
     // this is preferable anyway, but less flexible than allowing thermo_timestep <= cpl_time_step
-    thermo_timestep = cpl_time_step;
+    // This is deactivated for now as per issue 255 - but a better solution is needed.
+    // thermo_timestep = cpl_time_step;
 
     if ( cpl_time_step % time_step != 0)
     {
@@ -1232,14 +1235,9 @@ FiniteElement::initOptAndParam()
     
     
     //! Sets mechanical parameter values
-    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
-    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strenght as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
-    // scale_coef = vm["dynamics.scale_coef"].as<double>();
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
-    cfix = vm["dynamics.cfix"].as<double>(); //! \param cfix (double) Fixed part of the cohesion [Pa]
-    // C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
-    // C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
     
 
@@ -4511,11 +4509,9 @@ void
 FiniteElement::calcCohesion()
 {
     for (int i=0; i<M_Cohesion.size(); ++i)
-        M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
-
-    for (int i=0; i<M_Compressive_strength.size(); ++i)
-        M_Compressive_strength[i] = compr_strength*scale_coef;
-}//calcCohesion
+        M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+}
+//calcCohesion
 
     
 //------------------------------------------------------------------------------------------------------
@@ -4551,7 +4547,25 @@ FiniteElement::update()
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    // Type of discretization scheme for the damage equation, set in options.cpp
+    // Can be either explicit, implicit or recursive
+    std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
+    
+    // Characteristic time for damage
+    // Can be either fixed or damage-dependent
+    // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
+    double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
+    double td = td0;
+    if (dtime_step/td0 > 10.0) {
+        std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
+    }
+    std::string td_type = vm["damage.td_type"].as<std::string>();
+    
+    // Slope of the MC enveloppe
+    double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+    
+    
+    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         double old_damage;
 
@@ -4559,25 +4573,16 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
 
-        /* divergence */
-        double divergence_rate;
 
-        /* shear*/
-        double shear_rate;
-
-        // ridging scheme
-        double delta_ridging;
-        double G_star=0.15;
-        double e_factor=2.;
-
-        std::vector<double> sigma_pred(3);
+        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double tract_max, sigma_t, sigma_c, q;
-        double tmp, sigma_target;
-
+        double sigma_t, sigma_c;
+        double tmp, sigma_target, tmp_factor;
+    
+        
         // Temporary memory
         old_damage = M_damage[cpt];
 
@@ -4601,19 +4606,15 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-        divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
-        shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
-        delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
 
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
-        // We update only elements which have deformed. Not strictly neccesary, but may improve performance.
-        bool to_be_updated=false;
-        if( divergence_rate!=0.)
-            to_be_updated=true;
+        // Before, we updated only elements which had deformed. It did not improve performance. We update them all now.
+        bool to_be_updated=true;
+
 
 	/* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
@@ -4659,21 +4660,13 @@ FiniteElement::update()
             open_water_concentration -= M_conc_thin[cpt];
         }
 
-        // ridging scheme
-        double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
-
-        // limit open_water concentration to 0.
+        // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
-        // opening factor set to 0 for viscous case.
-        opening_factor=(young>0.) ? opening_factor : 0.;
-
-        //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
-        open_water_concentration += dtime_step*0.5*shear_rate/e_factor*opening_factor;
-
-        // limit open_water concentration to 1.
+        // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
+        
         /* Thin ice category */
         double new_conc_thin=0.;
         double new_h_thin=0.;
@@ -4780,7 +4773,12 @@ FiniteElement::update()
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
-            for(int i=0;i<3;i++)
+
+        //Calculating the new state of stress
+        for(int i=0;i<3;i++)
+        {
+            sigma_dot_i = 0.0;
+            for(int j=0;j<3;j++)
             {
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
@@ -4788,29 +4786,25 @@ FiniteElement::update()
                     sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
-                sigma_pred[i] = (M_sigma[i][cpt]+4.*time_step*sigma_dot_i)*multiplicator;
-                sigma_pred[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma_pred[i]):0.;
+            sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+            sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
-                M_sigma[i][cpt] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-                M_sigma[i][cpt] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (M_sigma[i][cpt]):0.;
-            }
+            M_sigma[i][cpt] = sigma[i];
+  
+        }
 
             /*======================================================================
              //! - Estimates the level of damage from the updated internal stress and the local damage criterion
              *======================================================================
              */
 
-            /* Compute the shear and normal stress, which are two invariants of the internal stress tensor */
+        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
+        sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+        sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-            sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2.,sigma_pred[2]);
-            sigma_n =-          (sigma_pred[0]+sigma_pred[1])/2.;
-
-            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            double ridge_to_normal_cohesion_ratio=vm["dynamics.ridge_to_normal_cohesion_ratio"].as<double>();
-            double norm_factor=vm["dynamics.cohesion_thickness_normalisation"].as<double>();
-            double exponent=vm["dynamics.cohesion_thickness_exponent"].as<double>();
+        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+    
 
             double hi=0.;
             if(M_conc[cpt]>0.1)
@@ -4818,55 +4812,35 @@ FiniteElement::update()
             else
                 hi = M_thick[cpt]/0.1;
 
-            //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION WITH THICKNESS OF ICE
-            double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        sigma_t=-sigma_c/q;
+            
+        
+        /* Calculate the characteristic time for damage */
+        if (td_type == "damage_dependent")
+            td = min(td0*pow(1-old_damage,-0.5), dtime_step);
 
-            double effective_cohesion = mult_factor * M_Cohesion[cpt];
-            double effective_compressive_strength = mult_factor * M_Compressive_strength[cpt];
+        /* Calculate the adjusted level of damage */
+        if((sigma_1-q*sigma_2)>sigma_c)
+        {
+            sigma_target = sigma_c;
+            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
 
-            q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-            sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-            sigma_t=-sigma_c/q;
-            tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
-                
-                
-            /* Calculate the adjusted level of damage */
-                //! \warning{sigma_target is actually not effective: critical states of stress are not projected back onto the damage envelope.}
-            if(sigma_n>effective_compressive_strength)
-            {
-                sigma_target=effective_compressive_strength;
-
-                tmp=1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt]=tmp;
-                }
+            if (disc_scheme == "explicit") {
+                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+            }
+            if (disc_scheme == "implicit") {
+                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+            }
+            if (disc_scheme == "recursive") {
+                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
             }
 
-            if((sigma_1-q*sigma_2)>sigma_c)
+            if(tmp>M_damage[cpt])
             {
-                sigma_target = sigma_c;
-
-                tmp = 1.0-sigma_target/(sigma_1-q*sigma_2)*(1.0-old_damage);
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = tmp;
-                }
+                M_damage[cpt] = min(tmp, 1.0);
             }
 
-            if(sigma_n<tract_max)
-            {
-                sigma_target = tract_max;
-
-                tmp = 1.0-sigma_target/sigma_n*(1.0-old_damage);
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = tmp;
-                }
-            }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.
@@ -4883,7 +4857,7 @@ FiniteElement::update()
          */
 
         /* lower bounds */
-        M_conc[cpt] = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
@@ -5296,7 +5270,6 @@ FiniteElement::thermo(int dt)
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
-
         double  old_h_thin = 0.;
         double  old_hs_thin = 0.;
         double  old_conc_thin=0.;
@@ -5749,6 +5722,54 @@ FiniteElement::thermo(int dt)
 
         // Brine release - kg/m^2/s
         D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
+
+        //! 10) Computes tracers (ice age/type tracers)
+        // If there is no ice
+        if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
+        {
+            M_fyi_fraction[i] = 0.;
+            M_age_det[i] = 0.;
+            M_age[i] =  0.;
+        }
+        else    //If there is ice
+        {
+
+            // FYI fraction (in the cell/triangle).
+            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
+
+            // Reset the FYI tracer to 0 every end of the melt season (15 September)
+            if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
+            {
+                M_fyi_fraction[i] = 0.;
+            }
+            else
+            {
+                double conc_fyi = M_fyi_fraction[i] + del_c;
+                M_fyi_fraction[i] = std::max(0.,std::min(1.,conc_fyi));
+            }
+
+            // Observable sea ice age tracer
+            // Melt does not effect the age, growth makes it younger
+            M_age_det[i] += dt*M_conc[i];
+
+            // Real (volume weighted and conserving) sea ice age
+            double old_age = M_age[i];
+            double del_vi_thick = M_thick[i] - old_vol;
+
+            // potential devision by zero and non-initialized old_vol (strange value) in the first time step
+            if (old_vol > 0. && del_vi_thick > 0.) // freezing
+            {
+                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
+            }
+            else if (old_vol > 0. && del_vi_thick < 0.) // melting
+            {
+                M_age[i] = old_age+dt;
+            }
+            else //new ice
+            {
+                M_age[i] =  dt;
+            }
+        }
 
     }// end for loop
 }//thermo
@@ -6232,38 +6253,19 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         * Calculate the surface temperature within a while-loop
         * --------------------------------------------------------------- */
         double albedo = this->albedo(Tsurf, hs);
-        double dtsurf   = 1.;
-        int nb_iter_while=0;
-        while ( dtsurf > 1e-4 )
-        {
-            nb_iter_while++;
 
-            // -------------------------------------------------
-            /* Recalculate Tsurf */
-            dtsurf = Tsurf;
-            Qic    = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
-            Tsurf = Tsurf + ( Qic - Qia )/
-                ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
-
-            /* Set Tsurf to the freezing point of snow or ice */
-            if ( hs > 0. )
-                Tsurf = std::min(0., Tsurf);
-            else
-                Tsurf = std::min(-physical::mu*physical::si, Tsurf);
-
-            /* Re-evaluate the exit condition */
-            dtsurf = std::abs(dtsurf-Tsurf);
-        }
-
-        // TODO: This should be an assert within the loop, e.g. assert(nv_iter_while<1000);
-        if(nb_iter_while>10)
-        {
-            LOG(DEBUG) << "nb_iter_while = " << nb_iter_while << "\n";
-            //throw std::logic_error("nb_iter_while larger than 10");
-        }
-
+        // -------------------------------------------------
+        /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
+        Qic   = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
+        Tsurf = Tsurf + ( Qic - Qia )/
+            ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
+
+        /* Limit Tsurf to the freezing point of snow or ice */
+        if ( hs > 0. )
+            Tsurf = std::min(0., Tsurf);
+        else
+            Tsurf = std::min(-physical::mu*physical::si, Tsurf);
 
         /* ---------------------------------------------------------------
          * Melt and growth
@@ -6341,12 +6343,12 @@ FiniteElement::init()
     }
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
-    // The mean resolution of the small_arctic_10km mesh is 7446.71 m. Using 74.5 gives scale_coef = 0.100022, for that mesh
+    // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
-    scale_coef = std::sqrt(74.5/M_res_root_mesh);
-    C_fix    = cfix*scale_coef;          // C_fix;...  : cohesion (mohr-coulomb) in MPa (40000 Pa)
+    scale_coef = std::sqrt(0.1/M_res_root_mesh);
+    C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    LOG(DEBUG) << "SCALE_COEF = " << scale_coef << "\n";
+    LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
 
     if ( M_use_restart )
     {
@@ -6547,14 +6549,12 @@ FiniteElement::initModelVariables()
         M_conc_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_fsd, k);
         M_variables_elt.push_back(&(M_conc_fsd[k]));
     }
-#if 0
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
     M_variables_elt.push_back(&M_fyi_fraction);
-    M_age_obs = ModelVariable(ModelVariable::variableID::M_age_obs);
+    M_age_det = ModelVariable(ModelVariable::variableID::M_age_obs);
     M_variables_elt.push_back(&M_age_obs);
     M_age = ModelVariable(ModelVariable::variableID::M_age);
     M_variables_elt.push_back(&M_age);
-#endif
 
     // Diagnostic variables
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);
@@ -6964,7 +6964,7 @@ FiniteElement::updateIceDiagnostics()
         D_sigma[k].resize(M_num_elements);
 
     double sigma_s, sigma_n;
-    std::vector<double> sigma_pred(3);
+    std::vector<double> sigma(3);
     for(int i=0; i<M_num_elements; i++)
     {
         D_conc[i] = M_conc[i];
@@ -6982,9 +6982,9 @@ FiniteElement::updateIceDiagnostics()
 
         // principal stresses
         for(int k=0; k<3; k++)
-            sigma_pred[k] = M_sigma[k][i];
-        sigma_s = std::hypot((sigma_pred[0]-sigma_pred[1])/2., sigma_pred[2]);
-        sigma_n =          - (sigma_pred[0]+sigma_pred[1])/2.;
+            sigma[k] = M_sigma[k][i];
+        sigma_s = std::hypot((sigma[0]-sigma[1])/2., sigma[2]);
+        sigma_n =          - (sigma[0]+sigma[1])/2.;
         D_sigma[0][i] = sigma_n+sigma_s;
         D_sigma[1][i] = sigma_n-sigma_s;
     }
@@ -7190,6 +7190,9 @@ FiniteElement::step()
     //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
+#ifdef OASIS
+    // Calling updateIceDiagnostics here is a temporary fix to issue 254.
+    this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
@@ -7279,15 +7282,12 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
-
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
-
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
@@ -7470,6 +7470,22 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_hs_thin[i]*time_factor;
                 break;
+
+            case (GridOutput::variableID::fyi_fraction):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::age_d):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_age_det[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::age):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_age[i]*time_factor;
+                break;
+
 
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
@@ -7747,6 +7763,10 @@ FiniteElement::initMoorings()
             ("snowfall", GridOutput::variableID::snowfall)
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
+            ("fyi_fraction", GridOutput::variableID::fyi_fraction)
+            ("age_d", GridOutput::variableID::age_d)
+            ("age", GridOutput::variableID::age)
+
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -7920,7 +7940,6 @@ FiniteElement::initMoorings()
 
         M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
     }
-
 }//initMoorings
 
 //------------------------------------------------------------------------------------------------------
@@ -12492,7 +12511,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         }
         this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
     }
-
     M_comm.barrier();
     if (M_rank == 0)
     {
@@ -12570,6 +12588,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                     tmp[i] = elt_values_root[nb_var_element*ri+j];
                 }
                 exporter.writeField(outbin, tmp, names_elements[j]);
+
             }
 
             outbin.close();

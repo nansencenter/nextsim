@@ -35,4 +35,4 @@ then
 fi
 
 # Run the nextsim model usin MPI
-mpirun --allow-run-as-root -np $ncpu nextsim.exec -mat_mumps_icntl_14 60 --config-files=$config
+mpirun --allow-run-as-root -np $ncpu nextsim.exec -mat_mumps_icntl_23 256 --config-files=$config &> /docker_io/nextsim_outputs.log

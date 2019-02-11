@@ -572,7 +572,7 @@ private:
     double tract_coef;
     double scale_coef;
     double alea_factor;
-    double cfix;
+    double C_lab;
     double C_fix;
     double C_alea;
     double tan_phi;
@@ -739,11 +739,9 @@ private:
     ModelVariable M_hs_thin;
     ModelVariable M_conc_thin;
     ModelVariable M_random_number;
-#if 0
     ModelVariable M_fyi_fraction;
-    ModelVariable M_age_obs;
+    ModelVariable M_age_det;
     ModelVariable M_age;
-#endif
     std::vector<ModelVariable> M_conc_fsd;
     int const M_num_fsd_bins = 3;
     std::vector<double> M_fsd_bin_centres;
@@ -777,11 +775,17 @@ private:
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
     std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
     std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
+    std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
+    std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
+    std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
     std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
     std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
+    std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
+    std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
 
 private:
     // Variables for the moorings

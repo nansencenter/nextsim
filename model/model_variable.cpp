@@ -247,7 +247,6 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
-#if 0
         case (variableID::M_fyi_fraction):
             M_name = "M_fyi_fraction";
             M_export_name = "Fyi_fraction";
@@ -262,9 +261,9 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
-        case (variableID::M_age_obs):
-            M_name = "M_age_obs";
-            M_export_name = "Age_o";
+        case (variableID::M_age_det):
+            M_name = "M_age_det";
+            M_export_name = "Age_d";
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = InterpMethod::conservative;
@@ -285,7 +284,6 @@ ModelVariable::initElemental()
             M_has_min = true;
             M_min_val = 0.;
             break;
-#endif
 
         // Diagnostic variables
         case (variableID::D_conc):

@@ -73,9 +73,9 @@ public:
         M_conc_thin     = 13,
         M_random_number = 14,
         M_conc_fsd      = 15,
-        //M_fyi_fraction  = 16,
-        //M_age_obs       = 17,
-        //M_age           = 18,
+        M_fyi_fraction  = 16,
+        M_age_det       = 17,
+        M_age           = 18,
 
         // Diagnostic variables
         D_conc       = 100,
