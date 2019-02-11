@@ -4774,36 +4774,37 @@ FiniteElement::update()
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
 
-        //Calculating the new state of stress
-        for(int i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            //Calculating the new state of stress
+            for(int i=0;i<3;i++)
             {
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_dot_i = 0.0;
+                    for(int j=0;j<3;j++)
+                    {
+                        sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    }
                 }
 
-            sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-            sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+                sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
-            M_sigma[i][cpt] = sigma[i];
+                M_sigma[i][cpt] = sigma[i];
   
-        }
+            }
 
             /*======================================================================
              //! - Estimates the level of damage from the updated internal stress and the local damage criterion
              *======================================================================
              */
 
-        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        sigma_n =-          (sigma[0]+sigma[1])/2.;
+            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
+            sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+            sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
     
 
             double hi=0.;
@@ -4812,66 +4813,68 @@ FiniteElement::update()
             else
                 hi = M_thick[cpt]/0.1;
 
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
+            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
+                
             
-        
-        /* Calculate the characteristic time for damage */
-        if (td_type == "damage_dependent")
-            td = min(td0*pow(1-old_damage,-0.5), dtime_step);
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(td0*pow(1-old_damage,-0.5), dtime_step);
 
-        /* Calculate the adjusted level of damage */
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target = sigma_c;
-            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
-            }
-
-            if(tmp>M_damage[cpt])
+            /* Calculate the adjusted level of damage */
+            if((sigma_1-q*sigma_2)>sigma_c)
             {
-                M_damage[cpt] = min(tmp, 1.0);
+                sigma_target = sigma_c;
+                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+
+
             }
-
-
-        }
-        else // if M_conc or M_thick too low, set sigma to 0.
-        {
-            for(int i=0;i<3;i++)
+            else // if M_conc or M_thick too low, set sigma to 0.
             {
-                M_sigma[i][cpt] = 0.;
+                for(int i=0;i<3;i++)
+                {
+                    M_sigma[i][cpt] = 0.;
+                }
             }
-        }
 
-        /*======================================================================
-         * Check:
-         *======================================================================
-         */
+            /*======================================================================
+             * Check:
+             *======================================================================
+             */
 
-        /* lower bounds */
-        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+            /* lower bounds */
+            M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
-        /* Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         */
-        tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
-        if(M_thick[cpt]==0.)
-            tmp=0.;
+            /* Ice damage
+             * We use now a constant healing rate defined as 1/time_recovery_damage
+             * so that we are now able to reset the damage to 0.
+             * otherwise, it will never heal completely.
+             * time_recovery_damage still depends on the temperature when themodynamics is activated.
+             */
+            tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
+            if(M_thick[cpt]==0.)
+                tmp=0.;
 
-        M_damage[cpt]=((tmp>0.)?(tmp):(0.));
+            M_damage[cpt]=((tmp>0.)?(tmp):(0.));
+
+        }//if ice
     }//loop over elements
 }//update
 
@@ -6551,8 +6554,8 @@ FiniteElement::initModelVariables()
     }
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
     M_variables_elt.push_back(&M_fyi_fraction);
-    M_age_det = ModelVariable(ModelVariable::variableID::M_age_obs);
-    M_variables_elt.push_back(&M_age_obs);
+    M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);
+    M_variables_elt.push_back(&M_age_det);
     M_age = ModelVariable(ModelVariable::variableID::M_age);
     M_variables_elt.push_back(&M_age);
 
@@ -7186,7 +7189,6 @@ FiniteElement::step()
         this->updateFreeDriftVelocity();
 
 
-#ifdef OASIS
     //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
