@@ -2047,61 +2047,16 @@ FiniteElement::gatherSizes()
 //! read variables from the interpolation function in the same order.
 //! Called by collectVariables() and redistributeVariables().
 void
-FiniteElement::sortPrognosticVars(
-        std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy,
-        std::vector<bool> &has_min,
-        std::vector<bool> &has_max,
-        std::vector<double> &min_val,
-        std::vector<double> &max_val)
+FiniteElement::sortPrognosticVars()
 {
-
+    M_prognostic_variables_elt_indices.resize(4);
     int nb_var_element = M_prognostic_variables_elt.size();
-    has_min.resize(nb_var_element);
-    has_max.resize(nb_var_element);
-    min_val.resize(nb_var_element);
-    max_val.resize(nb_var_element);
     for(int j=0; j<M_prognostic_variables_elt.size(); j++)
     {
         auto vptr = M_prognostic_variables_elt[j];
-        has_min[j] = vptr->hasMinVal();
-        has_max[j] = vptr->hasMinVal();
-        min_val[j] = has_min[j] ? vptr->minVal() : 0.;
-        max_val[j] = has_max[j] ? vptr->maxVal() : 0.;
-        switch(vptr->interpTransformation())
-        {
-            case ModelVariable::InterpTransformation::none:
-                j_none.push_back(j);
-                break;
-            case ModelVariable::InterpTransformation::conc:
-                j_conc.push_back(j);
-                break;
-            case ModelVariable::InterpTransformation::thick:
-                j_thick.push_back(j);
-                break;
-            case ModelVariable::InterpTransformation::enthalpy:
-                j_enthalpy.push_back(j);
-                break;
-        }
+        int k = vptr->getInterpTransformation();
+        M_prognostic_variables_elt_indices[k].push_back(j);
     }
-}//sortPrognosticVars
-
-
-void
-FiniteElement::sortPrognosticVars(std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy)
-{
-        std::vector<bool> has_min;
-        std::vector<bool> has_max;
-        std::vector<double> min_val;
-        std::vector<double> max_val;
-        this->sortPrognosticVars(
-                j_none, j_conc, j_thick, j_enthalpy,
-                has_min, has_max, min_val, max_val);
 }//sortPrognosticVars
 
 
@@ -2118,37 +2073,37 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     if (ghosts)
         num_elements = M_num_elements;
 
-    //! -1) sort according to how they are transformed before/after interpolation
-    std::vector<int> j_none;
-    std::vector<int> j_conc;
-    std::vector<int> j_thick;
-    std::vector<int> j_enthalpy;
-    this->sortPrognosticVars( j_none, j_conc, j_thick, j_enthalpy);
-
-    //! -2) loop over elements and grab the different variables to be interpolated
+    //! loop over elements and grab the different variables to be interpolated
     interp_elt_in_local.resize(nb_var_element*num_elements);
     for (int i=0; i<num_elements; ++i)
     {
         double val = 0.;
-        for(int j: j_none)
+        int k = 0;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // no transformation
             auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i];
         }
-        for(int j: j_conc)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // weighted by M_conc
             auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_conc[i];
         }
-        for(int j: j_thick)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // weighted by M_thick
             auto ptr = M_prognostic_variables_elt[j];
             interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_thick[i];
         }
-        for(int j: j_enthalpy)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // enthalpy transformation
             auto ptr = M_prognostic_variables_elt[j];
@@ -2198,23 +2153,22 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 
 //------------------------------------------------------------------------------------------------------
 //! Interpolates variables (other than velocities and displacements) onto the mesh grid once updated.
-//! Called by the updated() function, after the advect() function.
+//! \note apply_maxima can be true for interpolation, but should be false if calling for advection
+//! - then we redistribute extra ice concentration with a ridging scheme.
+//! Called by the interpFields() function, after the advect() function.
 void
-FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
+FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima)
 {
     //! -1) sort according to how they are transformed before/after interpolation
     int nb_var_element = M_prognostic_variables_elt.size();
-    std::vector<int> j_none;
-    std::vector<int> j_conc;
-    std::vector<int> j_thick;
-    std::vector<int> j_enthalpy;
-    std::vector<bool> has_min;
-    std::vector<bool> has_max;
-    std::vector<double> min_val;
-    std::vector<double> max_val;
-    this->sortPrognosticVars(
-            j_none, j_conc, j_thick, j_enthalpy,
-            has_min, has_max, min_val, max_val);
+    std::vector<bool> has_min(nb_var_element);
+    std::vector<bool> has_max(nb_var_element);
+    for(int j=0; j<nb_var_element; j++)
+    {
+        has_min[j] = M_prognostic_variables_elt[j] -> hasMinVal();
+        has_max[j] = apply_maxima?
+            M_prognostic_variables_elt[j]->hasMaxVal() : false;
+    }
 
     //! -2) loop over elements and assign the values to the different variables
     double val = 0.;
@@ -2227,7 +2181,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
         //    there could be trouble)
     for (int i=0; i<M_num_elements; ++i)
     {
-        for(int j: j_none)
+        int k = 0;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // no transformation
             // NB must be done first! (others may need M_conc, M_thick)
@@ -2235,10 +2190,13 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (none): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = out_elt_values[nb_var_element*i+j];
-            val = has_min[j] ? std::max(min_val[j], val ) : val ;
+            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
+            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
             (*ptr)[i] = val;
         }
-        for(int j: j_conc)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // weighted by M_conc
             auto ptr = M_prognostic_variables_elt[j];
@@ -2246,10 +2204,13 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
                 LOG(DEBUG)<<"redistribute (conc): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = M_conc[i]>0. ?
                 out_elt_values[nb_var_element*i+j]/M_conc[i] : 0.;
-            val = has_min[j] ? std::max(min_val[j], val ) : val ;
+            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
+            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
             (*ptr)[i] = val;
         }
-        for(int j: j_thick)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // weighted by M_thick
             auto ptr = M_prognostic_variables_elt[j];
@@ -2263,10 +2224,13 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
                               // there is no ice present and use another attribute "value_if_no_ice" or something like that
             else
                 val = 0.;
-            val = has_min[j] ? std::max(min_val[j], val ) : val ;
+            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
+            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
             (*ptr)[i] = val;
         }
-        for(int j: j_enthalpy)
+
+        k++;
+        for(int j: M_prognostic_variables_elt_indices[k])
         {
             // enthalpy transformation
             auto ptr = M_prognostic_variables_elt[j];
@@ -2280,20 +2244,25 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values)
             }
             else
                 (*ptr)[i] = tfr_ice;// in open water just use the freezing point of ice
+            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
+            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
         }
 
-        // check the total conc is <= 1
-        M_conc[i] = std::min(1., M_conc[i]);
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(apply_maxima)
         {
-            double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
-            double h_thin_new = 0.;
-            if(M_conc_thin[i]>0.)
-                h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
+            // check the total conc is <= 1
+            M_conc[i] = std::min(1., M_conc[i]);
+            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            {
+                double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
+                double h_thin_new = 0.;
+                if(M_conc_thin[i]>0.)
+                    h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
 
-            M_thick[i] += M_h_thin[i] - h_thin_new;
-            M_h_thin[i] = h_thin_new;
-            M_conc_thin[i] = conc_thin_new;
+                M_thick[i] += M_h_thin[i] - h_thin_new;
+                M_h_thin[i] = h_thin_new;
+                M_conc_thin[i] = conc_thin_new;
+            }
         }
     }
 }//redistributeVariables
@@ -3057,7 +3026,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
             // - they are not interpolated
             ptr->assign(M_num_elements, 0.);
     }
-    this->redistributeVariables(out_elt_values);
+    this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
 
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElement
@@ -6502,26 +6471,11 @@ FiniteElement::initModelVariables()
 
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
-#if 0
-    //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
-    std::vector<std::string> export_names = vm["output.variables"].as<std::vector<std::string>>();
-    bool custom_export = (export_names.size() > 0 );
-#endif
+    M_prognostic_variables_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
-    std::vector<ModelVariable*> prog_none;
-    std::vector<ModelVariable*> prog_conc;
-    std::vector<ModelVariable*> prog_thick;
-    std::vector<ModelVariable*> prog_enthalpy;
     for(auto ptr: M_variables_elt)
     {
-
-#if 0
-        //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
-        bool export_requested = (std::count( export_names.begin(),
-                    export_names.end(), ptr->name()) > 0 );
-#endif
-
         if(ptr->varKind() == ModelVariable::variableKind::elemental)
         {
             if(ptr->isPrognostic())
@@ -6529,41 +6483,14 @@ FiniteElement::initModelVariables()
                 // restart, regrid variables
                 // - 1st sort them according to the way they are transformed at interpolation time
                 // - this will make redistributeVariables slightly more efficient
-                switch(ptr->interpTransformation())
-                {
-                    case ModelVariable::InterpTransformation::none:
-                        prog_none.push_back(ptr);
-                        break;
-                    case ModelVariable::InterpTransformation::conc:
-                        prog_conc.push_back(ptr);
-                        break;
-                    case ModelVariable::InterpTransformation::thick:
-                        prog_thick.push_back(ptr);
-                        break;
-                    case ModelVariable::InterpTransformation::enthalpy:
-                        prog_enthalpy.push_back(ptr);
-                        break;
-                }
-
-#if 0
-                //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
-                // if we only want to export specific variables
-                // (specified in config file)
-                if (custom_export)
-                    ptr->setExporting(export_requested);
-#endif
+                M_prognostic_variables_elt.push_back(ptr);
             }
             else if (vm["output.save_diagnostics"].as<bool>())
+            {
                 // export all diagnostic variables to binary
                 // - NB overrides "custom_export"
                 ptr->setExporting(true);
-#if 0
-            //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
-            else if (custom_export)
-                // if we only want to export specific diagnostic variables
-                // (specified in config file)
-                ptr->setExporting(export_requested);
-#endif
+            }
 
             if(ptr->exporting())
             {
@@ -6574,21 +6501,9 @@ FiniteElement::initModelVariables()
         }
     }// loop over M_variables_elt
 
-    // finally collect the sorted prognostic variables
-    M_prognostic_variables_elt.resize(0);
-    M_restart_names_elt.resize(0);
-    M_interp_methods.resize(0);
-    M_diffusivity_parameters.resize(0);
-    std::vector<std::vector<ModelVariable*>>
-        prog_vecs = {prog_none, prog_conc, prog_thick, prog_enthalpy};//NB prog_none has to be 1st
-    for (auto prog_vec: prog_vecs )
-        for(auto ptr: prog_vec)
-        {
-            M_prognostic_variables_elt.push_back(ptr);
-            M_restart_names_elt.push_back(ptr->name());
-            M_interp_methods.push_back((int) ptr->interpMethod());
-            M_diffusivity_parameters.push_back(ptr->diffusivity());
-        }
+    // finally sort the prognostic variables into M_prognostic_variables_elt_indices
+    // using ModelVariable::interpTransformation
+    this->sortPrognosticVars();
 }//initModelVariables
 
 

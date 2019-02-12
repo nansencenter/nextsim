@@ -38,7 +38,7 @@ public:
         elemental  =  1
     };
 
-    enum InterpMethod
+    enum interpMethod
     {
         // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
         nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
@@ -46,7 +46,7 @@ public:
                                //  among the new elements in proportion to their area
     };
 
-    enum InterpTransformation
+    enum interpTransformation
     {
         // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
         none     = 0,//do nothing (conservative variable already)
@@ -104,8 +104,8 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    InterpMethod M_interp_method;//interpolation method during regridding
-    InterpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
+    interpMethod M_interp_method;//interpolation method during regridding
+    interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
@@ -164,8 +164,8 @@ public:
     std::string exportName() { return M_export_name; }
     bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    InterpMethod interpMethod() {return M_interp_method; }
-    InterpTransformation interpTransformation() { return M_interp_transformation; }
+    interpMethod getInterpMethod() {return M_interp_method; }
+    interpTransformation getInterpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
     bool hasMaxVal() { return M_has_max; }

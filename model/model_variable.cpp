@@ -32,8 +32,8 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -47,8 +47,8 @@ ModelVariable::initElemental()
             M_export_name = "Thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -60,8 +60,8 @@ ModelVariable::initElemental()
             M_export_name = "Snow_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -73,8 +73,8 @@ ModelVariable::initElemental()
             M_export_name = "M_sigma";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             if(M_component_number<0 || M_component_number>2)
                 throw std::runtime_error(
@@ -88,8 +88,8 @@ ModelVariable::initElemental()
             M_export_name = "Damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::nearest_neighbour;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -103,8 +103,8 @@ ModelVariable::initElemental()
             M_export_name = "Ridge_ratio";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -123,20 +123,20 @@ ModelVariable::initElemental()
             {
                 case(0):
                     // surface temperature
-                    M_interp_method = InterpMethod::nearest_neighbour;
-                    M_interp_transformation = InterpTransformation::none;
+                    M_interp_method = interpMethod::nearest_neighbour;
+                    M_interp_transformation = interpTransformation::none;
                     break;
 
                 case(1):
                     // mean temperature of top layer
-                    M_interp_method = InterpMethod::conservative;
-                    M_interp_transformation = InterpTransformation::enthalpy; // (Winton, 2000: eq 39) times volume with f1=1
+                    M_interp_method = interpMethod::conservative;
+                    M_interp_transformation = interpTransformation::enthalpy; // (Winton, 2000: eq 39) times volume with f1=1
                     break;
 
                 case(2):
                     // mean temperature of lower layer
-                    M_interp_method = InterpMethod::conservative;
-                    M_interp_transformation = InterpTransformation::thick; // (Winton, 2000: eq 39) times volume with f1=0
+                    M_interp_method = interpMethod::conservative;
+                    M_interp_transformation = interpTransformation::thick; // (Winton, 2000: eq 39) times volume with f1=0
                     break;
 
                 default:
@@ -152,8 +152,8 @@ ModelVariable::initElemental()
             M_export_name = "SST";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::nearest_neighbour;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sst"].as<double>();
             break;
 
@@ -163,8 +163,8 @@ ModelVariable::initElemental()
             M_export_name = "SSS";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::nearest_neighbour;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
 
@@ -174,8 +174,8 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::nearest_neighbour;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
 
@@ -185,8 +185,8 @@ ModelVariable::initElemental()
             M_export_name = "Thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -198,8 +198,8 @@ ModelVariable::initElemental()
             M_export_name = "Snow_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -211,8 +211,8 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -227,8 +227,8 @@ ModelVariable::initElemental()
             M_export_name = "M_random_number";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = InterpMethod::nearest_neighbour;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
 
@@ -237,8 +237,8 @@ ModelVariable::initElemental()
             M_export_name = "Fyi_fraction";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -251,8 +251,8 @@ ModelVariable::initElemental()
             M_export_name = "Age_d";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
@@ -263,8 +263,8 @@ ModelVariable::initElemental()
             M_export_name = "Age";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = InterpMethod::conservative;
-            M_interp_transformation = InterpTransformation::none;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
