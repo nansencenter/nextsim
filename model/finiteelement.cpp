@@ -1818,14 +1818,15 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
     for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
     {
         std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
-        int j = 0;
-        for (j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
+        int k = 0;
+        for (int j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
         {
             int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
 
             if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
             {
-                measure[j] = this->measure(mesh.triangles()[elt_num],mesh);
+                measure[k] = this->measure(mesh.triangles()[elt_num],mesh);
+                k++;
             }
             else
             {
@@ -1833,7 +1834,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
             }
         }
 
-        measure.resize(j);
+        measure.resize(k);
         hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8;
     }
 
