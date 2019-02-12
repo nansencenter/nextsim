@@ -10,6 +10,7 @@
 #define __ModelVariable_H 1
 
 #include <environment.hpp>
+#include <constants.hpp>
 
 /**
  * @class GridOutput
@@ -111,8 +112,11 @@ private:
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
     bool M_has_min = false;
     bool M_has_max = false;
+    bool M_has_open_water_val = false;
     double M_min_val;
     double M_max_val;
+    double M_open_water_val;
+    double M_tfr_ice;
 
 
 public:
@@ -148,6 +152,9 @@ public:
             M_export_name += "_" + std::to_string(M_component_number);
         }
 
+        M_tfr_ice = -physical::mu*physical::si;
+        // freezing point of ice - value for M_tice[i] in open water
+
     }
 
 private:
@@ -169,8 +176,10 @@ public:
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
     bool hasMaxVal() { return M_has_max; }
+    bool hasOpenWaterVal() { return M_has_open_water_val; }
     double minVal() { return M_min_val; }
     double maxVal() { return M_max_val; }
+    double openWaterVal() { return M_open_water_val; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }

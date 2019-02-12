@@ -2159,26 +2159,16 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 void
 FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima)
 {
-    //! -1) sort according to how they are transformed before/after interpolation
+    //! -1) check if we are using the maximum values for the variables
+    //!     - don't do this if calling during advection
     int nb_var_element = M_prognostic_variables_elt.size();
-    std::vector<bool> has_min(nb_var_element);
-    std::vector<bool> has_max(nb_var_element);
-    for(int j=0; j<nb_var_element; j++)
-    {
-        has_min[j] = M_prognostic_variables_elt[j] -> hasMinVal();
-        has_max[j] = apply_maxima?
-            M_prognostic_variables_elt[j]->hasMaxVal() : false;
-    }
+    std::vector<bool> has_max(nb_var_element, false);
+    if(apply_maxima)
+        for(int j=0; j<nb_var_element; j++)
+            has_max[j] = M_prognostic_variables_elt[j]->hasMaxVal();
 
     //! -2) loop over elements and assign the values to the different variables
     double val = 0.;
-    double tfr_ice = -physical::mu*physical::si;
-        // freezing point of ice
-        // - value for M_tice[i] in open water
-        // - in rest of code it is freezing point of water,
-        //   but we don't do this here to remove depenency on M_sss
-        //   (could have it, but if M_sss changes InterpolationType from 'none',
-        //    there could be trouble)
     for (int i=0; i<M_num_elements; ++i)
     {
         int k = 0;
@@ -2190,9 +2180,8 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (none): variable "<<j<<" = "<<ptr->name()<<"\n";
             val = out_elt_values[nb_var_element*i+j];
-            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
-            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
-            (*ptr)[i] = val;
+            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
+            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
         }
 
         k++;
@@ -2202,11 +2191,12 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             auto ptr = M_prognostic_variables_elt[j];
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (conc): variable "<<j<<" = "<<ptr->name()<<"\n";
-            val = M_conc[i]>0. ?
-                out_elt_values[nb_var_element*i+j]/M_conc[i] : 0.;
-            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
-            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
-            (*ptr)[i] = val;
+            if (M_conc[i]>0.)
+                val = out_elt_values[nb_var_element*i+j]/M_conc[i];
+            else
+                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
+            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
+            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
         }
 
         k++;
@@ -2218,13 +2208,9 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 LOG(DEBUG)<<"redistribute (thick): variable "<<j<<" = "<<ptr->name()<<"\n";
             if (M_thick[i]>0.)
                 val = out_elt_values[nb_var_element*i+j]/M_thick[i];
-            else if (ptr->varID() == ModelVariable::variableID::M_tice)
-                val = tfr_ice;// in open water just use the freezing point of ice
-                              // TODO don't like this hard-coding - could have another loop that is done if
-                              // there is no ice present and use another attribute "value_if_no_ice" or something like that
             else
-                val = 0.;
-            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
+                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
+            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
             val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
             (*ptr)[i] = val;
         }
@@ -2234,20 +2220,23 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
         {
             // enthalpy transformation
             auto ptr = M_prognostic_variables_elt[j];
+            double val = (*ptr)[i];
             if(M_rank + i==0)
                 LOG(DEBUG)<<"redistribute (enthalpy): variable "<<j<<" = "<<ptr->name()<<"\n";
             if(M_thick[i]>0)
             {
                 double tmp = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
-                (*ptr)[i] = 0.5*(
+                val = 0.5*(
                         tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
             }
             else
-                (*ptr)[i] = tfr_ice;// in open water just use the freezing point of ice
-            val = has_min[j] ? std::max(ptr->minVal(), val ) : val ;
-            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
+                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
+            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
+            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
         }
 
+        double ctot = 0;
+        double htot = 0;
         if(apply_maxima)
         {
             // check the total conc is <= 1
@@ -2262,9 +2251,21 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 M_thick[i] += M_h_thin[i] - h_thin_new;
                 M_h_thin[i] = h_thin_new;
                 M_conc_thin[i] = conc_thin_new;
+
+                ctot += M_conc_thin[i];
+                htot += M_h_thin[i];
             }
+            ctot += M_conc[i];
+            htot += M_thick[i];
         }
-    }
+
+        // if open water set to value from model_variable.cpp
+        // (leave as is if no value set)
+        if( ctot <= physical::cmin || htot <= ctot*physical::hmin )
+            for(auto ptr : M_prognostic_variables_elt)
+                (*ptr)[i] = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : (*ptr)[i];
+
+    }//loop over i
 }//redistributeVariables
 
 
