@@ -9,15 +9,17 @@ export MPIWRAP_DEBUG=warn
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-        echo "Usage: $0 config_file.cfg num_cpus"
-        echo "or: $0 config_file.cfg num_cpus maxits"
-        echo "where maxits=None (run for simul.duration) or a positive integer (run for maxits timesteps)"
-        exit 1
+    echo "Usage: $0 [CONFIG_FILE NUM_CPUS]"
+    echo "Or: $0 [CONFIG_FILE NUM_CPUS MUMPS_MEM]"
+    echo "where MUMPS_MEM is the memory reserved for the solver (%)"
+    exit 1
 fi
 
-config=$1
-ncpu=$2
-maxits=${3-"None"}
+CONFIG=$1
+NCPU=$2
+# Memory reserved for solver
+MUMPS_MEM=${3-400}
+MAXITS=${4-"None"} 
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -36,14 +38,14 @@ vopts+=("--track-origins=yes") # see where uninitialised values come from
 # nextsim options
 nsopts=()
 nsopts+=("--config-file=$config")
-if [ $maxits != "None" ]
+if [ $MAXITS != "None" ]
 then
-   if [ $maxits -gt 0 ] 2>/dev/null 
+   if [ $MAXITS -gt 0 ] 2>/dev/null 
    then
       # no error from -gt if integer
-      nsopts+=("--debugging.maxiteration=$maxits") # just run nextsim for 1 time step
+      nsopts+=("--debugging.maxiteration=$MAXITS") # just run nextsim for 1 time step
    else
-      echo "maxits argument needs to be 'None' or an integer >0"
+      echo "MAXITS argument needs to be 'None' or an integer >0"
       exit 1
    fi
 fi
@@ -74,4 +76,4 @@ then
 fi
 
 # Run the nextsim model
-mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog -mat_mumps_icntl_14 60 ${nsopts[@]} 2>&1 | tee simdebug.log
+mpirun $mpi_opts -np $NCPU valgrind ${vopts[@]} $prog -mat_mumps_icntl_23 $MUMPS_MEM ${nsopts[@]} 2>&1 | tee simdebug.log
