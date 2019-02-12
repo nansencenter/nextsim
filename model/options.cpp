@@ -364,6 +364,10 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
+            // -- relating to thermodynamic forcing
+            ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
+                "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
+
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
 #endif
@@ -371,7 +375,6 @@ namespace Nextsim
              //-----------------------------------------------------------------------------------
              //! - Nesting
              // -----------------------------------------------------------------------------------
-        
 
             ("nesting.use_nesting", po::value<bool>()->default_value( false ),
                 "Use nesting at/near boundaries")
