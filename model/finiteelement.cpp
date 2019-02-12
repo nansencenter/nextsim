@@ -1096,7 +1096,7 @@ FiniteElement::initBamg()
     bamgopt->nbsmooth          = 3;
     bamgopt->omega             = 1.8;
     bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 0; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
     bamgopt->geometricalmetric = 0;
     bamgopt->random            = true;
     bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
