@@ -128,6 +128,9 @@ public:
         : M_varID(id), M_component_number(comp_num)
     {
 
+        M_tfr_ice = -physical::mu*physical::si;
+        // freezing point of ice - value for M_tice[i] in open water
+
         // see if it is an elemental variable
         bool elemental = this->initElemental();
         bool nodal = false;
@@ -151,9 +154,6 @@ public:
             M_name += "_" + std::to_string(M_component_number);
             M_export_name += "_" + std::to_string(M_component_number);
         }
-
-        M_tfr_ice = -physical::mu*physical::si;
-        // freezing point of ice - value for M_tice[i] in open water
 
     }
 
