@@ -471,7 +471,7 @@ private:
     std::vector<double> D_snow_thick;
     std::vector<double> D_tsurf;
 
-    std::vector<double> M_tau_ow;
+    std::vector<double> D_tau_ow;
 
     std::vector<double> M_ridge_ratio;
     std::vector<double> M_h_ridged_thin_ice;

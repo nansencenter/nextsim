@@ -584,6 +584,7 @@ FiniteElement::initVariables()
     D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
     D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
+    D_tau_ow.resize(M_num_elements); //! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
     
@@ -3324,6 +3325,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_delS.assign(M_num_elements,0.);
     D_emp.assign(M_num_elements,0.);
     D_brine.assign(M_num_elements,0.);
+    D_tau_ow.assign(M_num_elements,0.);
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.); 
 
@@ -5455,8 +5457,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qlh_ow(M_num_elements);
     std::vector<double> Qsh_ow(M_num_elements);
     std::vector<double> evap(M_num_elements);
-    M_tau_ow.resize(M_num_elements);
-    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, D_tau_ow);
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -7627,14 +7628,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_u]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::tauy):
@@ -7656,14 +7657,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_v]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::taumod):
@@ -7673,6 +7674,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int index_v = i + M_num_nodes;
 
                     double tau_i = std::hypot(D_tau_w[index_v], D_tau_w[index_v]);
+                    double wind = std::hypot(M_wind[index_v], M_wind[index_v]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7685,14 +7687,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
