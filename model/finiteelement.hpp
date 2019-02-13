@@ -271,7 +271,7 @@ public:
     void initVariables();
     void calcAuxiliaryVariables();
     void initModelVariables();
-    void sortPrognosticVars();
+    void tagPrognosticVars();
     void initModelState();
     void DataAssimilation();
     void FETensors();

@@ -2047,7 +2047,7 @@ FiniteElement::gatherSizes()
 //! read variables from the interpolation function in the same order.
 //! Called by collectVariables() and redistributeVariables().
 void
-FiniteElement::sortPrognosticVars()
+FiniteElement::tagPrognosticVars()
 {
     M_prognostic_variables_elt_indices.resize(4);
     int nb_var_element = M_prognostic_variables_elt.size();
@@ -2057,7 +2057,7 @@ FiniteElement::sortPrognosticVars()
         int k = vptr->getInterpTransformation();
         M_prognostic_variables_elt_indices[k].push_back(j);
     }
-}//sortPrognosticVars
+}//tagPrognosticVars
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6504,7 +6504,7 @@ FiniteElement::initModelVariables()
 
     // finally sort the prognostic variables into M_prognostic_variables_elt_indices
     // using ModelVariable::interpTransformation
-    this->sortPrognosticVars();
+    this->tagPrognosticVars();
 }//initModelVariables
 
 
