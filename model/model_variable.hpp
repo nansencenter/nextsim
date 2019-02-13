@@ -110,9 +110,9 @@ private:
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
-    bool M_has_min = false;
-    bool M_has_max = false;
-    bool M_has_open_water_val = false;
+    bool M_has_min = false; //does the variable have a strict min (eg >0)?
+    bool M_has_max = false; //does the variable have a strict max (eg <1)?
+    bool M_has_open_water_val = false; //does the variable have a designated value in open water (eg 0, freezing temp)?
     double M_min_val;
     double M_max_val;
     double M_open_water_val;
