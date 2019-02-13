@@ -6482,6 +6482,7 @@ FiniteElement::initModelVariables()
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
+    M_restart_names_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
     for(auto ptr: M_variables_elt)
@@ -6491,14 +6492,12 @@ FiniteElement::initModelVariables()
             if(ptr->isPrognostic())
             {
                 // restart, regrid variables
-                // - 1st sort them according to the way they are transformed at interpolation time
-                // - this will make redistributeVariables slightly more efficient
                 M_prognostic_variables_elt.push_back(ptr);
+                M_restart_names_elt.push_back(ptr->name());
             }
             else if (vm["output.save_diagnostics"].as<bool>())
             {
                 // export all diagnostic variables to binary
-                // - NB overrides "custom_export"
                 ptr->setExporting(true);
             }
 
