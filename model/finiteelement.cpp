@@ -4515,16 +4515,16 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
+            // Multply with rho and mask out no-ice points
+            coef_Voce  *= coef_drag*physical::rhow;
+            coef_Vair  *= coef_drag*physical::rhoa;
+            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
             D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
             D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
             D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
-
-            // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
