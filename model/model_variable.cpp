@@ -32,9 +32,13 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_thick):
@@ -43,9 +47,11 @@ ModelVariable::initElemental()
             M_export_name = "Thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_snow_thick):
@@ -54,9 +60,11 @@ ModelVariable::initElemental()
             M_export_name = "Snow_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_sigma):
@@ -65,9 +73,9 @@ ModelVariable::initElemental()
             M_export_name = "M_sigma";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
             if(M_component_number<0 || M_component_number>2)
                 throw std::runtime_error(
                         "Unauthorised component number for M_sigma: "
@@ -80,9 +88,13 @@ ModelVariable::initElemental()
             M_export_name = "Damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::nearest_neighbour;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_ridge_ratio):
@@ -91,9 +103,13 @@ ModelVariable::initElemental()
             M_export_name = "Ridge_ratio";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_tice):
@@ -102,25 +118,25 @@ ModelVariable::initElemental()
             M_export_name = "Tice";
             M_prognostic = true;
             M_exporting = true;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
             switch(M_component_number)
             {
                 case(0):
                     // surface temperature
-                    M_interp_method = interpMethod::nearest_neighbour;
-                    M_interp_transformation = interpTransformation::none;
+                    M_interp_method = InterpMethod::nearest_neighbour;
+                    M_interp_transformation = InterpTransformation::none;
                     break;
 
                 case(1):
                     // mean temperature of top layer
-                    M_interp_method = interpMethod::conservative;
-                    M_interp_transformation = interpTransformation::enthalpy; // (Winton, 2000: eq 39) times volume with f1=1
+                    M_interp_method = InterpMethod::conservative;
+                    M_interp_transformation = InterpTransformation::enthalpy; // (Winton, 2000: eq 39) times volume with f1=1
                     break;
 
                 case(2):
                     // mean temperature of lower layer
-                    M_interp_method = interpMethod::conservative;
-                    M_interp_transformation = interpTransformation::thick; // (Winton, 2000: eq 39) times volume with f1=0
+                    M_interp_method = InterpMethod::conservative;
+                    M_interp_transformation = InterpTransformation::thick; // (Winton, 2000: eq 39) times volume with f1=0
                     break;
 
                 default:
@@ -136,8 +152,8 @@ ModelVariable::initElemental()
             M_export_name = "SST";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
-            M_interp_transformation = interpTransformation::none;
+            M_interp_method = InterpMethod::nearest_neighbour;
+            M_interp_transformation = InterpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sst"].as<double>();
             break;
 
@@ -147,8 +163,8 @@ ModelVariable::initElemental()
             M_export_name = "SSS";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
-            M_interp_transformation = interpTransformation::none;
+            M_interp_method = InterpMethod::nearest_neighbour;
+            M_interp_transformation = InterpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
 
@@ -158,8 +174,8 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
-            M_interp_transformation = interpTransformation::none;
+            M_interp_method = InterpMethod::nearest_neighbour;
+            M_interp_transformation = InterpTransformation::none;
             M_diffusivity = 0;
             break;
 
@@ -169,9 +185,11 @@ ModelVariable::initElemental()
             M_export_name = "Thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_hs_thin):
@@ -180,9 +198,11 @@ ModelVariable::initElemental()
             M_export_name = "Snow_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_conc_thin):
@@ -191,9 +211,13 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_random_number):
@@ -203,9 +227,24 @@ ModelVariable::initElemental()
             M_export_name = "M_random_number";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::nearest_neighbour;
-            M_interp_transformation = interpTransformation::none;
+            M_interp_method = InterpMethod::nearest_neighbour;
+            M_interp_transformation = InterpTransformation::none;
             M_diffusivity = 0;
+            break;
+
+        case (variableID::M_conc_fsd):
+            // concentration of thin ice
+            M_name = "M_conc_fsd";
+            M_export_name = "Concentration_fsd";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
 #if 0
@@ -214,9 +253,13 @@ ModelVariable::initElemental()
             M_export_name = "Fyi_fraction";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::conc;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_age_obs):
@@ -224,9 +267,11 @@ ModelVariable::initElemental()
             M_export_name = "Age_o";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_age):
@@ -234,9 +279,11 @@ ModelVariable::initElemental()
             M_export_name = "Age";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_interp_method = InterpMethod::conservative;
+            M_interp_transformation = InterpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 #endif
 
@@ -247,7 +294,6 @@ ModelVariable::initElemental()
             M_export_name = "Concentration";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_thick):
@@ -256,7 +302,6 @@ ModelVariable::initElemental()
             M_export_name = "Thickness";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_snow_thick):
@@ -265,7 +310,6 @@ ModelVariable::initElemental()
             M_export_name = "Snow";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_tsurf):
@@ -274,7 +318,6 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_sigma):
@@ -283,7 +326,6 @@ ModelVariable::initElemental()
             M_export_name = "Sigma";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             if(M_component_number<0 || M_component_number>1)
                 throw std::runtime_error(
                         "Unauthorised component number for D_sigma: "
@@ -296,7 +338,6 @@ ModelVariable::initElemental()
             M_export_name = "Qatm";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qsw):
@@ -305,7 +346,6 @@ ModelVariable::initElemental()
             M_export_name = "Qsw";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qlw):
@@ -314,7 +354,6 @@ ModelVariable::initElemental()
             M_export_name = "Qlw";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qsh):
@@ -323,7 +362,6 @@ ModelVariable::initElemental()
             M_export_name = "Qsh";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qlh):
@@ -332,7 +370,6 @@ ModelVariable::initElemental()
             M_export_name = "Qlh";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qo):
@@ -341,7 +378,22 @@ ModelVariable::initElemental()
             M_export_name = "Qocean";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_Qnosun):
+            // Non-solar fluxes to ocean [W/m^2]
+            M_name = "D_Qnosun";
+            M_export_name = "Qnosun";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_Qsw_ocean):
+            // Short-wave fluxes to ocean [W/m^2]
+            M_name = "D_Qsw_ocean";
+            M_export_name = "Qsw_ocean";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         case (variableID::D_delS):
@@ -350,7 +402,6 @@ ModelVariable::initElemental()
             M_export_name = "Saltflux";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_emp):
@@ -359,7 +410,6 @@ ModelVariable::initElemental()
             M_export_name = "D_emp";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_brine):
@@ -368,7 +418,6 @@ ModelVariable::initElemental()
             M_export_name = "D_brine";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         default:
@@ -385,7 +434,6 @@ void ModelVariable::testCall()
     std::cout<<"name = "<<this->M_name<<"\n";
     std::cout<<"export_name = "<<this->M_export_name<<"\n";
 
-#if 0
     // test inherited methods
     // - assign
     // - begin
@@ -409,7 +457,6 @@ void ModelVariable::testCall()
 
     // - size
     std::cout<<"size = "<<N<<"? "<<this->size()<<"\n";
-#endif
 
     std::abort();
 }//testCall

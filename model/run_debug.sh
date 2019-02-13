@@ -10,11 +10,14 @@ export MPIWRAP_DEBUG=warn
 if [ "$1" = "" -o "$2" = "" ]
 then
         echo "Usage: $0 config_file.cfg num_cpus"
+        echo "or: $0 config_file.cfg num_cpus maxits"
+        echo "where maxits=None (run for simul.duration) or a positive integer (run for maxits timesteps)"
         exit 1
 fi
 
 config=$1
 ncpu=$2
+maxits=${3-"None"}
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -25,13 +28,25 @@ git diff > $P/git_changes.txt
 cd $P
 
 # valgrind options
-vopts[0]="--log-file=vlgrnd.log"
-vopts[1]="--leak-check=full"  # see details of leaked memory
-vopts[2]="--track-origins=yes" # see where uninitialised values come from
+vopts=()
+vopts+=("--log-file=vlgrnd.log")
+vopts+=("--leak-check=full")  # see details of leaked memory
+vopts+=("--track-origins=yes") # see where uninitialised values come from
 
 # nextsim options
-nsopts[0]="--config-file=$config"
-nsopts[1]="--debugging.maxiteration=1" # just run nextsim for 1 time step
+nsopts=()
+nsopts+=("--config-file=$config")
+if [ $maxits != "None" ]
+then
+   if [ $maxits -gt 0 ] 2>/dev/null 
+   then
+      # no error from -gt if integer
+      nsopts+=("--debugging.maxiteration=$maxits") # just run nextsim for 1 time step
+   else
+      echo "maxits argument needs to be 'None' or an integer >0"
+      exit 1
+   fi
+fi
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]
