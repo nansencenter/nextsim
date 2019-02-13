@@ -6740,7 +6740,7 @@ FiniteElement::step()
         {
             M_regrid = true;
 
-            if(vm["debugging.export_before_regrid"].as<bool>())
+            if(vm["debugging.write_restart_before_regrid"].as<bool>())
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
@@ -6816,7 +6816,7 @@ FiniteElement::step()
             this->checkFields();
 
         // save outputs after regrid
-        if(vm["debugging.export_after_regrid"].as<bool>())
+        if(vm["debugging.write_restart_after_regrid"].as<bool>())
         {
             this->updateIceDiagnostics();
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
