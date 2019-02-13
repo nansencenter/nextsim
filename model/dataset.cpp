@@ -1966,14 +1966,14 @@ DataSet::DataSet(char const *DatasetName)
             masking: true,
             masking_variable: mask,
 
-            gridded_rotation_angle: true,
+            gridded_rotation_angle: false,
             vector_rotation_variable: theta
         };
 
         variables = {tau_wi_x, tau_wi_y};
         Vectorial_Variable tau_xy = {
             components_Id: {0, 1},
-            east_west_oriented: false
+            east_west_oriented: true
                 // if false, then we assume it is oriented
                 // following the mpp_file defined for the grid
             };
