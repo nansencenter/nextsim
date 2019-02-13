@@ -5995,7 +5995,6 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             h2 = 0.;
             h1 = 0.;
             hs = 0.;
-            this->checkFields();
         }
 
         // Bottom melt/freezing
