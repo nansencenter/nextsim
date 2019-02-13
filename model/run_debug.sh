@@ -37,7 +37,7 @@ vopts+=("--track-origins=yes") # see where uninitialised values come from
 
 # nextsim options
 nsopts=()
-nsopts+=("--config-file=$config")
+nsopts+=("--config-file=$CONFIG")
 if [ $MAXITS != "None" ]
 then
    if [ $MAXITS -gt 0 ] 2>/dev/null 
