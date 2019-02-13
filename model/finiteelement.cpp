@@ -2057,6 +2057,16 @@ FiniteElement::tagPrognosticVars()
         int k = vptr->getInterpTransformation();
         M_prognostic_variables_elt_indices[k].push_back(j);
     }
+
+    // set M_interp_methods also
+    // - variables are interpolated in the order given by
+    // M_prognostic_variables_elt_indices
+    M_interp_methods.resize(0);
+    for (auto inds : M_prognostic_variables_elt_indices)
+        for (int j : inds)
+            M_interp_methods.push_back(
+                    M_prognostic_variables_elt[j]->getInterpMethod()
+                   );
 }//tagPrognosticVars
 
 
@@ -12570,7 +12580,7 @@ FiniteElement::checkFields()
 {
 
     int itest = vm["debugging.test_element_number"].as<int>();
-    int rank = vm["debugging.test_proc_number"].as<int>();
+    int rank_test = vm["debugging.test_proc_number"].as<int>();
     bool printout = (M_rank == rank_test && itest>0);
 
     for(int i=0; i<M_num_elements; i++)
@@ -12635,20 +12645,20 @@ FiniteElement::checkFields()
             inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
             close_mapx(map);
 
-            LOG[INFO]<<"["<< M_rank<<"] In checkFields\n";
-            LOG[INFO]<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
-            LOG[INFO]<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
-            LOG[INFO]<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
-            LOG[INFO]<<"["<< M_rank<<"] element number = "<<i<<"\n";
-            LOG[INFO]<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
-            LOG[INFO]<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] In checkFields\n";
+            LOG(INFO)<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] element number = "<<i<<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
+            LOG(INFO)<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
 
             for(int j=0; j<names.size(); j++)
             {
                 if(j<M_external_data_elements_names.size())
-                    LOG[INFO]<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
                 else
-                    LOG[INFO]<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
             }
             std::cout<<"\n";
         }
