@@ -9358,9 +9358,6 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
-#if OASIS
-        case setup::OceanType::COUPLED:
-#endif
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -9370,6 +9367,15 @@ FiniteElement::initSlabOcean()
             }
 
             break;
+#if OASIS
+        case setup::OceanType::COUPLED:
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                M_sss[i] = M_ocean_salt[i];
+                M_sst[i] = M_ocean_temp[i];
+            }
+            break;
+#endif
         default:
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
