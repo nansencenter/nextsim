@@ -6874,6 +6874,8 @@ FiniteElement::initOASIS()
     {
         var_rcv.push_back(std::string("I_tauwix"));
         var_rcv.push_back(std::string("I_tauwiy"));
+        var_rcv.push_back(std::string("I_str_var"));
+        var_rcv.push_back(std::string("I_tm02"));
     }
 
     // Ask OASIS to link var_rcv and var_id_rcv
@@ -7168,7 +7170,7 @@ FiniteElement::step()
         this->updateFreeDriftVelocity();
 
 
-#ifdef OASIS
+
     //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
