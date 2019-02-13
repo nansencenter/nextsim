@@ -1385,7 +1385,8 @@ FiniteElement::initOptAndParam()
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
-
+    // set number of floe size bins
+    M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -4880,6 +4881,83 @@ FiniteElement::update()
 
 
 //------------------------------------------------------------------------------------------------------
+//! 
+std::vector<double> FiniteElement::computeWaveBreakingProb()
+//------------------------------------------------------------------------------------------------------
+//! Computes the probability for very big floes to be broken from curvature sent by the wave model M_str_var
+//! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
+//------------------------------------------------------------------------------------------------------
+{
+    std::vector<double> prob(M_num_elements);
+    double strain_c ;
+    const double young=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
+    double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
+    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+    const double flex_strength=5.47e5 ; // TO BE CHECKED
+    const double threshold=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid define a FSD everywhere
+    
+
+    strain_c = flex_strength / young ;
+    for (int i=0; i<M_num_elements; i++)
+    {
+	//double brk_prb_inf = ...;
+        prob[i] =std::exp(- namelistpar/2 * (std::sqrt(M_str_var[i])*M_thick[i]/2) /
+                            (2* std::pow(strain_c,2))
+                         ) ;
+        if (prob[i]<threshold)
+            prob[i]=0. ;
+        //M_var_str[i]
+    }
+    return prob;
+}
+//if 0
+
+void
+FiniteElement::redistributeFSD()//------------------------------------------------------------------------------------------------------
+//! Redistribute the floes in the FSD after break_up if prob[i]>0
+//! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
+//------------------------------------------------------------------------------------------------------
+{
+    std::vector<double> P(M_num_fsd_bins) ;
+    double lambda          ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
+    double broken_area     ; // area of broken floes in each category to be redistributed
+    double namelistparam2  ; // tuning param. for tanh function used in breaking prob.
+    double beta            ; // redistribution factor
+
+    auto P_inf = this -> computeWaveBreakingProb();
+#if 0 
+    for (int i=0; i<M_num_elements; i++)
+   {
+       //! Compute the wavelength associated with Tm02
+       lambda = g * std::pow(M_tm02[i],2) /2 / PI  ;
+       //! Compute wave induced break-up probability for the different floe size categories
+       for (int j=0; j<M_num_fsd_bins; j++)
+       {
+           P[j] = P_inf[j] * std::min(0.,
+                         std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
+                                     ) ;
+           //! Then update FSD with uniform redistribution
+           //! 1.a Compute the broken area in each category
+           broken_area = M_conc_fsd[j][i] * P[j]             ;
+           M_conc_fsd[j][i] = M_conc_fsd[j][i] - broken_area ;
+           if (P[j]> 0)
+           {
+               std::cout<<"P(j)>0 ->"<<P[j] <<"and j"<<j ; 
+               //! 1.b Define a redistributor beta (Zhang et al,.2015)  
+               beta = 1./j ;   
+               // So far, redistribution also occures within the broken category
+               //! 2. Redistibute uniformly
+               for (int k=0; k<j ; k++)
+                   M_conc_fsd[k][i]= M_conc_fsd[k][i] + beta * broken_area ;
+           }            
+       }
+    }
+#endif
+// TODO Add a debug that checks if sum(M_conc_fsd)=total sea ice conc.
+}
+
+
+//------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
 void
 FiniteElement::solve()
@@ -5581,7 +5659,7 @@ FiniteElement::thermo(int dt)
                     del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
 
-                //smallest floe size category first
+                //smallest floe size category first /!\ /!\ /!\ TO BE CHANGED
                 double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
                 double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
                     + del_c_thin;                      // new ice goes into this bin
@@ -6692,21 +6770,38 @@ FiniteElement::initModelVariables()
 //! simple function to init the floe size
 void
 FiniteElement::initFsd()
-{
+{   
+    // If no bin number define in the conf. file, then no FSD in the model.
+    if (M_num_fsd_bins==0)
+        return ;
+    // Define the categories TODO: Must be tunable in namelist
+    M_fsd_bin_widths=50. ;
+    M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.) ;
+    M_fsd_bin_up_limits.assign(M_num_fsd_bins,M_fsd_bin_widths) ;
+    M_fsd_bin_centres.resize(M_num_fsd_bins);
+
+    for(int m=1; m<M_num_fsd_bins; m++)
+    {
+        M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
+                                + M_fsd_bin_widths   ; 
+        M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
+                                + M_fsd_bin_widths   ;  
+        M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
+                                +  M_fsd_bin_low_limits[m]) / 2 ; 
+    }
+    M_fsd_bin_centres[0]=(M_fsd_bin_up_limits[0]
+                        +  M_fsd_bin_low_limits[0]) / 2;
+    // Distribute the ice into the categories
     for(int i=0; i<M_num_elements; i++)
     {
         // all the thick ice in the highest bin
         M_conc_fsd[M_num_fsd_bins - 1][i] = M_conc[i]; 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            // all the thin ice in the lowest bin
-            M_conc_fsd[0][i] = M_conc_thin[i]; 
-        else
-            M_conc_fsd[0][i] = 0.; 
-        
+       
         //nothing in the other bins
-        for(int k=1; k<M_num_fsd_bins-1; k++)
+        for(int k=0; k<M_num_fsd_bins-1; k++)
             M_conc_fsd[k][i] = 0.; 
     }
+// TODO : Add a debug whith a print of the bins, their widths, centers, and limits
 }//init FSD
 
 
@@ -7054,6 +7149,7 @@ FiniteElement::step()
             if ( M_use_moorings )
                 M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
+            std::cout<<"after moorings\n";
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
@@ -7066,6 +7162,7 @@ FiniteElement::step()
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
+            std::cout<<"after oasis 1\n";
 
             if ( M_use_moorings )
             {
@@ -7077,6 +7174,7 @@ FiniteElement::step()
 #endif
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
             }
+            std::cout<<"after oasis 2\n";
 
             ++M_nb_regrid;
 
@@ -7130,7 +7228,19 @@ FiniteElement::step()
             LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
-
+    //======================================================================
+    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
+    //======================================================================
+#ifdef OASIS
+    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) )
+    {        
+        chrono.restart();
+        LOG(DEBUG) <<"FSD redistribution starts\n";   
+        this->redistributeFSD();   
+        LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
+    }
+    //======================================================================
+#endif
     if( M_use_nesting )
     {
         //======================================================================
@@ -9595,8 +9705,9 @@ FiniteElement::checkConsistency()
     }
 
     //FSD
-    if(M_num_fsd_bins>0)
-        this->initFsd();
+    std::cout << "init Fsd\n";
+    this->initFsd();
+    std::cout << "init Fsd done\n";
 }//checkConsistency
 
     
@@ -12925,6 +13036,23 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                         << val << " > " << thresh << "\n";
                 }
+            }
+        }
+
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[i];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];
+
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if(std::abs(ctot-ctot2)>1e-7)
+            {
+                crash =  true;
+                crash_msg << "[" <<M_rank << "] sum M_conc_fsd different to total conc\n";
             }
         }
 

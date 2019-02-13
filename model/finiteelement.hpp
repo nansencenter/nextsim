@@ -288,6 +288,8 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
+    void redistributeFSD();
+    std::vector<double> computeWaveBreakingProb();
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -741,10 +743,14 @@ private:
     ModelVariable M_random_number;
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
-    ModelVariable M_age;
+    ModelVariable M_age; // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
-    int const M_num_fsd_bins = 3;
+    int M_num_fsd_bins;
+    int M_fsd_bin_widths; // Only uniform widths so far
     std::vector<double> M_fsd_bin_centres;
+    std::vector<double> M_fsd_bin_low_limits;
+    std::vector<double> M_fsd_bin_up_limits;
+
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
