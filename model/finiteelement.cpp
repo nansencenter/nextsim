@@ -12635,20 +12635,20 @@ FiniteElement::checkFields()
             inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
             close_mapx(map);
 
-            std::cout<<"["<< M_rank<<"] In checkFields\n";
-            std::cout<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
-            std::cout<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
-            std::cout<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
-            std::cout<<"["<< M_rank<<"] element number = "<<i<<"\n";
-            std::cout<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
-            std::cout<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] In checkFields\n";
+            LOG[INFO]<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] element number = "<<i<<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
+            LOG[INFO]<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
 
             for(int j=0; j<names.size(); j++)
             {
                 if(j<M_external_data_elements_names.size())
-                    std::cout<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG[INFO]<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
                 else
-                    std::cout<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG[INFO]<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
             }
             std::cout<<"\n";
         }
