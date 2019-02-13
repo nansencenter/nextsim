@@ -9268,8 +9268,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
@@ -9327,8 +9326,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     M_external_data_elements.push_back(&M_ocean_temp);
     M_external_data_elements_names.push_back("M_ocean_salt");
     M_external_data_elements.push_back(&M_ocean_salt);
-    M_external_data_elements_names.push_back("M_mld");
-    M_external_data_elements.push_back(&M_mld);
+    if (M_mld.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_mld");
+        M_external_data_elements.push_back(&M_mld);
+    }
     if ( M_qsrml.isInitialized() )
     {
         M_external_data_elements.push_back(&M_qsrml);

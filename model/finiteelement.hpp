@@ -825,7 +825,6 @@ private:
         "I_Uocn",     // Ocean current - u
         "I_Vocn",     // Ocean current - v
         "I_SSH",   // Sea surface height
-        "I_MLD",   // Mixed layer depth
         "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
 
     int cpl_time_step;
