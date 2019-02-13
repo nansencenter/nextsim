@@ -1111,103 +1111,25 @@ ExternalData::transformData(Dataset *dataset)
             else if(dataset->vectorial_variables[j].east_west_oriented
                     && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
             {
-                int M=dataset->grid.gridLAT.size();
-                int N=dataset->grid.gridLON.size();
+                //get lon/lat's
+                std::vector<double> LAT,LON,X,Y;
+                dataset->getLatLonXYVectors(LAT,LON,X,Y,mapNextsim);
 
-                for (int y_ind=0; y_ind<M; ++y_ind)
+                double u_mean = 0.;
+                double v_mean = 0.;
+                for (int i=0; i<final_MN; ++i)
                 {
-                    for (int x_ind=0; x_ind<N; ++x_ind)
-                    {
-                        int i=y_ind*N+x_ind;
+                    cos_m_diff_angle = std::cos(-LON[i]*PI/180.);
+                    sin_m_diff_angle = std::sin(-LON[i]*PI/180.);
 
-                        // lat lon of the data
-                        lat_tmp=dataset->grid.gridLAT[y_ind];
-                        lon_tmp=dataset->grid.gridLON[x_ind];
+                    tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                    tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
-                        // velocity in the east (component 0) and north direction (component 1) in m/s
-                        tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
-                        tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
+                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
+                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
 
-                        // velocity in the east (component 0) and north direction (component 1) in degree/s
-                        if(lat_tmp<90.)
-                        {
-                            tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
-                            tmp_data1_deg=tmp_data1/R*180./PI;
-                        }
-                        else
-                        {
-                            tmp_data0_deg=0.;
-                            tmp_data1_deg=0.;
-                        }
-
-                        // position in lat, lon after delta_t
-                        lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
-                        lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
-
-                        lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
-
-                        // initial position x, y in meter
-        			    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
-
-                        // position x, y after delta_t in meter
-                        forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
-
-                        // velocity in m/s
-                        new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
-                        new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
-
-                        // normalisation
-                        speed=std::hypot(tmp_data0,tmp_data1);
-                        new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
-
-                        if(new_speed>0.)
-                        {
-                            new_tmp_data0=new_tmp_data0/new_speed*speed;
-                            new_tmp_data1=new_tmp_data1/new_speed*speed;
-                        }
-
-                        dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
-                        dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
-                    }
-                }
-
-                // Treat the case of the North Pole where east-north components are ill-defined
-                // We just take the mean of the velocity computed at a lower latitude in the polar stereo projection
-                bool found_north_pole=false;
-                int y_ind, y_ind_m1;
-                if(dataset->grid.gridY[0]==90.)
-                {
-                    y_ind=0;
-                    y_ind_m1=y_ind+1;
-                    found_north_pole=true;
-                }
-                if(dataset->grid.gridY[M-1]==90.)
-                {
-                    y_ind=M-1;
-                    y_ind_m1=y_ind-1;
-                    found_north_pole=true;
-                }
-                if(found_north_pole)
-                {
-                    tmp_data0=0.;
-                    tmp_data1=0.;
-                    // loop over the nearest latitude that is not 90 to compute the mean value
-                    for (int x_ind=0; x_ind<N; ++x_ind)
-                    {
-                        int i=y_ind_m1*N+x_ind;
-                        tmp_data0=tmp_data0+dataset->variables[j0].loaded_data[fstep][i];
-                        tmp_data1=tmp_data1+dataset->variables[j1].loaded_data[fstep][i];
-                    }
-                    tmp_data0=tmp_data0/N;
-                    tmp_data1=tmp_data1/N;
-
-                    // loop over the points defined at 90N
-                    for (int x_ind=0; x_ind<N; ++x_ind)
-                    {
-                        int i=y_ind*N+x_ind;
-                        dataset->variables[j0].loaded_data[fstep][i]=tmp_data0;
-                        dataset->variables[j1].loaded_data[fstep][i]=tmp_data1;
-                    }
+                    dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
                 }
             }//east-west oriented & interpolating FromGridToMesh
 
