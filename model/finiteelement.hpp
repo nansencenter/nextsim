@@ -206,7 +206,7 @@ public:
     Dataset M_bathymetry_elements_dataset;
 #ifdef OASIS
     Dataset M_wave_nodes_dataset;
-    //Dataset M_wave_elements_dataset;
+    Dataset M_wave_elements_dataset;
 #endif
 
     Dataset M_ice_topaz_elements_dataset;
