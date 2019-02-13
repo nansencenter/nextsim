@@ -852,7 +852,6 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
-    void checkFields(int const& rank_test, int const& itest);
 
 private:
 

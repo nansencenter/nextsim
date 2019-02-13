@@ -12568,16 +12568,9 @@ FiniteElement::writeLogFile()
 void
 FiniteElement::checkFields()
 {
+
     int itest = vm["debugging.test_element_number"].as<int>();
     int rank = vm["debugging.test_proc_number"].as<int>();
-    this->checkFields(rank, itest);
-}
-
-
-void
-FiniteElement::checkFields(int const& rank_test, int const& itest)
-{
-
     bool printout = (M_rank == rank_test && itest>0);
 
     for(int i=0; i<M_num_elements; i++)
