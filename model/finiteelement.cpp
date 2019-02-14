@@ -5518,29 +5518,21 @@ FiniteElement::thermo(int dt)
                     del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
 
-
-                //smallest floe size category first /!\ /!\ /!\ TO BE CHANGED
-                double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
-                double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
-                    + del_c_thin;                      // new ice goes into this bin
-                M_conc_fsd[0][i] = std::min(1., c_0_new);
-                double del_c_redist = c_0_new - M_conc_fsd[0][i];
-
-                //larger FSD bins
-                for(int k=1; k<M_num_fsd_bins; k++)
+                //smallest floe size category first
+                if(old_conc==0)
+                {
+                    M_conc_fsd[0][i] = del_c_fsd;
+                }
+                else
                 {
                     double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
-                    //double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
-                    double c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i] // lateral freezing/melting
+                    double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
                         + del_c_thin;                      // new ice goes into this bin
-                    //M_conc_fsd[0][i] = std::min(1., c_0_new);
-                    M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
-                    double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i];
-                    // double del_c_redist = c_0_new - M_conc_fsd[0][i];
+                    M_conc_fsd[0][i] = std::min(1., c_0_new);
+                    double del_c_redist = c_0_new - M_conc_fsd[0][i];
 
-                    //smaller FSD bins (TODO Makes no sense with G.B changes)
-                    for(int k=M_num_fsd_bins-2; k>-1; k--)
-                    // for(int k=1; k<M_num_fsd_bins; k++)
+                    //larger FSD bins
+                    for(int k=1; k<M_num_fsd_bins; k++)
                     {
                         double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
                         + del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
@@ -6697,14 +6689,7 @@ FiniteElement::initOASIS()
         var_snd.push_back(std::string("I_"+conc.name));
         var_snd.push_back(std::string("I_"+thick.name));
 
-        // The vectorial variables are ...
-        GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
-        vectorial_variables.push_back(tau);
-
         // Define a grid
-        if ( grid.defined )
-            LOG(WARNING) << "FiniteElement::initOASIS: Redefining exchange grid to couple with a wave model\n";
-
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
     }
@@ -6980,6 +6965,9 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            if ( vm["coupler.with_waves"].as<bool>() )
+                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
             std::cout<<"after oasis 1\n";
 
@@ -7118,9 +7106,7 @@ FiniteElement::step()
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
-
-
-    //======================================================================
+    
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
