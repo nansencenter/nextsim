@@ -23,6 +23,8 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
+// #include <connectivity.hpp>
+
 //#include <MElement.h>
 //#include <GModel.h>
 
@@ -64,6 +66,7 @@ public:
     void move(std::vector<double> const& um, double factor);
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
+    void nodalGridExtended();
 
     Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
@@ -161,6 +164,9 @@ private:
     std::map<int, point_type > M_nodes;
     std::vector<element_type> M_triangles;
     std::vector<element_type> M_edges;
+
+    // extended
+    std::vector<element_type> M_extended_ghost_elts;
 
     std::vector<int> M_local_dof_with_ghost;
     std::vector<int> M_local_dof_with_ghost_init;

@@ -91,7 +91,7 @@ FiniteElement::distributedMeshProcessing(bool start)
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles()
                      );
-
+#if 1
     if (M_rank == 0)
         std::cout<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
 
@@ -106,6 +106,12 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
     M_num_nodes = M_local_ndof_ghost;
+
+    std::cout<<"["<< M_rank <<"]M_mesh.numTriangles()= "<< M_num_elements <<"\n";
+    std::cout<<"["<< M_rank <<"]M_mesh.numTrianglesWithoutGhost= "<< M_local_nelements <<"\n";
+    std::cout<<"["<< M_rank <<"]M_mesh.numGlobalNodes)= "<< M_ndof <<"\n";
+    std::cout<<"["<< M_rank <<"]M_mesh.numLocalNodesWithoutGhost()= "<< M_local_ndof <<"\n";
+    std::cout<<"["<< M_rank <<"]M_mesh.numLocalNodesWithGhost()= "<< M_local_ndof_ghost <<"\n";
 
     timer["bcmarker"].first.restart();
     this->bcMarkedNodes();
@@ -122,7 +128,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     if (M_rank == 0)
         std::cout<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
-#if 1
+#if 0
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     //if (M_rank == 0)
@@ -155,7 +161,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     //M_comm.barrier();
     //std::abort();
 #endif
-
+#endif
 }//distributedMeshProcessing
 
 
@@ -2480,7 +2486,7 @@ FiniteElement::redistributeVariablesIO(std::vector<double> const& out_elt_values
 //------------------------------------------------------------------------------------------------------
 //! Performs the advection, using a Eulerian or ALE scheme
 //! Called by the update() function.
-#if 0
+#if 1
 void
 FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out)
 {
@@ -4756,16 +4762,18 @@ void
 FiniteElement::update()
 {
     // Hotfix for issue #53 - we only have pure Lagrangian now.
-    // // collect the variables into a single structure
-    // std::vector<double> interp_elt_in_local;
-    // this->collectVariables(interp_elt_in_local, true);
-    //
-    // // advect
-    // std::vector<double> interp_elt_out;
-    // this->advect(interp_elt_in_local, interp_elt_out);
-    //
-    // // redistribute the interpolated values
-    // this->redistributeVariables(interp_elt_out);
+    // collect the variables into a single structure
+#if 1
+    std::vector<double> interp_elt_in_local;
+    this->collectVariables(interp_elt_in_local, true);
+
+    // advect
+    std::vector<double> interp_elt_out;
+    this->advect(interp_elt_in_local, interp_elt_out);
+
+    // redistribute the interpolated values
+    this->redistributeVariables(interp_elt_out);
+#endif
 
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
@@ -6666,13 +6674,12 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
 
-
     if(M_use_moorings)
     {
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
-                && fmod(pcpt*time_step, mooring_output_time_step) == 0 )
+                    && fmod(pcpt*time_step, mooring_output_time_step) == 0 )
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
@@ -6707,7 +6714,6 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         this->exportResults(true, true, true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
-
 
     // check if writing restart
     if(this->writingRestart())
