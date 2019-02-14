@@ -8,13 +8,13 @@ all:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
 	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
-	@cd $(NEXTSIMDIR)/core/src; make;
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
 endif
 ifdef USE_AEROBULK
 	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make
 endif
+	@cd $(NEXTSIMDIR)/core/src; make;
 
 clean:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
