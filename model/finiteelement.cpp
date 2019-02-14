@@ -548,6 +548,9 @@ FiniteElement::initVariables()
     M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
     M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
+    M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
+    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
+    M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
     
     M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
     M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
@@ -1388,7 +1391,8 @@ FiniteElement::initOptAndParam()
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
-
+    // set number of floe size bins
+    M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -5607,20 +5611,27 @@ FiniteElement::thermo(int dt)
                 }
 
                 //smallest floe size category first
-                double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
-                double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
-                    + del_c_thin;                      // new ice goes into this bin
-                M_conc_fsd[0][i] = std::min(1., c_0_new);
-                double del_c_redist = c_0_new - M_conc_fsd[0][i];
-
-                //larger FSD bins
-                for(int k=1; k<M_num_fsd_bins; k++)
+                if(old_conc==0)
                 {
-                    double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
-                        + del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
-                    M_conc_fsd[k][i] = std::min(1., c_k_new);
-                    del_c_redist = c_k_new - M_conc_fsd[k][i];
-                }
+                    M_conc_fsd[0][i] = del_c_fsd;
+		}
+		else
+                {
+                    double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
+                    double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
+                        + del_c_thin;                      // new ice goes into this bin
+                    M_conc_fsd[0][i] = std::min(1., c_0_new);
+                    double del_c_redist = c_0_new - M_conc_fsd[0][i];
+
+		    //larger FSD bins
+		    for(int k=1; k<M_num_fsd_bins; k++)
+		    {
+		        double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
+		    	+ del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
+		        M_conc_fsd[k][i] = std::min(1., c_k_new);
+		        del_c_redist = c_k_new - M_conc_fsd[k][i];
+		    }
+		}
             }
         }
 
@@ -6763,14 +6774,7 @@ FiniteElement::initOASIS()
         var_snd.push_back(std::string("I_"+conc.name));
         var_snd.push_back(std::string("I_"+thick.name));
 
-        // The vectorial variables are ...
-        GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
-        vectorial_variables.push_back(tau);
-
         // Define a grid
-        if ( grid.defined )
-            LOG(WARNING) << "FiniteElement::initOASIS: Redefining exchange grid to couple with a wave model\n";
-
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
     }
@@ -7044,6 +7048,9 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            if ( vm["coupler.with_waves"].as<bool>() )
+                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
 
             if ( M_use_moorings )
@@ -7109,7 +7116,6 @@ FiniteElement::step()
             LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
-
     if( M_use_nesting )
     {
         //======================================================================
@@ -7168,10 +7174,7 @@ FiniteElement::step()
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
-
-
-
-    //======================================================================
+   //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
@@ -7266,15 +7269,12 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
-
             // - set the fields on the mesh
             this->updateMeans(M_moorings, 1.);
-
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
