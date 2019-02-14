@@ -4752,17 +4752,21 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     const double young=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-    const double flex_strength=5.47e5 ; // TO BE CHECKED
-    const double threshold=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid define a FSD everywhere
+    const double flex_strength=0.27e6 ; // TO BE CHECKED
+    const double threshold=0.001 ; // If prob. is less than threshold value, then set it to 0, to avoid define a FSD everywhere
     
 
-    strain_c = flex_strength / young ;
+    strain_c = flex_strength / young ; // valid for a beam... should be changed
     for (int i=0; i<M_num_elements; i++)
     {
 	//double brk_prb_inf = ...;
-        prob[i] =std::exp(- namelistpar/2 * (std::sqrt(M_str_var[i])*M_thick[i]/2) /
-                            (2* std::pow(strain_c,2))
+        prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
+                            (2* M_str_var[i]*M_thick[i]/2 ) 
                          ) ;
+
+        if (prob[i]<0)  // TEST TO BE REMOVED
+            std::cout<<"Big problem with break prob. <0\n" ;
+
         if (prob[i]<threshold)
             prob[i]=0. ;
         //M_var_str[i]
@@ -4784,24 +4788,25 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     double beta            ; // redistribution factor
 
     auto P_inf = this -> computeWaveBreakingProb();
-#if 0 
+ 
     for (int i=0; i<M_num_elements; i++)
    {
        //! Compute the wavelength associated with Tm02
        lambda = g * std::pow(M_tm02[i],2) /2 / PI  ;
        //! Compute wave induced break-up probability for the different floe size categories
-       for (int j=0; j<M_num_fsd_bins; j++)
+       for (int j=1; j<M_num_fsd_bins; j++)
        {
            P[j] = P_inf[j] * std::min(0.,
                          std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
                                      ) ;
+           P[j]= P_inf[j];
            //! Then update FSD with uniform redistribution
            //! 1.a Compute the broken area in each category
            broken_area = M_conc_fsd[j][i] * P[j]             ;
            M_conc_fsd[j][i] = M_conc_fsd[j][i] - broken_area ;
            if (P[j]> 0)
            {
-               std::cout<<"P(j)>0 ->"<<P[j] <<"and j"<<j ; 
+               //std::cout<<"P(j)>0 ->"<<P[j] <<"and j"<<j<<"\n" ; 
                //! 1.b Define a redistributor beta (Zhang et al,.2015)  
                beta = 1./j ;   
                // So far, redistribution also occures within the broken category
@@ -4811,7 +4816,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
            }            
        }
     }
-#endif
+
 // TODO Add a debug that checks if sum(M_conc_fsd)=total sea ice conc.
 }
 
@@ -5518,9 +5523,10 @@ FiniteElement::thermo(int dt)
                     del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
 
-                //smallest floe size category first
+                //largest floe size category first
                 if(old_conc==0)
                 {
+                //    M_conc_fsd[M_num_fsd_bins-1][i] = del_c_fsd;
                     M_conc_fsd[0][i] = del_c_fsd;
                 }
                 else
@@ -5529,10 +5535,12 @@ FiniteElement::thermo(int dt)
                     double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
                         + del_c_thin;                      // new ice goes into this bin
                     M_conc_fsd[0][i] = std::min(1., c_0_new);
+                   //double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i];
                     double del_c_redist = c_0_new - M_conc_fsd[0][i];
 
-                    //larger FSD bins
-                    for(int k=1; k<M_num_fsd_bins; k++)
+                    //smaller FSD bins (TODO Makes no sense with G.B changes)
+                        // for(int k=0; k<M_num_fsd_bins-1; k++)
+                         for(int k=1; k<M_num_fsd_bins; k++)
                     {
                         double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
                         + del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
