@@ -271,7 +271,7 @@ public:
     void initVariables();
     void calcAuxiliaryVariables();
     void initModelVariables();
-    void tagPrognosticVars();
+    void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -691,7 +691,6 @@ private:
     std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
     std::vector<ModelVariable*> M_export_variables_elt;
-    std::vector<std::vector<int>> M_prognostic_variables_elt_indices;//indices corresponding to ModelVariable::interpTransformation
 
     // other vectors related to export/restart
     std::vector<std::string> M_restart_names_elt;

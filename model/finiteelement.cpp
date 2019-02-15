@@ -2047,27 +2047,35 @@ FiniteElement::gatherSizes()
 //! read variables from the interpolation function in the same order.
 //! Called by collectVariables() and redistributeVariables().
 void
-FiniteElement::tagPrognosticVars()
+FiniteElement::sortPrognosticVars()
 {
-    M_prognostic_variables_elt_indices.resize(4);
+    //! - 1) sort variables into indices corresponding to ModelVariable::interpTransformation
+    std::vector<std::vector<int>> prognostic_variables_elt_indices(4);
+    prognostic_variables_elt_indices.resize(4);
     int nb_var_element = M_prognostic_variables_elt.size();
     for(int j=0; j<M_prognostic_variables_elt.size(); j++)
     {
         auto vptr = M_prognostic_variables_elt[j];
         int k = vptr->getInterpTransformation();
-        M_prognostic_variables_elt_indices[k].push_back(j);
+        prognostic_variables_elt_indices[k].push_back(j);
     }
 
-    // set M_interp_methods also
-    // - variables are interpolated in the order given by
-    // M_prognostic_variables_elt_indices
+    //! - 2) reorder M_prognostic_variables_elt and:
+    //!    * set M_interp_methods
+    //!    * set M_restart_names_elt
+    auto tmp_prog_vars = M_prognostic_variables_elt;
+    M_prognostic_variables_elt.resize(0);
     M_interp_methods.resize(0);
-    for (auto inds : M_prognostic_variables_elt_indices)
+    M_restart_names_elt.resize(0);
+    for (auto inds : prognostic_variables_elt_indices)
         for (int j : inds)
-            M_interp_methods.push_back(
-                    M_prognostic_variables_elt[j]->getInterpMethod()
-                   );
-}//tagPrognosticVars
+        {
+            auto vptr = tmp_prog_vars[j];//this is a pointer to a ModelVariable object
+            M_prognostic_variables_elt.push_back(vptr);
+            M_interp_methods.push_back(vptr->getInterpMethod());
+            M_restart_names_elt.push_back(vptr->name());
+        }
+}//sortPrognosticVars
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2087,39 +2095,23 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
     interp_elt_in_local.resize(nb_var_element*num_elements);
     for (int i=0; i<num_elements; ++i)
     {
-        double val = 0.;
-        int k = 0;
-        for(int j: M_prognostic_variables_elt_indices[k])
+        for (int j = 0; j<M_prognostic_variables_elt.size(); j++)
         {
-            // no transformation
-            auto ptr = M_prognostic_variables_elt[j];
-            interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i];
-        }
-
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // weighted by M_conc
-            auto ptr = M_prognostic_variables_elt[j];
-            interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_conc[i];
-        }
-
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // weighted by M_thick
-            auto ptr = M_prognostic_variables_elt[j];
-            interp_elt_in_local[nb_var_element*i+j] = (*ptr)[i]*M_thick[i];
-        }
-
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // enthalpy transformation
-            auto ptr = M_prognostic_variables_elt[j];
-            double val = (*ptr)[i];
-            interp_elt_in_local[nb_var_element*i+j] =
-                ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
+            auto vptr = M_prognostic_variables_elt[j];
+            double val = (*vptr)[i];
+            switch (vptr->getInterpTransformation())
+            {
+                case ModelVariable::interpTransformation::conc:
+                    val *= M_conc[i];
+                    break;
+                case ModelVariable::interpTransformation::thick:
+                    val *= M_thick[i];
+                    break;
+                case ModelVariable::interpTransformation::enthalpy:
+                    val = ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
+                    break;
+            }
+            interp_elt_in_local[nb_var_element*i+j] = val;
         }
     }
 }//collectVariables
@@ -2178,103 +2170,59 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             has_max[j] = M_prognostic_variables_elt[j]->hasMaxVal();
 
     //! -2) loop over elements and assign the values to the different variables
-    double val = 0.;
     for (int i=0; i<M_num_elements; ++i)
     {
-        int k = 0;
-        for(int j: M_prognostic_variables_elt_indices[k])
+        for (int j = 0; j<M_prognostic_variables_elt.size(); j++)
         {
-            // no transformation
-            // NB must be done first! (others may need M_conc, M_thick)
-            auto ptr = M_prognostic_variables_elt[j];
+            auto vptr = M_prognostic_variables_elt[j];
             if(M_rank + i==0)
-                LOG(DEBUG)<<"redistribute (none): variable "<<j<<" = "<<ptr->name()<<"\n";
-            val = out_elt_values[nb_var_element*i+j];
-            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
-            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
-        }
+                LOG(DEBUG)<<"redistribute (none): variable "<<j << " = "<<vptr->name()<<"\n";
 
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // weighted by M_conc
-            auto ptr = M_prognostic_variables_elt[j];
-            if(M_rank + i==0)
-                LOG(DEBUG)<<"redistribute (conc): variable "<<j<<" = "<<ptr->name()<<"\n";
-            if (M_conc[i]>0.)
-                val = out_elt_values[nb_var_element*i+j]/M_conc[i];
-            else
-                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
-            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
-            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
-        }
-
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // weighted by M_thick
-            auto ptr = M_prognostic_variables_elt[j];
-            if(M_rank + i==0)
-                LOG(DEBUG)<<"redistribute (thick): variable "<<j<<" = "<<ptr->name()<<"\n";
-            if (M_thick[i]>0.)
-                val = out_elt_values[nb_var_element*i+j]/M_thick[i];
-            else
-                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
-            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
-            val = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
-            (*ptr)[i] = val;
-        }
-
-        k++;
-        for(int j: M_prognostic_variables_elt_indices[k])
-        {
-            // enthalpy transformation
-            auto ptr = M_prognostic_variables_elt[j];
-            double val = (*ptr)[i];
-            if(M_rank + i==0)
-                LOG(DEBUG)<<"redistribute (enthalpy): variable "<<j<<" = "<<ptr->name()<<"\n";
-            if(M_thick[i]>0)
+            double val = out_elt_values[nb_var_element*i+j];
+            if(vptr->getInterpTransformation() == ModelVariable::interpTransformation::conc)
             {
-                double tmp = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
-                val = 0.5*(
-                        tmp - std::sqrt(tmp*tmp + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
+                if(M_conc[i]>0)
+                    val /= M_conc[i];
+                else if (vptr->hasValueNoThickIce())
+                    val = vptr->valueNoThickIce();
             }
-            else
-                val = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : 0;
-            val = ptr->hasMinVal() ? std::max(ptr->minVal(), val ) : val ;
-            (*ptr)[i] = has_max[j] ? std::min(ptr->maxVal(), val ) : val ;
+            else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::thick)
+            {
+                if(M_thick[i]>0)
+                    val /= M_thick[i];
+                else if (vptr->hasValueNoThickIce())
+                    val = vptr->valueNoThickIce();
+            }
+            else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::enthalpy)
+            {
+                if(M_thick[i]>0)
+                {
+                    double enth = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
+                    val = 0.5*(
+                            enth - std::sqrt(enth*enth + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
+                }
+                else if (vptr->hasValueNoThickIce())
+                    val = vptr->valueNoThickIce();
+            }
+
+            val = vptr->hasMinVal() ? std::max(vptr->minVal(), val ) : val ;
+            if(apply_maxima)
+                val = has_max[j] ? std::min(vptr->maxVal(), val ) : val ;
+            (*vptr)[i] = val;
         }
 
-        double ctot = 0;
-        double htot = 0;
         if(apply_maxima)
         {
             // check the total conc is <= 1
-            M_conc[i] = std::min(1., M_conc[i]);
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
-                double h_thin_new = 0.;
-                if(M_conc_thin[i]>0.)
-                    h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
+            double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
+            double h_thin_new = 0.;
+            if(M_conc_thin[i]>0.)
+                h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
 
-                M_thick[i] += M_h_thin[i] - h_thin_new;
-                M_h_thin[i] = h_thin_new;
-                M_conc_thin[i] = conc_thin_new;
-
-                ctot += M_conc_thin[i];
-                htot += M_h_thin[i];
-            }
-            ctot += M_conc[i];
-            htot += M_thick[i];
+            M_thick[i] += M_h_thin[i] - h_thin_new;
+            M_h_thin[i] = h_thin_new;
+            M_conc_thin[i] = conc_thin_new;
         }
-
-        // if open water set to value from model_variable.cpp
-        // (leave as is if no value set)
-        if( ctot <= physical::cmin || htot <= ctot*physical::hmin )
-            for(auto ptr : M_prognostic_variables_elt)
-                (*ptr)[i] = ptr->hasOpenWaterVal() ? ptr->openWaterVal() : (*ptr)[i];
-
     }//loop over i
 }//redistributeVariables
 
@@ -4484,7 +4432,7 @@ FiniteElement::update()
     // this->advect(interp_elt_in_local, interp_elt_out);
     //
     // // redistribute the interpolated values
-    // this->redistributeVariables(interp_elt_out);
+    // this->redistributeVariables(interp_elt_out, false);//don't apply maxima during redistribution after advection
 
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
@@ -6482,7 +6430,6 @@ FiniteElement::initModelVariables()
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
-    M_restart_names_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
     for(auto ptr: M_variables_elt)
@@ -6493,7 +6440,6 @@ FiniteElement::initModelVariables()
             {
                 // restart, regrid variables
                 M_prognostic_variables_elt.push_back(ptr);
-                M_restart_names_elt.push_back(ptr->name());
             }
             else if (vm["output.save_diagnostics"].as<bool>())
             {
@@ -6510,9 +6456,9 @@ FiniteElement::initModelVariables()
         }
     }// loop over M_variables_elt
 
-    // finally sort the prognostic variables into M_prognostic_variables_elt_indices
+    //! -3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
     // using ModelVariable::interpTransformation
-    this->tagPrognosticVars();
+    this->sortPrognosticVars();
 }//initModelVariables
 
 

@@ -39,8 +39,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_thick):
@@ -54,8 +52,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_snow_thick):
@@ -69,8 +65,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_sigma):
@@ -82,8 +76,6 @@ ModelVariable::initElemental()
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             if(M_component_number<0 || M_component_number>2)
                 throw std::runtime_error(
                         "Unauthorised component number for M_sigma: "
@@ -103,8 +95,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_ridge_ratio):
@@ -120,8 +110,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_tice):
@@ -131,8 +119,8 @@ ModelVariable::initElemental()
             M_prognostic = true;
             M_exporting = true;
             M_diffusivity = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = M_tfr_ice;
+            M_has_value_no_thick_ice = true;
+            M_value_no_thick_ice = M_tfr_ice;
             switch(M_component_number)
             {
                 case(0):
@@ -204,8 +192,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_hs_thin):
@@ -219,8 +205,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_conc_thin):
@@ -236,8 +220,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_random_number):
@@ -264,8 +246,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_age_det):
@@ -278,8 +258,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         case (variableID::M_age):
@@ -292,8 +270,6 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
-            M_has_open_water_val = true;
-            M_open_water_val = 0.;
             break;
 
         // Diagnostic variables
