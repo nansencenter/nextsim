@@ -6434,30 +6434,29 @@ FiniteElement::initModelVariables()
     M_export_names_elt.resize(0);
     for(auto ptr: M_variables_elt)
     {
-        if(ptr->varKind() == ModelVariable::variableKind::elemental)
+        if(ptr->isPrognostic())
         {
-            if(ptr->isPrognostic())
-            {
-                // restart, regrid variables
-                M_prognostic_variables_elt.push_back(ptr);
-            }
-            else if (vm["output.save_diagnostics"].as<bool>())
-            {
-                // export all diagnostic variables to binary
-                ptr->setExporting(true);
-            }
+            // restart, regrid variables
+            M_prognostic_variables_elt.push_back(ptr);
+        }
+        else if (vm["output.save_diagnostics"].as<bool>())
+        {
+            // export all diagnostic variables to binary
+            ptr->setExporting(true);
+        }
 
-            if(ptr->exporting())
-            {
-                // export variables
-                M_export_variables_elt.push_back(ptr);
-                M_export_names_elt.push_back(ptr->exportName());
-            }
+        if(ptr->exporting())
+        {
+            // export variables
+            M_export_variables_elt.push_back(ptr);
+            M_export_names_elt.push_back(ptr->exportName());
         }
     }// loop over M_variables_elt
 
     //! -3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
-    // using ModelVariable::interpTransformation
+    //! using ModelVariable::interpTransformation
+    //! \note need to do the ModelVariable::interpTransformation::none type variables
+    //! first, since the others need M_conc or M_thick
     this->sortPrognosticVars();
 }//initModelVariables
 
