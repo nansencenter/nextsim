@@ -17,14 +17,14 @@ namespace Nextsim
 {
 	enum LogLevel
 	{
-		INFO    = 0,
+		ERROR   = 0,
 		WARNING = 1,
-		DEBUG   = 2,
-		ERROR   = 3
+		INFO    = 2,
+		DEBUG   = 3
 	};
 
 
-static const char* STRENUM[] = { "INFO", "WARNING", "DEBUG", "ERROR" };
+static const char* ENUM_STR[] = { "ERROR", "WARNING", "INFO", "DEBUG" };
 
 class Log
 {
@@ -32,7 +32,7 @@ public:
 	Log(LogLevel loglevel = INFO)
 	{
 		_buffer << "["
-		        << STRENUM[loglevel]
+		        << ENUM_STR[loglevel]
 		        << "] :"
 		        << std::string(1, ' ');
 	}
@@ -60,5 +60,5 @@ extern LogLevel M_log_level;
 	if (level > M_log_level) ; \
 	else Log(level)
 
-#endif
 } // Nextsim
+#endif

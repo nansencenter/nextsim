@@ -140,8 +140,7 @@ Drifters::Drifters(std::string const& filename,
             old_number = number;
 
         drifter_text_file >> year >> month >> day >> hour >> number >> lat >> lon;
-        std::string date = std::to_string(year) + "-" + std::to_string(month) + "-" + std::to_string(day);
-        time = from_date_string(date) + hour/24.;
+        time = Nextsim::getDatenum(year, month, day, hour);
 
         // may not be eof if \n at end of file
         // - this can lead to repetition of the last line
@@ -168,13 +167,9 @@ Drifters::Drifters(std::string const& filename,
     std::vector<double> Y(gridSize);
 
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     for (int i=0; i<gridSize; ++i)
@@ -251,10 +246,7 @@ Drifters::Drifters(std::string const& gridFile,
     std::vector<int> INDS(gridSize);
 
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
 
@@ -514,13 +506,9 @@ Drifters::appendNetCDF(double current_time)
 
     // Calculate lat and lon
     mapx_class *map;
-    std::string mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
+    std::string mppfile = Environment::nextsimMppfile();
     std::vector<char> str(mppfile.begin(), mppfile.end());
     str.push_back('\0');
-
     map = init_mapx(&str[0]);
 
     std::vector<double> lat(M_num_drifters);

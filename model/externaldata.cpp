@@ -42,7 +42,8 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_current_time( 0. ),
     M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true)
+    M_initialized(true),
+    M_log_level(Environment::logLevel())
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
@@ -83,7 +84,8 @@ ExternalData::ExternalData( double ConstantValue )
     M_current_time( 0. ),
     M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true)
+    M_initialized(true),
+    M_log_level(Environment::logLevel())
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
@@ -121,11 +123,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time)
 #ifdef OASIS
 {
-    this->check_and_reload(RX_in, RY_in, current_time, -1);
+    Communicator comm;
+    this->check_and_reload(RX_in, RY_in, current_time, comm, -1., -1.);
 }
 
 void ExternalData::check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, const int cpl_time)
+            std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt)
 #endif
 {
     M_current_time = current_time;
@@ -144,32 +147,103 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if(M_dataset->grid.dataset_frequency=="constant")
             to_be_reloaded=!M_dataset->loaded;
         else if(M_dataset->grid.dataset_frequency=="nearest_daily")
-            to_be_reloaded=(to_date_string_yd(current_time)!=to_date_string_yd(M_dataset->ftime_range[0]) || !M_dataset->loaded);
+            to_be_reloaded=(
+                    Nextsim::datenumToString(current_time, "%Y%m%d") != Nextsim::datenumToString(M_dataset->ftime_range[0], "%Y%m%d")
+                    || !M_dataset->loaded);
+#ifdef OASIS
+        else if(M_dataset->grid.dataset_frequency=="coupled")
+            to_be_reloaded=((cpl_time < M_dataset->ftime_range[0] ) || (M_dataset->ftime_range[1] <= cpl_time) || !M_dataset->loaded );
+#endif
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
+        if (to_be_reloaded)
+        {
 #ifdef OASIS
         // We call oasis_get every time step, but only actually recieve data at coupling times
         if (M_dataset->coupled)
-            this->recieveCouplingData(M_dataset, cpl_time);
-#endif
+            {
+                if(!M_dataset->grid.loaded)
+                {
+                    // ---------------------------------
+                    // Define the mapping and rotation_angle
+                    mapx_class *mapNextsim;
+                    std::string configfileNextsim = (boost::format( "%1%/%2%" )
+                                              % Environment::nextsimMeshDir().string()
+                                              % Environment::vm()["mesh.mppfile"].as<std::string>()
+                                              ).str();
 
-        if (to_be_reloaded)
-        {
-            std::cout << "Load " << M_datasetname << "\n";
+                    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+                    strNextsim.push_back('\0');
+                    mapNextsim = init_mapx(&strNextsim[0]);
+
+                    if(M_dataset->grid.mpp_file!="")
+                    {
+                        mapx_class *map;
+                        std::string configfile = (boost::format( "%1%/%2%" )
+                                              % Environment::nextsimMeshDir().string()
+                                              % M_dataset->grid.mpp_file
+                                              ).str();
+
+                        std::vector<char> str(configfile.begin(), configfile.end());
+                        str.push_back('\0');
+                        map = init_mapx(&str[0]);
+                        M_dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+
+                        close_mapx(map);
+                    }
+                    else
+                    {
+                        M_dataset->rotation_angle=0.;
+                    }
+
+                    // ---------------------------------
+                    // Projection of the mesh positions into the coordinate system of the data before the interpolation
+                    // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
+                    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
+
+                    std::vector<double> RX,RY;//size set in convertTargetXY
+                    this->convertTargetXY(M_dataset,RX_in,RY_in,RX,RY,mapNextsim);
+
+                    // closing maps
+                    close_mapx(mapNextsim);
+
+                    double RX_min=*std::min_element(RX.begin(),RX.end());
+                    double RX_max=*std::max_element(RX.begin(),RX.end());
+                    double RY_min=*std::min_element(RY.begin(),RY.end());
+                    double RY_max=*std::max_element(RY.begin(),RY.end());
+
+                    // ---------------------------------
+                    // Load grid if unloaded
+                    // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
+                    M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                }
+
+                this->recieveCouplingData(M_dataset, cpl_time, comm);
+                transformData(M_dataset);
+                M_dataset->interpolated = false;
+                M_dataset->ftime_range[0] = cpl_time;
+                M_dataset->ftime_range[1] = cpl_time + cpl_dt;
+            }
+            else {
+#endif
+            LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
             this->transformData(M_dataset);
-            std::cout << "Done\n";
+            LOG(DEBUG) << "Done\n";
 
             //need to interpolate again if reloading
             M_dataset->interpolated = false;
+#ifdef OASIS
+            }
+#endif
         }
 
         if (!M_dataset->interpolated)
         {
-            std::cout << "Interpolate " << M_datasetname << "\n";
+            LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
             this->interpolateDataset(M_dataset, RX_in, RY_in);
-            std::cout << "Done\n";
+            LOG(DEBUG) << "Done\n";
         }
     }
 }
@@ -220,6 +294,9 @@ ExternalData::get(const size_type i)
         // determine whether to use linear interpolation in time
         // or constant/step-wise interpolation
         bool interp_linear_time = (M_dataset->grid.dataset_frequency!="constant"
+#ifdef OASIS
+                && M_dataset->grid.dataset_frequency!="coupled"
+#endif
                 && M_dataset->grid.dataset_frequency!="nearest_daily");
         bool interp_const_wave  = (M_dataset->grid.waveOptions.wave_dataset);
 #if defined(WAVES)
@@ -278,7 +355,7 @@ ExternalData::get(const size_type i)
             }
             else
             {
-                ASSERT(i < M_target_size, "invalid index for vector id = "
+                ASSERT(i < 2*M_target_size, "invalid index for vector id = "
                         +std::to_string(M_VariableId)+" ("+M_datasetname+")");
 
                 if(i < M_target_size)
@@ -324,11 +401,55 @@ ExternalData::getVector()
 
 #ifdef OASIS
 void
-ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time)
+ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-        for(int j=0; j<dataset->vectorial_variables.size(); ++j)
-            int ierror = OASIS3::get_2d(M_VariableId, cpl_time, &dataset->variables[j].loaded_data[0][0], dataset->grid.dimension_x_count, dataset->grid.dimension_y_count);
+        LOG(DEBUG) << "reciveCouplingData at cpl_time " << cpl_time << "\n";
+        for(int j=0; j<dataset->variables.size(); ++j)
+        {
+            int M_full  = dataset->grid.dimension_y_count_netcdf;
+            int N_full  = dataset->grid.dimension_x_count_netcdf;
+            int MN_full = M_full*N_full;
+            std::vector<double> data_in_tmp(MN_full);
+
+            if ( comm.rank() == 0 )
+                int ierror = OASIS3::get_2d(dataset->M_cpl_id[j], cpl_time, &data_in_tmp[0], N_full, M_full);
+
+            // TODO: This is not very efficient but it will do for now, premature optimisations, and all that!
+            boost::mpi::broadcast(comm, &data_in_tmp[0], MN_full, 0);
+
+            int y_start = dataset->grid.dimension_y_start;
+            int x_start = dataset->grid.dimension_x_start;
+            int M       = dataset->grid.dimension_y_count;
+            int N       = dataset->grid.dimension_x_count;
+            int MN      = M*N;
+            int final_MN = MN;
+
+            if(dataset->grid.reduced_nodes_ind.size()!=0)
+            {
+                if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
+                    throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
+
+                final_MN=dataset->grid.reduced_nodes_ind.size();
+            }
+
+            dataset->variables[j].loaded_data.resize(1);
+            dataset->variables[j].loaded_data[0].resize(final_MN);
+            double tmp_data_i;
+            int reduced_i;
+            for (int i=0; i<(final_MN); ++i)
+            {
+                reduced_i=i;
+                if(dataset->grid.reduced_nodes_ind.size()!=0)
+                    reduced_i=dataset->grid.reduced_nodes_ind[i];
+
+                //now add to loaded_data
+                dataset->variables[j].loaded_data[0][i] = tmp_data_i=data_in_tmp[reduced_i];
+            }
+        }
+
+        dataset->nb_forcing_step=1;
+        dataset->loaded=true;
 }
 #endif
 
@@ -340,11 +461,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
@@ -413,6 +530,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // ---------------------------------
     // Load grid if unloaded
+    LOG(DEBUG) << dataset->grid.loaded << "\n";
     if(!dataset->grid.loaded)
     {
         bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
@@ -426,14 +544,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 // use forecast.time_init_atm_fc option to get init_time
                 std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
             else
             {
                 // use forecast.time_init_ocean_fc option to get init_time
                 std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
         }
         //only need init_time to get grid
@@ -498,17 +616,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 	if(dataset->grid.dataset_frequency!="constant"
             && dataset->grid.dataset_frequency!="nearest_daily")
 	{
-        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
-        bool is_ec_dataset = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
-        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
-
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
 
-        std::cout<<"LOAD DATASET TIMES:\n";
-        std::cout<<"init_time = "<<init_time<<" = "<<to_date_time_string(init_time)<<"\n";
-        std::cout<<"M_current_time = "<<M_current_time<<" = "<<to_date_time_string(M_current_time)<<"\n";
-        std::cout<<"ftime = "<<ftime<<" = "<<to_date_time_string(ftime)<<"\n";
+        LOG(DEBUG)<<"LOAD DATASET TIMES:\n";
+        LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<datenumToString(init_time)<<"\n";
+        LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<datenumToString(M_current_time)<<"\n";
+        LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<datenumToString(ftime)<<"\n";
         if((is_ec_fc||is_topaz_fc)&&true_forecast)
         {
             // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
@@ -519,19 +633,18 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 file_jump ={0};
                 std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
             else
             {
                 std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
                 if(tmpstr!="")
-                    init_time = Nextsim::from_date_time_string(tmpstr);
+                    init_time = Nextsim::stringToDatenum(tmpstr);
             }
         }//forecasts
 
-        for (auto jump_ptr = file_jump.begin() ; jump_ptr != file_jump.end(); ++jump_ptr)
+        for (int jump: file_jump)
         {
-            int jump = *jump_ptr;//get jump as an integer
             if(is_ec_fc||is_topaz_fc)
             {
                 double inittime = init_time;
@@ -547,10 +660,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            std::cout<<"FILENAME (JUMPS) = "<< filename <<"\n";
+            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
-                //throw std::runtime_error("File not found: " + filename);
 
             index_start.resize(1);
             index_count.resize(1);
@@ -564,16 +676,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                 // Set the time range XTIME
                 netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-
 		        netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
-
                 index_start[0]=0;
                 index_count[0]=timeDim.getSize();
-
                 XTIME.resize(index_count[0]);
-
                 FVTIME.getVar(index_start, index_count, &XTIME[0]);
-
                 has_time_variable=true;
             }
             catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as
@@ -581,9 +688,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 has_time_variable=false;
                 index_start[0]=0;
                 index_count[0]=1;
-
                 XTIME.resize(index_count[0]);
-
                 XTIME[0]=-1.;
 
                 if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
@@ -598,13 +703,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
                  if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
-                     f = from_date_string((boost::format( "%1%-%2%-%3%" )
+                     f = stringToDatenum((boost::format( "%1%-%2%-%3%" )
                                  % f_timestr.substr(0,4)
                                  % f_timestr.substr(4,2)
                                  % f_timestr.substr(6,2)).str())+0.5;
                  else
                      f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
-                          + from_date_string(dataset->grid.reference_date);
+                          + stringToDatenum(dataset->grid.reference_date);
 
                  if(f>M_current_time && index_next==-1)
                  {
@@ -645,11 +750,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         if(dataset->grid.dataset_frequency=="nearest_daily")
         {
             ftime = M_current_time;
-            f_timestr = to_date_string_yd(std::floor(ftime));
-            double f=from_date_string((boost::format( "%1%-%2%-%3%" )
-                        % f_timestr.substr(0,4)
-                        % f_timestr.substr(4,2)
-                        % f_timestr.substr(6,2)).str());
+            double f= std::floor(ftime);
+            f_timestr = datenumToString(f, "%Y%m%d");
             dataset->ftime_range = {f+.5};
         }
         else
@@ -669,13 +771,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // Initialise counters etc.
 	int nb_forcing_step =filename_fstep.size();
 
-    std::cout<<"Start loading data\n";
+    LOG(DEBUG)<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         filename=filename_fstep[fstep];
         index=index_fstep[fstep];
 
-        std::cout<<"FILENAME= "<< filename <<"\n";
+        LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
         if ( ! boost::filesystem::exists(filename) )
             throw std::runtime_error("File not found: " + filename);
 
@@ -685,7 +787,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
-            std::cout<<"variables number:" << j  << "\n";
+            LOG(DEBUG)<<"variables number:" << j  << "\n";
             if ((dataset->variables[j].wavDirOptions.isWavDir)
                     &&(!dataset->variables[j].wavDirOptions.xComponent))
             {
@@ -699,48 +801,50 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
-            index_start.resize(dataset->variables[j].dimensions.size());
-            index_count.resize(dataset->variables[j].dimensions.size());
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
+            int dims = NcVars[j].getDimCount();
+            if ( dims != dataset->variables[j].dimensions.size() )
             {
-                std::string dimension_name=dataset->variables[j].dimensions[k].name;
-
-                // dimension_x case
-                if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
-                {
-                    index_start[k] = dataset->grid.dimension_x_start;
-                    index_count[k] = dataset->grid.dimension_x_count;
-                }
-                // dimension_y case
-                else if ((dimension_name).find(dataset->grid.dimension_y.name) != std::string::npos)
-                {
-                    index_start[k] = dataset->grid.dimension_y_start;
-                    index_count[k] = dataset->grid.dimension_y_count;
-                }
-                // other cases
-                else{
-                    tmpDim = dataFile.getDim(dimension_name);
-                    index_start[k] = 0;
-                    index_count[k] = tmpDim.getSize();
-                }
+                LOG(ERROR)<< "Dataset: "<<dataset->name<<"\n";
+                LOG(ERROR)<< "Variable ["<<j<<"]: "<<dataset->variables[j].name<<"\n";
+                throw std::logic_error( "ExternalData::loadDataset: Wrong number of dimensions: " + std::to_string(dims) +
+                        ". Should be " + std::to_string(dataset->variables[j].dimensions.size()) );
             }
 
-            // time dimension
-			if(dataset->variables[j].dimensions.size()>2
+            LOG(DEBUG) << "dims: " << dims << "\n";
+            index_count.resize(dims);
+            index_start.resize(dims);
+
+            for (int i=0; i<dims; ++i)
+            {
+                netCDF::NcDim tmpDim = NcVars[j].getDim(i);
+                std::string name = tmpDim.getName();
+                if ( name == dataset->grid.dimension_x.name )
+                {
+                    //x dimension
+                    index_start[i] = dataset->grid.dimension_x_start;
+                    index_count[i] = dataset->grid.dimension_x_count;
+                }
+                else if ( name == dataset->grid.dimension_y.name )
+                {
+                    //y dimension
+                    index_start[i] = dataset->grid.dimension_y_start;
+                    index_count[i] = dataset->grid.dimension_y_count;
+                }
+                else if ( tmpDim.isUnlimited()
                     && dataset->grid.dataset_frequency!="constant"
                     && dataset->grid.dataset_frequency!="nearest_daily")
-			{
-            	index_start[0] = index;
-            	index_count[0] = 1;
-			}
-
-            // depth dimension
-			if(dataset->variables[j].dimensions.size()>3)
-			{
-            	index_start[1] = 0;
-            	index_count[1] = 1;
+			    {
+                    //time dimension
+            	    index_start[0] = index;
+            	    index_count[0] = 1;
+			    }
+                else // We take the first slice of the depth dimension
+			    {
+                    index_start[i] = 0;
+                    index_count[i] = 1;
+                }
 			}
 
             // Reading the netcdf
@@ -821,11 +925,7 @@ ExternalData::transformData(Dataset *dataset)
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
-    std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
@@ -849,7 +949,7 @@ ExternalData::transformData(Dataset *dataset)
     }
 
 
-    std::cout<<"Start transforming the data\n";
+    LOG(DEBUG)<<"Start transforming the data\n";
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         for(int j=0; j<dataset->vectorial_variables.size(); ++j)
@@ -1127,6 +1227,27 @@ ExternalData::transformData(Dataset *dataset)
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
                 }
             }//rotation due to different projections
+#ifdef OASIS
+            else if(dataset->grid.gridded_rotation_angle)
+            {
+                double rotation_angle = mapNextsim->rotation*PI/180.;
+                // rotate using the rotation angle "Theta" read from the grid file
+                for (int i=0; i<final_MN; ++i)
+                {
+                    tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                    tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
+
+                    cos_m_diff_angle=std::cos(rotation_angle - dataset->grid.gridTheta[i]);
+                    sin_m_diff_angle=std::sin(rotation_angle - dataset->grid.gridTheta[i]);
+
+                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
+                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+
+                    dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
+                }
+            } // rotation due to distorted grid
+#endif
         }//loop over vectorial variables
     }
 
@@ -1179,7 +1300,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 {
     // ---------------------------------
     // Spatial interpolation
-    std::cout<<"Spatial interpolation of the data\n";
+    LOG(DEBUG)<<"Spatial interpolation of the data\n";
 
     // size of the data
     int M  = dataset->grid.dimension_y_count;
@@ -1216,7 +1337,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     }
 
     // Collect all the data before the interpolation
-    std::cout << "Collect the variables before interpolation:" <<"\n";
+    LOG(DEBUG) << "Collect the variables before interpolation:" <<"\n";
     std::vector<double> data_in(dataset->variables.size()*dataset->nb_forcing_step*final_MN);
 
     for (int fstep=0; fstep < dataset->nb_forcing_step; ++fstep)
@@ -1275,11 +1396,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     // Define the mapping and rotation_angle
 	mapx_class *mapNextsim;
-	std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                              ).str();
-
+	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
@@ -1316,7 +1433,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     close_mapx(mapNextsim);
 
 
-    std::cout << "Interpolation:" <<"\n";
+    LOG(DEBUG) << "Interpolation:" <<"\n";
 
     double* data_out;
 
@@ -1337,8 +1454,16 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                         &RX[0], &RY[0], M_target_size,
                                         false);
         break;
+#if defined OASIS
+        case InterpolationType::ConservativeRemapping:
+            ConservativeRemappingGridToMesh(data_out, data_in,
+                                 dataset->variables.size()*dataset->nb_forcing_step,
+                                 M_target_size,
+                                 dataset->M_gridP, dataset->M_triangles, dataset->M_weights);
+        break;
+#endif
         default:
-            std::cout << "invalid interpolation type:" <<"\n";
+            LOG(DEBUG) << "invalid interpolation type:" <<"\n";
             throw std::logic_error("invalid interpolation type");
     }
 

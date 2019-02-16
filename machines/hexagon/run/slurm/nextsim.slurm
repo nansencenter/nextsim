@@ -10,7 +10,8 @@
 #SBATCH --begin=now+0hour                     # Defer the job allocation until the specified time
 #SBATCH --mail-type=ALL                       # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=abdoulaye.samake@nersc.no # email to the user
-#SBATCH --output=nextsim_%j.log               # Standard output and error log
+#SBATCH --output=nextsim_%j.out               # Standard output
+#SBATCH --error=nextsim_%j.err                # Standard error
 source $HOME/.bash_profile
 export CONFIG_DIR=`pwd`
 cd $NEXTSIMDIR/model/bin
