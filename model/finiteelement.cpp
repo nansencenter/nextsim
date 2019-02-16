@@ -505,41 +505,13 @@ FiniteElement::initVariables()
     M_solution = vector_ptrtype(new vector_type());
 
     M_reuse_prec = true;
-
-    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
-    M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
-    M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     
     this->initModelVariables();
     
-    //M_conc.assign(M_num_elements, 0.); //! \param M_conc (double) Concentration of thick ice
-    //M_thick.assign(M_num_elements, 0.); //! \param M_thick (double) Thickness of thick ice [m]
-    //M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
-    //M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
-    //M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
-    //M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
-    //M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
-    //M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
-    
-    //M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
-    //M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
-    
-    //for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-    //    it->assign(M_num_elements,0.);
-
-    // Diagnostic variables are assigned the prefix D_
-    //D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
-    //D_Qsh.resize(M_num_elements); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
-    //D_Qlh.resize(M_num_elements); //! \param D_Qlh (double) Latent heat flux to the atmosphere
-    //D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
-    //D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
-    //D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
-    //D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
-
-    //D_Qnosun.resize(M_num_elements); //! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
-    //D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
-    //D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
-    //D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
+    //nodal var's
+    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
+    M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
+    M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
     
@@ -6298,24 +6270,24 @@ FiniteElement::initModelVariables()
 
     //! -1) init all ModelVariable's and put them in M_variables_elt
     // Prognostic variables
-    M_conc = ModelVariable(ModelVariable::variableID::M_conc);
+    M_conc = ModelVariable(ModelVariable::variableID::M_conc);//! \param M_conc (double) Concentration of thick ice
     M_variables_elt.push_back(&M_conc);
-    M_thick = ModelVariable(ModelVariable::variableID::M_thick);
+    M_thick = ModelVariable(ModelVariable::variableID::M_thick);//! \param M_thick (double) Thickness of thick ice [m]
     M_variables_elt.push_back(&M_thick);
-    M_damage = ModelVariable(ModelVariable::variableID::M_damage);
+    M_damage = ModelVariable(ModelVariable::variableID::M_damage);//! \param M_damage (double) Level of damage
     M_variables_elt.push_back(&M_damage);
-    M_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);
+    M_snow_thick = ModelVariable(ModelVariable::variableID::M_snow_thick);//! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
     M_variables_elt.push_back(&M_snow_thick);
-    M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);
+    M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);//! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_variables_elt.push_back(&M_ridge_ratio);
 
     switch (M_thermo_type)
     {
         case (setup::ThermoType::ZERO_LAYER):
-            M_tice.resize(1);   //! \param M_tice (double) Ice temperature [C]
+            M_tice.resize(1);   //! \param M_tice (double) Ice surface temperature [C]
             break;
         case (setup::ThermoType::WINTON):
-            M_tice.resize(3);
+            M_tice.resize(3);//! \param M_tice (double) 0: Ice surface temperature [C]; 1,2: Temperatures of upper and lower ice layers [C]
             break;
         default:
             std::cout << "thermo_type= " << (int)M_thermo_type << "\n";
@@ -6327,73 +6299,73 @@ FiniteElement::initModelVariables()
         M_variables_elt.push_back(&(M_tice[k]));
     }
 
-    M_sigma.resize(3);
+    M_sigma.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
     for(int k=0; k<M_sigma.size(); k++)
     {
         M_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
         M_variables_elt.push_back(&(M_sigma[k]));
     }
 
-    M_sst = ModelVariable(ModelVariable::variableID::M_sst);
+    M_sst = ModelVariable(ModelVariable::variableID::M_sst);//! \param M_sst (double) Sea surface temperature (slab ocean) [C]
     M_variables_elt.push_back(&M_sst);
-    M_sss = ModelVariable(ModelVariable::variableID::M_sss);
+    M_sss = ModelVariable(ModelVariable::variableID::M_sss);//! \param M_sss (double) Sea surface salinity (slab ocean) [C]
     M_variables_elt.push_back(&M_sss);
     if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
-        M_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);
+        M_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);//! \param M_tsurf_thin (double) Thin ice surface temperature [C]
         M_variables_elt.push_back(&M_tsurf_thin);
-        M_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);
+        M_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);//! \param M_h_thin (double) Thickness of thin ice [m]
         M_variables_elt.push_back(&M_h_thin);
-        M_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);
+        M_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);//! \param M_hs_thin (double) Snow thickness (on top of thin ice) [m]
         M_variables_elt.push_back(&M_hs_thin);
-        M_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);
+        M_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);//! \param M_conc (double) Concentration of thin ice
         M_variables_elt.push_back(&M_conc_thin);
     }
-    M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);
+    M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
-    M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);
+    M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
-    M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);
+    M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);//! \param M_age_det (double) Sea ice age observable/detectable from space [s]
     M_variables_elt.push_back(&M_age_det);
-    M_age = ModelVariable(ModelVariable::variableID::M_age);
+    M_age = ModelVariable(ModelVariable::variableID::M_age);//! \param M_age (double) Sea ice age (volumetric) [s]
     M_variables_elt.push_back(&M_age);
 
-    // Diagnostic variables
-    D_conc = ModelVariable(ModelVariable::variableID::D_conc);
+    // Diagnostic variables are assigned the prefix D_
+    D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
     M_variables_elt.push_back(&D_conc);
-    D_thick = ModelVariable(ModelVariable::variableID::D_thick);
+    D_thick = ModelVariable(ModelVariable::variableID::D_thick);//! \param D_thick (double) Total thickness of ice [m]
     M_variables_elt.push_back(&D_thick);
-    D_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);
+    D_snow_thick = ModelVariable(ModelVariable::variableID::D_snow_thick);//! \param D_snow_thick (double) Total snow thickness [m]
     M_variables_elt.push_back(&D_snow_thick);
-    D_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);
+    D_tsurf = ModelVariable(ModelVariable::variableID::D_tsurf);//! \param D_tsurf (double) Mean surface temperature [C]
     M_variables_elt.push_back(&D_tsurf);
-    D_sigma.resize(2);
+    D_sigma.resize(2);//! \param D_sigma (double) Principal components of stress [Pa]
     for(int k=0; k<D_sigma.size(); k++)
     {
         D_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
         M_variables_elt.push_back(&(D_sigma[k]));
     }
-    D_Qa = ModelVariable(ModelVariable::variableID::D_Qa);
+    D_Qa = ModelVariable(ModelVariable::variableID::D_Qa);//! \param D_Qa (double) Total heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qa);
-    D_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);
+    D_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);//! \param D_Qsw (double) Short wave heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qsw);
-    D_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);
+    D_Qlw = ModelVariable(ModelVariable::variableID::D_Qlw);//! \param D_Qlw (double) Long wave heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qlw);
-    D_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);
+    D_Qsh = ModelVariable(ModelVariable::variableID::D_Qsh);//! \param D_Qsh (double) Sensible heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qsh);
-    D_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);
+    D_Qlh = ModelVariable(ModelVariable::variableID::D_Qlh);//! \param D_Qlh (double) Latent heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qlh);
-    D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
+    D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);//! \param D_Qo (double) Total heat lost by the ocean
     M_variables_elt.push_back(&D_Qo);
-    D_delS = ModelVariable(ModelVariable::variableID::D_delS);
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Salt release to the ocean [kg/day]
     M_variables_elt.push_back(&D_delS);
-    D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);
+    D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);//! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     M_variables_elt.push_back(&D_Qnosun);
-    D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);
+    D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
-    D_emp = ModelVariable(ModelVariable::variableID::D_emp);
+    D_emp = ModelVariable(ModelVariable::variableID::D_emp);//! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
     M_variables_elt.push_back(&D_emp);
-    D_brine = ModelVariable(ModelVariable::variableID::D_brine);
+    D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
 
     //! -2) loop over M_variables_elt in order to sort them
