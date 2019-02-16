@@ -2617,7 +2617,7 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 #if 1
             for(int j=0; j<M_nb_var_element; j++)
             {
-                if(M_interp_methods_old[j]==1)
+                if(M_interp_methods[j]==1)
                 {
                     integrated_variable = interp_elt_in_root[cpt*M_nb_var_element+j]*surface
                         - (
