@@ -581,8 +581,6 @@ private: // only on root process (rank 0)
     std::vector<int> M_dirichlet_nodes_root;
     std::vector<int> M_neumann_nodes_root;
 
-    std::vector<double> M_random_number_root;
-
     std::vector<std::vector<double>> M_B0T_root;
 
     BamgMesh *bamgmesh_root;

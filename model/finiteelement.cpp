@@ -510,67 +510,36 @@ FiniteElement::initVariables()
     M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
     M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     
-    M_h_thin.assign(M_num_elements,0.); //! \param M_h_thin (double) Thickness of thin ice [m]
-    M_conc_thin.assign(M_num_elements,0.); //! \param M_conc_thin (double) Concentration thin ice
-    M_hs_thin.assign(M_num_elements,0.); //! \param M_hs_thin (double) Thickness of snow on top of thin ice [m]
-    M_tsurf_thin.assign(M_num_elements,0.); //! \param M_tsurf_thin (double) Temperature at the surface of thin ice [C]
+    this->initModelVariables();
     
-    // stresses
-    for (auto it=M_sigma.begin(); it!=M_sigma.end(); it++)
-        it->assign(M_num_elements, 0.);
-    for(int k=0; k<2; k++)
-        D_sigma[k].assign(M_num_elements, 0.);
+    //M_conc.assign(M_num_elements, 0.); //! \param M_conc (double) Concentration of thick ice
+    //M_thick.assign(M_num_elements, 0.); //! \param M_thick (double) Thickness of thick ice [m]
+    //M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
+    //M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
+    //M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
+    //M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
+    //M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
+    //M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
     
-    // random numbers
-    // - 1st set on root
-    M_random_number_root.resize(M_mesh.numGlobalElements());
-    if (M_rank == 0)
-    {
-        boost::minstd_rand intgen;
-        boost::uniform_01<boost::minstd_rand> gen(intgen);
-
-        for (int i=0; i<M_random_number_root.size(); ++i)
-        {
-            M_random_number_root[i] = gen();
-            //M_random_number_root[i] = static_cast <double> (std::rand()) / static_cast <double> (RAND_MAX);
-        }
-    }
-    boost::mpi::broadcast(M_comm, &M_random_number_root[0], M_mesh.numGlobalElements(), 0);
-
-    // - now set on each processor
-    auto id_elements = M_mesh.trianglesIdWithGhost();
-    M_random_number.resize(M_num_elements);
-    for (int i=0; i<M_random_number.size(); ++i)
-        M_random_number[i] = M_random_number_root[id_elements[i]-1];
-
-    M_conc.assign(M_num_elements, 0.); //! \param M_conc (double) Concentration of thick ice
-    M_thick.assign(M_num_elements, 0.); //! \param M_thick (double) Thickness of thick ice [m]
-    M_damage.resize(M_num_elements); //! \param M_damage (double) Level of damage
-    M_ridge_ratio.assign(M_num_elements, 0.); //! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
-    M_snow_thick.resize(M_num_elements); //! \param M_snow_thick (double) Snow thickness (on top of thick ice) [m]
-    M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
-    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
-    M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
+    //M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
+    //M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
     
-    M_sst.assign(M_num_elements, 0.); //! \param M_sst (double) Sea surface temperature [C]
-    M_sss.assign(M_num_elements, 0.); //! \param M_sss (double) Sea surface salinity [C]
-    
-    for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
-        it->assign(M_num_elements,0.);
+    //for (auto it=M_tice.begin(); it!=M_tice.end(); it++)
+    //    it->assign(M_num_elements,0.);
 
     // Diagnostic variables are assigned the prefix D_
-    D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
-    D_Qsh.resize(M_num_elements); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
-    D_Qlh.resize(M_num_elements); //! \param D_Qlh (double) Latent heat flux to the atmosphere
-    D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
-    D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
-    D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
-    D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
+    //D_Qa.resize(M_num_elements); //! \param D_Qa (double) Total heat flux to the atmosphere
+    //D_Qsh.resize(M_num_elements); //! \param D_Qsh (double) Sensible heat flux to the atmosphere
+    //D_Qlh.resize(M_num_elements); //! \param D_Qlh (double) Latent heat flux to the atmosphere
+    //D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
+    //D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
+    //D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
+    //D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
 
-    D_Qnosun.resize(M_num_elements); //! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
-    D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
-    D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
-    D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
+    //D_Qnosun.resize(M_num_elements); //! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
+    //D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
+    //D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
+    //D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
     
@@ -6170,7 +6139,6 @@ FiniteElement::init()
 
     this->initOptAndParam();
     M_current_time = time_init;
-    this->initModelVariables();
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
@@ -6451,6 +6419,10 @@ FiniteElement::initModelVariables()
             M_export_variables_elt.push_back(ptr);
             M_export_names_elt.push_back(ptr->exportName());
         }
+
+        // resize - note need to make sure variables are initialised properly in initModelState()
+        // otherwise model will crash
+        ptr->resize(M_num_elements);
     }// loop over M_variables_elt
 
     //! -3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
@@ -9139,6 +9111,29 @@ FiniteElement::initIce()
             throw std::logic_error("invalid initialization of the ice");
     }
 
+    // random numbers
+    // - 1st set on root
+    std::vector<double> random_number_root(M_mesh.numGlobalElements());
+    if (M_rank == 0)
+    {
+        boost::minstd_rand intgen;
+        boost::uniform_01<boost::minstd_rand> gen(intgen);
+
+        for (int i=0; i<random_number_root.size(); ++i)
+            random_number_root[i] = gen();
+    }
+    boost::mpi::broadcast(M_comm, &random_number_root[0], M_mesh.numGlobalElements(), 0);
+
+    // - now set on each processor
+    auto id_elements = M_mesh.trianglesIdWithGhost();
+    for (int i=0; i<M_random_number.size(); ++i)
+        M_random_number[i] = random_number_root[id_elements[i]-1];
+
+    // ice age variables start at 0
+    M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
+    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
+    M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
+
     // check consistency of fields after initialisation
     // - init ice temp everywhere
     this->checkConsistency();
@@ -9167,6 +9162,8 @@ FiniteElement::checkConsistency()
             M_snow_thick[i]=0.;
             M_damage[i]=0.;
             M_ridge_ratio[i]=0.;
+            for (int k=0; k<M_tice.size(); k++)
+                M_tice[k][i] = M_tice[k].valueNoThickIce();
         }
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -9219,21 +9216,12 @@ FiniteElement::checkConsistency()
         }
 
         //init thick ice temperature
-        if ( M_thick[i] <= 0. )
-            M_tice[0][i] = Tfr_ice;
-        else
+        if ( M_thick[i] > 0. )
+        {
             M_tice[0][i] = tsurf;
 
-        //if using Winton, init T1 and T2
-        if ( M_thermo_type == setup::ThermoType::WINTON )
-        {
-            if ( M_thick[i] <= 0. )
-            {
-                // Just set them to freezing point if no ice
-                M_tice[1][i] = Tfr_ice;
-                M_tice[2][i] = Tfr_ice;
-            }
-            else
+            //if using Winton, init T1 and T2
+            if ( M_thermo_type == setup::ThermoType::WINTON )
             {
                 // Calculate the temp at the top of the ice
                 double Ti = M_tice[0][i];
@@ -9254,8 +9242,8 @@ FiniteElement::checkConsistency()
                 // Then use linear interpolation between bottom and top of ice
                 M_tice[1][i] = Tfr_wtr + .75*(Ti - Tfr_wtr);
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
-            }
-        }//Winton
+            }//Winton
+        }
     }
 }//checkConsistency
 
