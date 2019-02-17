@@ -272,6 +272,7 @@ public:
     void calcAuxiliaryVariables();
     void initModelVariables();
     void initFsd();
+    void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -325,23 +326,8 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
-    void sortPrognosticVars(
-        std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy);
-    void sortPrognosticVars(
-        std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy,
-        std::vector<bool> &has_min,
-        std::vector<bool> &has_max,
-        std::vector<double> &min_val,
-        std::vector<double> &max_val);
-
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
-    void redistributeVariables(std::vector<double> const& out_elt_values);
+    void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
@@ -560,7 +546,7 @@ private:
     double tract_coef;
     double scale_coef;
     double alea_factor;
-    double cfix;
+    double C_lab;
     double C_fix;
     double C_alea;
     double tan_phi;
@@ -595,8 +581,6 @@ private: // only on root process (rank 0)
 
     std::vector<int> M_dirichlet_nodes_root;
     std::vector<int> M_neumann_nodes_root;
-
-    std::vector<double> M_random_number_root;
 
     std::vector<std::vector<double>> M_B0T_root;
 
@@ -702,7 +686,6 @@ private:
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
 
-
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
@@ -727,11 +710,10 @@ private:
     ModelVariable M_hs_thin;
     ModelVariable M_conc_thin;
     ModelVariable M_random_number;
-#if 0
     ModelVariable M_fyi_fraction;
-    ModelVariable M_age_obs;
+    ModelVariable M_age_det;
     ModelVariable M_age;
-#endif
+
     std::vector<ModelVariable> M_conc_fsd;
     int const M_num_fsd_bins = 3;
     std::vector<double> M_fsd_bin_centres;
@@ -765,11 +747,17 @@ private:
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
     std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
     std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
+    std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
+    std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
+    std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
     std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
     std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
+    std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
+    std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
 
 private:
     // Variables for the moorings
@@ -818,9 +806,8 @@ private:
 
 private:
 
+    //ice-init functions
     void constantIce();
-    void targetIce();
-    void binaryIce();
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
@@ -828,16 +815,18 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
-    void warrenClimatology();
     void smosIce();
 
+    //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
+
+    void warrenClimatology();
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     void initialisingDrifters(
         std::vector<std::string> & init_names,
@@ -866,7 +855,6 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
-    void checkFields(int const& rank_test, int const& itest);
 
 private:
 

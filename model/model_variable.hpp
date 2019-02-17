@@ -10,6 +10,7 @@
 #define __ModelVariable_H 1
 
 #include <environment.hpp>
+#include <constants.hpp>
 
 /**
  * @class GridOutput
@@ -38,7 +39,7 @@ public:
         elemental  =  1
     };
 
-    enum InterpMethod
+    enum interpMethod
     {
         // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
         nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
@@ -46,7 +47,7 @@ public:
                                //  among the new elements in proportion to their area
     };
 
-    enum InterpTransformation
+    enum interpTransformation
     {
         // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
         none     = 0,//do nothing (conservative variable already)
@@ -73,9 +74,9 @@ public:
         M_conc_thin     = 13,
         M_random_number = 14,
         M_conc_fsd      = 15,
-        //M_fyi_fraction  = 16,
-        //M_age_obs       = 17,
-        //M_age           = 18,
+        M_fyi_fraction  = 16,
+        M_age_det       = 17,
+        M_age           = 18,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -105,15 +106,18 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    InterpMethod M_interp_method;//interpolation method during regridding
-    InterpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
+    interpMethod M_interp_method;//interpolation method during regridding
+    interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
-    bool M_has_min = false;
-    bool M_has_max = false;
+    bool M_has_min = false; //does the variable have a strict min (eg >0)?
+    bool M_has_max = false; //does the variable have a strict max (eg <1)?
+    bool M_has_value_no_thick_ice = false; //does the variable have a designated value if no thick ice (eg 0, freezing temp)?
     double M_min_val;
     double M_max_val;
+    double M_value_no_thick_ice;
+    double M_tfr_ice;
 
 
 public:
@@ -124,6 +128,9 @@ public:
     ModelVariable(variableID id, int comp_num=-1)
         : M_varID(id), M_component_number(comp_num)
     {
+
+        M_tfr_ice = -physical::mu*physical::si;
+        // freezing point of ice - value for M_tice[i] in open water
 
         // see if it is an elemental variable
         bool elemental = this->initElemental();
@@ -165,13 +172,15 @@ public:
     std::string exportName() { return M_export_name; }
     bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    InterpMethod interpMethod() {return M_interp_method; }
-    InterpTransformation interpTransformation() { return M_interp_transformation; }
+    interpMethod getInterpMethod() {return M_interp_method; }
+    interpTransformation getInterpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
     bool hasMaxVal() { return M_has_max; }
+    bool hasValueNoThickIce() { return M_has_value_no_thick_ice; }
     double minVal() { return M_min_val; }
     double maxVal() { return M_max_val; }
+    double valueNoThickIce() { return M_value_no_thick_ice; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }
