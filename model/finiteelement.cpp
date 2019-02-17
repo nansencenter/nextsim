@@ -509,18 +509,19 @@ FiniteElement::initVariables()
     this->initModelVariables();
     
     //nodal var's
-    M_VT.resize(2*M_num_nodes,0.); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
-    M_VTM.resize(2*M_num_nodes,0.); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
-    M_VTMM.resize(2*M_num_nodes,0.); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
+    M_VT.resize(2*M_num_nodes); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
+    M_VTM.resize(2*M_num_nodes); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
+    M_VTMM.resize(2*M_num_nodes); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
+    M_UM.resize(2*M_num_nodes); //! \param M_UM (double) Total mesh displacement [m]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
     
     // For drifters:
-    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
+    M_UT.resize(2*M_num_nodes); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
     
     if (M_rank == 0)
     {
-        M_surface_root.assign(M_mesh_root.numTriangles(),0.);
+        M_surface_root.resize(M_mesh_root.numTriangles());
 
         int cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
@@ -1268,7 +1269,6 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
-        ("target", setup::IceType::TARGET)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
@@ -1277,13 +1277,15 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("osisaf", setup::IceType::OSISAF)
         ("piomas", setup::IceType::PIOMAS)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
-    M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+    option_str = vm["setup.ice-type"].as<std::string>();
+    if ( str2conc.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
+    M_ice_type = str2conc.find(option_str)->second;
     LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
@@ -9039,9 +9041,6 @@ FiniteElement::initIce()
         case setup::IceType::CONSTANT_PARTIAL:
             this->constantIce();
             break;
-        case setup::IceType::TARGET:
-            this->targetIce();
-            break;
         case setup::IceType::TOPAZ4:
             this->topazIce();
             break;
@@ -9102,10 +9101,25 @@ FiniteElement::initIce()
     for (int i=0; i<M_random_number.size(); ++i)
         M_random_number[i] = random_number_root[id_elements[i]-1];
 
-    // ice age variables start at 0
-    M_fyi_fraction.assign(M_num_elements,0.);//! \param M_fyi_fraction (double) Fraction of FYI
-    M_age_det.assign(M_num_elements,0.); //! \param M_age_det (double) Sea ice age observable/detectable from space [s]
-    M_age.assign(M_num_elements,0.);//! \param M_age (double) Sea ice age (volumetric) [s]
+    // init ice age variables and stress to 0
+    std::vector<ModelVariable*> vars_to_zero;
+    vars_to_zero.push_back(&M_fyi_fraction);
+    vars_to_zero.push_back(&M_age_det);
+    vars_to_zero.push_back(&M_age);
+    for (int k=0; k<3; k++)
+        vars_to_zero.push_back(&(M_sigma[k]));
+    for (auto ptr: vars_to_zero)
+        std::fill(ptr->begin(), ptr->end(), 0.);
+
+    // init velocities, displacements to 0.
+    std::vector<std::vector<double>*> vecs_to_zero;
+    vecs_to_zero.push_back(&M_VT);
+    vecs_to_zero.push_back(&M_VTM);
+    vecs_to_zero.push_back(&M_VTMM);
+    vecs_to_zero.push_back(&M_UT);
+    vecs_to_zero.push_back(&M_UM);
+    for (auto ptr: vecs_to_zero)
+        std::fill(ptr->begin(), ptr->end(), 0.);
 
     // check consistency of fields after initialisation
     // - init ice temp everywhere
@@ -9262,7 +9276,12 @@ FiniteElement::constantIce()
     std::fill(M_conc.begin(), M_conc.end(), c_const);
     std::fill(M_thick.begin(), M_thick.end(), c_const*h_const);//M_thick is ice volume
     std::fill(M_snow_thick.begin(), M_snow_thick.end(), hs_const);
-    std::fill(M_damage.begin(), M_damage.end(), 0.);
+
+    std::vector<ModelVariable*> vars_to_zero;
+    vars_to_zero.push_back(&M_damage);
+    vars_to_zero.push_back(&M_ridge_ratio);
+    for (auto ptr: vars_to_zero)
+        std::fill(ptr->begin(), ptr->end(), 0.);
 
     // No ice where SST is over init_SST_limit
     double SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
@@ -9329,94 +9348,6 @@ FiniteElement::constantIce()
     }//partial ice cover
 
 }//constantIce
-
-
-//------------------------------------------------------------------------------------------------------
-//! Sets the ice cover to a target state.
-//! Called by the initIce() function.
-void
-FiniteElement::targetIce()
-{
-    /*
-    double y_max=300000.;
-    double y_min=150000.;
-    double x_max1=240000.;
-    double x_min1=150000.;
-    double x_max2=300000.;
-    double x_min2=260000.;
-    */
-
-    double y_max=350000.;
-    double y_min=0000.;
-    double x_max=400000.;
-    double x_min=200000.;
-
-    double transition=(x_max-x_min)/10.;
-
-    double tmp_var;
-
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
-    double cmin= 0.;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max)*(RX[i]>=x_min);
-
-/*        tmp_var = (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max1)*(RX[i]>=x_min1)
-                  + (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<=x_max2)*(RX[i]>=x_min2);
-*/
-            /*
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]<x_min)*std::max(cmin,(1.-std::hypot(RX[i]-x_min,0.         )/transition))
-            +     (RY[i]<=y_max)*(RY[i]>=y_min)*(RX[i]>x_max)*std::max(cmin,(1.-std::hypot(RX[i]-x_max,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]<y_min)*std::max(cmin,(1.-std::hypot(RY[i]-y_min,0.         )/transition))
-            +     (RX[i]<=x_max)*(RX[i]>=x_min)*(RY[i]>y_max)*std::max(cmin,(1.-std::hypot(RY[i]-y_max,0.         )/transition))
-            +     (RY[i]< y_min)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_min)/transition))
-            +     (RY[i]< y_min)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_min)/transition))
-            +     (RY[i]> y_max)*(RX[i]< x_min)              *std::max(cmin,(1.-std::hypot(RX[i]-x_min,RY[i]-y_max)/transition))
-            +     (RY[i]> y_max)*(RX[i]> x_max)              *std::max(cmin,(1.-std::hypot(RX[i]-x_max,RY[i]-y_max)/transition));
-            */
-        LOG(DEBUG)<<"RX: "<< RX[i] << "RY: "<< RY[i] << "tmp_var: " << tmp_var << "\n";
-
-        //M_conc[i]  = std::max(vm["ideal_simul.init_concentration"].as<double>()*tmp_var,cmin);
-    //    M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
-    //    M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
-
-        M_conc[i]  = vm["ideal_simul.init_concentration"].as<double>();
-
-    // if(i==10)
-    //     M_conc[i]=0.;
-
-        M_thick[i] = vm["ideal_simul.init_thickness"].as<double>()*M_conc[i];
-        M_snow_thick[i] = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc[i];
-
-        M_damage[i]=0.;
-
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_conc_thin[i]  = vm["ideal_simul.init_thin_conc"].as<double>();
-
-            M_h_thin[i]     = (vm["thermo.h_thin_min"].as<double>()+(vm["thermo.h_thin_max"].as<double>()-vm["thermo.h_thin_min"].as<double>())/2.)*M_conc_thin[i];
-
-            M_hs_thin[i]    = vm["ideal_simul.init_snow_thickness"].as<double>()*M_conc_thin[i];
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
-        {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-            M_damage[i]=0.;
-        }
-
-        if(M_thick[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
-            M_damage[i]=0.;
-        }
-    }
-}//targetIce
 
 
 //------------------------------------------------------------------------------------------------------
@@ -9724,7 +9655,8 @@ FiniteElement::topazForecastAmsr2Ice()
             //10cm min ice thickness
             M_thick[i]=0.1*M_conc[i];
 
-        M_damage[i]=1.-M_conc[i];
+        M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
     }
 }//topazForecastAmsr2Ice
 
@@ -10210,7 +10142,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_ridge_ratio[i]=M_ridge_ratio[i]*M_conc[i];
             M_snow_thick[i] = M_conc[i]*hs;
             M_thick[i] = M_conc[i]*hi;
-            M_damage[i]=1.-M_conc[i];
+            M_damage[i]=0.;
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -10423,6 +10355,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
                 }
             }//no thin ice
         }//use NIC
+
+        M_damage[i]=0.;
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
@@ -10535,8 +10469,9 @@ FiniteElement::topazAmsreIce()
         }
 
         M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
     }
-}//topazAmsreIce TODO no thin ice; logic needs checking
+}//topazAmsreIce TODO no thin ice; logic needs checking; no ice-type option for this
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -10612,8 +10547,9 @@ FiniteElement::topazAmsr2Ice()
         }
 
         M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
     }
-}//topazAmsr2Ice TODO no thin ice; logic needs checking
+}//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -10894,6 +10830,7 @@ FiniteElement::smosIce()
         }
 
         M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
     }
 }//smosIce
 

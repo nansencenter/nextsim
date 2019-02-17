@@ -801,9 +801,8 @@ private:
 
 private:
 
+    //ice-init functions
     void constantIce();
-    void targetIce();
-    void binaryIce();
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
@@ -811,16 +810,18 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
-    void warrenClimatology();
     void smosIce();
 
+    //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
+
+    void warrenClimatology();
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     void initialisingDrifters(
         std::vector<std::string> & init_names,
