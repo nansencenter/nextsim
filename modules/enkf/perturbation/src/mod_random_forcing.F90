@@ -15,7 +15,7 @@ module mod_random_forcing
 !                       fields contained in "forcing_fields". Note that this
 !                       routine is (for now) applied only when hf forcing is
 !                       enabled (a check is done against forcing update times
-!                       "rdtime" given by mod_forcing_nersc and yrflag). Also, 
+!                       "rdtime" given by mod_forcing_nersc and yrflag). Also,
 !                       synoptic flags from "mod_forcing_nersc" are not taken
 !                       into account.
 !
@@ -25,11 +25,11 @@ module mod_random_forcing
 ! -- set_random_seed2 - Sets the random number seed based on date and time
 ! -- ranfields          Produces a set of nondimensional perturbation fields in
 !                       a forcing_fields type
-! -- calc_forc_update   Creates a dimensional forcing_field type 
+! -- calc_forc_update   Creates a dimensional forcing_field type
 ! -- assign_force       sets  forcing_field to a constant
 ! -- assign_vars        Sets variances to a constant
 ! -- ran_update_ran1    Updates nondimensional forcing_field "ran" using
-!                       input variances and nondimensional stochastic forcing 
+!                       input variances and nondimensional stochastic forcing
 !                       "ran1" - produces a red timeseries specified by input
 !                       "alpha"
 ! -- init_ran(ran)      Allocates variables in the forcing_fields type
@@ -50,15 +50,16 @@ module mod_random_forcing
    real   , save :: rh          ! Horizontal decorr length for rand forc [grid cells]
    real   , save :: rv
    integer, save :: rf_prsflg=2 ! initial value
-   character(10) :: iopath = '.'
-   integer, parameter :: idm=360, jdm=360
+   integer, save :: xdim, ydim
+   integer, save :: idm=360, jdm=360
+   character(80) :: iopath = '/docker_io'
    real,parameter     :: airdns  =  1.2
    real, parameter    :: radian  = 57.2957795
-   real, parameter    :: pi      =  3.1415926536                                                    
+   real, parameter    :: pi      =  3.1415926536
    real, parameter    :: radtodeg= 57.2957795
    real, allocatable, dimension(:,:)  :: synuwind, synvwind, synwndspd,         &
-                                         synairtmp, synrelhum, synprecip,       & 
-                                         synclouds, syntaux, syntauy, synvapmix,& 
+                                         synairtmp, synrelhum, synprecip,       &
+                                         synclouds, syntaux, syntauy, synvapmix,&
                                          synradflx, synshwflx, synslp, synssr
 
   ! Random forcing variables:
@@ -71,8 +72,8 @@ module mod_random_forcing
       real,pointer ::  relhum (:,:) !  relative humidity
       real,pointer ::  clouds (:,:) !  cloud cover
       real,pointer ::  precip (:,:) !  precipitation
-      real,pointer ::  sss    (:,:) !  SSS for relax 
-      real,pointer ::  sst    (:,:) !  SST for relax 
+      real,pointer ::  sss    (:,:) !  SSS for relax
+      real,pointer ::  sst    (:,:) !  SST for relax
       real,pointer ::  uwind  (:,:) !  u-component of wind
       real,pointer ::  vwind  (:,:) !  v-component of wind
       real,pointer ::  tauxice(:,:) !  ice stress on water in x dir
@@ -81,7 +82,7 @@ module mod_random_forcing
 
    type forcing_variances
       real slp
-      real taux          
+      real taux
       real tauy
       real wndspd
       real airtmp
@@ -108,7 +109,7 @@ module mod_random_forcing
    interface sqrt
       module procedure var_sqrt
    end interface
-   
+
    public :: randf, init_rand_update, rand_update, init_fvars
 
 contains
@@ -129,24 +130,24 @@ contains
       call init_ran(ran1)
       ran=0.
       ran1=0.
+      ! Init
+      call set_random_seed2
       ! Init fft dimensions in mod_pseudo
       call initfftdim(idm,jdm)
-      ! Init 
-      call set_random_seed2
 
       !-- CHeCK: a conditional here to check ranfld_next.dat exists \
       !-- IF exists, load and move to ranfld_prev.dat, IF NOT run ranfields(ran,rh) --!
 
       INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
 
-      if (file_exists) then 
+      if (file_exists) then
               print *, 'reading from file...'
               call randfld_rd('01')
               call synforc_rd('01')
               call randfld_wr('00')
               call synforc_wr('00')
               call rand_update('01')
-      else 
+      else
               print *, 'generating initial random field...'
               call ranfields(ran,rh)
               call rand_update('00')
@@ -157,7 +158,7 @@ contains
 
       subroutine set_random_seed2
       ! Sets a random seed based on the wall clock time
-      implicit none 
+      implicit none
 
       integer , dimension(8)::val
       integer cnt
@@ -177,7 +178,7 @@ contains
 !c --- Initialize FFT dimensions used in pseudo routines
       subroutine initfftdim(nx,ny)
 
-      use mod_pseudo 
+      use mod_pseudo
 
       implicit none
       integer, intent(in) :: nx,ny
@@ -194,20 +195,29 @@ contains
       real, parameter :: version2=1.2     ! version of limits routine
 
       logical :: ex
-      integer :: seed
+      integer :: seed, prsflg
       real    :: fversion
+      real    :: vslp, vtaux, vtauy, vwndspd, vclouds
+      real    :: vairtmp, vprecip, vrelhum, scorr, tcorr
+      character(80) :: nmlfile, cwd
+
+      namelist /setup/ iopath, xdim, ydim
+      namelist /pseudo2D/ randf, seed, &
+                          vslp, vtaux, vtauy, vwndspd, &
+                          vclouds, vairtmp, vprecip, vrelhum, &
+                          scorr, tcorr, prsflg
 
       randf        = .true.
       seed         = 11
-      vars%slp     =  20.0
+      vars%slp     =  10.0
       vars%taux    =  1.e-3
       vars%tauy    =  1.e-3
-      vars%wndspd  =  2.5
+      vars%wndspd  =  0.64
       vars%clouds  =  5.e-3
       vars%airtmp  =  9.0
       vars%precip  =  1.0
       vars%relhum  =  1.0
-      rf_hradius   =  250
+      rf_hradius   =  500
       rf_tradius   =  2.0
       rf_prsflg    =  2
 
@@ -215,15 +225,39 @@ contains
             print*, 'Pressure flag must be between 0 and 2'
          stop '(limits:limits_randf)'
       end if
+
+
+!      CALL getcwd(cwd)
+!      PRINT*, TRIM(cwd)
+!      CALL system('ls')
+      nmlfile ='pseudo2D.nml'    ! name of general configuration namelist file
+      open (99,file=nmlfile, status='old', action='read')
+      read (99,NML=setup)
+      read (99,NML=pseudo2D)
       close(99)
+
+      idm         = xdim
+      jdm         = ydim
+      vars%slp    = vslp
+      vars%taux   = vtaux
+      vars%tauy   = vtauy
+      vars%wndspd = vwndspd
+      vars%clouds = vclouds
+      vars%airtmp = vairtmp
+      vars%precip = vprecip
+      vars%relhum = vrelhum
+      rf_hradius  = scorr
+      rf_tradius  = tcorr
+      rf_prsflg   = prsflg
+
       end subroutine limits_randf
 
 
-! --- This routine updates the random forcing component, according to 
-! --- a simple correlation progression with target variance specified 
+! --- This routine updates the random forcing component, according to
+! --- a simple correlation progression with target variance specified
 ! --- By forcing_variances. At the end of the routine, if applicable,
 ! --- the random forcing is added to the forcing fields.
-   
+
 
       subroutine rand_update(time_index)
       implicit none
@@ -233,11 +267,11 @@ contains
       ! vars     -- Variances of fields ( Real pert = ran * vars)
       ! lrestart -- Special actions are taken if this is a restart
 
-      !type(forcing_fields)    , intent(inout) :: ran 
+      !type(forcing_fields)    , intent(inout) :: ran
       !type(forcing_variances) , intent(in)    :: vars
 
       integer :: ix,jy
-      real :: alpha, autocorr, nsteps, wspd, mtime 
+      real :: alpha, autocorr, nsteps, wspd, mtime
       character(2) :: time_index
 
       logical, save :: first=.true.
@@ -256,9 +290,9 @@ contains
 
       real, parameter :: wlat=60.
       integer i,j
-      real*8, save :: rdtime=6.d0/24.d0    ! Time step of forcing update
+      real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
 
-     
+
 
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
@@ -269,12 +303,12 @@ contains
       nsteps = rv/rdtime
 
       ! This alpha will guarantee autocorrelation "autocorr"
-      ! over the time "rv" 
-      ! rv -> infinity , nsteps -> infinity, alpha -> 1 
+      ! over the time "rv"
+      ! rv -> infinity , nsteps -> infinity, alpha -> 1
       ! rv -> 0        , nsteps -> 0       , alpha -> 0 (when 1>autocorr>0)
       alpha=autocorr**(1/nsteps)
 
-      !write(lp,*) 'Rand_update -- Random forcing field update' 
+      !write(lp,*) 'Rand_update -- Random forcing field update'
 
 
       ! Add new random forcing field to the newly read
@@ -292,7 +326,7 @@ contains
 ! rf_prsflag=2 : wind perturbations calculated from slp, using coriolis
 !                parameter at 40 deg N, but limited by the setting of
 !                windspeed, to account for the horizontal scale of pert.
-!                As far as the wind is concerned, this is the same as 
+!                As far as the wind is concerned, this is the same as
 !                reducing pressure perturbations
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -304,7 +338,7 @@ contains
       ! flag used in prsflg=2
       if (rf_prsflg==2) then
 
-         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant 
+         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
 
          ! typical pressure gradient
          wprsfac=100.*sqrt(vars%slp)/(rh*minscpx)
@@ -317,7 +351,6 @@ contains
          wprsfac=sqrt(vars%wndspd)/(3*wprsfac)
 
       end if
-
 
 
       dpresx=0.
@@ -342,15 +375,15 @@ contains
 
 
 !$OMP PARALLEL DO PRIVATE (ix,jy,fcor,
-!$OMP&                     ucor,vcor, 
-!$OMP&                     ueq,veq,wcor)             
+!$OMP&                     ucor,vcor,
+!$OMP&                     ueq,veq,wcor)
 !$OMP&SCHEDULE(STATIC,jblk)
       do jy=1,jdm
       do ix=1,idm
 
          ! Coriolis balance (at 40 deg)
          !fcor=2*sin(max(abs(plat(ix,jy)),20.)/radtodeg)*2*pi/86400;
-         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant 
+         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
          fcor=fcor*rhoa
          vcor= dpresx(ix,jy) / (fcor)
          ucor=-dpresy(ix,jy) / (fcor)
@@ -368,17 +401,17 @@ contains
          wcor=sin(wlat) / wlat * pi * 0.5
 
 
-         synuwind(ix,jy) = synuwind(ix,jy)+wcor*ucor + (1.-wcor)*ueq
-         synvwind(ix,jy) = synvwind(ix,jy)+wcor*vcor + (1.-wcor)*veq
+         synuwind(ix,jy) = wcor*ucor + (1.-wcor)*ueq
+         synvwind(ix,jy) = wcor*vcor + (1.-wcor)*veq
 
          synwndspd(ix,jy) = sqrt(  &
               synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
 
          ! The rest use uncorrelated fields
-         synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
-         synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
-         synslp   (ix,jy) = synslp   (ix,jy)+ran1%slp   (ix,jy)
-         synprecip(ix,jy) = synprecip(ix,jy)+ran1%precip(ix,jy)
+         synairtmp(ix,jy) = ran1%airtmp(ix,jy)
+         synrelhum(ix,jy) = ran1%relhum(ix,jy)
+         synslp   (ix,jy) = ran1%slp   (ix,jy)
+         synprecip(ix,jy) = ran1%precip(ix,jy)
          synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
          synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
          synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
@@ -390,7 +423,7 @@ contains
 
 
          ! Drag
-!$OMP PARALLEL DO PRIVATE (ix,jy,wndfac,cd_new,w4,wfact) 
+!$OMP PARALLEL DO PRIVATE (ix,jy,wndfac,cd_new,w4,wfact)
 !$OMP&SCHEDULE(STATIC,jblk)
       do jy=2,jdm-1
       do ix=2,idm-1
@@ -399,7 +432,7 @@ contains
 
          w4    =.25*( &
             synvwind(ix-1,jy+1)+synvwind(ix,jy+1)+  &
-            synvwind(ix-1,jy  )+synvwind(ix,jy  )) 
+            synvwind(ix-1,jy  )+synvwind(ix,jy  ))
          wfact=sqrt( synuwind(ix,jy)*synuwind(ix,jy)+w4*w4)* airdns*cd_new
          syntaux(ix,jy)=synuwind(ix,jy)*wfact
 
@@ -451,7 +484,7 @@ contains
 
       end if ! rf_prsflg
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! end if rf_prsflag=0 
+! end if rf_prsflag=0
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -464,10 +497,10 @@ contains
 
       call ranfields(ran1,rh)
 
-      !ran= alpha*ran + sqrt(1-alpha*alpha)* ran 
+      !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
 
-      call randfld_wr(time_index) 
+      call randfld_wr(time_index)
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -478,8 +511,8 @@ contains
       use mod_pseudo
       implicit none
 
-      type(forcing_fields)    , intent(inout) :: ranfld 
-      real,                     intent(in)    :: scorr 
+      type(forcing_fields)    , intent(inout) :: ranfld
+      real,                     intent(in)    :: scorr
       real, dimension(1:idm,1:jdm) :: tmp
       real, dimension(idm,jdm) :: gtmp
 
@@ -579,7 +612,7 @@ contains
       type(forcing_fields), intent(inout) :: ran
       type(forcing_fields), intent(   in) :: ran1
       real                , intent(   in) :: alpha
-       
+
       integer :: ix,jy
 
       do jy=1,jdm
@@ -624,7 +657,7 @@ contains
    implicit none
      ! Allocate fields - some are not used...
 
-     IF( .NOT. ALLOCATED( synuwind  ) ) allocate(synuwind (idm,jdm)) 
+     IF( .NOT. ALLOCATED( synuwind  ) ) allocate(synuwind (idm,jdm))
      IF( .NOT. ALLOCATED( synvwind  ) ) allocate(synvwind (idm,jdm))
      IF( .NOT. ALLOCATED( synwndspd ) ) allocate(synwndspd(idm,jdm))
      IF( .NOT. ALLOCATED( syntaux   ) ) allocate(syntaux  (idm,jdm))
@@ -650,12 +683,12 @@ contains
      synradflx(:,:)=0.
      synshwflx(:,:)=0.
      synslp   (:,:)=0.
-  
+
    end subroutine
 
-   subroutine randfld_rd(time_index) 
+   subroutine randfld_rd(time_index)
 
-           character(2)  :: time_index 
+           character(2)  :: time_index
            character(80) :: filename
            integer :: ix,jy
 
@@ -663,39 +696,39 @@ contains
 
            print*, 'reading randfile ', filename
 
-           open(10, file=filename, status="old", action="read") 
+           open(10, file=filename, status="old", action="read")
 
-           do jy=1,jdm 
-             do ix=1,idm 
-             read(10, '(10e14.3)') & 
-                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), & 
-                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), & 
+           do jy=1,jdm
+             do ix=1,idm
+             read(10, '(10e14.3)') &
+                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
+                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
                         ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
              end do !ix
-           end do !jy 
+           end do !jy
            close(10)
            print *, 'read from file'
 
    end subroutine
 
-   subroutine synforc_rd(time_index) 
+   subroutine synforc_rd(time_index)
 
-           character(2)  :: time_index 
+           character(2)  :: time_index
            character(80) :: filename
-           integer       :: ix,jy, xx, yy 
+           integer       :: ix,jy, xx, yy
 
            filename = trim(iopath)//'/synforc.'//time_index
 
            print*, 'reading synforc ', filename
 
-           open(11, file=filename, status="old", action="read") 
+           open(11, file=filename, status="old", action="read")
 
-           do jy=1,jdm 
-             do ix=1,idm 
-                read(11,'(2i5,6e14.3)') xx, yy,  & 
-                        synuwind(ix,jy), synvwind(ix,jy), & 
-                        synairtmp(ix,jy), synslp(ix,jy), & 
-                        synprecip(ix,jy), synrelhum(ix,jy) 
+           do jy=1,jdm
+             do ix=1,idm
+                read(11,'(2i5,6e14.3)') xx, yy,  &
+                        synuwind(ix,jy), synvwind(ix,jy), &
+                        synairtmp(ix,jy), synslp(ix,jy), &
+                        synprecip(ix,jy), synrelhum(ix,jy)
              end do !ix
            end do !jy
 
@@ -703,9 +736,9 @@ contains
 
    end subroutine
 
-   subroutine randfld_wr(time_index) 
+   subroutine randfld_wr(time_index)
 
-           character(2)  :: time_index 
+           character(2)  :: time_index
            character(80) :: filename
            integer :: ix,jy
 
@@ -713,14 +746,14 @@ contains
 
 
            print*, 'writing randfile ', filename
-           
-           open(12,file=filename,status='replace') 
 
-           do jy=1,jdm 
-             do ix=1,idm 
-                write(12,'(10e14.3)') & 
-                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), & 
-                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), & 
+           open(12,file=filename,status='replace')
+
+           do jy=1,jdm
+             do ix=1,idm
+                write(12,'(10e14.3)') &
+                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
+                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
                         ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
              end do !ix
            end do !jy
@@ -729,24 +762,24 @@ contains
 
    end subroutine
 
-   subroutine synforc_wr(time_index) 
+   subroutine synforc_wr(time_index)
 
-           character(2)  :: time_index 
+           character(2)  :: time_index
            character(80) :: filename
-           integer       :: ix,jy 
+           integer       :: ix,jy
 
            filename = trim(iopath)//'/synforc.'//time_index
 
            print*, 'writing synforc ', filename
 
-           open(13,file=filename, status='replace') 
+           open(13,file=filename, status='replace')
 
-           do jy=1,jdm 
-             do ix=1,idm 
-                write(13,'(2i5,6e14.3)') ix,jy,  & 
-                        synuwind(ix,jy), synvwind(ix,jy), & 
-                        synairtmp(ix,jy), synslp(ix,jy), & 
-                        synprecip(ix,jy), synrelhum(ix,jy) 
+           do jy=1,jdm
+             do ix=1,idm
+                write(13,'(2i5,6e14.3)') ix,jy,  &
+                        synuwind(ix,jy), synvwind(ix,jy), &
+                        synairtmp(ix,jy), synslp(ix,jy), &
+                        synprecip(ix,jy), synrelhum(ix,jy)
              end do !ix
            end do !jy
 
