@@ -16,11 +16,6 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 BINARYDIR=bin/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
-OBJECTDIR=./../objs/
-DEPENDDIR=./../.deps/
-BINARYDIR=./../bin/
-LIBRARYDIR=$(NEXTSIMDIR)/lib/
-
 
 
 CPPFLAGS=-DIARGC -DFFTW -DLAPACK
@@ -39,7 +34,7 @@ CXX = g++
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
-	CXXFLAGS += -std=c++14
+CXXFLAGS += -std=c++14
 else
 CXXFLAGS += -std=c++11
 endif
@@ -58,13 +53,12 @@ FCSRCDIR=./
 FCSRC=$(wildcard $(FCSRCDIR)*.F90)
 #FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
 FCOBJS= \
-                        $(OBJECTDIR)memory_stack.o \
-                        $(OBJECTDIR)m_set_random_seed.o \
-                        $(OBJECTDIR)sangoma_base.o \
-                        $(OBJECTDIR)mod_pseudo.o \
-                        $(OBJECTDIR)mod_random_forcing.o \
-                        $(OBJECTDIR)p_pseudo2D_fld.o
- 
+	$(OBJECTDIR)memory_stack.o \
+	$(OBJECTDIR)m_set_random_seed.o \
+	$(OBJECTDIR)sangoma_base.o \
+	$(OBJECTDIR)mod_pseudo.o \
+	$(OBJECTDIR)mod_random_forcing.o \
+	$(OBJECTDIR)p_pseudo2D_fld.o
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
 FFTW_INC   = $(FFTW_DIR)/include
@@ -79,8 +73,8 @@ FFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(FFTW_INC)
 # ========================================================
 # Libraries
 CXXLIBS  += -L $(BOOST_LIBDIR) -L $(OPENMPI_LIB_DIR)/
-CXXLIBS  += -L $(NEXTSIMDIR)/modules/enkf/perturbation/lib
-CXXLIBS  += -lboost_program_options -lboost_filesystem -lboost_system 
+CXXLIBS  += -L $(NEXTSIMDIR)/lib
+CXXLIBS  += -lboost_program_options -lboost_filesystem -lboost_system
 CXXLIBS  += -lboost_serialization -lboost_mpi -lboost_date_time
 CXXLIBS  += -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 CXXLIBS  += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
@@ -106,9 +100,9 @@ vclean: clean
 execlean:
 	$(RM) $(PROGOBJS) $(BINARYDIR)$(PROG)
 
-# ================================================================
-# Rules for .F90 files
-$(FCOBJS): $(OBJECTDIR)%.o : $(FCSRCDIR)%.F90
+## ================================================================
+## Rules for .F90 files
+$(FCOBJS): $(OBJECTDIR)%.o: $(FCSRCDIR)%.F90
 	@mkdir -p $(OBJECTDIR)
 	$(FC) $(CPPFLAGS) $(F90FLG) $(FFLAGS) $(LDFLAGS) -c $< -o $@
 
@@ -122,7 +116,7 @@ $(FCOBJS): $(OBJECTDIR)%.o : $(FCSRCDIR)%.F90
 # ================================================================
 # Rules for .cpp files
 $(OBJS): $(OBJECTDIR)%.o: $(CXXSRCDIR)%.cpp
-	@mkdir -p $(OBJECTDIR) 
+	@mkdir -p $(OBJECTDIR)
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 #	$(CXX) $(CXXFLAGS) $(CXXLIBS) $(LNKFLAGS) -c $< -o $@
 
@@ -137,7 +131,7 @@ $(OBJS): $(OBJECTDIR)%.o: $(CXXSRCDIR)%.cpp
 
 LDFLAGSLIB = $(LDFLAGS)
 ifeq ($(KERNEL),Linux)
-	LDFLAGSLIB += -shared -Wl,-soname,libpseudo2D.so.1 
+	LDFLAGSLIB += -shared -Wl,-soname,libpseudo2D.so.1
 	#LDFLAGSLIB += -lm -ldl #-lhwloc
 else
 	LDFLAGSLIB += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
@@ -145,7 +139,7 @@ else
 endif
 
 ifeq ($(KERNEL),Linux)
-lib: $(FCOBJS) $(OBJS) 
+lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
@@ -154,7 +148,7 @@ lib: $(FCOBJS) $(OBJS)
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)/libpseudo2D.so
 	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)/libpseudo2D.so.1
 else
-lib: $(FCOBJS) $(OBJS) 
+lib: $(FCOBJS) $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
