@@ -79,6 +79,7 @@ class ensemble
     private:
 
         std::vector<std::string> M_ranfile;
+        std::string M_ranpath;
 
     public:
 
@@ -95,4 +96,6 @@ class ensemble
         void computeMinMax(const std::vector<double> &, const char*);
 
         void computeVecMean(const std::vector<double> &, const char*);
+
+        void getpath(std::string);
 };
