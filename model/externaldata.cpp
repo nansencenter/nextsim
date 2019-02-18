@@ -262,6 +262,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 comm.barrier();
                 LOG(DEBUG) << "### FORCING SIZE: " << M_dataset->variables[0].loaded_data[0].size() << "\n";
                 boost::mpi::broadcast(comm, & M_dataset->variables[0].loaded_data[0][0], MN_full, 0);
+                boost::mpi::broadcast(comm, & M_dataset->variables[0].loaded_data[1][0], MN_full, 0);
+                boost::mpi::broadcast(comm, & M_dataset->variables[1].loaded_data[0][0], MN_full, 0);
+                boost::mpi::broadcast(comm, & M_dataset->variables[1].loaded_data[1][0], MN_full, 0);
                 double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
