@@ -16,9 +16,17 @@ for (( mem=1; mem<=${ESIZE}; mem++ )); do
     SRUN=run_${EXPNAME}_${MEMNAME}.sh
 
     ${COPY} ${RUNFILE} ${MEMPATH}/${SRUN}
-    ${COPY} ${RUNPATH}/${ENVFILE} ${MEMPATH}/.
+    [ ${DOCKER} != 0 ] && nml_path=${RUNPATH}
+    [ ${DOCKER} == 0 ] && nml_path=${MEMPATH}
+    [ ${DOCKER} != 0 ] && exporter_path="/docker_io"
+    [ ${DOCKER} == 0 ] && exporter_path=${MEMPATH}
 
-    sed "s;^exporter_path=.*$;exporter_path="${MEMPATH}";g"\
+    sed "s;^iopath.*$;iopath = '${exporter_path}';g"\
+        ${MODPATH}/modules/enkf/perturbation/nml/${NMLFILE} > ${MEMPATH}/${NMLFILE}
+
+    [ ${ENVFILE} != ' ' ] && ${COPY} ${RUNPATH}/${ENVFILE} ${MEMPATH}/.
+
+    sed "s;^exporter_path=.*$;exporter_path="${exporter_path}";g"\
         ${RUNPATH}/${CONFILE} > ${MEMPATH}/${CONFILE}
 
     sed -e "s;^MEMNAME=.*$;MEMNAME="${MEMNAME}";g" \
