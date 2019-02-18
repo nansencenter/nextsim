@@ -15,8 +15,8 @@ void ensemble::addPerturbation(int rdm)
 
     // Call fortran library for synoptic perturbation
     // A file called ranfld.dat will be written
-    p_pseudo2D_fld_sub();
 
+    M_ranfile = { "../IO/synforc.00", "../IO/synforc.01" };
     // Find and read the ranfld.dat into struct synoptic
     ifstream franfld;
     franfld.open(M_ranfile[0]);
@@ -102,4 +102,10 @@ void ensemble::computeMinMax(const std::vector<double> &ivector, const char* ina
 void ensemble::computeVecMean(const std::vector<double> &ivector, const char* iname){
     float average = std::accumulate(ivector.begin(), ivector.end(), 0.0)/ivector.size();
     cout << iname << ":\t mean value= " << average << endl;
+};
+
+
+void ensemble::getpath(std::string iopath){
+     M_ranpath = iopath;
+     cout << "M_ranpath: " << M_ranpath << endl;
 };
