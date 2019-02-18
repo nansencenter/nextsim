@@ -18,3 +18,4 @@ p_pseudo2D
 *.log
 compile.sh
 run_docker_nextsim_bangkok.sh
+perturbation/IO
