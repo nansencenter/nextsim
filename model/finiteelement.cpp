@@ -48,7 +48,7 @@ FiniteElement::initMesh()
     }
 }//initMesh
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Distribution of mesh processing for parallel computing.
 //! Called by the interpFields(), initMesh() and distributedMeshProcessing() functions.
@@ -152,8 +152,8 @@ FiniteElement::distributedMeshProcessing(bool start)
 #endif
 
 }//distributedMeshProcessing
-    
-    
+
+
 //------------------------------------------------------------------------------------------------------
 //! Marks the mesh nodes where boundary conditions should apply.
 //! Called by the distributedMeshProcessing() function.
@@ -281,7 +281,7 @@ FiniteElement::bcMarkedNodes()
     }
 }//bcMarkedNodes
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Reads, converts and applies boundary conditions to the mesh.
 //! Called by the initMesh() function.
@@ -372,10 +372,10 @@ FiniteElement::rootMeshProcessing()
             M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
 
-            // LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-            // LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
 
             bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
             bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
@@ -451,7 +451,7 @@ FiniteElement::rootMeshProcessing()
 
 }//rootMeshProcessing
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Performs a re-numbering of the mesh nodes and elements
 //! !Does not seem to be used!
@@ -483,7 +483,7 @@ FiniteElement::rootMeshRenumbering()
 #endif
 }//rootMeshRenumbering
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the size of all physical variables with values set to zero.
 //! Called by the init() and readRestart() functions.
@@ -601,7 +601,7 @@ FiniteElement::initVariables()
 
 }//initVariables
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calls the functions for assimilation of ocean and ice data: assimilateSlabOcean() and assimilateIce().
 //! Called by the init() function.
@@ -616,7 +616,7 @@ FiniteElement::DataAssimilation()
     this->assimilateIce();
 }//DataAssimilation
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
 //! Called by the regrid() and initVariables() functions.
@@ -733,7 +733,7 @@ FiniteElement::assignVariables()
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
-#if 1
+
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
@@ -748,9 +748,8 @@ FiniteElement::assignVariables()
             ++cpt;
         }
     }
-#endif
 }//assignVariables
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Initializes the physical state of the model - ocean and ice - by calling the initSlabOcean() and initIce() functions.
@@ -766,7 +765,7 @@ FiniteElement::initModelState()
     this->initIce();
 }//initModelState
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the external data used by the model
 //! * Datasets objects
@@ -1058,7 +1057,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes a Bamg mesh grid.
 //! Called by the initMesh() function.
@@ -1112,7 +1111,7 @@ FiniteElement::initBamg()
     bamgopt->Check();
 }//initBamg
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
 //! Called by the init() function.
@@ -1445,7 +1444,7 @@ FiniteElement::initOptAndParam()
 
 }//initOptAndParam
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Creates a GMSH mesh grid.
 //! !Does not seem to be used!
@@ -1473,7 +1472,7 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
     }
 }//createGMSHMesh
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
 //! Called by the flip(), measure() and shapeCoeff() functions.
@@ -1648,7 +1647,7 @@ FiniteElement::sides(element_type const& element, mesh_type_root const& mesh,
     return side;
 }//sides
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the maximum and minimum sizes of the vertices of the triangular mesh elements
 //! Called by the rootMeshProcessing function.
@@ -1677,7 +1676,7 @@ FiniteElement::minMaxSide(mesh_type_root const& mesh) const
     return minmax;
 }//minMaxSide
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the minimum angle of each triangular mesh element.
 //! Called by the minAngle() function.
@@ -1709,7 +1708,7 @@ FiniteElement::minAngles(element_type const& element, FEMeshType const& mesh,
     return minang;
 }//minAngles
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Finds the minimum angle within all mesh elements: condition for the remeshing.
 //! Called by the init() function.
@@ -1836,7 +1835,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
     return hmin;
 }//hminVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Returns the maximum height (i.e., dimension) of all mesh elements
 //! Called by the rootMeshProcessing() function.
@@ -1850,7 +1849,7 @@ FiniteElement::hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
     return hmax;
 }//hmaxVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the area of triangular mesh elements.
 //! Called by the advect() and other functions.
@@ -1873,7 +1872,7 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
     return (1./2)*std::abs(jacobian(element,mesh,um,factor));
 }//measure
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
 //! Called by the FETensors() function.
@@ -1910,7 +1909,7 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
     return coeff;
 }//shapeCoeff
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
 //! Called by the FETensors() function.
@@ -1947,7 +1946,7 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mes
     return coeff;
 }//shapeCoeff
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the rootMeshProcessing() and regrid() functions.
@@ -1956,7 +1955,7 @@ FiniteElement::interpVertices()
 {
     chrono.restart();
     LOG(DEBUG) <<"Interpolate hminVertices starts\n";
-    
+
     // NODAL INTERPOLATION
     int init_num_nodes = M_mesh_init_root.numNodes();
 
@@ -1991,7 +1990,7 @@ FiniteElement::interpVertices()
     LOG(DEBUG) <<"Interpolate hmin done in "<< chrono.elapsed() <<"s\n";
 }//interpVertices
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the distributedMeshProcessing() function.
@@ -2876,7 +2875,7 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -3227,7 +3226,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     }
 }//interpFields
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Gathers field values (velocities, displacements) at the nodes into a single structure, interp_node_in_local.
 //! Called by the interpFields() function.
@@ -3378,7 +3377,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
 }//scatterFieldsNode
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
 //! Called by the regrid() function.
@@ -3630,7 +3629,7 @@ FiniteElement::scatterElementField(std::vector<double> const& field_root, std::v
     }
 }//scatterElementField
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Sends the displacement vector to the root process
 //! !Does not seem to be used!
@@ -3916,7 +3915,7 @@ FiniteElement::updateNodeIds()
     M_mesh_root.setId(new_nodes_id);
 }//updateNodeIds
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
 //! Called by the adaptMesh() function.
@@ -3975,7 +3974,7 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Assembles matrices for solver: fvdata and data, with each term of the momentum equation.
@@ -4502,7 +4501,7 @@ FiniteElement::FETensors()
     }
 }//FETensors
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the cohesion field (sum of a fixed value and a random component) and the maximum compressive strength of sea ice.
 //! Called by the step() function.
@@ -4514,7 +4513,7 @@ FiniteElement::calcCohesion()
 }
 //calcCohesion
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
 void
@@ -4774,18 +4773,13 @@ FiniteElement::update()
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
-
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i = 0.0;
-                    for(int j=0;j<3;j++)
-                    {
-                        sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
-                    }
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
@@ -4807,7 +4801,6 @@ FiniteElement::update()
             sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
     
-
             double hi=0.;
             if(M_conc[cpt]>0.1)
                 hi = M_thick[cpt]/M_conc[cpt];
@@ -4842,40 +4835,37 @@ FiniteElement::update()
                 {
                     M_damage[cpt] = min(tmp, 1.0);
                 }
-
-
             }
-            else // if M_conc or M_thick too low, set sigma to 0.
+        }
+        else // if M_conc or M_thick too low, set sigma to 0.
+        {
+            for(int i=0;i<3;i++)
             {
-                for(int i=0;i<3;i++)
-                {
-                    M_sigma[i][cpt] = 0.;
-                }
+                M_sigma[i][cpt] = 0.;
             }
+        }
 
-            /*======================================================================
-             * Check:
-             *======================================================================
-             */
+        /*======================================================================
+         * Check:
+         *======================================================================
+         */
 
-            /* lower bounds */
-            M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-            M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-            M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+        /* lower bounds */
+        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
-            /* Ice damage
-             * We use now a constant healing rate defined as 1/time_recovery_damage
-             * so that we are now able to reset the damage to 0.
-             * otherwise, it will never heal completely.
-             * time_recovery_damage still depends on the temperature when themodynamics is activated.
-             */
-            tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
-            if(M_thick[cpt]==0.)
-                tmp=0.;
+        /* Ice damage
+         * We use now a constant healing rate defined as 1/time_recovery_damage
+         * so that we are now able to reset the damage to 0.
+         * otherwise, it will never heal completely.
+         * time_recovery_damage still depends on the temperature when themodynamics is activated.
+         */
+        tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
+        if(M_thick[cpt]==0.)
+            tmp=0.;
 
-            M_damage[cpt]=((tmp>0.)?(tmp):(0.));
-
-        }//if ice
+        M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }//loop over elements
 }//update
 
@@ -5872,7 +5862,7 @@ FiniteElement::thermo(int dt)
 
     }// end for loop
 }//thermo
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
@@ -5981,7 +5971,6 @@ FiniteElement::incomingLongwave(const int i)
     }
 }
 
-    
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-ocean heat fluxes.
@@ -6315,7 +6304,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
     }
 }//thermoWinton
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates heat fluxes through the ice according to the Semtner zero layer model.
 //! Called by the thermo() function.
@@ -6409,7 +6398,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     }
 }//thermoIce0
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
 //! * Also outputs initial mooring snapshots, drifter outputs, normal outputs and  restarts.
@@ -6814,7 +6803,8 @@ FiniteElement::initFsd()
     {
         // all the thick ice in the highest bin
         M_conc_fsd[M_num_fsd_bins - 1][i] = M_conc[i]; 
-       
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
         //nothing in the other bins
         for(int k=0; k<M_num_fsd_bins-1; k++)
             M_conc_fsd[k][i] = 0.; 
@@ -7101,6 +7091,7 @@ FiniteElement::updateIceDiagnostics()
     }
 }
     
+
 //------------------------------------------------------------------------------------------------------
 //! Increments the model by one time step. Called by the run() function.
 //!    * updates drifters,
@@ -7370,7 +7361,7 @@ FiniteElement::step()
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
-    
+
     // 1. moorings:
     // - update fields on grid if outputting mean fields
     // - check if we are adding records to netcdf file
@@ -8206,7 +8197,7 @@ FiniteElement::writeRestart()
     this->writeRestart(name_str);
 }//writeRestart
 
-    
+
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
@@ -8434,7 +8425,7 @@ FiniteElement::writeRestart(std::string const& name_str)
     }
 }//writeRestart
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Reads restart files. Called by the init() function.
 void
@@ -8588,7 +8579,7 @@ FiniteElement::readRestart(std::string const& name_str)
                 std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
                 throw std::runtime_error("Inconsistent time information in restart file");
             }
-	    }
+        }
     }
 
     //transfer scalars from "Misc_int" from root to all processors
@@ -8730,6 +8721,7 @@ FiniteElement::restartIabpDrifters(
     }
 }//restartIabpDrifters
     
+
 //------------------------------------------------------------------------------------------------------
 //! Partitions the mesh during a restart.
 //! Called by the readRestart() function.
@@ -8867,7 +8859,7 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
         }
     }
 }//collectRootRestart
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Updates the ice velocity and total displacement (that is used for the drifters).
@@ -8932,7 +8924,7 @@ FiniteElement::updateFreeDriftVelocity()
     }
 }//updateFreeDriftVelocity
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! ??
 //! !Does not seem to be used!
@@ -9498,8 +9490,8 @@ FiniteElement::initSlabOcean()
             throw std::logic_error("invalid ocean forcing");
     }
 }//initSlabOcean
-    
-    
+
+
 //------------------------------------------------------------------------------------------------------
 //! Performs data assimilation (of sss and sst) in the slab ocean.
 //! Called by the DataAssimilation() function.
@@ -9542,7 +9534,7 @@ FiniteElement::assimilateSlabOcean()
     }
 }//assimilateSlabOcean
 
-    
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes the ice state (CONSTANT, TOPAZ4, PIOMAS, SMOS, ...).
 //! Called by the initModelState() function.
@@ -10043,7 +10035,7 @@ FiniteElement::topazIceOsisafIcesat()
                     <<"we assume there is only FYI\n";
                 M_ridge_ratio[i]=ratio_FYI;
                 hi = thick_FYI;
-            } 
+            }
             else
             {
                 if(M_osisaf_type[i]<1.5)//1. no ice in OSISAF
@@ -10103,8 +10095,8 @@ FiniteElement::topazIceOsisafIcesat()
         M_damage[i]=0.;
     }
 }//topazIceOsisafIcesat
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes ice state from Topaz forecasts.
 //! Called by the initIce() function.
@@ -10153,7 +10145,7 @@ FiniteElement::topazForecastIce()
         M_damage[i]=0.;
     }
 }//topazForecastIce
-    
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes ice state from Topaz-AMSR2.
@@ -10234,7 +10226,7 @@ FiniteElement::topazForecastAmsr2Ice()
     }
 }//topazForecastAmsr2Ice
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Get the maximum and minimum ice concentration corresponding to the original
 //! NIC ice charts
@@ -10298,7 +10290,7 @@ FiniteElement::concBinsNic(double &thin_conc_obs_min, double &thin_conc_obs_max,
     }
 }//concBinsNic
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecasts, Amsr2, Osisaf and Nic ice state data
 //! Called by the assimilateIce() function.
@@ -10461,7 +10453,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }//loop over elements
 }//assimilate_topazForecastAmsr2OsisafNicIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecast, Amsr2 and Osisaf ice data.
 //! Called by the assimilateIce() function.
@@ -10544,8 +10536,8 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
         if(c_model>0.01)
         {
-            M_thick[i]=(h_model/c_model)*M_conc[i];            
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i]; 
+            M_thick[i]=(h_model/c_model)*M_conc[i];
+            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i];
             M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
         }
         else
@@ -10581,7 +10573,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
     }
 }//assimilate_topazForecastAmsr2OsisafIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2 and Osisaf data.
 //! Called by the initIce() function.
@@ -10728,7 +10720,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
     }//loop over elements
 }//topazForecastAmsr2OsisafIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2, Osisaf and NIC ice charts data.
 //! Called by the initIce() function.
@@ -10932,7 +10924,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from PIOMAS outputs.
 //! Called by the initIce() function.
@@ -10975,8 +10967,8 @@ FiniteElement::piomasIce()
         M_damage[i]=0.;
     }
 }//piomasIce
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSRE data.
 //! Called by the initIce() function.
@@ -11121,7 +11113,7 @@ FiniteElement::topazAmsr2Ice()
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
 //! Called by the initIce() function.
@@ -11215,7 +11207,7 @@ FiniteElement::cs2SmosIce()
     }
 }//cs2SmosIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2, SMOS, AMSR2 data.
 //! Called by the initIce() function.
@@ -11314,8 +11306,8 @@ FiniteElement::cs2SmosAmsr2Ice()
 
     }
 }//cs2SmosAmsr2Ice
-    
-    
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from SMOS data.
 //! Called by the initIce() function.
@@ -11369,7 +11361,7 @@ FiniteElement::smosIce()
     }
 }//smosIce
 
-    
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2, SMOS, AMSR2 data.
 //! Called by the cs2SmosIce() and cs2SmosAmsr2Ice() functions.
@@ -11691,7 +11683,7 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
         // to make sure the last time record is present
         // for the drifters that will be terminated
         this->initOsisafDrifters(movedmesh_root);
-    
+
 }//initDrifters
 
 
@@ -12168,7 +12160,7 @@ FiniteElement::checkDrifters()
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
                 if ((*it)->isInitialised())
                     (*it)->move(M_mesh_root, M_UT_root);
-            
+
             // reset M_UT_root
             // TODO do we need to do this?
             // - it isn't used and seems to be gathered each time it's needed
@@ -12204,7 +12196,7 @@ FiniteElement::checkDrifters()
                     (*it)->updateConc(movedmesh_root, M_conc_root);
                     (*it)->appendNetCDF(M_current_time);
                 }
-             
+
             //! - 6) Do we need to initialise any drifters?
             //  * Do initialisation after moving,
             //    to avoid moving drifters that are only just initialised
@@ -12317,7 +12309,7 @@ FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
         M_rgps_drifters.appendNetCDF(M_current_time);
     }
 }//initRGPSDrifters
-    
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the SIDFEX drifters, and saves the first netcdf time record
@@ -12333,7 +12325,7 @@ FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
         M_sidfex_drifters = Drifters(filename, movedmesh_root, M_conc_root,
                 -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
                 M_current_time, M_sidfex_drifters_output_time_step);
-        
+
         M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
         M_sidfex_drifters.appendNetCDF(M_current_time);
     }
@@ -12371,7 +12363,7 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
         osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
         osi_output_path = M_export_path+"/OSISAF_refined9_";
     }
-        
+
     M_osisaf_drifters[0] = Drifters(osi_grid_file,
             "xc", "yc",
             "lat", "lon", movedmesh_root,
@@ -12382,7 +12374,7 @@ FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
     M_osisaf_drifters[0].appendNetCDF(M_current_time);
 }//initOsisafDrifters()
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Imports a BAMG mesh grid.
 //! Called by the readRestart() and adaptMesh functions.
@@ -12442,7 +12434,7 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"\n";
 }//importBamg
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Creates a new graphmpi_type object.
 //! Called by the distributeMeshProcessing() function.
@@ -12547,7 +12539,7 @@ FiniteElement::createGraph()
 #endif
 
 }//createGraph
-    
+
 
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
@@ -12738,7 +12730,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 }// exportResults()
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Gets GitHub revision version of the model code.
 //! Called by the writeLogFile() function.
@@ -12749,7 +12741,7 @@ FiniteElement::gitRevision()
     return this->system("git rev-parse HEAD");
 }//gitRevision
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Run a system command
 //! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
@@ -12794,7 +12786,7 @@ FiniteElement::getEnv(std::string const& envname)
         senv = "NULL";
     return std::string(senv);
 }//getEnv
-    
+
 
 // -------------------------------------------------------------------------------------
 //! Writes a log file with the location of libraries and system information.
@@ -12957,7 +12949,7 @@ FiniteElement::writeLogFile()
     }
 }//writeLogFile
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
 //! Called by the step() function.
@@ -13123,7 +13115,7 @@ FiniteElement::checkFields(int const& rank_test, int const& itest)
     }
 }//checkFields
 
-    
+
 // -------------------------------------------------------------------------------------
 //! Finalizes the run: clears meshes and some matrices used by the solver.
 //! Called by the step() function.
