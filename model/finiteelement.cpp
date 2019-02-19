@@ -4633,7 +4633,7 @@ FiniteElement::update()
                 sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
                 M_sigma[i][cpt] = sigma[i];
-      
+  
             }
 
             /*======================================================================
@@ -5003,7 +5003,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         // Qow>0 => flux out of ocean:
         Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
     }
-}
+}//OWBulkFluxes
 
 
 //------------------------------------------------------------------------------------------------------
@@ -5419,20 +5419,32 @@ FiniteElement::thermo(int dt)
                     del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
 
-                //smallest floe size category first
-                double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
-                double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
-                    + del_c_thin;                      // new ice goes into this bin
-                M_conc_fsd[0][i] = std::min(1., c_0_new);
-                double del_c_redist = c_0_new - M_conc_fsd[0][i];
-
-                //larger FSD bins
-                for(int k=1; k<M_num_fsd_bins; k++)
+                //largest floe size category first
+                if(old_conc==0)
                 {
-                    double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
+                    M_conc_fsd[M_num_fsd_bins-1][i] = del_c_fsd;
+                    // M_conc_fsd[0][i] = del_c_fsd;
+                }
+                else
+                {
+                    double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
+                    //double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
+                    double c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i] // lateral freezing/melting
+                        + del_c_thin;                      // new ice goes into this bin
+                    //M_conc_fsd[0][i] = std::min(1., c_0_new);
+                    M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
+                    double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i];
+                    // double del_c_redist = c_0_new - M_conc_fsd[0][i];
+
+                    //smaller FSD bins (TODO Makes no sense with G.B changes)
+                    for(int k=M_num_fsd_bins-2; k>-1; k--)
+                    // for(int k=1; k<M_num_fsd_bins; k++)
+                    {
+                        double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
                         + del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
-                    M_conc_fsd[k][i] = std::min(1., c_k_new);
-                    del_c_redist = c_k_new - M_conc_fsd[k][i];
+                        M_conc_fsd[k][i] = std::min(1., c_k_new);
+                        del_c_redist = c_k_new - M_conc_fsd[k][i];
+                    }
                 }
             }
         }
