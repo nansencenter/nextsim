@@ -4894,7 +4894,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     const double flex_strength=0.27e6 ; // TO BE CHECKED
-    const double threshold=0.001 ; // If prob. is less than threshold value, then set it to 0, to avoid define a FSD everywhere
+    const double threshold=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     // double R      ;// Ratio of energy in waves over total energy (includiing elastic energy)
 
     strain_c = flex_strength / young ; // valid for a beam... should be changed
@@ -4925,7 +4925,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double broken_area        ; // area of broken floes in each category to be redistributed
-    //double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
+    double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
     double beta               ; // redistribution factor
 
     auto P_inf = this -> computeWaveBreakingProb();
@@ -4940,8 +4940,8 @@ FiniteElement::redistributeFSD()//----------------------------------------------
        for (int j=1; j<M_num_fsd_bins; j++)
        {
            P[j] = P_inf[i] * std::max(0.,
- //                        std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
-                           std::tanh( M_fsd_bin_centres[j]-0.3*lambda /  M_fsd_bin_centres[j]*10 )
+                             std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
+//                          std::tanh( M_fsd_bin_centres[j]-0.3*lambda /  M_fsd_bin_centres[j]*10 )
                                      ) ;
 
            //! Then update FSD with uniform redistribution
@@ -5281,7 +5281,7 @@ FiniteElement::thermo(int dt)
     double const qs = physical::Lf * physical::rhos; //! \param qi (double const) Latent heat of fusion * snow density [J m^{-3}]
 
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
-    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
+    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     
@@ -5474,6 +5474,8 @@ FiniteElement::thermo(int dt)
         double del_c = 0.;
         double newsnow = 0.;
 
+	/* In case there is an FSD, initialize the vector for ulterior redistribution */
+	std::vector<double> del_c_bin_melt(M_num_fsd_bins-1,0.) ;
         /* Freezing conditions */
         switch ( newice_type )
         {
@@ -5590,6 +5592,47 @@ FiniteElement::thermo(int dt)
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
                     break;
+                case 3:
+                    {    
+                     /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2
+                    e*--- originally from Josberger 1979 ---
+                      (Tw - Tf) = elevation of water temp above freezing
+                      m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
+                      m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice
+                    --- from Rothrock and Thorndike 1984 ---
+                      P = N * pi * D      
+                      D = mean floe caliper diameter
+                      N = number of floes = ice area / floe area(average) = A / (Cs * D**2)
+                      A = ice concentration
+                      Cs = deviation from a square (square:Cs=1 ; circle:Cs=pi/4 ; floe:Cs=0.66)
+                    --- from Lupkes et al., 2012 (eq. 26-27) ---
+                      D = Dmin * ( Astar / (Astar-A) )**beta                                        
+                      Astar = 1 / ( 1 - (Dmin/Dmax)**(1/beta) )
+                      Dmin = minimum floe diameter (recommended to be 8m +- 20%)
+                      Dmax = maximum floe diameter (recommended to be 300m, but it does not impact melting much except for Dmax<100m)
+                      beta = 1.0 +-20% (recommended value)
+                           = 0.3 best fit for western Fram Strait and Antarctica */
+                     double m1=3.e-6 ;
+                     double m2=1.36  ; 
+                     double cs=0.66  ;
+                     double Tbot = this->freezingPoint(M_sss[i]);
+                     // Melt speed rate [m/s]
+                     double w_lat = m1 * std::pow(std::max(0.,M_sst[i]-Tbot), m2) ;
+                     if  (M_num_fsd_bins>0) 
+                         {
+                          for (int j=0;j<M_num_fsd_bins-1;++j) 
+                             {
+                              double perimeter = M_conc_fsd[j][i] * PI / ( cs * M_fsd_bin_centres[j] ) ;
+                              del_c_bin_melt[j] = - w_lat * perimeter *dtime_step ; 
+                              del_c += del_c_bin_melt[j] ;
+                              }
+                         }
+                     else
+                         {
+                         throw std::logic_error("melt_type =3 && nnum_fsd_bins <1 are not compatible");
+                         }
+                     break;
+                   }
                 default :
                     std::cout << "newice_type = " << newice_type << "\n";
                     throw std::logic_error("Wrong newice_type");
@@ -5598,7 +5641,6 @@ FiniteElement::thermo(int dt)
 
         /* New concentration */
         M_conc[i] += del_c;
-
         /* New thickness */
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
@@ -5669,25 +5711,23 @@ FiniteElement::thermo(int dt)
                 if(old_conc==0)
                 {
                     M_conc_fsd[M_num_fsd_bins-1][i] = del_c_fsd;
-                //    M_conc_fsd[0][i] = del_c_fsd;
 		}
 		else
-                {
-                    double ratio0 = (old_conc + del_c_fsd)/old_conc;//fractional increase due to lateral freezing
-                    //double c_0_new = ratio0*M_conc_fsd[0][i] // lateral freezing/melting
-                    double c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i] // lateral freezing/melting
-                        + del_c_thin;                      // new ice goes into this bin
-                    //M_conc_fsd[0][i] = std::min(1., c_0_new);
+                {   
+                    double ratio0 = (old_conc + del_c_fsd)/old_conc;                  //fractional increase due to lateral freezing
+                    if (melt_type==3)
+                        ratio0 = std::max(1.,ratio0); // if lateral melt accounts for the FSD
+                    double c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i] // lateral freezing/melting (if lat. melt type is 3, no melting for unbroken floes)
+                                     + del_c_thin;                         // new ice goes into this bin
                     M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
                     double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i];
-                   // double del_c_redist = c_0_new - M_conc_fsd[0][i];
 
-		    //smaller FSD bins (TODO Makes no sense with G.B changes)
+		    //smaller FSD bins 
          	    for(int k=M_num_fsd_bins-2; k>-1; k--)
-         	    // for(int k=1; k<M_num_fsd_bins; k++)
 		    {
 		        double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
-		    	+ del_c_redist;                      // new ice excess goes into the next smallest FSD bin until it is all used up
+		                       + del_c_redist                      // new ice excess goes into a next smaller FSD bin until it is all used up
+                                       + del_c_bin_melt[k];
 		        M_conc_fsd[k][i] = std::min(1., c_k_new);
 		        del_c_redist = c_k_new - M_conc_fsd[k][i];
 		    }
@@ -9721,9 +9761,7 @@ FiniteElement::checkConsistency()
     }
 
     //FSD
-    std::cout << "init Fsd\n";
     this->initFsd();
-    std::cout << "init Fsd done\n";
 }//checkConsistency
 
     
