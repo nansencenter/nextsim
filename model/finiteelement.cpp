@@ -6704,6 +6704,11 @@ FiniteElement::initModelVariables()
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
 
+    D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
+    M_variables_elt.push_back(&D_dmax);
+    D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
+    M_variables_elt.push_back(&D_dmean);
+
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
@@ -6847,14 +6852,18 @@ FiniteElement::initOASIS()
     if ( vm["coupler.with_waves"].as<bool>() )
     {
         // Output variables - elements
-        GridOutput::Variable conc(GridOutput::variableID::conc);
-        GridOutput::Variable thick(GridOutput::variableID::thick);
-
-        elemental_variables.push_back(conc);
-        elemental_variables.push_back(thick);
-
-        var_snd.push_back(std::string("I_"+conc.name));
-        var_snd.push_back(std::string("I_"+thick.name));
+        std::vector<GridOutput::variableID> grid_ids = {
+            GridOutput::variableID::conc,
+            GridOutput::variableID::thick,
+            GridOutput::variableID::dmax,
+            GridOutput::variableID::dmean
+        };
+        for(auto var_id : grid_ids)
+        {
+            GridOutput::Variable var(var_id);
+            elemental_variables.push_back(var);
+            var_snd.push_back(std::string("I_"+var.name));
+        }
 
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
@@ -7660,6 +7669,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::precip):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_precip[i]*time_factor;
+                break;
+
+            // WIM variables
+            case (GridOutput::variableID::dmax):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmax[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dmean):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmean[i]*time_factor;
                 break;
 
             // Coupling variables (not covered elsewhere)

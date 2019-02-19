@@ -755,6 +755,8 @@ private:
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
+    ModelVariable D_dmax; //max floe size [m]
+    ModelVariable D_dmean; //mean floe size [m]
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]

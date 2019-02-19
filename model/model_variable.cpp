@@ -420,6 +420,22 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_dmax):
+            // mean floe diameter
+            M_name = "D_dmax";
+            M_export_name = "Dmax";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
+        case (variableID::D_dmean):
+            // mean floe diameter
+            M_name = "D_dmean";
+            M_export_name = "Dmean";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
         default:
             elemental = false;
     }
