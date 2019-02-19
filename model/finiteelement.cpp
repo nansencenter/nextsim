@@ -4797,13 +4797,6 @@ FiniteElement::update()
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
 
-    std::vector<double> UM_P = M_UM;
-    for (int nd=0; nd<M_UM.size(); ++nd)
-        M_UM[nd] += time_step*M_VT[nd];
-
-    for (const int& nd : M_neumann_nodes)
-        M_UM[nd] = UM_P[nd];
-
     // Horizontal diffusion
 #ifdef OASIS
     if ( M_ocean_type != setup::OceanType::COUPLED )
