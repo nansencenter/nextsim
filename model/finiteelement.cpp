@@ -4786,9 +4786,7 @@ FiniteElement::calcCohesion()
 void
 FiniteElement::update()
 {
-    // Hotfix for issue #53 - we only have pure Lagrangian now.
     // collect the variables into a single structure
-#if 1
     std::vector<double> interp_elt_in_local;
     this->collectVariables(interp_elt_in_local, true);
 
@@ -4798,7 +4796,6 @@ FiniteElement::update()
 
     // redistribute the interpolated values
     this->redistributeVariables(interp_elt_out);
-#endif
 
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
@@ -4873,44 +4870,6 @@ FiniteElement::update()
             }
 
             epsilon_veloc[i] = epsilon_veloc_i;
-        }
-
-
-        /*======================================================================
-        //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
-         *======================================================================
-         */
-
-        // Before, we updated only elements which had deformed. It did not improve performance. We update them all now.
-        bool to_be_updated=true;
-
-
-	/* Important: We don't update elements on the open boundary. This means
-         * that ice will flow out as if there was no resistance and in as if the ice
-         * state outside the boundary was the same as that inside it. */
-        if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
-           std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
-            to_be_updated=false;
-
-        // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
-        if((M_conc[cpt]>0.)  && (to_be_updated))
-        {
-            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
-
-            M_conc[cpt] *= surf_ratio;
-            M_thick[cpt] *= surf_ratio;
-            M_snow_thick[cpt] *= surf_ratio;
-            for(int k=0; k<3; k++)
-                M_sigma[k][cpt] *= surf_ratio;
-            M_ridge_ratio[cpt] *= surf_ratio;
-
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                M_h_thin[cpt] *= surf_ratio;
-                M_conc_thin[cpt] *= surf_ratio;
-                M_hs_thin[cpt] *= surf_ratio;
-            }
         }
 
         /*======================================================================
