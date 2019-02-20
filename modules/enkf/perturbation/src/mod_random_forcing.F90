@@ -52,7 +52,7 @@ module mod_random_forcing
    integer, save :: rf_prsflg=2 ! initial value
    integer, save :: xdim, ydim
    integer, save :: idm=360, jdm=360
-   character(80) :: iopath = '/docker_io'
+   character(80) :: iopath = '/docker_io' ! modified in namelist
    real,parameter     :: airdns  =  1.2
    real, parameter    :: radian  = 57.2957795
    real, parameter    :: pi      =  3.1415926536

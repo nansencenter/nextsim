@@ -7,10 +7,10 @@ How to:
 _Generates a 360x360 2-dimensional random perturbation_
 
 - A random seed is generated based on the machine clock to avoid generating the same field each
-  time. 
+  time.
 
 - __Compiling__: the platform independent commands are in the makefile and expect machine-dependent
-  options from make.inc 
+  options from make.inc
 
 - __Execution__: ./bin/p_pseudo2D
 
@@ -18,9 +18,9 @@ _Generates a 360x360 2-dimensional random perturbation_
 
 ToDo:
 
-- utilize a namelist file for parameter input (grid size [idm,jdm], variance, etc...) 
+- utilize a namelist file for parameter input (grid size [idm,jdm], variance, etc...)
 
-- Write outputs in netcdf format 
+- Write outputs in netcdf format
 
 - Non-gaussian perturbation
 
@@ -59,9 +59,9 @@ __04.12.18__
 
 __05.12.18__
 
-- Two methods to compute_minmax and compute_vmean are added
+- Two methods to computeMinMax and computeVecMean are added
 
-- Struct data type is used for v.data, v.name and v.id 
+- Struct data type is used for v.data, v.name and v.id
 
 - infile2.in should be read in limits_ranf routine in mod_random_forcing.F90
 
@@ -86,14 +86,27 @@ __10.12.18__
 __12.12.18__
 
 - Ensemble is run successfully for the first time. Time-correlation should be
-  added to two perturbation fields.
+  added to two perturbation fields. (done)
 
 __13.12.18__
 
 - Time correlated perturbations are generated in ran_update_ran1 in
   mod_random_forcing.F90. Write the new perturbations in there and save two
-outputs to feed t-1 and t+1 of forcing.
+outputs to feed t-1 and t+1 of forcing. (done)
 
 __14.12.18__
 
-- grep 'CHeCK' to see where to improve in the code for generating two different perturbation
+- grep 'CHeCK' to see where to improve in the code for generating a coupled time-correlated perturbation
+
+
+__14.01.19__
+
+- Doesn't write ranfld_prev and ranfld_next (done)
+
+- Distribute read data to tiles (done)
+
+__18.01.20__
+
+- Read ranfld_prev.dat when restart do not generate from the scratch
+
+- Check if the order of the vectors is the same in fortran output and c++ input
