@@ -150,7 +150,6 @@ public:
         Qsh         = 103,
         Qlh         = 104,
         Qo          = 105,
-        delS        = 106,
 
         // Forcing variables
         tair        = 200,
@@ -174,10 +173,10 @@ public:
         taux        = 901,
         tauy        = 902,
         taumod      = 903,
-        emp         = 904,
+        fwflux      = 904,
         QNoSw       = 905,
         QSwOcean    = 906,
-        Fsalt       = 907,
+        saltflux    = 907,
 
         // Non-output variables - all negative
         proc_mask   = -1,
@@ -383,11 +382,6 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::delS):
-                    name     = "sfo";
-                    longName = "Downward Saltflux In Ocean";
-                    stdName  = "downward_slatflux_in_ocean";
-                    Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
 
@@ -413,10 +407,10 @@ public:
                     Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::emp):
-                    name     = "emp";
-                    longName = "Total Upward Ocean Surface Freshwater Flux";
-                    stdName  = "total_upward_ocean_surface_freshwater_flux";
+                case (variableID::fwflux):
+                    name     = "fwflux";
+                    longName = "Surface Net Downward Ocean Freshwater Flux";
+                    stdName  = "surface_net_downward_ocean_freshwater_flux";
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
@@ -434,7 +428,7 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::Fsalt):
+                case (variableID::saltflux):
                     name     = "sfi";
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";

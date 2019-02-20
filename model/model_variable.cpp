@@ -342,19 +342,28 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
-        case (variableID::D_delS):
-            // Salt balance of the ocean (all sources) [kg/day]
-            M_name = "D_delS";
-            M_export_name = "Saltflux";
+        case (variableID::D_QNoSw):
+            // Total non-solar radiation deliverd to ocean [W/m^2]
+            M_name = "D_QNoSw";
+            M_export_name = "QNoSw";
             M_prognostic = false;
             M_exporting = false;
             M_diffusivity = 0;
             break;
 
-        case (variableID::D_emp):
+        case (variableID::D_QSwOcean):
+            // Short wave radiation deliverd to ocean [W/m^2]
+            M_name = "D_QSwOcean";
+            M_export_name = "QSwOcean";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_fwflux):
             // Freshwater balance at the surface [kg/m^2/s]
-            M_name = "D_emp";
-            M_export_name = "D_emp";
+            M_name = "D_fwflux";
+            M_export_name = "D_fwflux";
             M_prognostic = false;
             M_exporting = false;
             M_diffusivity = 0;

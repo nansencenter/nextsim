@@ -578,11 +578,10 @@ FiniteElement::initVariables()
     D_Qlw.resize(M_num_elements); //! \param D_Qlw (double) Long wave heat flux to the atmosphere
     D_Qsw.resize(M_num_elements); //! \param D_Qsw (double) Short wave heat flux to the atmosphere
     D_Qo.resize(M_num_elements); //! \param D_Qo (double) Total heat lost by the ocean
-    D_delS.resize(M_num_elements); //! \param D_delS (double) Salt release to the ocean [kg/day]
 
     D_Qnosun.resize(M_num_elements); //! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     D_Qsw_ocean.resize(M_num_elements); //! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
-    D_emp.resize(M_num_elements); //! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
+    D_fwflux.resize(M_num_elements); //! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     D_brine.resize(M_num_elements); //! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     D_tau_ow.resize(M_num_elements); //! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
@@ -2505,11 +2504,14 @@ FiniteElement::setPointersElements(
             case(ModelVariable::variableID::D_Qo):
                 data.push_back(&D_Qo);
                 break;
-            case(ModelVariable::variableID::D_delS):
-                data.push_back(&D_delS);
+            case(ModelVariable::variableID::D_QNoSw):
+                data.push_back(&D_Qnosun);
                 break;
-            case(ModelVariable::variableID::D_emp):
-                data.push_back(&D_emp);
+            case(ModelVariable::variableID::D_QSwOcean):
+                data.push_back(&D_Qsw_ocean);
+                break;
+            case(ModelVariable::variableID::D_fwflux):
+                data.push_back(&D_fwflux);
                 break;
             case(ModelVariable::variableID::D_brine):
                 data.push_back(&D_brine);
@@ -3322,8 +3324,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     D_Qo.assign(M_num_elements,0.);
     D_Qnosun.assign(M_num_elements,0.);
     D_Qsw_ocean.assign(M_num_elements,0.);
-    D_delS.assign(M_num_elements,0.);
-    D_emp.assign(M_num_elements,0.);
+    D_fwflux.assign(M_num_elements,0.);
     D_brine.assign(M_num_elements,0.);
     D_tau_ow.assign(M_num_elements,0.);
     D_tau_w.assign(2*M_num_nodes,0.);
@@ -5903,18 +5904,15 @@ FiniteElement::thermo(int dt)
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
-        // Non-solar fluxes to ocean
+        // Non-solar fluxes to ocean - TODO: Account for penetrating SW
         D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
 
-        // Salt balance of the ocean (all sources) - kg/day
-        D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
-
         // Freshwater balance at the surface - kg/m^2/s
-        D_emp[i] = 1./ddt * ( emp
-                - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
+        D_fwflux[i] = 1./ddt * ( emp
+                 - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
 
         // Brine release - kg/m^2/s
         D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
@@ -6728,10 +6726,12 @@ FiniteElement::initModelVariables()
     M_variables.push_back(&vD_Qlh);
     vD_Qo = ModelVariable(ModelVariable::variableID::D_Qo);
     M_variables.push_back(&vD_Qo);
-    vD_delS = ModelVariable(ModelVariable::variableID::D_delS);
-    M_variables.push_back(&vD_delS);
-    vD_emp = ModelVariable(ModelVariable::variableID::D_emp);
-    M_variables.push_back(&vD_emp);
+    vD_QNoSw = ModelVariable(ModelVariable::variableID::D_QNoSw);
+    M_variables.push_back(&vD_QNoSw);
+    vD_QSwOcean = ModelVariable(ModelVariable::variableID::D_QSwOcean);
+    M_variables.push_back(&vD_QSwOcean);
+    vD_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);
+    M_variables.push_back(&vD_fwflux);
     vD_brine = ModelVariable(ModelVariable::variableID::D_brine);
     M_variables.push_back(&vD_brine);
 
@@ -6820,13 +6820,13 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(taumod);
 
         // Output variables - elements
-        GridOutput::Variable emp(GridOutput::variableID::emp);
+        GridOutput::Variable fwflux(GridOutput::variableID::fwflux);
         GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
         GridOutput::Variable QSwOcean(GridOutput::variableID::QSwOcean);
-        GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+        GridOutput::Variable Sflx(GridOutput::variableID::saltflux);
         GridOutput::Variable conc(GridOutput::variableID::conc);
 
-        elemental_variables.push_back(emp);
+        elemental_variables.push_back(fwflux);
         elemental_variables.push_back(QNoSw);
         elemental_variables.push_back(QSwOcean);
         elemental_variables.push_back(Sflx);
@@ -7512,10 +7512,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qo[i]*time_factor;
                 break;
-            case (GridOutput::variableID::delS):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_delS[i]*time_factor;
-                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -7565,9 +7561,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
-            case (GridOutput::variableID::emp):
+            case (GridOutput::variableID::fwflux):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_emp[i]*time_factor;
+                    it->data_mesh[i] -= D_fwflux[i]*time_factor;
                 break;
             case (GridOutput::variableID::QNoSw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7577,7 +7573,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_Qsw_ocean[i]*time_factor;
                 break;
-            case (GridOutput::variableID::Fsalt):
+            case (GridOutput::variableID::saltflux):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_brine[i]*time_factor;
                 break;
@@ -7753,15 +7749,14 @@ FiniteElement::initMoorings()
             ("Qlw", GridOutput::variableID::Qlw)
             ("Qsh", GridOutput::variableID::Qsh)
             ("Qlh", GridOutput::variableID::Qlh)
-            ("delS", GridOutput::variableID::delS)
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
-            ("emp", GridOutput::variableID::emp)
+            ("fwflux", GridOutput::variableID::fwflux)
             ("QNoSw", GridOutput::variableID::QNoSw)
-            ("Fsalt", GridOutput::variableID::Fsalt)
+            ("saltflux", GridOutput::variableID::saltflux)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)

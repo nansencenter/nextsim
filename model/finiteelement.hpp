@@ -765,8 +765,9 @@ private:
     ModelVariable vD_Qsh;
     ModelVariable vD_Qlh;
     ModelVariable vD_Qo;
-    ModelVariable vD_delS;
-    ModelVariable vD_emp;
+    ModelVariable vD_QNoSw;
+    ModelVariable vD_QSwOcean;
+    ModelVariable vD_fwflux;
     ModelVariable vD_brine;
 
 
@@ -812,7 +813,7 @@ private:
         "I_taux",    // tau_u (at u-point)
         "I_tauy",    // tau_v (at v-point)
         "I_taumod",  // |tau| (at t-point)
-        "I_emp",     // Evap minus precip
+        "I_fwflux",  // Fresh water flux
         "I_rsnos",   // Non-solar heatflux
         "I_rsso",    // Solar/Shortwave radiation
         "I_sfi",     // Salt/brine flux
@@ -895,8 +896,7 @@ private:
     std::vector<double> D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     std::vector<double> D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     std::vector<double> D_Qo; // Heat loss from ocean [W/m2]
-    std::vector<double> D_delS; // Salt flux to ocean
-    std::vector<double> D_emp; // Evaporation minus Precipitation [kg/m2/s]
+    std::vector<double> D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     std::vector<double> D_brine; // Brine release into the ocean [kg/m2/s]
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]

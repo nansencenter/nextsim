@@ -88,9 +88,10 @@ public:
         D_Qsh        = 108,
         D_Qlh        = 109,
         D_Qo         = 110,
-        D_delS       = 111,
-        D_emp        = 112,
-        D_brine      = 113
+        D_QNoSw      = 111,
+        D_QSwOcean   = 112,
+        D_fwflux     = 113,
+        D_brine      = 114
     };
 
 
