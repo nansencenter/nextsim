@@ -4890,8 +4890,8 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     strain_c = flex_strength / young ; // valid for a beam... should be changed
     for (int i=0; i<M_num_elements; i++)
     {
-        double lambda = g * std::pow(M_tm02[i],2) /2 / PI  ;
-        double R = 1. + 4*young*std::pow(M_thick[i],3) *std::pow(PI/lambda,4)/(3*physical::rhow*g*(1-std::pow(poisson,2)));
+        double lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+        double R = 1. + 4*young*std::pow(M_thick[i],3) *std::pow(PI/lambda,4)/(3*physical::rhow*physical::g*(1-std::pow(poisson,2)));
         //double brk_prb_inf = ...;
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
                             (2* M_str_var[i]/R* std::pow(M_thick[i]/2,2) ) 
@@ -4923,8 +4923,8 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     for (int i=0; i<M_num_elements; i++)
    {
        //! Compute the wavelength associated with Tm02
-       double lambda = g * std::pow(M_tm02[i],2) /2 / PI  ;
-       double cg_w=0.5*std::sqrt(g*lambda/2/PI)           ;
+       double lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+       double cg_w=0.5*std::sqrt(physical::g*lambda/2/PI)           ;
        double tau_w=1.*M_res_root_mesh/cg_w               ;
        //! Compute wave induced break-up probability for the different floe size categories
        for (int j=1; j<M_num_fsd_bins; j++)
