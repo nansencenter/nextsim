@@ -139,6 +139,9 @@ public:
         h_thin      = 13,
         hs_thin     = 14,
         conc_thin   = 15,
+        fyi_fraction    = 16,
+        age_d       = 17,
+        age         = 18,
 
         // Diagnostic variables
         Qa          = 100,
@@ -311,6 +314,27 @@ public:
                     longName = "Surface Snow Thickness on thin ice";
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fyi_fraction):
+                    name     = "fyi_fraction";
+                    longName = "First Year Ice Fraction";
+                    stdName  = "fyi_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age_d):
+                    name     = "sia_det";
+                    longName = "Detectable sea ice age";
+                    stdName  = "det_sea_ice_age";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age):
+                    name     = "sia";
+                    longName = "Sea ice age";
+                    stdName  = "aea_ice_age";
+                    Units    = "s";
                     cell_methods = "area: mean";
                     break;
 
@@ -512,7 +536,6 @@ public:
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
                     break;
-
 
                 // Non-output variables
                 case (variableID::proc_mask):

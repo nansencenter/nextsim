@@ -2,26 +2,22 @@
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-   echo "Usage: $0 config_file.cfg num_cpus"
-   echo "Usage: $0 config_file.cfg num_cpus envfile"
-   echo envfile is a file to be sourced to set some environment variables
+   echo "Usage: $0 CONFIG_FILE NUM_CPUS"
+   echo "Usage: $0 CONFIG_FILE NUM_CPUS MUMPS_MEM"
+   echo "where MUMPS_MEM is the memory reserved for the solver (%)"
    exit 1
 fi
 
-config=$1
-ncpu=$2
-
-if [ $ncpu -lt 2 ]
+CONFIG=$1
+NCPU=$2
+if [ $NCPU -lt 2 ]
 then
-   echo "Error: num_cpus cannot be less than 2"
+   echo "Error: input NUM_CPUS cannot be less than 2"
    exit 2
 fi
 
-if [ $# -ge 3 ]
-then
-   echo "source $3"
-   source $3
-fi
+# Memory reserved for solver
+MUMPS_MEM=${3-400}
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -55,14 +51,14 @@ then
 fi
 
 # Run the nextsim model
-logfile=$(basename $config .cfg).log
-mpirun $opts -np $ncpu $prog -mat_mumps_icntl_23 400 --config-files=$config 2>&1 | tee $logfile
+logfile=$(basename $CONFIG .cfg).log
+mpirun $opts -np $NCPU $prog -mat_mumps_icntl_23 $MUMPS_MEM --config-files=$CONFIG 2>&1 | tee $logfile
 
 if [ "$MAILTO" != "" ]
 then
    # send email at finish of run
    # export MAILTO=... to activate
-   mail -s "neXtSIM run finished ($config)" -a $logfile $MAILTO
+   mail -s "neXtSIM run finished ($CONFIG)" -a $logfile $MAILTO
 fi
 
 # Run the CPU profiler (google perftools)

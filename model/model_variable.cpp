@@ -208,20 +208,19 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
-#if 0
         case (variableID::M_fyi_fraction):
             M_name = "M_fyi_fraction";
             M_export_name = "Fyi_fraction";
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::conc;
+            M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
 
-        case (variableID::M_age_obs):
-            M_name = "M_age_obs";
-            M_export_name = "Age_o";
+        case (variableID::M_age_det):
+            M_name = "M_age_det";
+            M_export_name = "Age_d";
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
@@ -238,7 +237,6 @@ ModelVariable::initElemental()
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
-#endif
 
         // Diagnostic variables
         case (variableID::D_conc):

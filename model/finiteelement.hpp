@@ -564,7 +564,7 @@ private:
     double tract_coef;
     double scale_coef;
     double alea_factor;
-    double cfix;
+    double C_lab;
     double C_fix;
     double C_alea;
     double tan_phi;
@@ -711,6 +711,9 @@ private:
     std::vector<double> M_thick;        // Effective ice thickness [m]
     std::vector<double> M_damage;       // Ice damage
     std::vector<double> M_snow_thick;   // Effective snow thickness [m]
+    std::vector<double> M_fyi_fraction; // Fraction of the first year ice (FYI)
+    std::vector<double> M_age_det;      // Ice age observable/detectable from space (area weighted) [s]
+    std::vector<double> M_age;          // Effective ice age [s]
 
 	// Prognostic slab ocean variables
     std::vector<double> M_sst;          // Sea-surface temperature [C]
@@ -746,11 +749,9 @@ private:
     ModelVariable vM_hs_thin;
     ModelVariable vM_conc_thin;
     ModelVariable vM_random_number;
-#if 0
     ModelVariable vM_fyi_fraction;
-    ModelVariable vM_age_obs;
+    ModelVariable vM_age_det;
     ModelVariable vM_age;
-#endif
 
     // Diagnostic variables
     ModelVariable vD_conc;
@@ -776,11 +777,17 @@ private:
     std::vector<double> M_thick_mean;   // Mean ice thickness (on the mesh)
     std::vector<double> M_snow_thick_mean;  // Mean snow thickness (on the mesh)
     std::vector<double> M_VT_mean;      // Mean velocity (on the mesh)
+    std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
+    std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
+    std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
     std::vector<double> M_snow_thick_grid;  // Mean snow thickness (on the grid)
     std::vector<double> M_VT_grid;      // Mean velocity (on the grid)
+    std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
+    std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
+    std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
 
 private:
     // Variables for the moorings
