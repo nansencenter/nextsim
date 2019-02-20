@@ -4837,7 +4837,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix:"SMOS_Icethickness_v2.1_north_",
+            prefix:"SMOS_Icethickness_v3.1_north_",
             postfix: ".nc",
             gridfile: "",
             reference_date: "2010-01-01",
