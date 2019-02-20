@@ -5323,7 +5323,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
-    if ( vm["thermo.ocean_bulk_formula"].as<std::string>() != "neXtSIM" )
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::neXtSIM )
     {
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
