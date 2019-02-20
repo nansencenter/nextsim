@@ -164,6 +164,8 @@ public:
         snowfall    = 208,
         precip      = 209,
         snowfr      = 210,
+        wind_x      = 211,
+        wind_y      = 212,
 
         // WIM variables
         dfloe       = 300,
@@ -535,6 +537,22 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+
+                case (variableID::wind_x):
+                    name     = "wndx";
+                    longName = "Wind X velocity";
+                    stdName  = "wind_x_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::wind_y):
+                    name     = "wndy";
+                    longName = "Wind Y velocity";
+                    stdName  = "wind_y_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
                     break;
 
                 // Non-output variables

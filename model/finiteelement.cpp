@@ -7607,6 +7607,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
+            case (GridOutput::variableID::wind_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::wind_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
+                break;
+
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
@@ -7829,6 +7839,19 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
         
+        else if (*it == "wind")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable wndu(GridOutput::variableID::wind_x);
+            GridOutput::Variable wndv(GridOutput::variableID::wind_y);
+            nodal_variables.push_back(wndu);
+            nodal_variables.push_back(wndv);
+
+            GridOutput::Vectorial_Variable wnd(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(wnd);
+        }
         // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
