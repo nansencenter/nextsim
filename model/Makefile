@@ -115,7 +115,7 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 ifdef USE_AEROBULK
 		LDFLAGS += -L $(NEXTSIMDIR)/lib -laerobulk_nextsim
-		LDFLAGS += -L /opt/local/aerobulk/lib -laerobulk
+		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk
 		LDFLAGS += -lgfortran
 endif
 
