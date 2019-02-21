@@ -1281,7 +1281,8 @@ FiniteElement::initOptAndParam()
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
-        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
+        //("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)//TODO reactivate after issue 252 is solved
+        ;
     option_str = vm["setup.ice-type"].as<std::string>();
     if ( str2conc.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
