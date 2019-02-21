@@ -5586,8 +5586,8 @@ FiniteElement::thermo(int dt)
                     for(int k=M_num_fsd_bins-2; k>-1; k--)
                     {
                         double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
-                                       + del_c_redist                      // new ice excess goes into a next smaller FSD bin until it is all used up
-                                               + del_c_bin_melt[k];
+                                       + del_c_redist            // new ice excess goes into a next smaller FSD bin until it is all used up
+                                       + del_c_bin_melt[k];
                         M_conc_fsd[k][i] = std::min(1., c_k_new);
                         del_c_redist = c_k_new - M_conc_fsd[k][i];
                     }
@@ -8269,7 +8269,6 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
         
         // Add the previous numbering to the restart file
-
         // used in adaptMesh (updateNodeIds)
         std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
