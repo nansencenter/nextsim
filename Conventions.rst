@@ -48,6 +48,8 @@ If you have been assigned an issue on https://github.com/nansencenter/nextsim/is
         4. Create a pull request on GitHub to merge the issue branch back into **master**. Always include at least one reviewer who will then merge and delete the issue branch.
         5. Merge the **master** branch into **develop** in your local repository, resolve conflicts, test, and push the updated **develop** branch.
         6. Tag the merge by incrementing the patch number of the version number.
+            (Do this on the command line with "git tag LABEL".)
+            (See the existing tags with "git tag -l".)
         7. Close the issue.
 
 For issues not requiring a hotfix (less urgent bug-fixes and feature requests):
