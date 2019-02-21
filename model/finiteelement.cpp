@@ -2156,7 +2156,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             (*vptr)[i] = val;
         }
 
-        if(apply_maxima)
+        if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // check the total conc is <= 1
             double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
@@ -6665,7 +6665,17 @@ FiniteElement::step()
             if(M_rank==0)
                 LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
+            {
+#ifdef OASIS
+                if(vm["moorings.grid_type"].as<std::string>() == "coupled")
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                            M_mesh.transferMapElt(), bamgmesh_root);
+                else
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+#else
                 M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+#endif
+            }
 
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
