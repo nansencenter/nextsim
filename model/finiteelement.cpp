@@ -1286,7 +1286,7 @@ FiniteElement::initOptAndParam()
     option_str = vm["setup.ice-type"].as<std::string>();
     if ( str2conc.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
-    M_ice_type = str2conc.find(vm["setup.ice-type"].as<std::string>())->second;
+    M_ice_type = str2conc.find(option_str)->second;
     LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
