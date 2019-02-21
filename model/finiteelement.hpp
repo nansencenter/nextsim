@@ -279,6 +279,7 @@ public:
     void calcAuxiliaryVariables();
     void initModelVariables();
     void initFsd();
+    void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -334,23 +335,8 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
-    void sortPrognosticVars(
-        std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy);
-    void sortPrognosticVars(
-        std::vector<int> &j_none,
-        std::vector<int> &j_conc,
-        std::vector<int> &j_thick,
-        std::vector<int> &j_enthalpy,
-        std::vector<bool> &has_min,
-        std::vector<bool> &has_max,
-        std::vector<double> &min_val,
-        std::vector<double> &max_val);
-
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
-    void redistributeVariables(std::vector<double> const& out_elt_values);
+    void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
@@ -610,8 +596,6 @@ private: // only on root process (rank 0)
     std::vector<int> M_dirichlet_nodes_root;
     std::vector<int> M_neumann_nodes_root;
 
-    std::vector<double> M_random_number_root;
-
     std::vector<std::vector<double>> M_B0T_root;
 
     BamgMesh *bamgmesh_root;
@@ -716,7 +700,6 @@ private:
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
 
-
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
@@ -743,7 +726,9 @@ private:
     ModelVariable M_random_number;
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
-    ModelVariable M_age; // Following variables are related to floe size distribution
+    ModelVariable M_age;
+
+    // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     int M_num_fsd_bins;
     int M_fsd_bin_widths; // Only uniform widths so far
@@ -822,9 +807,8 @@ private:
 
 private:
 
+    //ice-init functions
     void constantIce();
-    void targetIce();
-    void binaryIce();
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
@@ -832,16 +816,18 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
-    void warrenClimatology();
     void smosIce();
 
+    //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
+
+    void warrenClimatology();
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     void initialisingDrifters(
         std::vector<std::string> & init_names,
@@ -870,7 +856,6 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
-    void checkFields(int const& rank_test, int const& itest);
 
 private:
 

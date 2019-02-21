@@ -60,9 +60,9 @@ namespace Nextsim
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
                 "call checkFields")
-            ("debugging.export_before_regrid", po::value<bool>()->default_value( false ),
+            ("debugging.write_restart_before_regrid", po::value<bool>()->default_value( false ),
                 "if true, export results before regrid")
-            ("debugging.export_after_regrid", po::value<bool>()->default_value( false ),
+            ("debugging.write_restart_after_regrid", po::value<bool>()->default_value( false ),
                 "if true, export results after regrid")
             ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
@@ -366,6 +366,10 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
+            // -- relating to thermodynamic forcing
+            ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
+                "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
+
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
 #endif
@@ -373,7 +377,6 @@ namespace Nextsim
              //-----------------------------------------------------------------------------------
              //! - Nesting
              // -----------------------------------------------------------------------------------
-        
 
             ("nesting.use_nesting", po::value<bool>()->default_value( false ),
                 "Use nesting at/near boundaries")
