@@ -505,20 +505,20 @@ FiniteElement::initVariables()
     M_solution = vector_ptrtype(new vector_type());
 
     M_reuse_prec = true;
-    
+
     this->initModelVariables();
-    
+
     //nodal var's
     M_VT.resize(2*M_num_nodes); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
     M_VTM.resize(2*M_num_nodes); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
     M_VTMM.resize(2*M_num_nodes); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     M_UM.resize(2*M_num_nodes); //! \param M_UM (double) Total mesh displacement [m]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
-    D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa] 
-    
+    D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
+
     // For drifters:
     M_UT.resize(2*M_num_nodes); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
-    
+
     if (M_rank == 0)
     {
         M_surface_root.resize(M_mesh_root.numTriangles());
@@ -1057,13 +1057,13 @@ FiniteElement::initOptAndParam()
 
     //! Sets Poisson's ratio
     nu0 = vm["dynamics.nu0"].as<double>(); //! \param nu0 (double) Poisson's ratio
-    
+
     //! Sets the Young's modulus, ice density and snow density
     young = vm["dynamics.young"].as<double>(); //! \param young (double) Young modulus of undamaged ice
     rhoi = physical::rhoi; //! \param rhoi (double) Ice density [kg/m3]
     rhos = physical::rhos; //! \param rhos (double) Snow density [kg/m3]
-    
-    
+
+
     //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
     days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
     if (vm["simul.time_init"].as<std::string>() == "")
@@ -1129,7 +1129,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
     }
 
-    
+
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
     ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
     if (vm["dynamics.use_coriolis"].as<bool>())
@@ -1138,30 +1138,30 @@ FiniteElement::initOptAndParam()
 #endif
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>(); //! \param ridging_exponent (double) Ridging exponent
-    
+
     quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>(); //! \param quad_drag_coef_water (double) Quadratic ocean drag coefficient
     lin_drag_coef_water  = vm["dynamics.lin_drag_coef_water"].as<double>(); //! \param lin_drag_coef_water (double) Linear ocean drag coefficient
-    
+
     basal_k2 = vm["dynamics.Lemieux_basal_k2"].as<double>(); //! \param basal_k2 (double) Free parameter that determines the maximum basal stress (ice keels scheme of Lemieux et al., 2016)
     basal_u_0 = vm["dynamics.Lemieux_basal_u_0"].as<double>(); //! \param basal_u_0 (double) "Small velocity" parameter (ice keels scheme of Lemieux et al., 2016)
     basal_Cb = vm["dynamics.Lemieux_basal_Cb"].as<double>(); //! \param basal_Cb (double) Basal stress coefficient (ice keels scheme of Lemieux et al., 2016)
-    
-    
+
+
     //! Sets the values of parameters related to healing
     time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec; //! \param time_relaxation_damage (double) Characteristic healing time [s]
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
-    
+
     //! Sets the minimum and maximum thickness of thin ice
     h_thin_max = vm["thermo.h_thin_max"].as<double>(); //! \param h_thin_max (double) Maximum thickness of thin ice [m]
     h_thin_min = vm["thermo.h_thin_min"].as<double>(); //! \param h_thin_min (double) Minimum thickness of thin ice [m]
-    
-    
+
+
     //! Sets mechanical parameter values
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
-    
+
 
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
@@ -1330,8 +1330,8 @@ FiniteElement::initOptAndParam()
             ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
     M_mesh.setOrdering("bamg");
-    
-    
+
+
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
     M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
@@ -1356,7 +1356,7 @@ FiniteElement::initOptAndParam()
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
     M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second; //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
-    
+
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
@@ -4398,7 +4398,7 @@ FiniteElement::update()
     // Type of discretization scheme for the damage equation, set in options.cpp
     // Can be either explicit, implicit or recursive
     std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
-    
+
     // Characteristic time for damage
     // Can be either fixed or damage-dependent
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
@@ -4408,11 +4408,11 @@ FiniteElement::update()
         std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
     }
     std::string td_type = vm["damage.td_type"].as<std::string>();
-    
+
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-    
-    
+
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         double old_damage;
@@ -4429,8 +4429,8 @@ FiniteElement::update()
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double sigma_t, sigma_c;
         double tmp, sigma_target, tmp_factor;
-    
-        
+
+
         // Temporary memory
         old_damage = M_damage[cpt];
 
@@ -4510,7 +4510,7 @@ FiniteElement::update()
         // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
-        
+
         /* Thin ice category */
         double new_conc_thin=0.;
         double new_h_thin=0.;
@@ -4605,7 +4605,7 @@ FiniteElement::update()
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
-            
+
         //Calculating the new state of stress
         for(int i=0;i<3;i++)
         {
@@ -4619,7 +4619,7 @@ FiniteElement::update()
             sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
             M_sigma[i][cpt] = sigma[i];
-  
+
         }
 
         /*======================================================================
@@ -4633,7 +4633,7 @@ FiniteElement::update()
 
         sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-    
+
 
         double hi=0.;
         if(M_conc[cpt]>0.1)
@@ -4643,8 +4643,8 @@ FiniteElement::update()
 
         sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
         sigma_t=-sigma_c/q;
-            
-        
+
+
         /* Calculate the characteristic time for damage */
         if (td_type == "damage_dependent")
             td = min(td0*pow(1-old_damage,-0.5), dtime_step);
@@ -4997,7 +4997,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
 //------------------------------------------------------------------------------------------------------
 //! Performs thermodynamics calculation based on the 1D thermodynamical model.
-    
+
 //! \note
 //! - Uses either the Winton et al. 2000 or a zero-layer scheme (thermoWinton(), thermoIce0()).
 //! - No stability dependent atmospheric drag for now.
@@ -5019,7 +5019,7 @@ FiniteElement::thermo(int dt)
 
     double const rh0   = 1./vm["thermo.hnull"].as<double>(); //! \param rh0 (double const)
     double const rPhiF = 1./vm["thermo.PhiF"].as<double>(); //! \param rPhiF (double const)
-    
+
     double const qi = physical::Lf * physical::rhoi; //! \param qi (double const) Latent heat of fusion * ice density [J m^{-3}]
     double const qs = physical::Lf * physical::rhos; //! \param qi (double const) Latent heat of fusion * snow density [J m^{-3}]
 
@@ -5027,7 +5027,7 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
-    
+
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
 
@@ -5423,7 +5423,7 @@ FiniteElement::thermo(int dt)
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
-        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;        
+        denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
         double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
 #ifdef OASIS
@@ -5571,7 +5571,7 @@ FiniteElement::thermo(int dt)
 //! \param Qsh (double) Sensible atmosphere-ice heat flux [W/m^2]
 //! \param Qlh (double) Long-wave atmosphere-ice heat flux [W/m^2]
 void
-FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
         std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT)
 {
@@ -6283,6 +6283,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_snow_thick);
     M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);//! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_variables_elt.push_back(&M_ridge_ratio);
+    M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
+    M_variables_elt.push_back(&M_conc_upd);
 
     switch (M_thermo_type)
     {
@@ -6489,7 +6491,7 @@ FiniteElement::initOASIS()
 
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //  GRID WRITING
-    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     if (M_rank == 0) {
         OASIS3::start_grids_writing(ierror);
         OASIS3::write_grid("nxts", ncols, nrows, &M_cpl_out.M_grid.gridLON[0], &M_cpl_out.M_grid.gridLAT[0]);
@@ -6569,7 +6571,7 @@ FiniteElement::initOASIS()
 #endif
 
 //! update ice diagnostics eg total conc and principal stresses
-//! called by checkOutputs() and exportResults() 
+//! called by checkOutputs() and exportResults()
 void
 FiniteElement::updateIceDiagnostics()
 {
@@ -6606,7 +6608,7 @@ FiniteElement::updateIceDiagnostics()
         D_sigma[1][i] = sigma_n-sigma_s;
     }
 }
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Increments the model by one time step. Called by the run() function.
@@ -6889,7 +6891,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 
     // update the diagnostic variables before output
     this->updateIceDiagnostics();
-    
+
     if(M_use_moorings)
     {
         if(!at_init_time)
@@ -7444,7 +7446,7 @@ FiniteElement::initMoorings()
 
             vectorial_variables.push_back(siuv);
         }
-        
+
         // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
@@ -7897,7 +7899,7 @@ FiniteElement::writeRestart(std::string const& name_str)
             exporter.writeField(outbin, drifter_x, "Drifter_x");
             exporter.writeField(outbin, drifter_y, "Drifter_y");
         }
-        
+
         // Add the previous numbering to the restart file
 
         // used in adaptMesh (updateNodeIds)
@@ -8196,7 +8198,7 @@ FiniteElement::restartIabpDrifters(
                     drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
 
         // move the drifters
-        // NB updateIabpDrifterPosition uses M_UT_root 
+        // NB updateIabpDrifterPosition uses M_UT_root
         // (don't need to gather since we have it already from
         // restart file)
         M_UT_root = field_map_dbl["M_UT"];
@@ -8217,7 +8219,7 @@ FiniteElement::restartIabpDrifters(
         this->outputIabpDrifters();
     }
 }//restartIabpDrifters
-    
+
 
 //------------------------------------------------------------------------------------------------------
 //! Partitions the mesh during a restart.
