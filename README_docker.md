@@ -19,96 +19,88 @@ See Docker overview and installation tips for Linux and Mac [here](https://docs.
 
 Pay attention to [Linux optional post-installation steps](to https://docs.docker.com/install/linux/linux-postinstall/)
 
-On macOS, once Docker is installed you need to go to the Docker icon and select Preferences->Advanced and set memory to at least 4 GB (the exact value needs testing). Otherwise the model won't compile.
+On macOS, once Docker is installed you need to go to the Docker icon and select
+Preferences->Advanced and set memory to at least 4 GB (the exact value needs testing).
+Otherwise the model won't compile.
 
 ## 3. Build an image
 
-Image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains Dockerfile for
-compiling of bamx, mapx, core and the model code. This Dockerfile is based on another image
+The Docker image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains a
+Dockerfile for installation of compilers and libraries. This Dockerfile is based on another image
 `boost_petsc_gmsh` available [here](https://github.com/nansencenter/docker-boost-petsc-gmsh)
 
-#### 3.1 Build from scratch
-
-To build an image you need to clone the repository, go to nextsim directory and run the following command:
+To build an image you need to clone the repository, go to nextsim directory and run the following
+command:
 ```
 docker build . -t nextsim
 ```
-It will do the following:
-* pull the Ubuntu image with Boost, PETSC and GMSH preinstalled
-* spin up a temporary container based on this image
-* copy the model source code into /opt/local/nextsim
-* compile the code
-* save the image with name `nextsim` (as provided with the `-t` parameter above)
-* stop and remove the temporary container
+It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and install gcc, libnetcdf and
+some other libraries.
 
-#### 3.2 Recompile the code
+## 4. Compile the code
 
-Docker caches the images that are built. It means that if you run the above command again, without
-changing the nextsim code, it will build the image from cache very fast.
-
-If you want to introduce changes into the model, change the code and run `docker build . -t nextsim`
-again. Docker will identify which files were changed and will run building of the image (including
-compilation of the code) again.
-
-## 4. Run the neXtSIM container
-
-The image is built so that there are two options to run a container:
-1. run `/bin/bash` and explore the environment inside container
-2. run nextsim using MPI
-
-#### 4.1 Run bash
-
-If you only want to run /bin/bash, execute:
+Now you can use this image for compiling nextsim. You need to run a container for
+that purpose:
 ```
-docker run --rm -it nextsim
+docker run -v `pwd`:/src nextsim make all -j8
+docker run -v `pwd`:/src nextsim make All -j8
+```
+These commands will:
+* start a container whith all the required libraries
+* set environment variables in the container (PATH, NEXSIMDIR, etc..)
+* mount the current folder (with nextsim source code) into /src in container
+* compile the code and save the objects and executable in the mounted directories. It means that
+the generated binary files will be available both for the host (in the current directory) and
+for the container (in /src).
+
+
+If you want to reocmpile only the model code you should specify the working directory with `-w` option:
+```
+docker run -v `pwd`:/src -w /src/model nextsim make clean
+docker run -v `pwd`:/src -w /src/model nextsim make -j8
+```
+
+## 4. Run the neXtSIM executable inside a container
+
+The image is built to run any executable inside a container. For example, if you only want to run
+bash, execute:
+```
+docker run -it --rm -v `pwd`:/src nextsim bash
 ```
 The option `--rm` tells docker to remove the container after you exit from bash.
 The option `-it` tells docker to run the container in foreground and provide interactive access to TTY.
-`nextsim` is the name of the image that you have built previously.
-
-#### 4.2 Run neXtSIM
+`nextsim` is the name of the image that you have built previously. `bash` - is the command ro run.
 
 If you want to run nextsim you also need to provide options to docker how to mount directories with
-data, mesh and forecasts. By default, nextsim inside the container expects two directories:
+data, mesh and outputs. Nextsim inside the container expects two directories:
 ```
-export NEXTSIM_MESH_DIR=/mesh
-export NEXTSIM_DATA_DIR=/data
+NEXTSIM_MESH_DIR=/mesh
+NEXTSIM_DATA_DIR=/data
+
 ```
 Therefore you need to provide mounting of these two directories and a directory for output.
-
-In addition you need to provide options to nextsim with the path to the config file and number of CPUs.
-Note that all paths (to the config file, to the mesh, to the data, to outputs) are given in the
-container file system.
+In addition you need to provide the command to run mpirun with the path to the config file, number
+of CPUs and so on. Note that all paths (to the config file, to the mesh, to the data, to outputs)
+are given in the container file system.
 
 An example command can look like the following:
 ```
 docker run -it --rm \
-    -v /home/user/nextsim/data/data_links:/data \
-    -v /home/user/nextsim/mesh/mesh_links:/mesh \
+    --security-opt seccomp=unconfined \
+    -v `pwd`:/src
+    -v /home/user/nextsim/data:/data \
+    -v /home/user/nextsim/mesh:/mesh \
     -v /home/user/output:/output \
-    nextsim /output/test.cfg 7
+    nextsim \
+    mpirun --allow-run-as-root -np 8 nextsim.exec -mat_mumps_icntl_23 200 --config-files=/output/test.cfg
 ```
-It will, for example, mount directory `/home/user/nextsim/data/data_links` from the host as
-`/data` on container.
-
-The last two parameters (`/output/test.cfg` and `7`) are giving the location of the config file
-and number of CPUs. Since we mount `/home/user/output` as `/output` the config file on a host
-computer should be located in `/home/user/output/test.cfg`.
+This will mount directory `/home/user/nextsim/data` from the host as `/data` on container.
+If your directory `/home/user/nextsim/data` contains not the files but symbolic links to files,
+you also need to mount the directories where the files are actually residing
+(e.g. `-v /Data/sim:/Data/sim`)
 
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
 An example script to run model in a container can be found here:
 [run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/tallinn/run_nextsim_container.sh)
 
-#### 4.3 Debug neXtSIM
-
-If you want to debug neXtSIM without rebuilding the entire image you can mount the nextsim
-directory into /opt/local/nextsim inside the container
-(with option `-v /path/on/the/host/nextsim:/opt/local/nextsim`). Then the compiled code will be
-replaced with the source code, available for editing on your host machine. You should run the
-container without specifying the config file and number of CPUs to enter bash inside the container.
-Then you can compile the code (e.g. run `make All` from `/opt/local/nextsim`) and run the
-model inside the container.
-
-An example script to run container for debugging can be found here:
-[run_nextsim_container_debug.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/tallinn/run_nextsim_container_debug.sh)
