@@ -35,16 +35,18 @@ command:
 docker build . -t nextsim
 ```
 It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and install gcc, libnetcdf and
-some other libraries.
+compile BAMG and MAPX libraries.
 
 ## 4. Compile the code
 
-Now you can use this image for compiling nextsim. You need to run a container for
+Now you can use this image for compiling nextsim core and model. You need to run a container for
 that purpose:
 ```
-docker run -v `pwd`:/src nextsim make all -j8
-docker run -v `pwd`:/src nextsim make All -j8
+docker run -v `pwd`:/nextsim -w /nextsim/core/src nextsim make -j8
+docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
 ```
+Note that you should specify the working directory with `-w` option.
+
 These commands will:
 * start a container whith all the required libraries
 * set environment variables in the container (PATH, NEXSIMDIR, etc..)
@@ -53,11 +55,10 @@ These commands will:
 the generated binary files will be available both for the host (in the current directory) and
 for the container (in /src).
 
-
-If you want to reocmpile only the model code you should specify the working directory with `-w` option:
+If you want to recompile only the model code :
 ```
-docker run -v `pwd`:/src -w /src/model nextsim make clean
-docker run -v `pwd`:/src -w /src/model nextsim make -j8
+docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make clean
+docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
 ```
 
 ## 4. Run the neXtSIM executable inside a container
@@ -65,7 +66,7 @@ docker run -v `pwd`:/src -w /src/model nextsim make -j8
 The image is built to run any executable inside a container. For example, if you only want to run
 bash, execute:
 ```
-docker run -it --rm -v `pwd`:/src nextsim bash
+docker run -it --rm -v `pwd`:/nextsim nextsim bash
 ```
 The option `--rm` tells docker to remove the container after you exit from bash.
 The option `-it` tells docker to run the container in foreground and provide interactive access to TTY.
@@ -87,17 +88,21 @@ An example command can look like the following:
 ```
 docker run -it --rm \
     --security-opt seccomp=unconfined \
-    -v `pwd`:/src
-    -v /home/user/nextsim/data:/data \
+    -v /home/user/nextsim:/nextsim
+    -v /Data/sim/data:/data \
     -v /home/user/nextsim/mesh:/mesh \
     -v /home/user/output:/output \
     nextsim \
     mpirun --allow-run-as-root -np 8 nextsim.exec -mat_mumps_icntl_23 200 --config-files=/output/test.cfg
 ```
-This will mount directory `/home/user/nextsim/data` from the host as `/data` on container.
-If your directory `/home/user/nextsim/data` contains not the files but symbolic links to files,
+This example will mount the following directories:
+* `/home/user/nextsim` on the host with source code and compiled binaries as `/nextsim` in container
+* `/Data/sim/data` with all input data as `/data` in container
+* `/home/user/nextsim/mesh` with mpp files and links to meshes as `/mesh` in container
+* `/home/user/output` with model output as `/output` in container
+If your directories (e.g. `/home/user/nextsim/mesh`) contain not the files but symbolic links to files,
 you also need to mount the directories where the files are actually residing
-(e.g. `-v /Data/sim:/Data/sim`)
+(e.g. `-v /Data/sim/data:/Data/sim/data`)
 
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
