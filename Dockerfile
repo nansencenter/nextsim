@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
     libnetcdf-c++4-dev \
     ssh \
     valgrind \
+    bc \
 &&  apt-get clean \
 &&  rm -rf /var/lib/apt/lists/*
 
