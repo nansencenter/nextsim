@@ -9109,6 +9109,7 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_fyi_fraction);
     vars_to_zero.push_back(&M_age_det);
     vars_to_zero.push_back(&M_age);
+    vars_to_zero.push_back(&M_conc_upd);
     for (int k=0; k<3; k++)
         vars_to_zero.push_back(&(M_sigma[k]));
     for (auto ptr: vars_to_zero)
