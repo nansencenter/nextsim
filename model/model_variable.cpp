@@ -274,7 +274,7 @@ ModelVariable::initElemental()
 
         case (variableID::M_conc_upd):
             // update of concentration by assimilation
-            M_name = "M_conc";
+            M_name = "M_conc_upd";
             M_export_name = "Concentration_update";
             M_prognostic = true;
             M_exporting = true;
