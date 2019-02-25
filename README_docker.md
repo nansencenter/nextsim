@@ -42,23 +42,23 @@ compile BAMG and MAPX libraries.
 Now you can use this image for compiling nextsim core and model. You need to run a container for
 that purpose:
 ```
-docker run -v `pwd`:/nextsim -w /nextsim/core/src nextsim make -j8
-docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
+docker run --rm -v `pwd`:/nextsim -w /nextsim/core/src nextsim make -j8
+docker run --rm -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
 ```
 Note that you should specify the working directory with `-w` option.
 
 These commands will:
 * start a container whith all the required libraries
 * set environment variables in the container (PATH, NEXSIMDIR, etc..)
-* mount the current folder (with nextsim source code) into /src in container
+* mount the current folder (with nextsim source code) into /nextsim in container
 * compile the code and save the objects and executable in the mounted directories. It means that
 the generated binary files will be available both for the host (in the current directory) and
-for the container (in /src).
+for the container (in /nextsim).
 
 If you want to recompile only the model code :
 ```
-docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make clean
-docker run -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
+docker run --rm -v `pwd`:/nextsim -w /nextsim/model nextsim make clean
+docker run --rm -v `pwd`:/nextsim -w /nextsim/model nextsim make -j8
 ```
 
 ## 4. Run the neXtSIM executable inside a container
@@ -107,5 +107,5 @@ you also need to mount the directories where the files are actually residing
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
 An example script to run model in a container can be found here:
-[run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/tallinn/run_nextsim_container.sh)
+[run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/maud_antonk/run_nextsim_container.sh)
 
