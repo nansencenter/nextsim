@@ -728,6 +728,7 @@ private:
     ModelVariable D_Qo; // Heat loss from ocean [W/m2]
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
+    ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]

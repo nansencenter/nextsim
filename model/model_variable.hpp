@@ -94,7 +94,8 @@ public:
         D_Qsw_ocean  = 112,
         D_delS       = 113,
         D_emp        = 114,
-        D_brine      = 115
+        D_brine      = 115,
+        D_Qassim     = 116
     };
 
 
