@@ -46,6 +46,18 @@ FiniteElement::initMesh()
     {
         this->distributedMeshProcessing(true);
     }
+
+#if 0
+    std::string local_mesh_basename = "extendlocalmesh";
+    std::string local_mesh_filename = (boost::format( "%1%/%2%_%3%.msh" )
+                                       % Environment::nextsimMeshDir().string()
+                                       % local_mesh_basename
+                                       % M_comm.rank()
+                                       ).str();
+
+    M_mesh.writeToFile(local_mesh_filename);
+#endif
+
 }//initMesh
 
 
@@ -2585,6 +2597,7 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     else
         throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
 
+
     //change M_UM if not in Eulerian mode
     if(!use_eulerian)
     {
@@ -2599,55 +2612,38 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
         else
         {
             // ALE case - need to calculate the smoothed velocity
-            std::vector<double> vt_root;
-            std::vector<double> M_VT_smoothed;
-            std::vector<double> M_VT_smoothed_root;
+            std::vector<double> M_VT_smoothed = M_VT;
+            std::vector<double> M_VT_tmp = M_VT_smoothed;
 
-            this->gatherNodalField(M_VT,vt_root);
+            // get the global number of nodes
+            int Nd = bamgmesh->NodalConnectivitySize[1];
 
-            if(M_rank == 0)
+            for (int k=0; k<ALE_smoothing_step_nb; ++k)
             {
-                M_VT_smoothed_root = vt_root;
-                std::vector<double> M_VT_tmp = M_VT_smoothed_root;
+                M_VT_tmp = M_VT_smoothed;
 
-                // get the global number of nodes
-                int num_nodes = M_mesh_root.numNodes();
-                int Nd = bamgmesh_root->NodalConnectivitySize[1];
-
-                for (int k=0; k<ALE_smoothing_step_nb; ++k)
+                for (int i=0; i<M_num_nodes; ++i)
                 {
-                    M_VT_tmp = M_VT_smoothed_root;
+                    int Nc;
+                    double UM_x, UM_y;
 
-                    //for (int i=0; i<M_ndof; ++i)
-                    for (int i=0; i<num_nodes; ++i)
+                    if(M_mask_dirichlet[i]==false)
                     {
-                        int Nc;
-                        double UM_x, UM_y;
+                        Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
 
-                        if(M_mask_dirichlet_root[i]==false)
+                        UM_x = 0.;
+                        UM_y = 0.;
+                        for (int j=0; j<Nc; ++j)
                         {
-                            Nc = bamgmesh_root->NodalConnectivity[Nd*(i+1)-1];
-
-                            UM_x = 0.;
-                            UM_y = 0.;
-                            for (int j=0; j<Nc; ++j)
-                            {
-                                UM_x += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1];
-                                UM_y += M_VT_tmp[bamgmesh_root->NodalConnectivity[Nd*i+j]-1+num_nodes];
-                            }
-
-                            M_VT_smoothed_root[i          ] = UM_x/Nc;
-                            M_VT_smoothed_root[i+num_nodes] = UM_y/Nc;
+                            UM_x += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1];
+                            UM_y += M_VT_tmp[bamgmesh->NodalConnectivity[Nd*i+j]-1+M_num_nodes];
                         }
+
+                        M_VT_smoothed[i          ] = UM_x/Nc;
+                        M_VT_smoothed[i+M_num_nodes] = UM_y/Nc;
                     }
                 }
             }
-
-            // M_comm.barrier();
-
-            this->scatterNodalField(M_VT_smoothed_root,M_VT_smoothed);
-
-            // M_comm.barrier();
 
             for (int nd=0; nd<M_UM.size(); ++nd)
             {
@@ -2662,8 +2658,9 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
         }
     }//not Eulerian
 
-    LOG(DEBUG) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
-    LOG(DEBUG) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
+
+    LOG(INFO) <<"VT MIN= "<< *std::min_element(M_VT.begin(),M_VT.end()) <<"\n";
+    LOG(INFO) <<"VT MAX= "<< *std::max_element(M_VT.begin(),M_VT.end()) <<"\n";
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -3036,52 +3033,36 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
         return;
     }
 
-    // new addition
-    std::vector<double> variable_elt_root;
-    this->gatherElementField(variable_elt, variable_elt_root);
+    double factor = diffusivity_parameters*dtime_step/std::pow(dx,2.);
+    std::vector<double> old_variable_elt = variable_elt;
 
-    if (M_rank == 0)
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
-        double factor = diffusivity_parameters*dtime_step/std::pow(dx,2.);
-        std::vector<double> old_variable_elt = variable_elt_root;
+        /* some variables used for the advection*/
+        double fluxes_source[3];
+        int fluxes_source_id;
 
-        // get the global number of nodes
-        int num_elements = M_mesh_root.numTriangles();
+        int neighbour_int;
+        double neighbour_double;
 
-        for (int cpt=0; cpt < num_elements; ++cpt)
+        for(int i=0;i<3;i++)
         {
-            /* some variables used for the advection*/
-            double fluxes_source[3];
-            int fluxes_source_id;
+            neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+            neighbour_int    = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
-            int neighbour_int;
-            double neighbour_double;
-
-            for(int i=0;i<3;i++)
+            if (!std::isnan(neighbour_double) && neighbour_int>0)
             {
-                neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-                neighbour_int    = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
-
-                // neighbour_double = M_element_connectivity[cpt*3+i];
-                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
-
-                if (!std::isnan(neighbour_double) && neighbour_int>0)
-                {
-                    fluxes_source_id=neighbour_int-1;
-                    fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
-                }
-                else // no diffusion crosses open nor closed boundaries
-                {
-                    fluxes_source[i]=0.;
-                }
+                fluxes_source_id=neighbour_int-1;
+                fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
             }
-
-            variable_elt_root[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];
+            else // no diffusion crosses open nor closed boundaries
+            {
+                fluxes_source[i]=0.;
+            }
         }
-    }
 
-    // scatter back verctor from root to all processes
-    this->scatterElementField(variable_elt_root, variable_elt);
+        variable_elt[cpt] += fluxes_source[0] + fluxes_source[1] + fluxes_source[2];
+    }
 }//diffuse
 
 
@@ -3099,7 +3080,6 @@ FiniteElement::scatterElementConnectivity()
 
     if (M_rank == 0)
     {
-
         // std::cout<<"bamgmesh_root->ElementConnectivitySize[0]= "<< bamgmesh_root->ElementConnectivitySize[0] <<"\n";
         // std::cout<<"bamgmesh_root->ElementConnectivitySize[1]= "<< bamgmesh_root->ElementConnectivitySize[1] <<"\n";
 
@@ -6489,7 +6469,7 @@ FiniteElement::init()
 
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
-
+#if 1
     if (M_rank==0)
     {
         LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
@@ -6600,6 +6580,7 @@ FiniteElement::init()
     // 3. check if writing outputs, and do it if it's time
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
+#endif
 }//init
 
 
@@ -7298,7 +7279,7 @@ FiniteElement::run()
     this->init();
     int maxiter = vm["debugging.maxiteration"].as<int>();
     int niter = 0;
-
+#if 1
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
     {
@@ -7350,6 +7331,7 @@ FiniteElement::run()
     // **********************************************************************
 
     this->finalise(current_time_system);
+#endif
 }//run
 
 

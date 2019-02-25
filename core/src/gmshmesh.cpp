@@ -428,22 +428,82 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     std::vector<int> neighbors;
     elementConnectivity(M_global_triangle_nodes, neighbors, M_global_num_elements_from_serial);
 
-    for (auto it=M_global_triangles.begin(), end=M_global_triangles.end(); it!=end; ++it)
+    // Add extended ghost cells to the local mesh
+    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
-        if ((it->isOnProcessor()) && (M_comm.rank() != it->partition))
+        // Add ghost cells for the first level
+        for (int i=0; i<3; i++)
         {
-            for (int i=0; i<3; i++)
+            int neighbori = neighbors[3*(it->number-1)+i];
+            if ((neighbori > 0) && (!(M_global_triangles[neighbori-1].isOnProcessor())))
             {
-                if (neighbors[3*(it->number-1)+i] > 0)
+                M_extended_ghost_elts.push_back(M_global_triangles[neighbori-1]);
+                int currentl1=M_global_triangles[neighbori-1].number;
+
+                // Add ghost cells for the second level
+                for (int j=0; j<3; j++)
                 {
-                    if (!(M_global_triangles[neighbors[3*(it->number-1)+i]-1].isOnProcessor()))
+                    int neighborj = neighbors[3*(currentl1-1)+j];
+                    if ((neighborj > 0) && (!(M_global_triangles[neighborj-1].isOnProcessor())))
                     {
-                        M_extended_ghost_elts.push_back(M_global_triangles[neighbors[3*(it->number-1)+i]-1]);
+                        M_extended_ghost_elts.push_back(M_global_triangles[neighborj-1]);
+                        int currentl2=M_global_triangles[neighborj-1].number;
+
+                        // Add ghost cells for the third level
+                        for (int k=0; k<3; k++)
+                        {
+                            int neighbork = neighbors[3*(currentl2-1)+k];
+                            if ((neighbork > 0) && (!(M_global_triangles[neighbork-1].isOnProcessor())))
+                            {
+                                M_extended_ghost_elts.push_back(M_global_triangles[neighbork-1]);
+                                int currentl3=M_global_triangles[neighbork-1].number;
+
+                                // Add ghost cells for the fourth level
+                                for (int l=0; l<3; l++)
+                                {
+                                    int neighborl = neighbors[3*(currentl3-1)+l];
+                                    if ((neighborl > 0) && (!(M_global_triangles[neighborl-1].isOnProcessor())))
+                                    {
+                                        M_extended_ghost_elts.push_back(M_global_triangles[neighborl-1]);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
+
+#if 0
+    auto extended_ghost_elts=M_extended_ghost_elts;
+    for (auto it=extended_ghost_elts.begin(), end=extended_ghost_elts.end(); it!=end; ++it)
+    {
+        for (int i=0; i<3; i++)
+        {
+            if (neighbors[3*(it->number-1)+i] > 0)
+            {
+                if (!(M_global_triangles[neighbors[3*(it->number-1)+i]-1].isOnProcessor()))
+                {
+                    M_extended_ghost_elts.push_back(M_global_triangles[neighbors[3*(it->number-1)+i]-1]);
+
+                    int currentl1=M_global_triangles[neighbors[3*(it->number-1)+i]-1].number;
+
+                    for (int j=0; j<3; j++)
+                    {
+                        if (neighbors[3*(currentl1-1)+j] > 0)
+                        {
+                            if (!(M_global_triangles[neighbors[3*(currentl1-1)+j]-1].isOnProcessor()))
+                            {
+                                M_extended_ghost_elts.push_back(M_global_triangles[neighbors[3*(currentl1-1)+j]-1]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     std::sort(M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
               [&]( element_type elt1, element_type elt2 )->bool{
@@ -1793,6 +1853,16 @@ GmshMesh::nodalGridExtended()
         }
     }
 
+#if 0
+    for (int k=0; k<M_nldof_without_ghost; ++k)
+    {
+        if (M_comm.rank()==2)
+        {
+            std::cout<<"M_local_dof_without_ghost["<< k <<"]= "<< M_transfer_map_reordered.left.find(M_local_dof_without_ghost[k])->second <<"\n";
+        }
+    }
+#endif
+
     std::sort(M_local_ghost.begin(), M_local_ghost.end());
     M_global_num_nodes = M_num_nodes;
     M_num_nodes = M_nodes.size();
@@ -1803,10 +1873,9 @@ GmshMesh::nodalGridExtended()
 
     for (auto it=_triangles.begin(), end=_triangles.end(); it!=end; ++it)
     {
-        if ((M_comm.rank() <= it->partition))
+        if (1)//((M_comm.rank() <= it->partition))
         {
             // the code below is probably not needed
-#if 1
             bool _test = false;
 
             for (int i=0; i<3; ++i)
@@ -1820,7 +1889,7 @@ GmshMesh::nodalGridExtended()
 
             if (_test)
                 continue;
-#endif
+
             it->ghostNodes.assign(3,false);
 
             // new add
