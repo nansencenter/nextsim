@@ -5201,8 +5201,12 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
+        // Heatflux compensation by the concentration reduced by assimilation
+        double assm_flux_factor = 0.0;
+        double Qassm_mean =  assm_flux_factor * M_conc_upd[i] * (Qow[i] - Qio);
+
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow_mean+Qio_mean)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm_mean)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
@@ -5419,7 +5423,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
-            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw )/(physical::rhow*physical::cpw*mld);
+            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw +  Qassm_mean)/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );

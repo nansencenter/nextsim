@@ -282,7 +282,7 @@ ModelVariable::initElemental()
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
-            M_min_val = 0.;
+            M_min_val = -1.;
             M_has_max = true;
             M_max_val = 1.;
             break;
