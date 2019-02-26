@@ -396,6 +396,14 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_Qassim):
+            // flux from assim [W/m^2]
+            M_name = "D_Qassim";
+            M_export_name = "Qassim";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
         case (variableID::D_delS):
             // Salt balance of the ocean (all sources) [kg/day]
             M_name = "D_delS";

@@ -5096,6 +5096,8 @@ FiniteElement::thermo(int dt)
         double  Qio=0.;         //! \param Qio (double) Ice-ocean heat flux
         double  Qio_thin=0.;    //! \param Qio_thin (double) Ice-ocean heat flux through thin ice
 
+        double  Qassm=0.;       //! \param Qassm (double) compensating flux to ocean due to assimilation [W/m^2]
+
         //! 3.2) Saves old _volumes_ and concentrations
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
@@ -5161,6 +5163,12 @@ FiniteElement::thermo(int dt)
                 Fdw = Fdw_const;
             }
         }
+        // Heatflux compensation by the concentration reduced by assimilation
+        double q_assm_factor = 1.0;
+        Qassm = q_assm_factor * M_conc_upd[i] * (Qow[i] - Qio);
+
+        //relaxation of concentration update with time
+        //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
@@ -5201,12 +5209,8 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
-        // Heatflux compensation by the concentration reduced by assimilation
-        double assm_flux_factor = 0.0;
-        double Qassm_mean =  assm_flux_factor * M_conc_upd[i] * (Qow[i] - Qio);
-
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm_mean)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
@@ -5423,7 +5427,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
-            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw +  Qassm_mean)/(physical::rhow*physical::cpw*mld);
+            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qassm)/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
@@ -5503,6 +5507,9 @@ FiniteElement::thermo(int dt)
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
+
+        // flux from assim
+        D_Qassim[i] = Qassm;
 
         // Salt balance of the ocean (all sources) - kg/day
         D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
@@ -6372,6 +6379,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
+    M_variables_elt.push_back(&D_Qassim);
     D_emp = ModelVariable(ModelVariable::variableID::D_emp);//! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
     M_variables_elt.push_back(&D_emp);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
