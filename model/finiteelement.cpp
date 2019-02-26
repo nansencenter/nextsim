@@ -7300,7 +7300,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int index_u = i;
                     int index_v = i + M_num_nodes;
 
-                    double tau_i = std::hypot(D_tau_w[index_v], D_tau_w[index_v]);
+                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
