@@ -142,6 +142,7 @@ public:
         fyi_fraction    = 16,
         age_d       = 17,
         age         = 18,
+        conc_upd    = 19,
 
         // Diagnostic variables
         Qa          = 100,
@@ -335,6 +336,13 @@ public:
                     longName = "Sea ice age";
                     stdName  = "aea_ice_age";
                     Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_upd):
+                    name     = "conc_upd";
+                    longName = "conc_upd";
+                    stdName  = "conc_upd";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 
