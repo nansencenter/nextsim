@@ -41,28 +41,26 @@ compile BAMG and MAPX libraries.
 
 Now you can use this image for compiling nextsim core and model. You need to run a container:
 ```
-docker run --rm -v `pwd`:/nextsim -w /nextsim/core/src nextsim make model -j8
+docker run --rm -v `pwd`:/nextsim nextsim make model -j8
 ```
-Note that you should specify the working directory with `-w` option.
-
 These commands will:
 * start a container whith all the required libraries
-* set environment variables in the container (PATH, NEXSIMDIR, etc..)
+* set environment variables in the container (PATH, NEXTSIMDIR, etc..)
 * mount the current folder (with nextsim source code) into /nextsim in container
 * compile the code in the core and model directories and save the objects and executable in the
-mounted directories. It means that the generated binary files will be available both for the host
+mounted directories. NB: the generated binary files will be available both for the host
 (in the current directory) and for the container (in /nextsim).
 
 If you want to recompile only the model code :
 ```
-docker run --rm -v `pwd`:/nextsim -w /nextsim/model nextsim make cleanmodel
-docker run --rm -v `pwd`:/nextsim -w /nextsim/model nextsim make model -j8
+docker run --rm -v `pwd`:/nextsim nextsim make cleanmodel
+docker run --rm -v `pwd`:/nextsim nextsim make model -j8
 ```
 
 ## 4. Run the neXtSIM executable inside a container
 
 The image is built to run any executable inside a container. For example, if you only want to run
-bash, execute:
+bash:
 ```
 docker run -it --rm -v `pwd`:/nextsim nextsim bash
 ```
