@@ -1,6 +1,17 @@
 neXtSIM conventions
 ===================
 
+Version numbering
+-----------------
+
+We use semantic versioning (https://semver.org/). In brief this means the master branch has a version number assigned (tagged) to each commit. The numbers are of the form major.minor.patch, where:
+
+    1. MAJOR version when you make incompatible API changes
+    2. MINOR version when you add functionality in a backwards-compatible manner, and
+    3. PATCH version when you make backwards-compatible bug fixes.
+
+This is not directly applicable to our work flow, but changes in major numbers should be related to major user facing changes (different input or output format, for instance), while minor numbers should relate to changes in functionality (new physics, for instance). The patch number is incremented for each hotfix (see below).
+
 Git branching and merging
 -------------------------
 
@@ -36,7 +47,10 @@ If you have been assigned an issue on https://github.com/nansencenter/nextsim/is
         3. Once the issue is fixed merge the **master** branch back into your issue branch and resolve any conflicts.
         4. Create a pull request on GitHub to merge the issue branch back into **master**. Always include at least one reviewer who will then merge and delete the issue branch.
         5. Merge the **master** branch into **develop** in your local repository, resolve conflicts, test, and push the updated **develop** branch.
-        6. Close the issue.
+        6. Tag the merge by incrementing the patch number of the version number.
+            (Do this on the command line with "git tag LABEL".)
+            (See the existing tags with "git tag -l".)
+        7. Close the issue.
 
 For issues not requiring a hotfix (less urgent bug-fixes and feature requests):
 
@@ -54,6 +68,7 @@ Code conventions
 
         * neXtSIM is written using ISO C++11
         * Indentation is done using a set of four (4) spaces (no tabs)
+        * Maximum line length is 100 characters
         * All array opperations should be done using std::vectors - not C-style arrays
         * The use of C-style pointers, new, and delete is strongly discouraged
         * Names of (class) global variables start with M_, except for diagnostic variables which start with D_. The names of prognostic global variables should start with P_, but this is not yet implemented.

@@ -15,14 +15,15 @@ namespace setup
 
     enum class AtmosphereType
     {
-        CONSTANT = 0,
-        ASR      = 1,
-        ERAi     = 2,
-        EC       = 3,
-        EC2      = 4,
-        EC_ERAi  = 5,
-        CFSR     = 6,
-        CFSR_HI  = 7
+        CONSTANT  = 0,
+        ASR       = 1,
+        ERAi      = 2,
+        EC        = 3,
+        EC2       = 4,
+        EC_ERAi   = 5,
+        CFSR      = 6,
+        CFSR_HI   = 7,
+        EC2_AROME = 8
     };
 
 	enum class OceanType
@@ -32,7 +33,8 @@ namespace setup
 		TOPAZF   = 2,
         MITGCM   = 3,
         TOPAZR_atrest   = 4,
-        TOPAZR_ALTIMETER   = 5
+        TOPAZR_ALTIMETER   = 5,
+        COUPLED  = 6
     };
 
     enum class IceType
@@ -100,6 +102,12 @@ namespace setup
         WINTON     = 1
     };
 
+    enum class FreezingPointType
+    {
+        LINEAR     = 0,
+        NON_LINEAR = 1
+    };
+
     enum class DynamicsType
     {
         DEFAULT         = 0,
@@ -108,4 +116,15 @@ namespace setup
     };
 
 } // setup
+
+namespace schemes
+{
+    enum class specificHumidity
+    {
+        ATMOSPHERE = 0,
+        WATER      = 1,
+        ICE        = 2
+    };
+} // schemes
+
 } // Nextsim

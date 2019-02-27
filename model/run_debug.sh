@@ -18,7 +18,8 @@ fi
 CONFIG=$1
 NCPU=$2
 # Memory reserved for solver
-MUMPS_MEM=${3-200}
+MUMPS_MEM=${3-400}
+MAXITS=${4-"None"} 
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -29,13 +30,25 @@ git diff > $P/git_changes.txt
 cd $P
 
 # valgrind options
-vopts[0]="--log-file=vlgrnd.log"
-vopts[1]="--leak-check=full"  # see details of leaked memory
-vopts[2]="--track-origins=yes" # see where uninitialised values come from
+vopts=()
+vopts+=("--log-file=vlgrnd.log")
+vopts+=("--leak-check=full")  # see details of leaked memory
+vopts+=("--track-origins=yes") # see where uninitialised values come from
 
 # nextsim options
-nsopts[0]="--config-file=$CONFIG"
-nsopts[1]="--debugging.maxiteration=1" # just run nextsim for 1 time step
+nsopts=()
+nsopts+=("--config-file=$CONFIG")
+if [ $MAXITS != "None" ]
+then
+   if [ $MAXITS -gt 0 ] 2>/dev/null 
+   then
+      # no error from -gt if integer
+      nsopts+=("--debugging.maxiteration=$MAXITS") # just run nextsim for 1 time step
+   else
+      echo "MAXITS argument needs to be 'None' or an integer >0"
+      exit 1
+   fi
+fi
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]
