@@ -4749,7 +4749,6 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
 //------------------------------------------------------------------------------------------------------
 {
     std::vector<double> prob(M_num_elements);
-    double strain_c ;
     const double young=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
@@ -4757,19 +4756,26 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     const double threshold=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     // double R      ;// Ratio of energy in waves over total energy (includiing elastic energy)
 
-    strain_c = flex_strength / young ; // valid for a beam... should be changed
+    double const strain_c = flex_strength / young ; // valid for a beam... should be changed
     for (int i=0; i<M_num_elements; i++)
     {
-        double lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
-        double R = 1. + 4*young*std::pow(M_thick[i],3) *std::pow(PI/lambda,4)/(3*physical::rhow*physical::g*(1-std::pow(poisson,2)));
-        //double brk_prb_inf = ...;
+        if( M_tm02[i] < 1.e-8 || M_str_var[i]<1.e-8)
+        {
+            prob[i] = 0.;
+            continue;
+        }
+
+        double const lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+        double const R = 1. + 4*young*std::pow(M_thick[i],3)
+            *std::pow(PI/lambda,4)
+            /(3*physical::rhow*physical::g*(1-std::pow(poisson,2)));
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
                             (2* M_str_var[i]/R* std::pow(M_thick[i]/2,2) ) 
                          ) ;
 
         //prob[i]=std::pow(1-M_conc[i],5);	
         if (prob[i]<threshold)
-            prob[i]=0. ;
+            prob[i] = 0.;
         //M_var_str[i]
     }
     return prob;
@@ -4782,6 +4788,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 //! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
 //------------------------------------------------------------------------------------------------------
 {
+
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double broken_area        ; // area of broken floes in each category to be redistributed
@@ -4791,36 +4798,39 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     auto P_inf = this -> computeWaveBreakingProb();
  
     for (int i=0; i<M_num_elements; i++)
-   {
-       //! Compute the wavelength associated with Tm02
-       double lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
-       double cg_w=0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-       double tau_w=1.*M_res_root_mesh/cg_w               ;
-       //! Compute wave induced break-up probability for the different floe size categories
-       for (int j=1; j<M_num_fsd_bins; j++)
-       {
-           P[j] = P_inf[i] * std::max(0.,
-                             std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
-//                          std::tanh( M_fsd_bin_centres[j]-0.3*lambda /  M_fsd_bin_centres[j]*10 )
-                                     ) ;
+    {
+        //! Compute the wavelength associated with Tm02
+        double const lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+        double const cg_w=0.5*std::sqrt(physical::g*lambda/2/PI)           ;
+        double const tau_w=1.*M_res_root_mesh/cg_w               ;
 
-           //! Then update FSD with uniform redistribution
-           //! 1.a Compute the broken area in each category
-           broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w))        ;
-           M_conc_fsd[j][i] = M_conc_fsd[j][i] - broken_area ;
-           if (P[j]> 0)
-           {
-               //std::cout<<"P(j)>0 ->"<<P[j] <<"and j"<<j<<"\n" ; 
-               //! 1.b Define a redistributor beta (Zhang et al,.2015)  
-               beta = 1./j ;   
-               // So far, redistribution also occures within the broken category
-               //! 2. Redistibute uniformly
-               for (int k=0; k<j ; k++)
-                   M_conc_fsd[k][i]= M_conc_fsd[k][i] + beta * broken_area ;
-           }            
-       }
-    }
-}
+        //! Compute wave induced break-up probability for the different floe size categories
+        for (int j=1; j<M_num_fsd_bins; j++)
+        {
+            // don't try to break if there are no waves
+            if( P_inf[i] <= 0.)
+                continue;
+
+            P[j] = P_inf[i] * std::max(0.,
+                              std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
+//                           std::tanh( M_fsd_bin_centres[j]-0.3*lambda /  M_fsd_bin_centres[j]*10 )
+                                      ) ;
+
+            //! Then update FSD with uniform redistribution
+            //! 1.a Compute the broken area in each category
+            broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w))        ;
+            M_conc_fsd[j][i] -= broken_area ;
+
+            //std::cout<<"P(j)>0 ->"<<P[j] <<"and j"<<j<<"\n" ;
+            //! 1.b Define a redistributor beta (Zhang et al,.2015)
+            beta = 1./j ;
+            // So far, redistribution also occurs within the broken category
+            //! 2. Redistribute uniformly
+            for (int k=0; k<j ; k++)
+                M_conc_fsd[k][i] += beta * broken_area ;
+        }
+    }//loop over elements
+}//redistributeFSD
 
 
 //------------------------------------------------------------------------------------------------------
