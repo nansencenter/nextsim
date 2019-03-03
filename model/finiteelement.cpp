@@ -6273,16 +6273,21 @@ FiniteElement::calcAuxiliaryVariables()
 
 
 // ==============================================================================
-//! init the ModelVariable objects
+//! Initialise the ModelVariable objects
 //! - 1) Instantiate them
 //! - 2) Loop over them and sort them into prognostic variables
 //!      and ones we will export to binary files
-//! \note we don't resize yet
+//!
+//! \note Steps to create a new elemental variable (nodal var's not implemented yet):
+//!     - i) define a variable ID in model_variable.hpp
+//!     - ii) define ModelVariable attributes for the variable in model_variable.cpp
+//!     - iii) instantiate and add it to M_variables_elt
+//!     - iv) initialise it in initModelState() (initIce() or initSlabOcean())
 void
 FiniteElement::initModelVariables()
 {
 
-    //! -1) init all ModelVariable's and put them in M_variables_elt
+    //! - 1) init all ModelVariable's and put them in M_variables_elt
     // Prognostic variables
     M_conc = ModelVariable(ModelVariable::variableID::M_conc);//! \param M_conc (double) Concentration of thick ice
     M_variables_elt.push_back(&M_conc);
@@ -6386,7 +6391,7 @@ FiniteElement::initModelVariables()
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
 
-    //! -2) loop over M_variables_elt in order to sort them
+    //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
     M_export_variables_elt.resize(0);
@@ -6416,7 +6421,7 @@ FiniteElement::initModelVariables()
         ptr->resize(M_num_elements);
     }// loop over M_variables_elt
 
-    //! -3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
+    //! - 3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
     //! using ModelVariable::interpTransformation
     //! \note need to do the ModelVariable::interpTransformation::none type variables
     //! first, since the others need M_conc or M_thick
