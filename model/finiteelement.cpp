@@ -5397,18 +5397,22 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     {
 
         Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
-#ifdef OASIS
-        // The ocean model tells us how much SW is absorbed in the top layer
-        if ( M_ocean_type == setup::OceanType::COUPLED )
-            Qsw[i] *= M_qsrml[i];
-#endif
+
         /* Out-going long-wave flux */
         double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
 
         // Sum them up:
         // Qow>0 => flux out of ocean:
-        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+        Qow[i] = Qlw[i] + Qsh[i] + Qlh[i];
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        // NB: Qsw should still be the total SW delivered to the ocean
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qow[i] += Qsw[i]*M_qsrml[i];
+        else
+#endif
+            Qow[i] += Qsw[i];
     }
 }
 
@@ -5905,7 +5909,7 @@ FiniteElement::thermo(int dt)
         D_Qo[i] = Qio_mean + Qow_mean;
 
         // Non-solar fluxes to ocean - TODO: Account for penetrating SW
-        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
+        D_Qnosun[i] = Qio_mean + old_ow_fraction*(Qlw_ow[i]+Qlh_ow[i]+Qsh_ow[i]);
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
