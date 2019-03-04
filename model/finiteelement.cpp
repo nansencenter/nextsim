@@ -5915,11 +5915,11 @@ FiniteElement::thermo(int dt)
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
 
         // Freshwater balance at the surface - kg/m^2/s
-        D_fwflux[i] = 1./ddt * ( emp
-                 - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
+        D_fwflux[i] = -1./ddt * ( emp
+                 + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Brine release - kg/m^2/s
-        D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
