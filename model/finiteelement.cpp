@@ -5334,7 +5334,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> Qlw_in(M_num_elements);
         for ( int i=0; i<M_num_elements; ++i )
         {
-            sst[i] = M_sst[i];
+            sst[i] = M_sst[i] + physical::tfrwK;
             t2m[i] = M_tair[i] + physical::tfrwK;
             mslp[i] = M_mslp[i];
             Qsw_in[i] = M_Qsw_in[i];
@@ -5351,7 +5351,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
         aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, evap, Qsw_in_c, Qlw_in_c);
     } else {
 #endif
         for ( int i=0; i<M_num_elements; ++i )

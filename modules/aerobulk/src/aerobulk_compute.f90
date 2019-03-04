@@ -23,7 +23,7 @@ CONTAINS
 
   subroutine aerobulk_nextsim_skin( calgo, zt, zu, sst, t_zt, &
                                     q_zt, U_zu, slp,          &
-                                    QL, QH, Cd_rho_U,         &
+                                    QL, QH, Cd_rho_U, evap,   &
                                     l, m,                     &
                                     rad_sw, rad_lw ) bind(c)
 
@@ -31,7 +31,7 @@ CONTAINS
      CHARACTER(c_char), DIMENSION(l+1), INTENT(in)  :: calgo
      REAL(c_double),                    INTENT(in)  :: zt, zu
      REAL(c_double),    DIMENSION(m+1), INTENT(in)  :: sst, t_zt, q_zt, U_zu, slp
-     REAL(c_double),    DIMENSION(m+1), INTENT(out) :: QL, QH, Cd_rho_U
+     REAL(c_double),    DIMENSION(m+1), INTENT(out) :: QL, QH, Cd_rho_U, evap
      REAL(c_double),    DIMENSION(m+1), INTENT(in)  :: rad_sw, rad_lw
 
      ! Locals
@@ -49,7 +49,7 @@ CONTAINS
      ! Call the actual routine
      call aerobulk_compute_nextsim( calgo_fort, zt, zu, sst, t_zt, &
                                     q_zt, U_zu, slp,               &
-                                    QL, QH, Cd_rho_U,              &
+                                    QL, QH, Cd_rho_U, evap,        &
                                     m,                             &
                                     rad_sw=rad_sw, rad_lw=rad_lw )
 
@@ -57,14 +57,14 @@ CONTAINS
 
   subroutine aerobulk_nextsim_no_skin( calgo, zt, zu, sst, t_zt, &
                                        q_zt, U_zu, slp,          &
-                                       QL, QH, Cd_rho_U,         &
+                                       QL, QH, Cd_rho_U, evap,   &
                                        l, m) bind(c)
 
      INTEGER,                           INTENT(in)  :: l, m
      CHARACTER(c_char), DIMENSION(l+1), INTENT(in)  :: calgo
      REAL(c_double),                    INTENT(in)  :: zt, zu
      REAL(c_double),    DIMENSION(m,1), INTENT(in)  :: sst, t_zt, q_zt, U_zu, slp
-     REAL(c_double),    DIMENSION(m,1), INTENT(out) :: QL, QH, Cd_rho_U
+     REAL(c_double),    DIMENSION(m,1), INTENT(out) :: QL, QH, Cd_rho_U, evap
 
      ! Locals
      character(len=l) :: calgo_fort
@@ -81,7 +81,7 @@ CONTAINS
      ! Call the actual routine
      call aerobulk_compute_nextsim( calgo_fort, zt, zu, sst, t_zt, &
                                     q_zt, U_zu, slp,               &
-                                    QL, QH, Cd_rho_U,              &
+                                    QL, QH, Cd_rho_U, evap,        &
                                     m)
 
   end subroutine aerobulk_nextsim_no_skin
@@ -89,7 +89,7 @@ CONTAINS
 
   SUBROUTINE aerobulk_compute_nextsim( calgo, zt, zu, sst, t_zt, &
                                        q_zt, U_zu, slp,          &
-                                       QL, QH, Cd_rho_U,         &
+                                       QL, QH, Cd_rho_U, evap,   &
                                        m,                        &
                                        rad_sw, rad_lw )
 
@@ -131,7 +131,7 @@ CONTAINS
      REAL(wp),                 INTENT(in)  :: zt, zu
      INTEGER,                  INTENT(in)  :: m
      REAL(wp), DIMENSION(m,1), INTENT(in)  :: sst, t_zt, q_zt, U_zu, slp
-     REAL(wp), DIMENSION(m,1), INTENT(out) :: QL, QH, Cd_rho_U
+     REAL(wp), DIMENSION(m,1), INTENT(out) :: QL, QH, Cd_rho_U, evap
      REAL(wp), DIMENSION(m,1), INTENT(in), OPTIONAL :: rad_sw, rad_lw
 
      REAL(wp), DIMENSION(m,1) ::  &
@@ -221,8 +221,9 @@ CONTAINS
 
 
      !! *** Latent and Sensible heat fluxes ***
-     QL = Ce*XRHO*Lvap(Ts)     * (XQzu - qs) * XUblk
-     QH = Ch*XRHO*cp_air(XQzu) * (XTzu - Ts) * XUblk
+     QL = -Ce*XRHO*Lvap(Ts)     * (XQzu - qs) * XUblk
+     QH = -Ch*XRHO*cp_air(XQzu) * (XTzu - Ts) * XUblk
+     evap = -QL/(Lvap(Ts)*1000.)
 
   END SUBROUTINE aerobulk_compute_nextsim
 

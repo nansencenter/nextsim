@@ -33,6 +33,7 @@ namespace aerobulk
             std::vector<double>& sst,  std::vector<double>& t_zt, std::vector<double>& q_zt,
             std::vector<double>& U_zu, std::vector<double>& slp,
             std::vector<double>& QL, std::vector<double>& QH, std::vector<double>& Cd_rho_U,
+            std::vector<double>& evap,
             const std::vector<double>& rad_sw = std::vector<double>(),
             const std::vector<double>& rad_lw = std::vector<double>());
 

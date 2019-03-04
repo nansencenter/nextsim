@@ -6,13 +6,13 @@ extern "C"
 {
     void aerobulk_nextsim_skin( const char *, const double *, const double *, const double *, const double *,
             const double *, const double *, const double *,
-            double *, double *, double *,
+            double *, double *, double *, double *,
             int *, int *,
             const double *, const double *);
 
     void aerobulk_nextsim_no_skin( const char *, const double *, const double *, const double *, const double *,
             const double *, const double *, const double *,
-            double *, double *, double *,
+            double *, double *, double *, double *,
             int *, int *);
 }
 
@@ -56,6 +56,7 @@ void aerobulk::model( algorithm algo, double z_t, double z_u,
         std::vector<double>& sst, std::vector<double>& t_zt, std::vector<double>& q_zt,
         std::vector<double>& U_zu, std::vector<double>& slp,
         std::vector<double>& QL, std::vector<double>& QH, std::vector<double>& Cd_rho_U,
+        std::vector<double>& evap,
         const std::vector<double>& rad_sw, const std::vector<double>& rad_lw)
 {
     // Algorithm type
@@ -72,15 +73,16 @@ void aerobulk::model( algorithm algo, double z_t, double z_u,
     QL.resize(m);
     QH.resize(m);
     Cd_rho_U.resize(m);
+    evap.resize(m);
 
     // The actual function call - we need to send the addresses/pointer because it's a C interface to a Fortran routine
     if ( m == n )
         aerobulk_nextsim_skin( calgo.c_str(), &z_t, &z_u, &sst[0], &t_zt[0], &q_zt[0], &U_zu[0], &slp[0],
-                &QL[0], &QH[0], &Cd_rho_U[0],
+                &QL[0], &QH[0], &Cd_rho_U[0], &evap[0],
                 &l, &m,
                 &rad_sw[0], &rad_lw[0]);
     else
         aerobulk_nextsim_no_skin( calgo.c_str(), &z_t, &z_u, &sst[0], &t_zt[0], &q_zt[0], &U_zu[0], &slp[0],
-                &QL[0], &QH[0], &Cd_rho_U[0],
+                &QL[0], &QH[0], &Cd_rho_U[0], &evap[0],
                 &l, &m);
 }
