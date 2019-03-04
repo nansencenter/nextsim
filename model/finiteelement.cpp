@@ -7872,6 +7872,7 @@ FiniteElement::initMoorings()
             LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  tau\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
                 LOG(ERROR)<<"  "<< ptr->first <<"\n";
