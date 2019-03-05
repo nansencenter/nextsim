@@ -48,7 +48,7 @@ FiniteElement::initMesh()
     }
 
 #if 0
-    std::string local_mesh_basename = "extendlocalmesh";
+    std::string local_mesh_basename = "extendlocalmesh10km";
     std::string local_mesh_filename = (boost::format( "%1%/%2%_%3%.msh" )
                                        % Environment::nextsimMeshDir().string()
                                        % local_mesh_basename
@@ -4796,7 +4796,7 @@ FiniteElement::update()
     double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
     double td = td0;
     if (dtime_step/td0 > 10.0) {
-        std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU";
+        std::cout << "Warning: for best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU\n";
     }
     std::string td_type = vm["damage.td_type"].as<std::string>();
 
