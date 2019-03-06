@@ -150,6 +150,8 @@ public:
         Qsh         = 103,
         Qlh         = 104,
         Qo          = 105,
+        rain        = 106,
+        evap        = 107,
 
         // Forcing variables
         tair        = 200,
@@ -382,6 +384,18 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::rain):
+                    name     = "rain";
+                    longName = "Surface Ocean Liquid Precipitation";
+                    stdName  = "surface_ocean_liquid_precipitation";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::evap):
+                    name     = "evap";
+                    longName = "Surface Ocean Evaporation";
+                    stdName  = "surface_ocean_evaporation";
+                    Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
 

@@ -729,10 +729,11 @@ private:
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
+    ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
-
 
 private:
     // Variables for the moorings

@@ -405,6 +405,24 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_evap):
+            // Evaporation - kg/m^2/s
+            M_name = "D_evap";
+            M_export_name = "D_evap";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_rain):
+            // Rain - kg/m^2/s
+            M_name = "D_rain";
+            M_export_name = "D_rain";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
         default:
             elemental = false;
     }

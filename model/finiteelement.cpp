@@ -5525,6 +5525,12 @@ FiniteElement::thermo(int dt)
         // Brine release - kg/m^2/s
         D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
 
+        // Evaporation
+        D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
+
+        // Rain
+        D_rain[i] = rain;
+
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -6376,6 +6382,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_brine);
     D_tau_ow = ModelVariable(ModelVariable::variableID::D_tau_ow);//! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     M_variables_elt.push_back(&D_tau_ow);
+    D_evap = ModelVariable(ModelVariable::variableID::D_evap);//! \param D_evap (double) Evaporation from the ocean
+    M_variables_elt.push_back(&D_evap);
+    D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
+    M_variables_elt.push_back(&D_rain);
 
     //! -2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -7145,6 +7155,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qo[i]*time_factor;
                 break;
+            case (GridOutput::variableID::evap):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_evap[i]*time_factor;
+                break;
+            case (GridOutput::variableID::rain):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_rain[i]*time_factor;
+                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -7402,6 +7420,8 @@ FiniteElement::initMoorings()
             ("snowfall", GridOutput::variableID::snowfall)
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
+            ("rain", GridOutput::variableID::rain)
+            ("evap", GridOutput::variableID::evap)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)

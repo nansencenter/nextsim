@@ -93,7 +93,9 @@ public:
         D_Qsw_ocean  = 112,
         D_tau_ow     = 113,
         D_fwflux     = 114,
-        D_brine      = 115
+        D_brine      = 115,
+        D_evap       = 116,
+        D_rain       = 117
     };
 
 
