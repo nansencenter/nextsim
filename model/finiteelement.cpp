@@ -6202,21 +6202,12 @@ FiniteElement::init()
 #endif
 
     //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
-#ifdef OASIS
-    // OASIS needs the external data to be read in for the previous coupling time step
-    pcpt -= cpl_time_step/time_step;
-#endif
-
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time);
     if (M_rank == 0)
         LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
-
-#ifdef OASIS
-    pcpt += cpl_time_step/time_step;
-#endif
 
     //! - 7) If not using a restart, initializes the model from the datasets
     //       or can do assimilation (optional) if using a restart
