@@ -1196,7 +1196,7 @@ FiniteElement::initOptAndParam()
 #ifdef AEROBULK
     //! Sets options on the ocean-atmosphere bulk formula
     const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
-        ("nextsim", aerobulk::algorithm::neXtSIM)
+        ("nextsim", aerobulk::algorithm::OTHER)
         ("coare", aerobulk::algorithm::COARE)
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
@@ -4905,7 +4905,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
-    if ( M_ocean_bulk_formula != aerobulk::algorithm::neXtSIM )
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
@@ -4914,6 +4914,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> mslp(M_num_elements);
         std::vector<double> Qsw_in(M_num_elements);
         std::vector<double> Qlw_in(M_num_elements);
+        std::vector<double> T_s(M_num_elements);
         for ( int i=0; i<M_num_elements; ++i )
         {
             sst[i] = M_sst[i] + physical::tfrwK;
@@ -4932,8 +4933,22 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         // and 10. in the function call.
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
-        aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, evap, Qsw_in_c, Qlw_in_c);
+
+        /* aerobulk expects u and v components of wind and returns u and v
+         * components of stress ... but we just give it the speed and recieve
+         * the modulus of the stress */
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, wspeed, mslp,
+                Qlh, Qsh, tau, tau, Qsw_in_c, Qlw_in_c, T_s);
+        const std::vector<double> Lv = aerobulk::lvap(sst);
+
+        // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            Qlh[i] *= -1;
+            Qsh[i] *= -1;
+            tau[i] /= wspeed[i];
+            evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
+        }
     } else {
 #endif
         for ( int i=0; i<M_num_elements; ++i )
