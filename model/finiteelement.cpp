@@ -8249,9 +8249,14 @@ FiniteElement::partitionMeshRestart()
         timer["savemesh"].first.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.initGModel();
             M_mesh_root.writeToGModel();
+        }
         else if (M_partition_space == mesh::PartitionSpace::DISK)
+        {
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+        }
 
         LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
@@ -8266,8 +8271,11 @@ FiniteElement::partitionMeshRestart()
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
+    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
+    std::vector<int> sizes_nodes = M_sizes_nodes;
 
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
