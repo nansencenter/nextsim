@@ -34,7 +34,11 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_thick):
@@ -45,7 +49,9 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_snow_thick):
@@ -56,7 +62,9 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_sigma):
@@ -67,7 +75,7 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
             if(M_component_number<0 || M_component_number>2)
                 throw std::runtime_error(
                         "Unauthorised component number for M_sigma: "
@@ -82,7 +90,11 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_ridge_ratio):
@@ -93,7 +105,11 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_tice):
@@ -102,7 +118,9 @@ ModelVariable::initElemental()
             M_export_name = "Tice";
             M_prognostic = true;
             M_exporting = true;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_value_no_thick_ice = true;
+            M_value_no_thick_ice = M_tfr_ice;
             switch(M_component_number)
             {
                 case(0):
@@ -171,7 +189,9 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_hs_thin):
@@ -182,7 +202,9 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_conc_thin):
@@ -193,12 +215,16 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_random_number):
             // random number (uniform in [0,1]) used in the definition of the cohesion as follows:
-            // M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]-0.5);
+            // M_Cohesion[i] = C_fix+C_alea*M_random_number[i];
             M_name = "M_random_number";
             M_export_name = "M_random_number";
             M_prognostic = true;
@@ -208,25 +234,30 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
-#if 0
         case (variableID::M_fyi_fraction):
             M_name = "M_fyi_fraction";
             M_export_name = "Fyi_fraction";
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::conc;
-            M_diffusivity = 0;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
-        case (variableID::M_age_obs):
-            M_name = "M_age_obs";
-            M_export_name = "Age_o";
+        case (variableID::M_age_det):
+            M_name = "M_age_det";
+            M_export_name = "Age_d";
             M_prognostic = true;
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_age):
@@ -236,9 +267,10 @@ ModelVariable::initElemental()
             M_exporting = true;
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
-#endif
 
         // Diagnostic variables
         case (variableID::D_conc):
@@ -247,7 +279,6 @@ ModelVariable::initElemental()
             M_export_name = "Concentration";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_thick):
@@ -256,7 +287,6 @@ ModelVariable::initElemental()
             M_export_name = "Thickness";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_snow_thick):
@@ -265,7 +295,6 @@ ModelVariable::initElemental()
             M_export_name = "Snow";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_tsurf):
@@ -274,7 +303,6 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_sigma):
@@ -283,7 +311,6 @@ ModelVariable::initElemental()
             M_export_name = "Sigma";
             M_prognostic = false;
             M_exporting = true;
-            M_diffusivity = 0;
             if(M_component_number<0 || M_component_number>1)
                 throw std::runtime_error(
                         "Unauthorised component number for D_sigma: "
@@ -296,7 +323,6 @@ ModelVariable::initElemental()
             M_export_name = "Qatm";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qsw):
@@ -305,7 +331,6 @@ ModelVariable::initElemental()
             M_export_name = "Qsw";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qlw):
@@ -314,7 +339,6 @@ ModelVariable::initElemental()
             M_export_name = "Qlw";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qsh):
@@ -323,7 +347,6 @@ ModelVariable::initElemental()
             M_export_name = "Qsh";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qlh):
@@ -332,7 +355,6 @@ ModelVariable::initElemental()
             M_export_name = "Qlh";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_Qo):
@@ -341,7 +363,22 @@ ModelVariable::initElemental()
             M_export_name = "Qocean";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_Qnosun):
+            // Non-solar fluxes to ocean [W/m^2]
+            M_name = "D_Qnosun";
+            M_export_name = "Qnosun";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_Qsw_ocean):
+            // Short-wave fluxes to ocean [W/m^2]
+            M_name = "D_Qsw_ocean";
+            M_export_name = "Qsw_ocean";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         case (variableID::D_delS):
@@ -350,7 +387,6 @@ ModelVariable::initElemental()
             M_export_name = "Saltflux";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_emp):
@@ -359,7 +395,6 @@ ModelVariable::initElemental()
             M_export_name = "D_emp";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         case (variableID::D_brine):
@@ -368,7 +403,6 @@ ModelVariable::initElemental()
             M_export_name = "D_brine";
             M_prognostic = false;
             M_exporting = false;
-            M_diffusivity = 0;
             break;
 
         default:
@@ -385,7 +419,6 @@ void ModelVariable::testCall()
     std::cout<<"name = "<<this->M_name<<"\n";
     std::cout<<"export_name = "<<this->M_export_name<<"\n";
 
-#if 0
     // test inherited methods
     // - assign
     // - begin
@@ -409,7 +442,6 @@ void ModelVariable::testCall()
 
     // - size
     std::cout<<"size = "<<N<<"? "<<this->size()<<"\n";
-#endif
 
     std::abort();
 }//testCall
