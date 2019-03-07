@@ -532,6 +532,7 @@ private:
     double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
+    double t_damage;
 
     double basal_k2;
     double basal_drag_coef_air;

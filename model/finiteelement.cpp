@@ -4401,9 +4401,7 @@ FiniteElement::update()
     
     // Characteristic time for damage
     // Can be either fixed or damage-dependent
-    // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
-    double td0 = M_res_root_mesh*1.3429*pow(young/(2.0*(1.0+nu0)*rhoi),-0.5);  //Characteristic time for the propagation of damage
-    double td = td0;
+    double td = t_damage;
     std::string td_type = vm["damage.td_type"].as<std::string>();
     
     // Slope of the MC enveloppe
@@ -4644,7 +4642,7 @@ FiniteElement::update()
         
         /* Calculate the characteristic time for damage */
         if (td_type == "damage_dependent")
-            td = min(td0*pow(1-old_damage,-0.5), dtime_step);
+            td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
         /* Calculate the adjusted level of damage */
         if((sigma_1-q*sigma_2)>sigma_c)
@@ -6131,8 +6129,8 @@ FiniteElement::init()
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
-    double td0 = M_res_root_mesh*1.3429*std::pow(physical::young/(2.0*(1.0+physical::nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
-    if (dtime_step/td0 > 10.0)
+    t_damage = M_res_root_mesh*1.3429*std::pow(physical::young/(2.0*(1.0+physical::nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
+    if (dtime_step/t_damage > 10.0)
         LOG(WARNING) << "For best deformation scaling results, the ratio Deltat/td should be < 10. THE SPIRIT OF VERO IS WATCHING YOU\n";
 
     if ( M_use_restart )
