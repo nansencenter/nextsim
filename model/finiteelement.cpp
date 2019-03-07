@@ -6165,14 +6165,6 @@ FiniteElement::init()
             throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
         std::string res_str = resfil.substr(6, resfil.length());
         this->readRestart(res_str);
-
-        //write fields from restart to file (needed?)
-        if(M_rank==0)
-            LOG(DEBUG) <<"export starts\n";
-        this->updateIceDiagnostics();
-        this->exportResults("restart", true, true, true);
-        if(M_rank==0)
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
     else
     {
@@ -8295,9 +8287,14 @@ FiniteElement::partitionMeshRestart()
         timer["savemesh"].first.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.initGModel();
             M_mesh_root.writeToGModel();
+        }
         else if (M_partition_space == mesh::PartitionSpace::DISK)
+        {
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+        }
 
         LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
 
@@ -8312,8 +8309,11 @@ FiniteElement::partitionMeshRestart()
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
+    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
+    std::vector<int> sizes_nodes = M_sizes_nodes;
 
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
