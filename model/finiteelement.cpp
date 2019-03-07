@@ -7703,7 +7703,7 @@ FiniteElement::writingRestart()
     //check if it's time to write a restart
     if(!M_write_restart)
         return false;
-    else if ( pcpt*time_step % restart_time_step == 0)
+    else if ( (pcpt*time_step%restart_time_step == 0) && pcpt > 0 )
         return true;
     else
         return false;
