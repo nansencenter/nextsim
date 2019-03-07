@@ -6144,14 +6144,6 @@ FiniteElement::init()
             throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
         std::string res_str = resfil.substr(6, resfil.length());
         this->readRestart(res_str);
-
-        //write fields from restart to file (needed?)
-        if(M_rank==0)
-            LOG(DEBUG) <<"export starts\n";
-        this->updateIceDiagnostics();
-        this->exportResults("restart", true, true, true);
-        if(M_rank==0)
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
     else
     {
