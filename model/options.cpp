@@ -194,7 +194,7 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.filename", po::value<std::string>()->default_value( "" ),
+            ("restart.filename", po::value<std::string>()->default_value( "field_restart" ),
                 "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
                 "reset ice velocity to zero if starting from restart")
@@ -202,7 +202,8 @@ namespace Nextsim
                 "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // -- outputs
-            ("restart.write_restart", po::value<bool>()->default_value( false ), "")
+            ("restart.write_restart", po::value<std::string>()->default_value( "none"),
+                "If and when to write restarts [none | interval | end | both]")
             ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
             ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
                 "units of restart.output_time_step: days or time_steps")

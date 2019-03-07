@@ -1115,15 +1115,45 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
+
+    restart_time_step =  vm["restart.output_time_step"].as<double>(); //! \param restart_time_step (double) Time step for outputting restart files [s]
     if(vm["restart.output_time_step_units"].as<std::string>() == "days")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
+        restart_time_step *= days_in_sec;
     else if (vm["restart.output_time_step_units"].as<std::string>() == "time_steps")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
+        restart_time_step *= time_step;
     else
         throw std::runtime_error("restart.output_time_step_units should be days or time_steps");
+
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
+
     M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
-    M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
+    //! \param M_write_restart (bool) Option on writing restart files at an interval
+    //! \param M_restart_at_end (bool) Option on writing restart files at the end of the run
+    if ( vm["restart.write_restart"].as<std::string>() == "none" )
+    {
+        M_write_restart  = false;
+        M_restart_at_end = false;
+    }
+    else if ( vm["restart.write_restart"].as<std::string>() == "interval" )
+    {
+        M_write_restart  = true;
+        M_restart_at_end = false;
+    }
+    else if ( vm["restart.write_restart"].as<std::string>() == "at_end" )
+    {
+        M_write_restart  = false;
+        M_restart_at_end = true;
+    }
+    else if ( vm["restart.write_restart"].as<std::string>() == "both" )
+    {
+        M_write_restart  = true;
+        M_restart_at_end = true;
+    }
+    else
+    {
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for restart.write_restart " + vm["restart.write_restart"].as<std::string>());
+    }
+
     if ( restart_time_step % time_step != 0)
     {
         throw std::runtime_error("restart_time_step not an integer multiple of time_step");
@@ -7002,6 +7032,8 @@ FiniteElement::run()
     // **********************************************************************
     this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
+    if (M_restart_at_end)
+        this->writeRestart("restart");
 
     // **********************************************************************
     // Finalizing
@@ -7669,7 +7701,7 @@ bool
 FiniteElement::writingRestart()
 {
     //check if it's time to write a restart
-    if(!vm["restart.write_restart"].as<bool>())
+    if(!M_write_restart)
         return false;
     else if ( pcpt*time_step % restart_time_step == 0)
         return true;

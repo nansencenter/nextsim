@@ -557,6 +557,7 @@ private:
 
     bool M_use_restart;
     bool M_write_restart;
+    bool M_restart_at_end;
     bool M_use_assimilation;
 
     std::string M_export_path;
