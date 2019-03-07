@@ -123,7 +123,7 @@ namespace Nextsim
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "disk" ),
+            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
