@@ -201,7 +201,7 @@ namespace Nextsim
                 "To write a out a restart file at an interval given by restart.restart_output_interval")
             ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
                 "To write a out a restart file at the start of the run")
-            ("restart.output_interval", po::value<double>()->default_value( 15 ), "days")
+            ("restart.output_interval", po::value<double>()->default_value( 15 ), "How often to write restarts (with restart.write_interval_restart), in days or time_steps, according to restart.output_interval_units")
 
             // -- restart debugging
             ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
