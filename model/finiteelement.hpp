@@ -291,7 +291,6 @@ public:
             bool const& export_fields, bool const& apply_displacement);
     void updateIceDiagnostics();
 
-    bool writingRestart();
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
@@ -553,9 +552,12 @@ private:
     bool M_regrid;
     int M_nb_regrid;
 
-    bool M_use_restart;
-    bool M_write_restart;
     bool M_use_assimilation;
+
+    bool M_use_restart;
+    bool M_write_restart_interval;
+    bool M_write_restart_end;
+    bool M_write_restart_start;
 
     std::string M_export_path;
 
