@@ -7583,7 +7583,7 @@ FiniteElement::initMoorings()
         else
             filename_root = M_export_path + "/Moorings";
 
-        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time, M_use_restart);
     }
 }//initMoorings
 

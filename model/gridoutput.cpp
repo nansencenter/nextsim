@@ -756,7 +756,7 @@ GridOutput::broadcastWeights(std::vector<int>& gridP,
 
 // Initialise a netCDF file and return the file name in an std::string
 std::string
-GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
+GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time, bool append)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -793,10 +793,10 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     }
     filename << ".nc";
 
-    /* Don't do anything if the file exists - just return the file name.
+    /* If append is true we don't do anything if the file exists - just return the file name.
      * We assume it's there after a restart and that we can safely append to it */
     boost::filesystem::path full_path(filename.str());
-    if ( boost::filesystem::exists(full_path) )
+    if ( append && boost::filesystem::exists(full_path) )
         return filename.str();
 
     // Create the netCDF file.
