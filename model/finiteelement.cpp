@@ -6897,7 +6897,8 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
-                && pcpt*time_step % mooring_output_time_step == 0 )
+                && pcpt*time_step % mooring_output_time_step == 0
+                && !M_use_restart )
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)

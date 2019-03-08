@@ -700,8 +700,6 @@ private:
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
-    size_t M_nc_step;
-
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
