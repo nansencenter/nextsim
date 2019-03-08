@@ -1138,11 +1138,14 @@ FiniteElement::initOptAndParam()
     mooring_time_factor = dtime_step/double(mooring_output_time_step);
 
     // Checks
-    if ( mooring_output_time_step % time_step != 0)
+    if ( mooring_output_time_step % time_step != 0 )
         throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
 
-    if ( M_write_restart && ( restart_time_step % mooring_output_time_step != 0) )
-        throw std::runtime_error("FiniteElement::initOptAndParam: mooring_output_time_step not an integer multiple of restart_time_step");
+    if ( M_write_restart_end && ( int(duration) % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of mooring_output_time_step");
+
+    if ( M_write_restart_interval && ( restart_time_step % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of mooring_output_time_step");
 
     
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
