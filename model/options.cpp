@@ -189,7 +189,7 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.input_filename", po::value<std::string>()->default_value( "field_final" ),
+            ("restart.input_filename", po::value<std::string>()->default_value( "" ),
                 "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
                 "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
