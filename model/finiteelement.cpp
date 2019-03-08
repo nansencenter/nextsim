@@ -4625,6 +4625,30 @@ FiniteElement::update()
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
+// DEBUG GUILLAUME 
+        std::stringstream crash_msg;
+        bool crash=false;
+        if(M_num_fsd_bins>0)
+        {
+            this -> updateFSD();
+            double ctot = M_conc[cpt];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[cpt];
+
+            double ctot2 = M_conc_fsd[0][cpt];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][cpt] ;
+            
+            if(std::abs(ctot-ctot2)>1e-7)
+            {
+                crash =  true;
+                crash_msg << "Update Mec: [" <<M_rank << "], element : "<<cpt<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+            }
+            if(crash)
+                throw std::runtime_error(crash_msg.str());
+        }
+// END DEBUG GUILLAUME
 
         // END: Ridging scheme and mechanical redistribution
 
@@ -4724,7 +4748,8 @@ FiniteElement::update()
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
+        if(M_num_fsd_bins>0)
+            this -> updateFSD();
         /* Ice damage
          * We use now a constant healing rate defined as 1/time_recovery_damage
          * so that we are now able to reset the damage to 0.
@@ -4759,7 +4784,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     double const strain_c = flex_strength / young ; // valid for a beam... should be changed
     for (int i=0; i<M_num_elements; i++)
     {
-        if( M_tm02[i] < 1.e-8 || M_str_var[i]<1.e-8)
+        if( M_tm02[i] < 1.e-8 || M_str_var[i]<1.e-8 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
         {
             prob[i] = 0.;
             continue;
@@ -4829,9 +4854,64 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             for (int k=0; k<j ; k++)
                 M_conc_fsd[k][i] += beta * broken_area ;
         }
+// DEBUG GUILLAUME 
+        std::stringstream crash_msg;
+        bool crash = false;
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[i];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];
+
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if(std::abs(ctot-ctot2)>1e-7)
+            {
+               crash =  true;
+               crash_msg << "Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+            }
+        if(crash)
+            throw std::runtime_error(crash_msg.str());
+        }
+
+// END DEBUG GUILLAUME
     }//loop over elements
 }//redistributeFSD
 
+void
+FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
+//! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
+//! It conserves the distribution shape.
+//------------------------------------------------------------------------------------------------------
+{
+    for (int cpt=0; cpt<M_num_elements; cpt++)
+    {
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[cpt];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[cpt];
+
+            double ctot2 = M_conc_fsd[0][cpt];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][cpt] ;
+
+            if(std::abs(ctot-ctot2)>1e-7)
+            {  
+                if (ctot2==0.)
+                   M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot;
+                else
+                {
+                for(int k=0;k<M_num_fsd_bins;k++)
+                    M_conc_fsd[k][cpt]*= ctot/ctot2;
+                }
+            }
+        }
+     }
+}
 
 //------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
@@ -5574,7 +5654,6 @@ FiniteElement::thermo(int dt)
                 {
                     if(M_conc_thin[i] > old_conc_thin)
                         del_c_thin = M_conc_thin[i] - old_conc_thin;//>0: only treat thin ice differently if freezing new ice
-                    del_c_fsd += M_conc_thin[i] - old_conc_thin - del_c_thin;
                 }
 
                 //largest floe size category first
@@ -5603,6 +5682,30 @@ FiniteElement::thermo(int dt)
                     }
                 }
             }
+// DEBUG GUILLAUME 
+        std::stringstream crash_msg;
+        bool crash = false;
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[i];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];
+
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if(std::abs(ctot-ctot2)>2e-7)
+            {
+               crash =  true;
+               crash_msg << "Th : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+            }
+        if(crash)
+            throw std::runtime_error(crash_msg.str());
+        }
+
+// END DEBUG GUILLAUME
         }
 
         // -------------------------------------------------
@@ -6667,7 +6770,7 @@ FiniteElement::initFsd()
     for(int i=0; i<M_num_elements; i++)
     {
         // all the thick ice in the highest bin
-        M_conc_fsd[M_num_fsd_bins - 1][i] = M_conc[i]; 
+        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i]; 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
 
@@ -7027,7 +7130,6 @@ FiniteElement::step()
 #endif
             }
 
-            std::cout<<"after moorings\n";
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
@@ -7043,7 +7145,6 @@ FiniteElement::step()
             if ( vm["coupler.with_waves"].as<bool>() )
                 M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 #endif
-            std::cout<<"after oasis 1\n";
 
             if ( M_use_moorings )
             {
@@ -7055,7 +7156,6 @@ FiniteElement::step()
 #endif
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
             }
-            std::cout<<"after oasis 2\n";
 
             ++M_nb_regrid;
 
@@ -7077,7 +7177,9 @@ FiniteElement::step()
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
-
+        // Update FSD in case conc. has been modified during regrid.
+        if (M_num_fsd_bins>0)
+            this ->updateFSD();
         // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
             this->checkFields();
@@ -7105,13 +7207,13 @@ FiniteElement::step()
     if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) )
     {        
         chrono.restart();
-        LOG(DEBUG) <<"CheckFields before FSD \n";
-        this->checkFields();
-        LOG(DEBUG) <<"FSD redistribution starts\n";   
+        // LOG(DEBUG) <<"CheckFields before FSD \n";
+        //this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
         this->redistributeFSD();   
         LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
         this->checkFields();
-        LOG(DEBUG) <<"CheckFields after FSD \n";
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-FSD checkfields is a success \n";
     }
     //======================================================================
 #endif
@@ -12930,10 +13032,11 @@ FiniteElement::checkFields()
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][i] ;
             
-            if(std::abs(ctot-ctot2)>1e-7)
+            if(std::abs(ctot-ctot2)>2e-7)
             {
                 crash =  true;
-                crash_msg << "[" <<M_rank << "] sum M_conc_fsd different to total conc\n";
+                crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
             }
         }
 

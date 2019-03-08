@@ -290,6 +290,7 @@ public:
     void scalingVelocity();
     void update();
     void redistributeFSD();
+    void updateFSD();
     std::vector<double> computeWaveBreakingProb();
 
     void checkOutputs(bool const& at_init_time);
