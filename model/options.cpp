@@ -60,15 +60,10 @@ namespace Nextsim
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
                 "call checkFields")
-            ("debugging.write_restart_before_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results before regrid")
-            ("debugging.write_restart_after_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results after regrid")
             ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
-
         
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -194,19 +189,29 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.filename", po::value<std::string>()->default_value( "field_restart" ),
+            ("restart.input_filename", po::value<std::string>()->default_value( "field_final" ),
                 "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
-            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
-                "reset ice velocity to zero if starting from restart")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
                 "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
 
             // -- outputs
-            ("restart.write_restart", po::value<std::string>()->default_value( "none"),
-                "If and when to write restarts [none | interval | end | both]")
-            ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
-                "units of restart.output_time_step: days or time_steps")
+            ("restart.write_final_restart", po::value<bool>()->default_value( false ),
+                "If to write a out a restart file at the end of the run")
+            ("restart.write_interval_restart", po::value<bool>()->default_value( false ),
+                "If to write a out a restart file at an interval given by debug.restart_output_interval")
+            ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
+                "If to write a out a restart file at the start of the run")
+            ("restart.output_interval", po::value<double>()->default_value( 15 ), "days")
+
+            // -- restart debugging
+            ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
+                "Units of restart.output_interval: days or time_steps")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
+                "reset ice velocity to zero if starting from restart")
+            ("restart.output_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
+            ("restart.output_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results after regrid")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
