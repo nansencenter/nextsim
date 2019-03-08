@@ -1104,18 +1104,28 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
-    if(vm["restart.output_time_step_units"].as<std::string>() == "days")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
-    else if (vm["restart.output_time_step_units"].as<std::string>() == "time_steps")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
-    else
-        throw std::runtime_error("restart.output_time_step_units should be days or time_steps");
+
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
-    M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
+
+    M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
+    LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
+    M_write_restart_end      = vm["restart.write_final_restart"].as<bool>(); //! param M_write_restart_end (boolan) Option to write restart at the end of the simulation
+    LOG(DEBUG) << "Write restart at end " << M_write_restart_end << "\n";
+    M_write_restart_interval = vm["restart.write_interval_restart"].as<bool>(); //! param M_write_restart_end (boolan) Option to write restart at the end of the simulation
+    LOG(DEBUG) << "Write restart at an interval " << M_write_restart_interval << "\n";
+
+    if(vm["restart.output_interval_units"].as<std::string>() == "days")
+        restart_time_step = days_in_sec*vm["restart.output_interval"].as<double>(); //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else if (vm["restart.output_interval_units"].as<std::string>() == "time_steps")
+        restart_time_step = time_step*vm["restart.output_interval"].as<double>(); //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else
+        throw std::runtime_error("FiniteElement::initOptAndParam: Option restart.output_interval_units should be days or time_steps");
+
+    LOG(DEBUG) << "Restart output interval: " << restart_time_step << vm["restart.output_interval_units"].as<std::string>() << "\n";
+
     if ( restart_time_step % time_step != 0)
     {
-        throw std::runtime_error("restart_time_step not an integer multiple of time_step");
+        throw std::runtime_error("FinteElement::initOptAndParam: Option restart.output_interval not an integer multiple of simul.timestep (taking restart.output_interval_units into account)");
     }
 
     //! Moorings output time step - for restarts this needs to fit inside the restart period
@@ -6141,12 +6151,12 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
-        std::string resfil = vm["restart.filename"].as<std::string>();
+        std::string resfil = vm["restart.input_filename"].as<std::string>();
         LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
         if ( resfil.empty() )
-            throw std::runtime_error("Please provide restart.filename");
+            throw std::runtime_error("Please provide restart.input_filename");
         else if ( resfil.length()<=6 )
-            throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
+            throw std::runtime_error("Please provide valid option for restart.input_filename (currently too short)");
         std::string res_str = resfil.substr(6, resfil.length());
         this->readRestart(res_str);
     }
@@ -6638,7 +6648,7 @@ FiniteElement::step()
         {
             M_regrid = true;
 
-            if(vm["debugging.write_restart_before_regrid"].as<bool>())
+            if(vm["restart.output_before_regrid"].as<bool>())
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
@@ -6724,7 +6734,7 @@ FiniteElement::step()
             this->checkFields();
 
         // save outputs after regrid
-        if(vm["debugging.write_restart_after_regrid"].as<bool>())
+        if(vm["restart.output_after_regrid"].as<bool>())
         {
             this->updateIceDiagnostics();
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
@@ -6937,8 +6947,16 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     // check if writing restart
-    if(this->writingRestart())
+    if(at_init_time)
+    {
+        if (M_write_restart_start)
+            this->writeRestart();
+    }
+    else if ( M_write_restart_interval && ( pcpt*time_step % restart_time_step == 0) )
+    {
         this->writeRestart();
+    }
+
 }//checkOutputs
 
 
@@ -7008,6 +7026,8 @@ FiniteElement::run()
     // **********************************************************************
     this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
+    if (M_write_restart_end)
+        this->writeRestart("final");
 
     // **********************************************************************
     // Finalizing
@@ -7666,22 +7686,6 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.resetMeshMean(bamgmesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
-
-
-//------------------------------------------------------------------------------------------------------
-//! do we write a restart file this time step?
-//! called by checkOutputs()
-bool
-FiniteElement::writingRestart()
-{
-    //check if it's time to write a restart
-    if(!vm["restart.write_restart"].as<bool>())
-        return false;
-    else if ( pcpt*time_step % restart_time_step == 0)
-        return true;
-    else
-        return false;
-}//writingRestart
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.
