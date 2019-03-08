@@ -196,7 +196,7 @@ namespace Nextsim
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),
-                "If to write a out a restart file at the end of the run")
+                "To write a out a restart file at the end of the run")
             ("restart.write_interval_restart", po::value<bool>()->default_value( false ),
                 "To write a out a restart file at an interval given by restart.restart_output_interval")
             ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
