@@ -1145,7 +1145,7 @@ FiniteElement::initOptAndParam()
     if ( M_use_restart )
         M_spinup_duration = 0.;
     else
-        M_spinup_duration = vm["simul.spinup_duration"].as<double>(); !// \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
+        M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
 
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
     ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
@@ -7722,7 +7722,7 @@ FiniteElement::writeRestart()
 {
     //Determines the name to be passed to writeRestart
     std::string name_str;
-    if (vm["output.datetime_in_filename"].as<bool>())
+    if (vm["restart.datetime_in_filename"].as<bool>())
         name_str = datenumToFilenameString(M_current_time);
     else
     {
