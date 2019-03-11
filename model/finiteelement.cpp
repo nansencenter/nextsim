@@ -7722,7 +7722,7 @@ FiniteElement::writeRestart()
 {
     //Determines the name to be passed to writeRestart
     std::string name_str;
-    if (vm["output.datetime_in_filename"].as<bool>())
+    if (vm["restart.datetime_in_filename"].as<bool>())
         name_str = datenumToFilenameString(M_current_time);
     else
     {
