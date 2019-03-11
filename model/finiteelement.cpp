@@ -1141,6 +1141,11 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("FinteElement::initOptAndParam: Option restart.output_interval not an integer multiple of simul.timestep (taking restart.output_interval_units into account)");
     }
 
+    // No spinup after a restart
+    if ( M_use_restart )
+        M_spinup_duration = 0.;
+    else
+        M_spinup_duration = vm["simul.spinup_duration"].as<double>(); !// \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
 
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
     ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
@@ -8581,7 +8586,7 @@ FiniteElement::forcingAtmosphere()
             M_wind=ExternalData(
                 vm["ideal_simul.constant_wind_u"].as<double>(),
                 vm["ideal_simul.constant_wind_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(vm["ideal_simul.constant_tair"].as<double>());
             M_mixrat=ExternalData(vm["ideal_simul.constant_mixrat"].as<double>());
@@ -8599,7 +8604,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::ASR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8616,7 +8621,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8633,7 +8638,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
@@ -8651,7 +8656,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
@@ -8667,7 +8672,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8684,7 +8689,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::CFSR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8701,7 +8706,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC2_AROME:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8881,10 +8886,10 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(vm["ideal_simul.constant_ssh"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8898,11 +8903,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8916,11 +8921,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::COUPLED:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
@@ -8931,11 +8936,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::TOPAZR_ALTIMETER:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-            time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-            time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8950,11 +8955,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -11025,8 +11030,7 @@ FiniteElement::initDrifterOpts()
 {
     // init drifters after spinup
     // NB use ceil to make sure the init time is 0:00
-    M_drifters_time_init = std::ceil(time_init
-        + vm["simul.spinup_duration"].as<double>());
+    M_drifters_time_init = std::ceil(time_init + M_spinup_duration);
 
     //to be run at start time
     std::vector<double> drifters_timesteps;
