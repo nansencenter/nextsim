@@ -184,7 +184,7 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(const double Tsurf, const double hs);
@@ -531,6 +531,7 @@ private:
     double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
+    double t_damage;
 
     double basal_k2;
     double basal_drag_coef_air;
@@ -697,16 +698,16 @@ private:
     std::vector<std::string> M_export_names_elt;
 
     // Prognostic variables
-    ModelVariable M_conc;                       // Ice concentration
-    ModelVariable M_thick;// Effective ice thickness [m]
-    ModelVariable M_damage;// Ice damage
-    ModelVariable M_snow_thick;// Effective snow thickness [m]
+    ModelVariable M_conc;               // Ice concentration
+    ModelVariable M_thick;              // Effective ice thickness [m]
+    ModelVariable M_damage;             // Ice damage
+    ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
-    std::vector<ModelVariable> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
+    std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<ModelVariable> M_sigma;
-    ModelVariable M_sst;// Sea-surface (slab ocean) temperature [C]
-    ModelVariable M_sss;// Sea-surface (slab ocean) salinity [psu]
-    ModelVariable M_tsurf_thin;// Ice surface temperature of thin ice [C]
+    ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
+    ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
+    ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
     ModelVariable M_h_thin;
     ModelVariable M_hs_thin;
     ModelVariable M_conc_thin;
@@ -714,6 +715,7 @@ private:
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
+    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
@@ -729,6 +731,7 @@ private:
     ModelVariable D_Qo; // Heat loss from ocean [W/m2]
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
+    ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
