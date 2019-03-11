@@ -193,6 +193,8 @@ namespace Nextsim
                 "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
             ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
                 "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.reset_time_init", po::value<bool>()->default_value( false ),
+                "Only relevant when reset_time_counter==true. True: time_init is reset to the current time read from the restart file. False: time_init is set to simul.time_init and this is compared to the current time read from the restart file.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),

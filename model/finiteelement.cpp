@@ -8108,12 +8108,20 @@ FiniteElement::readRestart(std::string const& name_str)
 	    }
 	    else
 	    {
-            if ( time_vec[0] != time_init )
+            pcpt = 0; // This should already be the case
+            if ( vm["restart.reset_time_init"].as<bool>() )
             {
-                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
+                time_init = time_vec[0];
+            }
+            else
+            {
+                if ( time_vec[0] != time_init )
+                {
+                    std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
+                    std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
+                    std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
+                    throw std::runtime_error("Inconsistent time information in restart file");
+                }
             }
 	    }
     }
