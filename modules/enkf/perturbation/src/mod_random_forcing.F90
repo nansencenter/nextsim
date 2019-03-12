@@ -121,6 +121,23 @@ contains
 
       call limits_randf()
 !      dx=scpx(idm/2,jdm/2)
+      if(.not.randf) then
+        print *,'randf option switched off in pseudo2D.nml'
+        print *,'no perturbation will be applied'
+        INQUIRE(FILE=trim(iopath)//"/synforc.01", EXIST=file_exists)
+        print *,'checking if synforc files exists: ', file_exists
+        if (file_exists) then
+          print *,'synforc exists -> Nothing to do'
+          call exit(0)
+        else
+          call randfld_wr('01')
+          call synforc_wr('01')
+          call randfld_wr('00')
+          call synforc_wr('00')
+          print *,'synforc is set to zero for initial time'
+          call exit(0)
+        endif
+      end if
       dx=30
       print *,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells
@@ -207,19 +224,19 @@ contains
                           vclouds, vairtmp, vprecip, vrelhum, &
                           scorr, tcorr, prsflg
 
-      randf        = .true.
-      seed         = 11
-      vars%slp     =  10.0
-      vars%taux    =  1.e-3
-      vars%tauy    =  1.e-3
-      vars%wndspd  =  0.64
-      vars%clouds  =  5.e-3
-      vars%airtmp  =  9.0
-      vars%precip  =  1.0
-      vars%relhum  =  1.0
-      rf_hradius   =  500
-      rf_tradius   =  2.0
-      rf_prsflg    =  2
+!      randf        = .true.
+!      seed         = 11
+!      vars%slp     =  10.0
+!      vars%taux    =  1.e-3
+!      vars%tauy    =  1.e-3
+!      vars%wndspd  =  0.64
+!      vars%clouds  =  5.e-3
+!      vars%airtmp  =  9.0
+!      vars%precip  =  1.0
+!      vars%relhum  =  1.0
+!      rf_hradius   =  500
+!      rf_tradius   =  2.0
+!      rf_prsflg    =  2
 
       if (rf_prsflg>2 .or. rf_prsflg<0) then
             print*, 'Pressure flag must be between 0 and 2'
@@ -786,5 +803,11 @@ contains
            close(13)
 
    end subroutine
+
+real function compute_mean(mat)
+      real, dimension(:,:), intent(in) :: mat
+      compute_mean = sum(mat)/size(mat)
+!      compute_mean = sum(vec)/(max(1,size(vec)))
+     end function
 
 end module mod_random_forcing
