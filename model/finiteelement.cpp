@@ -1118,6 +1118,8 @@ FiniteElement::initOptAndParam()
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
+    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+
     M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
     LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
     M_write_restart_end      = vm["restart.write_final_restart"].as<bool>(); //! param M_write_restart_end (boolan) Option to write restart at the end of the simulation
