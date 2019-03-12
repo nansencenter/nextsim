@@ -651,7 +651,8 @@ public:
             int nb_local_el = 0,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
             BamgMesh* bamgmesh_root = NULL);
-    std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
+    std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
+            const double current_time, const bool append=false);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
 
@@ -707,8 +708,6 @@ private:
     void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
-
-    size_t M_nc_step;
 
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
