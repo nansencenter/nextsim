@@ -21,10 +21,10 @@ int main(int argc, char** argv)
 
     cout<< "Size of uwind : \t" << perturbation.synoptic.uwind.data.size()  << '\n';
     cout<< "Size of vwind : \t" << perturbation.synoptic.vwind.data.size()  << '\n';
-    cout<< "Size of t2air : \t" << perturbation.synoptic.t2air.data.size()  << '\n';
-    cout<< "Size of slp   : \t" << perturbation.synoptic.slp.data.size()    << '\n';
-    cout<< "Size of precip: \t" << perturbation.synoptic.precip.data.size() << '\n';
-    cout<< "Size of relhum: \t" << perturbation.synoptic.relhum.data.size() << '\n';
+//    cout<< "Size of t2air : \t" << perturbation.synoptic.t2air.data.size()  << '\n';
+//    cout<< "Size of slp   : \t" << perturbation.synoptic.slp.data.size()    << '\n';
+//    cout<< "Size of precip: \t" << perturbation.synoptic.precip.data.size() << '\n';
+//    cout<< "Size of relhum: \t" << perturbation.synoptic.relhum.data.size() << '\n';
 
     perturbation.computeMinMax( perturbation.synoptic.uwind.data, perturbation.synoptic.uwind.name );
     perturbation.computeVecMean(  perturbation.synoptic.uwind.data, perturbation.synoptic.uwind.name );
