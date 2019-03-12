@@ -14,20 +14,17 @@ MAKEFILE='make -f makefile.standalone'
 
 export DYLD_LIBRARY_PATH=${BOOST_LIBDIR}:${WD}/lib
 
-echo "number of args: $#"
-
 cd ${WD}/script
-cp ${NML} ${IOP}/.
 # Compiles the whole code if there are more than 2 arguments
 [[ $# -ge 3 ]] &&\
        cd ${SRC} && ${MAKEFILE} clean && ${MAKEFILE} all && cd ../
 
 # Compiles the if fortran library is missing
-[[ !  -f ${LIB} ]] &&\
+[[ ! -f ${LIB} ]] && [[ $# -lt 3 ]] &&\
        cd ${SRC} && ${MAKEFILE} clean && ${MAKEFILE} lib && ${MAKEFILE} bin && cd ../
 
 # Compiles the binary if the executable is missing
-[[ !  -f ${BIN} ]] &&\
+[[ ! -f ${BIN} ]] && [[ $# -lt 3 ]] &&\
        cd ${SRC} && ${MAKEFILE} bin && cd ../
 
 [[ $# -eq 0 ]] && \
@@ -41,10 +38,16 @@ cp ${NML} ${IOP}/.
        cd ${WD}/bin && ${BIN}
 
 # Plots if one of the arguments is 'plot'
-[[ $# -ge 2 ]] && ( [[ $1 = 'plot' ]] || [[ $2 = 'plot' ]] ) &&\
+#[[ $# -ge 2 ]] && ( [[ $1 = 'plot' ]] || [[ $2 = 'plot' ]] ) &&\
+#       cd ${WD}
+#       source activate FERRET &&\
+#       pyferret -png -script POST/frt.pseudo.jnl &&\
+#       cd data/ASR && \
+#       pyferret -png -script frt.asr_forcing.jnl stereo noprint &&\
+#       source deactivate FERRET
+
+[[ $# -ge 2 ]] && ( [[ $1 = 'slp' ]] || [[ $2 = 'slp' ]] ) &&\
        cd ${WD}
-       source activate FERRET &&\
-       pyferret -png -script POST/frt.pseudo.jnl &&\
-       cd data/ASR  && \
-       pyferret -png -script frt.asr_forcing.jnl stereo noprint &&\
+       source activate FERRET
+       pyferret -png -script POST/frt.slp_vs_wnd.jnl
        source deactivate FERRET
