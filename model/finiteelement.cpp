@@ -1100,17 +1100,6 @@ FiniteElement::initOptAndParam()
 #endif
 
     output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
-    if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
-        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
-    else if (vm["moorings.output_time_step_units"].as<std::string>() == "time_steps")
-        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*time_step;
-    else
-        throw std::runtime_error("moorings.output_time_step_units should be days or time_steps");
-    mooring_time_factor = dtime_step/double(mooring_output_time_step);
-    if ( mooring_output_time_step % time_step != 0)
-    {
-        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
-    }
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
@@ -1141,6 +1130,24 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("FinteElement::initOptAndParam: Option restart.output_interval not an integer multiple of simul.timestep (taking restart.output_interval_units into account)");
     }
 
+    //! Moorings output time step - for restarts this needs to fit inside the restart period
+    if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
+        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
+    else if (vm["moorings.output_time_step_units"].as<std::string>() == "time_steps")
+        mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*time_step;
+    else
+        throw std::runtime_error("moorings.output_time_step_units should be days or time_steps");
+    mooring_time_factor = dtime_step/double(mooring_output_time_step);
+
+    // Checks
+    if ( mooring_output_time_step % time_step != 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: mooring_output_time_step is not an integer multiple of time_step");
+
+    if ( M_write_restart_end && ( int(duration) % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of mooring_output_time_step");
+
+    if ( M_write_restart_interval && ( restart_time_step % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of mooring_output_time_step");
 
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
     ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
@@ -6928,7 +6935,8 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
-                && pcpt*time_step % mooring_output_time_step == 0 )
+                && pcpt*time_step % mooring_output_time_step == 0
+                && !M_use_restart )
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
@@ -7605,7 +7613,7 @@ FiniteElement::initMoorings()
         else
             filename_root = M_export_path + "/Moorings";
 
-        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time, M_use_restart);
     }
 }//initMoorings
 
