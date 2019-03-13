@@ -128,14 +128,14 @@ contains
         print *,'checking if synforc files exists: ', file_exists
         if (file_exists) then
           print *,'synforc exists -> Nothing to do'
-          call exit(0)
+          return
         else
           call randfld_wr('01')
           call synforc_wr('01')
           call randfld_wr('00')
           call synforc_wr('00')
           print *,'synforc is set to zero for initial time'
-          call exit(0)
+          return
         endif
       end if
       dx=30
