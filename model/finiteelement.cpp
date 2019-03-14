@@ -6230,10 +6230,10 @@ FiniteElement::init()
 
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
-    M_clock.tick("reload");
+    timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time);
     if (M_rank == 0)
-        LOG(DEBUG) <<"check_and_reload in "<< M_clock.tock("reload") <<"s\n";
+        LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
 #ifdef OASIS
     pcpt += cpl_time_step/time_step;
@@ -6278,12 +6278,18 @@ FiniteElement::initClocks()
 {
     std::vector<std::string> clocks;
 
-    clocks.push_back(std::string("reload"));
+    clocks.push_back(std::string("remesh"));
+    clocks.push_back(std::string("checkReload"));
+    clocks.push_back(std::string("auxiliary"));
     clocks.push_back(std::string("thermo"));
     clocks.push_back(std::string("assemble"));
     clocks.push_back(std::string("solve"));
     clocks.push_back(std::string("updatevelocity"));
     clocks.push_back(std::string("update"));
+#ifdef OASIS
+    clocks.push_back(std::string("coupler"));
+#endif
+    clocks.push_back(std::string("output"));
 
     clocks.push_back(std::string("thermo.ow_fluxes"));
     clocks.push_back(std::string("thermo.ia_fluxes"));
@@ -6689,6 +6695,8 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
+    M_clock.tick("remesh");
+
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
@@ -6775,7 +6783,9 @@ FiniteElement::step()
     }//bamg-regrid
 
     M_comm.barrier();
+    M_clock.tock("remesh");
 
+    M_clock.tick("checkReload");
 
     if(M_rank==0)
         LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
@@ -6784,6 +6794,9 @@ FiniteElement::step()
     if (M_rank == 0)
         LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
+    M_clock.tock("checkReload");
+
+    M_clock.tick("auxiliary");
 
     if (M_regrid)
     {
@@ -6809,6 +6822,7 @@ FiniteElement::step()
         M_regrid = true;
     }
 
+    M_clock.tock("auxiliary");
 
     //======================================================================
     //! 2) Performs the thermodynamics
@@ -6886,6 +6900,7 @@ FiniteElement::step()
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
+    M_clock.tick("coupler");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6923,6 +6938,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
+    M_clock.tock("coupler");
 #endif
 
     //======================================================================
@@ -6944,7 +6960,9 @@ FiniteElement::step()
     // TODO also add drifter check here
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
+    M_clock.tick("output");
     this->checkOutputs(false);
+    M_clock.tock("output");
  }//step
 
 
