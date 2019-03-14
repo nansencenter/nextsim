@@ -15,6 +15,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 class Clock
 {
@@ -36,12 +37,19 @@ class Clock
         void tick(const std::string & name);
         const double tock(const std::string & name);
         const double elapsed(const std::string & name);
-        const std::string print_all();
+        const std::string printAll();
 
     private:
-        std::map<std::string,std::pair<boost::mpi::timer,double> > M_clock;
+        typedef struct Works
+        {
+            boost::mpi::timer timer;
+            double elapsed;
+            std::string parent;
+        } Works;
+
+        std::map<std::string,Works> M_clock;
         std::vector<std::string> M_names;
-        boost::mpi::timer M_global_clock;
+        std::string M_global_clock = "main";
 };
 
 #endif

@@ -5042,6 +5042,7 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
 
+    M_clock.tick("thermo.ow_fluxes");
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
 
@@ -5056,6 +5057,10 @@ FiniteElement::thermo(int dt)
     std::vector<double> evap(M_num_elements);
     M_tau_ow.resize(M_num_elements);
     this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
+
+    M_clock.tock("thermo.ow_fluxes");
+
+    M_clock.tick("thermo.ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -5087,6 +5092,8 @@ FiniteElement::thermo(int dt)
         subl_thin.assign(M_num_elements, 0.);
         dQiadT_thin.assign(M_num_elements, 0.);
     }
+
+    M_clock.tock("thermo.ia_fluxes");
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5187,6 +5194,8 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
+        M_clock.tick("thermo.slab");
+
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         /* Temperature at the base of the ice */
@@ -5219,6 +5228,10 @@ FiniteElement::thermo(int dt)
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
+
+        M_clock.tock("thermo.slab");
+
+        M_clock.tick("thermo.ow");
 
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
@@ -5404,6 +5417,8 @@ FiniteElement::thermo(int dt)
             hi     = 0.;
             hs     = 0.;
         }
+
+        M_clock.tock("thermo.ow");
 
         // -------------------------------------------------
         //! 7) Calculates effective ice and snow thickness
@@ -6269,6 +6284,11 @@ FiniteElement::initClocks()
     clocks.push_back(std::string("solve"));
     clocks.push_back(std::string("updatevelocity"));
     clocks.push_back(std::string("update"));
+
+    clocks.push_back(std::string("thermo.ow_fluxes"));
+    clocks.push_back(std::string("thermo.ia_fluxes"));
+    clocks.push_back(std::string("thermo.slab"));
+    clocks.push_back(std::string("thermo.ow"));
 
     M_clock = Clock(clocks);
 }
@@ -12600,7 +12620,7 @@ FiniteElement::finalise(std::string current_time_system)
 {
     // Output clock ticks
     if (M_rank == 0)
-        LOG(INFO) << M_clock.print_all();
+        LOG(INFO) << M_clock.printAll();
 
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)
