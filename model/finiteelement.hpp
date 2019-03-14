@@ -44,6 +44,7 @@
 #ifdef AEROBULK
 #include "aerobulk.hpp"
 #endif
+#include "clock.hpp"
 
 extern "C"
 {
@@ -400,6 +401,9 @@ private:
 
     boost::mpi::timer chrono, chrono_tot;
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
+    Clock M_clock;
+
+    void initClocks();
 
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;

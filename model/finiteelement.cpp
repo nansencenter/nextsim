@@ -6215,10 +6215,10 @@ FiniteElement::init()
 
     if(M_rank==0)
         LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
-    timer["reload"].first.restart();
+    M_clock.tick("reload");
     this->checkReloadMainDatasets(M_current_time);
     if (M_rank == 0)
-        LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"check_and_reload in "<< M_clock.tock("reload") <<"s\n";
 
 #ifdef OASIS
     pcpt += cpl_time_step/time_step;
@@ -6252,8 +6252,26 @@ FiniteElement::init()
     // 3. check if writing outputs, and do it if it's time
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
+
+    //! - 10) Initialise clocks
+    this->initClocks();
 }//init
 
+//! Initialise a Clock instance to time various parts of the code
+void
+FiniteElement::initClocks()
+{
+    std::vector<std::string> clocks;
+
+    clocks.push_back(std::string("reload"));
+    clocks.push_back(std::string("thermo"));
+    clocks.push_back(std::string("assemble"));
+    clocks.push_back(std::string("solve"));
+    clocks.push_back(std::string("updatevelocity"));
+    clocks.push_back(std::string("update"));
+
+    M_clock = Clock(clocks);
+}
 
 // ==============================================================================
 //! calculate the FETensors, cohesion, and Coriolis force
@@ -6777,10 +6795,10 @@ FiniteElement::step()
     //======================================================================
     if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
     {
-        timer["thermo"].first.restart();
+        M_clock.tick("thermo");
         this->thermo(thermo_timestep);
         if (M_rank == 0)
-            LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer thermo:               "<< M_clock.tock("thermo") <<"s\n";
     }
 
 
@@ -6814,10 +6832,10 @@ FiniteElement::step()
         //======================================================================
         //! - 5.1) Assembles the rigidity matrix by calling the assemble() function,
         //======================================================================
-        timer["assemble"].first.restart();
+        M_clock.tick("assemble");
         this->assemble(pcpt);
         if (M_rank == 0)
-            LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer assemble:             "<< M_clock.tock("assemble") <<"s\n";
 
 
         //======================================================================
@@ -6825,20 +6843,20 @@ FiniteElement::step()
         //! - 5.3) Updates the velocities by calling the updateVelocity() function
         //! - 5.4) Uptates relevant variables by calling the update() function
         //======================================================================
-        timer["solve"].first.restart();
+        M_clock.tick("solve");
         this->solve();
         if (M_rank == 0)
-            LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer solve:                "<< M_clock.tock("solve") <<"s\n";
 
-        timer["updatevelocity"].first.restart();
+        M_clock.tick("updatevelocity");
         this->updateVelocity();
         if (M_rank == 0)
-            LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer updateVelocity:       "<< M_clock.tock("updatevelocity") <<"s\n";
 
-        timer["update"].first.restart();
+        M_clock.tick("update");
         this->update();
         if (M_rank == 0)
-            LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+            LOG(INFO) <<"---timer update:               "<< M_clock.tock("update") <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
@@ -12580,6 +12598,10 @@ FiniteElement::checkFields()
 void
 FiniteElement::finalise(std::string current_time_system)
 {
+    // Output clock ticks
+    if (M_rank == 0)
+        LOG(INFO) << M_clock.print_all();
+
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)
     {
