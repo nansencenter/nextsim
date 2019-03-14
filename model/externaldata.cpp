@@ -437,7 +437,6 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
 
             dataset->variables[j].loaded_data.resize(1);
             dataset->variables[j].loaded_data[0].resize(final_MN);
-            double tmp_data_i;
             int reduced_i;
             for (int i=0; i<(final_MN); ++i)
             {
@@ -446,7 +445,10 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
                     reduced_i=dataset->grid.reduced_nodes_ind[i];
 
                 //now add to loaded_data
-                dataset->variables[j].loaded_data[0][i] = tmp_data_i=data_in_tmp[reduced_i];
+                double tmp_data_i = data_in_tmp[reduced_i];
+                tmp_data_i *= dataset->variables[j].a;
+                tmp_data_i += dataset->variables[j].b;
+                dataset->variables[j].loaded_data[0][i] = tmp_data_i;
             }
         }
 
