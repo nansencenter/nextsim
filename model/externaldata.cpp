@@ -160,7 +160,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (to_be_reloaded)
         {
 #ifdef OASIS
-        // We call oasis_get every time step, but only actually recieve data at coupling times
+        // We call oasis_get every time step, but only actually receive data at coupling times
         if (M_dataset->coupled)
             {
                 if(!M_dataset->grid.loaded)
@@ -219,7 +219,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
                 }
 
-                this->recieveCouplingData(M_dataset, cpl_time, comm);
+                this->receiveCouplingData(M_dataset, cpl_time, comm);
                 transformData(M_dataset);
                 M_dataset->interpolated = false;
                 M_dataset->ftime_range[0] = cpl_time;
@@ -403,7 +403,7 @@ ExternalData::getVector()
 
 #ifdef OASIS
 void
-ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
+ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         LOG(DEBUG) << "reciveCouplingData at cpl_time " << cpl_time << "\n";

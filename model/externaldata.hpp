@@ -117,7 +117,7 @@ public:
         mapx_class *mapNextsim);//(double const& u, double const& v)
     
 #if defined OASIS
-    void recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
+    void receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
 	bool isInitialized() const { return M_initialized; }

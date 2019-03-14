@@ -1415,7 +1415,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[0] = dimension_x;
         dimensions[1] = dimension_y;
 
-        // Variables recieved through OASIS
+        // Variables received through OASIS
         Variable u={
             name: "I_Uocn",
             dimensions: dimensions,
@@ -1627,7 +1627,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[0] = dimension_x;
         dimensions[1] = dimension_y;
 
-        // Variables recieved through OASIS
+        // Variables received through OASIS
         Variable sst={
             name: "I_SST",
             dimensions: dimensions,
@@ -1822,7 +1822,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions = {dimension_x, dimension_y};
 
-        // Variables recieved through OASIS
+        // Variables received through OASIS
         Variable tau_wi_x={
             name: "I_tauwix",
             dimensions: dimensions,
@@ -1999,7 +1999,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Dimension> dimensions = {dimension_x, dimension_y};
 
-        // Variables recieved through OASIS
+        // Variables received through OASIS
         Variable str_var ={
             name: "I_str_var",
             dimensions: dimensions,
