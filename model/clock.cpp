@@ -12,42 +12,14 @@
 // Constructor
 ///////////////////////////////////////////////////////////////////////
 
+// Construct a "Clock" instance and start the global clock
 Clock::Clock()
-{}
-
-//! Construct a "Clock" instance. This constructor takes a std::vector of
-//! std::strings that list the clocks that we want to keep track of over the
-//! entire run. We do this so we can provide run-wide statistics at the end.
-//! Clocks not in this list can still be tick-tock'ed, but the return value from
-//! "elapsed" is unpredictable for those and they are not included when calling
-//! printAll. Clocks can be nested once using a "parent.child" notation.
-//! Children report the fraction of time spent within the parent's scope.
-Clock::Clock(const std::vector<std::string> & names)
-    : M_names(names)
 {
-    // Check for use of reserved name set by M_global_clock (currently "main")
-    for ( const std::string & name : M_names )
-        if ( name == M_global_clock )
-            throw std::runtime_error("Clock::Clock: Illegal use of reserved clock name '" + M_global_clock + "'\n");
-
-    // Sort the names so that children get put after parents
-    std::sort(M_names.begin(), M_names.end());
-
-    // The global clock is the first one on the list
+    // Just start the global clock - we can't use this->tick though
     M_names.push_back(M_global_clock);
-    std::rotate(M_names.rbegin(), M_names.rbegin() + 1, M_names.rend());
+    M_clock[M_global_clock].elapsed = 0.;
+    M_clock[M_global_clock].timer.restart();
 
-    // Initialise the elapsed time and set parents
-    for ( const std::string & name : M_names )
-    {
-        M_clock[name].elapsed = 0.;
-        M_clock[name].parent = name.substr(0, name.find("."));
-        if ( M_clock[name].parent == name )
-            M_clock[name].parent = M_global_clock;
-    }
-
-    // Start the global timer
-    this->tick(M_global_clock);
 }
 
 Clock::~Clock()
@@ -57,9 +29,23 @@ Clock::~Clock()
 // Public functions
 ///////////////////////////////////////////////////////////////////////
 
-//! Start a clock named "name"
+//! Start a clock named "name". The "name" is added to a global list if it does
+//! not already exist, and the total elapsed time is initialised.  Clocks can be
+//! nested once using a "parent.child" notation.  Children report the fraction
+//! of time spent within the parent's scope. There's no checking whether a child
+//! is called within a parent's scope or not.
 void Clock::tick(const std::string & name)
 {
+    // Add the name to M_names if needed and initialise the elapsed counter
+    if ( M_clock.count(name) == 0 )
+    {
+        if ( name == M_global_clock )
+            throw std::runtime_error("Clock::tick: Illegal use of reserved clock name '" + M_global_clock + "'\n");
+
+        M_names.push_back(name);
+        M_clock[name].elapsed = 0.;
+    }
+
     M_clock[name].timer.restart();
 }
 
@@ -91,9 +77,24 @@ const std::string Clock::printAll()
     double wall_time = this->tock(M_global_clock);
     double not_counted = wall_time;
 
+    // Sort out the familial relations and field width
+    std::size_t width = 0;
+    for ( const std::string & name : M_names )
+    {
+        M_clock[name].parent = name.substr(0, name.find("."));
+        if ( M_clock[name].parent == name )
+            M_clock[name].parent = M_global_clock;
+
+        if ( M_clock.count(M_clock[name].parent) == 0 )
+            throw std::logic_error("Clock::printAll: No parent found for " + name + " (assuming 'parent.child' naming convention).\n");
+
+        width = std::max(name.length(), width);
+    }
+
     std::stringstream return_string;
     return_string << "   =====   Timer results =====   " << std::endl;
-    return_string << " clock name                    | time spent | % of parent" << std::endl;
+    return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Clock name"
+        << " | time spent | % of parent" << std::endl;
 
     for ( const std::string & name : M_names )
     {
@@ -106,11 +107,11 @@ const std::string Clock::printAll()
         double fraction = elapsed / M_clock[parent].elapsed * 100.;
         if ( parent == M_global_clock && name != M_global_clock )
             not_counted -= elapsed;
-        return_string << " " 
-            << std::setfill(' ') << std::setw(30) << std::left << name << "|  "
-            << std::setfill('0') << std::setw(2) << hours << ":"
+        return_string << " " << std::setfill(' ') << std::setw(width) << std::left << name << " |  "
+            << std::right
+            << std::setfill(' ') << std::setw(3) << hours << ":"
             << std::setfill('0') << std::setw(2) << minutes << ":"
-            << std::setfill('0') << std::setw(2) << seconds << "  | "
+            << std::setfill('0') << std::setw(2) << seconds << " | "
             << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << std::right << fraction << std::endl;
     }
 
@@ -119,15 +120,13 @@ const std::string Clock::printAll()
     int minutes = (not_counted - hours*3600)/60;
     int seconds = (not_counted - hours*3600 - minutes*60);
     double fraction = not_counted/wall_time * 100.;
-    return_string << " not counted                   |  "
-        << std::setfill('0') << std::setw(2) << hours << ":"
+    return_string << std::setfill(' ') << std::setw(width) << " unaccounted for " << " |  "
+        << std::right
+        << std::setfill(' ') << std::setw(3) << hours << ":"
         << std::setfill('0') << std::setw(2) << minutes << ":"
-        << std::setfill('0') << std::setw(2) << seconds << "  | "
+        << std::setfill('0') << std::setw(2) << seconds << " | "
         << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << std::right << fraction << std::endl;
 
     return return_string.str();
 }
-
-
-
 

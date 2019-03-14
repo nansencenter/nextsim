@@ -16,6 +16,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <map>
 
 class Clock
 {
@@ -25,8 +26,6 @@ class Clock
         ///////////////////////////////////////////////////////////////////////
         
         Clock();
-
-        Clock(const std::vector<std::string> & names);
 
         ~Clock();
 
@@ -49,7 +48,7 @@ class Clock
 
         std::map<std::string,Works> M_clock;
         std::vector<std::string> M_names;
-        std::string M_global_clock = "main";
+        std::string M_global_clock = "Total";
 };
 
 #endif

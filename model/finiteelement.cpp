@@ -6269,35 +6269,8 @@ FiniteElement::init()
     this->checkOutputs(true);
 
     //! - 10) Initialise clocks
-    this->initClocks();
+    M_clock = Clock();
 }//init
-
-//! Initialise a Clock instance to time various parts of the code
-void
-FiniteElement::initClocks()
-{
-    std::vector<std::string> clocks;
-
-    clocks.push_back(std::string("remesh"));
-    clocks.push_back(std::string("checkReload"));
-    clocks.push_back(std::string("auxiliary"));
-    clocks.push_back(std::string("thermo"));
-    clocks.push_back(std::string("assemble"));
-    clocks.push_back(std::string("solve"));
-    clocks.push_back(std::string("updatevelocity"));
-    clocks.push_back(std::string("update"));
-#ifdef OASIS
-    clocks.push_back(std::string("coupler"));
-#endif
-    clocks.push_back(std::string("output"));
-
-    clocks.push_back(std::string("thermo.ow_fluxes"));
-    clocks.push_back(std::string("thermo.ia_fluxes"));
-    clocks.push_back(std::string("thermo.slab"));
-    clocks.push_back(std::string("thermo.ow"));
-
-    M_clock = Clock(clocks);
-}
 
 // ==============================================================================
 //! calculate the FETensors, cohesion, and Coriolis force
