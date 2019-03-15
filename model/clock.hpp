@@ -34,7 +34,8 @@ class Clock
         ///////////////////////////////////////////////////////////////////////
         
         void tick(const std::string & name);
-        const double tock(const std::string & name);
+        void tock(const std::string & name);
+        const double lap(const std::string & name);
         const double elapsed(const std::string & name);
         const std::string printAll();
 
@@ -42,12 +43,16 @@ class Clock
         typedef struct Works
         {
             boost::mpi::timer timer;
-            double elapsed;
+            double elapsed; // Total elapsed time since first "tick"
+            double lap; // Elapsed time since last "tick" or of last "tick"-"tock" interval
             std::string parent;
+            int generation;
         } Works;
 
+        static constexpr double M_max_time = std::numeric_limits<double>::max();
         std::map<std::string,Works> M_clock;
         std::vector<std::string> M_names;
+        std::vector<std::string> M_lineage;
         std::string M_global_clock = "Total";
 };
 

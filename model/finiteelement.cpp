@@ -5042,7 +5042,8 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
 
-    M_clock.tick("thermo.ow_fluxes");
+    M_clock.tick("fluxes");
+    M_clock.tick("ow_fluxes");
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
 
@@ -5058,9 +5059,9 @@ FiniteElement::thermo(int dt)
     M_tau_ow.resize(M_num_elements);
     this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
 
-    M_clock.tock("thermo.ow_fluxes");
+    M_clock.tock("ow_fluxes");
 
-    M_clock.tick("thermo.ia_fluxes");
+    M_clock.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -5093,7 +5094,9 @@ FiniteElement::thermo(int dt)
         dQiadT_thin.assign(M_num_elements, 0.);
     }
 
-    M_clock.tock("thermo.ia_fluxes");
+    M_clock.tock("ia_fluxes");
+
+    M_clock.tock("fluxes");
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5194,7 +5197,7 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
-        M_clock.tick("thermo.slab");
+        M_clock.tick("slab");
 
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
@@ -5229,9 +5232,9 @@ FiniteElement::thermo(int dt)
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
 
-        M_clock.tock("thermo.slab");
+        M_clock.tock("slab");
 
-        M_clock.tick("thermo.ow");
+        M_clock.tick("ow");
 
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
@@ -5418,7 +5421,7 @@ FiniteElement::thermo(int dt)
             hs     = 0.;
         }
 
-        M_clock.tock("thermo.ow");
+        M_clock.tock("ow");
 
         // -------------------------------------------------
         //! 7) Calculates effective ice and snow thickness
@@ -6804,8 +6807,9 @@ FiniteElement::step()
     {
         M_clock.tick("thermo");
         this->thermo(thermo_timestep);
+        M_clock.tock("thermo");
         if (M_rank == 0)
-            LOG(INFO) <<"---timer thermo:               "<< M_clock.tock("thermo") <<"s\n";
+            LOG(INFO) <<"---timer thermo:               "<< M_clock.lap("thermo") <<"s\n";
     }
 
 
@@ -6834,6 +6838,7 @@ FiniteElement::step()
     //======================================================================
     //! 5) Performs the dynamics
     //======================================================================
+    M_clock.tick("dynamics");
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
@@ -6841,8 +6846,9 @@ FiniteElement::step()
         //======================================================================
         M_clock.tick("assemble");
         this->assemble(pcpt);
+        M_clock.tock("assemble");
         if (M_rank == 0)
-            LOG(INFO) <<"---timer assemble:             "<< M_clock.tock("assemble") <<"s\n";
+            LOG(INFO) <<"---timer assemble:             "<< M_clock.lap("assemble") <<"s\n";
 
 
         //======================================================================
@@ -6852,22 +6858,26 @@ FiniteElement::step()
         //======================================================================
         M_clock.tick("solve");
         this->solve();
+        M_clock.tock("solve");
         if (M_rank == 0)
-            LOG(INFO) <<"---timer solve:                "<< M_clock.tock("solve") <<"s\n";
+            LOG(INFO) <<"---timer solve:                "<< M_clock.lap("solve") <<"s\n";
 
         M_clock.tick("updatevelocity");
         this->updateVelocity();
+        M_clock.tock("updatevelocity");
         if (M_rank == 0)
-            LOG(INFO) <<"---timer updateVelocity:       "<< M_clock.tock("updatevelocity") <<"s\n";
+            LOG(INFO) <<"---timer updateVelocity:       "<< M_clock.lap("updatevelocity") <<"s\n";
 
         M_clock.tick("update");
         this->update();
+        M_clock.tock("update");
         if (M_rank == 0)
-            LOG(INFO) <<"---timer update:               "<< M_clock.tock("update") <<"s\n";
+            LOG(INFO) <<"---timer update:               "<< M_clock.lap("update") <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
 
+    M_clock.tock("dynamics");
 
     //======================================================================
     //! 6) Update the info on the coupling grid

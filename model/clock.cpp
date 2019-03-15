@@ -9,15 +9,21 @@
 #include "clock.hpp"
 
 ///////////////////////////////////////////////////////////////////////
-// Constructor
+// Constructor and destructor
 ///////////////////////////////////////////////////////////////////////
 
 // Construct a "Clock" instance and start the global clock
 Clock::Clock()
 {
-    // Just start the global clock - we can't use this->tick though
+    // Just start the global clock
+    // We can't use this->tick though, because there's a check preventing a
+    // call to tick with M_global_clock as an argument
     M_names.push_back(M_global_clock);
+    M_lineage.push_back(M_global_clock);
+
     M_clock[M_global_clock].elapsed = 0.;
+    M_clock[M_global_clock].parent = M_global_clock;
+    M_clock[M_global_clock].generation = 0;
     M_clock[M_global_clock].timer.restart();
 
 }
@@ -29,11 +35,12 @@ Clock::~Clock()
 // Public functions
 ///////////////////////////////////////////////////////////////////////
 
-//! Start a clock named "name". The "name" is added to a global list if it does
-//! not already exist, and the total elapsed time is initialised.  Clocks can be
-//! nested once using a "parent.child" notation.  Children report the fraction
-//! of time spent within the parent's scope. There's no checking whether a child
-//! is called within a parent's scope or not.
+//! (Re)start a clock named "name". The "name" is added to a global list if it
+//! does not already exist, the total elapsed time is initialised, and the
+//! parent is registered. Children report the fraction of time spent within the
+//! parent's scope. There is no checking of correct use; in particular, the
+//! "name" needs to be globally unique, otherwise an existing clock (with that
+//! name) is used, regardless of lineage.
 void Clock::tick(const std::string & name)
 {
     // Add the name to M_names if needed and initialise the elapsed counter
@@ -44,20 +51,35 @@ void Clock::tick(const std::string & name)
 
         M_names.push_back(name);
         M_clock[name].elapsed = 0.;
+        M_clock[name].parent = M_lineage.back();
+        M_clock[name].generation = M_lineage.size();
     }
+
+    // Keep track of lineage and lap time
+    M_lineage.push_back(name);
+    M_clock[name].lap = M_max_time;
 
     M_clock[name].timer.restart();
 }
 
-//! Stop a clock named "name" and returned elapsed time since the last tick.
-//! Add to the total elapsed time.
-const double Clock::tock(const std::string & name)
+//! Stop a clock named "name" and add to the total elapsed time
+void Clock::tock(const std::string & name)
 {
-    double tock = M_clock[name].timer.elapsed();
+    M_clock[name].lap = M_clock[name].timer.elapsed();
 
-    M_clock[name].elapsed += tock;
+    // Now repeated calls to tock won't mess everything up (but who would you don this?)
+    M_clock[name].timer.restart();
 
-    return tock;
+    M_clock[name].elapsed += M_clock[name].lap;
+
+    M_lineage.pop_back();
+}
+
+//! For a clock named "name" returned elapsed time since the last tick of a
+//! running clock or the length of the last tick-tock interval of a stopped clock
+const double Clock::lap(const std::string & name)
+{
+    return std::min( M_clock[name].lap, M_clock[name].timer.elapsed() );
 }
 
 //! Return the total elapsed time of a clock named "name"
@@ -69,28 +91,20 @@ const double Clock::elapsed(const std::string & name)
 //! Pretty-print all the clocks initialised by the constructor
 const std::string Clock::printAll()
 {
-
     // Don't write out anything if M_names is empty
     if ( M_names.size() == 0 )
         return std::string();
 
     // Wall clock
-    double wall_time = this->tock(M_global_clock);
+    this->tock(M_global_clock);
+    double wall_time = this->elapsed(M_global_clock);
     double not_counted = wall_time;
 
-    // Sort out the familial relations and column width
+    // Column width
     std::size_t width = 15; // Minimum width of the name column
+    int padding = 2; // Multiplier for the indent for each generation
     for ( const std::string & name : M_names )
-    {
-        M_clock[name].parent = name.substr(0, name.find("."));
-        if ( M_clock[name].parent == name )
-            M_clock[name].parent = M_global_clock;
-
-        if ( M_clock.count(M_clock[name].parent) == 0 )
-            throw std::logic_error("Clock::printAll: No parent found for " + name + " (assuming 'parent.child' naming convention).\n");
-
-        width = std::max(name.length(), width);
-    }
+        width = std::max(name.length() + padding*M_clock[name].generation, width);
 
     // Actual output
     std::stringstream return_string;
@@ -101,31 +115,27 @@ const std::string Clock::printAll()
     for ( const std::string & name : M_names )
     {
         // Just here for readability
-        double elapsed = M_clock[name].elapsed;
+        double elapsed = this->elapsed(name);
         std::string parent = M_clock[name].parent;
 
         // Integer division!
         int hours   = elapsed/3600;
         int minutes = (elapsed - hours*3600)/60;
         int seconds = (elapsed - hours*3600 - minutes*60);
-        double fraction = elapsed / M_clock[parent].elapsed * 100.;
+        double fraction = elapsed / this->elapsed(parent) * 100.;
 
-        // The children get a different separator we don't subtract their time from the total
-        std::string div;
-        if ( parent == M_global_clock )
-        {
-            div = " | ";
-            if ( name != M_global_clock )
+        // We don't subtract children's time from the total
+        if ( parent == M_global_clock &&  name != M_global_clock )
                 not_counted -= elapsed;
-        } else {
-            div = " + ";
-        }
 
-        return_string << " " << std::setfill(' ') << std::setw(width) << std::left << name << div
+        int indent = padding*M_clock[name].generation;
+        return_string
+            << std::setfill(' ') << std::setw(indent+1) << " "
+            << std::setfill(' ') << std::setw(width-indent) << std::left << name << " | "
             << std::right
             << std::setfill(' ') << std::setw(4) << hours << ":"
             << std::setfill('0') << std::setw(2) << minutes << ":"
-            << std::setfill('0') << std::setw(2) << seconds << div
+            << std::setfill('0') << std::setw(2) << seconds << " | "
             << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
     }
 
@@ -134,7 +144,7 @@ const std::string Clock::printAll()
     int minutes = (not_counted - hours*3600)/60;
     int seconds = (not_counted - hours*3600 - minutes*60);
     double fraction = not_counted/wall_time * 100.;
-    return_string << std::setfill(' ') << std::setw(width) << " unaccounted for " << " | "
+    return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Unaccounted for" << " | "
         << std::right
         << std::setfill(' ') << std::setw(4) << hours << ":"
         << std::setfill('0') << std::setw(2) << minutes << ":"
