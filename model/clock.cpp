@@ -74,11 +74,12 @@ const std::string Clock::printAll()
     if ( M_names.size() == 0 )
         return std::string();
 
+    // Wall clock
     double wall_time = this->tock(M_global_clock);
     double not_counted = wall_time;
 
-    // Sort out the familial relations and field width
-    std::size_t width = 0;
+    // Sort out the familial relations and column width
+    std::size_t width = 15; // Minimum width of the name column
     for ( const std::string & name : M_names )
     {
         M_clock[name].parent = name.substr(0, name.find("."));
@@ -91,6 +92,7 @@ const std::string Clock::printAll()
         width = std::max(name.length(), width);
     }
 
+    // Actual output
     std::stringstream return_string;
     return_string << "   =====   Timer results =====   " << std::endl;
     return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Clock name"
@@ -98,21 +100,33 @@ const std::string Clock::printAll()
 
     for ( const std::string & name : M_names )
     {
-        // Integer division!
+        // Just here for readability
         double elapsed = M_clock[name].elapsed;
         std::string parent = M_clock[name].parent;
+
+        // Integer division!
         int hours   = elapsed/3600;
         int minutes = (elapsed - hours*3600)/60;
         int seconds = (elapsed - hours*3600 - minutes*60);
         double fraction = elapsed / M_clock[parent].elapsed * 100.;
-        if ( parent == M_global_clock && name != M_global_clock )
-            not_counted -= elapsed;
-        return_string << " " << std::setfill(' ') << std::setw(width) << std::left << name << " |  "
+
+        // The children get a different separator we don't subtract their time from the total
+        std::string div;
+        if ( parent == M_global_clock )
+        {
+            div = " | ";
+            if ( name != M_global_clock )
+                not_counted -= elapsed;
+        } else {
+            div = " + ";
+        }
+
+        return_string << " " << std::setfill(' ') << std::setw(width) << std::left << name << div
             << std::right
-            << std::setfill(' ') << std::setw(3) << hours << ":"
+            << std::setfill(' ') << std::setw(4) << hours << ":"
             << std::setfill('0') << std::setw(2) << minutes << ":"
-            << std::setfill('0') << std::setw(2) << seconds << " | "
-            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << std::right << fraction << std::endl;
+            << std::setfill('0') << std::setw(2) << seconds << div
+            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
     }
 
     // Not counted
@@ -120,12 +134,12 @@ const std::string Clock::printAll()
     int minutes = (not_counted - hours*3600)/60;
     int seconds = (not_counted - hours*3600 - minutes*60);
     double fraction = not_counted/wall_time * 100.;
-    return_string << std::setfill(' ') << std::setw(width) << " unaccounted for " << " |  "
+    return_string << std::setfill(' ') << std::setw(width) << " unaccounted for " << " | "
         << std::right
-        << std::setfill(' ') << std::setw(3) << hours << ":"
+        << std::setfill(' ') << std::setw(4) << hours << ":"
         << std::setfill('0') << std::setw(2) << minutes << ":"
         << std::setfill('0') << std::setw(2) << seconds << " | "
-        << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << std::right << fraction << std::endl;
+        << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
 
     return return_string.str();
 }
