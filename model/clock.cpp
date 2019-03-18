@@ -24,6 +24,7 @@ Clock::Clock()
     M_clock[M_global_clock].elapsed = 0.;
     M_clock[M_global_clock].parent = M_global_clock;
     M_clock[M_global_clock].generation = 0;
+    M_clock[M_global_clock].running = true;
     M_clock[M_global_clock].timer.restart();
 
 }
@@ -53,11 +54,17 @@ void Clock::tick(const std::string & name)
         M_clock[name].elapsed = 0.;
         M_clock[name].parent = M_lineage.back();
         M_clock[name].generation = M_lineage.size();
+        M_clock[name].running = false;
     }
 
-    // Keep track of lineage and lap time
+    // Check for consistency
+    if ( M_clock[name].running )
+        throw std::logic_error("Clock:tick: Clock "+name+" is already running.");
+
+    // Keep track of lineage
     M_lineage.push_back(name);
-    M_clock[name].lap = M_max_time;
+
+    M_clock[name].running = true;
 
     M_clock[name].timer.restart();
 }
@@ -65,21 +72,30 @@ void Clock::tick(const std::string & name)
 //! Stop a clock named "name" and add to the total elapsed time
 void Clock::tock(const std::string & name)
 {
-    M_clock[name].lap = M_clock[name].timer.elapsed();
+    // Check for consistency
+    if ( !M_clock[name].running )
+        throw std::runtime_error("Clock:tock: Clock "+name+" is not running.");
 
-    // Now repeated calls to tock won't mess everything up (but who would you don this?)
-    M_clock[name].timer.restart();
+    M_clock[name].lap = M_clock[name].timer.elapsed();
 
     M_clock[name].elapsed += M_clock[name].lap;
 
     M_lineage.pop_back();
+
+    // Now repeated calls to tock won't mess everything up (but who would anyone do this?)
+    M_clock[name].timer.restart();
+
+    M_clock[name].running = false;
 }
 
 //! For a clock named "name" returned elapsed time since the last tick of a
 //! running clock or the length of the last tick-tock interval of a stopped clock
 const double Clock::lap(const std::string & name)
 {
-    return std::min( M_clock[name].lap, M_clock[name].timer.elapsed() );
+    if ( M_clock[name].running )
+        return M_clock[name].timer.elapsed();
+    else
+        return M_clock[name].lap;
 }
 
 //! Return the total elapsed time of a clock named "name"

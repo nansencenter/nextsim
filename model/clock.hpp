@@ -47,6 +47,7 @@ class Clock
             double lap; // Elapsed time since last "tick" or of last "tick"-"tock" interval
             std::string parent;
             int generation;
+            bool running;
         } Works;
 
         static constexpr double M_max_time = std::numeric_limits<double>::max();
