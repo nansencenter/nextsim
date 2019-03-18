@@ -126,7 +126,7 @@ const std::string Clock::printAll()
     std::stringstream return_string;
     return_string << "   =====   Timer results =====   " << std::endl;
     return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Clock name"
-        << " | time spent | % of parent" << std::endl;
+        << " | time spent | % of parent | % of total" << std::endl;
 
     for ( const std::string & name : M_names )
     {
@@ -138,7 +138,8 @@ const std::string Clock::printAll()
         int hours   = elapsed/3600;
         int minutes = (elapsed - hours*3600)/60;
         int seconds = (elapsed - hours*3600 - minutes*60);
-        double fraction = elapsed / this->elapsed(parent) * 100.;
+        double fraction_parent = elapsed / this->elapsed(parent) * 100.;
+        double fraction_total  = elapsed / wall_time * 100.;
 
         // We don't subtract children's time from the total
         if ( parent == M_global_clock &&  name != M_global_clock )
@@ -152,7 +153,8 @@ const std::string Clock::printAll()
             << std::setfill(' ') << std::setw(4) << hours << ":"
             << std::setfill('0') << std::setw(2) << minutes << ":"
             << std::setfill('0') << std::setw(2) << seconds << " | "
-            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
+            << std::setfill(' ') << std::setw(11) << std::setprecision(2) << std::fixed << fraction_parent << " | "
+            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction_total << std::endl;
     }
 
     // Not counted
@@ -165,6 +167,7 @@ const std::string Clock::printAll()
         << std::setfill(' ') << std::setw(4) << hours << ":"
         << std::setfill('0') << std::setw(2) << minutes << ":"
         << std::setfill('0') << std::setw(2) << seconds << " | "
+        << std::setfill(' ') << std::setw(11) << " " << " | "
         << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
 
     return return_string.str();
