@@ -77,6 +77,7 @@ public:
         M_fyi_fraction  = 16,
         M_age_det       = 17,
         M_age           = 18,
+        M_conc_upd      = 19,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -97,6 +98,7 @@ public:
         D_brine      = 115,
         D_dmax       = 116,
         D_dmean      = 117,
+        D_Qassim     = 118
     };
 
 
