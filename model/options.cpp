@@ -191,8 +191,8 @@ namespace Nextsim
                     "where to find restart files")
             ("restart.input_filename", po::value<std::string>()->default_value( "" ),
                 "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
-                "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.type", po::value<std::string>()->default_value( "extend" ),
+                "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),
@@ -202,6 +202,8 @@ namespace Nextsim
             ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
                 "To write a out a restart file at the start of the run")
             ("restart.output_interval", po::value<double>()->default_value( 15 ), "How often to write restarts (with restart.write_interval_restart), in days or time_steps, according to restart.output_interval_units")
+            ("restart.datetime_in_filename", po::value<bool>()->default_value( true ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // -- restart debugging
             ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
@@ -226,7 +228,7 @@ namespace Nextsim
 #endif
 
             // --exporter
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+            ("output.datetime_in_filename", po::value<bool>()->default_value( true ),
                 "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "nextsim_outputs" ),
                 "Path where results should be exported")
