@@ -48,7 +48,7 @@ FiniteElement::initMesh()
     }
 
 #if 0
-    std::string local_mesh_basename = "extendlocalmesh10km";
+    std::string local_mesh_basename = "extend1arctic";
     std::string local_mesh_filename = (boost::format( "%1%/%2%_%3%.msh" )
                                        % Environment::nextsimMeshDir().string()
                                        % local_mesh_basename
@@ -75,6 +75,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     }
 
     M_mesh.setOrdering("gmsh");
+
+    if (vm["numerics.advection_scheme"].as<string>()=="ALE")
+        M_mesh.setGhostsWidth(vm["mesh.extended-ghostswidth"].as<int>());
+
 
     if (M_rank == 0)
         LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
@@ -1431,7 +1435,6 @@ FiniteElement::initOptAndParam()
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
     M_mesh.setOrdering("bamg");
 
-
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
     M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
@@ -2630,7 +2633,6 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
                     if(M_mask_dirichlet[i]==false)
                     {
                         Nc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-
                         UM_x = 0.;
                         UM_y = 0.;
                         for (int j=0; j<Nc; ++j)

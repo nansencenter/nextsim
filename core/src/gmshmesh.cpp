@@ -44,11 +44,10 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_transfer_map(),
     M_transfer_map_reordered(),
     M_transfer_map_elt(),
-    //M_reorder_map_nodes(),
-    //M_reorder_map_elements(),
     M_map_nodes(),
     M_map_elements(),
     timer(),
+    M_ghosts_width(0),
 	M_mppfile(Environment::nextsimMppfile()),
     M_log_level(Environment::logLevel())
 {}
@@ -58,6 +57,7 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_comm(mesh.M_comm),
     M_version(mesh.M_version),
     M_ordering(mesh.M_ordering),
+    M_ghosts_width(mesh.M_ghosts_width),
     M_mppfile(mesh.M_mppfile),
     M_log_level(mesh.M_log_level),
     M_nodes(mesh.M_nodes),
@@ -77,8 +77,6 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_num_triangles_without_ghost(mesh.M_num_triangles_without_ghost),
     M_transfer_map(mesh.M_transfer_map),
     M_transfer_map_reordered(mesh.M_transfer_map_reordered),
-    //M_reorder_map_nodes(mesh.M_reorder_map_nodes),
-    //M_reorder_map_elements(mesh.M_reorder_map_elements)
     M_map_nodes(mesh.M_map_nodes),
     M_map_elements(mesh.M_map_elements)
 {}
@@ -424,9 +422,10 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
 
 
+#if 0
     // extended mesh
     std::vector<int> neighbors;
-    elementConnectivity(M_global_triangle_nodes, neighbors, M_global_num_elements_from_serial);
+    elementConnectivity(M_global_triangle_nodes, M_global_num_elements_from_serial, neighbors);
 
     // Add extended ghost cells to the local mesh
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
@@ -474,53 +473,94 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
             }
         }
     }
+#endif
 
-#if 0
-    auto extended_ghost_elts=M_extended_ghost_elts;
-    for (auto it=extended_ghost_elts.begin(), end=extended_ghost_elts.end(); it!=end; ++it)
+#if 1
+    std::cout<<"M_ghosts_width= "<< M_ghosts_width <<"\n";
+    if (M_ghosts_width > 0)
     {
-        for (int i=0; i<3; i++)
+        // extended mesh
+        std::vector<int> elt_nodal_connectivity;
+        int connectivity_max;
+        elementNodalConnectivity(M_global_triangle_nodes, M_global_num_nodes_from_serial, M_global_num_elements_from_serial,
+                                 elt_nodal_connectivity, connectivity_max
+                                 );
+
+        for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
         {
-            if (neighbors[3*(it->number-1)+i] > 0)
+            // Add ghost cells for the first level
+            for (int i=0; i<3; i++)
             {
-                if (!(M_global_triangles[neighbors[3*(it->number-1)+i]-1].isOnProcessor()))
+                for (int j=0; j<connectivity_max; j++)
                 {
-                    M_extended_ghost_elts.push_back(M_global_triangles[neighbors[3*(it->number-1)+i]-1]);
-
-                    int currentl1=M_global_triangles[neighbors[3*(it->number-1)+i]-1].number;
-
-                    for (int j=0; j<3; j++)
+                    int neighborij = elt_nodal_connectivity[connectivity_max*(it->indices[i]-1)+j];
+                    if ((neighborij > 0) && (!(M_global_triangles[neighborij-1].isOnProcessor())))
                     {
-                        if (neighbors[3*(currentl1-1)+j] > 0)
+                        M_extended_ghost_elts.push_back(M_global_triangles[neighborij-1]);
+
+                        if (M_ghosts_width > 1)
                         {
-                            if (!(M_global_triangles[neighbors[3*(currentl1-1)+j]-1].isOnProcessor()))
+                            // Add ghost cells for the second level
+                            auto current_elt_indices=M_global_triangles[neighborij-1].indices;
+                            for (int k=0; k<3; k++)
                             {
-                                M_extended_ghost_elts.push_back(M_global_triangles[neighbors[3*(currentl1-1)+j]-1]);
+                                for (int l=0; l<connectivity_max; l++)
+                                {
+                                    int neighborkl = elt_nodal_connectivity[connectivity_max*(current_elt_indices[k]-1)+l];
+                                    if ((neighborkl > 0) && (!(M_global_triangles[neighborkl-1].isOnProcessor())))
+                                    {
+                                        M_extended_ghost_elts.push_back(M_global_triangles[neighborkl-1]);
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
+        if (0)// (M_comm.rank()==0)
+        {
+            std::cout<<"M_num_nodes= "<< M_global_num_nodes_from_serial <<"\n";
+            std::cout<<"M_num_elements= "<< M_global_num_elements_from_serial <<"\n";
+            std::cout<<"connectivity_max= "<< connectivity_max <<"\n";
+
+            for (int i=0; i<M_global_num_nodes_from_serial; i++)
+            {
+                std::cout<<"Node "<< i+1 <<"\n";
+                for (int j=0; j<connectivity_max; j++)
+                {
+                    std::cout<<"          CONNECT["<< j <<"]= "<< elt_nodal_connectivity[connectivity_max*i+j] <<"\n";
+                }
+            }
+        }
+
+        std::sort(M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
+                  [&]( element_type elt1, element_type elt2 )->bool{
+                      return elt1.number < elt2.number ; } );
+
+        M_extended_ghost_elts.erase(std::unique( M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
+                                                 [&]( element_type elt1, element_type elt2 )->bool{
+                                                     return elt1.number == elt2.number ; }), M_extended_ghost_elts.end());
+
+        // for (auto it=M_extended_ghost_elts.begin(), end=M_extended_ghost_elts.end(); it!=end; ++it)
+        // {
+        //     if ((M_comm.rank() <= it->partition))
+        //     {
+        //         std::cout<<"A element is found here\n";
+        //     }
+        // }
+    }
+    else if (M_ghosts_width == 0)
+    {
+        if (M_comm.rank()==0)
+            std::cout<<"ghosts width is set to zero: non-extended mesh will be used" <<"\n";
+    }
+    else
+    {
+        throw std::logic_error("invalid value of ghosts width: should be greater or equal zero");
     }
 #endif
-
-    std::sort(M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
-              [&]( element_type elt1, element_type elt2 )->bool{
-                  return elt1.number < elt2.number ; } );
-
-    M_extended_ghost_elts.erase(std::unique( M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
-                                             [&]( element_type elt1, element_type elt2 )->bool{
-                                                 return elt1.number == elt2.number ; }), M_extended_ghost_elts.end());
-
-    // for (auto it=M_extended_ghost_elts.begin(), end=M_extended_ghost_elts.end(); it!=end; ++it)
-    // {
-    //     if ((M_comm.rank() <= it->partition))
-    //     {
-    //         std::cout<<"A element is found here\n";
-    //     }
-    // }
-
 }
 
 void

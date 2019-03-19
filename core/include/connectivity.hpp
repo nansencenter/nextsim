@@ -26,7 +26,9 @@ int columnCompare(std::vector<int> const& col, int m, int n, int i, int j);
 void columnSort(std::vector<int>& col, int m, int n);
 void columnSwap(std::vector<int>& col, int m, int n, int icol1, int icol2);
 void sortHeapExternal(int n, int *indx, int *i, int *j, int isgn);
-void elementConnectivity(std::vector<int> const& triangle_nodes, std::vector<int>& triangle_neighbors, int triangle_num);
+void elementConnectivity(std::vector<int> const& triangle_nodes, int triangle_num, std::vector<int>& triangle_neighbors);
+void elementNodalConnectivity(std::vector<int> const& triangle_nodes, int node_num, int triangle_num,
+                              std::vector<int>& elt_nodal_connectivity, int& connectivity_max);
 
 int
 columnCompare(std::vector<int> const& col, int m, int n, int i, int j)
@@ -234,7 +236,7 @@ sortHeapExternal(int n, int *indx, int *i, int *j, int isgn )
 }
 
 void
-elementConnectivity(std::vector<int> const& triangle_nodes, std::vector<int>& triangle_neighbors, int triangle_num)
+elementConnectivity(std::vector<int> const& triangle_nodes, int triangle_num, std::vector<int>& triangle_neighbors)
 {
 	triangle_neighbors.resize(3*triangle_num);
 	std::vector<int> col(4*(3*triangle_num));
@@ -338,6 +340,51 @@ elementConnectivity(std::vector<int> const& triangle_nodes, std::vector<int>& tr
     }
 }
 
+void
+elementNodalConnectivity(std::vector<int> const& triangle_nodes, int node_num, int triangle_num, /* inputs */
+                         std::vector<int>& elt_nodal_connectivity, int& connectivity_max /* outputs */)
+{
+
+    // initialisation
+    std::vector<int> head(node_num, -1);
+    std::vector<int> next(3*triangle_num);
+    std::vector<int> connectivitysize(node_num, 0);
+
+    int k=0;
+	// chains generation
+	for (int i=0; i<triangle_num; i++)
+    {
+        for (int j=0; j<3; j++)
+        {
+            int v = triangle_nodes[3*i+j]-1; //jth vertex of the ith triangle
+            next[k] = head[v];
+            head[v] = k++;
+            connectivitysize[v] += 1;
+        }
+    }
+
+    // get the maximum connectivity
+    connectivity_max=0;
+    for (int i=0; i<node_num; i++)
+    {
+        if (connectivitysize[i] > connectivity_max)
+            connectivity_max = connectivitysize[i];
+    }
+
+
+    /* element nodal connectivity*/
+    elt_nodal_connectivity.resize(connectivity_max*node_num, -1);
+
+    for (int i=0; i<node_num; i++)
+    {
+	    k=0;
+        for(int j=head[i]; j!=-1; j=next[j])
+        {
+            elt_nodal_connectivity[connectivity_max*i+k] = static_cast<int>(floor((double)j/3))+1;
+            k++;
+        }
+    }
+}
 
 } // Nextsim
 #endif

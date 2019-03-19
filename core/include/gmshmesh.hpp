@@ -23,10 +23,6 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
-// #include <connectivity.hpp>
-
-//#include <MElement.h>
-//#include <GModel.h>
 #include "debug.hpp"
 
 extern "C"
@@ -73,6 +69,7 @@ public:
     std::string const& version() const {return M_version;}
     std::string const& ordering() const {return M_ordering;}
     std::string const& mppfile() const {return M_mppfile;}
+    int const& ghostsWidth() const {return M_ghosts_width;}
     std::map<int, point_type > const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
     std::vector<element_type> const& edges() const {return M_edges;}
@@ -95,6 +92,7 @@ public:
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
     void setOrdering(std::string const& order) {M_ordering=order;}
+    void setGhostsWidth(int const& ghostswidth) {M_ghosts_width=ghostswidth;}
 
     void setNodes(std::map<int, point_type > const& nodes) {M_nodes=nodes;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
@@ -160,6 +158,7 @@ private:
     std::string M_version;
     std::string M_ordering;
     std::string M_mppfile;
+    int M_ghosts_width;
     LogLevel M_log_level;
 
     std::vector<point_type> M_nodes_vec;
