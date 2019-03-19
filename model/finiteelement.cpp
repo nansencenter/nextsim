@@ -1130,11 +1130,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("FinteElement::initOptAndParam: Option restart.output_interval not an integer multiple of simul.timestep (taking restart.output_interval_units into account)");
     }
 
-    // No spinup after a restart
-    if ( M_use_restart )
-        M_spinup_duration = 0.;
-    else
-        M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
+    M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
 
     //! Moorings output time step - for restarts this needs to fit inside the restart period
     if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
@@ -8119,6 +8115,7 @@ FiniteElement::readRestart(std::string const& name_str)
 	    {
             pcpt = 0; // This should already be the case
             time_init = time_vec[0];
+            M_spinup_duration = 0.; // No spinup after an "extend" restart
 	    }
         else
         {
