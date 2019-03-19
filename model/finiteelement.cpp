@@ -8110,13 +8110,13 @@ FiniteElement::readRestart(std::string const& name_str)
             //set other counters from the restart file
             mesh_adapt_step = misc_int[2];
             M_nb_regrid     = misc_int[3];
-	    }
-	    else if ( vm["restart.type"].as<std::string>() == "extend" )
-	    {
+        }
+        else if ( vm["restart.type"].as<std::string>() == "extend" )
+        {
             pcpt = 0; // This should already be the case
             time_init = time_vec[0];
             M_spinup_duration = 0.; // No spinup after an "extend" restart
-	    }
+        }
         else
         {
             throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
