@@ -139,6 +139,10 @@ public:
         h_thin      = 13,
         hs_thin     = 14,
         conc_thin   = 15,
+        fyi_fraction    = 16,
+        age_d       = 17,
+        age         = 18,
+        conc_upd    = 19,
 
         // Diagnostic variables
         Qa          = 100,
@@ -311,6 +315,34 @@ public:
                     longName = "Surface Snow Thickness on thin ice";
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fyi_fraction):
+                    name     = "fyi_fraction";
+                    longName = "First Year Ice Fraction";
+                    stdName  = "fyi_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age_d):
+                    name     = "sia_det";
+                    longName = "Detectable sea ice age";
+                    stdName  = "det_sea_ice_age";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age):
+                    name     = "sia";
+                    longName = "Sea ice age";
+                    stdName  = "aea_ice_age";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_upd):
+                    name     = "conc_upd";
+                    longName = "conc_upd";
+                    stdName  = "conc_upd";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 
@@ -513,7 +545,6 @@ public:
                     cell_methods = "area: mean";
                     break;
 
-
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
@@ -620,7 +651,8 @@ public:
             int nb_local_el = 0,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
             BamgMesh* bamgmesh_root = NULL);
-    std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
+    std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
+            const double current_time, const bool append=false);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
 
@@ -676,8 +708,6 @@ private:
     void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
-
-    size_t M_nc_step;
 
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
