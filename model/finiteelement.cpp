@@ -8099,7 +8099,7 @@ FiniteElement::readRestart(std::string const& name_str)
     if(M_rank==0)
     {
         // Set and check time
-        if (!vm["restart.reset_time_counter"].as<bool>())
+        if ( vm["restart.type"].as<std::string>() == "continue" )
         {
             pcpt = misc_int[0];
             double tmp = time_init + pcpt*time_step/(24*3600.0);
@@ -8115,24 +8115,17 @@ FiniteElement::readRestart(std::string const& name_str)
             mesh_adapt_step = misc_int[2];
             M_nb_regrid     = misc_int[3];
 	    }
-	    else
+	    else if ( vm["restart.type"].as<std::string>() == "extend" )
 	    {
             pcpt = 0; // This should already be the case
-            if ( vm["restart.reset_time_init"].as<bool>() )
-            {
-                time_init = time_vec[0];
-            }
-            else
-            {
-                if ( time_vec[0] != time_init )
-                {
-                    std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                    std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
-                    std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
-                    throw std::runtime_error("Inconsistent time information in restart file");
-                }
-            }
+            time_init = time_vec[0];
 	    }
+        else
+        {
+            throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
+                    + vm["restart.type"].as<std::string>()
+                    + ". It should be either extend or continue");
+        }
     }
 
     //transfer scalars from "Misc_int" from root to all processors
