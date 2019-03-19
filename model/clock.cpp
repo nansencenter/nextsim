@@ -152,9 +152,17 @@ const std::string Clock::printAll()
             << std::right
             << std::setfill(' ') << std::setw(4) << hours << ":"
             << std::setfill('0') << std::setw(2) << minutes << ":"
-            << std::setfill('0') << std::setw(2) << seconds << " | "
-            << std::setfill(' ') << std::setw(11) << std::setprecision(2) << std::fixed << fraction_parent << " | "
-            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction_total << std::endl;
+            << std::setfill('0') << std::setw(2) << seconds << " | ";
+
+        if ( parent == M_global_clock &&  name != M_global_clock )
+            return_string << std::setfill(' ') << std::setw(11) << " ";
+        else
+            return_string << std::setfill(' ') << std::setw(11) << std::setprecision(2) << std::fixed
+                << fraction_parent;
+
+        return_string << " | "
+            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed
+            << fraction_total << std::endl;
     }
 
     // Not counted
