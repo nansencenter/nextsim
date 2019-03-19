@@ -6169,10 +6169,7 @@ FiniteElement::init()
         LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
         if ( resfil.empty() )
             throw std::runtime_error("Please provide restart.input_filename");
-        else if ( resfil.length()<=6 )
-            throw std::runtime_error("Please provide valid option for restart.input_filename (currently too short)");
-        std::string res_str = resfil.substr(6, resfil.length());
-        this->readRestart(res_str);
+        this->readRestart(resfil);
     }
     else
     {
