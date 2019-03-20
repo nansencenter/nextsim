@@ -4501,7 +4501,7 @@ FiniteElement::update()
         bool to_be_updated=true;
 
 
-	/* Important: We don't update elements on the open boundary. This means
+        /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
@@ -4682,6 +4682,7 @@ FiniteElement::update()
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
+
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
@@ -4695,7 +4696,7 @@ FiniteElement::update()
                 sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
                 M_sigma[i][cpt] = sigma[i];
-  
+
             }
 
             /*======================================================================
@@ -4709,7 +4710,8 @@ FiniteElement::update()
 
             sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-    
+
+
             double hi=0.;
             if(M_conc[cpt]>0.1)
                 hi = M_thick[cpt]/M_conc[cpt];
@@ -4718,8 +4720,8 @@ FiniteElement::update()
 
             sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
             sigma_t=-sigma_c/q;
-                
-            
+
+
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
@@ -7134,11 +7136,16 @@ FiniteElement::step()
         {
             M_regrid = true;
 
-            if(vm["restart.output_before_regrid"].as<bool>())
+            if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
                 this->writeRestart(str);
+            }
+            if(vm["output.export_before_regrid"].as<bool>())
+            {
+                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+                this->exportResults(str, true, true, true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -7220,17 +7227,23 @@ FiniteElement::step()
         // Update FSD in case conc. has been modified during regrid.
         if (M_num_fsd_bins>0)
             this ->updateFSD();
-        // check the fields for nans etc after regrid
-        if(vm["debugging.check_fields"].as<bool>())
-            this->checkFields();
+        this->updateIceDiagnostics();
 
         // save outputs after regrid
-        if(vm["restart.output_after_regrid"].as<bool>())
+        if(vm["restart.write_restart_after_regrid"].as<bool>())
         {
-            this->updateIceDiagnostics();
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
             this->writeRestart(str);
         }
+        if(vm["output.export_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->exportResults(str, true, true, true);
+        }
+
+        // check the fields for nans etc after regrid
+        if(vm["debugging.check_fields"].as<bool>())
+            this->checkFields();
     }
     else if(pcpt==0)
     {

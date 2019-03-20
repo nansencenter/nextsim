@@ -208,16 +208,20 @@ namespace Nextsim
                 "Units of restart.output_interval: days or time_steps")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
                 "reset ice velocity to zero if starting from restart")
-            ("restart.output_before_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results before regrid")
-            ("restart.output_after_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results after regrid")
+            ("restart.write_restart_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart before regrid")
+            ("restart.write_restart_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart after regrid")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.export_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
+            ("output.export_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results after regrid")
 #if 0
             //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
             ("output.variables", po::value<std::vector<std::string>>()->multitoken()
