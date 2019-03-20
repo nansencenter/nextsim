@@ -169,7 +169,7 @@ integer function oasis3_put_2d(var_id,date,field_array,field_array_len_x,field_a
     ! Locals
     integer :: info
 
-    call oasis_put(var_id,date,transpose(field_array),info)
+    call oasis_put(var_id,date,field_array,info)
 
     oasis3_put_2d = info
     return
@@ -218,10 +218,8 @@ integer function oasis3_get_2d(var_id,date,field_array,field_array_len_x,field_a
 
     ! Locals
     integer :: info
-    real    :: tmp_array(field_array_len_x,field_array_len_y)
 
-    call oasis_get(var_id,date,tmp_array,info)
-    field_array = transpose(tmp_array)
+    call oasis_get(var_id,date,field_array,info)
 
     oasis3_get_2d = info
     return
