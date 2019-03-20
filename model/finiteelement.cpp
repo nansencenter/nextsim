@@ -6671,11 +6671,16 @@ FiniteElement::step()
         {
             M_regrid = true;
 
-            if(vm["restart.output_before_regrid"].as<bool>())
+            if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
                 this->writeRestart(str);
+            }
+            if(vm["output.export_before_regrid"].as<bool>())
+            {
+                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+                this->exportResults(str, true, true, true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -6751,18 +6756,23 @@ FiniteElement::step()
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
+        this->updateIceDiagnostics();
+
+        // save outputs after regrid
+        if(vm["restart.write_restart_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->writeRestart(str);
+        }
+        if(vm["output.export_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->exportResults(str, true, true, true);
+        }
 
         // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
             this->checkFields();
-
-        // save outputs after regrid
-        if(vm["restart.output_after_regrid"].as<bool>())
-        {
-            this->updateIceDiagnostics();
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->writeRestart(str);
-        }
     }
     else if(pcpt==0)
     {
