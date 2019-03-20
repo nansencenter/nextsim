@@ -643,7 +643,7 @@ FiniteElement::assignVariables()
     M_ocean_elements_dataset.interpolated=false;
 #ifdef OASIS 
     M_wave_nodes_dataset.interpolated = false;
-    //M_wave_elements_dataset.interpolated = false;
+    M_wave_elements_dataset.interpolated = false;
 #endif
     M_ice_topaz_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
