@@ -4478,7 +4478,7 @@ FiniteElement::update()
         bool to_be_updated=true;
 
 
-	    /* Important: We don't update elements on the open boundary. This means
+        /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
