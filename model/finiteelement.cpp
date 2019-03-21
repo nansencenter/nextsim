@@ -5203,10 +5203,10 @@ FiniteElement::thermo(int dt)
         if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
             // compensating heat flux is a product of:
-            // * a factor
             // * total flux out of the ocean
-            // * relative change in concentration
-            Qassm = aff * (Qow_mean + Qio_mean) * M_conc_upd[i] / conc_pre_assim;
+            // * relative change in concentration (dCrel)
+            // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+            Qassm = (Qow_mean + Qio_mean)*(std::pow(M_conc_upd[i] / conc_pre_assim + 1, aff)-1);
         }
 
         //relaxation of concentration update with time

@@ -372,7 +372,7 @@ namespace Nextsim
 
             // -- assimilation compensating flux
             ("thermo.assim_flux_factor", po::value<double>()->default_value(1.0),
-             "Factor for reducing heat flux that compensates assimilation of conc")
+             "Factor for heat flux that compensates assimilation of conc")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
