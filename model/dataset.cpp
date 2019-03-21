@@ -1612,7 +1612,7 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ocean_cpl_elements") == 0)
     {
-        // Definition of topaz grid and datasets
+         // Definition of ocean coupling grid and datasets
         Dimension dimension_x={
             name:"y",
             cyclic:false
