@@ -6167,11 +6167,11 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
-        std::string resfil = vm["restart.input_filename"].as<std::string>();
-        LOG(DEBUG) <<"Reading restart file: [field,mesh]_"<< resfil <<".[bin,dat]\n";
-        if ( resfil.empty() )
-            throw std::runtime_error("Please provide restart.input_filename");
-        this->readRestart(resfil);
+        std::string res_str = vm["restart.basename"].as<std::string>();
+        LOG(DEBUG) <<"Reading restart file: [field,mesh]_"<< res_str <<".[bin,dat]\n";
+        if ( res_str.empty() )
+            throw std::runtime_error("Please provide restart.basename");
+        this->readRestart(res_str);
     }
     else
     {
