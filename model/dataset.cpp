@@ -8961,27 +8961,11 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
 	std::vector<size_t> index_count(2);
     std::vector<size_t> index_start(2);
 
-    int dims = VLAT_ptr->getDimCount();
-    if ( dims != 2 )
-        throw std::logic_error("DataSet::getXYLatLonFromLatLon: Wrong number of dimensions: " + std::to_string(dims));
+    index_start[0] = grid.dimension_y_start;
+    index_start[1] = grid.dimension_x_start;
 
-    for (int i=0; i<dims; ++i)
-    {
-        netCDF::NcDim tmpDim = VLAT_ptr->getDim(i);
-        std::string name = tmpDim.getName();
-        if ( name == grid.dimension_x.name )
-        {
-            index_start[i] = grid.dimension_x_start;
-            index_count[i] = grid.dimension_x_count;
-        }
-        else if ( name == grid.dimension_y.name )
-        {
-            index_start[i] = grid.dimension_y_start;
-            index_count[i] = grid.dimension_y_count;
-        }
-        else
-            throw std::logic_error("DataSet::getXTLatLonFromLatLon: unknown dimension name " + name);
-    }
+    index_count[0] = grid.dimension_y_count;
+    index_count[1] = grid.dimension_x_count;
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
 	VLAT_ptr->getVar(index_start,index_count,&LAT[0]);
