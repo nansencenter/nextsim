@@ -6673,7 +6673,6 @@ FiniteElement::step()
 
             if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
-                this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
                 this->writeRestart(str);
             }
