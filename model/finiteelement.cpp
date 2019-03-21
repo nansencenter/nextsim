@@ -6168,7 +6168,7 @@ FiniteElement::init()
     if ( M_use_restart )
     {
         std::string resfil = vm["restart.input_filename"].as<std::string>();
-        LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
+        LOG(DEBUG) <<"Reading restart file: [field,mesh]_"<< resfil <<".[bin,dat]\n";
         if ( resfil.empty() )
             throw std::runtime_error("Please provide restart.input_filename");
         this->readRestart(resfil);
