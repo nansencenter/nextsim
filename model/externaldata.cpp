@@ -816,6 +816,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     index_start[k] = dataset->grid.dimension_x_start;
                     index_count[k] = dataset->grid.dimension_x_count;
                 }
+                // dimension_y case
                 else if ((dimension_name).find(dataset->grid.dimension_y.name) != std::string::npos)
                 {
                     index_start[k] = dataset->grid.dimension_y_start;
