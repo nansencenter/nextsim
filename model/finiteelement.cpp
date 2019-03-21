@@ -6464,7 +6464,7 @@ FiniteElement::initOASIS()
 
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
-                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
     } else {
         throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
