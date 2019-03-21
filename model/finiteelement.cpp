@@ -5022,6 +5022,7 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
+    double const aff = vm["thermo.assim_flux_factor"].as<double>(); //! \param assim_flux_factor (double const) Factor for reducing flux that compensates assimilation of conc
 
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
@@ -5158,12 +5159,6 @@ FiniteElement::thermo(int dt)
                 Fdw = Fdw_const;
             }
         }
-        // Heatflux compensation by the concentration reduced by assimilation
-        double q_assm_factor = 1.0;
-        Qassm = q_assm_factor * M_conc_upd[i] * (Qow[i] - Qio);
-
-        //relaxation of concentration update with time
-        //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
@@ -5200,6 +5195,22 @@ FiniteElement::thermo(int dt)
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
+
+        // Compensation of heatflux for concentration reduced by assimilation
+        // conc before assimilation
+        double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
+        // if before assimilation there was ice and it was reduced
+        if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+        {
+            // compensating heat flux is a product of:
+            // * a factor
+            // * total flux out of the ocean
+            // * relative change in concentration
+            Qassm = aff * (Qow_mean + Qio_mean) * M_conc_upd[i] / conc_pre_assim;
+        }
+
+        //relaxation of concentration update with time
+        //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
