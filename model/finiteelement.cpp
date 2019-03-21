@@ -4480,7 +4480,7 @@ FiniteElement::update()
         bool to_be_updated=true;
 
 
-	/* Important: We don't update elements on the open boundary. This means
+        /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
@@ -4622,70 +4622,70 @@ FiniteElement::update()
             double multiplicator=time_viscous/(time_viscous+dtime_step);
 
 
-        //Calculating the new state of stress
-        for(int i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            //Calculating the new state of stress
+            for(int i=0;i<3;i++)
             {
-                sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                sigma_dot_i = 0.0;
+                for(int j=0;j<3;j++)
+                {
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                }
+
+                sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+
+                M_sigma[i][cpt] = sigma[i];
+
             }
 
-            sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-            sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+            /*======================================================================
+             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
+             *======================================================================
+             */
 
-            M_sigma[i][cpt] = sigma[i];
+            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
+            sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+            sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-        }
-
-        /*======================================================================
-         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-         *======================================================================
-         */
-
-        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        sigma_n =-          (sigma[0]+sigma[1])/2.;
-
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
 
-        double hi=0.;
-        if(M_conc[cpt]>0.1)
-            hi = M_thick[cpt]/M_conc[cpt];
-        else
-            hi = M_thick[cpt]/0.1;
+            double hi=0.;
+            if(M_conc[cpt]>0.1)
+                hi = M_thick[cpt]/M_conc[cpt];
+            else
+                hi = M_thick[cpt]/0.1;
 
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
+            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
 
 
-        /* Calculate the characteristic time for damage */
-        if (td_type == "damage_dependent")
-            td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
-        /* Calculate the adjusted level of damage */
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target = sigma_c;
-            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
-            }
-
-            if(tmp>M_damage[cpt])
+            /* Calculate the adjusted level of damage */
+            if((sigma_1-q*sigma_2)>sigma_c)
             {
-                M_damage[cpt] = min(tmp, 1.0);
+                sigma_target = sigma_c;
+                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
             }
-        }
 
 
         }
@@ -6670,11 +6670,16 @@ FiniteElement::step()
         {
             M_regrid = true;
 
-            if(vm["restart.output_before_regrid"].as<bool>())
+            if(vm["restart.write_restart_before_regrid"].as<bool>())
+            {
+                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+                this->writeRestart(str);
+            }
+            if(vm["output.export_before_regrid"].as<bool>())
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->writeRestart(str);
+                this->exportResults(str, true, true, true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -6750,18 +6755,23 @@ FiniteElement::step()
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
+        this->updateIceDiagnostics();
+
+        // save outputs after regrid
+        if(vm["restart.write_restart_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->writeRestart(str);
+        }
+        if(vm["output.export_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->exportResults(str, true, true, true);
+        }
 
         // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
             this->checkFields();
-
-        // save outputs after regrid
-        if(vm["restart.output_after_regrid"].as<bool>())
-        {
-            this->updateIceDiagnostics();
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->writeRestart(str);
-        }
     }
     else if(pcpt==0)
     {
