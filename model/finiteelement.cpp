@@ -6679,6 +6679,7 @@ FiniteElement::step()
             }
             if(vm["output.export_before_regrid"].as<bool>())
             {
+                this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
                 this->exportResults(str, true, true, true);
             }
