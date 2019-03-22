@@ -11,6 +11,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 
 namespace Nextsim
@@ -29,11 +30,15 @@ static const char* ENUM_STR[] = { "ERROR", "WARNING", "INFO", "DEBUG" };
 class Log
 {
 public:
-    Log(LogLevel loglevel = INFO)
+    Log(LogLevel loglevel = INFO, int rank = 0)
     {
         _buffer << "["
-                << ENUM_STR[loglevel]
-                << "] :"
+                << ENUM_STR[loglevel];
+
+        if ( loglevel == LogLevel::DEBUG )
+            _buffer << std::setw(4) << rank;
+
+        _buffer << "] :"
                 << std::string(1, ' ');
     }
 
@@ -58,8 +63,9 @@ extern LogLevel M_log_level;
 extern Communicator M_comm;
 
 #define LOG(level) \
-    if (M_comm.rank()==0 && level<=M_log_level) \
-        Log(level)
+    if (level<=M_log_level) \
+        if (M_comm.rank()==0 || level==LogLevel::DEBUG) \
+            Log(level, M_comm.rank())
 
 } // Nextsim
 #endif
