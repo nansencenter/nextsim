@@ -143,6 +143,7 @@ private:
     double M_factor;
 
     LogLevel M_log_level;
+    Communicator M_comm;
 };
 
 } // Nextsim

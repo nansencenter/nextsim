@@ -64,13 +64,11 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_mesh.setOrdering("gmsh");
 
-    if (M_rank == 0)
-        LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+    LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
     timer["meshread"].first.restart();
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
 
     if (!start)
     {
@@ -87,8 +85,7 @@ FiniteElement::distributedMeshProcessing(bool start)
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles());
 
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -104,25 +101,19 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     timer["bcmarker"].first.restart();
     this->bcMarkedNodes();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
 
     timer["creategraph"].first.restart();
     this->createGraph();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
 
     timer["gathersize"].first.restart();
     this->gatherSizes();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
-#if 1
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
-    //if (M_rank == 0)
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
-#endif
 
 #if 0
     // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -968,15 +959,13 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     // - mesh elements
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
+    LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
     this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
-    if(M_rank==0)
-        LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
+    LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
@@ -3013,8 +3002,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     int nb_var_element = M_prognostic_variables_elt.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
 
     double* interp_elt_out;
     double* interp_nd_out;
@@ -3049,8 +3037,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                        &M_interp_methods[0], nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
-        if (M_rank == 0)
-            LOG(DEBUG)<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();
@@ -3083,14 +3070,12 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 
     timer["distributed"].first.restart();
     this->distributedMeshProcessing();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
 
     timer["scatter"].first.restart();
     this->scatterFieldsElement(interp_elt_out);
     this->scatterFieldsNode(interp_nd_out);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
@@ -3687,13 +3672,11 @@ FiniteElement::regrid(bool step)
 
     timer["interpFields"].first.restart();
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        LOG(DEBUG) <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
-    if (M_rank == 0)
-        LOG(DEBUG) <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
 
     this->assignVariables();
 }//regrid
@@ -3856,12 +3839,10 @@ void
 FiniteElement::assemble(int pcpt)
 {
     M_comm.barrier();
-    if(M_rank==0)
-        LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
     M_matrix->zero();
     M_vector->zero();
-    if(M_rank==0)
-        LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
@@ -3897,8 +3878,7 @@ FiniteElement::assemble(int pcpt)
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
     // ---------- Assembling starts -----------
-    if(M_rank==0)
-        LOG(DEBUG) <<"Assembling starts\n";
+    LOG(DEBUG) <<"Assembling starts\n";
     timer["assembly"].first.restart();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
@@ -4212,18 +4192,14 @@ FiniteElement::assemble(int pcpt)
     }
 
     // close petsc matrix
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing matrix starts\n";
+    LOG(DEBUG) <<"Closing matrix starts\n";
     M_matrix->close();
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing matrix done\n";
+    LOG(DEBUG) <<"Closing matrix done\n";
 
     // close petsc vector
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing vector starts\n";
+    LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing vector done\n";
+    LOG(DEBUG) <<"Closing vector done\n";
 
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
@@ -6145,12 +6121,9 @@ FiniteElement::init()
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
 
-    if (M_rank==0)
-    {
-        LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
-        LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
-        LOG(INFO) <<"DURATION= "<< duration <<"\n";
-    }
+    LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
+    LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
+    LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
@@ -6211,12 +6184,10 @@ FiniteElement::init()
     pcpt -= cpl_time_step/time_step;
 #endif
 
-    if(M_rank==0)
-        LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
+    LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time);
-    if (M_rank == 0)
-        LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
 
 #ifdef OASIS
     pcpt += cpl_time_step/time_step;
@@ -6228,8 +6199,7 @@ FiniteElement::init()
     {
         timer["state"].first.restart();
         this->initModelState();
-        if (M_rank == 0)
-            LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
     }
     else if ( M_use_assimilation )
     {
@@ -6262,20 +6232,17 @@ FiniteElement::calcAuxiliaryVariables()
 {
     timer["FETensors"].first.restart();
     this->FETensors();
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+    LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
 
     timer["calcCohesion"].first.restart();
     this->calcCohesion();
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+    LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
         timer["calcCoriolis"].first.restart();
         this->calcCoriolis();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
     }
 }//calcAuxiliaryVariables
 
@@ -6687,16 +6654,14 @@ FiniteElement::step()
 #ifdef OASIS
             M_cpl_out.updateGridMean(bamgmesh);
 #endif
-            if(M_rank==0)
-                LOG(DEBUG) <<"Regridding starts\n";
+            LOG(DEBUG) <<"Regridding starts\n";
             chrono.restart();
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            if(M_rank==0)
-                LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
             if ( M_use_moorings )
             {
 #ifdef OASIS
@@ -6742,12 +6707,10 @@ FiniteElement::step()
     M_comm.barrier();
 
 
-    if(M_rank==0)
-        LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
+    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
 
     if (M_regrid)
@@ -6787,8 +6750,7 @@ FiniteElement::step()
     {
         timer["thermo"].first.restart();
         this->thermo(thermo_timestep);
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
 
@@ -6824,8 +6786,7 @@ FiniteElement::step()
         //======================================================================
         timer["assemble"].first.restart();
         this->assemble(pcpt);
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
 
         //======================================================================
@@ -6835,18 +6796,15 @@ FiniteElement::step()
         //======================================================================
         timer["solve"].first.restart();
         this->solve();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
 
         timer["updatevelocity"].first.restart();
         this->updateVelocity();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
 
         timer["update"].first.restart();
         this->update();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
@@ -7018,8 +6976,7 @@ FiniteElement::run()
     }
 
     double time_remaining = time_init + duration/days_in_sec - M_current_time;// should be >= 0 after error-checking in init()
-    if(M_rank==0)
-        LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
+    LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
     bool is_running = (time_remaining>0);// don't start stepping if at end time (time_remaining==0)
 
     // main loop for nextsim program
@@ -7027,16 +6984,13 @@ FiniteElement::run()
     {
          M_comm.barrier();
 
-        if (M_rank == 0)
-        {
-            LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
-                      << Nextsim::datenumToString(M_current_time) << "\n";
+        LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
+                  << Nextsim::datenumToString(M_current_time) << "\n";
 
-            if( pcpt*time_step % ptime_step == 0)
-            {
-                std::string time_spent_str = time_spent(current_time_system);
-                LOG(INFO) <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
-            }
+        if( pcpt*time_step % ptime_step == 0)
+        {
+            std::string time_spent_str = time_spent(current_time_system);
+            LOG(INFO) <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
         }
 
         is_running = ((pcpt+1)*dtime_step) < duration;
@@ -8231,11 +8185,8 @@ FiniteElement::restartIabpDrifters(
     if (drifter_no.size() == 0)
     {
         // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
-        if(M_rank==0)
-        {
-            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
-                << " Drifter positions initialised as if there was no restart.\n";
-        }
+        LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
+            << " Drifter positions initialised as if there was no restart.\n";
     }
     else
     {
@@ -9429,8 +9380,7 @@ FiniteElement::topazIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
 
@@ -9492,8 +9442,7 @@ FiniteElement::topazIceOsisafIcesat()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/OSISAF/Icesat ice ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/OSISAF/Icesat ice ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -9611,8 +9560,7 @@ FiniteElement::topazForecastIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9663,8 +9611,7 @@ FiniteElement::topazForecastAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9808,8 +9755,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9980,16 +9926,14 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10095,16 +10039,14 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - OSISAF/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - OSISAF/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10249,16 +10191,14 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - OSISAF/AMSR2/NIC ExternalData objects\n";
+    LOG(DEBUG)<<"init - OSISAF/AMSR2/NIC ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10440,8 +10380,7 @@ FiniteElement::piomasIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - PIOMAS ExternalData objects\n";
+    LOG(DEBUG)<<"init - PIOMAS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10491,8 +10430,7 @@ FiniteElement::topazAmsreIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/AMSR-E ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/AMSR-E ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10557,8 +10495,7 @@ FiniteElement::topazAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10631,8 +10568,7 @@ FiniteElement::cs2SmosIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - CS2/SMOS ExternalData objects\n";
+    LOG(DEBUG)<<"init - CS2/SMOS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     this->warrenClimatology();
@@ -10761,8 +10697,7 @@ FiniteElement::cs2SmosAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - CS2/SMOS/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - CS2/SMOS/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     this->warrenClimatology();
@@ -10865,8 +10800,7 @@ FiniteElement::smosIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - SMOS ExternalData objects\n";
+    LOG(DEBUG)<<"init - SMOS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -12630,13 +12564,10 @@ FiniteElement::finalise(std::string current_time_system)
 
     M_comm.barrier();
 
-    if (M_rank==0)
-    {
-        LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
+    LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
-        LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
-    }
+    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+    LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
 
 #ifdef OASIS
     int ierror = OASIS3::terminate();

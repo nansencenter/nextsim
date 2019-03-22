@@ -26,9 +26,10 @@ DataSet::DataSet( )
 {}
 
 DataSet::DataSet(char const *DatasetName)
+    :
+    M_log_level(Environment::logLevel()),
+    M_comm(Environment::comm())
 {
-    M_log_level = Environment::logLevel();
-
     name = std::string(DatasetName);
     projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
