@@ -64,7 +64,7 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_mesh.setOrdering("gmsh");
 
-    LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+    LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
     timer["meshread"].first.restart();
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
@@ -6232,17 +6232,17 @@ FiniteElement::calcAuxiliaryVariables()
 {
     timer["FETensors"].first.restart();
     this->FETensors();
-    LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
 
     timer["calcCohesion"].first.restart();
     this->calcCohesion();
-    LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
         timer["calcCoriolis"].first.restart();
         this->calcCoriolis();
-        LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
     }
 }//calcAuxiliaryVariables
 
@@ -6710,7 +6710,7 @@ FiniteElement::step()
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     timer["reload"].first.restart();
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
 
 
     if (M_regrid)
@@ -6750,7 +6750,7 @@ FiniteElement::step()
     {
         timer["thermo"].first.restart();
         this->thermo(thermo_timestep);
-        LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+        LOG(VERBOSE) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
     }
 
 
@@ -6786,7 +6786,7 @@ FiniteElement::step()
         //======================================================================
         timer["assemble"].first.restart();
         this->assemble(pcpt);
-        LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+        LOG(VERBOSE) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
 
 
         //======================================================================
@@ -6796,15 +6796,15 @@ FiniteElement::step()
         //======================================================================
         timer["solve"].first.restart();
         this->solve();
-        LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+        LOG(VERBOSE) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
 
         timer["updatevelocity"].first.restart();
         this->updateVelocity();
-        LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+        LOG(VERBOSE) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
 
         timer["update"].first.restart();
         this->update();
-        LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        LOG(VERBOSE) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
@@ -6984,7 +6984,7 @@ FiniteElement::run()
     {
          M_comm.barrier();
 
-        LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
+        LOG(VERBOSE) <<"---------------------- TIME STEP "<< pcpt << " : "
                   << Nextsim::datenumToString(M_current_time) << "\n";
 
         if( pcpt*time_step % ptime_step == 0)
@@ -12107,7 +12107,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         if (export_mesh)
         {
             fileout = filenames[0]+".bin";
-            LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
             if(apply_displacement)
             {
@@ -12130,7 +12130,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
             fileout = filenames[0]+".dat";
 
-            LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
             if ( !outrecord.good() )
@@ -12143,7 +12143,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         if (export_fields)
         {
             fileout = filenames[1]+".bin";
-            LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
             if ( !outbin.good() )
@@ -12176,7 +12176,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             outbin.close();
 
             fileout = filenames[1]+".dat";
-            LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
             if ( !outrecord.good() )
@@ -12268,7 +12268,7 @@ FiniteElement::writeLogFile()
                % logfilename ).str();
 
     std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
-    LOG(INFO) << "Writing log file " << fileout << "...\n";
+    LOG(VERBOSE) << "Writing log file " << fileout << "...\n";
 
     int log_width = 55;
     if (logfile.is_open())
