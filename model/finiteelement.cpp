@@ -111,7 +111,6 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->gatherSizes();
     LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
-#if 1
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
