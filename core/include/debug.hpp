@@ -20,11 +20,12 @@ namespace Nextsim
         ERROR   = 0,
         WARNING = 1,
         INFO    = 2,
-        DEBUG   = 3
+        VERBOSE = 3,
+        DEBUG   = 4
     };
 
 
-static const char* ENUM_STR[] = { "ERROR", "WARNING", "INFO", "DEBUG" };
+static const char* ENUM_STR[] = { "ERROR", "WARNING", "INFO", "VERBOSE", "DEBUG" };
 
 class Log
 {
