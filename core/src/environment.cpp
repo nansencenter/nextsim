@@ -168,9 +168,10 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
             ).str();
 
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("debug", DEBUG)
+        ("verbose", VERBOSE)
         ("info", INFO)
         ("warning", WARNING)
-        ("debug", DEBUG)
         ("error", ERROR);
 
     log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
