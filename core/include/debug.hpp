@@ -55,10 +55,11 @@ private:
 };
 
 extern LogLevel M_log_level;
+extern Communicator M_comm;
 
 #define LOG(level) \
-	if (level > M_log_level) ; \
-	else Log(level)
+	if (M_comm.rank()==0 && level<=M_log_level) \
+        Log(level)
 
 } // Nextsim
 #endif
