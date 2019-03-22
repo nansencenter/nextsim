@@ -114,7 +114,6 @@ FiniteElement::distributedMeshProcessing(bool start)
     timer["scattercvt"].first.restart();
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
-#endif
 
 #if 0
     // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
