@@ -44,6 +44,7 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_SpinUpDuration( 0. ),
     M_initialized(true),
     M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
 {
     M_datasetname = (boost::format( "%1%...%2%" )
@@ -87,6 +88,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_SpinUpDuration( 0. ),
     M_initialized(true),
     M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
     {}
 

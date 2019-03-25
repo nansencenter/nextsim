@@ -1034,6 +1034,9 @@ FiniteElement::initOptAndParam()
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     M_log_level = Environment::logLevel();
 
+    //! Do we output the log on all processors?
+    M_log_all = Environment::logAll();
+
     //! Defines the export (output) path.
     M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
     // Changes directory for outputs if the option "output.exporter_path" is not empty
