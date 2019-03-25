@@ -55,6 +55,8 @@ namespace Nextsim
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
+            ("debugging.log-all", po::value<bool>()->default_value( false ),
+                "Whether printouts from debugging.log-level are to be done on all processors [true|false(default)].")
             ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
@@ -189,8 +191,8 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.input_filename", po::value<std::string>()->default_value( "" ),
-                "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
+            ("restart.basename", po::value<std::string>()->default_value( "" ),
+                "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
             ("restart.type", po::value<std::string>()->default_value( "extend" ),
                 "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
 
@@ -210,16 +212,20 @@ namespace Nextsim
                 "Units of restart.output_interval: days or time_steps")
             ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
                 "reset ice velocity to zero if starting from restart")
-            ("restart.output_before_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results before regrid")
-            ("restart.output_after_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results after regrid")
+            ("restart.write_restart_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart before regrid")
+            ("restart.write_restart_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart after regrid")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.export_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
+            ("output.export_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results after regrid")
 #if 0
             //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
             ("output.variables", po::value<std::vector<std::string>>()->multitoken()
