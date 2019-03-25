@@ -48,7 +48,8 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_map_elements(),
     timer(),
 	M_mppfile(Environment::nextsimMppfile()),
-    M_log_level(Environment::logLevel())
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll())
 {}
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
@@ -58,6 +59,7 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_ordering(mesh.M_ordering),
     M_mppfile(mesh.M_mppfile),
     M_log_level(mesh.M_log_level),
+    M_log_all(mesh.M_log_all),
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
     M_edges(mesh.M_edges),

@@ -175,6 +175,8 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         ("error", ERROR);
 
     log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
+
+    log_all = vmenv["debugging.log-all"].as<bool>();
 }
 
 
@@ -218,6 +220,7 @@ fs::path Environment::nextsim_data_dir_env;
 fs::path Environment::nextsim_mesh_dir_env;
 std::string Environment::nextsim_mppfile;
 LogLevel Environment::log_level;
+bool Environment::log_all;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)

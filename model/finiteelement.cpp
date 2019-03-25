@@ -116,8 +116,8 @@ FiniteElement::distributedMeshProcessing(bool start)
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
 
 #if 0
-    // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
-    // LOG(INFO) <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+    // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    // LOG(DEBUG) << ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
 
     std::cout << "[INFO]: " <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
     std::cout << "[INFO]: " <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
@@ -253,8 +253,8 @@ FiniteElement::bcMarkedNodes()
     std::sort(M_neumann_flags.begin(), M_neumann_flags.end());
     M_neumann_flags.erase(std::unique(M_neumann_flags.begin(), M_neumann_flags.end() ), M_neumann_flags.end());
 
-    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
-    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+    LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
 
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
@@ -406,7 +406,7 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
-            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+            LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
@@ -1033,6 +1033,9 @@ FiniteElement::initOptAndParam()
 {
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     M_log_level = Environment::logLevel();
+
+    //! Do we output the log on all processors?
+    M_log_all = Environment::logAll();
 
     //! Defines the export (output) path.
     M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
@@ -2828,7 +2831,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
     int nb_var_element = M_prognostic_variables_elt.size();
 
     timer["gather"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
+    LOG(DEBUG) <<"----------GATHER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements;
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
@@ -2856,7 +2859,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
 }//gatherFieldsElement
 
 
@@ -2870,7 +2873,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 {
 
     timer["gather"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
+    LOG(DEBUG) <<"----------IO: GATHER ELEMENT starts\n";
 
     int const nb_var_element = vars_elements.size() + ext_data_elements.size();
     std::vector<double> elt_values_local;
@@ -2891,7 +2894,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
         boost::mpi::gatherv(M_comm, elt_values_local, 0);
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
 }//gatherFieldsElementsIO
 
 
@@ -2902,7 +2905,7 @@ void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
     timer["scatter"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
     int nb_var_element = M_prognostic_variables_elt.size();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
@@ -2941,7 +2944,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     }
     this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElement
 
 
@@ -2963,7 +2966,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     //!   - passed to redistributeVariablesIO
     timer["scatter"].first.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     int const nb_var_element = vars_elements.size();
@@ -2985,7 +2988,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     // transfer data from elt_values_local to vars_elements
     this->redistributeVariablesIO(elt_values_local, vars_elements);
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
 }//scatterFieldsElementIO
 
 
@@ -3093,7 +3096,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 {
     timer["gather.node"].first.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
+    LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 10;
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
@@ -3152,7 +3155,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
         }
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
 }//gatherFieldsNode
 
 
@@ -3164,7 +3167,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 {
     timer["scatter.node"].first.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
+    LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
     std::vector<double> in_nd_values;
 
@@ -3232,7 +3235,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     }
 
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
 }//scatterFieldsNode
 
 
@@ -3581,7 +3584,7 @@ FiniteElement::regrid(bool step)
         // boost::mpi::reduce(M_comm, step_order, step_order_max, boost::mpi::maximum<int>(), 0);
         // step_order = step_order_max;
 
-        LOG(DEBUG) <<"["<< M_rank <<"] " << "STEP ORDER= "<< step_order <<"\n";
+        LOG(DEBUG) << "STEP ORDER= "<< step_order <<"\n";
 
         substep_nb = std::pow(2,step_order);
 
@@ -6161,7 +6164,7 @@ FiniteElement::init()
     double minang = this->minAngle(M_mesh);
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     this->calcAuxiliaryVariables();
@@ -7707,12 +7710,12 @@ FiniteElement::writeRestart(std::string const& name_str)
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<< "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
+    LOG(DEBUG) <<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
+    LOG(DEBUG) <<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
+    LOG(DEBUG) << "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
+    LOG(DEBUG) <<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
+    LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
+    LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
@@ -12484,20 +12487,19 @@ FiniteElement::checkFields()
             inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
             close_mapx(map);
 
-            LOG(INFO)<<"["<< M_rank<<"] In checkFields\n";
-            LOG(INFO)<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] element number = "<<i<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+            LOG(INFO)<<pcpt<<"\n";
+            LOG(INFO)<<datenumToString(M_current_time)<<"\n";
+            LOG(INFO)<<M_nb_regrid<<"\n";
+            LOG(INFO)<<i<<"\n";
+            LOG(INFO)<<xtest <<"," <<ytest <<"\n";
+            LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
 
             for(int j=0; j<names.size(); j++)
             {
                 if(j<M_external_data_elements_names.size())
-                    LOG(INFO)<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
                 else
-                    LOG(INFO)<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
             }
             std::cout<<"\n";
         }

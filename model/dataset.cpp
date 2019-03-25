@@ -28,6 +28,7 @@ DataSet::DataSet( )
 DataSet::DataSet(char const *DatasetName)
     :
     M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
 {
     name = std::string(DatasetName);
