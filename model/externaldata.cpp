@@ -43,7 +43,9 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
     M_initialized(true),
-    M_log_level(Environment::logLevel())
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
+    M_comm(Environment::comm())
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
@@ -85,7 +87,9 @@ ExternalData::ExternalData( double ConstantValue )
     M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
     M_initialized(true),
-    M_log_level(Environment::logLevel())
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
+    M_comm(Environment::comm())
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
@@ -812,7 +816,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
                 std::string dimension_name=dataset->variables[j].dimensions[k].name;
-
                 // dimension_x case
                 if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
                 {
@@ -835,20 +838,20 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // time dimension
-			if(dataset->variables[j].dimensions.size()>2
-                    && dataset->grid.dataset_frequency!="constant"
-                    && dataset->grid.dataset_frequency!="nearest_daily")
-			{
+            if(dataset->variables[j].dimensions.size()>2
+                && dataset->grid.dataset_frequency!="constant"
+                && dataset->grid.dataset_frequency!="nearest_daily")
+            {
                 index_start[0] = index;
                 index_count[0] = 1;
 			}
 
             // depth dimension
-			if(dataset->variables[j].dimensions.size()>3)
-			{
+            if(dataset->variables[j].dimensions.size()>3)
+            {
                 index_start[1] = 0;
                 index_count[1] = 1;
-			}
+            }
 
             // Reading the netcdf
             NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);

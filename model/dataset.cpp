@@ -26,9 +26,11 @@ DataSet::DataSet( )
 {}
 
 DataSet::DataSet(char const *DatasetName)
+    :
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
+    M_comm(Environment::comm())
 {
-    M_log_level = Environment::logLevel();
-
     name = std::string(DatasetName);
     projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
@@ -1400,7 +1402,7 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
     else if (strcmp (DatasetName, "ocean_cpl_nodes") == 0)
     {
-        // Definition of topaz grid and datasets
+         // Definition of ocean coupling grid and datasets
         Dimension dimension_x={
             name:"y",
             cyclic:false
@@ -1612,7 +1614,7 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ocean_cpl_elements") == 0)
     {
-        // Definition of topaz grid and datasets
+         // Definition of ocean coupling grid and datasets
         Dimension dimension_x={
             name:"y",
             cyclic:false
@@ -8946,11 +8948,11 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
 	std::vector<size_t> index_count(2);
     std::vector<size_t> index_start(2);
 
-	index_start[0] = grid.dimension_y_start;
-	index_start[1] = grid.dimension_x_start;
+    index_start[0] = grid.dimension_y_start;
+    index_start[1] = grid.dimension_x_start;
 
-	index_count[0] = grid.dimension_y_count;
-	index_count[1] = grid.dimension_x_count;
+    index_count[0] = grid.dimension_y_count;
+    index_count[1] = grid.dimension_x_count;
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
 	VLAT_ptr->getVar(index_start,index_count,&LAT[0]);
