@@ -404,6 +404,14 @@ ModelVariable::initElemental()
             M_exporting = true;
             break;
 
+        case (variableID::D_delS):
+            // Salt balance of the ocean (all sources) [kg/day]
+            M_name = "D_delS";
+            M_export_name = "Saltflux";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_fwflux):
             // Freshwater balance at the surface [kg/m^2/s]
             M_name = "D_fwflux";

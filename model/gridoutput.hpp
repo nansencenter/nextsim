@@ -151,8 +151,9 @@ public:
         Qsh         = 103,
         Qlh         = 104,
         Qo          = 105,
-        rain        = 106,
-        evap        = 107,
+        delS        = 106,
+        rain        = 107,
+        evap        = 108,
 
         // Forcing variables
         tair        = 200,
@@ -397,6 +398,13 @@ public:
                     longName = "Surface Ocean Liquid Precipitation";
                     stdName  = "surface_ocean_liquid_precipitation";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::delS):
+                    name     = "sfo";
+                    longName = "Downward Saltflux In Ocean";
+                    stdName  = "downward_slatflux_in_ocean";
+                    Units    = "g m-2 s-1";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::evap):

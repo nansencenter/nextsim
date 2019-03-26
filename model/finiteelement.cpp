@@ -5523,6 +5523,9 @@ FiniteElement::thermo(int dt)
         // flux from assim
         D_Qassim[i] = Qassm;
 
+        // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
+        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
+
         // Freshwater balance at the surface - kg/m^2/s
         D_fwflux[i] = -1./ddt * ( emp
                  + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
@@ -6368,6 +6371,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qlh);
     D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);//! \param D_Qo (double) Total heat lost by the ocean
     M_variables_elt.push_back(&D_Qo);
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Virtual salt flux to the ocean [kg/m^2/s]
+    M_variables_elt.push_back(&D_delS);
     D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);//! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
@@ -7166,6 +7171,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_Qo[i]*time_factor;
                 break;
+            case (GridOutput::variableID::delS):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
             case (GridOutput::variableID::evap):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_evap[i]*time_factor;
@@ -7411,6 +7420,7 @@ FiniteElement::initMoorings()
             ("Qlw", GridOutput::variableID::Qlw)
             ("Qsh", GridOutput::variableID::Qsh)
             ("Qlh", GridOutput::variableID::Qlh)
+            ("delS", GridOutput::variableID::delS)
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
@@ -7499,7 +7509,7 @@ FiniteElement::initMoorings()
 
             vectorial_variables.push_back(siuv);
         }
-        
+
         else if (*it == "wind")
         {
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
