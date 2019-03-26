@@ -152,7 +152,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     || !M_dataset->loaded);
 #ifdef OASIS
         else if(M_dataset->grid.dataset_frequency=="coupled")
-            to_be_reloaded=((cpl_time < M_dataset->ftime_range[0] ) || (M_dataset->ftime_range[1] <= cpl_time) || !M_dataset->loaded );
+            to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
 #endif
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
@@ -160,8 +160,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (to_be_reloaded)
         {
 #ifdef OASIS
-        // We call oasis_get every time step, but only actually recieve data at coupling times
-        if (M_dataset->coupled)
+            // We call oasis_get every time step, but only actually recieve data at coupling times
+            if (M_dataset->coupled)
             {
                 if(!M_dataset->grid.loaded)
                 {
@@ -222,8 +222,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 this->recieveCouplingData(M_dataset, cpl_time, comm);
                 transformData(M_dataset);
                 M_dataset->interpolated = false;
-                M_dataset->ftime_range[0] = cpl_time;
-                M_dataset->ftime_range[1] = cpl_time + cpl_dt;
+                M_dataset->itime_range[0] = cpl_time;
+                M_dataset->itime_range[1] = cpl_time + cpl_dt;
+                M_dataset->ftime_range[0] = M_current_time;
+                M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
             }
             else {
 #endif

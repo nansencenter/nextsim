@@ -203,6 +203,9 @@ public:
     Variable time;
 
     std::vector<double> ftime_range;
+#ifdef OASIS
+    std::vector<double> itime_range;
+#endif
             
     std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
 

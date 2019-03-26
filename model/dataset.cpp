@@ -7883,6 +7883,9 @@ DataSet::DataSet(char const *DatasetName)
     }
 
     ftime_range.resize(2,0.);
+#ifdef OASIS
+    itime_range.resize(2,0.);
+#endif
 
 }
 
