@@ -803,51 +803,49 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
+            index_start.resize(dataset->variables[j].dimensions.size());
+            index_count.resize(dataset->variables[j].dimensions.size());
 
             // here we find the start and count index for each dimensions
-            int dims = NcVars[j].getDimCount();
-            if ( dims != dataset->variables[j].dimensions.size() )
+            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
             {
-                LOG(ERROR)<< "Dataset: "<<dataset->name<<"\n";
-                LOG(ERROR)<< "Variable ["<<j<<"]: "<<dataset->variables[j].name<<"\n";
-                throw std::logic_error( "ExternalData::loadDataset: Wrong number of dimensions: " + std::to_string(dims) +
-                        ". Should be " + std::to_string(dataset->variables[j].dimensions.size()) );
+                std::string dimension_name=dataset->variables[j].dimensions[k].name;
+                // dimension_x case
+                if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
+                {
+                    index_start[k] = dataset->grid.dimension_x_start;
+                    index_count[k] = dataset->grid.dimension_x_count;
+                }
+                // dimension_y case
+                else if ((dimension_name).find(dataset->grid.dimension_y.name) != std::string::npos)
+                {
+                    index_start[k] = dataset->grid.dimension_y_start;
+                    index_count[k] = dataset->grid.dimension_y_count;
+                }
+                // other cases
+                else{
+                    tmpDim = dataFile.getDim(dimension_name);
+
+                    index_start[k] = 0;
+                    index_count[k] = tmpDim.getSize();
+                }
             }
 
-            LOG(DEBUG) << "dims: " << dims << "\n";
-            index_count.resize(dims);
-            index_start.resize(dims);
-
-            for (int i=0; i<dims; ++i)
+            // time dimension
+            if(dataset->variables[j].dimensions.size()>2
+                && dataset->grid.dataset_frequency!="constant"
+                && dataset->grid.dataset_frequency!="nearest_daily")
             {
-                netCDF::NcDim tmpDim = NcVars[j].getDim(i);
-                std::string name = tmpDim.getName();
-                if ( name == dataset->grid.dimension_x.name )
-                {
-                    //x dimension
-                    index_start[i] = dataset->grid.dimension_x_start;
-                    index_count[i] = dataset->grid.dimension_x_count;
-                }
-                else if ( name == dataset->grid.dimension_y.name )
-                {
-                    //y dimension
-                    index_start[i] = dataset->grid.dimension_y_start;
-                    index_count[i] = dataset->grid.dimension_y_count;
-                }
-                else if ( tmpDim.isUnlimited()
-                    && dataset->grid.dataset_frequency!="constant"
-                    && dataset->grid.dataset_frequency!="nearest_daily")
-			    {
-                    //time dimension
-            	    index_start[0] = index;
-            	    index_count[0] = 1;
-			    }
-                else // We take the first slice of the depth dimension
-			    {
-                    index_start[i] = 0;
-                    index_count[i] = 1;
-                }
+                index_start[0] = index;
+                index_count[0] = 1;
 			}
+
+            // depth dimension
+            if(dataset->variables[j].dimensions.size()>3)
+            {
+                index_start[1] = 0;
+                index_count[1] = 1;
+            }
 
             // Reading the netcdf
             NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);

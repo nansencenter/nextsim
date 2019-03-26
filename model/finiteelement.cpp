@@ -1281,8 +1281,7 @@ FiniteElement::initOptAndParam()
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
-        //("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)//TODO reactivate after issue 252 is solved
-        ;
+        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
     option_str = vm["setup.ice-type"].as<std::string>();
     if ( str2conc.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
@@ -6475,7 +6474,7 @@ FiniteElement::initOASIS()
 
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
-                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
     } else {
         throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
                 + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
