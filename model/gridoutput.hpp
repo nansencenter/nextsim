@@ -404,7 +404,7 @@ public:
                     name     = "sfo";
                     longName = "Downward Saltflux In Ocean";
                     stdName  = "downward_slatflux_in_ocean";
-                    Units    = "g m-2 s-1";
+                    Units    = "g m-2 day-1";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::evap):
