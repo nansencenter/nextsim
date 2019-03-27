@@ -5078,6 +5078,8 @@ FiniteElement::thermo(int dt)
 
     M_clock.tock("fluxes");
 
+    M_clock.tick("slab");
+
     for (int i=0; i < M_num_elements; ++i)
     {
         // -------------------------------------------------
@@ -5177,8 +5179,6 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
-        M_clock.tick("slab");
-
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
         /* Temperature at the base of the ice */
@@ -5211,10 +5211,6 @@ FiniteElement::thermo(int dt)
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
-
-        M_clock.tock("slab");
-
-        M_clock.tick("ow");
 
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
@@ -5401,8 +5397,6 @@ FiniteElement::thermo(int dt)
             hs     = 0.;
         }
 
-        M_clock.tock("ow");
-
         // -------------------------------------------------
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
@@ -5582,6 +5576,9 @@ FiniteElement::thermo(int dt)
         }
 
     }// end for loop
+
+    M_clock.tock("slab");
+
 }//thermo
 
 
