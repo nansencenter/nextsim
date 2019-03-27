@@ -5021,8 +5021,8 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
 
-    M_clock.tick("fluxes");
-    M_clock.tick("ow_fluxes");
+    M_timer.tick("fluxes");
+    M_timer.tick("ow_fluxes");
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
 
@@ -5038,9 +5038,9 @@ FiniteElement::thermo(int dt)
     M_tau_ow.resize(M_num_elements);
     this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
 
-    M_clock.tock("ow_fluxes");
+    M_timer.tock("ow_fluxes");
 
-    M_clock.tick("ia_fluxes");
+    M_timer.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -5073,11 +5073,11 @@ FiniteElement::thermo(int dt)
         dQiadT_thin.assign(M_num_elements, 0.);
     }
 
-    M_clock.tock("ia_fluxes");
+    M_timer.tock("ia_fluxes");
 
-    M_clock.tock("fluxes");
+    M_timer.tock("fluxes");
 
-    M_clock.tick("slab");
+    M_timer.tick("slab");
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5576,7 +5576,7 @@ FiniteElement::thermo(int dt)
 
     }// end for loop
 
-    M_clock.tock("slab");
+    M_timer.tock("slab");
 
 }//thermo
 
@@ -6238,8 +6238,8 @@ FiniteElement::init()
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
 
-    //! - 10) Initialise clocks
-    M_clock = Clock();
+    //! - 10) Initialise timers
+    M_timer = Timer();
 }//init
 
 // ==============================================================================
@@ -6635,7 +6635,7 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
-    M_clock.tick("remesh");
+    M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
@@ -6726,18 +6726,18 @@ FiniteElement::step()
     }//bamg-regrid
 
     M_comm.barrier();
-    M_clock.tock("remesh");
+    M_timer.tock("remesh");
 
-    M_clock.tick("checkReload");
+    M_timer.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
     LOG(VERBOSE) <<"---timer check_and_reload:     "<< chrono.elapsed() <<"s\n";
 
-    M_clock.tock("checkReload");
+    M_timer.tock("checkReload");
 
-    M_clock.tick("auxiliary");
+    M_timer.tick("auxiliary");
 
     if (M_regrid)
     {
@@ -6768,17 +6768,17 @@ FiniteElement::step()
         M_regrid = true;
     }
 
-    M_clock.tock("auxiliary");
+    M_timer.tock("auxiliary");
 
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
     if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
     {
-        M_clock.tick("thermo");
+        M_timer.tick("thermo");
         this->thermo(thermo_timestep);
-        M_clock.tock("thermo");
-        LOG(VERBOSE) <<"---timer thermo:               "<< M_clock.lap("thermo") <<"s\n";
+        M_timer.tock("thermo");
+        LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
     }
 
 
@@ -6807,16 +6807,16 @@ FiniteElement::step()
     //======================================================================
     //! 5) Performs the dynamics
     //======================================================================
-    M_clock.tick("dynamics");
+    M_timer.tick("dynamics");
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
         //! - 5.1) Assembles the rigidity matrix by calling the assemble() function,
         //======================================================================
-        M_clock.tick("assemble");
+        M_timer.tick("assemble");
         this->assemble(pcpt);
-        M_clock.tock("assemble");
-        LOG(VERBOSE) <<"---timer assemble:             "<< M_clock.lap("assemble") <<"s\n";
+        M_timer.tock("assemble");
+        LOG(VERBOSE) <<"---timer assemble:             "<< M_timer.lap("assemble") <<"s\n";
 
 
         //======================================================================
@@ -6824,31 +6824,31 @@ FiniteElement::step()
         //! - 5.3) Updates the velocities by calling the updateVelocity() function
         //! - 5.4) Uptates relevant variables by calling the update() function
         //======================================================================
-        M_clock.tick("solve");
+        M_timer.tick("solve");
         this->solve();
-        M_clock.tock("solve");
-        LOG(VERBOSE) <<"---timer solve:                "<< M_clock.lap("solve") <<"s\n";
+        M_timer.tock("solve");
+        LOG(VERBOSE) <<"---timer solve:                "<< M_timer.lap("solve") <<"s\n";
 
-        M_clock.tick("updatevelocity");
+        M_timer.tick("updatevelocity");
         this->updateVelocity();
-        M_clock.tock("updatevelocity");
-        LOG(VERBOSE) <<"---timer updateVelocity:       "<< M_clock.lap("updatevelocity") <<"s\n";
+        M_timer.tock("updatevelocity");
+        LOG(VERBOSE) <<"---timer updateVelocity:       "<< M_timer.lap("updatevelocity") <<"s\n";
 
-        M_clock.tick("update");
+        M_timer.tick("update");
         this->update();
-        M_clock.tock("update");
-        LOG(VERBOSE) <<"---timer update:               "<< M_clock.lap("update") <<"s\n";
+        M_timer.tock("update");
+        LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
 
-    M_clock.tock("dynamics");
+    M_timer.tock("dynamics");
 
     //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
-    M_clock.tick("coupler");
+    M_timer.tick("coupler");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6886,7 +6886,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
-    M_clock.tock("coupler");
+    M_timer.tock("coupler");
 #endif
 
     //======================================================================
@@ -6908,9 +6908,9 @@ FiniteElement::step()
     // TODO also add drifter check here
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
-    M_clock.tick("output");
+    M_timer.tick("output");
     this->checkOutputs(false);
-    M_clock.tock("output");
+    M_timer.tock("output");
  }//step
 
 
@@ -12562,9 +12562,9 @@ FiniteElement::checkFields()
 void
 FiniteElement::finalise(std::string current_time_system)
 {
-    // Output clock ticks
+    // Output timer ticks
     if (M_rank == 0)
-        LOG(INFO) << M_clock.printAll();
+        LOG(INFO) << M_timer.printAll();
 
     // Don't forget to close the iabp file!
     if (M_use_iabp_drifters)

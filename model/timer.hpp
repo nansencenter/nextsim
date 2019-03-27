@@ -1,13 +1,13 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
- * @file   clock.hpp
+ * @file   timer.hpp
  * @author Einar Olason <einar.olason@nersc.no>
  * @date   Wed 13 Mar 2019 09:56:02 CET
  */
 
-#ifndef __Clock_HPP
-#define __Clock_HPP 1
+#ifndef __Timer_HPP
+#define __Timer_HPP 1
 
 #include <boost/mpi/timer.hpp>
 #include <vector>
@@ -18,16 +18,16 @@
 #include <algorithm>
 #include <map>
 
-class Clock
+class Timer
 {
     public:
         ///////////////////////////////////////////////////////////////////////
         // Constructors (and destructor)
         ///////////////////////////////////////////////////////////////////////
         
-        Clock();
+        Timer();
 
-        ~Clock();
+        ~Timer();
 
         ///////////////////////////////////////////////////////////////////////
         // Public functions
@@ -51,10 +51,10 @@ class Clock
         } Works;
 
         static constexpr double M_max_time = std::numeric_limits<double>::max();
-        std::map<std::string,Works> M_clock;
+        std::map<std::string,Works> M_timer;
         std::vector<std::string> M_names;
         std::vector<std::string> M_lineage;
-        std::string M_global_clock = "Total";
+        std::string M_global_timer = "Total";
 };
 
 #endif
