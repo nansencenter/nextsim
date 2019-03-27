@@ -400,7 +400,6 @@ private:
     std::vector<int> M_neumann_nodes;
 
     boost::mpi::timer chrono, chrono_tot;
-    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
     Clock M_clock;
 
     setup::AtmosphereType M_atmosphere_type;

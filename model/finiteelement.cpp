@@ -28,8 +28,7 @@ FiniteElement::FiniteElement(Communicator const& comm)
     M_mesh(mesh_type(comm)),
     M_solver(solver_ptrtype(new solver_type(comm))),
     M_matrix(matrix_ptrtype(new matrix_type(comm))),
-    M_vector(vector_ptrtype(new vector_type(comm))),
-    timer()
+    M_vector(vector_ptrtype(new vector_type(comm)))
 {}
 
 
@@ -66,9 +65,9 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
-    timer["meshread"].first.restart();
+    chrono.restart();
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
-    LOG(DEBUG)<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
 
     if (!start)
     {
@@ -79,13 +78,13 @@ FiniteElement::distributedMeshProcessing(bool start)
         bamgmesh = new BamgMesh();
     }
 
-    timer["createbamg"].first.restart();
+    chrono.restart();
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles());
 
-    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -99,21 +98,21 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
     M_num_nodes = M_local_ndof_ghost;
 
-    timer["bcmarker"].first.restart();
+    chrono.restart();
     this->bcMarkedNodes();
-    LOG(DEBUG)<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
 
-    timer["creategraph"].first.restart();
+    chrono.restart();
     this->createGraph();
-    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
 
-    timer["gathersize"].first.restart();
+    chrono.restart();
     this->gatherSizes();
-    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
 
-    timer["scattercvt"].first.restart();
+    chrono.restart();
     this->scatterElementConnectivity();
-    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
     // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -2830,7 +2829,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
     int nb_var_element = M_prognostic_variables_elt.size();
 
-    timer["gather"].first.restart();
+    chrono.restart();
     LOG(DEBUG) <<"----------GATHER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements;
@@ -2859,7 +2858,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    LOG(DEBUG) <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsElement
 
 
@@ -2872,7 +2871,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
         std::vector<ExternalData*> const& ext_data_elements)
 {
 
-    timer["gather"].first.restart();
+    chrono.restart();
     LOG(DEBUG) <<"----------IO: GATHER ELEMENT starts\n";
 
     int const nb_var_element = vars_elements.size() + ext_data_elements.size();
@@ -2894,7 +2893,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
         boost::mpi::gatherv(M_comm, elt_values_local, 0);
     }
 
-    LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsElementsIO
 
 
@@ -2904,7 +2903,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
-    timer["scatter"].first.restart();
+    chrono.restart();
     LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
     int nb_var_element = M_prognostic_variables_elt.size();
@@ -2944,7 +2943,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     }
     this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
 
-    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsElement
 
 
@@ -2964,7 +2963,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     //! * data is a vector of pointers to the variables to be assigned
     //!   values from elt_values_local
     //!   - passed to redistributeVariablesIO
-    timer["scatter"].first.restart();
+    chrono.restart();
 
     LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
@@ -2988,7 +2987,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     // transfer data from elt_values_local to vars_elements
     this->redistributeVariablesIO(elt_values_local, vars_elements);
 
-    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsElementIO
 
 
@@ -3001,11 +3000,11 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     std::vector<double> interp_in_elements;
     std::vector<double> interp_in_nodes;
 
-    timer["gather"].first.restart();
+    chrono.restart();
     int nb_var_element = M_prognostic_variables_elt.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
-    LOG(DEBUG)<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHER done in "<< chrono.elapsed() <<"s\n";
 
     double* interp_elt_out;
     double* interp_nd_out;
@@ -3035,12 +3034,12 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         //! The interpolation with the cavities still needs to be tested on a long run.
         //! By default, we then use the non-conservative MeshToMesh interpolation
 
-        timer["cavities"].first.restart();
+        chrono.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
                                        &M_interp_methods[0], nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
-        LOG(DEBUG)<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------CAVITIES done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();
@@ -3071,14 +3070,14 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                 false);
     } // rank 0
 
-    timer["distributed"].first.restart();
+    chrono.restart();
     this->distributedMeshProcessing();
-    LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< chrono.elapsed() <<"s\n";
 
-    timer["scatter"].first.restart();
+    chrono.restart();
     this->scatterFieldsElement(interp_elt_out);
     this->scatterFieldsNode(interp_nd_out);
-    LOG(DEBUG)<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------SCATTER done in "<< chrono.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
@@ -3094,7 +3093,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 void
 FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
-    timer["gather.node"].first.restart();
+    chrono.restart();
 
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
@@ -3155,7 +3154,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
         }
     }
 
-    LOG(DEBUG) <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER NODE done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsNode
 
 
@@ -3165,7 +3164,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 void
 FiniteElement::scatterFieldsNode(double* interp_nd_out)
 {
-    timer["scatter.node"].first.restart();
+    chrono.restart();
 
     LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
@@ -3235,7 +3234,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     }
 
 
-    LOG(DEBUG) <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER NODE done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsNode
 
 
@@ -3549,7 +3548,7 @@ FiniteElement::regrid(bool step)
 {
     M_comm.barrier();
 
-    timer["regrid"].first.restart();
+    chrono.restart();
 
     double displacement_factor = 2.;
     int substep_nb=1;
@@ -3602,12 +3601,12 @@ FiniteElement::regrid(bool step)
         {
             //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
 
-            timer["movemesh"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Move starts\n";
             M_mesh_root.move(um_root,displacement_factor);
-            LOG(DEBUG) <<"Move done in "<< timer["movemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
-            timer["movevertices"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
             auto RX = M_mesh_root.coordX();
             auto RY = M_mesh_root.coordY();
@@ -3618,20 +3617,20 @@ FiniteElement::regrid(bool step)
                 bamgmesh_root->Vertices[3*id+1] = RY[id] ;
             }
 
-            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< timer["movevertices"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
 
             if(M_mesh_type==setup::MeshType::FROM_SPLIT)
             {
-                timer["interpvertices"].first.restart();
+                chrono.restart();
                 LOG(DEBUG) <<"Interp vertices starts\n";
                 this->interpVertices();
-                LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
+                LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
             }
 
-            timer["adaptmesh"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
 
             // save mesh (only root process)
@@ -3643,20 +3642,20 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
             // Environment::logMemoryUsage("before partitioning...");
-            timer["savemesh"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
                 M_mesh_root.writeToGModel();
             else if (M_partition_space == mesh::PartitionSpace::DISK)
                 M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
-            timer["meshpartition"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
-            LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -3673,13 +3672,13 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    timer["interpFields"].first.restart();
+    chrono.restart();
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< chrono.elapsed() <<"s\n";
 
     // --------------------------------END-------------------------------
 
-    LOG(DEBUG) <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"TIMER REGRIDDING= "<< chrono.elapsed() <<"s\n";
 
     this->assignVariables();
 }//regrid
@@ -3720,9 +3719,9 @@ FiniteElement::adaptMesh()
         }
     }
 
-    timer["bamgmesh"].first.restart();
+    chrono.restart();
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    LOG(DEBUG) <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
     this->importBamg(bamgmesh_root);
@@ -3882,7 +3881,7 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
-    timer["assembly"].first.restart();
+    chrono.restart();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -4709,7 +4708,7 @@ FiniteElement::solve()
     //SolverPetsc ksp;
     //ksp.solve(M_matrix, M_solution, M_vector);
 
-    //timer["solution"].first.restart();
+    //chrono.restart();
 
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
@@ -4726,7 +4725,7 @@ FiniteElement::solve()
     M_solution->close();
 
     // if (M_rank==0)
-    //     std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
+    //     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
 }//solve
@@ -6203,9 +6202,9 @@ FiniteElement::init()
 #endif
 
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
-    timer["reload"].first.restart();
+    chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
-    LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
 #ifdef OASIS
     pcpt += cpl_time_step/time_step;
@@ -6215,15 +6214,15 @@ FiniteElement::init()
     //       or can do assimilation (optional) if using a restart
     if ( !M_use_restart )
     {
-        timer["state"].first.restart();
+        chrono.restart();
         this->initModelState();
-        LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
     else if ( M_use_assimilation )
     {
-        timer["assimilation"].first.restart();
+        chrono.restart();
         this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
@@ -6250,19 +6249,19 @@ FiniteElement::init()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    timer["FETensors"].first.restart();
+    chrono.restart();
     this->FETensors();
-    LOG(VERBOSE) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
 
-    timer["calcCohesion"].first.restart();
+    chrono.restart();
     this->calcCohesion();
-    LOG(VERBOSE) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer calcCohesion:             "<< chrono.elapsed() <<"\n";
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        timer["calcCoriolis"].first.restart();
+        chrono.restart();
         this->calcCoriolis();
-        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< chrono.elapsed() <<"\n";
     }
 }//calcAuxiliaryVariables
 
@@ -6732,9 +6731,9 @@ FiniteElement::step()
     M_clock.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    timer["reload"].first.restart();
+    chrono.restart();
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< chrono.elapsed() <<"s\n";
 
     M_clock.tock("checkReload");
 
@@ -8280,7 +8279,7 @@ FiniteElement::partitionMeshRestart()
         LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
         // Environment::logMemoryUsage("before partitioning...");
-        timer["savemesh"].first.restart();
+        chrono.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
         {
@@ -8292,14 +8291,14 @@ FiniteElement::partitionMeshRestart()
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
 
-        LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
-        timer["meshpartition"].first.restart();
+        chrono.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
         M_mesh_root.partition(M_partitioned_mesh_filename,
                 M_partitioner, M_partition_space, M_mesh_fileformat);
-        LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
 
     M_prv_local_ndof = M_local_ndof;
