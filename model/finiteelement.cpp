@@ -1347,6 +1347,7 @@ FiniteElement::initOptAndParam()
 
     // set number of floe size bins
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
+    M_fsd_bin_widths = vm["wave_coupling.fsd_bins_width"].as<double>();
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -4794,32 +4795,22 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     const double young=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-    const double flex_strength=0.27e6 ; // TO BE CHECKED
-    const double threshold=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
-    // double R      ;// Ratio of energy in waves over total energy (includiing elastic energy)
-
+    const double flex_strength=0.6e6 ; // Ardhuin et al. 2018 -> 0.6e6 ; Williams et al. 2013 -> 0.27e6 
     double const strain_c = flex_strength / young ; // valid for a beam... should be changed
+#ifdef OASIS
     for (int i=0; i<M_num_elements; i++)
     {
-        if( M_tm02[i] < 1.e-8 || M_str_var[i]<1.e-8 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
+        if( M_tm02[i] < 1.e-1 || M_str_var[i]<1.e-9 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
         {
             prob[i] = 0.;
             continue;
         }
 
-        double const lambda = physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
-        double const R = 1. + 4*young*std::pow(M_thick[i],3)
-            *std::pow(PI/lambda,4)
-            /(3*physical::rhow*physical::g*(1-std::pow(poisson,2)));
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
-                            (2* M_str_var[i]/R* std::pow(M_thick[i]/2,2) ) 
+                            (2* M_str_var[i]* std::pow(M_thick[i]/2,2) ) 
                          ) ;
-
-        //prob[i]=std::pow(1-M_conc[i],5);	
-        if (prob[i]<threshold)
-            prob[i] = 0.;
-        //M_var_str[i]
     }
+#endif
     return prob;
 }
 //if 0
@@ -4830,15 +4821,19 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 //! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
 //------------------------------------------------------------------------------------------------------
 {
-
+#ifdef OASIS
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double broken_area        ; // area of broken floes in each category to be redistributed
     double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
     double beta               ; // redistribution factor
+    const double threshold1=0.01  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
+    const double threshold2=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
+
+    const double young=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
+    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
 
     auto P_inf = this -> computeWaveBreakingProb();
- 
     for (int i=0; i<M_num_elements; i++)
     {
         //! Compute the wavelength associated with Tm02
@@ -4850,14 +4845,18 @@ FiniteElement::redistributeFSD()//----------------------------------------------
         for (int j=1; j<M_num_fsd_bins; j++)
         {
             // don't try to break if there are no waves
-            if( P_inf[i] <= 0.)
+            if( P_inf[i] <= threshold1)
                 continue;
-
+            // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
+            double d_flex= 0.5 * std::pow ( std::pow(PI,4)*young*std::pow(M_thick[i],3) /
+                                            (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
+                                          , 0.25 ) ;
             P[j] = P_inf[i] * std::max(0.,
-                              std::tanh( namelistparam2*M_fsd_bin_centres[j] / lambda )
-//                           std::tanh( M_fsd_bin_centres[j]-0.3*lambda /  M_fsd_bin_centres[j]*10 )
+                              std::tanh( namelistparam2*(M_fsd_bin_centres[j]-d_flex) / lambda )
                                       ) ;
-
+            if( P[j] <= threshold2)
+                continue;
+                
             //! Then update FSD with uniform redistribution
             //! 1.a Compute the broken area in each category
             broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w))        ;
@@ -4896,6 +4895,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 
 // END DEBUG GUILLAUME
     }//loop over elements
+#endif
 }//redistributeFSD
 
 void
@@ -4925,6 +4925,11 @@ FiniteElement::updateFSD()//----------------------------------------------------
                 for(int k=0;k<M_num_fsd_bins;k++)
                     M_conc_fsd[k][cpt]*= ctot/ctot2;
                 }
+            }
+            if (ctot==1.)
+            {
+                for(int k=0;k<M_num_fsd_bins;k++)
+                    M_conc_fsd[k][cpt]*=ctot/ctot2;
             }
         }
      }
@@ -5696,7 +5701,7 @@ FiniteElement::thermo(int dt)
                     M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
                     double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i];
 
-                    //smaller FSD bins 
+                    //smaller FSD bins  
                     for(int k=M_num_fsd_bins-2; k>-1; k--)
                     {
                         double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
@@ -6788,7 +6793,6 @@ FiniteElement::initFsd()
     if (M_num_fsd_bins==0)
         return ;
     // Define the categories TODO: Must be tunable in namelist
-    M_fsd_bin_widths=20. ;
     M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.) ;
     M_fsd_bin_up_limits.assign(M_num_fsd_bins,M_fsd_bin_widths) ;
     M_fsd_bin_centres.resize(M_num_fsd_bins);
@@ -7099,6 +7103,37 @@ FiniteElement::updateIceDiagnostics()
         sigma_n =          - (sigma[0]+sigma[1])/2.;
         D_sigma[0][i] = sigma_n+sigma_s;
         D_sigma[1][i] = sigma_n-sigma_s;
+        
+        D_dmean[i] = 0. ;
+        D_dmax[i]  = 0. ;
+        // FSD relative parameters
+        if (M_num_fsd_bins>0)
+        {   
+            if (M_conc_fsd[M_num_fsd_bins-1][i]>0.90*D_conc[i])
+            {
+                D_dmax[i]=1000.;
+                D_dmean[i]=1000.;
+            }    
+            else
+	    {
+                double ctot_fsd = M_conc_fsd[M_num_fsd_bins-1][i];
+                for(int j=M_num_fsd_bins-2;j>-1;j--)
+                {
+                    ctot_fsd += M_conc_fsd[j][i] ;
+                    if (ctot_fsd>0.05*D_conc[i])
+                    {
+                        D_dmax[i]=M_fsd_bin_up_limits[j]   ;
+                        continue ;
+                    }
+                }
+
+                for(int j=0;j<M_num_fsd_bins-1;j++)
+                {
+                    D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j] ; // ONLY WORKS WITH CST width 
+                }
+            }
+        }
+
     }
 }
 
@@ -7244,6 +7279,7 @@ FiniteElement::step()
         // check the fields for nans etc after regrid
         if(vm["debugging.check_fields"].as<bool>())
             this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
     }
     else if(pcpt==0)
     {
@@ -7279,6 +7315,8 @@ FiniteElement::step()
         this->thermo(thermo_timestep);
         if (M_rank == 0)
             LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+        this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
 
     if( M_use_nesting )
@@ -7336,6 +7374,8 @@ FiniteElement::step()
         this->update();
         if (M_rank == 0)
             LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-Update checkfields is a success \n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();

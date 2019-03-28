@@ -432,6 +432,7 @@ namespace Nextsim
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
+            ("wave_coupling.fsd_bins_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
