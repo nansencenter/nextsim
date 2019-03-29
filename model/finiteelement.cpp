@@ -7574,7 +7574,7 @@ FiniteElement::initMoorings()
             output_time = M_current_time;
         else
             // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time - double(mooring_output_time_step)/86400./2.;
+            output_time = M_current_time + double(mooring_output_time_step)/86400./2.;
 
         std::string filename_root;
         if ( M_moorings_parallel_output )
@@ -7616,7 +7616,7 @@ FiniteElement::updateMoorings()
         double not_used;
         if (       (M_rank==0 || M_moorings_parallel_output)
                 && (M_moorings_file_length != GridOutput::fileLength::inf)
-                && (modf(output_time, &not_used) < time_step*86400) )
+                && (modf(output_time, &not_used) < double(mooring_output_time_step)/86400) )
         {
             std::string filename_root;
             if ( M_moorings_parallel_output )
