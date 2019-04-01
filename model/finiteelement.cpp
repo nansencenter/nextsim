@@ -1065,11 +1065,6 @@ FiniteElement::initOptAndParam()
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
-    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>(); //! \param ptime_step (int) Debugging time step?
-    // Round ptime_step to the nearest multple of time_step
-    ptime_step += time_step/2;
-    ptime_step -= ptime_step% time_step;
-
     thermo_timestep = vm["simul.thermo_timestep"].as<int>(); //! \param thermo_timestep (int) Thermodynamic time step [s]
     if ( thermo_timestep % time_step != 0)
     {
@@ -1095,6 +1090,11 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
+
+    ptime_step =  vm["debugging.ptime_percent"].as<int>()*duration/100; //! \param ptime_step (int) Info ouput time interval
+    // Round ptime_step to the nearest multple of time_step
+    ptime_step += time_step/2;
+    ptime_step -= ptime_step% time_step;
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
@@ -7022,7 +7022,7 @@ FiniteElement::run()
         if( pcpt*time_step % ptime_step == 0)
         {
             std::string time_spent_str = time_spent(current_time_system);
-            LOG(INFO) <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
+            LOG(INFO) <<" ---------- progression: ("<< std::fixed << std::setw(2)<< std::setprecision(0) << 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
         }
 
         is_running = ((pcpt+1)*dtime_step) < duration;
