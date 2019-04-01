@@ -6645,13 +6645,7 @@ FiniteElement::step()
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
-        if (M_rank == 0)
-        {
-            if( pcpt*time_step % ptime_step == 0)
-                LOG(INFO) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-
-            LOG(INFO) <<"REGRID ANGLE= "<< minang <<"\n";
-        }
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
