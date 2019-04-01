@@ -51,7 +51,7 @@ namespace Nextsim
              //! - Debugging options
              // -----------------------------------------------------------------------------------
         
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
