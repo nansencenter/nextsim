@@ -184,7 +184,7 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(const double Tsurf, const double hs);
@@ -279,7 +279,6 @@ public:
     void calcAuxiliaryVariables();
     void initModelVariables();
     void initFsd();
-    void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
     void FETensors();
@@ -289,8 +288,7 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
-    void redistributeFSD();
-    void updateFSD();
+    void computeWaveBreaking();
     std::vector<double> computeWaveBreakingProb();
 
     void checkOutputs(bool const& at_init_time);
@@ -302,6 +300,7 @@ public:
             bool const& export_fields, bool const& apply_displacement);
     void updateIceDiagnostics();
 
+    bool writingRestart();
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
@@ -335,8 +334,23 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
+    void sortPrognosticVars(
+        std::vector<int> &j_none,
+        std::vector<int> &j_conc,
+        std::vector<int> &j_thick,
+        std::vector<int> &j_enthalpy);
+    void sortPrognosticVars(
+        std::vector<int> &j_none,
+        std::vector<int> &j_conc,
+        std::vector<int> &j_thick,
+        std::vector<int> &j_enthalpy,
+        std::vector<bool> &has_min,
+        std::vector<bool> &has_max,
+        std::vector<double> &min_val,
+        std::vector<double> &max_val);
+
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
-    void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
+    void redistributeVariables(std::vector<double> const& out_elt_values);
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,
@@ -547,7 +561,6 @@ private:
     double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
-    double t_damage;
 
     double basal_k2;
     double basal_drag_coef_air;
@@ -571,12 +584,9 @@ private:
     bool M_regrid;
     int M_nb_regrid;
 
-    bool M_use_assimilation;
-
     bool M_use_restart;
-    bool M_write_restart_interval;
-    bool M_write_restart_end;
-    bool M_write_restart_start;
+    bool M_write_restart;
+    bool M_use_assimilation;
 
     std::string M_export_path;
 
@@ -599,6 +609,8 @@ private: // only on root process (rank 0)
 
     std::vector<int> M_dirichlet_nodes_root;
     std::vector<int> M_neumann_nodes_root;
+
+    std::vector<double> M_random_number_root;
 
     std::vector<std::vector<double>> M_B0T_root;
 
@@ -704,6 +716,7 @@ private:
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
 
+
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
@@ -714,48 +727,29 @@ private:
     std::vector<std::string> M_export_names_elt;
 
     // Prognostic variables
-    ModelVariable M_conc;               // Ice concentration
-    ModelVariable M_thick;              // Effective ice thickness [m]
-    ModelVariable M_damage;             // Ice damage
-    ModelVariable M_snow_thick;         // Effective snow thickness [m]
+    ModelVariable M_conc;                       // Ice concentration
+    ModelVariable M_thick;// Effective ice thickness [m]
+    ModelVariable M_damage;// Ice damage
+    ModelVariable M_snow_thick;// Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
-    std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
+    std::vector<ModelVariable> M_tice;    // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<ModelVariable> M_sigma;
-    ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
-    ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
-    ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
+    ModelVariable M_sst;// Sea-surface (slab ocean) temperature [C]
+    ModelVariable M_sss;// Sea-surface (slab ocean) salinity [psu]
+    ModelVariable M_tsurf_thin;// Ice surface temperature of thin ice [C]
     ModelVariable M_h_thin;
     ModelVariable M_hs_thin;
     ModelVariable M_conc_thin;
     ModelVariable M_random_number;
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
-    ModelVariable M_age;
-    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
-
-    // Following variables are related to floe size distribution
+    ModelVariable M_age; // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     int M_num_fsd_bins;
     int M_fsd_bin_widths; // Only uniform widths so far
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
     std::vector<double> M_fsd_bin_up_limits;
-    // Non-circularity of floes
-    double alpha_floe_shape                        ;
-    // Lettie's variables
-    std::vector<double> M_floe_area_up             ;
-    std::vector<double> M_floe_area_low            ;
-    std::vector<double> M_floe_area_centered       ;
-    std::vector<double> M_floe_area_binwidth       ;
-
-    std::vector<double> M_fsd_area_scaled_up       ;
-    std::vector<double> M_fsd_area_scaled_low      ;
-    std::vector<double> M_fsd_area_scaled_centered ;
-    std::vector<double> M_fsd_area_scaled_binwidth ;
-    std::vector<double> M_fsd_area_lims            ;
-    std::vector<double> M_fsd_area_lims_scaled     ;
-
-    std::vector<std::vector<int> > M_alpha_fsd_merge ; 
 
 
     // Diagnostic variables
@@ -772,12 +766,9 @@ private:
     ModelVariable D_Qo; // Heat loss from ocean [W/m2]
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
-    ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
-    ModelVariable D_dmax; //max floe size [m]
-    ModelVariable D_dmean; //mean floe size [m]
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
@@ -831,8 +822,9 @@ private:
 
 private:
 
-    //ice-init functions
     void constantIce();
+    void targetIce();
+    void binaryIce();
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
@@ -840,18 +832,16 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    void assimilate_topazForecastAmsr2OsisafIce();
+    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
     void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
+    void warrenClimatology();
     void smosIce();
 
-    //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
-
-    void warrenClimatology();
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     void initialisingDrifters(
         std::vector<std::string> & init_names,
@@ -880,6 +870,7 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
+    void checkFields(int const& rank_test, int const& itest);
 
 private:
 
