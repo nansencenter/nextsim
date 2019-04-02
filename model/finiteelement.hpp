@@ -815,6 +815,7 @@ private:
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
+    void cregIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();

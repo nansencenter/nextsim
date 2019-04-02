@@ -1290,6 +1290,7 @@ FiniteElement::initOptAndParam()
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("piomas", setup::IceType::PIOMAS)
+        ("creg", setup::IceType::CREG)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
@@ -9174,6 +9175,9 @@ FiniteElement::initIce()
         case setup::IceType::PIOMAS:
             this->piomasIce();
             break;
+        case setup::IceType::CREG:
+            this->cregIce();
+            break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
             break;
@@ -10503,6 +10507,49 @@ FiniteElement::piomasIce()
         M_damage[i]=0.;
     }
 }//piomasIce
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initializes the ice state from CREG outputs.
+//! Called by the initIce() function.
+void
+FiniteElement::cregIce()
+{
+    Dataset creg = DataSet("ice_creg_elements");
+    external_data init_conc=ExternalData(&creg,M_mesh,0,false,time_init);
+    external_data init_thick=ExternalData(&creg,M_mesh,1,false,time_init);
+    external_data init_snow_thick=ExternalData(&creg,M_mesh,2,false,time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - CREG ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1.,init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        M_damage[i]=0.;
+    }
+}//cregIce
 
 
 // -----------------------------------------------------------------------------------------------------------
