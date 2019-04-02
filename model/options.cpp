@@ -51,13 +51,13 @@ namespace Nextsim
              //! - Debugging options
              // -----------------------------------------------------------------------------------
         
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
             ("debugging.log-all", po::value<bool>()->default_value( false ),
                 "Whether printouts from debugging.log-level are to be done on all processors [true|false(default)].")
-            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.ptime_percent", po::value<int>()->default_value( 5 ), "frequency of info printouts in % of runtime.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
