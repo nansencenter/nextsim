@@ -31,11 +31,11 @@ namespace Nextsim
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
 
-        
+
             //-----------------------------------------------------------------------------------
             //! - Simulation parameters
             //-----------------------------------------------------------------------------------
-        
+
 
             // Basics
             ("simul.time_init", po::value<std::string>()->default_value( "" ),
@@ -46,11 +46,11 @@ namespace Nextsim
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Debugging options
              // -----------------------------------------------------------------------------------
-        
+
             ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
@@ -69,11 +69,11 @@ namespace Nextsim
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Numerics
              // -----------------------------------------------------------------------------------
-        
+
 
             // remeshing
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
@@ -99,7 +99,7 @@ namespace Nextsim
             ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Setup
              //-----------------------------------------------------------------------------------
@@ -227,11 +227,11 @@ namespace Nextsim
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Ideal configurations (constant initial bathymetry, ice, atmosphere and ocean)
              //-----------------------------------------------------------------------------------
-        
+
 
             // - if setup.bathymetry-type = constant
             ("ideal_simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
@@ -269,11 +269,11 @@ namespace Nextsim
             // -----------------------------------------------------------------------------------
 
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Dynamics
              //-----------------------------------------------------------------------------------
-        
+
 
             // - Internal stresses
             ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
@@ -320,18 +320,18 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
-        
+
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
-        
-        
+
+
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
              //-----------------------------------------------------------------------------------
-        
+
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or non-linear")
@@ -370,10 +370,14 @@ namespace Nextsim
             ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
                 "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
+            // -- assimilation compensating flux
+            ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
+             "Exponent of factor for heat flux that compensates assimilation of concentration")
+
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
 #endif
-        
+
              //-----------------------------------------------------------------------------------
              //! - Nesting
              // -----------------------------------------------------------------------------------
@@ -396,11 +400,11 @@ namespace Nextsim
                 "Length scale (units = mesh resolution) of the nudging function")
             ("nesting.nest_dynamic_vars", po::value<bool>()->default_value( false ), "")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Forecasting
              //-----------------------------------------------------------------------------------
-        
+
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
             ("forecast.true_forecast", po::value<bool>()->default_value( false ),
@@ -410,11 +414,11 @@ namespace Nextsim
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Modules
              //-----------------------------------------------------------------------------------
-        
+
 #if defined(OASIS)
             ("coupler.component_name", po::value<std::string>()->default_value( "nxtsim" ), "Component name (6 characters) same as in the namcouple")
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
