@@ -23,7 +23,8 @@ namespace setup
         EC_ERAi   = 5,
         CFSR      = 6,
         CFSR_HI   = 7,
-        EC2_AROME = 8
+        EC2_AROME = 8,
+        ERA5      = 9
     };
 
 	enum class OceanType
