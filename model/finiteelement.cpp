@@ -5028,6 +5028,10 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
 
+    double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
+
+    bool const temp_dep_healing = vm["dynamics.use_temperature_dependent_healing"].as<bool>(); //! \param temp_dep_healing (bool const) whether or not to use the temperature dependent healing
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5135,11 +5139,9 @@ FiniteElement::thermo(int dt)
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
 
-        double mld;
+        // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-        else
-            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5464,7 +5466,7 @@ FiniteElement::thermo(int dt)
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        if ( vm["dynamics.use_temperature_dependent_healing"].as<bool>() )
+        if ( temp_dep_healing )
         {
             //! * Sets time_relaxation_damage to be inversely proportional to the temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
