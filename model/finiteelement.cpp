@@ -4924,8 +4924,6 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             sphuma[i] = tmp.first;
             wspeed[i] = this->windSpeedElement(i);
-            Qsw_in[i] = M_Qsw_in[i];
-            Qlw_in[i] = this->incomingLongwave(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
         // We implicitly assume that the temperature is taken at 2 m and the wind at 10 - hence 2.
