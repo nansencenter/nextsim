@@ -1192,12 +1192,20 @@ FiniteElement::initOptAndParam()
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
+    //! Sets options on the oceanic heat-flux scheme
+    const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
+        ("basic", setup::OceanHeatfluxScheme::BASIC)
+        ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
+    std::string option_str = vm["thermo.Qio-type"].as<std::string>();
+    if ( str2qiot.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.Qio-type: " + option_str);
+    M_Qio_type = str2qiot.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
 
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
+    option_str = vm["thermo.freezingpoint-type"].as<std::string>();
     if ( str2fpt.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
     M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
@@ -5712,41 +5720,53 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
     //! We have two schemes to transfer heat between ice and ocean
     // * basic:    Use all of the excess heat to melt or grow ice. This is not accurate, but sometimes useful
     // * exchange: Use an exchange coefficient and velocity difference to calculate heat transfer
+    //
     double const Tbot = this->freezingPoint(sss); // Temperature at ice base (bottom), also freezing point of sea-water
-    if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
+    double return_value;
+
+    switch ( M_Qio_type )
     {
-        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
-    } else if ( vm["thermo.Qio-type"].as<std::string>() == "exchange" ) {
-        double welt_oce_ice = 0.;
-        for (int i=0; i<3; ++i)
+        case ( setup::OceanHeatfluxScheme::BASIC ):
+            return_value = (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+            break;
+        case ( setup::OceanHeatfluxScheme::EXCHANGE ):
         {
-            int nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            double welt_oce_ice = 0.;
+            for (int i=0; i<3; ++i)
+            {
+                int nind = (M_elements[cpt]).indices[i]-1;
+                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            }
+            double norm_Voce_ice = welt_oce_ice/3.;
+            double Csens_io = 1e-3;
+            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            break;
         }
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double Csens_io = 1e-3;
-        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
-    } else {
-        std::cout << "Qio-type = " << vm["thermo.Qio-type"].as<std::string>() << "\n";
-        throw std::logic_error("Wrong Qio-type");
     }
+
+    return return_value;
+
 }//iceOceanHeatflux
 
 //! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(const double sss)
 {
+    double return_value;
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return -physical::mu*sss;
+            return_value = -physical::mu*sss;
 
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return ptf*sss;
+            return_value = ptf*sss;
     }
+
+    return return_value;
+
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
