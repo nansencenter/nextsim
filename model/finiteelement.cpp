@@ -6060,11 +6060,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Local variables */
         double Qic, del_hs, del_ht, del_hb, draft;
 
-        /* ---------------------------------------------------------------
-        * Calculate the surface temperature within a while-loop
-        * --------------------------------------------------------------- */
-        double albedo = this->albedo(Tsurf, hs);
-
         // -------------------------------------------------
         /* Calculate Tsurf */
         /* Conductive flux through the ice */
