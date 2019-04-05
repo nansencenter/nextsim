@@ -188,7 +188,8 @@ public:
     void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
-    inline double albedo(const double Tsurf, const double hs);
+    inline double albedo(const double Tsurf, const double hs,
+        int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
     inline double iceOceanHeatflux(const int cpt, const double sst, const double tbot, const double mld, const double dt);
     inline double incomingLongwave(const int i);

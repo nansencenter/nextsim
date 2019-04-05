@@ -5605,6 +5605,11 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+
+
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -5651,7 +5656,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         else
             hs = 0;
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs));
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0));
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -5748,14 +5753,9 @@ FiniteElement::freezingPoint(const double sss)
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(const double Tsurf, const double hs)
+FiniteElement::albedo(const double Tsurf, const double hs,
+        int alb_scheme, double alb_ice, double alb_sn, double I_0)
 {
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-
     double albedo;
 
     /* Calculate albedo - we can impliment different schemes if we want */
