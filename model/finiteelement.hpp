@@ -179,7 +179,7 @@ public:
     inline void thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
             const double Qia, const double dQiadT, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf);
-    inline void thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+    inline void thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
             double const Qia, double const dQiadT, const double Qsw, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
             double &Tsurf, double &T1, double &T2);
@@ -421,6 +421,8 @@ private:
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
+
+    bool M_flooding;
 
     std::string M_mesh_basename;
     std::string M_mesh_filename;

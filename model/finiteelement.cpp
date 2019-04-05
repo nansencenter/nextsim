@@ -1210,6 +1210,9 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
     M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
 
+    //! Turn on snow-to-ice formation when flooding
+    M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
+
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
@@ -5038,6 +5041,8 @@ FiniteElement::thermo(int dt)
 
     bool const temp_dep_healing = vm["dynamics.use_temperature_dependent_healing"].as<bool>(); //! \param temp_dep_healing (bool const) whether or not to use the temperature dependent healing
 
+    double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5205,7 +5210,7 @@ FiniteElement::thermo(int dt)
                         Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
@@ -5836,15 +5841,11 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
         double &Tsurf, double &T1, double &T2)
 {
-    // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-    double const I_0    = vm["thermo.I_0"].as<double>();
-
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
     double const qs   = physical::Lf * physical::rhos;
@@ -5989,7 +5990,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-        if ( flooding && freeboard < 0)
+        if ( M_flooding && freeboard < 0)
         {
             // double delhs = -std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhoi/physical::rhow, 0.); // (35)
             hs += std::min( freeboard*physical::rhoi/physical::rhos, 0. );
@@ -6057,8 +6058,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
     // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
@@ -6116,7 +6115,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
-        if ( flooding && draft > hi )
+        if ( M_flooding && draft > hi )
         {
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
