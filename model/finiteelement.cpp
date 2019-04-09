@@ -756,6 +756,11 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ERAi_elements");
             break;
 
+        case setup::AtmosphereType::ERA5:
+            M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
+            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
+            break;
+
         case setup::AtmosphereType::EC:
             M_atmosphere_nodes_dataset=DataSet("ec_nodes");
             M_atmosphere_elements_dataset=DataSet("ec_elements");
@@ -1225,6 +1230,7 @@ FiniteElement::initOptAndParam()
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
+        ("era5", setup::AtmosphereType::ERA5)
         ("ec", setup::AtmosphereType::EC)
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
@@ -1245,6 +1251,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR_HI:
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
@@ -8629,6 +8636,23 @@ FiniteElement::forcingAtmosphere()
                 M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             else
                 throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=erai. Use thermo.use_parameterised_long_wave_radiation=true");
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
+        case setup::AtmosphereType::ERA5:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=asr. Use thermo.use_parameterised_long_wave_radiation=false");
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
