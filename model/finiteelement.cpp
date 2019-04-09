@@ -5043,6 +5043,8 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
+    const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5558,8 +5560,6 @@ FiniteElement::thermo(int dt)
         {
 
             // FYI fraction (in the cell/triangle).
-            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
-
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
             if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
             {
