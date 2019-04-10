@@ -4923,7 +4923,7 @@ FiniteElement::updateFSD()//----------------------------------------------------
                 for(int k=0;k<M_num_fsd_bins;k++)
                     M_conc_fsd[k][cpt]*=ctot/ctot2;
             }
-            else if(std::abs(ctot-ctot2)>1e-7)
+            else if(std::abs(ctot-ctot2)>1e-9)
             {  
                 if (ctot2==0.)
                    M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot;
@@ -5455,9 +5455,9 @@ FiniteElement::thermo(int dt)
         /* Initialise to be safe */
         double del_c = 0.;
         double newsnow = 0.;
+        /* In case there is an FSD initialize a lateral rate melt for ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
+	double lat_melt_rate = 0.;
 
-	/* In case there is an FSD, initialize the vector for ulterior redistribution */
-	std::vector<double> del_c_bin_melt(M_num_fsd_bins-1,0.) ;
         /* Freezing conditions */
         switch ( newice_type )
         {
@@ -5575,50 +5575,39 @@ FiniteElement::thermo(int dt)
                     // del_c = std::max(del_c, -M_conc[i]);
                     break;
                 case 3:
-                    {    
-                     /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2
-                    e*--- originally from Josberger 1979 ---
-                      (Tw - Tf) = elevation of water temp above freezing
-                      m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
-                      m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice
-                    --- from Rothrock and Thorndike 1984 ---
-                      P = N * pi * D      
-                      D = mean floe caliper diameter
-                      N = number of floes = ice area / floe area(average) = A / (Cs * D**2)
-                      A = ice concentration
-                      Cs = deviation from a square (square:Cs=1 ; circle:Cs=pi/4 ; floe:Cs=0.66)
-                    --- from Lupkes et al., 2012 (eq. 26-27) ---
-                      D = Dmin * ( Astar / (Astar-A) )**beta                                        
-                      Astar = 1 / ( 1 - (Dmin/Dmax)**(1/beta) )
-                      Dmin = minimum floe diameter (recommended to be 8m +- 20%)
-                      Dmax = maximum floe diameter (recommended to be 300m, but it does not impact melting much except for Dmax<100m)
-                      beta = 1.0 +-20% (recommended value)
-                           = 0.3 best fit for western Fram Strait and Antarctica */
-                     // TODO the heat budget is not closed ! Need to remove heat  
-                     double m1=3.e-6 ;
-                     double m2=1.36  ; 
-                     double cs=0.66  ;
-                     double Tbot = this->freezingPoint(M_sss[i]);
-                     // Melt speed rate [m/s]
-                     double w_lat = m1 * std::pow(std::max(0.,M_sst[i]-Tbot), m2) ;
-                     if  (M_num_fsd_bins>0) 
-                         {
-                          for (int j=0;j<M_num_fsd_bins-1;++j) 
-                             {
-                              double perimeter = M_conc_fsd[j][i] * PI / ( cs * M_fsd_bin_centres[j] ) ;
-                              del_c_bin_melt[j] = - w_lat * perimeter *dtime_step ; 
-                              del_c += del_c_bin_melt[j] ;
-                              }
-                         }
-                     else
-                         {
-                         throw std::logic_error("melt_type =3 && nnum_fsd_bins <1 are not compatible");
-                         }
-                     break;
-                   }
-                default :
-                    std::cout << "newice_type = " << newice_type << "\n";
-                    throw std::logic_error("Wrong newice_type");
+                { 
+                    /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
+                    *--- originally from Josberger 1979 ---
+                     (Tw - Tf) = elevation of water temp above freezing
+                     m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
+                     m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
+                    // TODO the heat budget is not closed ! Need to remove heat  
+                    double m1=3.e-6 ;
+                    double m2=1.36  ; 
+                    double Tbot = this->freezingPoint(M_sss[i]);
+                    // Melt speed rate [m/s]
+                    lat_melt_rate = - m1 * std::pow(std::max(0.,M_sst[i]-Tbot), m2) ; // wlat <0
+                    /* Following code is from Horvat & Tzipermann (2015) */
+                    lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
+                    // This code is re-usable for any lateral melt rate w_lat
+                    if (M_num_fsd_bins>0) 
+                    {
+                        double cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths * ddt ; //<0
+                        for (int j=0;j<M_num_fsd_bins-1;++j) 
+                            del_c = del_c + lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
+                        del_c = del_c + cat0_del_c ;
+                        Qow_mean -= del_c*hi*qi/ddt; // Guillaume : snow is treated below ??
+                    }
+                    else
+                    {
+                        throw std::logic_error("melt_type =3 && nnum_fsd_bins <1 are not compatible");
+                    }
+                    break;
+                }
+
+                default:
+                    std::cout << "melt_type = " << melt_type << "\n";
+                    throw std::logic_error("Wrong melt_type");
             }
         }
 
@@ -5666,7 +5655,7 @@ FiniteElement::thermo(int dt)
             hs     = 0.;
 
             // FSD
-            if (M_num_fsd_bins>0)
+            if(M_num_fsd_bins>0)
             {
                 for(int k=0; k<M_num_fsd_bins; k++)
                     M_conc_fsd[k][i] = 0.;
@@ -5676,85 +5665,114 @@ FiniteElement::thermo(int dt)
         }
         else
         {
-            // FSD
-            if (M_num_fsd_bins>0)
+	    /* In case there is an FSD: */
+            if(M_num_fsd_bins>0)
             {
+                std::stringstream crash_msg;
+                bool crash = false;
                 double del_c_thin = 0.;
                 double del_c_fsd = M_conc[i] - old_conc;
+
+                std::vector<double> fsd_init(M_num_fsd_bins,0.);
+                for(int m=0; m<M_num_fsd_bins;m++)
+                        fsd_init[m]=M_conc_fsd[m][i] ;
+ 
                 if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-                        del_c_thin = M_conc_thin[i] - old_conc_thin;//>0: only treat thin ice differently if freezing new ice
-                //largest floe size category first
+                        del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
+
+                /* if creation of new ice, largest floe size category first */
                 if(old_conc==0)
                 {
                     M_conc_fsd[M_num_fsd_bins-1][i] = del_c_fsd;
                 }
                 else
                 {  
-                    double old_conc_fsd = M_conc_fsd[M_num_fsd_bins-1][i];            // Used for debug 
-                    double ratio0=1. ;
+                    double ratio0=1.  ;
                     double c_0_new=0. ;
-                    if (del_c_fsd>0.)
-                    {
-                        c_0_new = M_conc_fsd[M_num_fsd_bins-1][i] + del_c_fsd  // lateral freezing only
-                                       + del_c_thin ;                                 // new ice goes into this bin
-                    }
-                    else 
-                    {   
-                        if (melt_type<3)
-                            ratio0 = (old_conc + del_c_fsd)/old_conc;                        // if lateral melt accounts for the FSD
-                        c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i]  // lateral melting (if lat. melt type is 3, no melting for unbroken floes)
-                                   + del_c_thin ;                                // TODO : thin_ice might be different, so far removed from unbroken ice by default
-                    }
-                    M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
-                    double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i] ;
+                    /* In case there is an FSD initialize a vector for ulterior redistribution  */
+                    std::vector<double> del_c_bin_melt(M_num_fsd_bins-1,0.) ;
 
-                    //smaller FSD bins 
-                    for(int k=M_num_fsd_bins-2; k>-1; k--)
+                    if ( abs(lat_melt_rate>0.) ) // So far, it is only the case if melt_type=3 and dhi<0, but could be apply to other melt types
                     {
-                        old_conc_fsd  += M_conc_fsd[k][i];
-                        double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
-                                       + del_c_redist            // new ice excess goes into a next smaller FSD bin until it is all used up
-                                       + del_c_bin_melt[k];
-                        M_conc_fsd[k][i] = std::min(1., c_k_new);
-                        del_c_redist = c_k_new - M_conc_fsd[k][i];
+                        /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
+                        std::vector<double> fsd_dr(M_num_fsd_bins,0.) ;
+                        std::vector<double> dfsd_dr(M_num_fsd_bins-1,0.);
+
+                        for(int m=1; m<M_num_fsd_bins;m++)
+                            fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths ;
+                        for(int m=0; m<M_num_fsd_bins-1;m++)
+                            dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
+                       
+                        if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.) -1.)>1e-11)
+                        {
+                            crash=true ;
+                            crash_msg << "sum of Delta FSD does not add up to 1. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
+                            throw std::runtime_error(crash_msg.str())                            ;
+                        }
+                        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
+                        for (int m=0; m<M_num_fsd_bins-1;m++)
+                        {
+                            del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + 2. * fsd_init[m] * ( 1./M_fsd_bin_centres[m] ) );
+                            M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
+                        }
+                        M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
+                    }
+                    else
+                    { 
+                        ratio0 = (old_conc + del_c_fsd)/old_conc;                        // if lateral melt accounts for the FSD
+                        c_0_new = ratio0*M_conc_fsd[M_num_fsd_bins-1][i]  // lateral melting (if lat. melt type is 3, no melting for unbroken floes)
+                                  + del_c_thin ;                                // TODO : thin_ice might be different, so far removed from unbroken ice by default
+                        M_conc_fsd[M_num_fsd_bins-1][i] = std::min(1., c_0_new);
+                        double del_c_redist = c_0_new - M_conc_fsd[M_num_fsd_bins-1][i] ;
+
+                        //smaller FSD bins 
+                        for(int k=M_num_fsd_bins-2; k>-1; k--)
+                        {
+                            double c_k_new = ratio0*M_conc_fsd[k][i] // lateral freezing/melting
+                                           + del_c_redist            // new ice excess goes into a next smaller FSD bin until it is all used up
+                                           + del_c_bin_melt[k];
+                            M_conc_fsd[k][i] = std::min(1., c_k_new);
+                            del_c_redist = c_k_new - M_conc_fsd[k][i];
+                        }
                     }
                     // DEBUG GUILLAUME
-                    std::stringstream crash_msg;
-                    bool crash = false;
-                    if(M_num_fsd_bins>0)
-                    {
-                        double ctot = M_conc[i];
-                        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                            ctot += M_conc_thin[i];
 
-                        double ctot2 = M_conc_fsd[0][i];
-                        for(int j=1;j<M_num_fsd_bins;j++)
-                            ctot2 += M_conc_fsd[j][i] ;
-                        // DEBUG GUILLAUME   
-                        if ((std::abs(ctot-ctot2)>2e-7)&&(ctot>1e-4))
+                    double ctot = M_conc[i];
+                    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                        ctot += M_conc_thin[i];
+
+                    double ctot2 = M_conc_fsd[0][i];
+                    for(int j=1;j<M_num_fsd_bins;j++)
+                        ctot2 += M_conc_fsd[j][i] ;
+
+                    if (std::abs(ctot-ctot2)>1e-7)
+                    {
+                        crash =  true;
+                        crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                                  << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
+                        crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
+                        crash_msg <<"current M_conc = "<< M_conc[i] <<", old_conc = "<<old_conc <<"\n";
+                        crash_msg <<"old conc_thin =" <<old_conc_thin <<  ", del_conc_thin =" << del_c_thin << "\n" ;
+                        crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
+                        crash_msg <<"diff M_conc_new -old_conc :"<< M_conc[i]-old_conc <<", ratio0 : "<< ratio0 << ", c_0_new :"<< c_0_new <<" \n";
+
+                        for(int j=0;j<M_num_fsd_bins-1;j++)
                         {
-                           std::cout<<"["<<M_rank << "], element : "<<i<<"Going to crash :"<<"M_conc = "<<M_conc[i]<<", old_conc = "<<old_conc <<" ; old conc_thin ="
-                                      <<old_conc_thin << ", del_conc_fsd =" << del_c_fsd << ", del_conc_thin =" << del_c_thin 
-                                      <<" ; diff M_conc new-old :"<< M_conc[i]-old_conc<<"ratio0 : "<<ratio0 <<", c_0_newi :"
-                                      << c_0_new <<" , old_conc_fsd :"<< old_conc_fsd <<" \n";
-                               for(int j=0;j<M_num_fsd_bins-1;j++)
-                               {
-                                   std::cout<< "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
-                                   std::cout<< "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
-                               }
-                               std::cout<< "vecteur M_conc_fsd ("<< M_num_fsd_bins-1 <<") :" << M_conc_fsd[M_num_fsd_bins-1][i] <<" \n";
-                               if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                                   std::cout<< "M_conc_thin :" << M_conc_thin[i] << "; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
-                           crash =  true;
-                           crash_msg << "Th : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
-                                      <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+                            crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
+                            crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
                         }
-                        if(crash)
-                            throw std::runtime_error(crash_msg.str());
-                        }
-                // END DEBUG GUILLAUME
+                        crash_msg << "vecteur M_conc_fsd ("<< M_num_fsd_bins-1 <<") :" << M_conc_fsd[M_num_fsd_bins-1][i] <<" \n";
+                        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                               crash_msg << "M_conc_thin :" << M_conc_thin[i] << "; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
+                    }
+                    if(crash)
+                    {
+                        crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
+                        throw std::runtime_error(crash_msg.str())                            ;
+                    }
+                    // END DEBUG
                 }
-            }
+            }        
         }
        
         // -------------------------------------------------
@@ -7268,8 +7286,8 @@ FiniteElement::initOASIS()
     {
         var_rcv.push_back(std::string("I_tauwix"));
         var_rcv.push_back(std::string("I_tauwiy"));
-        var_rcv.push_back(std::string("I_str_var"));
         var_rcv.push_back(std::string("I_tm02"));
+        var_rcv.push_back(std::string("I_str_var"));
     }
 
     // Ask OASIS to link var_rcv and var_id_rcv
