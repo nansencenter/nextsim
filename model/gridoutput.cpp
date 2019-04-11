@@ -756,7 +756,7 @@ GridOutput::broadcastWeights(std::vector<int>& gridP,
 
 // Initialise a netCDF file and return the file name in an std::string
 std::string
-GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time)
+GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time, bool append)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -799,6 +799,12 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     }
     filename << ".nc";
 
+    /* If append is true we don't do anything if the file exists - just return the file name.
+     * We assume it's there after a restart and that we can safely append to it */
+    boost::filesystem::path full_path(filename.str());
+    if ( append && boost::filesystem::exists(full_path) )
+        return filename.str();
+
     // Create the netCDF file.
     //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
     netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
@@ -826,8 +832,6 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
     netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncDouble, dims_bnds);
     time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
-
-    M_nc_step=0;
 
     // Create the two spatial dimensions.
     netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
@@ -950,20 +954,22 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
     netCDF::NcFile dataFile(filename, netCDF::NcFile::write);
 
     // Append to time
-    std::vector<size_t> start = {M_nc_step};
-    std::vector<size_t> count = {1};
     netCDF::NcVar time = dataFile.getVar("time");
+    netCDF::NcDim tDim = time.getDim(0);
+    size_t nc_step = tDim.getSize();
+    std::vector<size_t> start = {nc_step};
+    std::vector<size_t> count = {1};
     time.putVar(start, count, &timestamp);
 
     // Append to time_bnds
-    start = {M_nc_step, 0};
+    start = {nc_step, 0};
     count = {1, 2};
     netCDF::NcVar time_bnds = dataFile.getVar("time_bnds");
     std::vector<double> tbdata = {timestamp -0.5*M_averaging_period, timestamp +0.5*M_averaging_period};
     time_bnds.putVar(start, count, &tbdata[0]);
 
     // Append to the output variables
-    start = {M_nc_step, 0, 0};
+    start = {nc_step, 0, 0};
     count = {1, M_ncols, M_nrows};
 
     // Apply mask - if needed
@@ -986,8 +992,6 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
         data = dataFile.getVar(it->name);
         data.putVar(start, count, &it->data_grid[0]);
     }
-
-    M_nc_step++;
 }
 
 // Diagnostic output on stdout - for debugging
