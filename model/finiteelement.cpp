@@ -7171,7 +7171,7 @@ FiniteElement::initOASIS()
         elemental_variables.push_back(Sflx);
         elemental_variables.push_back(conc);
 
-        var_snd.push_back(std::string("I_"+emp.name));
+        var_snd.push_back(std::string("I_"+fwflux.name));
         var_snd.push_back(std::string("I_"+QNoSw.name));
         var_snd.push_back(std::string("I_"+QSwOcean.name));
         var_snd.push_back(std::string("I_"+Sflx.name));
