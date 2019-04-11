@@ -51,11 +51,13 @@ namespace Nextsim
              //! - Debugging options
              // -----------------------------------------------------------------------------------
         
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
-            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.log-all", po::value<bool>()->default_value( false ),
+                "Whether printouts from debugging.log-level are to be done on all processors [true|false(default)].")
+            ("debugging.ptime_percent", po::value<int>()->default_value( 5 ), "frequency of info printouts in % of runtime.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
@@ -189,10 +191,10 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.input_filename", po::value<std::string>()->default_value( "" ),
-                "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
-                "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.basename", po::value<std::string>()->default_value( "" ),
+                "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
+            ("restart.type", po::value<std::string>()->default_value( "extend" ),
+                "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),
@@ -202,6 +204,8 @@ namespace Nextsim
             ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
                 "To write a out a restart file at the start of the run")
             ("restart.output_interval", po::value<double>()->default_value( 15 ), "How often to write restarts (with restart.write_interval_restart), in days or time_steps, according to restart.output_interval_units")
+            ("restart.datetime_in_filename", po::value<bool>()->default_value( true ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
 
             // -- restart debugging
             ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
@@ -230,7 +234,7 @@ namespace Nextsim
 #endif
 
             // --exporter
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+            ("output.datetime_in_filename", po::value<bool>()->default_value( true ),
                 "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "nextsim_outputs" ),
                 "Path where results should be exported")
@@ -312,6 +316,7 @@ namespace Nextsim
 
             // - Water and air drag parameterizations
             ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("dynamics.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
