@@ -1224,7 +1224,7 @@ FiniteElement::initOptAndParam()
 #ifdef AEROBULK
     //! Sets options on the ocean-atmosphere bulk formula
     const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
-        ("nextsim", aerobulk::algorithm::neXtSIM)
+        ("nextsim", aerobulk::algorithm::OTHER)
         ("coare", aerobulk::algorithm::COARE)
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
@@ -1308,6 +1308,7 @@ FiniteElement::initOptAndParam()
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("piomas", setup::IceType::PIOMAS)
+        ("creg", setup::IceType::CREG)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
@@ -4118,16 +4119,16 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
+            // Multply with rho and mask out no-ice points
+            coef_Voce  *= coef_drag*physical::rhow;
+            coef_Vair  *= coef_drag*physical::rhoa;
+            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
             D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
             D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
             D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
-
-            // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
@@ -4907,7 +4908,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
 //! \param tau (double) Bulk drag coefficient (need to multiply with u or v wind to get drag) [N s/m^3]
 void
 FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau)
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau)
 {
     // Constants
     double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
@@ -4916,7 +4917,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
-    if ( vm["thermo.ocean_bulk_formula"].as<std::string>() != "neXtSIM" )
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
@@ -4925,9 +4926,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> mslp(M_num_elements);
         std::vector<double> Qsw_in(M_num_elements);
         std::vector<double> Qlw_in(M_num_elements);
+        std::vector<double> T_s(M_num_elements);
         for ( int i=0; i<M_num_elements; ++i )
         {
-            sst[i] = M_sst[i];
+            sst[i] = M_sst[i] + physical::tfrwK;
             t2m[i] = M_tair[i] + physical::tfrwK;
             mslp[i] = M_mslp[i];
             Qsw_in[i] = M_Qsw_in[i];
@@ -4941,8 +4943,22 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         // and 10. in the function call.
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
-        aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+
+        /* aerobulk expects u and v components of wind and returns u and v
+         * components of stress ... but we just give it the speed and recieve
+         * the modulus of the stress */
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, wspeed, mslp,
+                Qlh, Qsh, tau, tau, Qsw_in_c, Qlw_in_c, T_s);
+        const std::vector<double> Lv = aerobulk::lvap(sst);
+
+        // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            Qlh[i] *= -1;
+            Qsh[i] *= -1;
+            tau[i] /= wspeed[i];
+            evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
+        }
     } else {
 #endif
         for ( int i=0; i<M_num_elements; ++i )
@@ -4988,18 +5004,22 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     {
 
         Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
-#ifdef OASIS
-        // The ocean model tells us how much SW is absorbed in the top layer
-        if ( M_ocean_type == setup::OceanType::COUPLED )
-            Qsw[i] *= M_qsrml[i];
-#endif
+
         /* Out-going long-wave flux */
         double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
 
         // Sum them up:
         // Qow>0 => flux out of ocean:
-        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+        Qow[i] = Qlw[i] + Qsh[i] + Qlh[i];
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        // NB: Qsw should still be the total SW delivered to the ocean
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qow[i] += Qsw[i]*M_qsrml[i];
+        else
+#endif
+            Qow[i] += Qsw[i];
     }
 }
 
@@ -5060,8 +5080,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qlh_ow(M_num_elements);
     std::vector<double> Qsh_ow(M_num_elements);
     std::vector<double> evap(M_num_elements);
-    M_tau_ow.resize(M_num_elements);
-    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, D_tau_ow);
 
     M_timer.tock("ow_fluxes");
 
@@ -5541,8 +5560,8 @@ FiniteElement::thermo(int dt)
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
-        // Non-solar fluxes to ocean
-        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
+        // Non-solar fluxes to ocean - TODO: Account for penetrating SW
+        D_Qnosun[i] = Qio_mean + old_ow_fraction*(Qlw_ow[i]+Qlh_ow[i]+Qsh_ow[i]);
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
@@ -5550,15 +5569,21 @@ FiniteElement::thermo(int dt)
         // flux from assim
         D_Qassim[i] = Qassm;
 
-        // Salt balance of the ocean (all sources) - kg/day
-        D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
+        // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
+        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
         // Freshwater balance at the surface - kg/m^2/s
-        D_emp[i] = 1./ddt * ( emp
-                - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
+        D_fwflux[i] = -1./ddt * ( emp
+                 + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Brine release - kg/m^2/s
-        D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+
+        // Evaporation
+        D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
+
+        // Rain
+        D_rain[i] = rain;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -6229,19 +6254,10 @@ FiniteElement::init()
 #endif
 
     //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
-#ifdef OASIS
-    // OASIS needs the external data to be read in for the previous coupling time step
-    pcpt -= cpl_time_step/time_step;
-#endif
-
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-
-#ifdef OASIS
-    pcpt += cpl_time_step/time_step;
-#endif
 
     //! - 7) If not using a restart, initializes the model from the datasets
     //       or can do assimilation (optional) if using a restart
@@ -6405,18 +6421,24 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qlh);
     D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);//! \param D_Qo (double) Total heat lost by the ocean
     M_variables_elt.push_back(&D_Qo);
-    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Salt release to the ocean [kg/day]
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Virtual salt flux to the ocean [kg/m^2/s]
     M_variables_elt.push_back(&D_delS);
     D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);//! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
+    M_variables_elt.push_back(&D_fwflux);
     D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
     M_variables_elt.push_back(&D_Qassim);
-    D_emp = ModelVariable(ModelVariable::variableID::D_emp);//! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
-    M_variables_elt.push_back(&D_emp);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
+    D_tau_ow = ModelVariable(ModelVariable::variableID::D_tau_ow);//! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    M_variables_elt.push_back(&D_tau_ow);
+    D_evap = ModelVariable(ModelVariable::variableID::D_evap);//! \param D_evap (double) Evaporation from the ocean
+    M_variables_elt.push_back(&D_evap);
+    D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
+    M_variables_elt.push_back(&D_rain);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -6482,13 +6504,13 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(taumod);
 
         // Output variables - elements
-        GridOutput::Variable emp(GridOutput::variableID::emp);
+        GridOutput::Variable fwflux(GridOutput::variableID::fwflux);
         GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
         GridOutput::Variable QSwOcean(GridOutput::variableID::QSwOcean);
-        GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+        GridOutput::Variable Sflx(GridOutput::variableID::saltflux);
         GridOutput::Variable conc(GridOutput::variableID::conc);
 
-        elemental_variables.push_back(emp);
+        elemental_variables.push_back(fwflux);
         elemental_variables.push_back(QNoSw);
         elemental_variables.push_back(QSwOcean);
         elemental_variables.push_back(Sflx);
@@ -7214,7 +7236,15 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::delS):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_delS[i]*time_factor;
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
+            case (GridOutput::variableID::evap):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_evap[i]*time_factor;
+                break;
+            case (GridOutput::variableID::rain):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7265,9 +7295,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
-            case (GridOutput::variableID::emp):
+            case (GridOutput::variableID::fwflux):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_emp[i]*time_factor;
+                    it->data_mesh[i] -= D_fwflux[i]*time_factor;
                 break;
             case (GridOutput::variableID::QNoSw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7277,7 +7307,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_Qsw_ocean[i]*time_factor;
                 break;
-            case (GridOutput::variableID::Fsalt):
+            case (GridOutput::variableID::saltflux):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_brine[i]*time_factor;
                 break;
@@ -7307,6 +7337,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
+            case (GridOutput::variableID::wind_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::wind_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
+                break;
+
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
@@ -7328,14 +7368,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_u]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::tauy):
@@ -7357,14 +7397,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_v]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::taumod):
@@ -7374,6 +7414,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int index_v = i + M_num_nodes;
 
                     double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
+                    double wind = std::hypot(M_wind[index_v], M_wind[index_v]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7386,14 +7427,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
@@ -7448,9 +7489,9 @@ FiniteElement::initMoorings()
             ("hs_thin", GridOutput::variableID::hs_thin)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
-            ("emp", GridOutput::variableID::emp)
+            ("fwflux", GridOutput::variableID::fwflux)
             ("QNoSw", GridOutput::variableID::QNoSw)
-            ("Fsalt", GridOutput::variableID::Fsalt)
+            ("saltflux", GridOutput::variableID::saltflux)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
@@ -7463,6 +7504,8 @@ FiniteElement::initMoorings()
             ("snowfall", GridOutput::variableID::snowfall)
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
+            ("rain", GridOutput::variableID::rain)
+            ("evap", GridOutput::variableID::evap)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
@@ -7530,6 +7573,20 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
 
+        else if (*it == "wind")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable wndu(GridOutput::variableID::wind_x);
+            GridOutput::Variable wndv(GridOutput::variableID::wind_y);
+            nodal_variables.push_back(wndu);
+            nodal_variables.push_back(wndv);
+
+            GridOutput::Vectorial_Variable wnd(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(wnd);
+        }
+
         // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
@@ -7551,6 +7608,7 @@ FiniteElement::initMoorings()
             LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  tau\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
                 LOG(ERROR)<<"  "<< ptr->first <<"\n";
@@ -7597,7 +7655,7 @@ FiniteElement::initMoorings()
         GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
                 Environment::vm()["moorings.grid_latitute"].as<std::string>(),
                 Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<std::string>() );
+                Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
         // Define the mooring dataset
         M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
@@ -8977,8 +9035,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
@@ -9036,8 +9093,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     M_external_data_elements.push_back(&M_ocean_temp);
     M_external_data_elements_names.push_back("M_ocean_salt");
     M_external_data_elements.push_back(&M_ocean_salt);
-    M_external_data_elements_names.push_back("M_mld");
-    M_external_data_elements.push_back(&M_mld);
+    if (M_mld.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_mld");
+        M_external_data_elements.push_back(&M_mld);
+    }
     if ( M_qsrml.isInitialized() )
     {
         M_external_data_elements.push_back(&M_qsrml);
@@ -9063,9 +9123,6 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
-#if OASIS
-        case setup::OceanType::COUPLED:
-#endif
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -9075,6 +9132,15 @@ FiniteElement::initSlabOcean()
             }
 
             break;
+#if OASIS
+        case setup::OceanType::COUPLED:
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                M_sss[i] = M_ocean_salt[i];
+                M_sst[i] = M_ocean_temp[i];
+            }
+            break;
+#endif
         default:
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -9158,6 +9224,9 @@ FiniteElement::initIce()
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
+            break;
+        case setup::IceType::CREG:
+            this->cregIce();
             break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
@@ -10488,6 +10557,49 @@ FiniteElement::piomasIce()
         M_damage[i]=0.;
     }
 }//piomasIce
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initializes the ice state from CREG outputs.
+//! Called by the initIce() function.
+void
+FiniteElement::cregIce()
+{
+    Dataset creg = DataSet("ice_creg_elements");
+    external_data init_conc=ExternalData(&creg,M_mesh,0,false,time_init);
+    external_data init_thick=ExternalData(&creg,M_mesh,1,false,time_init);
+    external_data init_snow_thick=ExternalData(&creg,M_mesh,2,false,time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - CREG ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1.,init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        M_damage[i]=0.;
+    }
+}//cregIce
 
 
 // -----------------------------------------------------------------------------------------------------------

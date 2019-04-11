@@ -390,7 +390,7 @@ namespace Nextsim
              "Exponent of factor for heat flux that compensates assimilation of concentration")
 
 #ifdef AEROBULK
-            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
 
              //-----------------------------------------------------------------------------------

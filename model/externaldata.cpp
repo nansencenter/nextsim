@@ -156,7 +156,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     || !M_dataset->loaded);
 #ifdef OASIS
         else if(M_dataset->grid.dataset_frequency=="coupled")
-            to_be_reloaded=((cpl_time < M_dataset->ftime_range[0] ) || (M_dataset->ftime_range[1] <= cpl_time) || !M_dataset->loaded );
+            to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
 #endif
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
@@ -164,8 +164,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (to_be_reloaded)
         {
 #ifdef OASIS
-        // We call oasis_get every time step, but only actually recieve data at coupling times
-        if (M_dataset->coupled)
+            // We call oasis_get every time step, but only actually recieve data at coupling times
+            if (M_dataset->coupled)
             {
                 if(!M_dataset->grid.loaded)
                 {
@@ -226,8 +226,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 this->recieveCouplingData(M_dataset, cpl_time, comm);
                 transformData(M_dataset);
                 M_dataset->interpolated = false;
-                M_dataset->ftime_range[0] = cpl_time;
-                M_dataset->ftime_range[1] = cpl_time + cpl_dt;
+                M_dataset->itime_range[0] = cpl_time;
+                M_dataset->itime_range[1] = cpl_time + cpl_dt;
+                M_dataset->ftime_range[0] = M_current_time;
+                M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
             }
             else {
 #endif
@@ -410,7 +412,7 @@ void
 ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-        LOG(DEBUG) << "reciveCouplingData at cpl_time " << cpl_time << "\n";
+        LOG(DEBUG) << "recieveCouplingData at cpl_time " << cpl_time << "\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             int M_full  = dataset->grid.dimension_y_count_netcdf;
@@ -1151,7 +1153,7 @@ ExternalData::transformData(Dataset *dataset)
                         lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
 
                         // initial position x, y in meter
-        			    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
+                        forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
 
                         // position x, y after delta_t in meter
                         forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);

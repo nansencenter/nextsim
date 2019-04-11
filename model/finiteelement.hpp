@@ -184,8 +184,8 @@ public:
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
+                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(const double Tsurf, const double hs,
@@ -460,8 +460,6 @@ private:
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
-
-    std::vector<double> M_tau_ow;
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
@@ -742,12 +740,14 @@ private:
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
-    ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
+    ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
+    ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
+    ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
-
 
 private:
     // Variables for the moorings
@@ -791,7 +791,7 @@ private:
         "I_taux",    // tau_u (at u-point)
         "I_tauy",    // tau_v (at v-point)
         "I_taumod",  // |tau| (at t-point)
-        "I_emp",     // Evap minus precip
+        "I_fwflux",  // Fresh water flux
         "I_rsnos",   // Non-solar heatflux
         "I_rsso",    // Solar/Shortwave radiation
         "I_sfi",     // Salt/brine flux
@@ -804,7 +804,6 @@ private:
         "I_Uocn",     // Ocean current - u
         "I_Vocn",     // Ocean current - v
         "I_SSH",   // Sea surface height
-        "I_MLD",   // Mixed layer depth
         "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
 
     int cpl_time_step;
@@ -820,6 +819,7 @@ private:
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
+    void cregIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
@@ -864,10 +864,6 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
-
-private:
-
-    // Diagnostic variables
 
 };
 } // Nextsim
