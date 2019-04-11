@@ -155,6 +155,8 @@ public:
         Qlh         = 104,
         Qo          = 105,
         delS        = 106,
+        rain        = 107,
+        evap        = 108,
 
         // Forcing variables
         tair        = 200,
@@ -168,6 +170,8 @@ public:
         snowfall    = 208,
         precip      = 209,
         snowfr      = 210,
+        wind_x      = 211,
+        wind_y      = 212,
 
         // WIM variables
         dmax        = 300,
@@ -177,10 +181,10 @@ public:
         taux        = 901,
         tauy        = 902,
         taumod      = 903,
-        emp         = 904,
+        fwflux      = 904,
         QNoSw       = 905,
         QSwOcean    = 906,
-        Fsalt       = 907,
+        saltflux    = 907,
 
         // Non-output variables - all negative
         proc_mask   = -1,
@@ -393,10 +397,24 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::rain):
+                    name     = "rain";
+                    longName = "Surface Ocean Liquid Precipitation";
+                    stdName  = "surface_ocean_liquid_precipitation";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
                 case (variableID::delS):
                     name     = "sfo";
                     longName = "Downward Saltflux In Ocean";
                     stdName  = "downward_slatflux_in_ocean";
+                    Units    = "g m-2 day-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::evap):
+                    name     = "evap";
+                    longName = "Surface Ocean Evaporation";
+                    stdName  = "surface_ocean_evaporation";
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
@@ -423,10 +441,10 @@ public:
                     Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::emp):
-                    name     = "emp";
-                    longName = "Total Upward Ocean Surface Freshwater Flux";
-                    stdName  = "total_upward_ocean_surface_freshwater_flux";
+                case (variableID::fwflux):
+                    name     = "fwflux";
+                    longName = "Surface Net Downward Ocean Freshwater Flux";
+                    stdName  = "surface_net_downward_ocean_freshwater_flux";
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
@@ -444,7 +462,7 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::Fsalt):
+                case (variableID::saltflux):
                     name     = "sfi";
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";
@@ -556,6 +574,22 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+
+                case (variableID::wind_x):
+                    name     = "wndx";
+                    longName = "Wind X velocity";
+                    stdName  = "wind_x_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::wind_y):
+                    name     = "wndy";
+                    longName = "Wind Y velocity";
+                    stdName  = "wind_y_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
                     break;
 
                 // Non-output variables

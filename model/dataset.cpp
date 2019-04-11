@@ -1664,23 +1664,6 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        Variable mld={
-            name: "I_MLD",
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "m",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
         Variable qsrml={
             name: "I_FrcQsr",
             dimensions: dimensions,
@@ -1791,11 +1774,10 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask
         };
 
-        std::vector<Variable> variables_tmp(4);
+        std::vector<Variable> variables_tmp(3);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
-        variables_tmp[2] = mld;
-        variables_tmp[3] = qsrml;
+        variables_tmp[2] = qsrml;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -5593,7 +5575,154 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
+    else if (strcmp (DatasetName, "ice_creg_elements") == 0)
+    {
+        // Definition of the icesat grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        Variable latitude={
+            name: "nav_lat",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            name: "nav_lon",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable thickness={
+            name: "hicif",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable concentration={
+            name: "frld",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: -1.,
+            b: 1.,
+            Units: "",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable snow={
+            name: "hsnif",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "",
+            prefix: "CREG025",
+            postfix: "_icemod.nc",
+            gridfile: "",
+            reference_date: "",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+
+            loaded: false,
+            dataset_frequency:"constant",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = concentration;
+        variables_tmp[1] = thickness;
+        variables_tmp[2] = snow;
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.; // days
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
     else if (strcmp (DatasetName, "dist2coast_elements") == 0)
     {
         // Definition of dist2coast grid and datasets
@@ -8686,6 +8815,9 @@ DataSet::DataSet(char const *DatasetName)
     }
 
     ftime_range.resize(2,0.);
+#ifdef OASIS
+    itime_range.resize(2,0.);
+#endif
 
 }
 
