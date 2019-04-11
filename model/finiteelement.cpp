@@ -1192,15 +1192,26 @@ FiniteElement::initOptAndParam()
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
+    //! Sets options on the oceanic heat-flux scheme
+    const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
+        ("basic", setup::OceanHeatfluxScheme::BASIC)
+        ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
+    std::string option_str = vm["thermo.Qio-type"].as<std::string>();
+    if ( str2qiot.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.Qio-type: " + option_str);
+    M_Qio_type = str2qiot.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
 
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
+    option_str = vm["thermo.freezingpoint-type"].as<std::string>();
     if ( str2fpt.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
     M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+
+    //! Turn on snow-to-ice formation when flooding
+    M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
 
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
@@ -4924,8 +4935,6 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             sphuma[i] = tmp.first;
             wspeed[i] = this->windSpeedElement(i);
-            Qsw_in[i] = M_Qsw_in[i];
-            Qlw_in[i] = this->incomingLongwave(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
         // We implicitly assume that the temperature is taken at 2 m and the wind at 10 - hence 2.
@@ -5028,6 +5037,14 @@ FiniteElement::thermo(int dt)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+
+    double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
+
+    bool const temp_dep_healing = vm["dynamics.use_temperature_dependent_healing"].as<bool>(); //! \param temp_dep_healing (bool const) whether or not to use the temperature dependent healing
+
+    double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
+
+    const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5136,11 +5153,9 @@ FiniteElement::thermo(int dt)
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
 
-        double mld;
+        // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-        else
-            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5192,7 +5207,7 @@ FiniteElement::thermo(int dt)
                         Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
@@ -5476,7 +5491,7 @@ FiniteElement::thermo(int dt)
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        if ( vm["dynamics.use_temperature_dependent_healing"].as<bool>() )
+        if ( temp_dep_healing )
         {
             //! * Sets time_relaxation_damage to be inversely proportional to the temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
@@ -5557,8 +5572,6 @@ FiniteElement::thermo(int dt)
         {
 
             // FYI fraction (in the cell/triangle).
-            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
-
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
             if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
             {
@@ -5617,6 +5630,11 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+
+
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -5663,7 +5681,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         else
             hs = 0;
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs));
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0));
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -5719,55 +5737,62 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
     //! We have two schemes to transfer heat between ice and ocean
     // * basic:    Use all of the excess heat to melt or grow ice. This is not accurate, but sometimes useful
     // * exchange: Use an exchange coefficient and velocity difference to calculate heat transfer
+    //
     double const Tbot = this->freezingPoint(sss); // Temperature at ice base (bottom), also freezing point of sea-water
-    if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
+    double return_value;
+
+    switch ( M_Qio_type )
     {
-        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
-    } else if ( vm["thermo.Qio-type"].as<std::string>() == "exchange" ) {
-        double welt_oce_ice = 0.;
-        for (int i=0; i<3; ++i)
+        case ( setup::OceanHeatfluxScheme::BASIC ):
+            return_value = (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+            break;
+        case ( setup::OceanHeatfluxScheme::EXCHANGE ):
         {
-            int nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            double welt_oce_ice = 0.;
+            for (int i=0; i<3; ++i)
+            {
+                int nind = (M_elements[cpt]).indices[i]-1;
+                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            }
+            double norm_Voce_ice = welt_oce_ice/3.;
+            double Csens_io = 1e-3;
+            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            break;
         }
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double Csens_io = 1e-3;
-        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
-    } else {
-        std::cout << "Qio-type = " << vm["thermo.Qio-type"].as<std::string>() << "\n";
-        throw std::logic_error("Wrong Qio-type");
     }
+
+    return return_value;
+
 }//iceOceanHeatflux
 
 //! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(const double sss)
 {
+    double return_value;
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return -physical::mu*sss;
+            return_value = -physical::mu*sss;
 
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return ptf*sss;
+            return_value = ptf*sss;
     }
+
+    return return_value;
+
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(const double Tsurf, const double hs)
+FiniteElement::albedo(const double Tsurf, const double hs,
+        int alb_scheme, double alb_ice, double alb_sn, double I_0)
 {
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-
     double albedo;
 
     /* Calculate albedo - we can impliment different schemes if we want */
@@ -5828,15 +5853,11 @@ FiniteElement::albedo(const double Tsurf, const double hs)
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
         double &Tsurf, double &T1, double &T2)
 {
-    // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-    double const I_0    = vm["thermo.I_0"].as<double>();
-
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
     double const qs   = physical::Lf * physical::rhos;
@@ -5981,7 +6002,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-        if ( flooding && freeboard < 0)
+        if ( M_flooding && freeboard < 0)
         {
             // double delhs = -std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhoi/physical::rhow, 0.); // (35)
             hs += std::min( freeboard*physical::rhoi/physical::rhos, 0. );
@@ -6049,8 +6070,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
     // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
@@ -6071,11 +6090,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Local variables */
         double Qic, del_hs, del_ht, del_hb, draft;
-
-        /* ---------------------------------------------------------------
-        * Calculate the surface temperature within a while-loop
-        * --------------------------------------------------------------- */
-        double albedo = this->albedo(Tsurf, hs);
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6113,7 +6127,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
-        if ( flooding && draft > hi )
+        if ( M_flooding && draft > hi )
         {
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;

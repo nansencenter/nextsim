@@ -109,6 +109,13 @@ namespace setup
         NON_LINEAR = 1
     };
 
+
+    enum class OceanHeatfluxScheme
+    {
+        BASIC      = 0,
+        EXCHANGE   = 1
+    };
+
     enum class DynamicsType
     {
         DEFAULT         = 0,
