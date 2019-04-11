@@ -289,9 +289,12 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
+    // FSD related functions
     void redistributeFSD();
     void updateFSD();
     std::vector<double> computeWaveBreakingProb();
+    double computeLateralAreaFSD(const int cpt);
+    double computeLeadFractionFSD(const int cpt);
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -741,7 +744,7 @@ private:
     std::vector<double> M_fsd_bin_low_limits;
     std::vector<double> M_fsd_bin_up_limits;
     // Non-circularity of floes
-    double alpha_floe_shape                        ;
+    double floe_shape                              ;
     // Lettie's variables
     std::vector<double> M_floe_area_up             ;
     std::vector<double> M_floe_area_low            ;
@@ -755,8 +758,9 @@ private:
     std::vector<double> M_fsd_area_lims            ;
     std::vector<double> M_fsd_area_lims_scaled     ;
 
-    std::vector<std::vector<int> > M_alpha_fsd_merge ; 
-
+    std::vector<std::vector<int> > M_alpha_fsd_merge ;
+    // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
+    double M_lead_width    ;
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration

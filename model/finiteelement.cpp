@@ -4936,7 +4936,47 @@ FiniteElement::updateFSD()//----------------------------------------------------
         }
      }
 }
+//------------------------------------------------------------------------------------------------------
+double 
+FiniteElement::computeLeadFractionFSD( const int cpt)
+//! Compute the lead fraction following Horvat and Tziperman (2015)
+//! Used in thermo() to compute lateral melt/freezing 
+//------------------------------------------------------------------------------------------------------
+{
+    double lead_fraction=0. ; 
+    // First define a lead width,  arbitrary set as the radius of the smallest FSD bin center
+    M_lead_width=M_fsd_bin_centres[0]/2.  ;
 
+    for(int k=0;k<M_num_fsd_bins;k++)
+    {
+        lead_fraction = lead_fraction +  M_conc_fsd[k][cpt]* 
+                    ( 2.*M_lead_width/(M_fsd_bin_centres[k]/2.) + std::pow(M_lead_width,2)/std::pow(M_fsd_bin_centres[k]/2.,2) ) ;
+    }
+    
+    double ctot = M_conc[cpt];
+    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        ctot += M_conc_thin[cpt];
+
+    lead_fraction=std::min(lead_fraction,1.-ctot) ;
+    return lead_fraction ;
+}
+//------------------------------------------------------------------------------------------------------
+double 
+FiniteElement::computeLateralAreaFSD(const int cpt)
+//! Compute the lateral surface area following Horvat and Tziperman (2015)
+//! Used in thermo() to compute lateral melt/freezing 
+//------------------------------------------------------------------------------------------------------
+{
+    double lateral_area=0. ; 
+    // First define a lead width,  arbitrary set as the radius of the smallest FSD bin center
+    double hi = M_thick[cpt]/M_conc[cpt] ;
+    for(int k=0;k<M_num_fsd_bins;k++)
+    {
+        lateral_area = lateral_area +  M_conc_fsd[k][cpt]*hi*2./(M_fsd_bin_centres[k]/2.) ; // -> we use diameter instead of radius
+    }
+    
+    return lateral_area;
+}
 //------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
 void
@@ -5455,9 +5495,11 @@ FiniteElement::thermo(int dt)
         /* Initialise to be safe */
         double del_c = 0.;
         double newsnow = 0.;
-        /* In case there is an FSD initialize a lateral rate melt for ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
-	double lat_melt_rate = 0.;
-
+        /* In case there is an FSD initialize a lateral rate melt for 
+        ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
+      	double lat_melt_rate = 0.;
+        double lead_fraction = this-> computeLeadFractionFSD(i); // Not used so far 
+        double lateral_area  = this-> computeLateralAreaFSD(i); // Not used so far
         /* Freezing conditions */
         switch ( newice_type )
         {
@@ -5715,7 +5757,10 @@ FiniteElement::thermo(int dt)
                             del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + 2. * fsd_init[m] * ( 1./M_fsd_bin_centres[m] ) );
                             M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
                         }
-                        M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
+                        if (lat_melt_rate<0.) // if ice is melting
+                            M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
+                        else                  // if there is freezing, flux of growing floes that become "unbroken"
+                            M_conc_fsd[M_num_fsd_bins-1][i] += M_conc_fsd[M_num_fsd_bins-1][i] / M_fsd_bin_widths* dt * lat_melt_rate ;
                     }
                     else
                     { 
@@ -6982,7 +7027,7 @@ FiniteElement::initFsd()
         return ;
     
     // Parameters:
-    alpha_floe_shape = 0.66;
+    floe_shape = 0.66;
     double d_min=10.; // Lower floe size allowed : Might be tunable  ?
     // Define the categories TODO: Must be tunable in namelist
     M_fsd_bin_low_limits.assign(M_num_fsd_bins, d_min)                  ;
@@ -7027,9 +7072,9 @@ FiniteElement::initFsd()
 
     for(int m=0; m<M_num_fsd_bins; m++)
     {
-        M_floe_area_up[m] = alpha_floe_shape*std::pow(M_fsd_bin_up_limits[m],2)              ;
-        M_floe_area_low[m] = alpha_floe_shape*std::pow(M_fsd_bin_low_limits[m],2)            ;
-        M_floe_area_centered[m] = alpha_floe_shape*std::pow(M_fsd_bin_centres[m],2)         ;
+        M_floe_area_up[m] = floe_shape*std::pow(M_fsd_bin_up_limits[m],2)              ;
+        M_floe_area_low[m] = floe_shape*std::pow(M_fsd_bin_low_limits[m],2)            ;
+        M_floe_area_centered[m] = floe_shape*std::pow(M_fsd_bin_centres[m],2)         ;
         M_fsd_area_lims[m]=M_floe_area_low[m]                                                     ;
         M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]                          ;
     }
