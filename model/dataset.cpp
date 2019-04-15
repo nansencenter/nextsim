@@ -4976,6 +4976,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
      }
+/* EnKFC :: define a restart dataset similar to ice initialization for all the state variables*/
     else if (strcmp (DatasetName, "ice_nic_elements") == 0)
     {
         // Definition of topaz grid and datasets
