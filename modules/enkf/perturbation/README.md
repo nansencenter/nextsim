@@ -28,7 +28,7 @@ ToDo:
 
 __28.11.18__
 
-- an main cpp  gen_pseudo_fields.cpp is added and complied with the fortran object
+- an main cpp  gen_pseudo_fields.cpp is added and compiled with the fortran object
 
 - it will probably be called in checkReloadDatasets in finiteelement.cpp or loadDataset in
   externaldata.cpp
