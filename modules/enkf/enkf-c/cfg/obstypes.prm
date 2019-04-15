@@ -1,0 +1,7 @@
+NAME = SLA
+ISSURFACE = 1
+VAR = sit
+OFFSET = conf/tmp.nc sit
+HFUNCTION = standard
+MINVALUE = -1.0
+MAXVALUE = 1.0

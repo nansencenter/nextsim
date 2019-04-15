@@ -1,0 +1,57 @@
+LICENSE:
+    EnKF-C is a public software. See LICENSE for details.
+
+COMPILING
+
+EnKF-C is developed for GNU/Linux platform.
+
+Create "make.inc" for your architecture (have a look at examples in `arch'
+directory), then run "make". This should create executables bin/enkf_prep,
+bin/enkf_calc and bin/enkf_update.
+
+DEPENDENCIES
+
+clang or gcc
+openmpi
+libnetcdf
+liblapack (or better the Intel's version -- libmkl_rt)
+libgu (default, optional, necessary for handling curvilinear grids only; 
+       available from https://github.com/sakov/gridutils-c)
+
+USER MANUAL
+
+See doc/enkf-userguide.pdf.
+
+STARTING UP
+
+Run example 1 - see examples/1/README for details.
+
+INDENTING
+
+To indent your code according to the EnKF-C style you need to (1) get modified
+version of indent by downloading https://github.com/sakov/enkf-c/releases/download/data/indent-2.2.8a-mod.tar.gz and (2) run "make indent" in this (enkf-c/trunk/enkf) directory (the style is encoded in .indent.pro).
+
+REFERRING
+
+Reference:
+
+  Sakov, P., 2015. EnKF-C user guide. arXiv:1410.1233.
+
+BibTeX entry:
+
+  @online{enkf-c,
+    author = {Sakov, Pavel},
+    title = {{EnKF-C} user guide},
+    version = {3}, % update
+    year = {2015}, % update
+    eprinttype = {arxiv},
+    eprint = {1410.1233},
+    eprintclass = {cs.CE},
+  }
+
+CONTACT
+
+pavel.sakov@gmail.com
+
+Have fun,
+Pavel Sakov

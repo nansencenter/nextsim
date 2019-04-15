@@ -1,0 +1,4 @@
+PRODUCT = RADS
+TYPE = SLA
+READER = standard2
+FILE = obs/RADS-IB/y2007/m12/??_d19.nc

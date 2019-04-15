@@ -1,0 +1,1 @@
+/* gridutilsconfig.h.  Generated from gridutilsconfig.h.in by configure.  */

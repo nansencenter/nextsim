@@ -1,0 +1,83 @@
+v. 1.04.5 19 December 2018
+        -- A few more changes in line with v1.04.5. Thanks to Gary Carroll for
+           reporting this defect.
+v. 1.04.4 19 December 2018
+        -- A couple of small changes in gridnodes.c related to initialising the
+           grid map type.
+v. 1.04.3 18 December 2018
+        -- Added writing of X and Y nodes of DD grid required by viewbathy.n to
+           x.txt and y.txt
+        -- Made a few cosmetic changes in vb.m and viewbathy.m
+v. 1.04.2 18 December 2018
+        -- Initialised *fi and *fj to NaNs in gridmap_xy2fij()
+v. 1.04.1 13 October 2016
+        -- Corrected calculation of the average cell size by getnodes
+v. 1.04.0 11 October 2016
+        -- Added reporting of the average cell size by getnodes
+v. 1.03.2 22 June 2016
+        -- Replaced <values.h> by <float.h>
+v. 1.03.1 24 May 2016
+        -- Fixed a defect (I believe) in _kd_findnearestnode().
+v. 1.03.0 5 May 2016
+        -- Changed interface and code in gu_alloc2d(). gu_free2d is now redundant
+           and maintained for backward compatibility only. Use free() instead.
+v. 1.02.3 13 April 2016
+        -- xy2ij: added reporting coordinates of cell with maximum aspect ratio
+v. 1.02.2 13 April 2016
+        -- Added statistics on the number of successfull/unsuccessful mappings
+           in xy2ij.
+v. 1.02.1 23 March 2016
+        -- in gridkmap_xy2ij() added check for being inside bounding rectangle
+        -- in gridmap_xy2ij() added check for being finite
+v. 1.02.0 23 March 2016
+	-- Moved global variable "gridmaptype" to gridmap.type
+v. 1.01.4 23 March 2016
+        -- Added checks for NaNs when added kd-tree nodes
+        -- Tidied up gridkmap_build()
+        -- Some cosmetic changes
+v. 1.01.3 23 March 2016
+        -- Modified kdtree code (structurally and cosmetically)
+v. 1.01.2 21 March 2016
+        -- Shuffle grid node arrays before parsing into kd-tree
+v. 1.01.1 21 March 2016
+        -- Made a few touches here and there, including:
+           - modified test/viewgrid.m to draw grids one over another
+           - the kd-trees are now initialised started from the centre of a grid
+v. 1.01.0 16 March 2016
+        -- Added optional xy->ij mapping using kd-tree.
+        -- Fixed memory leak in gridnodes_transform() when converting
+           NT_CEN->NT_COR.
+v. 1.0   25 Sep 2015
+        -- Jumped to v. 1.0.
+v. 0.54, 5 May 2015
+	-- Introduced gu_setquitfn() to set the quit function externally;
+	   the previous (internal) version is used as default.
+v. 0.53, 3 Mar 2015
+	-- Corrected the header guard in gridnodes.h
+v. 0.52, 4 Jul 2013
+	-- Added a new constructor gridnodes_create2()
+	-- Using a saved errno in strerror() now
+v. 0.51, 4 May 2012
+        -- Modified configure to avoid compilation of gridbathy if nn or csa
+           are not available
+v. 0.50, 1 May 2012
+        -- Changed test.sh to include test on recovering corner nodes from
+           centre nodes
+v. 0.49, 1 May 2012
+        -- A change in nan.h to distinguish between gcc and icc
+v. 0.48, 25 August 2010
+        -- Updated README file and in-build descriptions for some utilities
+v. 0.47, April 2010
+        -- Added conversion from grid type CEN to types DD and CO (this involves
+           some extrapolation). Included kdtree.c and kdtree.h by John
+           Tsiombikas in the process of adding this functionality.
+v. 0.46, 18 February 2009
+        -- Changed the license for compatibility with GPL. Added the file
+           LICENSE.
+v. 0.45, 12 Dec 2008
+        -- fixed a defect in gridbathy.c: checked one corner twice on l. 461
+           instead of the supposed corner
+v. 0.44, February 2007
+	-- Introduced this file
+	-- Introduce new make target "shared" to build shared labrary libgu.so
+	   necessary for calling from python
