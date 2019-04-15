@@ -43,6 +43,10 @@ COPY modules $NEXTSIMDIR/modules
 COPY scripts/ensemble/pseudo2D.nml ${NEXTSIMDIR}/.
 WORKDIR $NEXTSIMDIR/modules/enkf/perturbation/src
 RUN source /root/.nextsimrc && export USE_ENSEMBLE=1 && export FFTW_DIR=/usr && make
+WORKDIR $NEXTSIMDIR/modules/enkf/gridutils-c
+RUN source /root/.nextsimrc && export USE_ENSEMBLE=1 && make
+WORKDIR $NEXTSIMDIR/modules/enkf/enkf-c
+RUN source /root/.nextsimrc && export USE_ENSEMBLE=1 && make
 
 ## copy model source and compile
 COPY model $NEXTSIMDIR/model
