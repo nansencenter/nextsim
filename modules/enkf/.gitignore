@@ -7,6 +7,8 @@ p_pseudo2D
 *.nc
 *.cdf
 *.lst
+*.tar.gz
+*.swp
 *.log
 *.dylib
 *.so*
@@ -19,3 +21,37 @@ p_pseudo2D
 compile.sh
 run_docker_nextsim_bangkok.sh
 perturbation/IO
+
+*.tar.gz
+*.swp
+*.log
+*.status
+enkf-c/bin
+binary
+
+
+# sample data
+examples
+background_6565
+ensemble_6565
+ensemble_static
+obs
+
+
+# analysis outputs
+Moorings
+X5.nc
+calc.out
+enkf_calc
+enkf_diag.nc
+enkf_prep
+enkf_update
+inflation.nc
+observations-orig.nc
+observations.nc
+pointlog_30,50.nc
+prep.out
+spread.nc
+update.out
+vcorr.nc
+
