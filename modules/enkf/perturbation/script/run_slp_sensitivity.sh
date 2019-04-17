@@ -1,7 +1,7 @@
+#!/bin/bash
+
 # this script is used only for stand-alone perturbation generation
 # it compares the slp variance and resulting mean wind speed
-
-#!/bin/bash
 
 inml=../nml/pseudo2D.nml
 onml=../bin/pseudo2D.nml
