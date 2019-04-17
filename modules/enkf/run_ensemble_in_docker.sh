@@ -5,7 +5,7 @@ export PATH=$PATH:$NEXTSIMDIR/model/bin
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NEXTSIMDIR/lib
 source /root/.nextsimrc
 
-cd /docker_io
+cd /docker_io # this is the difference from original run docker script
 # run bash if parameters are not given
 if [ $# -eq 0 ]
 then
@@ -35,5 +35,5 @@ then
    exit 2
 fi
 
-# Run the nextsim model usin MPI
+# Run the nextsim model using MPI
 mpirun --allow-run-as-root -np $ncpu nextsim.exec -mat_mumps_icntl_14 60 --config-files=$config
