@@ -330,14 +330,9 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
         //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
 
 #if 1
-        // if (i == 0)
-        // {
-        //     number = number - num_edge;
-        //     std::cout<<"***************************************["<< this->comm().rank() <<"]: " << number <<"\n";
-        // }
-
-        int elt_num_nodes = (type == 3) ? 3 : 2;
-        std::vector<bool> ghostNodes(elt_num_nodes, false);
+        // int elt_num_nodes = (type == 3) ? 3 : 2;
+        // std::vector<bool> ghostNodes(elt_num_nodes, false);
+        std::vector<bool> ghostNodes(numVertices, false);
 
         if (first_triangle)
         {
@@ -421,146 +416,8 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
 
-
-#if 0
-    // extended mesh
-    std::vector<int> neighbors;
-    elementConnectivity(M_global_triangle_nodes, M_global_num_elements_from_serial, neighbors);
-
-    // Add extended ghost cells to the local mesh
-    for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
-    {
-        // Add ghost cells for the first level
-        for (int i=0; i<3; i++)
-        {
-            int neighbori = neighbors[3*(it->number-1)+i];
-            if ((neighbori > 0) && (!(M_global_triangles[neighbori-1].isOnProcessor())))
-            {
-                M_extended_ghost_elts.push_back(M_global_triangles[neighbori-1]);
-                int currentl1=M_global_triangles[neighbori-1].number;
-
-                // Add ghost cells for the second level
-                for (int j=0; j<3; j++)
-                {
-                    int neighborj = neighbors[3*(currentl1-1)+j];
-                    if ((neighborj > 0) && (!(M_global_triangles[neighborj-1].isOnProcessor())))
-                    {
-                        M_extended_ghost_elts.push_back(M_global_triangles[neighborj-1]);
-                        int currentl2=M_global_triangles[neighborj-1].number;
-
-                        // Add ghost cells for the third level
-                        for (int k=0; k<3; k++)
-                        {
-                            int neighbork = neighbors[3*(currentl2-1)+k];
-                            if ((neighbork > 0) && (!(M_global_triangles[neighbork-1].isOnProcessor())))
-                            {
-                                M_extended_ghost_elts.push_back(M_global_triangles[neighbork-1]);
-                                int currentl3=M_global_triangles[neighbork-1].number;
-
-                                // Add ghost cells for the fourth level
-                                for (int l=0; l<3; l++)
-                                {
-                                    int neighborl = neighbors[3*(currentl3-1)+l];
-                                    if ((neighborl > 0) && (!(M_global_triangles[neighborl-1].isOnProcessor())))
-                                    {
-                                        M_extended_ghost_elts.push_back(M_global_triangles[neighborl-1]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-#endif
-
-#if 1
-    std::cout<<"M_ghosts_width= "<< M_ghosts_width <<"\n";
-    if (M_ghosts_width > 0)
-    {
-        // extended mesh
-        std::vector<int> elt_nodal_connectivity;
-        int connectivity_max;
-        elementNodalConnectivity(M_global_triangle_nodes, M_global_num_nodes_from_serial, M_global_num_elements_from_serial,
-                                 elt_nodal_connectivity, connectivity_max
-                                 );
-
-        for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
-        {
-            // Add ghost cells for the first level
-            for (int i=0; i<3; i++)
-            {
-                for (int j=0; j<connectivity_max; j++)
-                {
-                    int neighborij = elt_nodal_connectivity[connectivity_max*(it->indices[i]-1)+j];
-                    if ((neighborij > 0) && (!(M_global_triangles[neighborij-1].isOnProcessor())))
-                    {
-                        M_extended_ghost_elts.push_back(M_global_triangles[neighborij-1]);
-
-                        if (M_ghosts_width > 1)
-                        {
-                            // Add ghost cells for the second level
-                            auto current_elt_indices=M_global_triangles[neighborij-1].indices;
-                            for (int k=0; k<3; k++)
-                            {
-                                for (int l=0; l<connectivity_max; l++)
-                                {
-                                    int neighborkl = elt_nodal_connectivity[connectivity_max*(current_elt_indices[k]-1)+l];
-                                    if ((neighborkl > 0) && (!(M_global_triangles[neighborkl-1].isOnProcessor())))
-                                    {
-                                        M_extended_ghost_elts.push_back(M_global_triangles[neighborkl-1]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (0)// (M_comm.rank()==0)
-        {
-            std::cout<<"M_num_nodes= "<< M_global_num_nodes_from_serial <<"\n";
-            std::cout<<"M_num_elements= "<< M_global_num_elements_from_serial <<"\n";
-            std::cout<<"connectivity_max= "<< connectivity_max <<"\n";
-
-            for (int i=0; i<M_global_num_nodes_from_serial; i++)
-            {
-                std::cout<<"Node "<< i+1 <<"\n";
-                for (int j=0; j<connectivity_max; j++)
-                {
-                    std::cout<<"          CONNECT["<< j <<"]= "<< elt_nodal_connectivity[connectivity_max*i+j] <<"\n";
-                }
-            }
-        }
-
-        std::sort(M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
-                  [&]( element_type elt1, element_type elt2 )->bool{
-                      return elt1.number < elt2.number ; } );
-
-        M_extended_ghost_elts.erase(std::unique( M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
-                                                 [&]( element_type elt1, element_type elt2 )->bool{
-                                                     return elt1.number == elt2.number ; }), M_extended_ghost_elts.end());
-
-        // for (auto it=M_extended_ghost_elts.begin(), end=M_extended_ghost_elts.end(); it!=end; ++it)
-        // {
-        //     if ((M_comm.rank() <= it->partition))
-        //     {
-        //         std::cout<<"A element is found here\n";
-        //     }
-        // }
-    }
-    else if (M_ghosts_width == 0)
-    {
-        if (M_comm.rank()==0)
-            std::cout<<"ghosts width is set to zero: non-extended mesh will be used" <<"\n";
-    }
-    else
-    {
-        throw std::logic_error("invalid value of ghosts width: should be greater or equal zero");
-    }
-#endif
+    // extract and store the extended ghost elements
+    this->extendGhostElements(M_global_triangle_nodes, M_global_triangles);
 }
 
 void
@@ -689,6 +546,9 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     std::map<int,int> __gt;
 
+    std::vector<element_type> M_global_triangles;
+    std::vector<int> M_global_triangle_nodes;
+
     int cpt_edge = 0;
     int cpt_triangle = 0;
     int num_edge = 0;
@@ -717,14 +577,13 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             std::cout<<"numElems= "<< numElems <<"\n";
             std::cout<<"numTags= "<< numTags <<"\n";
         }
-#endif
 
         if ( type >= MSH_NUM_TYPE )
         {
             std::cout << "Invalid GMSH element type " << type << "\n";
             throw std::logic_error("Invalid GMSH element type");
         }
-
+#endif
         int numVertices = MElement::getInfoMSH(type,&name);
 
         if ( numVertices <= 0 )
@@ -760,7 +619,8 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         for(int i = 0; i < numElems; i++)
         {
             ghosts.clear();
-            std::vector<bool> ghostNodes;
+            // std::vector<bool> ghostNodes;
+            std::vector<bool> ghostNodes(numVertices, false);
 
             ifs.read( (char*)data.data(), sizeof(int)*n );
             if(swap) SwapBytes((char*)data.data(), sizeof(int), n);
@@ -816,6 +676,9 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
                                                     this->comm().rank(),
                                                     this->comm().size());
 
+            M_global_triangle_nodes.insert(M_global_triangle_nodes.end(), indices.begin(), indices.end());
+            M_global_triangles.push_back(gmshElt);
+
             if (gmshElt.isOnProcessor() == false)
                 continue;
 
@@ -870,6 +733,98 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     ifs >> buf;
 
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
+
+    // extract and store the extended ghost elements
+    this->extendGhostElements(M_global_triangle_nodes, M_global_triangles);
+}
+
+void
+GmshMesh::extendGhostElements(std::vector<int> const& global_trgl_nodes, std::vector<element_type> const& global_trgl)
+{
+    std::cout<<"M_ghosts_width= "<< M_ghosts_width <<"\n";
+    if (M_ghosts_width > 0)
+    {
+        // extended mesh
+        std::vector<int> elt_nodal_connectivity;
+        int connectivity_max;
+        elementNodalConnectivity(global_trgl_nodes, M_global_num_nodes_from_serial, M_global_num_elements_from_serial,
+                                 elt_nodal_connectivity, connectivity_max
+                                 );
+
+        for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
+        {
+            // Add ghost cells for the first level
+            for (int i=0; i<3; i++)
+            {
+                for (int j=0; j<connectivity_max; j++)
+                {
+                    int neighborij = elt_nodal_connectivity[connectivity_max*(it->indices[i]-1)+j];
+                    if ((neighborij > 0) && (!(global_trgl[neighborij-1].isOnProcessor())))
+                    {
+                        M_extended_ghost_elts.push_back(global_trgl[neighborij-1]);
+
+                        if (M_ghosts_width > 1)
+                        {
+                            // Add ghost cells for the second level
+                            auto current_elt_indices=global_trgl[neighborij-1].indices;
+                            for (int k=0; k<3; k++)
+                            {
+                                for (int l=0; l<connectivity_max; l++)
+                                {
+                                    int neighborkl = elt_nodal_connectivity[connectivity_max*(current_elt_indices[k]-1)+l];
+                                    if ((neighborkl > 0) && (!(global_trgl[neighborkl-1].isOnProcessor())))
+                                    {
+                                        M_extended_ghost_elts.push_back(global_trgl[neighborkl-1]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (0)// (M_comm.rank()==0)
+        {
+            std::cout<<"M_num_nodes= "<< M_global_num_nodes_from_serial <<"\n";
+            std::cout<<"M_num_elements= "<< M_global_num_elements_from_serial <<"\n";
+            std::cout<<"connectivity_max= "<< connectivity_max <<"\n";
+
+            for (int i=0; i<M_global_num_nodes_from_serial; i++)
+            {
+                std::cout<<"Node "<< i+1 <<"\n";
+                for (int j=0; j<connectivity_max; j++)
+                {
+                    std::cout<<"          CONNECT["<< j <<"]= "<< elt_nodal_connectivity[connectivity_max*i+j] <<"\n";
+                }
+            }
+        }
+
+        std::sort(M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
+                  [&]( element_type elt1, element_type elt2 )->bool{
+                      return elt1.number < elt2.number ; } );
+
+        M_extended_ghost_elts.erase(std::unique( M_extended_ghost_elts.begin(), M_extended_ghost_elts.end(),
+                                                 [&]( element_type elt1, element_type elt2 )->bool{
+                                                     return elt1.number == elt2.number ; }), M_extended_ghost_elts.end());
+
+        // for (auto it=M_extended_ghost_elts.begin(), end=M_extended_ghost_elts.end(); it!=end; ++it)
+        // {
+        //     if ((M_comm.rank() <= it->partition))
+        //     {
+        //         std::cout<<"A element is found here\n";
+        //     }
+        // }
+    }
+    else if (M_ghosts_width == 0)
+    {
+        if (M_comm.rank()==0)
+            std::cout<<"ghosts width is set to zero: non-extended mesh will be used" <<"\n";
+    }
+    else
+    {
+        throw std::logic_error("invalid value of ghosts width: should be greater or equal zero");
+    }
 }
 
 void

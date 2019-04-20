@@ -64,6 +64,7 @@ public:
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
     void nodalGridExtended();
+    void extendGhostElements(std::vector<int> const& global_trgl_nodes, std::vector<element_type> const& global_trgl);
 
     Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
