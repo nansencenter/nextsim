@@ -12264,6 +12264,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
 
+    std::vector<double> M_wind_root;
+    this->gatherNodalField(M_wind.getVector(),M_wind_root);
+
     std::vector<double> M_UM_root;
     if (apply_displacement)
     {
@@ -12353,6 +12356,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            exporter.writeField(outbin, M_wind_root, "M_wind");
+
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root

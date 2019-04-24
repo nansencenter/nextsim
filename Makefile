@@ -15,6 +15,9 @@ modules:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make
 endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make
+endif
 
 model: core
 	@cd $(NEXTSIMDIR)/model; make;
@@ -27,6 +30,7 @@ clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
 	@cd $(NEXTSIMDIR)/core/src; make clean
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make clean
 
 cleanmodel:
 	@cd $(NEXTSIMDIR)/model; make clean;
@@ -35,6 +39,7 @@ mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make mrproper
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; make mrproper
 	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make mrproper
 	@cd $(NEXTSIMDIR)/core/src; make mrproper
 	@cd $(NEXTSIMDIR)/model; make mrproper
 	rm -r objs  || true
