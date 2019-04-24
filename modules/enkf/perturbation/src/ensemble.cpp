@@ -55,7 +55,6 @@ void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<do
     // Find and read the ranfld.dat into struct synoptic
     M_ranfile = { "synforc.00", "synforc.01" };
     ifstream franfld;
-    cout << "### ranfile:" << M_ranfile[ranid] << "\n";
     franfld.open(M_ranfile[ranid]);
 
     int row = 0;
@@ -86,8 +85,8 @@ void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<do
     }
 
     for(int i = 0; i < rdm; i++) {
-        loaded_uwind[i] = loaded_uwind[i] + synoptic.uwind.data[i];
-        loaded_vwind[i] = loaded_vwind[i] + synoptic.vwind.data[i];
+        loaded_uwind[i] += synoptic.uwind.data[i];
+        loaded_vwind[i] += synoptic.vwind.data[i];
     }
 
 };
@@ -96,16 +95,13 @@ void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<do
 void ensemble::computeMinMax(const std::vector<double> &ivector, const char* iname){
     double max = *max_element(ivector.begin(), ivector.end());
     double min = *min_element(ivector.begin(), ivector.end());
-    cout << iname << ":\t max value= " << max << '\t' << "min value= " << min << endl;
 };
 
 void ensemble::computeVecMean(const std::vector<double> &ivector, const char* iname){
     float average = std::accumulate(ivector.begin(), ivector.end(), 0.0)/ivector.size();
-    cout << iname << ":\t mean value= " << average << endl;
 };
 
 
 void ensemble::getpath(std::string iopath){
      M_ranpath = iopath;
-     cout << "M_ranpath: " << M_ranpath << endl;
 };

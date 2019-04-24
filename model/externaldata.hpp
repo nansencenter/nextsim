@@ -12,7 +12,6 @@
 #include <environment.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
-#include <boost/serialization/vector.hpp>
 
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
@@ -148,6 +147,8 @@ private:
     double M_factor;
 
     LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim

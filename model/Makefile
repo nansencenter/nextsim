@@ -54,7 +54,7 @@ ifdef USE_ENSEMBLE
 endif
 
 ifdef USE_AEROBULK
-		CXXFLAGS += -I $(NEXTSIMDIR)/modules/aerobulk/include
+		CXXFLAGS += -I $(AEROBULK_DIR)/include
 		CXXFLAGS += -DAEROBULK
 endif
 
@@ -126,8 +126,7 @@ ifdef USE_ENSEMBLE
 endif
 
 ifdef USE_AEROBULK
-		LDFLAGS += -L $(NEXTSIMDIR)/lib -laerobulk_nextsim
-		LDFLAGS += -L /opt/local/aerobulk/lib -laerobulk
+		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
 		LDFLAGS += -lgfortran
 endif
 

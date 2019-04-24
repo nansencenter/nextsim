@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# generate perturbation stand-alone model
+# display tool is ferret and should be excluded if another one is used
+
 BOOST_DIR=/opt/local/boost
 BOOST_LIBDIR=${BOOST_DIR}/lib
 
