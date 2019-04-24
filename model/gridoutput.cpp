@@ -769,11 +769,17 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
            filename << "_" << now.year() << "d" << setw(3) << setfill('0') << now.day_of_year();
            break;
        case fileLength::weekly:
-           // The last week of the year is troublesome!
-           // The boost library will (sometimes) give this the number 1, even though week 1 should be in January
+           // The last and first week of the year is troublesome!
+           /* ISO 8601 overlaps the weeks so that the last week of a year may
+            * extend into the new year and the first week of a year may begin
+            * before the new year. */
            if ( (now.month().as_number() == 12) && (now.week_number() == 1) )
            {
                filename << "_" << now.year() + 1 << "w" << setw(2) << setfill('0') << now.week_number();
+           }
+           else if ( (now.month().as_number() == 1) && (now.week_number() >= 52) )
+           {
+               filename << "_" << now.year() - 1 << "w" << setw(2) << setfill('0') << now.week_number();
            }
            else
            {

@@ -88,6 +88,9 @@ public:
     //! return log level
 	static LogLevel const& logLevel() { return log_level; }
 
+    //! return bool to log on all processors
+	static bool const& logAll() { return log_all; }
+
     //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
     //! and some sub-directories
     void setEnvironmentVariables();
@@ -111,6 +114,9 @@ private:
 
     //! log level
     static LogLevel log_level;
+
+    //! log on all cpus
+    static bool log_all;
 };
 
 } // Nextsim

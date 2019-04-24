@@ -147,6 +147,8 @@ private:
     double M_factor;
 
     LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim
