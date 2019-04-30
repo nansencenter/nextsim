@@ -443,6 +443,32 @@ namespace Nextsim
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
+#if defined(ENSEMBLE)
+            ("statevector.use_statevector", po::value<bool>()->default_value( false ), "do we use statevector (netcdf output to grid)?")
+            ("statevector.grid_type", po::value<std::string>()->default_value( "reference" ), "[regular|from_file] for regular spaced grid or grid read in from the file statevector.grid_file (default: reference)")
+            ("statevector.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
+            ("statevector.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
+            ("statevector.spacing", po::value<double>()->default_value( 10 ), "spacing between grid points (km), regular grid in the model's stereographic projection")
+            ("statevector.output_timestep", po::value<double>()->default_value( 1 ), "time interval between mooring records (days)")
+            ("statevector.output_time_step_units", po::value<std::string>()->default_value("days"),
+                "units of statevector.output_time_step: days or time_steps")
+            ("statevector.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
+            ("statevector.grid_file", po::value<std::string>()->default_value( "" ),
+                "Grid file with locations for statevector output. It must be a netcdf file with two dimensional lat and lon")
+            ("statevector.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
+            ("statevector.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
+            ("statevector.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is y and the second x.")
+            ("statevector.false_easting", po::value<bool>()->default_value( true ),
+                "true: we output vectors relative to the output grid; false: we give their north-south components")
+            ("statevector.parallel_output", po::value<bool>()->default_value( false ), "")
+
+            ("statevector.reference_grid_file", po::value<std::string>()->default_value( "modules/enkf/reference_grid.nc" ), "File containing neccesary grid information for enkf.")
+#endif
+
 #if defined(WAVES)
         ;
         return desc.add( Wim::descrWimOptions() );
@@ -450,6 +476,8 @@ namespace Nextsim
         ;
         return desc;
 #endif
+
+
     }
 
 } // Nextsim

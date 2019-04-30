@@ -1128,6 +1128,27 @@ FiniteElement::initOptAndParam()
 
     M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
 
+#ifdef ENSEMBLE
+    //! StateVector output time step - for restarts this needs to fit inside the restart period
+    if(vm["statevector.output_time_step_units"].as<std::string>() == "days")
+        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*days_in_sec; //! \param statevector_output_time_step (double) Time step for statevector outputs [s]
+    else if (vm["statevector.output_time_step_units"].as<std::string>() == "time_steps")
+        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*time_step;
+    else
+        throw std::runtime_error("statevector.output_time_step_units should be days or time_steps");
+    statevector_time_factor = dtime_step/double(statevector_output_time_step);
+
+    // Checks
+    if ( statevector_output_time_step % time_step != 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: statevector_output_time_step is not an integer multiple of time_step");
+
+    if ( M_write_restart_end && ( int(duration) % statevector_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of statevector_output_time_step");
+
+    if ( M_write_restart_interval && ( restart_time_step % statevector_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of statevector_output_time_step");
+#endif
+
     //! Moorings output time step - for restarts this needs to fit inside the restart period
     if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
         mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
@@ -1380,6 +1401,27 @@ FiniteElement::initOptAndParam()
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
     if(!M_moorings_snapshot)
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
+
+#ifdef ENSEMBLE
+    M_use_statevector =  vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_statevector_snapshot =  vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
+    M_statevector_parallel_output =  vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
+    const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
+        ("inf", GridOutput::fileLength::inf)
+        ("daily", GridOutput::fileLength::daily)
+        ("weekly", GridOutput::fileLength::weekly)
+        ("monthly", GridOutput::fileLength::monthly)
+        ("yearly", GridOutput::fileLength::yearly);
+    M_statevector_file_length = str2statevectorfl.find(vm["statevector.file_length"].as<std::string>())->second;
+        //! \param M_statevector_file_length (string) Length (in time) of the mooring output file
+        //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
+        //! \param M_statevector_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
+    M_statevector_averaging_period = 0.;//! \param M_statevector_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
+    if(!M_statevector_snapshot)
+        M_statevector_averaging_period = mooring_output_time_step/days_in_sec;
+#endif
+
 
     //! Sets the type of partitioner and partition space
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
@@ -6279,6 +6321,12 @@ FiniteElement::init()
     if ( M_use_moorings )
         this->initMoorings();
 
+    //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
+    LOG(DEBUG) << "initStateVector\n";
+    if ( M_use_statevector )
+        this->initStateVector();
+
+
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
     // - check if we are adding snapshot to netcdf file
@@ -6999,6 +7047,25 @@ FiniteElement::checkOutputs(bool const& at_init_time)
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
+#ifdef ENSEMBLE
+    if(M_use_statevector)
+    {
+        if(!at_init_time)
+            this->updateStateVector();
+        else if(    M_statevector_snapshot
+                && pcpt*time_step % mooring_output_time_step == 0
+                && !M_use_restart )
+        {
+            // write initial conditions to statevector file if using snapshot option
+            // (only if at the right time though)
+            // - set the fields on the mesh
+            this->updateMeans(M_statevector, 1.);
+            // - interpolate to the grid and write them to the netcdf file
+            this->stateVectorAppendNetcdf(M_current_time);
+        }
+    }
+#endif
+
     if(M_use_drifters)
     {
         // 1. Gather the fields needed by the drifters
@@ -7801,6 +7868,368 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.resetMeshMean(bamgmesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
+
+
+#ifdef ENSEMBLE
+//------------------------------------------------------------------------------------------------------
+//! Initializes the state vector and variables recorded by the state vector
+//! Called by the init() function.
+void
+FiniteElement::initStateVector()
+{
+
+    if (       (!M_statevector_snapshot)
+            && ( pcpt*time_step % statevector_output_time_step != 0 ) )
+    {
+        std::string msg = "FE::initStateVector: Start time (or restart time) incompatible with\n";
+        msg += "State Vector output time step (from statevector.output_timestep option)\n";
+        msg += "(when statevector.snapshot = false).";
+        throw std::runtime_error(msg);
+    }
+
+    bool use_ice_mask = false;
+
+    // Output variables - elements
+    std::vector<GridOutput::Variable> elemental_variables(0);
+
+    // Output variables - nodes
+    std::vector<GridOutput::Variable> nodal_variables(0);
+
+    // The vectorial variables are (always on the nodes) ...
+    std::vector<GridOutput::Vectorial_Variable> vectorial_variables(0);
+
+    // map config file names to the GridOutput enum's
+    boost::unordered_map<std::string, GridOutput::variableID>
+        statevector_name_map_elements = boost::assign::map_list_of
+            ("conc", GridOutput::variableID::conc)
+            ("thick", GridOutput::variableID::thick)
+            ("snow", GridOutput::variableID::snow)
+            ("tsurf", GridOutput::variableID::tsurf)
+            ("Qa", GridOutput::variableID::Qa)
+            ("Qo", GridOutput::variableID::Qo)
+            ("Qsw", GridOutput::variableID::Qsw)
+            ("Qlw", GridOutput::variableID::Qlw)
+            ("Qsh", GridOutput::variableID::Qsh)
+            ("Qlh", GridOutput::variableID::Qlh)
+            ("delS", GridOutput::variableID::delS)
+            ("conc_thin", GridOutput::variableID::conc_thin)
+            ("h_thin", GridOutput::variableID::h_thin)
+            ("hs_thin", GridOutput::variableID::hs_thin)
+            // Primarily coupling variables, but perhaps useful for debugging
+            ("taumod", GridOutput::variableID::taumod)
+            ("fwflux", GridOutput::variableID::fwflux)
+            ("QNoSw", GridOutput::variableID::QNoSw)
+            ("saltflux", GridOutput::variableID::saltflux)
+            // Forcing
+            ("tair", GridOutput::variableID::tair)
+            ("sphuma", GridOutput::variableID::sphuma)
+            ("mixrat", GridOutput::variableID::mixrat)
+            ("d2m", GridOutput::variableID::d2m)
+            ("mslp", GridOutput::variableID::mslp)
+            ("Qsw_in", GridOutput::variableID::Qsw_in)
+            ("Qlw_in", GridOutput::variableID::Qlw_in)
+            ("tcc", GridOutput::variableID::tcc)
+            ("snowfall", GridOutput::variableID::snowfall)
+            ("snowfr", GridOutput::variableID::snowfr)
+            ("precip", GridOutput::variableID::precip)
+            ("rain", GridOutput::variableID::rain)
+            ("evap", GridOutput::variableID::evap)
+            ("fyi_fraction", GridOutput::variableID::fyi_fraction)
+            ("age_d", GridOutput::variableID::age_d)
+            ("age", GridOutput::variableID::age)
+            ("conc_upd", GridOutput::variableID::conc_upd)
+
+
+        ;
+    std::vector<std::string> names = vm["statevector.variables"].as<std::vector<std::string>>();
+
+    //error checking
+    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+
+    // - these are not always initialised, depending on the atmospheric forcing
+    boost::unordered_map<std::string, bool>
+        forcing_ok = boost::assign::map_list_of
+            ("tair", M_tair.isInitialized())
+            ("sphuma", M_sphuma.isInitialized())
+            ("mixrat", M_mixrat.isInitialized())
+            ("d2m", M_dair.isInitialized())
+            ("mslp", M_mslp.isInitialized())
+            ("Qsw_in", M_Qsw_in.isInitialized())
+            ("Qlw_in", M_Qlw_in.isInitialized())
+            ("tcc", M_tcc.isInitialized())
+            ("snowfall", M_snowfall.isInitialized())
+            ("snowfr", M_snowfr.isInitialized())
+            ("precip", M_precip.isInitialized())
+        ;
+    for (auto it=forcing_ok.begin(); it!=forcing_ok.end(); it++)
+    {
+        std::string name = it->first;
+        if(std::count(names.begin(), names.end(), name)>0)
+            if(!(it->second))
+            {
+                std::string msg = "initStateVector: trying to export " + name + " to StateVector file,\n"
+                    + "but it is not contained in the atmospheric forcing";
+                throw std::runtime_error(msg);
+            }
+    }
+
+    int vector_counter = 0;
+    for ( auto it=names.begin(); it!=names.end(); ++it )
+    {
+        // error if trying to output thin ice variables if not using thin ice category
+        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+        {
+            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            {
+                LOG(ERROR)<<"initStateVector: trying to output <<"<< *it<<">> but not running with thin ice\n";
+                throw std::runtime_error("Invalid StateVector name");
+            }
+        }
+
+        // Nodal variables and vectors
+        if (*it == "velocity")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable siu(GridOutput::variableID::VT_x, use_ice_mask);
+            GridOutput::Variable siv(GridOutput::variableID::VT_y, use_ice_mask);
+            nodal_variables.push_back(siu);
+            nodal_variables.push_back(siv);
+
+            GridOutput::Vectorial_Variable siuv(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(siuv);
+        }
+
+        else if (*it == "wind")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable wndu(GridOutput::variableID::wind_x);
+            GridOutput::Variable wndv(GridOutput::variableID::wind_y);
+            nodal_variables.push_back(wndu);
+            nodal_variables.push_back(wndv);
+
+            GridOutput::Vectorial_Variable wnd(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(wnd);
+        }
+
+        // Primarily coupling variables, but perhaps useful for debugging
+        else if ( *it == "tau" )
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable taux(GridOutput::variableID::taux);
+            GridOutput::Variable tauy(GridOutput::variableID::tauy);
+            nodal_variables.push_back(taux);
+            nodal_variables.push_back(tauy);
+
+            GridOutput::Vectorial_Variable tau(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(tau);
+        }
+
+        // Element variables
+        else if (statevector_name_map_elements.count(*it)==0)
+        {
+            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
+            LOG(ERROR)<<"Available names are:\n";
+            LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  tau\n";
+            for (auto ptr=statevector_name_map_elements.begin();
+                    ptr!=statevector_name_map_elements.end(); ptr++)
+                LOG(ERROR)<<"  "<< ptr->first <<"\n";
+            throw std::runtime_error("Invalid statevector name");
+        }
+        else
+        {
+            GridOutput::Variable tmp(statevector_name_map_elements[*it]);
+            elemental_variables.push_back(tmp);
+        }
+    }
+
+    // A mask for velocity (if we want it)
+    if ( use_ice_mask )
+    {
+        GridOutput::Variable ice_mask(GridOutput::variableID::ice_mask);
+        elemental_variables.push_back(ice_mask);
+    }
+
+    if(vm["statevector.grid_type"].as<std::string>()=="regular")
+    {
+        // Calculate the grid spacing (assuming a regular grid for now)
+        auto RX = M_mesh.coordX();
+        auto RY = M_mesh.coordY();
+        auto xcoords = std::minmax_element( RX.begin(), RX.end() );
+        auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+
+        double xmin = boost::mpi::all_reduce(M_comm, *xcoords.first,  boost::mpi::minimum<double>());
+        double xmax = boost::mpi::all_reduce(M_comm, *xcoords.second, boost::mpi::maximum<double>());
+        double ymin = boost::mpi::all_reduce(M_comm, *ycoords.first,  boost::mpi::minimum<double>());
+        double ymax = boost::mpi::all_reduce(M_comm, *ycoords.second, boost::mpi::maximum<double>());
+
+        double statevector_spacing = 1e3 * vm["statevector.spacing"].as<double>();
+        int ncols = (int) ( 0.5 + ( xmax - xmin )/statevector_spacing );
+        int nrows = (int) ( 0.5 + ( ymax - ymin )/statevector_spacing );
+
+        // Define the statevector dataset
+        M_statevector = GridOutput(bamgmesh, M_local_nelements, ncols, nrows, statevector_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+                M_statevector_averaging_period, M_statevector_false_easting);
+    }
+    else if(vm["statevector.grid_type"].as<std::string>()=="from_file")
+    {
+        // Read the grid in from file
+        GridOutput::Grid grid( Environment::vm()["statevector.grid_file"].as<std::string>(),
+                Environment::vm()["statevector.grid_latitute"].as<std::string>(),
+                Environment::vm()["statevector.grid_longitude"].as<std::string>(),
+                Environment::vm()["statevector.grid_transpose"].as<bool>() );
+
+        // Define the statevector dataset
+        M_statevector = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_statevector_averaging_period, M_statevector_false_easting);
+    }
+    else if(vm["statevector.grid_type"].as<std::string>()=="reference")
+    {
+        // If we're coupled then all output is by default on the coupling grid and using the conservative remapping
+        GridOutput::Grid grid = GridOutput::Grid(vm["statevector.reference_grid_file"].as<std::string>(),
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
+
+        M_statevector = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_statevector_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+    }
+    else
+    {
+        throw std::runtime_error("FiniteElement::initstatevector: invalid statevector.grid_type " + vm["statevector.grid_type"].as<std::string>()
+                + ". It must be either 'regular' or 'from_file'.");
+    }
+
+    // As only the root processor knows the entire grid we set the land mask using it
+    if ( M_rank == 0 )
+        M_statevector.setLSM(bamgmesh_root);
+
+    // Initialise netCDF output
+    if ( (M_rank==0) || M_statevector_parallel_output )
+    {
+        double output_time;
+        if ( M_statevector_snapshot )
+            output_time = M_current_time;
+        else
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = M_current_time + double(statevector_output_time_step)/86400./2.;
+
+        std::string filename_root;
+        if ( M_statevector_parallel_output )
+            filename_root = M_export_path + "/prior_" + std::to_string(M_rank);
+        else
+            filename_root = M_export_path + "/prior";
+
+        M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time, M_use_restart);
+    }
+}//initStateVector
+
+
+//------------------------------------------------------------------------------------------------------
+//! Updates the data recorded by statevector, by calling the updateMeans() function.
+//! Called by the step() function.
+void
+FiniteElement::updateStateVector()
+{
+    // If we're taking snapshots then we only call updateMeans before writing to file
+    // - otherwise we update every time step
+    if ( !M_statevector_snapshot )
+        this->updateMeans(M_statevector, statevector_time_factor);
+
+    //check if we are outputting
+    if ( pcpt*time_step % statevector_output_time_step == 0 )
+    {
+        double output_time = M_current_time;
+        if ( M_statevector_snapshot )
+        {
+            // Update the snapshot
+            this->updateMeans(M_statevector, 1.);
+        }
+        else
+        {
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = M_current_time - double(statevector_output_time_step)/86400./2.;
+        }
+
+        // If it's a new day we check if we need a new file
+        double not_used;
+        if (       (M_rank==0 || M_statevector_parallel_output)
+                && (M_statevector_file_length != GridOutput::fileLength::inf)
+                && (modf(output_time, &not_used) < double(statevector_output_time_step)/86400) )
+        {
+            std::string filename_root;
+            if ( M_statevector_parallel_output )
+                filename_root = M_export_path + "/prior_" + std::to_string(M_rank);
+            else
+                filename_root = M_export_path + "/prior";
+
+            boost::gregorian::date now = Nextsim::parse_date(output_time);
+            switch (M_statevector_file_length)
+            {
+            case GridOutput::fileLength::daily:
+                M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time);
+                break;
+            case GridOutput::fileLength::weekly:
+                if ( now.day_of_week().as_number() == 1 )
+                    M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time);
+                break;
+            case GridOutput::fileLength::monthly:
+                if ( now.day().as_number() == 1 )
+                    M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time);
+                break;
+            case GridOutput::fileLength::yearly:
+                if ( now.day_of_year() == 1 )
+                    M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time);
+            }
+        }
+
+        // get data on grid and write to netcdf
+        // (gathering to master if necessary)
+        this->stateVectorAppendNetcdf(output_time);
+
+    }//outputting
+}//updateStateVector
+
+
+// -------------------------------------------------------------------------------------
+//! update grid means, gather to root processor if requested, and append the fields to the output netcdf file
+void
+FiniteElement::stateVectorAppendNetcdf(double const &output_time)
+{
+    // update data on grid
+    M_statevector.updateGridMean(bamgmesh);
+
+    if ( ! M_statevector_parallel_output )
+    {
+        //gather fields to root processor if not using parallel output
+        for (auto it=M_statevector.M_nodal_variables.begin(); it!=M_statevector.M_nodal_variables.end(); ++it)
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
+            if (M_rank==0) it->data_grid = result;
+        }
+        for (auto it=M_statevector.M_elemental_variables.begin(); it!=M_statevector.M_elemental_variables.end(); ++it)
+        {
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
+            if (M_rank==0) it->data_grid = result;
+        }
+    }
+
+    //append to netcdf
+    if ( (M_rank==0) || M_statevector_parallel_output )
+        M_statevector.appendNetCDF(M_statevector_file, output_time);
+
+    //reset means on mesh and grid
+    M_statevector.resetMeshMean(bamgmesh);
+    M_statevector.resetGridMean();
+}//statevectorAppendNetcdf
+
+#endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.

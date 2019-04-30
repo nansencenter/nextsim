@@ -865,6 +865,22 @@ private:
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
 
+#ifdef ENSEMBLE
+    int statevector_output_time_step;
+    double statevector_time_factor;
+    bool M_use_statevector;
+    bool M_statevector_snapshot;
+    bool M_statevector_parallel_output;
+    std::string M_statevector_file;
+    GridOutput::fileLength M_statevector_file_length;
+    GridOutput M_statevector;
+    bool M_statevector_false_easting;
+    double M_statevector_averaging_period;
+
+    void initStateVector();
+    void updateStateVector();
+    void stateVectorAppendNetcdf(double const &output_time);
+#endif
 };
 } // Nextsim
 #endif
