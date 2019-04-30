@@ -7,11 +7,11 @@ SHELL = /bin/sh
 
 #### Start of system configuration section. ####
 
-prefix = /Group/da/aliayd/enkf/binary
+prefix = ../binary
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
-libdir = /Group/da/aliayd/enkf/binary/lib
+libdir = ../binary/lib
 includedir = ${prefix}/include
 
 WITH_GRIDBATHY = no
