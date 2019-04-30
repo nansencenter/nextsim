@@ -41,13 +41,13 @@ cd ${WD}/script
        cd ${WD}/bin && ${BIN}
 
 # Plots if one of the arguments is 'plot'
-#[[ $# -ge 2 ]] && ( [[ $1 = 'plot' ]] || [[ $2 = 'plot' ]] ) &&\
-#       cd ${WD}
-#       source activate FERRET &&\
-#       pyferret -png -script POST/frt.pseudo.jnl &&\
-#       cd data/ASR && \
-#       pyferret -png -script frt.asr_forcing.jnl stereo noprint &&\
-#       source deactivate FERRET
+[[ $# -ge 2 ]] && ( [[ $1 = 'plot' ]] || [[ $2 = 'plot' ]] ) &&\
+       cd ${WD}
+       source activate FERRET &&\
+       pyferret -png -script POST/frt.pseudo.jnl &&\
+       cd data/ASR && \
+       pyferret -png -script frt.asr_forcing.jnl stereo noprint &&\
+       source deactivate FERRET
 
 [[ $# -ge 2 ]] && ( [[ $1 = 'slp' ]] || [[ $2 = 'slp' ]] ) &&\
        cd ${WD}
