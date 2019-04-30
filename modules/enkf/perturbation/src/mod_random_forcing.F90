@@ -435,6 +435,8 @@ contains
       end do
       end do
 !$OMP END PARALLEL DO
+!      synuwind = synuwind - compute_mean(synuwind)
+!      synvwind = synvwind - compute_mean(synvwind)
 
 
 
@@ -807,7 +809,6 @@ contains
 real function compute_mean(mat)
       real, dimension(:,:), intent(in) :: mat
       compute_mean = sum(mat)/size(mat)
-!      compute_mean = sum(vec)/(max(1,size(vec)))
      end function
 
 end module mod_random_forcing
