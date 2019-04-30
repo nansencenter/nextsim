@@ -387,7 +387,7 @@ int DetectCavities(InterpFromMeshToMesh2dCavitiesThreadStruct* gate, BamgMesh* b
 
                     /* If NaN in matlab (0 after calling uint32)  */
                     if (std::isnan(Previous_connected_element))
-                        continue;
+                        break;
 
                     for (l=0; l<3; l++)
                     {
