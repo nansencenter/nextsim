@@ -1,7 +1,7 @@
 NP_CALC = 4
 NP_UPDATE = 4
 
-enkf: clean enkf-prep enkf-calc enkf-update
+enkf: enkf-prep enkf-calc enkf-update
 
 enoi: clean enoi-prep enoi-calc enoi-update
 
@@ -16,10 +16,10 @@ global: clean enkf-prep enkf-calc-global enkf-update-global
 enkf-prep: enkf_prep conf obs enkf.prm
 	./enkf_prep --no-superobing enkf.prm 2>&1 | tee prep.out
 
-enkf-calc: enkf_calc observations.nc conf Moorings
+enkf-calc: enkf_calc observations.nc conf prior
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc enkf.prm 2>&1 | tee calc.out
 
-enkf-update: enkf_update X5.nc conf Moorings
+enkf-update: enkf_update X5.nc conf prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --calculate-spread enkf.prm 2>&1 | tee update.out
 
 enoi-prep: enkf_prep conf obs enoi.prm
@@ -43,31 +43,31 @@ singleob-calc: enkf_calc ensemble_static
 singleob-update: enkf_update ensemble_static
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --output-increment singleob.prm 2>&1 | tee update.out
 
-pointlogs-calc: enkf_calc observations.nc conf Moorings X5.nc
+pointlogs-calc: enkf_calc observations.nc conf prior X5.nc
 	cp enkf.prm pointlogs.prm
 	echo "POINTLOG 50 50" >> pointlogs.prm
 	echo "POINTLOG 70 50" >> pointlogs.prm
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --point-logs-only pointlogs.prm 2>&1 | tee calc-pointlogs.out
 
-pointlogs-update: enkf_update X5.nc conf Moorings
+pointlogs-update: enkf_update X5.nc conf prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --no-fields-write pointlogs.prm 2>&1 | tee update-pointlogs.out
 
-enkf-calc-global: enkf_calc observations.nc conf Moorings
+enkf-calc-global: enkf_calc observations.nc conf prior
 	nice -n +19 ./enkf_calc enkf-global.prm 2>&1 | tee calc.out
 
-enkf-update-global: enkf_update X5.nc conf Moorings
+enkf-update-global: enkf_update X5.nc conf prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --calculate-spread --write-inflation enkf-global.prm 2>&1 | tee update.out
-	rm -f Moorings/mem*_*-???.nc
+	rm -f prior/mem*_*-???.nc
 
-enkf_prep:
-	cp ../../bin/enkf_prep .
-
-enkf_calc:
-	cp ../../bin/enkf_calc .
-
-enkf_update:
-	cp ../../bin/enkf_update .
+#enkf_prep:
+#	cp ../../bin/enkf_prep .
+#
+#enkf_calc:
+#	cp ../../bin/enkf_calc .
+#
+#enkf_update:
+#	cp ../../bin/enkf_update .
 
 clean:
-	@rm -f X5*.nc w*.nc enkf_diag*.nc badbatches.txt observations*.nc *.out Moorings/*.analysis* Moorings/*.increment* Moorings/*-???.nc background_6565/*.analysis* background_6565/*.increment* Moorings/ens_*-???.nc background_6565/bg_*-???.nc *.nc enkf_* pointlogs.prm
+	@rm -f X5*.nc w*.nc enkf_diag*.nc badbatches.txt observations*.nc *.out prior/*.analysis* prior/*.increment* prior/*-???.nc background_6565/*.analysis* background_6565/*.increment* prior/ens_*-???.nc background_6565/bg_*-???.nc *.nc pointlogs.prm
 	@rm -rf .enkftmp
