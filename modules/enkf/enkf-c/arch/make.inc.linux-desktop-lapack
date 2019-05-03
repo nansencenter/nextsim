@@ -16,7 +16,7 @@
 #   >ln -s /usr/lib64/blas/libblas.so.3.5.0 /usr/lib64/libblas.so
 # and add /usr/lib64/mpi/gcc/openmpi/bin to $PATH.
 
-LD_PATH = -L/opt/netcdf/lib -L/opt/hdf5/1.8.15/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial
+LD_PATH = -L/opt/netcdf/lib -L/opt/hdf5/1.8.15/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial -L../gridutils-c
 
 LIB_NC = -lnetcdf -lhdf5 -lhdf5_hl
 LIB_LAPACK = -llapack -lblas -lgfortran
@@ -27,8 +27,8 @@ INC_NC  = -I/opt/netcdf/include
 #
 # (assume it is installed in $/usr/local)
 #
-INC_GU = -I../binary/include
-LIB_GU = ../binary/lib/libgu.so
+INC_GU = -I../gridutils-c
+LIB_GU = -lgu
 #
 # without gridutils (uncomment below):
 #
