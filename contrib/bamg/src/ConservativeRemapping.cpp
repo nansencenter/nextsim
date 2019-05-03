@@ -65,8 +65,11 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     // Calculate weights
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
     {
+        // Carefully take the right integer value for element number
+        int i_elnum_out = std::round(elnum_out[ppoint]);
+
         // Don't do anything for land points
-        if ( elnum_out[ppoint] >= 0 )
+        if ( i_elnum_out >= 0 )
         {
             // Save the ppoints
             gridP.push_back(ppoint);
@@ -88,7 +91,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
             // local_weights.reserve(10);
 
             // Call the recursive function (this is our work horse here)
-            checkTriangle(bamgmesh, cornerX, cornerY, elnum_out[ppoint], local_triangles, local_weights);
+            checkTriangle(bamgmesh, cornerX, cornerY, i_elnum_out, local_triangles, local_weights);
 
             // Save the weights and triangle numbers
             triangles.push_back(local_triangles);
