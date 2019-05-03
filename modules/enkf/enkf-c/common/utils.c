@@ -842,7 +842,7 @@ void readfield(char fname[], char varname[], int k, int ni, int nj, int nk, floa
         count[1] = 1;
         count[2] = dimlen[2];
         count[3] = dimlen[3];
-        if (dimlen[3] != ni || dimlen[2] != nj)
+        if (dimlen[2] != ni || dimlen[3] != nj)
             enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[3], dimlen[2], ni, nj);
     } else if (ndims == 3) {
         if (!hasrecorddim) {
@@ -865,7 +865,7 @@ void readfield(char fname[], char varname[], int k, int ni, int nj, int nk, floa
             count[1] = dimlen[1];
             count[2] = dimlen[2];
         }
-        if (dimlen[2] != ni || dimlen[1] != nj)
+        if (dimlen[1] != ni || dimlen[2] != nj)
             enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[2], dimlen[1], ni, nj);
     } else if (ndims == 2) {
         if (hasrecorddim)
@@ -877,7 +877,7 @@ void readfield(char fname[], char varname[], int k, int ni, int nj, int nk, floa
         start[1] = 0;
         count[0] = dimlen[0];
         count[1] = dimlen[1];
-        if (dimlen[1] != ni || dimlen[0] != nj)
+        if (dimlen[0] != ni || dimlen[1] != nj)
             enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[1], dimlen[0], ni, nj);
     } else
         enkf_quit("%s: can not read 2D field for \"%s\": # of dimensions = %d", fname, varname, ndims);
@@ -984,8 +984,8 @@ void writefield(char fname[], char varname[], int k, int ni, int nj, int nk, flo
         count[1] = 1;
         count[2] = dimlen[2];
         count[3] = dimlen[3];
-        if (dimlen[3] != ni || dimlen[2] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[3], dimlen[2], ni, nj);
+        if (dimlen[2] != ni || dimlen[3] != nj)
+            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[2], dimlen[3], ni, nj);
     } else if (ndims == 3) {
         if (!hasrecorddim) {
             if (dimlen[0] != nk && !(dimlen[0] == 1 && (k == 0 || k == nk - 1)))
@@ -1007,8 +1007,8 @@ void writefield(char fname[], char varname[], int k, int ni, int nj, int nk, flo
             count[1] = dimlen[1];
             count[2] = dimlen[2];
         }
-        if (dimlen[2] != ni || dimlen[1] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[2], dimlen[1], ni, nj);
+        if (dimlen[1] != ni || dimlen[2] != nj)
+            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[1], dimlen[2], ni, nj);
     } else if (ndims == 2) {
         if (hasrecorddim)
             enkf_quit("%s: can not write a layer from a 1D variable \"%s\"", fname, varname);
