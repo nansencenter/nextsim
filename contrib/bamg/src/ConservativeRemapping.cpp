@@ -172,6 +172,158 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
     }
 }
 
+// Remapping from mesh to mesh.
+// In this case we want to both calculate weights and apply them in the same step
+// Drop-in-replacement for InterpFromMeshToMesh2dCavities
+void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var,
+      BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new)
+{
+    // We start off the same as ConservativeRemappingWeights - only here the new mesh replaces the grid
+
+    // ---------- Initialisation ---------- //
+    // Copy the triangle information of the _old mesh
+    int numTriangles = bamgmesh_old->TrianglesSize[0];
+    std::vector<int> indexTr(3*numTriangles);
+    std::vector<double> elnum(numTriangles);
+    for (int tr=0; tr<numTriangles; ++tr)
+    {
+        // NB: Maintain bamg numbering for the call to InterpFromMeshToMesh (i.e. the first triangle is numbered 1 so we don't do Triangles[...]-1)
+        indexTr[3*tr  ] = bamgmesh_old->Triangles[4*tr];
+        indexTr[3*tr+1] = bamgmesh_old->Triangles[4*tr+1];
+        indexTr[3*tr+2] = bamgmesh_old->Triangles[4*tr+2];
+
+        // NB: Here we use the C/C++ numbering (i.e. the first triangle is numbered 0)
+        elnum[tr] = tr;
+    }
+
+    // Copy the node information
+    int numNodes     = bamgmesh_old->VerticesSize[0];
+    std::vector<double> coordX(numNodes);
+    std::vector<double> coordY(numNodes);
+    for (int id=0; id<numNodes; ++id)
+    {
+        coordX[id] = bamgmesh_old->Vertices[3*id];
+        coordY[id] = bamgmesh_old->Vertices[3*id+1];
+    }
+
+    // Copy the triangle information of the _new mesh and calculate the barycentre
+    // Keep the nomenclature for a grid (even if it's a mesh)
+    int grid_size = bamgmesh_new->TrianglesSize[0];
+    std::vector<double> gridX(grid_size);
+    std::vector<double> gridY(grid_size);
+    std::vector<double> gridCornerX(3*grid_size);
+    std::vector<double> gridCornerY(3*grid_size);
+    for (int tr=0; tr<grid_size; ++tr)
+    {
+        gridX[tr] = 0; // barycentre
+        gridY[tr] = 0;
+        for (int i=0; i<3; ++i)
+        {
+            // grid corner == vertice
+            int id = bamgmesh_new->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
+            gridCornerX[3*tr+i] = bamgmesh_new->Vertices[3*id];
+            gridCornerY[3*tr+i] = bamgmesh_new->Vertices[3*id+1];
+
+            gridX[tr] += gridCornerX[3*tr+i];
+            gridY[tr] += gridCornerY[3*tr+i];
+        }
+        gridX[tr] /= 3;
+        gridY[tr] /= 3;
+    }
+
+    // Initialise gridP, triangles, and weights
+    std::vector<int> gridP(grid_size);
+    std::vector<std::vector<int>> triangles(grid_size);
+    std::vector<std::vector<double>> weights(grid_size);
+
+    // Find which element of the _old mesh each P-point of the _new mesh hits (no need for defaults)
+    /* TODO: Virtually all of the time is spent in InterpFromMeshToMesh2dx. We
+     * could rewrite the current function so that we use the PreviousNumbering
+     * information to find out which elements are new and only call
+     * InterpFromMeshToMesh2dx for those. That should speed things up quite a
+     * lot (probably an order of magnitude). But as the current function is
+     * already fast enough that remains is an optimisation for another day.
+     */
+    double* elnum_out;
+    InterpFromMeshToMesh2dx(&elnum_out,
+                &indexTr[0],&coordX[0],&coordY[0],
+                numNodes,numTriangles,
+                &elnum[0],
+                numTriangles,1,
+                &gridX[0],&gridY[0],grid_size,
+                true, -1);
+
+    // Calculate weights
+    for (int ppoint=0; ppoint<grid_size; ++ppoint)
+    {
+        assert( elnum_out[ppoint] >= 0. );
+
+        // Carefully take the right integer value for element number
+        int i_elnum_out = std::round(elnum_out[ppoint]);
+
+        // Save the ppoint - for compatibility with ConservativeRemappingMeshToGrid
+        gridP[ppoint] = ppoint;
+
+        // initialise local vectors for the numbers for the elements that contribute and the weight of the contribution
+        std::vector<int> local_triangles;
+        std::vector<double> local_weights;
+
+        // Check if the new and the old elements are the same
+        // Take care to use the previous numbering
+        std::vector<int> nodes_new(3);
+        for ( int i=0; i<3; ++i )
+        {
+            int id = bamgmesh_new->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
+/*  The previous numbering of the nodes on the boundaries given by bamg is wrong.
+ *  Bamg adds these nodes at the beginning of the list of nodes.
+ *  In our case, these nodes are always the same as the boundary is neither
+ *  moving nor adapted. */
+            if ( id > bamgmesh_new->VerticesOnGeomVertexSize[0] )
+                nodes_new[i] = bamgmesh_new->PreviousNumbering[id] - 1; // Here we need C/C++ numbering
+            else
+                nodes_new[i] = id;
+        }
+
+        std::vector<int> nodes_old(3);
+        for ( int i=0; i<3; ++i )
+            nodes_old[i] = bamgmesh_old->Triangles[4*i_elnum_out+i] - 1; // Here we need C/C++ numbering
+
+        // If the old and the new are the same we just save this information. Otherwise we must do a checkTriangle
+        std::sort(nodes_old.begin(), nodes_old.end());
+        std::sort(nodes_new.begin(), nodes_new.end());
+        if ( nodes_old == nodes_new )
+        {
+            local_triangles.push_back(i_elnum_out);
+            local_weights.push_back(1.);
+            triangles[ppoint] = local_triangles;
+            weights[ppoint] = local_weights;
+        }
+        else
+        {
+            // vertices of the old mesh in a format checkTriangle understands
+            std::vector<double> cornerX(3);
+            std::vector<double> cornerY(3);
+            for (int corner=0; corner<3; ++corner)
+            {
+                cornerX[corner] = gridCornerX[3*ppoint+corner];
+                cornerY[corner] = gridCornerY[3*ppoint+corner];
+            }
+
+            // Call the recursive function (this is our work horse here)
+            checkTriangle(bamgmesh_old, cornerX, cornerY, i_elnum_out, local_triangles, local_weights);
+
+            // Save the weights and triangle numbers
+            triangles[ppoint] = local_triangles;
+            weights[ppoint] = local_weights;
+        }
+    }
+    xDelete<double>(elnum_out);
+
+    // Now we apply the weights with meshToGrid - specify num_corners as 3
+    ConservativeRemappingMeshToGrid(interp_out, interp_in, nb_var, grid_size, std::nan(""),
+        gridP, gridCornerX, gridCornerY, triangles, weights, 3);
+}
+
 // Recursive function to check the current triangle
 inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_triangle, // inputs
 		std::vector<int> &triangles, std::vector<double> &weights)  // outputs
