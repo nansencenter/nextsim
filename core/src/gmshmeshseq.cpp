@@ -394,7 +394,7 @@ GmshMeshSeq::initGModel()
 
     Msg::SetVerbosity(5);
     CTX::instance()->terminal = 1;
-    CTX::instance()->mesh.saveTopology = 0;
+//    CTX::instance()->mesh.saveTopology = 0;
     CTX::instance()->mesh.fileFormat = FORMAT_MSH;
     CTX::instance()->mesh.mshFileVersion = 2.2;
     //M_partition_options.num_partitions = Environment::comm().size();
