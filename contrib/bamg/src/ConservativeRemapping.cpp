@@ -104,7 +104,8 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int grid_size, double miss_val,
         std::vector<int> &gridP, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
-        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
+        std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights,
+        int num_corners)  // Default for num_corners is 4
 {
     // Initialise interp_out
     interp_out = xNew<double>(nb_var*grid_size);
@@ -116,9 +117,9 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
     {
         // Calculate cell area
         int ppoint = gridP[i];
-        std::vector<std::pair<double,double>> points(4);
-        for (int corner=0; corner<4; ++corner)
-            points[corner] = std::make_pair(gridCornerX[4*ppoint+corner],gridCornerY[4*ppoint+corner]);
+        std::vector<std::pair<double,double>> points(num_corners);
+        for (int corner=0; corner<num_corners; ++corner)
+            points[corner] = std::make_pair(gridCornerX[num_corners*ppoint+corner],gridCornerY[num_corners*ppoint+corner]);
 
         double r_cell_area = 1./area(points);
 
@@ -187,6 +188,9 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     // This is a list of the points we use to calculate the area
     std::vector<std::pair<double,double>> points;
 
+    int num_corners = gridCornerX.size();
+    assert(num_corners = gridCornerY.size());
+
     // ---------- Now we do the three checks ---------- //
 
     // 1: check which of the nodes are inside the cell
@@ -229,7 +233,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
 
     // 2: Check and record which of the grid cell corners are inside the triangle
     int counter = 0;
-    for (int i=0; i<4; ++i)
+    for (int i=0; i<num_corners; ++i)
     {
         if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i]) )
         {
@@ -239,7 +243,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     }
 
     // If all the the cell is within the triangle we just calculate the cell's area and return
-    if ( counter == 4 )
+    if ( counter == num_corners )
     {
         weights[loc] = area(points);
         return;
@@ -329,13 +333,16 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
 		std::vector<std::pair<double,double>> &points) // side-effect
 {
     // Initialise
+    int num_corners = gridCornerX.size();
+    assert(num_corners = gridCornerY.size());
+
     bool ret_val = false;
     double s1_x = X - Xprev;
     double s1_y = Y - Yprev;
 
     // Loop over the grid
-    int prev=3;
-    for (int i=0; i<4; prev=i++)
+    int prev=num_corners-1;
+    for (int i=0; i<num_corners; prev=i++)
     {
         double s2_x = gridCornerX[i] - gridCornerX[prev];
         double s2_y = gridCornerY[i] - gridCornerY[prev];
