@@ -55,3 +55,18 @@ spread.nc
 update.out
 vcorr.nc
 
+
+# gridutils
+getbound
+getnodes
+gridbmap.t
+gridkmap.t
+gridmap.t
+gridnodes.t
+gucommon.t
+insertgrid
+kdtree.t
+poly.t
+setbathy
+subgrid
+xy2ij
