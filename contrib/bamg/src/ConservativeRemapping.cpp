@@ -293,8 +293,12 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         std::sort(nodes_new.begin(), nodes_new.end());
         if ( nodes_old == nodes_new )
         {
+            std::vector<std::pair<double,double>> points(3);
+            for (int corner=0; corner<3; ++corner)
+                points[corner] = std::make_pair(gridCornerX[3*ppoint+corner], gridCornerY[3*ppoint+corner]);
+
             local_triangles.push_back(i_elnum_out);
-            local_weights.push_back(1.);
+            local_weights.push_back(area(points));
             triangles[ppoint] = local_triangles;
             weights[ppoint] = local_weights;
         }
