@@ -8505,6 +8505,40 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
+    // Check and cap unrealistic velocities
+    int Nc_size = bamgmesh->NodalConnectivitySize[1];
+    for (int nd=0; nd<M_num_nodes; ++nd)
+    {
+        if(M_mask_dirichlet[nd]==false)
+        {
+            int index_u = nd;
+            int index_v = nd+M_num_nodes;
+
+            // More than 20 m/s is unrealistic o_o
+            if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 20. )
+            {
+                LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities ("
+                    << std::hypot(M_VT[index_u], M_VT[index_v]) << " m/s)\n";
+
+                // The last place of each row lists the number of connected nodes (Nc)
+                int Nc = bamgmesh->NodalConnectivity[Nc_size*(nd+1)-1];
+
+                // Take the mean over neighbour nodes
+                double VT_x = 0.;
+                double VT_y = 0.;
+                for (int j=0; j<Nc; ++j)
+                {
+                    int node = bamgmesh->NodalConnectivity[Nc_size*nd+j]-1; // C/C++ numbering
+                    VT_x += M_VT[node];
+                    VT_y += M_VT[node+M_num_nodes];
+                }
+
+                M_VT[index_u] = VT_x/double(Nc);
+                M_VT[index_v] = VT_y/double(Nc);
+            }
+        }
+    }
+
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
     {
