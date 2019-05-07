@@ -4404,6 +4404,15 @@ FiniteElement::update()
     for (const int& nd : M_neumann_nodes)
         M_UM[nd] = UM_P[nd];
 
+    bool flip = this->flip(M_mesh,M_UM,1.);
+    if ( boost::mpi::all_reduce(M_comm, int(flip), std::plus<int>()) > 0 )
+    {
+        this->exportResults("crash", true, true, false);
+        this->writeRestart("crash");
+        M_comm.barrier();
+        throw std::runtime_error("FiniteElement::update: Exit because of flipped triangles\n");
+    }
+
     // Horizontal diffusion
 #ifdef OASIS
     if ( M_ocean_type != setup::OceanType::COUPLED )
