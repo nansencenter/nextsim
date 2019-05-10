@@ -66,6 +66,8 @@ namespace Nextsim
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
+            ("debugging.export_overshoots", po::value<bool>()->default_value( false ),
+                "Whether to export results and write restart files when we have (capped) velocity overshoots [true|false(default)].")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics

@@ -8540,7 +8540,13 @@ FiniteElement::updateVelocity()
     // Check and cap unrealistic velocities
     const double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
     const double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
-    const int Nc_size = bamgmesh->NodalConnectivitySize[1];
+
+    // Work on a copy of M_VT so that we can save the erroneous results
+    std::vector<double> vt;
+    if ( vm["debugging.export_overshoots"].as<bool>() )
+        vt = M_VT;
+
+    int errors = 0; // error counter
     for (int nd=0; nd<M_num_nodes; ++nd)
     {
         int index_u = nd;
@@ -8551,6 +8557,8 @@ FiniteElement::updateVelocity()
         {
             LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities ("
                 << std::hypot(M_VT[index_u], M_VT[index_v]) << " m/s)\n";
+
+            errors++;
 
             // Free drift case
             double norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
@@ -8565,16 +8573,34 @@ FiniteElement::updateVelocity()
             double coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
             coef_Vair *= (physical::rhoa);
 
-            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
-            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
+            if ( vm["debugging.export_overshoots"].as<bool>() )
+            {
+                vt[index_u] = ( coef_Vair*M_wind[index_u] + coef_Voce*M_ocean[index_u] ) / ( coef_Vair+coef_Voce );
+                vt[index_v] = ( coef_Vair*M_wind[index_v] + coef_Voce*M_ocean[index_v] ) / ( coef_Vair+coef_Voce );
+            } else {
+                M_VT[index_u] = ( coef_Vair*M_wind[index_u] + coef_Voce*M_ocean[index_u] ) / ( coef_Vair+coef_Voce );
+                M_VT[index_v] = ( coef_Vair*M_wind[index_v] + coef_Voce*M_ocean[index_v] ) / ( coef_Vair+coef_Voce );
+            }
         }
+    }
+
+    // Write debug files
+    if ( vm["debugging.export_overshoots"].as<bool>() &&
+         boost::mpi::all_reduce(M_comm, errors, std::plus<int>()) > 0 )
+    {
+        std::string str = datenumToString(M_current_time, "debug_%Y%m%dT%H%M%SZ");
+        this->writeRestart(str);
+        this->exportResults(str, true, true, true);
+        M_comm.barrier();
+
+        // Update M_VT now that we've exported everything
+        M_VT = vt;
     }
 
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
-    {
         M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
-    }
+
 }//updateVelocity
 
 
