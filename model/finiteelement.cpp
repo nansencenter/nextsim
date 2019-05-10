@@ -4614,16 +4614,16 @@ FiniteElement::update()
          *======================================================================
          */
 
-        //Calculating the new state of stress
         if ( M_conc[cpt] > 0. )
         {
             const double damaging_exponent = ridging_exponent;
             const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
             const double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-            double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator = time_viscous/(time_viscous+dtime_step);
+            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
+            double multiplicator=time_viscous/(time_viscous+dtime_step);
 
+            //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
                 double sigma_dot_i = 0.0;
@@ -4642,10 +4642,8 @@ FiniteElement::update()
             const double sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
             const double sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-            // max principal component following convention (positive sigma_n=pressure)
-            const double sigma_1 = sigma_n+sigma_s;
-            // max principal component following convention (positive sigma_n=pressure)
-            const double sigma_2 = sigma_n-sigma_s;
+            const double sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            const double sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
             const double sigma_c = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
 
