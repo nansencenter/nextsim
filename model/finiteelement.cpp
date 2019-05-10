@@ -8553,9 +8553,6 @@ FiniteElement::updateVelocity()
         // More than 1 m/s is unrealistic o_o
         if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 1. )
         {
-            LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities ("
-                << std::hypot(M_VT[index_u], M_VT[index_v]) << " m/s)\n";
-
             errors++;
 
             // Free drift case
@@ -8586,6 +8583,8 @@ FiniteElement::updateVelocity()
     if ( vm["debugging.export_overshoots"].as<bool>() &&
          boost::mpi::all_reduce(M_comm, errors, std::plus<int>()) > 0 )
     {
+        LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities\n";
+
         std::string str = datenumToString(M_current_time, "debug_%Y%m%dT%H%M%SZ");
         this->writeRestart(str);
         this->exportResults(str, true, true, true);
