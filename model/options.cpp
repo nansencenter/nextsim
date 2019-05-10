@@ -301,7 +301,7 @@ namespace Nextsim
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
-            // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
+            // - C,h limits for the acceleration, Coriolis, and ocean tilt terms
             ("dynamics.min_h", po::value<double>()->default_value( 0.20 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.20 ), "")
 

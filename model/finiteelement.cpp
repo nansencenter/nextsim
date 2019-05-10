@@ -4614,16 +4614,16 @@ FiniteElement::update()
          *======================================================================
          */
 
-        const double damaging_exponent = ridging_exponent;
-        const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-        const double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-        double multiplicator = time_viscous/(time_viscous+dtime_step);
-
         //Calculating the new state of stress
         if ( M_conc[cpt] > 0. )
         {
+            const double damaging_exponent = ridging_exponent;
+            const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+            const double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
+
+            double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
+            double multiplicator = time_viscous/(time_viscous+dtime_step);
+
             for(int i=0;i<3;i++)
             {
                 double sigma_dot_i = 0.0;
