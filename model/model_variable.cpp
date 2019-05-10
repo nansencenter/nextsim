@@ -454,6 +454,24 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
+        case (variableID::D_residual):
+            // Residual of sigma [Pa]
+            M_name = "D_residual";
+            M_export_name = "D_residual";
+            M_prognostic = false;
+            M_exporting = true;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_rel_error):
+            // Residual of sigma [Pa]
+            M_name = "D_rel_error";
+            M_export_name = "D_rel_error";
+            M_prognostic = false;
+            M_exporting = true;
+            M_diffusivity = 0;
+            break;
+
         default:
             elemental = false;
     }

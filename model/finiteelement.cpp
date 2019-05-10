@@ -4445,12 +4445,9 @@ FiniteElement::update()
 
 
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        double sigma_dot_i;
+        std::vector<double> sigma_new(3);   //Storing M_sigma into temporary array for residual calculation
 
-        /* invariant of the internal stress tensor and some variables used for the damaging process*/
-        double sigma_s, sigma_n, sigma_1, sigma_2;
-        double sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tmp;
 
 
         // Temporary memory
@@ -4617,31 +4614,23 @@ FiniteElement::update()
          *======================================================================
          */
 
-        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
+        const double damaging_exponent = ridging_exponent;
+        const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+        const double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
+
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
+        double multiplicator = time_viscous/(time_viscous+dtime_step);
+
+        //Calculating the new state of stress
+        if ( M_conc[cpt] > 0. )
         {
-
-            double damaging_exponent = ridging_exponent;
-            double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-            double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
-
-
-            //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
-                sigma_dot_i = 0.0;
+                double sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
-                {
                     sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
-                }
 
                 sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
-
-                M_sigma[i][cpt] = sigma[i];
-
             }
 
             /*======================================================================
@@ -4650,57 +4639,86 @@ FiniteElement::update()
              */
 
             /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-            sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-            sigma_n =-          (sigma[0]+sigma[1])/2.;
+            const double sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+            const double sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            // max principal component following convention (positive sigma_n=pressure)
+            const double sigma_1 = sigma_n+sigma_s;
+            // max principal component following convention (positive sigma_n=pressure)
+            const double sigma_2 = sigma_n-sigma_s;
 
-
-            double hi=0.;
-            if(M_conc[cpt]>0.1)
-                hi = M_thick[cpt]/M_conc[cpt];
-            else
-                hi = M_thick[cpt]/0.1;
-
-            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-            sigma_t=-sigma_c/q;
-
+            const double sigma_c = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
 
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
-            if((sigma_1-q*sigma_2)>sigma_c)
+            double d_crit = std::min(1., sigma_c/(sigma_1-q*sigma_2)); // Distance to the yield criterion
+            if ( d_crit < 1. )
             {
-                sigma_target = sigma_c;
-                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
-
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-d_crit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    double tmp_factor=1.0/((1.0-d_crit)*dtime_step/td + 1.0);
+                    tmp=tmp_factor*(1.0-d_crit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(d_crit,dtime_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = min(tmp, 1.0);
-                }
+                    // Damage cannot be equal to 1
+                    M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
             }
 
+            // Finally update the value of sigma in the global variable M_sigma, reducing sigma due to damage if needed
+            for(int i=0;i<3;i++)
+                M_sigma[i][cpt] = sigma[i]*d_crit;
 
-        }
-        else // if M_conc or M_thick too low, set sigma to 0.
-        {
+            /*======================================================================
+             * Calculate the residual and relative error
+             *======================================================================
+             */
+
+            // Re-calculate sigma to estimate residual and error
+            time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+            multiplicator = time_viscous/(time_viscous+dtime_step);
+
             for(int i=0;i<3;i++)
             {
-                M_sigma[i][cpt] = 0.;
+                double sigma_dot_i = 0.0;
+                for(int j=0;j<3;j++)
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-M_damage[cpt])*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+                sigma_new[i] = (sigma[i]+dtime_step*sigma_dot_i)*multiplicator;
             }
+
+            // Relative error
+            D_rel_error[cpt] = 0.0;
+            for(int i=0;i<3;i++)
+                D_rel_error[cpt] += std::pow((sigma_new[i]-sigma[i])/sigma[i], 2.0);
+
+            D_rel_error[cpt] = std::sqrt(D_rel_error[cpt]);
+
+
+            // Residual
+            D_residual[cpt] = 0.0;
+            for(int i=0;i<3;i++)
+                for(int j=0;j<3;j++)
+                    D_residual[cpt] += std::pow((sigma_new[i] - sigma[i])/dtime_step + sigma_new[i]/time_viscous - std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-M_damage[cpt])*M_Dunit[3*i+j]*epsilon_veloc[j], 2.);
+
+            D_residual[cpt] = std::sqrt(D_residual[cpt]);
+        }
+        else
+        {
+            M_damage[cpt] = 0.;
+            for (int i=0;i<3;i++)
+                M_sigma[i][cpt] = 0;
+
+            D_rel_error[cpt] = 0.;
+            D_residual[cpt] = 0.;
         }
 
         /*======================================================================
@@ -6449,6 +6467,11 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
+
+    D_residual = ModelVariable(ModelVariable::variableID::D_residual); //! \param D_residual (double) residual of \sigma
+    M_variables_elt.push_back(&D_residual);
+    D_rel_error= ModelVariable(ModelVariable::variableID::D_rel_error); //! \param D_rel_error (double) relative error of \sigma
+    M_variables_elt.push_back(&D_rel_error);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export

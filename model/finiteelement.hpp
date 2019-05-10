@@ -746,6 +746,9 @@ private:
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
 
+    ModelVariable D_residual; //! \param D_residual (double) residual of \sigma [Pa]
+    ModelVariable D_rel_error; //! \param D_rel_error (double) relative error of \sigma [Pa]
+
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
 

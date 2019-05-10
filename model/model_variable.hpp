@@ -98,7 +98,9 @@ public:
         D_brine      = 116,
         D_evap       = 117,
         D_rain       = 118,
-        D_Qassim     = 119
+        D_Qassim     = 119,
+        D_residual   = 120,
+        D_rel_error  = 121
     };
 
 
