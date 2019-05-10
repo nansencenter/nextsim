@@ -8515,36 +8515,35 @@ FiniteElement::updateVelocity()
     M_VT = M_solution->container();
 
     // Check and cap unrealistic velocities
-    int Nc_size = bamgmesh->NodalConnectivitySize[1];
+    const double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    const double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    const int Nc_size = bamgmesh->NodalConnectivitySize[1];
     for (int nd=0; nd<M_num_nodes; ++nd)
     {
-        if(M_mask_dirichlet[nd]==false)
+        int index_u = nd;
+        int index_v = nd+M_num_nodes;
+
+        // More than 1 m/s is unrealistic o_o
+        if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 1. )
         {
-            int index_u = nd;
-            int index_v = nd+M_num_nodes;
+            LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities ("
+                << std::hypot(M_VT[index_u], M_VT[index_v]) << " m/s)\n";
 
-            // More than 20 m/s is unrealistic o_o
-            if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 20. )
-            {
-                LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities ("
-                    << std::hypot(M_VT[index_u], M_VT[index_v]) << " m/s)\n";
+            // Free drift case
+            double norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
-                // The last place of each row lists the number of connected nodes (Nc)
-                int Nc = bamgmesh->NodalConnectivity[Nc_size*(nd+1)-1];
+            double coef_Voce = lin_drag_coef_water + quad_drag_coef_water*norm_Voce_ice;
+            coef_Voce *= physical::rhow;
 
-                // Take the mean over neighbour nodes
-                double VT_x = 0.;
-                double VT_y = 0.;
-                for (int j=0; j<Nc; ++j)
-                {
-                    int node = bamgmesh->NodalConnectivity[Nc_size*nd+j]-1; // C/C++ numbering
-                    VT_x += M_VT[node];
-                    VT_y += M_VT[node+M_num_nodes];
-                }
+            double norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
-                M_VT[index_u] = VT_x/double(Nc);
-                M_VT[index_v] = VT_y/double(Nc);
-            }
+            double coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
+            coef_Vair *= (physical::rhoa);
+
+            M_VT[index_u] = ( coef_Vair*M_wind [index_u] + coef_Voce*M_ocean [index_u] ) / ( coef_Vair+coef_Voce );
+            M_VT[index_v] = ( coef_Vair*M_wind [index_v] + coef_Voce*M_ocean [index_v] ) / ( coef_Vair+coef_Voce );
         }
     }
 
