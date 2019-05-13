@@ -8539,7 +8539,7 @@ FiniteElement::updateVelocity()
 
     // Check and cap unrealistic velocities
     const double norm_Voce_ice_min= 0.01; // minimum value to avoid 0 water drag term.
-    const double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 water drag term.
+    const double norm_Vair_ice_min= 0.01; // minimum value to avoid 0 wind drag term.
 
     // Work on a copy of M_VT so that we can save the erroneous results
     std::vector<double> vt;
