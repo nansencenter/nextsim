@@ -394,7 +394,7 @@ GmshMeshSeq::initGModel()
 {
     M_gmodel = new GModel();
 
-    Msg::SetVerbosity(0);
+    Msg::SetVerbosity(Environment::vm()["debugging.gmsh_verbose"].as<int>());
     CTX::instance()->terminal = 1;
     CTX::instance()->mesh.saveTopology = 0;
     CTX::instance()->mesh.fileFormat = FORMAT_MSH;
