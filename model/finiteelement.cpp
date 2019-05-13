@@ -1192,15 +1192,26 @@ FiniteElement::initOptAndParam()
     M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
+    //! Sets options on the oceanic heat-flux scheme
+    const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
+        ("basic", setup::OceanHeatfluxScheme::BASIC)
+        ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
+    std::string option_str = vm["thermo.Qio-type"].as<std::string>();
+    if ( str2qiot.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.Qio-type: " + option_str);
+    M_Qio_type = str2qiot.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
 
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
+    option_str = vm["thermo.freezingpoint-type"].as<std::string>();
     if ( str2fpt.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
     M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+
+    //! Turn on snow-to-ice formation when flooding
+    M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
 
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
@@ -1213,7 +1224,7 @@ FiniteElement::initOptAndParam()
 #ifdef AEROBULK
     //! Sets options on the ocean-atmosphere bulk formula
     const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
-        ("nextsim", aerobulk::algorithm::neXtSIM)
+        ("nextsim", aerobulk::algorithm::OTHER)
         ("coare", aerobulk::algorithm::COARE)
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
@@ -1297,6 +1308,7 @@ FiniteElement::initOptAndParam()
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("piomas", setup::IceType::PIOMAS)
+        ("creg", setup::IceType::CREG)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
@@ -4107,16 +4119,16 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
+            // Multply with rho and mask out no-ice points
+            coef_Voce  *= coef_drag*physical::rhow;
+            coef_Vair  *= coef_drag*physical::rhoa;
+            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
             D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
             D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
             D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
-
-            // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
@@ -4896,7 +4908,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
 //! \param tau (double) Bulk drag coefficient (need to multiply with u or v wind to get drag) [N s/m^3]
 void
 FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau)
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau)
 {
     // Constants
     double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
@@ -4905,7 +4917,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
-    if ( vm["thermo.ocean_bulk_formula"].as<std::string>() != "neXtSIM" )
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
@@ -4914,9 +4926,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> mslp(M_num_elements);
         std::vector<double> Qsw_in(M_num_elements);
         std::vector<double> Qlw_in(M_num_elements);
+        std::vector<double> T_s(M_num_elements);
         for ( int i=0; i<M_num_elements; ++i )
         {
-            sst[i] = M_sst[i];
+            sst[i] = M_sst[i] + physical::tfrwK;
             t2m[i] = M_tair[i] + physical::tfrwK;
             mslp[i] = M_mslp[i];
             Qsw_in[i] = M_Qsw_in[i];
@@ -4924,16 +4937,28 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             sphuma[i] = tmp.first;
             wspeed[i] = this->windSpeedElement(i);
-            Qsw_in[i] = M_Qsw_in[i];
-            Qlw_in[i] = this->incomingLongwave(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
         // We implicitly assume that the temperature is taken at 2 m and the wind at 10 - hence 2.
         // and 10. in the function call.
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
-        aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+
+        /* aerobulk expects u and v components of wind and returns u and v
+         * components of stress ... but we just give it the speed and recieve
+         * the modulus of the stress */
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, wspeed, mslp,
+                Qlh, Qsh, tau, tau, Qsw_in_c, Qlw_in_c, T_s);
+        const std::vector<double> Lv = aerobulk::lvap(sst);
+
+        // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            Qlh[i] *= -1;
+            Qsh[i] *= -1;
+            tau[i] /= wspeed[i];
+            evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
+        }
     } else {
 #endif
         for ( int i=0; i<M_num_elements; ++i )
@@ -4979,18 +5004,22 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     {
 
         Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
-#ifdef OASIS
-        // The ocean model tells us how much SW is absorbed in the top layer
-        if ( M_ocean_type == setup::OceanType::COUPLED )
-            Qsw[i] *= M_qsrml[i];
-#endif
+
         /* Out-going long-wave flux */
         double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
 
         // Sum them up:
         // Qow>0 => flux out of ocean:
-        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+        Qow[i] = Qlw[i] + Qsh[i] + Qlh[i];
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        // NB: Qsw should still be the total SW delivered to the ocean
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qow[i] += Qsw[i]*M_qsrml[i];
+        else
+#endif
+            Qow[i] += Qsw[i];
     }
 }
 
@@ -5027,6 +5056,15 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
+    double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+
+    double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
+
+    bool const temp_dep_healing = vm["dynamics.use_temperature_dependent_healing"].as<bool>(); //! \param temp_dep_healing (bool const) whether or not to use the temperature dependent healing
+
+    double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
+
+    const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5042,8 +5080,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qlh_ow(M_num_elements);
     std::vector<double> Qsh_ow(M_num_elements);
     std::vector<double> evap(M_num_elements);
-    M_tau_ow.resize(M_num_elements);
-    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, D_tau_ow);
 
     M_timer.tock("ow_fluxes");
 
@@ -5135,11 +5172,9 @@ FiniteElement::thermo(int dt)
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
 
-        double mld;
+        // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-        else
-            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5175,12 +5210,6 @@ FiniteElement::thermo(int dt)
                 Fdw = Fdw_const;
             }
         }
-        // Heatflux compensation by the concentration reduced by assimilation
-        double q_assm_factor = 1.0;
-        Qassm = q_assm_factor * M_conc_upd[i] * (Qow[i] - Qio);
-
-        //relaxation of concentration update with time
-        //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
@@ -5197,7 +5226,7 @@ FiniteElement::thermo(int dt)
                         Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
@@ -5217,6 +5246,23 @@ FiniteElement::thermo(int dt)
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
+
+        // Compensation of heatflux for concentration reduced by assimilation
+        // conc before assimilation
+        double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
+        // if before assimilation there was ice and it was reduced
+        if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+        {
+            // compensating heat flux is a product of:
+            // * total flux out of the ocean
+            // * relative change in concentration (dCrel)
+            // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+            Qassm = (Qow_mean + Qio_mean) *
+                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
+        }
+
+        //relaxation of concentration update with time
+        //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
@@ -5464,7 +5510,7 @@ FiniteElement::thermo(int dt)
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        if ( vm["dynamics.use_temperature_dependent_healing"].as<bool>() )
+        if ( temp_dep_healing )
         {
             //! * Sets time_relaxation_damage to be inversely proportional to the temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
@@ -5514,8 +5560,8 @@ FiniteElement::thermo(int dt)
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
-        // Non-solar fluxes to ocean
-        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
+        // Non-solar fluxes to ocean - TODO: Account for penetrating SW
+        D_Qnosun[i] = Qio_mean + old_ow_fraction*(Qlw_ow[i]+Qlh_ow[i]+Qsh_ow[i]);
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
@@ -5523,15 +5569,21 @@ FiniteElement::thermo(int dt)
         // flux from assim
         D_Qassim[i] = Qassm;
 
-        // Salt balance of the ocean (all sources) - kg/day
-        D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
+        // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
+        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
         // Freshwater balance at the surface - kg/m^2/s
-        D_emp[i] = 1./ddt * ( emp
-                - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
+        D_fwflux[i] = -1./ddt * ( emp
+                 + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Brine release - kg/m^2/s
-        D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+
+        // Evaporation
+        D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
+
+        // Rain
+        D_rain[i] = rain;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -5545,8 +5597,6 @@ FiniteElement::thermo(int dt)
         {
 
             // FYI fraction (in the cell/triangle).
-            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
-
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
             if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
             {
@@ -5605,6 +5655,11 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+
+
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -5651,7 +5706,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         else
             hs = 0;
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs));
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0));
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -5707,55 +5762,62 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
     //! We have two schemes to transfer heat between ice and ocean
     // * basic:    Use all of the excess heat to melt or grow ice. This is not accurate, but sometimes useful
     // * exchange: Use an exchange coefficient and velocity difference to calculate heat transfer
+    //
     double const Tbot = this->freezingPoint(sss); // Temperature at ice base (bottom), also freezing point of sea-water
-    if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
+    double return_value;
+
+    switch ( M_Qio_type )
     {
-        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
-    } else if ( vm["thermo.Qio-type"].as<std::string>() == "exchange" ) {
-        double welt_oce_ice = 0.;
-        for (int i=0; i<3; ++i)
+        case ( setup::OceanHeatfluxScheme::BASIC ):
+            return_value = (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+            break;
+        case ( setup::OceanHeatfluxScheme::EXCHANGE ):
         {
-            int nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            double welt_oce_ice = 0.;
+            for (int i=0; i<3; ++i)
+            {
+                int nind = (M_elements[cpt]).indices[i]-1;
+                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            }
+            double norm_Voce_ice = welt_oce_ice/3.;
+            double Csens_io = 1e-3;
+            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            break;
         }
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double Csens_io = 1e-3;
-        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
-    } else {
-        std::cout << "Qio-type = " << vm["thermo.Qio-type"].as<std::string>() << "\n";
-        throw std::logic_error("Wrong Qio-type");
     }
+
+    return return_value;
+
 }//iceOceanHeatflux
 
 //! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(const double sss)
 {
+    double return_value;
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return -physical::mu*sss;
+            return_value = -physical::mu*sss;
 
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return ptf*sss;
+            return_value = ptf*sss;
     }
+
+    return return_value;
+
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(const double Tsurf, const double hs)
+FiniteElement::albedo(const double Tsurf, const double hs,
+        int alb_scheme, double alb_ice, double alb_sn, double I_0)
 {
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-
     double albedo;
 
     /* Calculate albedo - we can impliment different schemes if we want */
@@ -5816,15 +5878,11 @@ FiniteElement::albedo(const double Tsurf, const double hs)
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
         double &Tsurf, double &T1, double &T2)
 {
-    // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-    double const I_0    = vm["thermo.I_0"].as<double>();
-
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
     double const qs   = physical::Lf * physical::rhos;
@@ -5969,7 +6027,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-        if ( flooding && freeboard < 0)
+        if ( M_flooding && freeboard < 0)
         {
             // double delhs = -std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhoi/physical::rhow, 0.); // (35)
             hs += std::min( freeboard*physical::rhoi/physical::rhos, 0. );
@@ -6037,8 +6095,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
     // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
@@ -6059,11 +6115,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Local variables */
         double Qic, del_hs, del_ht, del_hb, draft;
-
-        /* ---------------------------------------------------------------
-        * Calculate the surface temperature within a while-loop
-        * --------------------------------------------------------------- */
-        double albedo = this->albedo(Tsurf, hs);
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6101,7 +6152,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
-        if ( flooding && draft > hi )
+        if ( M_flooding && draft > hi )
         {
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
@@ -6203,19 +6254,10 @@ FiniteElement::init()
 #endif
 
     //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
-#ifdef OASIS
-    // OASIS needs the external data to be read in for the previous coupling time step
-    pcpt -= cpl_time_step/time_step;
-#endif
-
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
-
-#ifdef OASIS
-    pcpt += cpl_time_step/time_step;
-#endif
 
     //! - 7) If not using a restart, initializes the model from the datasets
     //       or can do assimilation (optional) if using a restart
@@ -6379,18 +6421,24 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qlh);
     D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);//! \param D_Qo (double) Total heat lost by the ocean
     M_variables_elt.push_back(&D_Qo);
-    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Salt release to the ocean [kg/day]
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Virtual salt flux to the ocean [kg/m^2/s]
     M_variables_elt.push_back(&D_delS);
     D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);//! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
+    M_variables_elt.push_back(&D_fwflux);
     D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
     M_variables_elt.push_back(&D_Qassim);
-    D_emp = ModelVariable(ModelVariable::variableID::D_emp);//! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
-    M_variables_elt.push_back(&D_emp);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
+    D_tau_ow = ModelVariable(ModelVariable::variableID::D_tau_ow);//! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    M_variables_elt.push_back(&D_tau_ow);
+    D_evap = ModelVariable(ModelVariable::variableID::D_evap);//! \param D_evap (double) Evaporation from the ocean
+    M_variables_elt.push_back(&D_evap);
+    D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
+    M_variables_elt.push_back(&D_rain);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -6456,13 +6504,13 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(taumod);
 
         // Output variables - elements
-        GridOutput::Variable emp(GridOutput::variableID::emp);
+        GridOutput::Variable fwflux(GridOutput::variableID::fwflux);
         GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
         GridOutput::Variable QSwOcean(GridOutput::variableID::QSwOcean);
-        GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+        GridOutput::Variable Sflx(GridOutput::variableID::saltflux);
         GridOutput::Variable conc(GridOutput::variableID::conc);
 
-        elemental_variables.push_back(emp);
+        elemental_variables.push_back(fwflux);
         elemental_variables.push_back(QNoSw);
         elemental_variables.push_back(QSwOcean);
         elemental_variables.push_back(Sflx);
@@ -7188,7 +7236,15 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::delS):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_delS[i]*time_factor;
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
+            case (GridOutput::variableID::evap):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_evap[i]*time_factor;
+                break;
+            case (GridOutput::variableID::rain):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7239,9 +7295,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
-            case (GridOutput::variableID::emp):
+            case (GridOutput::variableID::fwflux):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_emp[i]*time_factor;
+                    it->data_mesh[i] -= D_fwflux[i]*time_factor;
                 break;
             case (GridOutput::variableID::QNoSw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7251,7 +7307,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_Qsw_ocean[i]*time_factor;
                 break;
-            case (GridOutput::variableID::Fsalt):
+            case (GridOutput::variableID::saltflux):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_brine[i]*time_factor;
                 break;
@@ -7281,6 +7337,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
+            case (GridOutput::variableID::wind_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::wind_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
+                break;
+
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
@@ -7302,14 +7368,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_u]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::tauy):
@@ -7331,14 +7397,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_v]*(1.-conc) )*time_factor;
                 }
                 break;
             case (GridOutput::variableID::taumod):
@@ -7348,6 +7414,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int index_v = i + M_num_nodes;
 
                     double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
+                    double wind = std::hypot(M_wind[index_v], M_wind[index_v]);
 
                     // Concentration is the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7360,14 +7427,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip Negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
@@ -7422,9 +7489,9 @@ FiniteElement::initMoorings()
             ("hs_thin", GridOutput::variableID::hs_thin)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
-            ("emp", GridOutput::variableID::emp)
+            ("fwflux", GridOutput::variableID::fwflux)
             ("QNoSw", GridOutput::variableID::QNoSw)
-            ("Fsalt", GridOutput::variableID::Fsalt)
+            ("saltflux", GridOutput::variableID::saltflux)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
@@ -7437,6 +7504,8 @@ FiniteElement::initMoorings()
             ("snowfall", GridOutput::variableID::snowfall)
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
+            ("rain", GridOutput::variableID::rain)
+            ("evap", GridOutput::variableID::evap)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
@@ -7504,6 +7573,20 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
 
+        else if (*it == "wind")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable wndu(GridOutput::variableID::wind_x);
+            GridOutput::Variable wndv(GridOutput::variableID::wind_y);
+            nodal_variables.push_back(wndu);
+            nodal_variables.push_back(wndv);
+
+            GridOutput::Vectorial_Variable wnd(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(wnd);
+        }
+
         // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
@@ -7525,6 +7608,7 @@ FiniteElement::initMoorings()
             LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  tau\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
                 LOG(ERROR)<<"  "<< ptr->first <<"\n";
@@ -7571,7 +7655,7 @@ FiniteElement::initMoorings()
         GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
                 Environment::vm()["moorings.grid_latitute"].as<std::string>(),
                 Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<std::string>() );
+                Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
         // Define the mooring dataset
         M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
@@ -8951,8 +9035,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
@@ -9010,8 +9093,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     M_external_data_elements.push_back(&M_ocean_temp);
     M_external_data_elements_names.push_back("M_ocean_salt");
     M_external_data_elements.push_back(&M_ocean_salt);
-    M_external_data_elements_names.push_back("M_mld");
-    M_external_data_elements.push_back(&M_mld);
+    if (M_mld.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_mld");
+        M_external_data_elements.push_back(&M_mld);
+    }
     if ( M_qsrml.isInitialized() )
     {
         M_external_data_elements.push_back(&M_qsrml);
@@ -9037,9 +9123,6 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
-#if OASIS
-        case setup::OceanType::COUPLED:
-#endif
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -9049,6 +9132,15 @@ FiniteElement::initSlabOcean()
             }
 
             break;
+#if OASIS
+        case setup::OceanType::COUPLED:
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                M_sss[i] = M_ocean_salt[i];
+                M_sst[i] = M_ocean_temp[i];
+            }
+            break;
+#endif
         default:
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -9132,6 +9224,9 @@ FiniteElement::initIce()
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
+            break;
+        case setup::IceType::CREG:
+            this->cregIce();
             break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
@@ -10462,6 +10557,49 @@ FiniteElement::piomasIce()
         M_damage[i]=0.;
     }
 }//piomasIce
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initializes the ice state from CREG outputs.
+//! Called by the initIce() function.
+void
+FiniteElement::cregIce()
+{
+    Dataset creg = DataSet("ice_creg_elements");
+    external_data init_conc=ExternalData(&creg,M_mesh,0,false,time_init);
+    external_data init_thick=ExternalData(&creg,M_mesh,1,false,time_init);
+    external_data init_snow_thick=ExternalData(&creg,M_mesh,2,false,time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - CREG ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1.,init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        M_damage[i]=0.;
+    }
+}//cregIce
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -12126,6 +12264,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT,M_VT_root);
 
+    std::vector<double> M_wind_root;
+    this->gatherNodalField(M_wind.getVector(),M_wind_root);
+
     std::vector<double> M_UM_root;
     if (apply_displacement)
     {
@@ -12215,6 +12356,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            exporter.writeField(outbin, M_wind_root, "M_wind");
+
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root

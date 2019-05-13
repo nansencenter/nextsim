@@ -12,6 +12,7 @@
 #include <environment.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
@@ -21,6 +22,9 @@
 #include <dataset.hpp>
 #include "debug.hpp"
 
+#if defined ENSEMBLE 
+#include "ensemble.hpp"
+#endif
 
 /**
  * @class ExternalData
