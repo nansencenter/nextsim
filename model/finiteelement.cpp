@@ -4668,7 +4668,7 @@ FiniteElement::update()
                 }
 
                 if(tmp>M_damage[cpt])
-                    // Damage cannot be equal to 1
+                // Damage cannot be equal to 1
                     M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
             }
 
