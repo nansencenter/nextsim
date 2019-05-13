@@ -4628,7 +4628,8 @@ FiniteElement::update()
             {
                 double sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                     sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))
+                         *young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
 
                 sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
             }
