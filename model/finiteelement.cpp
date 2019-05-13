@@ -4669,7 +4669,7 @@ FiniteElement::update()
 
                 if(tmp>M_damage[cpt])
                 // Damage cannot be equal to 1
-                    M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
+                M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
             }
 
             // Finally update the value of sigma in the global variable M_sigma, reducing sigma due to damage if needed
