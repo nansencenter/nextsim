@@ -1795,12 +1795,12 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "wave_cpl_nodes") == 0)
     {
         Dimension dimension_x={
-            name:"x",
+            name:"y",
             cyclic:false
         };
 
         Dimension dimension_y={
-            name:"y",
+            name:"x",
             cyclic:false
         };
 
@@ -1972,12 +1972,12 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "wave_cpl_elements") == 0)
     {
         Dimension dimension_x={
-            name:"x",
+            name:"y",
             cyclic:false
         };
 
         Dimension dimension_y={
-            name:"y",
+            name:"x",
             cyclic:false
         };
 
