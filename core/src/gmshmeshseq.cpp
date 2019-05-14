@@ -162,7 +162,8 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
             std::string( __buf ) == "$Nodes" ||
             std::string( __buf ) == "$ParametricNodes") )
     {
-        LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+        LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either" 
+        << "$Nodes or $ParametricNodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
