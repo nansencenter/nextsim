@@ -1,0 +1,48 @@
+VPATH = .:../include
+
+INC=../include
+
+
+.SUFFIXES:
+.SUFFIXES: .o .F90 .F 
+
+include ../Make.inc/make.osx.inc
+
+
+# AIX (xlf) peculiarities. NB: Only necessary for Fortran files
+ifneq (,$(findstring -DAIX,$(CPPFLAGS)))
+   subs=-WF,-
+   CPPFLAGS:=$(subst -,$(subs),$(CPPFLAGS))
+endif
+
+
+# Rules for running cpp and updating files in include directory
+.F90.o:
+	cd ./../include ; $(CF90) -c $(CPPFLAGS) $(FFLAGS) $(F90FLG) $(INCLUDE) -o $*.o ../src/$<
+
+.F.o:
+	cd ./../include ; $(CF77) -c $(CPPFLAGS) $(FFLAGS) $(F77FLG) $(INCLUDE) -o $*.o ../src/$<
+
+
+
+TARGET = p_pseudo2D
+
+all : $(TARGET) 
+
+#############################################################################
+OBJECTS= \
+			memory_stack.o \
+			m_set_random_seed.o \
+			sangoma_base.o \
+			mod_pseudo.o \
+			mod_random_forcing.o \
+			p_pseudo2D_fld.o
+
+
+$(TARGET): $(OBJECTS) 
+	cd ./../include ; $(LD) $(LINKFLAGS) -o ../bin/$(TARGET) $(OBJECTS) $(LIBS) 
+#############################################################################
+
+clean:
+	cd ./../include ; rm *.o *.mod
+	rm ../bin/$(TARGET) 
