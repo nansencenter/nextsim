@@ -4219,7 +4219,6 @@ namespace bamg {
 
 		int i;
 		for (i=0;i<Gh.nbv;i++) if (Gh[i].Required()) NbVerticesOnGeomVertex++;
-		// printf("\n");
 		if(NbVerticesOnGeomVertex >= maxnbv){
 			_error_("too many vertices on geometry: " << NbVerticesOnGeomVertex << " >= " << maxnbv);
 		}
