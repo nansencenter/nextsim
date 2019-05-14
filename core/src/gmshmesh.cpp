@@ -47,7 +47,7 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_map_nodes(),
     M_map_elements(),
     timer(),
-	M_mppfile(Environment::nextsimMppfile()),
+    M_mppfile(Environment::nextsimMppfile()),
     M_log_level(Environment::logLevel()),
     M_log_all(Environment::logAll())
 {}
