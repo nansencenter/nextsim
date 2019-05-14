@@ -4854,7 +4854,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     {
         case schemes::specificHumidity::ATMOSPHERE:
             if ( M_sphuma.isInitialized() )
-                return std::make_pair(M_sphuma[i], 0.);
+                return std::make_pair(std::max(0., M_sphuma[i]), 0.);
             else if ( M_mixrat.isInitialized() )
                 return std::make_pair(M_mixrat[i]/(1.+M_mixrat[i]), 0.);
             // We know temp = M_dair[i]
