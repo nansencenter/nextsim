@@ -4646,14 +4646,24 @@ FiniteElement::update()
             const double sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             const double sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-            const double sigma_c = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            const double sigma_c = 2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
+            const double sigma_t = -sigma_c/q;
 
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
-            double d_crit = std::min(1., sigma_c/(sigma_1-q*sigma_2)); // Distance to the yield criterion
+            double d_crit; // Distance to the yield criterion
+            if ( sigma_1>0. && sigma_1-q*sigma_2>0.)
+                d_crit = std::min(1., sigma_c/(sigma_1-q*sigma_2));
+            else if ( sigma_1<0. && sigma_1>=sigma_2 )
+                d_crit = std::min(1., sigma_t/sigma_2);
+            else
+                d_crit = 1.;
+
+            assert(d_crit>=0);
+
             if ( d_crit < 1. )
             {
                 if (disc_scheme == "explicit") {
