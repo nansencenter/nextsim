@@ -99,8 +99,9 @@ public:
         D_evap       = 117,
         D_rain       = 118,
         D_Qassim     = 119,
-        D_residual   = 120,
-        D_rel_error  = 121
+        D_fwflux_ice = 120,
+        D_residual   = 121,
+        D_rel_error  = 122
     };
 
 
