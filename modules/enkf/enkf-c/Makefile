@@ -65,6 +65,7 @@ common/obstypes.c\
 common/observations.c\
 prep/allreaders.c\
 prep/reader_navo.c\
+prep/reader_smos.c\
 prep/reader_windsat.c\
 prep/reader_rads.c\
 prep/reader_cars.c\
