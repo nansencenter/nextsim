@@ -14,7 +14,7 @@ pointlogs: pointlogs-calc pointlogs-update
 global: clean enkf-prep enkf-calc-global enkf-update-global
 
 enkf-prep: enkf_prep conf obs enkf.prm
-	./enkf_prep --no-superobing enkf.prm 2>&1 | tee prep.out
+	./enkf_prep enkf.prm 2>&1 | tee prep.out
 
 enkf-calc: enkf_calc observations.nc conf prior
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --ignore-no-obs enkf.prm 2>&1 | tee calc.out
@@ -37,10 +37,10 @@ stats-prep: enkf_prep conf obs stats.prm
 stats-calc: enkf_calc observations.nc conf background_6565
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --forecast-stats-only stats.prm 2>&1 | tee calc.out
 
-singleob-calc: enkf_calc ensemble_static
-	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 30 50 0 SST 0.5 0.5 singleob.prm 2>&1 | tee calc.out
+singleob-calc: enkf_calc prior
+	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 30 50 0 sea_ice_thickness 0.5 0.5 singleob.prm 2>&1 | tee calc.out
 
-singleob-update: enkf_update ensemble_static
+singleob-update: enkf_update prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --output-increment singleob.prm 2>&1 | tee update.out
 
 pointlogs-calc: enkf_calc observations.nc conf prior X5.nc
