@@ -6,7 +6,7 @@ GRID = grid.prm
 OBSTYPES = obstypes.prm
 
 OBS = obs.prm
-DATE = 7640.5 days since 1990-01-01
+DATE = 6565.5 days since 1990-01-01
 
 ENSDIR = prior
 ENSSIZE = 2

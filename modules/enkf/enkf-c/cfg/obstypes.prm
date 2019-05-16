@@ -1,7 +1,7 @@
-NAME = SLA
-ISSURFACE = 1
-VAR = sit
-OFFSET = conf/tmp.nc sit
-HFUNCTION = standard
-MINVALUE = -1.0
-MAXVALUE = 1.0
+name = sea_ice_thickness
+issurface = 0
+var = sit
+hfunction = standard
+minvalue = -1
+maxvalue = 5
+

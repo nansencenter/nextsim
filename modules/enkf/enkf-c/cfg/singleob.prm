@@ -1,4 +1,4 @@
-MODE = EnOI
+MODE = EnKF
 
 MODEL = model.prm
 GRID = grid.prm
@@ -6,9 +6,8 @@ OBSTYPES = obstypes.prm
 
 DATE = 6565.5 days since 1990-01-01
 
-ENSDIR = Moorings
-BGDIR = background_6565
-ENSSIZE = 10
+ENSDIR = prior
+ENSSIZE = 2
 
 KFACTOR = 999
 LOCRAD = 500

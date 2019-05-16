@@ -1,4 +1,4 @@
-PRODUCT = RADS
-TYPE = SLA
-READER = standard2
-FILE = obs/RADS-IB/y2007/m12/??_d19.nc
+PRODUCT = SMOS
+READER = standard
+TYPE = sea_ice_thickness
+FILE = obs/SMOS/SMOS_Icethickness_v3.1_north_20190415_single.nc
