@@ -184,7 +184,10 @@ subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
 #endif
 
       rh_save=rh
+
+#ifdef DEBUG
       print *,'pseudo2D: Solving for sigma',rh,dx
+#endif
       a1=0.1e-07
       b1=0.1e-06
       tol=0.1e-10
@@ -203,8 +206,10 @@ subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
       enddo
       c=sqrt(1.0/(deltak*sum))
 
-      print *,'pseudo2D: sigma  ',sigma
-      print *,'pseudo2D: c=     ',c
+#ifdef DEBUG
+      print*,'pseudo2D: sigma  ',sigma
+      print*,'pseudo2D: c=     ',c
+#endif
    endif
 
    do j=1,nens

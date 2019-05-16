@@ -44,6 +44,7 @@ module mod_random_forcing
    private
 
    logical, save :: randf ! Switches on/off random forcing
+   logical, save :: debug ! Switches on/off verbose
    logical       :: file_exists ! Check if file exists
    real   , save :: rf_hradius  ! Horizontal decorr length for rand forc [m]
    real   , save :: rf_tradius  ! Temporal decorr length for rand forc
@@ -122,27 +123,28 @@ contains
       call limits_randf()
 !      dx=scpx(idm/2,jdm/2)
       if(.not.randf) then
-        print *,'randf option switched off in pseudo2D.nml'
-        print *,'no perturbation will be applied'
+        write(*,'("randf option switched off in pseudo2D.nml")')
+        write( *,'("no perturbation will be applied")')
         INQUIRE(FILE=trim(iopath)//"/synforc.01", EXIST=file_exists)
         print *,'checking if synforc files exists: ', file_exists
         if (file_exists) then
-          print *,'synforc exists -> Nothing to do'
+          write( *,'("synforc exists -> Nothing to do")')
           return
         else
           call randfld_wr('01')
           call synforc_wr('01')
           call randfld_wr('00')
           call synforc_wr('00')
-          print *,'synforc is set to zero for initial time'
+          write(*,'("synforc is set to zero for initial time")')
           return
         endif
       end if
+      write(*,'("pseudo-random forcing is active for ensemble generation")')
       dx=30
-      print *,'typical model grid scale ', dx
+      if(debug) print*,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells
       rv=rf_tradius        ! Temporal decorrelation scale (days)
-      print*, "initialized init_ran"
+      if(debug) print*, "initialized init_ran"
       call init_ran(ran)
       call init_ran(ran1)
       ran=0.
@@ -158,14 +160,14 @@ contains
       INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
 
       if (file_exists) then
-              print *, 'reading from file...'
+              if (debug) print*, 'reading from file...'
               call randfld_rd('01')
               call synforc_rd('01')
               call randfld_wr('00')
               call synforc_wr('00')
               call rand_update('01')
       else
-              print *, 'generating initial random field...'
+              if (debug) print*, 'generating initial random field...'
               call ranfields(ran,rh)
               call rand_update('00')
               call rand_update('01')
@@ -203,7 +205,7 @@ contains
       fnx = 2**fnx
       fny = ceiling(log(float(ny))/log(2.))
       fny = 2**fny
-         write(*,'("Fourier transform dimensions ",2i6)')  fnx,fny
+         if (debug) write(*,'("Fourier transform dimensions ",2i6)')  fnx,fny
       end subroutine
 
       subroutine limits_randf()
@@ -218,7 +220,7 @@ contains
       real    :: vairtmp, vprecip, vrelhum, scorr, tcorr
       character(80) :: nmlfile, cwd
 
-      namelist /setup/ iopath, xdim, ydim
+      namelist /setup/ iopath, xdim, ydim, debug
       namelist /pseudo2D/ randf, seed, &
                           vslp, vtaux, vtauy, vwndspd, &
                           vclouds, vairtmp, vprecip, vrelhum, &
@@ -244,9 +246,6 @@ contains
       end if
 
 
-!      CALL getcwd(cwd)
-!      PRINT*, TRIM(cwd)
-!      CALL system('ls')
       nmlfile ='pseudo2D.nml'    ! name of general configuration namelist file
       open (99,file=nmlfile, status='old', action='read')
       read (99,NML=setup)
@@ -713,7 +712,7 @@ contains
 
            filename = trim(iopath)//'/randfld.'//time_index
 
-           print*, 'reading randfile ', filename
+           if (debug) print*, 'reading randfile ', filename
 
            open(10, file=filename, status="old", action="read")
 
@@ -726,7 +725,7 @@ contains
              end do !ix
            end do !jy
            close(10)
-           print *, 'read from file'
+           if (debug) print*, 'read from file'
 
    end subroutine
 
@@ -738,7 +737,7 @@ contains
 
            filename = trim(iopath)//'/synforc.'//time_index
 
-           print*, 'reading synforc ', filename
+           if (debug) print*, 'reading synforc ', filename
 
            open(11, file=filename, status="old", action="read")
 
@@ -764,7 +763,7 @@ contains
            filename = trim(iopath)//'/randfld.'//time_index
 
 
-           print*, 'writing randfile ', filename
+           if (debug) print*, 'writing randfile ', filename
 
            open(12,file=filename,status='replace')
 
@@ -789,7 +788,7 @@ contains
 
            filename = trim(iopath)//'/synforc.'//time_index
 
-           print*, 'writing synforc ', filename
+           if (debug) print*, 'writing synforc ', filename
 
            open(13,file=filename, status='replace')
 

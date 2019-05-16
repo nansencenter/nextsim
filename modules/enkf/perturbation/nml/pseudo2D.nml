@@ -4,6 +4,7 @@
 iopath   = "../IO"
 xdim     = 360
 ydim     = 360
+debug    = .false.
 /
 
 &pseudo2D
@@ -12,7 +13,7 @@ seed     = 11
 vslp     =  10
 vtaux    =  0.001
 vtauy    =  0.001
-vwndspd  =  0.64
+vwndspd  =  3
 vclouds  =  0.005
 vairtmp  =  9.0
 vprecip  =  1.0
