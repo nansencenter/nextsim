@@ -3968,8 +3968,7 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod = 0.;
 
-        // if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
-        if( (M_conc[cpt] > 0.) && (M_thick[cpt] > 0.) )
+        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
             double welt_ice = 0.;
@@ -4614,7 +4613,7 @@ FiniteElement::update()
          *======================================================================
          */
 
-        if ( M_conc[cpt] > 0. )
+        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
             const double damaging_exponent = ridging_exponent;
             const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();

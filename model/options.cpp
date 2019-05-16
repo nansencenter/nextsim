@@ -303,9 +303,9 @@ namespace Nextsim
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
-            // - C,h limits for the acceleration, Coriolis, and ocean tilt terms
-            ("dynamics.min_h", po::value<double>()->default_value( 0.20 ), "")
-            ("dynamics.min_c", po::value<double>()->default_value( 0.20 ), "")
+            // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
+            ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
+            ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
