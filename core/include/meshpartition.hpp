@@ -9,9 +9,10 @@
 #ifndef __MeshPartition_HPP
 #define __MeshPartition_HPP 1
 
-#include <meshPartitionOptions.h>
-#include <meshPartition.h>
-#include <GModel.h>
+//#include <meshPartitionOptions.h>
+//#include <meshPartition.h>
+#include <Context.h>
+//#include <GModel.h>
 
 namespace Nextsim
 {

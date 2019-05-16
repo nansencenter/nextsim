@@ -21,14 +21,18 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
+#include <gmshversion.hpp>
 #include <meshpartition.hpp>
+#include <gmshmodel.hpp>
 
 extern "C"
 {
 #include <mapx.h>
 }
 
+#if GMSH_VERSION_LESS_THAN(4,0,0)
 int PartitionMesh( GModel *const model, meshPartitionOptions &options );
+#endif
 
 namespace Nextsim
 {

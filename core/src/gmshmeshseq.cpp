@@ -397,8 +397,11 @@ GmshMeshSeq::initGModel()
     CTX::instance()->mesh.saveTopology = 0;
     CTX::instance()->mesh.fileFormat = FORMAT_MSH;
     CTX::instance()->mesh.mshFileVersion = 2.2;
-    //M_partition_options.num_partitions = Environment::comm().size();
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
+#else
+    CTX::instance()->mesh.numPartitions = Environment::comm().size();
+#endif
 }
 
 void
@@ -452,6 +455,7 @@ GmshMeshSeq::writeToGModel()
         ++cpt_element;
     }
 
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     M_gmodel = GModel::createGModel(
                                     vertexMap,
                                     elementNum,
@@ -461,6 +465,19 @@ GmshMeshSeq::writeToGModel()
                                     elementary,
                                     partition
                                     );
+#else
+    //GmshModel *gmshmodel = new GmshModel();
+    M_gmodel = GmshModel().createGModel(
+                                       vertexMap,
+                                       elementNum,
+                                       vertexIndices,
+                                       elementType,
+                                       physical,
+                                       elementary,
+                                       partition
+                                       );
+    //delete gmsh
+#endif
 }
 
 void
@@ -486,14 +503,20 @@ GmshMeshSeq::partitionMemory(std::string const& mshfile,
                              mesh::Partitioner const& partitioner,
                              std::string const& format)
 {
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
     CTX::instance()->partitionOptions.algorithm = 2;
     //CTX::instance()->partitionOptions.edge_matching = 3;// comment it after
     //CTX::instance()->partitionOptions.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
-
     CTX::instance()->partitionOptions.createPartitionBoundaries = false;
+    PartitionMesh(M_gmodel, CTX::instance()->partitionOptions);
+#else
+    CTX::instance()->mesh.metisAlgorithm = 2;
+    CTX::instance()->mesh.partitionCreateTopology = false;
+    CTX::instance()->mesh.partitionSaveTopologyFile = false;
+    PartitionMesh(M_gmodel);
+#endif
 
-    PartitionMesh( M_gmodel, CTX::instance()->partitionOptions);
     M_gmodel->writeMSH(mshfile, 2.2, (format=="binary")?true:false);
 
     M_gmodel->deleteMesh();
@@ -511,7 +534,9 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
         throw std::runtime_error(msg);
     }
 
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
+#endif
     CTX::instance()->mesh.binary = 1;
 
     std::ostringstream gmshstr;
