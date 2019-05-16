@@ -1128,27 +1128,6 @@ FiniteElement::initOptAndParam()
 
     M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
 
-#ifdef ENSEMBLE
-    //! StateVector output time step - for restarts this needs to fit inside the restart period
-    if(vm["statevector.output_time_step_units"].as<std::string>() == "days")
-        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*days_in_sec; //! \param statevector_output_time_step (double) Time step for statevector outputs [s]
-    else if (vm["statevector.output_time_step_units"].as<std::string>() == "time_steps")
-        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*time_step;
-    else
-        throw std::runtime_error("statevector.output_time_step_units should be days or time_steps");
-    statevector_time_factor = dtime_step/double(statevector_output_time_step);
-
-    // Checks
-    if ( statevector_output_time_step % time_step != 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: statevector_output_time_step is not an integer multiple of time_step");
-
-    if ( M_write_restart_end && ( int(duration) % statevector_output_time_step != 0 ) )
-        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of statevector_output_time_step");
-
-    if ( M_write_restart_interval && ( restart_time_step % statevector_output_time_step != 0 ) )
-        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of statevector_output_time_step");
-#endif
-
     //! Moorings output time step - for restarts this needs to fit inside the restart period
     if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
         mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
@@ -1403,23 +1382,38 @@ FiniteElement::initOptAndParam()
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
 
 #ifdef ENSEMBLE
-    M_use_statevector =  vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_statevector_snapshot =  vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
-    M_statevector_parallel_output =  vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
+    M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_statevector_prefix           = vm["statevector.prefix"].as<std::string>();
+    M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_statevector_snapshot         = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
+    M_statevector_false_easting    = vm["statevector.false_easting"].as<bool>();
+    M_statevector_parallel_output  = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
+    M_statevector_averaging_period = 0.;
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_statevector_file_length = str2statevectorfl.find(vm["statevector.file_length"].as<std::string>())->second;
-        //! \param M_statevector_file_length (string) Length (in time) of the mooring output file
-        //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
-    M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
-        //! \param M_statevector_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
-    M_statevector_averaging_period = 0.;//! \param M_statevector_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
+    M_statevector_file_length      = str2statevectorfl.find(vm["statevector.file_length"].as<std::string>())->second;
     if(!M_statevector_snapshot)
-        M_statevector_averaging_period = mooring_output_time_step/days_in_sec;
+        M_statevector_averaging_period = statevector_output_time_step/days_in_sec;
+    if(vm["statevector.output_time_step_units"].as<std::string>() == "days")
+        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*days_in_sec;
+    else if (vm["statevector.output_time_step_units"].as<std::string>() == "time_steps")
+        statevector_output_time_step =  vm["statevector.output_timestep"].as<double>()*time_step;
+    else
+        throw std::runtime_error("statevector.output_time_step_units should be days or time_steps");
+    statevector_time_factor = dtime_step/double(statevector_output_time_step);
+
+    if ( statevector_output_time_step % time_step != 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: statevector_output_time_step is not an integer multiple of time_step");
+
+    if ( M_write_restart_end && ( int(duration) % statevector_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of statevector_output_time_step");
+
+    if ( M_write_restart_interval && ( restart_time_step % statevector_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of statevector_output_time_step");
 #endif
 
 
@@ -6261,6 +6255,10 @@ FiniteElement::init()
         if ( res_str.empty() )
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
+//       -aLi- if ( M_use_statevector )
+//        {
+//           readStateVector();
+//        }
     }
     else
     {
@@ -6320,12 +6318,6 @@ FiniteElement::init()
     LOG(DEBUG) << "initMoorings\n";
     if ( M_use_moorings )
         this->initMoorings();
-
-    //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
-    LOG(DEBUG) << "initStateVector\n";
-    if ( M_use_statevector )
-        this->initStateVector();
-
 
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
@@ -6780,19 +6772,6 @@ FiniteElement::step()
                 this->regrid(pcpt);
 
             LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
-            if ( M_use_moorings )
-            {
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>() == "coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#else
-                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#endif
-            }
-
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
@@ -7047,24 +7026,6 @@ FiniteElement::checkOutputs(bool const& at_init_time)
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-#ifdef ENSEMBLE
-    if(M_use_statevector)
-    {
-        if(!at_init_time)
-            this->updateStateVector();
-        else if(    M_statevector_snapshot
-                && pcpt*time_step % mooring_output_time_step == 0
-                && !M_use_restart )
-        {
-            // write initial conditions to statevector file if using snapshot option
-            // (only if at the right time though)
-            // - set the fields on the mesh
-            this->updateMeans(M_statevector, 1.);
-            // - interpolate to the grid and write them to the netcdf file
-            this->stateVectorAppendNetcdf(M_current_time);
-        }
-    }
-#endif
 
     if(M_use_drifters)
     {
@@ -7165,6 +7126,9 @@ FiniteElement::run()
     // **********************************************************************
     this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
+#ifdef ENSEMBLE
+    this->exportStateVector();
+#endif
     if (M_write_restart_end)
         this->writeRestart("final");
 
@@ -7878,6 +7842,7 @@ void
 FiniteElement::initStateVector()
 {
 
+    LOG(INFO) <<"initialized state vector"<<"\n";
     if (       (!M_statevector_snapshot)
             && ( pcpt*time_step % statevector_output_time_step != 0 ) )
     {
@@ -8033,7 +7998,7 @@ FiniteElement::initStateVector()
         // Element variables
         else if (statevector_name_map_elements.count(*it)==0)
         {
-            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
+            LOG(ERROR)<<"Unimplemented statevector output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
             LOG(ERROR)<<"  tau\n";
@@ -8120,9 +8085,9 @@ FiniteElement::initStateVector()
 
         std::string filename_root;
         if ( M_statevector_parallel_output )
-            filename_root = M_export_path + "/prior_" + std::to_string(M_rank);
+            filename_root = M_export_path + "/" + M_statevector_prefix + "_" + std::to_string(M_rank);
         else
-            filename_root = M_export_path + "/prior";
+            filename_root = M_export_path + "/" + M_statevector_prefix;
 
         M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time, M_use_restart);
     }
@@ -8200,6 +8165,8 @@ FiniteElement::updateStateVector()
 void
 FiniteElement::stateVectorAppendNetcdf(double const &output_time)
 {
+
+    LOG(INFO) <<"appending netcdf"<<"\n";
     // update data on grid
     M_statevector.updateGridMean(bamgmesh);
 
@@ -8228,6 +8195,37 @@ FiniteElement::stateVectorAppendNetcdf(double const &output_time)
     M_statevector.resetMeshMean(bamgmesh);
     M_statevector.resetGridMean();
 }//statevectorAppendNetcdf
+
+void
+FiniteElement::exportStateVector()
+{
+
+    if(M_use_statevector)
+    {
+
+        if(    M_statevector_snapshot
+                && pcpt*time_step % statevector_output_time_step == 0
+                && !M_use_restart )
+        {
+            this->initStateVector();
+
+            if(vm["statevector.grid_type"].as<std::string>() == "reference") {
+                if ( M_rank==0 )
+                    M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                else
+                    M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                }
+            else
+                M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+        }
+           // write initial conditions to statevector file if using snapshot option
+            // (only if at the right time though)
+            // - set the fields on the mesh
+            this->updateMeans(M_statevector, 1.);
+            // - interpolate to the grid and write them to the netcdf file
+            this->stateVectorAppendNetcdf(M_current_time);
+     }
+}//exportStateVector
 
 #endif // ENSEMBLE
 
