@@ -8570,8 +8570,8 @@ FiniteElement::updateVelocity()
         int index_u = nd;
         int index_v = nd+M_num_nodes;
 
-        // More than 3 m/s is unrealistic o_o
-        if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 3. )
+        // More than 1.5 m/s is unrealistic o_o
+        if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 1.5 )
         {
             errors++;
 
