@@ -9,6 +9,7 @@
 #include <dataset.hpp>
 #include <date.hpp>
 #include <constants.hpp>
+#include <numeric>
 
 /**
  * @class DataSet
