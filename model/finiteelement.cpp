@@ -8556,25 +8556,51 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
-    // Check unrealistic velocities
-    if ( vm["debugging.export_overshoots"].as<bool>() )
-    {
-        int errors = 0; // error counter
-        for (int nd=0; nd<M_num_nodes; ++nd)
-        {
-            // More than 2 m/s is unrealistic o_o
-            if ( std::hypot(M_VT[nd], M_VT[nd+M_num_nodes]) > 2. )
-                errors++;
-        }
+    // Check and cap unrealistic velocities
+    // NB! This capping should be considered as a temporary fix only!
 
-        // Write debug files
-        if ( boost::mpi::all_reduce(M_comm, errors, std::plus<int>()) > 0 )
+    // Work on a copy of M_VT so that we can save the erroneous results
+    std::vector<double> vt;
+    if ( vm["debugging.export_overshoots"].as<bool>() )
+        vt = M_VT;
+
+    int errors = 0; // error counter
+    for (int nd=0; nd<M_num_nodes; ++nd)
+    {
+        int index_u = nd;
+        int index_v = nd+M_num_nodes;
+
+        // More than 3 m/s is unrealistic o_o
+        if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 3. )
         {
-            LOG(WARNING) << "FiniteElement::updateVelocity: Detected unrealistic velocities\n";
+            errors++;
+
+            if ( vm["debugging.export_overshoots"].as<bool>() )
+            {
+                vt[index_u] = M_VTM[index_u];
+                vt[index_v] = M_VTM[index_v];
+            } else {
+                M_VT[index_u] = M_VTM[index_u];
+                M_VT[index_v] = M_VTM[index_v];
+            }
+        }
+    }
+
+    // Warn and write debug files
+    if ( boost::mpi::all_reduce(M_comm, errors, std::plus<int>()) > 0 )
+    {
+        LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities\n";
+
+        if ( vm["debugging.export_overshoots"].as<bool>() )
+        {
 
             std::string str = datenumToString(M_current_time, "debug_%Y%m%dT%H%M%SZ");
             this->writeRestart(str);
             this->exportResults(str, true, true, true);
+            M_comm.barrier();
+
+            // Update M_VT now that we've exported everything
+            M_VT = vt;
         }
     }
 
