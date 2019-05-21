@@ -8564,16 +8564,17 @@ FiniteElement::updateVelocity()
     if ( vm["debugging.export_overshoots"].as<bool>() )
         vt = M_VT;
 
-    int errors = 0; // error counter
+    double overshoot = -1;
     for (int nd=0; nd<M_num_nodes; ++nd)
     {
         int index_u = nd;
         int index_v = nd+M_num_nodes;
+        double speed = std::hypot(M_VT[index_u], M_VT[index_v]);
 
         // More than 1.5 m/s is unrealistic o_o
-        if ( std::hypot(M_VT[index_u], M_VT[index_v]) > 1.5 )
+        if ( speed > 1.5 )
         {
-            errors++;
+            overshoot = std::max(speed, overshoot);
 
             if ( vm["debugging.export_overshoots"].as<bool>() )
             {
@@ -8587,9 +8588,11 @@ FiniteElement::updateVelocity()
     }
 
     // Warn and write debug files
-    if ( boost::mpi::all_reduce(M_comm, errors, std::plus<int>()) > 0 )
+    double overshoot_all = boost::mpi::all_reduce(M_comm, overshoot, boost::mpi::maximum<double>());
+    if ( overshoot_all > 0 )
     {
-        LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities\n";
+        LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities (max "
+            << overshoot_all << " m/s)\n";
 
         if ( vm["debugging.export_overshoots"].as<bool>() )
         {
