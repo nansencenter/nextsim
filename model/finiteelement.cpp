@@ -5789,10 +5789,10 @@ FiniteElement::thermo(int dt)
                         for(int m=0; m<M_num_fsd_bins-1;m++)
                             dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
                        
-                        if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.) -1.)>1e-11)
+                        if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11)
                         {
                             crash=true ;
-                            crash_msg << "sum of Delta FSD does not add up to 1. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
+                            crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
                             throw std::runtime_error(crash_msg.str())                            ;
                         }
                         /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
@@ -5868,7 +5868,7 @@ FiniteElement::thermo(int dt)
         //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
         // -------------------------------------------------
         // Lettie's code 
-        if ( (M_num_fsd_bins>0)&&(del_hi<0.))   // If FSD && freezing condition
+        if ( (M_num_fsd_bins>0)&&(del_hi>0.))   // If FSD && freezing condition
         {   
             double c_fsd_broken = M_conc_fsd[0][i];
             bool crash = false ;
@@ -5947,7 +5947,7 @@ FiniteElement::thermo(int dt)
                      // SAFETY CHECK
                      for (int m=0; m<M_num_fsd_bins;m++)
                      {
-                         if (tmp_conc_fsd[m] < -1.e-8)
+                         if (tmp_conc_fsd[m] < -1e-12)
                          {
                              crash = true ;
                              crash_msg << "Negative FSD merge" <<" \n" ;
@@ -5991,10 +5991,19 @@ FiniteElement::thermo(int dt)
                      M_conc_fsd[m][i] = tmp_conc_fsd[m] * M_conc[i] / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
                                                          ; // correction for small numeric errors 
                      if (M_conc_fsd[m][i]<0.)
-                     {
-                         crash = true ;
-                         crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][i]) <<" \n";
-                     }
+                     {    
+                     // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
+                     // (it should not impact too much sea ice conservation)
+                         if (M_conc_fsd[m][i]<-1e-12)
+                         {
+                             crash = true ;
+                             crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][i]) <<" \n";
+                         }
+                         else
+                         {
+                             M_conc_fsd[m][i]=0.;
+                         }
+                     }    
                  }
                  if(crash)
                  {
