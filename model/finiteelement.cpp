@@ -4496,8 +4496,17 @@ FiniteElement::update()
             double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
 
             M_conc[cpt] *= surf_ratio;
-            M_thick[cpt] *= surf_ratio;
-            M_snow_thick[cpt] *= surf_ratio;
+            // Limit the ice thickness to below 10 m --- THIS IS A TEMPORARY FIX ONLY!!!
+            if ( M_thick[cpt]*surf_ratio < 10. )
+            {
+                M_thick[cpt] *= surf_ratio;
+                M_snow_thick[cpt] *= surf_ratio;
+            }
+            else
+            {
+                LOG(VERBOSE) << "Keeping M_thick at " << M_thick[cpt] << " instead of the predicted value of " << M_thick[cpt] << M_thick[cpt]*surf_ratio << "\n";
+            }
+
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
             M_ridge_ratio[cpt] *= surf_ratio;
@@ -8591,7 +8600,7 @@ FiniteElement::updateVelocity()
     double overshoot_all = boost::mpi::all_reduce(M_comm, overshoot, boost::mpi::maximum<double>());
     if ( overshoot_all > 0 )
     {
-        LOG(WARNING) << "FiniteElement::updateVelocity: Capping unrealistic velocities (max "
+        LOG(VERBOSE) << "FiniteElement::updateVelocity: Capping unrealistic velocities (max "
             << overshoot_all << " m/s)\n";
 
         if ( vm["debugging.export_overshoots"].as<bool>() )
