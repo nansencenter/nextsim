@@ -3968,7 +3968,7 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod = 0.;
 
-        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
+        if( (M_conc[cpt] > 0.) && (M_thick[cpt] > 0.) )
         {
             /* Compute the value that only depends on the element */
             double welt_ice = 0.;
@@ -4024,7 +4024,7 @@ FiniteElement::assemble(int pcpt)
             coef = (coef<coef_min) ? coef_min : coef ;
 
             if (vm["dynamics.use_coriolis"].as<bool>())
-                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
+                mass_e = (rhoi*total_thickness + rhos*total_snow);
             else
                 mass_e = 0.;
 
@@ -4497,15 +4497,15 @@ FiniteElement::update()
 
             M_conc[cpt] *= surf_ratio;
             // Limit the ice thickness to below 10 m --- THIS IS A TEMPORARY FIX ONLY!!!
-            if ( M_thick[cpt]*surf_ratio < 10. )
-            {
+            // if ( M_thick[cpt]*surf_ratio < 10. )
+            // {
                 M_thick[cpt] *= surf_ratio;
                 M_snow_thick[cpt] *= surf_ratio;
-            }
-            else
-            {
-                LOG(VERBOSE) << "Keeping M_thick at " << M_thick[cpt] << " instead of the predicted value of " << M_thick[cpt] << M_thick[cpt]*surf_ratio << "\n";
-            }
+            // }
+            // else
+            // {
+            //     LOG(WARNING) << "Keeping M_thick at " << M_thick[cpt] << " instead of the predicted value of " << M_thick[cpt]*surf_ratio << "\n";
+            // }
 
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
@@ -4622,7 +4622,7 @@ FiniteElement::update()
          *======================================================================
          */
 
-        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
+        if( (M_conc[cpt] > 0.) && (M_thick[cpt] > 0.) && (young>0.))
         {
             const double damaging_exponent = ridging_exponent;
             const double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
@@ -4686,13 +4686,9 @@ FiniteElement::update()
                 }
 
                 if(tmp>M_damage[cpt])
-                // Damage cannot be equal to 1
-                M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
+                    // Damage cannot be equal to 1
+                    M_damage[cpt] = min(tmp, 1.-10.*std::numeric_limits<double>::epsilon());
             }
-
-            // Finally update the value of sigma in the global variable M_sigma, reducing sigma due to damage if needed
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = sigma[i]*d_crit;
 
             /*======================================================================
              * Calculate the residual and relative error
@@ -4710,7 +4706,7 @@ FiniteElement::update()
                     sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))
                         *young*(1.-M_damage[cpt])*M_Dunit[3*i + j]*epsilon_veloc[j];
 
-                sigma_new[i] = (sigma[i]+dtime_step*sigma_dot_i)*multiplicator;
+                sigma_new[i] = (M_sigma[i][cpt]+dtime_step*sigma_dot_i)*multiplicator;
             }
 
             // Relative error
@@ -4728,6 +4724,10 @@ FiniteElement::update()
                     D_residual[cpt] += std::pow((sigma_new[i] - sigma[i])/dtime_step + sigma_new[i]/time_viscous - std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-M_damage[cpt])*M_Dunit[3*i+j]*epsilon_veloc[j], 2.);
 
             D_residual[cpt] = std::sqrt(D_residual[cpt]);
+
+            // Finally update the value of sigma in the global variable M_sigma, using the re-calculated sigma value
+            for(int i=0;i<3;i++)
+                M_sigma[i][cpt] = sigma_new[i];
         }
         else
         {
@@ -8564,57 +8564,6 @@ FiniteElement::updateVelocity()
     M_VTMM = M_VTM;
     M_VTM = M_VT;
     M_VT = M_solution->container();
-
-    // Check and cap unrealistic velocities
-    // NB! This capping should be considered as a temporary fix only!
-
-    // Work on a copy of M_VT so that we can save the erroneous results
-    std::vector<double> vt;
-    if ( vm["debugging.export_overshoots"].as<bool>() )
-        vt = M_VT;
-
-    double overshoot = -1;
-    for (int nd=0; nd<M_num_nodes; ++nd)
-    {
-        int index_u = nd;
-        int index_v = nd+M_num_nodes;
-        double speed = std::hypot(M_VT[index_u], M_VT[index_v]);
-
-        // More than 1.5 m/s is unrealistic o_o
-        if ( speed > 1.5 )
-        {
-            overshoot = std::max(speed, overshoot);
-
-            if ( vm["debugging.export_overshoots"].as<bool>() )
-            {
-                vt[index_u] = M_VTM[index_u];
-                vt[index_v] = M_VTM[index_v];
-            } else {
-                M_VT[index_u] = M_VTM[index_u];
-                M_VT[index_v] = M_VTM[index_v];
-            }
-        }
-    }
-
-    // Warn and write debug files
-    double overshoot_all = boost::mpi::all_reduce(M_comm, overshoot, boost::mpi::maximum<double>());
-    if ( overshoot_all > 0 )
-    {
-        LOG(VERBOSE) << "FiniteElement::updateVelocity: Capping unrealistic velocities (max "
-            << overshoot_all << " m/s)\n";
-
-        if ( vm["debugging.export_overshoots"].as<bool>() )
-        {
-
-            std::string str = datenumToString(M_current_time, "debug_%Y%m%dT%H%M%SZ");
-            this->writeRestart(str);
-            this->exportResults(str, true, true, true);
-            M_comm.barrier();
-
-            // Update M_VT now that we've exported everything
-            M_VT = vt;
-        }
-    }
 
     // increment M_UT that is used for the drifters
     for (int nd=0; nd<M_UT.size(); ++nd)
