@@ -7,10 +7,16 @@ The nextsim model expects a directory called $NEXTSIM_DATA_DIR to have:
 
 ### How do I get set up? ###
 Choose a directory in which to put $NEXTSIM_DATA_DIR:
+```
 cd [path to the directory]
-nextsim/data/scripts/populate_with_data_links.sh [root data directory]
-nextsim/data/scripts/populate_with_forecast_data_links.sh [root forcing data directory]
+nextsim-env/data/process/link_data_for_nextsim.sh [root data directory]
+```
+
+* Only needed if running the forecast (or want to run simulations using forecast forcing):
+```
+nextsim-env/data/process/link_data_for_forecast.sh [root forcing data directory]
 export NEXTSIM_DATA_DIR=[current directory]/data_links
+```
 
 where [root data directory] is the directory with copies of the meshes (eg /Data/sim/data on johansen)
 and [root forcing data directory] is the dir with the ice-ocean forecast (TOPAZ)

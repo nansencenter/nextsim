@@ -24,10 +24,12 @@ GmshMeshSeq::GmshMeshSeq()
     M_num_triangles(0),
     M_num_edges(0),
     M_marker_names(),
-    timer()
-{
-    this->setMppFile();
-}
+    timer(),
+    M_mppfile(Environment::nextsimMppfile()),
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll())
+
+{}
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& edges,
@@ -40,10 +42,12 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_edges(edges),
     M_num_nodes(nodes.size()),
     M_num_triangles(triangles.size()),
-    M_num_edges(edges.size())
-{
-    this->setMppFile();
-}
+    M_num_edges(edges.size()),
+    M_mppfile(Environment::nextsimMppfile()),
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll())
+
+{}
 
 GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& triangles)
@@ -53,10 +57,12 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
     M_nodes(nodes),
     M_triangles(triangles),
     M_num_nodes(nodes.size()),
-    M_num_triangles(triangles.size())
-{
-    this->setMppFile();
-}
+    M_num_triangles(triangles.size()),
+    M_mppfile(Environment::nextsimMppfile()),
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll())
+
+{}
 
 GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
         :
@@ -66,18 +72,11 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
     M_num_nodes(mesh.M_num_nodes),
-    M_num_triangles(mesh.M_num_triangles)
-{}
+    M_num_triangles(mesh.M_num_triangles),
+    M_log_level(mesh.M_log_level),
+    M_log_all(mesh.M_log_all)
 
-//! set the .mpp projection file in the GmshMeshSeq object
-void
-GmshMeshSeq::setMppFile()
-{
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-}
+{}
 
 // GmshMeshSeq::~GmshMeshSeq()
 // {
@@ -89,14 +88,14 @@ GmshMeshSeq::setMppFile()
 void
 GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 {
-    std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+    LOG(VERBOSE)<<"Reading Msh file "<< gmshmshfile <<"\n";
 
     std::ifstream gmshfile ( gmshmshfile.c_str() );
 
     if ( !gmshfile.is_open() )
     {
         std::ostringstream ostr;
-        std::cout << "Invalid file name " << gmshmshfile << " (file not found)\n";
+        LOG(ERROR) << "Invalid file name " << gmshmshfile << " (file not found)\n";
         ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
         throw std::invalid_argument( ostr.str() );
     }
@@ -112,7 +111,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     {
         int format, size;
         gmshfile >> theversion >> format >> size;
-        std::cout << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
+        LOG(DEBUG) << "GMSH mesh file version : " << theversion << " format: " << (format?"binary":"ascii") << \
             " size of double: " << size << "\n";
 
         ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
@@ -125,7 +124,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
         gmshfile >> __buf;
 
-        std::cout << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
+        LOG(DEBUG) << "[importergmsh] " << __buf << " (expect $PhysicalNames)\n";
 
         if ( std::string( __buf ) == "$PhysicalNames" )
         {
@@ -142,7 +141,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
                 boost::trim( name );
                 boost::trim_if( name,boost::is_any_of( "\"" ) );
 
-                std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
+                LOG(DEBUG) << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
 
                 std::vector<int> marker_data = {id, topodim};
                 M_marker_names.insert(std::make_pair(name,marker_data));
@@ -163,7 +162,8 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
             std::string( __buf ) == "$Nodes" ||
             std::string( __buf ) == "$ParametricNodes") )
     {
-        std::cout<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either $Nodes.\n";
+        LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either" 
+        << "$Nodes or $ParametricNodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
@@ -173,7 +173,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     M_num_nodes = __n;
 
     //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
-    std::cout << "Reading "<< __n << " nodes\n";
+    LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes.resize(__n);
     std::vector<double> coords(3,0);
@@ -209,7 +209,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     //M_num_elements = numElements;
 
-    std::cout << "Reading " << numElements << " elements...\n";
+    LOG(DEBUG) << "Reading " << numElements << " elements...\n";
     //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
     std::map<int,int> __gt;
 
@@ -301,7 +301,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     {
         const char* name;
         MElement::getInfoMSH( it.first, &name );
-        std::cout << "Read " << it.second << " " << name << " elements\n";
+        LOG(DEBUG) << "Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -324,7 +324,7 @@ GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
 
     if (!gmshfile.is_open())
     {
-        std::cout << "Cannot open " << gmshmshfile  << "\n";
+        LOG(ERROR) << "Cannot open " << gmshmshfile  << "\n";
         std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
         std::abort();
     }
@@ -395,8 +395,11 @@ GmshMeshSeq::initGModel()
 {
     M_gmodel = new GModel();
 
-    Msg::SetVerbosity(5);
+    Msg::SetVerbosity(Environment::vm()["debugging.gmsh_verbose"].as<int>());
     CTX::instance()->terminal = 1;
+    CTX::instance()->mesh.saveTopology = 0;
+    CTX::instance()->mesh.fileFormat = FORMAT_MSH;
+    CTX::instance()->mesh.mshFileVersion = 2.2;
     //M_partition_options.num_partitions = Environment::comm().size();
     CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
 }
@@ -517,20 +520,22 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
     std::ostringstream gmshstr;
     gmshstr << BOOST_PP_STRINGIZE( gmsh )
             << " -" << 2
-            << " -part " << Environment::comm().size();
+            << " -part " << Environment::comm().size()
+            << " -format " << "msh2";
 
     if (format == "binary")
     {
         gmshstr << " -bin";
     }
 
-    gmshstr << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
+    gmshstr << " -string " << "\"Mesh.MshFileVersion="<< 2.2 <<";\""
+            << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
             << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
             << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
             << " -string " << "\"General.Verbosity=0;\""
             << " " << mshfile;
 
-    std::cout << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+    LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
     auto err = ::system( gmshstr.str().c_str() );
 }
 
@@ -591,8 +596,8 @@ GmshMeshSeq::stereographicProjection()
 
     map = init_mapx(&str[0]);
 
-    std::cout<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
-    std::cout<<"PROJE= "<< std::string(map->projection_name) <<"\n";
+    LOG(DEBUG)<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
+    LOG(DEBUG)<<"PROJE= "<< std::string(map->projection_name) <<"\n";
 
     int cpt = 0;
 

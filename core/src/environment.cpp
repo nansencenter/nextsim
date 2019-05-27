@@ -14,11 +14,8 @@ namespace Nextsim
 Environment::Environment( int& argc, char** &argv )
     :
     mpienv(argc, argv)
-    //mpicomm()
 {
     mpicomm = Communicator::commSelf();
-
-    char * senv;
 
     this->setEnvironmentVariables();
 
@@ -27,21 +24,14 @@ Environment::Environment( int& argc, char** &argv )
     CHKERRABORT( mpicomm, ierr );
 }
 
-Environment::Environment( int& argc, char** &argv, po::options_description desc)
+Environment::Environment( int& argc, char** &argv, po::options_description desc )
     :
     mpienv(argc, argv)
 {
-    mpicomm = Communicator::commSelf();
-
-
-    char * senv;
-
+    //! - 1) Set NEXTSIM_[MESH,DATA]_DIR for inputs
     this->setEnvironmentVariables();
 
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
-
+    //! - 2) Read the config files to get the run-time options
     try
     {
         //po::store(po::parse_command_line(argc, argv, desc),vmenv);
@@ -53,47 +43,26 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                   .run(),
                   vmenv);
 
-  #if 0
-        if ( vmenv.count("help")  )
-        {
-            std::cout<< "BOOST VERSION= "<< BOOST_LIB_VERSION <<"\n";
-            std::cout << "Basic Command Line Parameter Application" <<"\n"
-                      << desc << "\n";
-            //return SUCCESS;
-            //return 0;
-        }
-#endif
 
         if ( vmenv.count( "config-file" ) || vmenv.count( "config-files" ) )
         {
-#if 0
-            if ( fs::exists( vmenv["config-file"].as<std::string>() ) )
-            {
-                std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
-                po::store( parse_config_file( ifs, desc, true ), vmenv );
-                po::notify( vmenv );
-            }
-            else
-            {
-                std::cout << "Cannot found " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
-                //return 1;
-            }
-#endif
 
             if ( vmenv.count( "config-file" ) )
             {
-                if ( fs::exists( vmenv["config-file"].as<std::string>() ) )
+                // only 1 config file
+                std::string cfg_file = vmenv["config-file"].as<std::string>();
+                if ( fs::exists(cfg_file) )
                 {
                     if (Communicator::commSelf().rank()==0)
-                        std::cout << "Reading " << vmenv["config-file"].as<std::string>() << "...\n";
-                    std::ifstream ifs( vmenv["config-file"].as<std::string>().c_str() );
+                        std::cout << "Reading " << cfg_file << "...\n";
+                    std::ifstream ifs( cfg_file.c_str() );
 
                     // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
                     po::store( parse_config_file( ifs, desc, false ), vmenv );
                 }
                 else
                 {
-                    std::cout << "Cannot found " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
+                    std::cout << "Cannot find " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
                 }
             }
 
@@ -101,9 +70,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
             {
                 std::vector<std::string> configFiles = vmenv["config-files"].as<std::vector<std::string> >();
 
-                // reverse order (priorty for the last)
-                // std::reverse(configFiles.begin(),configFiles.end());
-
+                // multiple config files: loop over them all
                 for ( std::string cfgfile : configFiles )
                 {
                     if ( fs::exists( cfgfile ) )
@@ -116,7 +83,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
                     }
                     else
                     {
-                        std::cout << "Cannot found " << "config-file `" << cfgfile <<"`\n";
+                        std::cout << "Cannot find " << "config-file `" << cfgfile <<"`\n";
                     }
                 }
             }
@@ -132,34 +99,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
     {
         throw std::runtime_error(std::string(e.what()));
     }
-
-#if 0
-    catch (po::multiple_occurrences const& e)
-    {
-        std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
-                  << "  o faulty option: " << e.get_option_name() << "\n"
-                  << "Error: the .cfg file or some options may not have been read properly\n";
-
-        throw std::runtime_error(std::string(e.what()));
-    }
-
-    catch (po::ambiguous_option const& e)
-    {
-        std::cout << "Command line or config file option parsing error: " << e.what() << "\n"
-                  << "  o faulty option: " << e.get_option_name() << "\n"
-                  << "  o possible alternatives: " ;
-
-        std::for_each( e.alternatives().begin(), e.alternatives().end(), []( std::string const& s )
-                       {
-                           std::cout << s << " ";
-                       } );
-
-        std::cout << "\n"
-                  << "Error: the .cfg file or some options may not have been read properly\n";
-
-        throw std::runtime_error(std::string(e.what()));
-    }
-#endif
 
     catch ( std::exception& e )
     {
@@ -177,6 +116,67 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc)
         throw std::runtime_error("...");
     }
 
+    //! -3) Initialise communicator, PETSc, and OASIS (if compiled in)
+#ifdef OASIS
+    // For OASIS we need to get the local communicator first
+
+    MPI_Comm localComm, cplComm; // local and couple MPI communicators
+    //const std::string comp_name = std::string("nxtsim");  // Component name (6 characters) same as in the namcouple
+    const std::string comp_name = vmenv["coupler.component_name"].as<std::string>();
+
+    // Initialise OASIS
+    int comp_id;
+    int ierror = OASIS3::init_comp(&comp_id, comp_name);
+    if (ierror != 0) {
+        std::cout << "oasis_init_comp abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::init_comp");
+    }
+
+    // Get the local communicator
+    ierror = OASIS3::get_localcomm(&localComm);
+    if (ierror != 0) {
+        std::cout << "oasis_get_localcomm abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::get_localcomm");
+    }
+
+    // create a Nextsim::Communicator from the OASIS communicator
+    mpicomm = Communicator(localComm);
+
+    // Tell PETSc to use the right communicator
+    PETSC_COMM_WORLD = localComm;
+
+    // Create the coupler communicator - only root communicates with the coupler
+    ierror = OASIS3::create_couplcomm(mpicomm.rank()==0, &localComm, &cplComm);
+    if (ierror != 0) {
+        std::cout << "oasis_create_couplcomm abort by nextsim with error code " << ierror << std::endl;
+        OASIS3::abort(comp_id, comp_name, "Problem calling OASIS3::create_couplcomm");
+    }
+#else
+    mpicomm = Communicator::commSelf();
+#endif
+
+    int ierr = 0;
+    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
+    CHKERRABORT( mpicomm, ierr );
+
+    //! -4) set other useful variables it would be convenient to have access to
+    //! across multiple classes
+    //! * nextsim .mppfile
+    nextsim_mppfile = (boost::format( "%1%/%2%" )
+            % this->nextsimMeshDir().string()
+            % this->vm()["mesh.mppfile"].as<std::string>()
+            ).str();
+
+    const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("debug", DEBUG)
+        ("verbose", VERBOSE)
+        ("info", INFO)
+        ("warning", WARNING)
+        ("error", ERROR);
+
+    log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
+
+    log_all = vmenv["debugging.log-all"].as<bool>();
 }
 
 
@@ -211,12 +211,16 @@ Environment::setEnvironmentVariables()
         throw std::logic_error("invalid environment variable");
     }
     nextsim_data_dir_env = fs::path(std::string(senv));
-}
+}//setEnvironmentVariables
+
 
 Communicator Environment::mpicomm;
 po::variables_map Environment::vmenv;
 fs::path Environment::nextsim_data_dir_env;
 fs::path Environment::nextsim_mesh_dir_env;
+std::string Environment::nextsim_mppfile;
+LogLevel Environment::log_level;
+bool Environment::log_all;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)
@@ -256,7 +260,6 @@ Environment::logMemoryUsage(std::string const& message)
               << " GB]\n" ;
 
     return mem;
-}
-
+}//logMemoryUsage
 
 } // Nextsim

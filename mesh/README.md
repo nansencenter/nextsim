@@ -15,7 +15,7 @@ The nextsim model expects a directory called $NEXTSIM_MESH_DIR to have:
    * Get the mpp files if you are outside nextsim/mesh:
      `ln -s [path to nextsim/mesh]/*.mpp .`
    * link all the meshes into that directory:
-     `nextsim/mesh/scripts/populate_with_mesh_links.sh [root mesh directory]`
+     `nextsim-env/data/process/link_meshes_for_nextsim.sh [root mesh directory]`
      where [root mesh directory] is the directory with copies of the meshes (eg /Data/sim/data/mesh on johansen)
    * `export NEXTSIM_MESH_DIR=[current directory]`
 

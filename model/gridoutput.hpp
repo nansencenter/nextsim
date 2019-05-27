@@ -18,6 +18,7 @@
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
+#include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
 
@@ -55,21 +56,56 @@ public:
         elemental  =  1
     };
 
+    enum interpMethod
+    {
+        meshToMesh = 0,
+        conservative = 1
+    };
+
     typedef struct Grid
     {
+        Grid() {}
+
+        Grid(std::string file, std::string lat, std::string lon, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), transpose(transp),
+                thetaName(""), interp_method(interpMethod::meshToMesh),
+                loaded(false)
+        {}
+
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
+                interp_method(interpMethod::meshToMesh),
+                loaded(false)
+        {}
+
+        Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
+            : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
+                loaded(false)
+        {}
+
+        interpMethod interp_method;
+
         std::string gridFile;
-        std::string dirname;
-        std::string mpp_file;
-        std::string dimNameX;
-        std::string dimNameY;
         std::string latName;
         std::string lonName;
+        std::string thetaName;
 
         bool loaded;
+        bool transpose;
+
+        std::string dimNameX;
+        std::string dimNameY;
         std::vector<double> gridLAT;
         std::vector<double> gridLON;
         std::vector<double> gridX;
         std::vector<double> gridY;
+
+        std::vector<double> gridTheta;
+        std::vector<double> gridCornerLat;
+        std::vector<double> gridCornerLon;
+        std::vector<double> gridCornerX;
+        std::vector<double> gridCornerY;
+
     } Grid;
 
     //////////////////////////////////////////////////////////////////////
@@ -84,6 +120,7 @@ public:
 
     enum variableID
     {
+        // Land-sea mask
         lsm         =  0,
 
         // Prognostic variables
@@ -102,6 +139,10 @@ public:
         h_thin      = 13,
         hs_thin     = 14,
         conc_thin   = 15,
+        fyi_fraction    = 16,
+        age_d       = 17,
+        age         = 18,
+        conc_upd    = 19,
 
         // Diagnostic variables
         Qa          = 100,
@@ -111,11 +152,42 @@ public:
         Qlh         = 104,
         Qo          = 105,
         delS        = 106,
+        rain        = 107,
+        evap        = 108,
+
+        // Forcing variables
+        tair        = 200,
+        sphuma      = 201,
+        mixrat      = 202,
+        d2m         = 203,
+        mslp        = 204,
+        Qsw_in      = 205,
+        Qlw_in      = 206,
+        tcc         = 207,
+        snowfall    = 208,
+        precip      = 209,
+        snowfr      = 210,
+        wind_x      = 211,
+        wind_y      = 212,
+
+        // WIM variables
+        dfloe       = 300,
+
+        // Coupling variables not already covered elsewhere
+        taux        = 901,
+        tauy        = 902,
+        taumod      = 903,
+        fwflux      = 904,
+        QNoSw       = 905,
+        QSwOcean    = 906,
+        saltflux    = 907,
+        fwflux_ice  = 908,
 
         // Non-output variables - all negative
         proc_mask   = -1,
         ice_mask    = -2
     };
+
 
     typedef struct Variable
     {
@@ -130,11 +202,13 @@ public:
         {
             switch (varID)
             {
+                // Land-sea mask
                 case (variableID::lsm):
                     name     = "lsm";
                     longName = "Land Sea Mask";
                     stdName  = "land_sea_mask";
                     Units    = "1";
+                    cell_methods = "area: point";
                     break;
 
                 // Prognostic variables
@@ -143,42 +217,49 @@ public:
                     longName = "Sea Ice Concentration";
                     stdName  = "sea_ice_area_fraction";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::thick):
                     name     = "sit";
                     longName = "Sea Ice Thickness";
                     stdName  = "sea_ice_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::damage):
                     name     = "damage";
                     longName = "Sea Ice Damage";
                     stdName  = "sea_ice_damage";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::snow):
                     name     = "snt";
                     longName = "Surface Snow Thickness";
                     stdName  = "surface_snow_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::VT_x):
                     name     = "siu";
                     longName = "Sea Ice X Velocity";
                     stdName  = "sea_ice_x_velocity";
                     Units    = "m s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::VT_y):
                     name     = "siv";
                     longName = "Sea Ice Y Velocity";
                     stdName  = "sea_ice_y_velocity";
                     Units    = "m s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tsurf):
                     name     = "ts";
                     longName = "Surface Temperature";
                     stdName  = "surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::sst):
@@ -186,6 +267,7 @@ public:
                     longName = "Sea Surface Temperature";
                     stdName  = "sea_surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::sss):
@@ -193,12 +275,14 @@ public:
                     longName = "Sea Surface Salinity";
                     stdName  = "sea_surface_salinity";
                     Units    = "1e-3";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::tsurf_ice):
                     name     = "tsi";
                     longName = "Sea Ice Surface Temperature";
                     stdName  = "sea_ice_surface_temperature";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::t1):
@@ -206,6 +290,7 @@ public:
                     longName = "Ice Temperature 1";
                     stdName  = "ice_temperature_1";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::t2):
@@ -213,6 +298,7 @@ public:
                     longName = "Ice Temperature 2";
                     stdName  = "ice_temperature_2";
                     Units    = "degree_Celsius";
+                    cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
                 case (variableID::conc_thin):
@@ -220,18 +306,49 @@ public:
                     longName = "Thin Ice Concentration";
                     stdName  = "thin_ice_area_fraction";
                     Units    = "1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::h_thin):
                     name     = "sit_thin";
                     longName = "Thin Ice Thickness";
                     stdName  = "thin_ice_thickness";
                     Units    = "m";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::hs_thin):
                     name     = "snt_thin";
                     longName = "Surface Snow Thickness on thin ice";
                     stdName  = "surface_snow_thickness_on_thin_ice";
                     Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fyi_fraction):
+                    name     = "fyi_fraction";
+                    longName = "First Year Ice Fraction";
+                    stdName  = "fyi_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age_d):
+                    name     = "sia_det";
+                    longName = "Detectable sea ice age";
+                    stdName  = "det_sea_ice_age";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::age):
+                    name     = "sia";
+                    longName = "Sea ice age";
+                    stdName  = "aea_ice_age";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_upd):
+                    name     = "conc_upd";
+                    longName = "conc_upd";
+                    stdName  = "conc_upd";
+                    Units    = "1";
+                    cell_methods = "area: mean";
                     break;
 
                 // Diagnostic variables
@@ -240,42 +357,234 @@ public:
                     longName = "Surface Upward Heat Flux In Air";
                     stdName  = "surface_upward_heat_flux_in_air";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qsw):
                     name     = "rss";
                     longName = "Surface Net Upward Shortwave Flux";
                     stdName  = "surface_net_upward_shortwave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qlw):
                     name     = "rls";
                     longName = "Surface Net Upward Longwave Flux";
                     stdName  = "surface_net_upward_longwave_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qsh):
                     name     = "hfss";
                     longName = "Surface Upward Sensible Heat Flux";
                     stdName  = "surface_upward_sensible_heat_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qlh):
                     name     = "hfsl";
                     longName = "Surface Upward Latent Heat Flux";
                     stdName  = "surface_upward_latent_heat_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::Qo):
                     name     = "hfos";
                     longName = "Surface Upward Heatflux In Ocean";
                     stdName  = "surface_upward_heatflux_in_ocean";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::rain):
+                    name     = "rain";
+                    longName = "Surface Ocean Liquid Precipitation";
+                    stdName  = "surface_ocean_liquid_precipitation";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
                     break;
                 case (variableID::delS):
                     name     = "sfo";
                     longName = "Downward Saltflux In Ocean";
                     stdName  = "downward_slatflux_in_ocean";
+                    Units    = "g m-2 day-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::evap):
+                    name     = "evap";
+                    longName = "Surface Ocean Evaporation";
+                    stdName  = "surface_ocean_evaporation";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+
+                // Coupling variables
+                case (variableID::taux):
+                    name     = "taux";
+                    longName = "Eastward Stress at Ocean Surface";
+                    stdName  = "eastward_stress_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauy):
+                    name     = "tauy";
+                    longName = "Northward Stress at Ocean Surface";
+                    stdName  = "northward_stress_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::taumod):
+                    name     = "taumod";
+                    longName = "Downward Stress Magnitude at Ocean Surface";
+                    stdName  = "downward_stress_magnitude_at_ocean_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fwflux):
+                    name     = "fwflux";
+                    longName = "Surface Net Downward Ocean Freshwater Flux";
+                    stdName  = "surface_net_downward_ocean_freshwater_flux";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fwflux_ice):
+                    name     = "fwflux_ice";
+                    longName = "Surface Ice Originating Downward Ocean Freshwater Flux";
+                    stdName  = "surface_ice_originating_downward_ocean_freshwater_flux";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::QNoSw):
+                    name     = "rsnos";
+                    longName = "Surface Net Downward Nonsolar Heatflux";
+                    stdName  = "surface_net_downward_nonsolar_heatflux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::QSwOcean):
+                    name     = "rsso";
+                    longName = "Ocean Net Downward Short Wave Flux";
+                    stdName  = "ocean_net_downward_short_wave_flux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::saltflux):
+                    name     = "sfi";
+                    longName = "Downward Sea Ice Basal Salt Flux";
+                    stdName  = "downward_sea_ice_basal_salt_flux";
+                    Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                //WIM variables
+                case (variableID::dfloe):
+                    name     = "dfloe";
+                    longName = "Maximum floe size";
+                    stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+
+                //forcing variables
+                case (variableID::tair):
+                    name     = "t2m";
+                    longName = "2 metre air temperature";
+                    stdName  = "2_metre_air_temperature";
+                    Units    = "C";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::sphuma):
+                    name     = "hus";
+                    longName = "specific humidity";
+                    stdName  = "specific_humidity";
+                    Units    = "kg/kg";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mixrat):
+                    name     = "mixrat";
+                    longName = "humidity mixing ratio";
+                    stdName  = "humidity_mixing_ratio";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::d2m):
+                    name     = "d2m";
+                    longName = "dew point temperature";
+                    stdName  = "dew_point_temperature";
+                    Units = "C";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mslp):
+                    name     = "psl";
+                    longName = "pressure at sea level";
+                    stdName  = "pressure_at_sea_level";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::Qsw_in):
+                    name     = "ssrd";
+                    longName = "downward shortwave radiation flux";
+                    stdName  = "surface_downwelling_shortwave_flux_in_air";
+                    Units    = "W/m^2";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::Qlw_in):
+                    name     = "strd";
+                    longName = "downward thermal radiation flux";
+                    stdName  = "surface_downwelling_longwave_flux_in_air";
+                    Units    = "W/m^2";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::tcc):
+                    name     = "tcc";
+                    longName = "total cloud cover";
+                    stdName  = "cloud_area_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::snowfall):
+                    name     = "sf";
+                    longName = "snowfall rate";
+                    stdName  = "snowfall_rate";
+                    Units    = "kg/m^2/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::snowfr):
+                    name     = "snowfr";
+                    longName = "fraction of precipitation that is snow";
+                    stdName  = "snow_fraction_of_precipitation";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::precip):
+                    name     = "tp";
+                    longName = "total precipitation rate";
+                    stdName  = "total_precipitation_rate";
+                    Units    = "kg/m^2/s";
+                    cell_methods = "area: mean";
+
+                case (variableID::wind_x):
+                    name     = "wndx";
+                    longName = "Wind X velocity";
+                    stdName  = "wind_x_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::wind_y):
+                    name     = "wndy";
+                    longName = "Wind Y velocity";
+                    stdName  = "wind_y_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
                     break;
 
                 // Non-output variables
@@ -284,6 +593,7 @@ public:
                     longName = "MPI Processor Mask";
                     stdName  = "mpi_proc_mask";
                     Units    = "1";
+                    cell_methods = "";
                     break;
 
                 case (variableID::ice_mask):
@@ -291,61 +601,112 @@ public:
                     longName = "Ice Mask";
                     stdName  = "ice_mask";
                     Units    = "1";
+                    cell_methods = "";
                     break;
 
+                default:
+                    throw std::logic_error("GridOutput::Grid: variableID not defined: "+std::to_string(varID)+"\n");
             }
         }
 
-        int varID;
+        variableID varID;
         std::string name;
         std::string longName;
         std::string stdName;
         std::string Units;
+        std::string cell_methods;
         bool mask;
 
         std::vector<double> data_mesh;
         std::vector<double> data_grid;
 
+#ifdef OASIS
+        int cpl_id;
+#endif
+
     } Variable;
 
     typedef struct Vectorial_Variable
     {
-        std::vector<int> components_Id;
-        bool east_west_oriented;
+        Vectorial_Variable() {}
+
+        Vectorial_Variable(std::pair<int,int> id)
+            : components_Id(id)
+        {}
+
+        std::pair<int,int> components_Id;
     } Vectorial_Variable;
+
+    typedef typename GmshMesh::bimap_type bimap_type;
 
     ///////////////////////////////////////////////////////////////////////
     // Constructors (and destructor)
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> variables, variableKind kind);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
-    GridOutput(GmshMesh const& mesh, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double averaging_period, bool false_easting);
 
-    GridOutput(GmshMesh const& mesh, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
+
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
+
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting,
+        BamgMesh* bamgmesh_root = NULL,
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+        Communicator const & comm = Environment::comm());
 
     ~GridOutput();
 
-    void setLSM(GmshMeshSeq const& mesh);
-    std::vector<double> getMask(GmshMeshSeq const &mesh, variableKind kind);
+    void setLSM(BamgMesh* bamgmesh);
 
-    void updateGridMean(GmshMesh const& mesh);
+    void updateGridMean(BamgMesh* bamgmesh);
     void resetGridMean();
-    void resetMeshMean(GmshMesh const& mesh);
-    std::string initNetCDF(std::string file_prefix, fileLength file_length, double current_time);
+    void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
+            const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
+    void resetMeshMean(BamgMesh* bamgmesh,
+            bool regrid = false,
+            int nb_local_el = 0,
+            bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
+            BamgMesh* bamgmesh_root = NULL);
+    std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
+            const double current_time, const bool append=false);
+    void createProjectionVariable(netCDF::NcFile &dataFile);
     void appendNetCDF(std::string filename, double timestamp);
+
+    // Return a mask
+    std::vector<int> const &getMask() const { return M_lsm; }
 
     int M_ncols;
     int M_nrows;
     double M_mooring_spacing;
+    double M_averaging_period;
     int M_grid_size;
+    bool M_false_easting;
     Grid M_grid;
     std::vector<Variable> M_nodal_variables;
     std::vector<Variable> M_elemental_variables;
@@ -353,37 +714,58 @@ public:
 
     double M_miss_val = -1e+14; // Must be smaller than any expected result
 
+    std::vector<int> const &getGridP() const { return M_gridP; }
+    std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
+    std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
+
+    void info();
+
 private:
 
     double M_xmin;
     double M_ymax;
 
-    std::vector<double> M_lsm_nodes;
-    std::vector<double> M_lsm_elements;
+    std::vector<int> M_lsm;
+    bool M_use_lsm;
 
-    int M_proc_mask_indx;
     int M_ice_mask_indx;
 
-    GridOutput(std::vector<Variable> variables, variableKind kind);
+    GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, double averaging_period, bool false_easting);
 
-    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables);
+    GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+            double averaging_period, bool false_easting);
 
-    void initRegularGrid(int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
+    void initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-    void initArbitraryGrid(Grid grid);
+    void initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
+            BamgMesh* bamgmesh_root = NULL,
+            bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
     void initMask();
 
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables);
-    void updateGridMeanWorker(int* indexTr, double* coordX, double* coordY, int numNodes, int numTriangles,
-        int source_size, std::vector<Variable>& variables, bool apply_mask, Variable mask);
+    void applyLSM();
 
-    void rotateVectors(GmshMesh const& mesh, Vectorial_Variable const& vectorial_variable, std::vector<Variable>& variables);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
 
-    size_t M_nc_step;
+    void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
+
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
+
+    void setProcMask(BamgMesh* bamgmesh, int nb_local_el);
+    std::vector<double> M_proc_mask;
+
+    Communicator M_comm;
+
+    void broadcastWeights(std::vector<int>& gridP,
+            std::vector<std::vector<int>>& triangles,
+            std::vector<std::vector<double>>& weights );
+
+    void stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
+        std::vector<double>& ps_x, std::vector<double>& ps_y);
 };
 } // Nextsim
 #endif // __GridOutput_H

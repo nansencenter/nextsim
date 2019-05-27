@@ -19,6 +19,15 @@ ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
 
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -lgfortran
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CHAN = MPI1
+	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+endif
+
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
@@ -38,6 +47,16 @@ CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+
+ifdef USE_ENSEMBLE
+	CXXFLAGS += -DENSEMBLE
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
+endif
+
+ifdef USE_AEROBULK
+		CXXFLAGS += -I $(AEROBULK_DIR)/include
+		CXXFLAGS += -DAEROBULK
+endif
 
 # openmpi
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
@@ -100,6 +119,16 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+
+ifdef USE_ENSEMBLE
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
+	LDFLAGS += -lgfortran
+endif
+
+ifdef USE_AEROBULK
+		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
+		LDFLAGS += -lgfortran
+endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))

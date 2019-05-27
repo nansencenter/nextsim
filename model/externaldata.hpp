@@ -12,13 +12,19 @@
 #include <environment.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToMesh2dx.h>
+#include <ConservativeRemapping.hpp>
 #include <netcdf>
 #include <dataset.hpp>
+#include "debug.hpp"
 
+#if defined ENSEMBLE 
+#include "ensemble.hpp"
+#endif
 
 /**
  * @class ExternalData
@@ -101,7 +107,7 @@ public:
 
 #if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, const int cpl_time);
+            std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt);
 #endif
 
     void transformData(Dataset *dataset);
@@ -115,7 +121,7 @@ public:
         mapx_class *mapNextsim);//(double const& u, double const& v)
     
 #if defined OASIS
-    void recieveCouplingData(Dataset *dataset, int cpl_time);
+    void recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
 	bool isInitialized() const { return M_initialized; }
@@ -139,6 +145,10 @@ private:
     double M_StartingTime;
     double M_SpinUpDuration;
     double M_factor;
+
+    LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim

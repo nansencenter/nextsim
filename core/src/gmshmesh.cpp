@@ -46,13 +46,11 @@ GmshMesh::GmshMesh(Communicator const& comm)
     //M_reorder_map_elements(),
     M_map_nodes(),
     M_map_elements(),
-    timer()
-{
-    M_mppfile = (boost::format( "%1%/%2%" )
-            % Environment::nextsimMeshDir().string()
-            % Environment::vm()["mesh.mppfile"].as<std::string>()
-            ).str();
-}
+    timer(),
+    M_mppfile(Environment::nextsimMppfile()),
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll())
+{}
 
 GmshMesh::GmshMesh(GmshMesh const& mesh)
     :
@@ -60,6 +58,8 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_version(mesh.M_version),
     M_ordering(mesh.M_ordering),
     M_mppfile(mesh.M_mppfile),
+    M_log_level(mesh.M_log_level),
+    M_log_all(mesh.M_log_all),
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
     M_edges(mesh.M_edges),
@@ -104,8 +104,7 @@ GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
 void
 GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format)
 {
-    if (M_comm.rank() == 0)
-        std::cout<<"Reading Msh file "<< gmshmshfile <<"\n";
+    LOG(DEBUG)<<"Reading Msh file "<< gmshmshfile <<"\n";
 
     std::ifstream ifs ( gmshmshfile.c_str() );
 
@@ -133,8 +132,8 @@ GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format
     timer["in.nodal"].first.restart();
     if (M_comm.size() > 1)
         this->nodalGrid();
-    if (M_comm.rank() == 0)
-        std::cout<<"-------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+
+    LOG(DEBUG)<<"-------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
 }
 
 void
@@ -151,12 +150,9 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
         int format, size;
         ifs >> theversion >> format >> size;
 
-        if (M_comm.rank() == 0)
-        {
-            std::cout << "GMSH mesh file version : " << theversion
-                      << " format: " << (format?"binary":"ascii")
-                      << " size of double: " << size << "\n";
-        }
+        LOG(DEBUG) << "GMSH mesh file version : " << theversion
+                  << " format: " << (format?"binary":"ascii")
+                  << " size of double: " << size << "\n";
 
         ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
 
@@ -168,8 +164,7 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
         ifs >> buf;
 
-        if (M_comm.rank() == 0)
-            std::cout << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
+        LOG(DEBUG) << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
 
         if ( std::string( buf ) == "$PhysicalNames" )
         {
@@ -186,8 +181,7 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
                 boost::trim( name );
                 boost::trim_if( name,boost::is_any_of( "\"" ) );
 
-                if (M_comm.rank() == 0)
-                    std::cout << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
+                LOG(DEBUG) << "[gmshmesh::reading] topodim: "  << topodim << " id: " << id << " name: " << name << "\n";
 
                 std::vector<int> marker_data = {id, topodim};
                 M_marker_names.insert(std::make_pair(name,marker_data));
@@ -209,7 +203,7 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
             std::string( buf ) == "$Nodes" ||
             std::string( buf ) == "$ParametricNodes") )
     {
-        std::cout<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
+        LOG(WARNING)<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( buf ) == "$ParametricNodes" );
@@ -221,8 +215,7 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     M_global_num_nodes_from_serial = M_num_nodes;
 
     //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
-    if (M_comm.rank() == 0)
-        std::cout << "Reading "<< __n << " nodes\n";
+    LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes_vec.resize(__n);
     std::vector<double> coords(3,0);
@@ -260,8 +253,7 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     M_global_num_elements_from_serial = numElements;
     //M_global_num_elements_from_serial = 0;
 
-    if (M_comm.rank() == 0)
-        std::cout << "Reading " << numElements << " elements...\n";
+    LOG(DEBUG) << "Reading " << numElements << " elements...\n";
     //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
     std::map<int,int> __gt;
 
@@ -431,13 +423,10 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         int format, size;
         ifs >> theversion >> format >> size;
 
-        if (M_comm.rank() == 0)
-        {
-            // std::cout << "GMSH mesh is in binary format\n";
-            std::cout << "GMSH mesh file version : " << theversion
-                      << " format: " << (format?"binary":"ascii")
-                      << " size of double: " << size << "\n";
-        }
+        // std::cout << "GMSH mesh is in binary format\n";
+        LOG(DEBUG) << "GMSH mesh file version : " << theversion
+                  << " format: " << (format?"binary":"ascii")
+                  << " size of double: " << size << "\n";
 
         ASSERT(boost::lexical_cast<double>( theversion ) >= 2, "Nextsim supports only Gmsh version >= 2");
 
@@ -453,10 +442,10 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         if(one != 1)
         {
             swap = true;
-            std::cout << "one before swap : " << one << "\n";
+            LOG(DEBUG) << "one before swap : " << one << "\n";
             if(swap) SwapBytes((char*)&one, sizeof(int), 1);
-            std::cout << "one after swap : " << one << "\n";
-            std::cout <<"Swapping bytes from binary file (to be done)\n";
+            LOG(DEBUG) << "one after swap : " << one << "\n";
+            LOG(DEBUG) <<"Swapping bytes from binary file (to be done)\n";
         }
         // ----------------------------------------------------------------------
 
@@ -466,8 +455,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
         ifs >> buf;
 
-        if (M_comm.rank() == 0)
-            std::cout << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
+        LOG(DEBUG) << "[gmshmesh::reading] " << buf << " (expect $PhysicalNames)\n";
 
     }
 
@@ -479,7 +467,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             std::string( buf ) == "$Nodes" ||
             std::string( buf ) == "$ParametricNodes") )
     {
-        std::cout<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
+        LOG(WARNING)<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( buf ) == "$ParametricNodes" );
@@ -494,8 +482,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     M_global_num_nodes_from_serial = M_num_nodes;
 
     //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
-    if (M_comm.rank() == 0)
-        std::cout << "Reading "<< __n << " nodes\n";
+    LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes_vec.resize(__n);
     std::vector<double> coords(3,0);
@@ -537,8 +524,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     M_global_num_elements_from_serial = numElements;
 
-    if (M_comm.rank() == 0)
-        std::cout << "Reading " << numElements << " elements...\n";
+    LOG(DEBUG) << "Reading " << numElements << " elements...\n";
 
     std::map<int,int> __gt;
 
@@ -1060,12 +1046,11 @@ GmshMesh::nodalGrid()
 
     this->allGather(M_local_dof_without_ghost, renumbering, num_nodes);
 
-    std::cout<<"num_nodes = "<< num_nodes <<"\n";
+    LOG(DEBUG)<<"num_nodes = "<< num_nodes <<"\n";
 
     if (M_num_nodes != num_nodes)
     {
-        if (M_comm.rank() == 0)
-            std::cout<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
+        LOG(DEBUG)<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
     }
 
     // check the nodal partition starts
@@ -1334,8 +1319,7 @@ GmshMesh::nodalGrid()
 
     if (M_global_num_elements_from_serial != num_elements)
     {
-        if (M_comm.rank() == 0)
-            std::cout<<"---------------------------------------Post-processing needed for element mesh partition: "<< M_global_num_elements_from_serial <<" != "<< num_elements <<"\n";
+        LOG(DEBUG)<<"---------------------------------------Post-processing needed for element mesh partition: "<< M_global_num_elements_from_serial <<" != "<< num_elements <<"\n";
     }
 
 
@@ -1380,14 +1364,11 @@ GmshMesh::nodalGrid()
                             all_trs.begin(), all_trs.end(),
                             std::back_inserter(diff_trs));
 
-        if (M_comm.rank() == 0)
-        {
-            std::cout<<"---------------------------------------MISSING ELEMENTS= \n";
+        LOG(DEBUG)<<"---------------------------------------MISSING ELEMENTS= \n";
 
-            for (int i=0; i<diff_trs.size(); ++i)
-            {
-                std::cout<<"                                                         ---IDS["<< i <<"]= "<< diff_trs[i] <<"\n";
-            }
+        for (int i=0; i<diff_trs.size(); ++i)
+        {
+            LOG(DEBUG)<<"                                                         ---IDS["<< i <<"]= "<< diff_trs[i] <<"\n";
         }
     }
     // --------------------------------END-------------------------------
