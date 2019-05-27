@@ -4381,8 +4381,8 @@ FiniteElement::calcCohesion()
     
     for (int i=0; i<M_Compressive_strength.size(); ++i)
         M_Compressive_strength[i] = compr_strength*scale_coef;
-}//calcCohesion
 
+}//calcCohesion
 
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
@@ -4673,54 +4673,36 @@ FiniteElement::update()
             sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        //* REMOVE THIS: SHOULD NOT NEED TO SCALE COHESION ACCORDING TO THICKNESS OF ICE
-        //double mult_factor = std::pow(hi/norm_factor,exponent)*(1. + M_ridge_ratio[cpt]*(ridge_to_normal_cohesion_ratio-1.) );
+            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
+            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* minimum and maximum normal stress */
 
-        //double effective_cohesion = (1.0-old_damage) * M_Cohesion[cpt];
-        //double effective_compressive_strength = (1.0-old_damage) * M_Compressive_strength[cpt];
-        double effective_cohesion = 1.0 * M_Cohesion[cpt];
-        double effective_compressive_strength = 1.0 * M_Compressive_strength[cpt];
-            
-        sigma_c=2.*effective_cohesion/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
-        tract_max=-tract_coef*effective_cohesion/tan_phi; /* minimum and maximum normal stress */
-            
-        
-        /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent") {
-             td = std::min(t_damage*pow(1-old_damage,-0.5), dtime_step);
-            }
-            
-            
-        /* Calculate the adjusted level of damage */
-           
-            if(sigma_n>effective_compressive_strength)
-        {
-            sigma_target=effective_compressive_strength;
-            tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
-            
-            if(tmp>M_damage[cpt])
-            {
-                M_damage[cpt] = min(tmp, 1.0);
-            }
-        }
-
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target = sigma_c;
-            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*time_step/td + 1.0);
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            if(sigma_n>M_Compressive_strength[cpt])
+            {
+                sigma_target=M_Compressive_strength[cpt];
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
+
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
@@ -4741,28 +4723,27 @@ FiniteElement::update()
                     M_damage[cpt] = min(tmp, 1.0);
                 }
             }
-        }
 
-        if(sigma_n<tract_max)
-        {
-            sigma_target = tract_max;
-            tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-            }
-            
-            if(tmp>M_damage[cpt])
+            if(sigma_n<tract_max)
             {
-                M_damage[cpt] = min(tmp, 1.0);
+                sigma_target = tract_max;
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
             }
-        }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.

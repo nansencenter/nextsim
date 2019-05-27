@@ -308,12 +308,6 @@ namespace Nextsim
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
-            // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
-            ("dynamics.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
-            ("dynamics.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
-            // - scaling with respect to horizontal resolution
-            // Calculated depending on resolution
-            // ("dynamics.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
