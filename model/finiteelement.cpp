@@ -3906,21 +3906,18 @@ FiniteElement::assemble(int pcpt)
     {
 
         // total thickness and concentration
-        double total_concentration=M_conc[cpt];
         double total_thickness=M_thick[cpt];
         double total_snow=M_snow_thick[cpt];
 
         // Add the thin ice concentration and thickness
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            total_concentration += M_conc_thin[cpt];
             total_thickness     += M_h_thin[cpt];
             total_snow          += M_hs_thin[cpt];
         }
 
         // Limits to avoid very small values
         total_thickness =       (vm["dynamics.min_h"].as<double>()>total_thickness)        ? vm["dynamics.min_h"].as<double>() : total_thickness;
-        total_concentration =   (vm["dynamics.min_c"].as<double>()>total_concentration)    ? vm["dynamics.min_c"].as<double>() : total_concentration;
 
         double coef_min = 100.;
 
@@ -4496,16 +4493,8 @@ FiniteElement::update()
             double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
 
             M_conc[cpt] *= surf_ratio;
-            // Limit the ice thickness to below 10 m --- THIS IS A TEMPORARY FIX ONLY!!!
-            // if ( M_thick[cpt]*surf_ratio < 10. )
-            // {
-                M_thick[cpt] *= surf_ratio;
-                M_snow_thick[cpt] *= surf_ratio;
-            // }
-            // else
-            // {
-            //     LOG(WARNING) << "Keeping M_thick at " << M_thick[cpt] << " instead of the predicted value of " << M_thick[cpt]*surf_ratio << "\n";
-            // }
+            M_thick[cpt] *= surf_ratio;
+            M_snow_thick[cpt] *= surf_ratio;
 
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;

@@ -304,7 +304,7 @@ namespace Nextsim
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
-            ("dynamics.min_h", po::value<double>()->default_value( 0.3 ), "")
+            ("dynamics.min_h", po::value<double>()->default_value( 0.5 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.3 ), "")
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
