@@ -390,7 +390,7 @@ namespace Nextsim
              "Exponent of factor for heat flux that compensates assimilation of concentration")
 
 #ifdef AEROBULK
-            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim |ÃÂÃÂÃÂÃÂ coare (default) |ÃÂÃÂÃÂÃÂ coare3.5 |ÃÂÃÂÃÂÃÂ ncar |ÃÂÃÂÃÂÃÂ ecmwf ]")
 #endif
 
              //-----------------------------------------------------------------------------------
@@ -440,9 +440,16 @@ namespace Nextsim
             ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ), "File containing neccesary grid information for coupling.")
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            //-----------------------------------------------------------------------------------
+            //!wave_coupling
+            //-----------------------------------------------------------------------------------
+            // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
             ("wave_coupling.fsd_bins_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
-            // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            // Rheology related (careful to agree with WW3 !!)
+            ("wave_coupling.flex_strength", po::value<double>()->default_value( 0.27e6 ), "Value used in Williams et al. 2013")
+            ("wave_coupling.welding_switch", po::value<bool>()->default_value( true ), "activate/unactivate welding")
 #endif
 
 #if defined(WAVES)
