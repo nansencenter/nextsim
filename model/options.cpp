@@ -42,7 +42,7 @@ namespace Nextsim
                 "Start date/time of simulation. Formats: yyyy-mm-dd, yyyy-mm-dd HH:MM:SS; can also use 3 letter month name for 'mm' eg Mar for March")
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
-            ("simul.timestep", po::value<double>()->default_value( 400. ), "Model timestep in seconds.")
+            ("simul.timestep", po::value<double>()->default_value( 200. ), "Model timestep in seconds.")
             ("simul.thermo_timestep", po::value<double>()->default_value( 3600. ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ),
                 "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
@@ -263,6 +263,8 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -271,6 +273,12 @@ namespace Nextsim
 
             // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
             ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
+            // - Scaling of cohesion w.r.t. ice thickness (normalisation factor = 1 and exponent = 0 does nothing)
+            ("dynamics.cohesion_thickness_normalisation", po::value<double>()->default_value( 1. ), "")
+            ("dynamics.cohesion_thickness_exponent", po::value<double>()->default_value( 1. ), "")
+            // - scaling with respect to horizontal resolution
+            // Calculated depending on resolution
+            // ("dynamics.scale_coef", po::value<double>()->default_value( 0.1 ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
