@@ -4438,17 +4438,6 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
 
-        /* divergence */
-        double divergence_rate;
-
-        /* shear*/
-        double shear_rate;
-
-        // ridging scheme
-        double delta_ridging;
-        double G_star=0.15;
-        double e_factor=2.;
-
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
@@ -4481,23 +4470,15 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-        divergence_rate = (epsilon_veloc[0]+epsilon_veloc[1]);
-        shear_rate= std::hypot(epsilon_veloc[0]-epsilon_veloc[1],epsilon_veloc[2]);
-        delta_ridging= std::hypot(divergence_rate,shear_rate/e_factor);
-
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
-        // We update only elements which have deformed. Not strictly neccesary, but may improve performance.
-        bool to_be_updated=false;
-        if( divergence_rate!=0.)
-            to_be_updated=true;
-
         /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
+        bool to_be_updated=true;
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
@@ -4531,24 +4512,9 @@ FiniteElement::update()
 
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
             open_water_concentration -= M_conc_thin[cpt];
-        }
 
-        // ridging scheme
-        double opening_factor=((1.-M_conc[cpt])>G_star) ? 0. : std::pow(1.-(1.-M_conc[cpt])/G_star,2.);
-
-        // limit open_water concentration to 0.
-        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
-
-        // opening factor set to 0 for viscous case.
-        opening_factor=(young>0.) ? opening_factor : 0.;
-
-        //open_water_concentration += time_step*0.5*(delta_ridging-divergence_rate)*opening_factor;
-        open_water_concentration += time_step*0.5*shear_rate/e_factor*opening_factor;
-
-        // limit open_water concentration to 1.
-        open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
+        assert( open_water_concentration>=0. || open_water_concentration<=1. );
 
         /* Thin ice category */
         double new_conc_thin=0.;
