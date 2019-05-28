@@ -1361,7 +1361,8 @@ FiniteElement::initOptAndParam()
     M_fsd_bin_widths= vm["wave_coupling.fsd_bins_width"].as<double>();
     M_flex_strength = vm["wave_coupling.flex_strength"].as<double>();
     M_welding_switch= vm["wave_coupling.welding_switch"].as<bool>();
-
+    M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
+    M_dmax_c_threshold= vm["wave_coupling.dmax_c_threshold"].as<double>();
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
@@ -5631,6 +5632,10 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
+                    if (M_num_fsd_bins>1)
+                    {
+                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
+                    }
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -5650,6 +5655,10 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+                    if (M_num_fsd_bins>1)
+                    {
+                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
+                    }
                     break;
                 case 3:
                 { 
@@ -5766,15 +5775,7 @@ FiniteElement::thermo(int dt)
                /*FSD : initialize a vector for ulterior redistribution  */
                std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
 
-               /* If lateral melt occured without having defined a lateral rate melt, then compute an equivalent rate melt */
-//               if ( (del_c_fsd<0.) && (lat_melt_rate==0.) )
-//               {   
-//                   double sum_fsd_lat_melt=M_conc_fsd[0][i] / M_fsd_bin_widths ;
-//
-//                   for(int m=0; m<M_num_fsd_bins-1;m++)
-//                       sum_fsd_lat_melt+= 2. * fsd_init[m] * ( 1./M_fsd_bin_centres[m] );
-//                   lat_melt_rate = del_c_fsd / ddt * sum_fsd_lat_melt ; 
-//               }
+
                if ( abs(lat_melt_rate)>0. ) // So far, it is only the case for lat. melt, but same equation applies to lat. growth 
                {
                    /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
@@ -5927,10 +5928,9 @@ FiniteElement::thermo(int dt)
                 c_fsd_broken += M_conc_fsd[j][i] ;
             if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
             {
-                 double c_mrg =0.01          ; // called beta in  Roach et al. (2018) TODO : put in namelist
                  double unbroken_area_loss=0.; 
                  // time step limitations for merging
-                 double stability = ddt * c_mrg * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
+                 double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
                  int ndt_mrg = std::round(stability+0.5) ; // round up                        
                  double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
                  std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
@@ -5979,13 +5979,13 @@ FiniteElement::thermo(int dt)
                          }
                      } 
                      coag_neg[0]=0. ; // no gain of area for the smallest bin
-                     tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * c_mrg *(coag_pos[0]-coag_neg[0]) ;
+                     tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
                      for (int m=1; m<M_num_fsd_bins;m++)
                      {
                          coag_neg[m]     = coag_pos[m-1] ;
-                         tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * c_mrg *(coag_pos[m]-coag_neg[m]) ;
+                         tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
                      }
-                     unbroken_area_loss =  unbroken_area_loss + subdt*c_mrg*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
+                     unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
                  
                      // SAFETY CHECK
                      for (int m=0; m<M_num_fsd_bins;m++)
@@ -6000,10 +6000,10 @@ FiniteElement::thermo(int dt)
                              crash = true ;
                              crash_msg << "FSD cat conc > 1. " <<" \n" ;
                          }
-                         if ( subdt * c_mrg *coag_pos[m]<0.)
+                         if ( subdt * M_welding_kappa *coag_pos[m]<0.)
                          {
                              crash = true ;
-                             crash_msg << "Negative wielding ! :"<< subdt * c_mrg *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                             crash_msg << "Negative wielding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
                          }
                          if(crash)
                          {
@@ -7522,23 +7522,23 @@ FiniteElement::updateIceDiagnostics()
         sigma_n =          - (sigma[0]+sigma[1])/2.;
         D_sigma[0][i] = sigma_n+sigma_s;
         D_sigma[1][i] = sigma_n-sigma_s;
-        
+        // FSD relative parameters
         D_dmean[i] = 0. ;
         D_dmax[i]  = 0. ;
-        // FSD relative parameters
+#if defined (OASIS)  
         if (M_num_fsd_bins>0)
         {   
             if (D_conc[i]>0)
             {
                 D_dmax[i]=1000.;
                 D_dmean[i]=1000.;
-                if (M_conc_fsd[M_num_fsd_bins-1][i]<0.05*D_conc[i])
+                if (M_conc_fsd[M_num_fsd_bins-1][i]<M_dmax_c_threshold*D_conc[i])
                 {
                     double ctot_fsd = M_conc_fsd[M_num_fsd_bins-1][i];
                     for(int j=M_num_fsd_bins-2;j>-1;j--)
                     {
                         ctot_fsd += M_conc_fsd[j][i] ;
-                        if (ctot_fsd>0.05*D_conc[i])
+                        if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
                         {   
                             D_dmax[i]=M_fsd_bin_up_limits[j]   ;
                             break ;
@@ -7553,6 +7553,7 @@ FiniteElement::updateIceDiagnostics()
                 }
             }
         }
+#endif
     }
 }
 

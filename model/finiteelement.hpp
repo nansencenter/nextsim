@@ -767,8 +767,11 @@ private:
     std::vector<double> M_fsd_area_lims_scaled     ;
 
     std::vector<std::vector<int> > M_alpha_fsd_merge ;
+    // In namelist
     double M_flex_strength    ;
+    double M_welding_kappa    ;
     bool M_welding_switch    ;
+    double M_dmax_c_threshold  ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     double M_lead_width    ;
 

@@ -450,6 +450,8 @@ namespace Nextsim
             // Rheology related (careful to agree with WW3 !!)
             ("wave_coupling.flex_strength", po::value<double>()->default_value( 0.27e6 ), "Value used in Williams et al. 2013")
             ("wave_coupling.welding_switch", po::value<bool>()->default_value( true ), "activate/unactivate welding")
+            ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
+            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value. By default, dmax is the size associated with the 9th decile of sea ice")
 #endif
 
 #if defined(WAVES)
