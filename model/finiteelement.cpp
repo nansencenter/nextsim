@@ -7556,7 +7556,7 @@ FiniteElement::updateIceDiagnostics()
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
                     {   
-                        D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j] ; // ONLY WORKS WITH CST width 
+                        D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ; // ONLY WORKS WITH CST width 
                     }
             
                 }
