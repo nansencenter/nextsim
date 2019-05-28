@@ -235,6 +235,45 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
+
+            // add synoptic perturbations on the wind field here
+            // can be done as M_dataset.perturb()
+#ifdef ENSEMBLE
+            int M_full  = M_dataset->grid.dimension_y_count_netcdf;
+            int N_full  = M_dataset->grid.dimension_x_count_netcdf;
+            int MN_full = M_full*N_full;
+
+            LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
+            if ( M_comm.rank() == 0 )
+            LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
+
+            ensemble perturbation;
+            std::string forcing_name="asr_nodes";
+            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0) //remove this when generalized to ECMWF
+            {
+                M_comm.barrier();
+                LOG(DEBUG) << "### Rank: " << M_comm.rank() << " of " << M_comm.size() << ".\n";
+                if (M_comm.rank() == 0) {
+                    for(int ranstep=0; ranstep<2; ranstep++) {
+                        if (ranstep == 0 ) {
+                           perturbation.synopticPerturbation(ranstep);
+                        }
+                        perturbation.addPerturbation(
+                                M_dataset->variables[0].loaded_data[ranstep], M_dataset->variables[1].loaded_data[ranstep], MN_full, ranstep);
+                    }
+                }
+                M_comm.barrier();
+                for(int ii=0; ii<2; ii++) {
+                    for(int jj=0; jj<2; jj++) {
+                        boost::mpi::broadcast(M_comm, & M_dataset->variables[ii].loaded_data[jj][0], MN_full, 0);
+                    }
+                }
+                double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
+            }
+#endif
+
             this->transformData(M_dataset);
             LOG(DEBUG) << "Done\n";
 

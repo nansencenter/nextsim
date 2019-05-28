@@ -53,6 +53,8 @@ namespace Nextsim
 
             ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
+            ("debugging.gmsh_verbose", po::value<int>()->default_value( 0 ),
+                 "Gmsh verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
             ("debugging.log-all", po::value<bool>()->default_value( false ),

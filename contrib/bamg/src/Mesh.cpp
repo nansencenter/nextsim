@@ -2915,7 +2915,7 @@ namespace bamg {
 					vertices[nbv++].m = bv.m;
 				}
 			}
-			if(pointsoutside) _printf_("WARNING: One or more points of the initial mesh fall outside of the geometric boundary\n");
+			if(pointsoutside && verbose>0) _printf_("WARNING: One or more points of the initial mesh fall outside of the geometric boundary\n");
 			Bh.CreateSingleVertexToTriangleConnectivity();
 			InsertNewPoints(nbvold,NbTSwap,bamgopts->random);
 		}
@@ -4219,7 +4219,6 @@ namespace bamg {
 
 		int i;
 		for (i=0;i<Gh.nbv;i++) if (Gh[i].Required()) NbVerticesOnGeomVertex++;
-		printf("\n");
 		if(NbVerticesOnGeomVertex >= maxnbv){
 			_error_("too many vertices on geometry: " << NbVerticesOnGeomVertex << " >= " << maxnbv);
 		}

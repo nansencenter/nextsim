@@ -48,6 +48,12 @@ CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
 CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+
+ifdef USE_ENSEMBLE
+	CXXFLAGS += -DENSEMBLE
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
+endif
+
 ifdef USE_AEROBULK
 		CXXFLAGS += -I $(AEROBULK_DIR)/include
 		CXXFLAGS += -DAEROBULK
@@ -116,6 +122,12 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+
+ifdef USE_ENSEMBLE
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
+	LDFLAGS += -lgfortran
+endif
+
 ifdef USE_AEROBULK
 		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
 		LDFLAGS += -lgfortran

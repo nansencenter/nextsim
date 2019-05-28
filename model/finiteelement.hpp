@@ -792,6 +792,7 @@ private:
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
+    ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
     ModelVariable D_dmax; //max floe size [m]
     ModelVariable D_dmean; //mean floe size [m]

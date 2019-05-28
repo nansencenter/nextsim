@@ -435,6 +435,14 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_fwflux_ice):
+            // Freshwater flux at the surface due to ice processes [kg/m^2/s]
+            M_name = "D_fwflux_ice";
+            M_export_name = "D_fwflux_ice";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_brine):
             // Brine release - kg/m^2/s
             M_name = "D_brine";
