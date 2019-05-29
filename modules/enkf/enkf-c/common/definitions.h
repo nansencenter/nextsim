@@ -89,8 +89,8 @@
 #define ENSOBSTYPE float
 #define MPIENSOBSTYPE MPI_FLOAT
 
-#define STATE_BIGNUM 1.0e3
-#define STD_BIG 1.0e10
+#define STATE_BIGNUM 1.0e15
+#define STD_BIG 1.0e15
 
 #define ALLOCTYPE_NONE -1
 #define ALLOCTYPE_1D    0
