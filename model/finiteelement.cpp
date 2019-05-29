@@ -4890,7 +4890,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     {
         case schemes::specificHumidity::ATMOSPHERE:
             if ( M_sphuma.isInitialized() )
-                return std::make_pair(M_sphuma[i], 0.);
+                return std::make_pair(std::max(0., M_sphuma[i]), 0.);
             else if ( M_mixrat.isInitialized() )
                 return std::make_pair(M_mixrat[i]/(1.+M_mixrat[i]), 0.);
             // We know temp = M_dair[i]
@@ -5252,6 +5252,10 @@ FiniteElement::thermo(int dt)
 
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            // ice-ocean flux doesn't depend on ice properties
+            Qio_thin = Qio;
+
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
         switch ( M_thermo_type )
@@ -5611,6 +5615,9 @@ FiniteElement::thermo(int dt)
         // Freshwater balance at the surface - kg/m^2/s
         D_fwflux[i] = -1./ddt * ( emp
                  + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+
+        // Freshwater flux at the surface due to ice processes - kg/m^2/s
+        D_fwflux_ice[i] = D_fwflux[i] + 1./ddt * emp;
 
         // Brine release - kg/m^2/s
         D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
@@ -6469,6 +6476,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qsw_ocean);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
+    D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
+    M_variables_elt.push_back(&D_fwflux_ice);
     D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
     M_variables_elt.push_back(&D_Qassim);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
@@ -7323,6 +7332,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_precip[i]*time_factor;
                 break;
+            case (GridOutput::variableID::fwflux_ice):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
+                break;
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
@@ -7521,6 +7534,7 @@ FiniteElement::initMoorings()
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("fwflux", GridOutput::variableID::fwflux)
+            ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
             ("saltflux", GridOutput::variableID::saltflux)
             // Forcing

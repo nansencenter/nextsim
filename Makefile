@@ -8,12 +8,12 @@
 all: contrib modules model core
 
 contrib:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE)
 
 modules:
 ifdef USE_OASIS
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
 endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make
@@ -22,10 +22,10 @@ ifdef USE_ENSEMBLE
 endif
 
 model: core
-	@cd $(NEXTSIMDIR)/model; make;
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
 core:
-	@cd $(NEXTSIMDIR)/core/src; make
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
@@ -37,15 +37,15 @@ clean: cleanmodel
 	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; make clean
 
 cleanmodel:
-	@cd $(NEXTSIMDIR)/model; make clean;
+	@cd $(NEXTSIMDIR)/model; $(MAKE) clean;
 
 mrproper: clean
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make mrproper
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make mrproper
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make mrproper
-	@cd $(NEXTSIMDIR)/core/src; make mrproper
-	@cd $(NEXTSIMDIR)/model; make mrproper
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
 	rm -r objs  || true
 	rm -r lib   || true
 	rm -r .deps || true
