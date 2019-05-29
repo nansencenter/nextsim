@@ -1,4 +1,4 @@
 PRODUCT = SMOS
-READER = standard
+READER = standard2
 TYPE = sea_ice_thickness
-FILE = obs/SMOS/SMOS_Icethickness_v3.1_north_20190415_single.nc
+#FILE = /Data/sim/data/SMOS_ice_thickness_v3/SMOS_Icethickness_v3.1_north_20160930.nc

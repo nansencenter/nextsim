@@ -1,7 +1,7 @@
 name = sea_ice_thickness
-issurface = 0
+issurface = 1
 var = sit
 hfunction = standard
-minvalue = -1
-maxvalue = 5
+minvalue = 0
+maxvalue = 10
 

@@ -1,7 +1,7 @@
-NAME = t-grid
+NAME = reference_grid
 VTYPE = z
 MAPTYPE = k
-DATA = conf/reference_grid.nc
+DATA = reference_grid.nc
 XVARNAME = plon
 YVARNAME = plat
 ZVARNAME = ZCOOR
