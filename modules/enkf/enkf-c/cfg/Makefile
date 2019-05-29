@@ -13,13 +13,13 @@ pointlogs: pointlogs-calc pointlogs-update
 
 global: clean enkf-prep enkf-calc-global enkf-update-global
 
-enkf-prep: enkf_prep conf obs enkf.prm
-	./enkf_prep enkf.prm 2>&1 | tee prep.out
+enkf-prep: enkf_prep obs enkf.prm
+	./enkf_prep --no-superobing enkf.prm 2>&1 | tee prep.out
 
-enkf-calc: enkf_calc observations.nc conf prior
-	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --ignore-no-obs enkf.prm 2>&1 | tee calc.out
+enkf-calc: enkf_calc observations.nc prior
+	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --use-rmsd-for-obsstats --ignore-no-obs enkf.prm 2>&1 | tee calc.out
 
-enkf-update: enkf_update X5.nc conf prior
+enkf-update: enkf_update X5.nc prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --calculate-spread enkf.prm 2>&1 | tee update.out
 
 enoi-prep: enkf_prep conf obs enoi.prm
@@ -37,8 +37,11 @@ stats-prep: enkf_prep conf obs stats.prm
 stats-calc: enkf_calc observations.nc conf background_6565
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --forecast-stats-only stats.prm 2>&1 | tee calc.out
 
-singleob-calc: enkf_calc prior
-	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 30 50 0 sea_ice_thickness 0.5 0.5 singleob.prm 2>&1 | tee calc.out
+#singleob-calc: clean enkf_calc prior
+#	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 100 60 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
+#
+singleob-calc: clean enkf_calc prior
+	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-xyz .5 .5 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
 
 singleob-update: enkf_update prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --output-increment singleob.prm 2>&1 | tee update.out
@@ -69,5 +72,5 @@ enkf-update-global: enkf_update X5.nc conf prior
 #	cp ../../bin/enkf_update .
 
 clean:
-	@rm -f X5*.nc w*.nc enkf_diag*.nc badbatches.txt observations*.nc *.out prior/*.analysis* prior/*.increment* prior/*-???.nc background_6565/*.analysis* background_6565/*.increment* prior/ens_*-???.nc background_6565/bg_*-???.nc *.nc pointlogs.prm
+	@rm -f X5*.nc w*.nc enkf_diag*.nc badbatches.txt observations*.nc *.out prior/*.analysis* prior/*.increment* prior/*-???.nc background_6565/*.analysis* background_6565/*.increment* prior/ens_*-???.nc background_6565/bg_*-???.nc pointlogs.prm
 	@rm -rf .enkftmp
