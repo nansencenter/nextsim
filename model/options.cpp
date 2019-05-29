@@ -445,6 +445,7 @@ namespace Nextsim
 
 #if defined(ENSEMBLE)
             ("statevector.use_statevector", po::value<bool>()->default_value( false ), "do we use statevector (netcdf output to grid)?")
+            ("statevector.id", po::value<int>()->default_value( 1 ), "id of ensemble member")
             ("statevector.grid_type", po::value<std::string>()->default_value( "reference" ), "[reference|regular|from_file] for regular spaced grid or grid read in from the file statevector.grid_file (default: reference)")
             ("statevector.snapshot", po::value<bool>()->default_value( true ), "do we output snapshots in time or do we use time-averaging?")
             ("statevector.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly statevector files; or inf (single file)")

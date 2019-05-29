@@ -1383,6 +1383,7 @@ FiniteElement::initOptAndParam()
 
 #ifdef ENSEMBLE
     M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_id_statevector               = vm["statevector.id"].as<int>(); //! \param M_use_statevector (boolean) Option on the use of statevector
     M_statevector_prefix           = vm["statevector.prefix"].as<std::string>();
     M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
     M_statevector_snapshot         = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records

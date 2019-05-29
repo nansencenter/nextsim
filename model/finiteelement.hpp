@@ -866,16 +866,17 @@ private:
     void checkFields();
 
 #ifdef ENSEMBLE
-    int statevector_output_time_step;
+    int    statevector_output_time_step;
     double statevector_time_factor;
-    bool M_use_statevector;
-    bool M_statevector_snapshot;
-    bool M_statevector_parallel_output;
+    bool   M_use_statevector;
+    int    M_id_statevector;
+    bool   M_statevector_snapshot;
+    bool   M_statevector_parallel_output;
     std::string M_statevector_file;
     std::string M_statevector_prefix;
     GridOutput::fileLength M_statevector_file_length;
     GridOutput M_statevector;
-    bool M_statevector_false_easting;
+    bool   M_statevector_false_easting;
     double M_statevector_averaging_period;
 
     void initStateVector();
