@@ -4514,7 +4514,11 @@ FiniteElement::update()
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
             open_water_concentration -= M_conc_thin[cpt];
 
-        assert( open_water_concentration>=0. && open_water_concentration<=1. );
+        // limit open_water concentration to 0 if inferior to 0 (should not happen)
+        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+
+        // limit open_water concentration to 1 if superior to 1
+        open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
         /* Thin ice category */
         double new_conc_thin=0.;
