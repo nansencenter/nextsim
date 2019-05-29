@@ -4514,7 +4514,7 @@ FiniteElement::update()
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
             open_water_concentration -= M_conc_thin[cpt];
 
-        assert( open_water_concentration>=0. || open_water_concentration<=1. );
+        assert( open_water_concentration>=0. && open_water_concentration<=1. );
 
         /* Thin ice category */
         double new_conc_thin=0.;
