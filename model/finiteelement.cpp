@@ -4376,11 +4376,11 @@ FiniteElement::FETensors()
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_Cohesion.size(); ++i)
+    for (int i=0; i<M_num_elements; ++i)
+    {
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-    
-    for (int i=0; i<M_Compressive_strength.size(); ++i)
         M_Compressive_strength[i] = compr_strength*scale_coef;
+    }
 
 }//calcCohesion
 
