@@ -660,6 +660,7 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
+    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
     // root
@@ -1174,6 +1175,8 @@ FiniteElement::initOptAndParam()
 
 
     //! Sets mechanical parameter values
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
+    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strength as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
@@ -4373,11 +4376,13 @@ FiniteElement::FETensors()
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_Cohesion.size(); ++i)
+    for (int i=0; i<M_num_elements; ++i)
+    {
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-}
-//calcCohesion
+        M_Compressive_strength[i] = compr_strength*scale_coef;
+    }
 
+}//calcCohesion
 
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
@@ -4433,13 +4438,12 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
 
-
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double sigma_t, sigma_c;
+        double tract_max, sigma_t, sigma_c;
         double tmp, sigma_target, tmp_factor;
 
 
@@ -4466,19 +4470,15 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
-        // Before, we updated only elements which had deformed. It did not improve performance. We update them all now.
-        bool to_be_updated=true;
-
-
         /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
+        bool to_be_updated=true;
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
@@ -4512,16 +4512,13 @@ FiniteElement::update()
 
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
             open_water_concentration -= M_conc_thin[cpt];
-        }
 
         // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
-
 
         /* Thin ice category */
         double new_conc_thin=0.;
@@ -4646,22 +4643,36 @@ FiniteElement::update()
             sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-
-            double hi=0.;
-            if(M_conc[cpt]>0.1)
-                hi = M_thick[cpt]/M_conc[cpt];
-            else
-                hi = M_thick[cpt]/0.1;
-
             sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
             sigma_t=-sigma_c/q;
-
+            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            if(sigma_n>M_Compressive_strength[cpt])
+            {
+                sigma_target=M_Compressive_strength[cpt];
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
+
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
@@ -4683,6 +4694,26 @@ FiniteElement::update()
                 }
             }
 
+            if(sigma_n<tract_max)
+            {
+                sigma_target = tract_max;
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.

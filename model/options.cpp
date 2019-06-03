@@ -46,7 +46,6 @@ namespace Nextsim
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-
              //-----------------------------------------------------------------------------------
              //! - Debugging options
              // -----------------------------------------------------------------------------------
@@ -299,6 +298,8 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
