@@ -4645,7 +4645,7 @@ FiniteElement::update()
 
             sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
             sigma_t=-sigma_c/q;
-            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* minimum and maximum normal stress */
+            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
