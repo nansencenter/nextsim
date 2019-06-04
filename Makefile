@@ -17,8 +17,8 @@ ifdef USE_OASIS
 endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make
-	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; make
-	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; make
+	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; $(MAKE)
+	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE)
 endif
 
 model: core
@@ -28,13 +28,13 @@ core:
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
-	@cd $(NEXTSIMDIR)/core/src; make clean
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make clean
-	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; make clean
-	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; make clean
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE) clean
 
 cleanmodel:
 	@cd $(NEXTSIMDIR)/model; $(MAKE) clean;
