@@ -24,7 +24,7 @@ endif
 model: core
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
-core:
+core: contrib modules
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
