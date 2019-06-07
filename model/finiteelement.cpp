@@ -926,7 +926,8 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 //! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
+        double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+        bool use_timer)
 {
     if ( ext_data_vec.size()==0 )
     {
@@ -938,6 +939,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
+        M_timer.tick((*it)->getName());
         std::string msg = "checkReloadDatasets: ExternalData object "
                 + (*it)->getName() + " is not initialised yet";
         if(!(*it)->isInitialized())
@@ -947,6 +949,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #else
         (*it)->check_and_reload(RX, RY, CRtime);
 #endif
+        M_timer.tock((*it)->getName());
     }
 }//checkReloadDatasets
 
@@ -965,13 +968,13 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, true);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, true);
 }//checkReloadMainDatasets
 
 

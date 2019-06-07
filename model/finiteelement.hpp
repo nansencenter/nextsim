@@ -197,7 +197,8 @@ public:
     inline double windSpeedElement(const int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
+                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+                    bool use_timer=false);
     void checkReloadMainDatasets(double const CRtime);
 
     Dataset M_atmosphere_nodes_dataset;
