@@ -939,7 +939,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
         std::string msg = "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet";
+                + (*it)->getName() + " is not initialised yet";
         if(!(*it)->isInitialized())
             throw std::runtime_error(msg);
 #ifdef OASIS

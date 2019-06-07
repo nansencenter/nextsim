@@ -126,6 +126,8 @@ public:
 
 	bool isInitialized() const { return M_initialized; }
 
+    std::string getName() const { return M_dataset->name; }
+
 private:
     double fdt;
     std::vector<double> fcoeff;
