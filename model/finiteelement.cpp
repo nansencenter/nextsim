@@ -6771,7 +6771,9 @@ FiniteElement::step()
                 M_moorings.updateGridMean(bamgmesh);
 
 #ifdef OASIS
+            M_timer.tick("updateGridMean");
             M_cpl_out.updateGridMean(bamgmesh);
+            M_timer.tock("updateGridMean");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
             M_timer.tick("regrid");
@@ -6799,6 +6801,7 @@ FiniteElement::step()
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
+            M_timer.tick("resetMeshMean");
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
@@ -6806,6 +6809,7 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+            M_timer.tock("resetMeshMean");
 #endif
 
             if ( M_use_moorings )
@@ -6948,7 +6952,7 @@ FiniteElement::step()
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
-    M_timer.tick("coupler");
+    M_timer.tick("coupler put");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6986,7 +6990,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
-    M_timer.tock("coupler");
+    M_timer.tock("coupler put");
 #endif
 
     //======================================================================
