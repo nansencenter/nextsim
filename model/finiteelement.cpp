@@ -3583,7 +3583,9 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
+    M_timer.tick("gatherNodelField");
     this->gatherNodalField(M_UM,um_root);
+    M_timer.tock("gatherNodelField");
 
     if (M_rank == 0)
     {
@@ -3652,10 +3654,11 @@ FiniteElement::regrid(bool step)
                 LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
             }
 
-            chrono.restart();
+            M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 
 
             // save mesh (only root process)
@@ -3666,6 +3669,7 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
             LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
+            M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");
             chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
@@ -3681,6 +3685,7 @@ FiniteElement::regrid(bool step)
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -3697,9 +3702,10 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    chrono.restart();
+    M_timer.tick("interpFields");
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFields done in "<< chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+    M_timer.tock("interpFields");
 
     // --------------------------------END-------------------------------
 
@@ -6768,13 +6774,14 @@ FiniteElement::step()
             M_cpl_out.updateGridMean(bamgmesh);
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
-            chrono.restart();
+            M_timer.tick("regrid");
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+            M_timer.tock("regrid");
             if ( M_use_moorings )
             {
 #ifdef OASIS
@@ -6814,6 +6821,7 @@ FiniteElement::step()
 
             ++M_nb_regrid;
 
+            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
 
