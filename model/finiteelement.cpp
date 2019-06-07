@@ -6784,18 +6784,6 @@ FiniteElement::step()
 
             LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
             M_timer.tock("regrid");
-            if ( M_use_moorings )
-            {
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>() == "coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#else
-                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#endif
-            }
 
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
