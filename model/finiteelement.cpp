@@ -457,8 +457,10 @@ FiniteElement::rootMeshProcessing()
                 // Environment::logMemoryUsage("before after...");
             }
             else if (M_partition_space == mesh::PartitionSpace::DISK)
+            {
                 M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+            }
+
             LOG(DEBUG) <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
@@ -672,6 +674,8 @@ FiniteElement::assignVariables()
         M_surface[cpt] = this->measure(*it,M_mesh);
         ++cpt;
     }
+
+    // std::cout<<"["<< M_rank <<"]: M_ndof= "<< 2*M_ndof << " and M_local_ndof= "<< 2*M_local_ndof <<"\n";
 
     M_matrix->init(2*M_ndof,2*M_ndof,
                    2*M_local_ndof,2*M_local_ndof,
@@ -12300,6 +12304,7 @@ FiniteElement::createGraph()
     auto M_transfer_map = M_mesh.transferMap();
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
+
     std::vector<int> dz;
     std::vector<int> ddz_j;
     std::vector<int> ddz_i;
@@ -12366,6 +12371,11 @@ FiniteElement::createGraph()
     M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
 
 #if 0
+    std::cout<<"["<< M_comm.rank() <<"]  d_nnz.size()= "<< d_nnz.size() <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"]  o_nnz.size()= "<< o_nnz.size() <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"]  gwithghost.size()= "<< global_indices_with_ghost.size() <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"]  gwithoutghost.size()= "<< global_indices_without_ghost.size() <<"\n";
+
     std::cout<<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";
     std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ ON-DIAGONAL (per row)     = "<< *std::max_element(d_nnz.begin(),d_nnz.end()) <<"\n";
