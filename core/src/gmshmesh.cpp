@@ -1762,22 +1762,39 @@ GmshMesh::nodalGridExtended()
     {
         for (int i=0; i<3; i++)
         {
-            M_local_ghost.push_back(it->indices[i]);
+            if (!std::binary_search(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),it->indices[i]))
+            {
+                M_local_ghost.push_back(it->indices[i]);
+            }
         }
     }
 
     std::sort(M_local_ghost.begin(), M_local_ghost.end());
     M_local_ghost.erase(std::unique(M_local_ghost.begin(), M_local_ghost.end()), M_local_ghost.end());
 
+
+#if 0
+    std::vector<int> duplicated_dofs;
+
+    std::set_intersection(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),
+                          M_local_ghost.begin(),M_local_ghost.end(),
+                          std::back_inserter(duplicated_dofs));
+
+    if (duplicated_dofs.size() != 0)
+    {
+        std::cout<<"["<< M_comm.rank() <<"]: M_local_ghost.size()= "<< M_local_ghost.size() <<"\n";
+        std::cout<<"["<< M_comm.rank() <<"]: duplicated_dofs.size()= "<< duplicated_dofs.size() <<"\n";
+        for (int i=0; i<duplicated_dofs.size(); ++i)
+            std::cout<<"----------------duplicated_dofs["<< i <<"]= "<< duplicated_dofs[i] <<"\n";
+    }
+#endif
+
     // Build M_local_dof_with_ghost_extended
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
     for (auto const& locdof : M_local_ghost)
     {
-        if (!std::binary_search(M_local_dof_without_ghost.begin(),M_local_dof_without_ghost.end(),locdof))
-        {
-            M_local_dof_with_ghost.push_back(locdof);
-        }
+        M_local_dof_with_ghost.push_back(locdof);
     }
 
     //bimap_type reorder;

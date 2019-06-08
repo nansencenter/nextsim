@@ -23,7 +23,10 @@
 #include <entities.hpp>
 #include <gmshversion.hpp>
 #include <meshpartition.hpp>
-#include <gmshmodel.hpp>
+
+#if defined( GMSH_METIS_V5 )
+#include <gmsh.h>
+#endif
 
 extern "C"
 {

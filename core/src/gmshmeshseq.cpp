@@ -390,7 +390,12 @@ GmshMeshSeq::update(std::vector<point_type> const& nodes,
 void
 GmshMeshSeq::initGModel()
 {
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     M_gmodel = new GModel();
+#else
+    gmsh::initialize();
+    gmsh::model::add("inmemory");
+#endif
 
     Msg::SetVerbosity(5);
     CTX::instance()->terminal = 1;
@@ -407,28 +412,16 @@ GmshMeshSeq::initGModel()
 void
 GmshMeshSeq::clear()
 {
+#if GMSH_VERSION_LESS_THAN(4,0,0)
     delete M_gmodel;
+#else
+    gmsh::finalize();
+#endif
 }
 
 void
 GmshMeshSeq::writeToGModel()
 {
-    std::map<int, MVertex*> vertexMap;
-    std::vector<std::vector<int> > vertexIndices(M_num_triangles);
-    std::vector<int> elementNum(M_num_triangles);
-    std::vector<int> elementType(M_num_triangles);
-    std::vector<int> physical(M_num_triangles);
-    std::vector<int> elementary(M_num_triangles);
-    std::vector<int> partition(M_num_triangles);
-
-    int cpt_node = 0;
-    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-    {
-        vertexMap.insert(std::make_pair(cpt_node+1, new MVertex(it->coords[0], it->coords[1], 0.)));
-        ++cpt_node;
-    }
-
-    int cpt_element = 0;
 
 #if 0
     // uncomment if needed to add the edge elements
@@ -444,6 +437,26 @@ GmshMeshSeq::writeToGModel()
     }
 #endif
 
+#if GMSH_VERSION_LESS_THAN(4,0,0)
+    std::map<int, MVertex*> vertexMap;
+
+    int cpt_node = 0;
+
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        vertexMap.insert(std::make_pair(cpt_node+1, new MVertex(it->coords[0], it->coords[1], 0.)));
+        ++cpt_node;
+    }
+
+    std::vector<std::vector<int> > vertexIndices(M_num_triangles);
+    std::vector<int> elementNum(M_num_triangles);
+    std::vector<int> elementType(M_num_triangles);
+    std::vector<int> physical(M_num_triangles);
+    std::vector<int> elementary(M_num_triangles);
+    std::vector<int> partition(M_num_triangles);
+
+    int cpt_element = 0;
+
     for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
     {
         vertexIndices[cpt_element] = it->indices;
@@ -455,7 +468,6 @@ GmshMeshSeq::writeToGModel()
         ++cpt_element;
     }
 
-#if GMSH_VERSION_LESS_THAN(4,0,0)
     M_gmodel = GModel::createGModel(
                                     vertexMap,
                                     elementNum,
@@ -466,17 +478,55 @@ GmshMeshSeq::writeToGModel()
                                     partition
                                     );
 #else
-    //GmshModel *gmshmodel = new GmshModel();
-    M_gmodel = GmshModel().createGModel(
-                                       vertexMap,
-                                       elementNum,
-                                       vertexIndices,
-                                       elementType,
-                                       physical,
-                                       elementary,
-                                       partition
-                                       );
-    //delete gmsh
+    std::vector<std::size_t> nodeTags(M_num_nodes);
+    std::vector<double> coord(3*M_num_nodes);
+
+    int cpt_node = 0;
+    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
+    {
+        nodeTags[cpt_node] = cpt_node+1;
+        coord[3*cpt_node] = it->coords[0];
+        coord[3*cpt_node+1] = it->coords[1];
+        coord[3*cpt_node+2] = 0.;
+        ++cpt_node;
+    }
+
+    std::vector<std::size_t> vertexIndices(3*M_num_triangles);
+    std::vector<std::size_t> elementNum(M_num_triangles);
+
+    int cpt_element = 0;
+
+    for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
+    {
+        vertexIndices[3*cpt_element] = it->indices[0];
+        vertexIndices[3*cpt_element+1] = it->indices[1];
+        vertexIndices[3*cpt_element+2] = it->indices[2];
+        elementNum[cpt_element] = cpt_element+1;
+        ++cpt_element;
+    }
+
+    std::vector<int> elementTypes {2};
+
+    std::vector<std::vector<std::size_t> > elementTags {elementNum};
+
+    std::vector<std::vector<std::size_t> > nodeTagsElts {vertexIndices};
+
+    // add a new model
+    // gmsh::model::add("inmemory");
+
+    // add discrete surface with tag 1
+    gmsh::model::addDiscreteEntity(2, 1);
+
+    // add mesh nodes
+    gmsh::model::mesh::setNodes(2, 1, nodeTags, coord);
+
+    // add mesh elements
+    gmsh::model::mesh::setElements(2, 1, elementTypes, elementTags, nodeTagsElts);
+
+    // gmsh::write("gtest.msh");
+    // gmsh::model::mesh::partition(2);
+    // gmsh::write("gparttest.msh");
+    // gmsh::finalize();
 #endif
 }
 
@@ -510,17 +560,36 @@ GmshMeshSeq::partitionMemory(std::string const& mshfile,
     //CTX::instance()->partitionOptions.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
     CTX::instance()->partitionOptions.createPartitionBoundaries = false;
     PartitionMesh(M_gmodel, CTX::instance()->partitionOptions);
-#else
-    CTX::instance()->mesh.metisAlgorithm = 2;
-    CTX::instance()->mesh.partitionCreateTopology = false;
-    CTX::instance()->mesh.partitionSaveTopologyFile = false;
-    PartitionMesh(M_gmodel);
-#endif
 
     M_gmodel->writeMSH(mshfile, 2.2, (format=="binary")?true:false);
 
     M_gmodel->deleteMesh();
     M_gmodel->destroy();
+#else
+
+#if 0
+    CTX::instance()->mesh.metisAlgorithm = 2;
+    CTX::instance()->mesh.partitionCreateTopology = false;
+    CTX::instance()->mesh.partitionSaveTopologyFile = false;
+    CTX::instance()->mesh.partitionCreateGhostCells = false;
+    // CTX::instance()->mesh.partitionOldStyleMsh2 = true;
+    // CTX::instance()->mesh.metisEdgeMatching = true;
+    CTX::instance()->mesh.preserveNumberingMsh2 = true;
+
+    CTX::instance()->mesh.fileFormat = FORMAT_MSH;
+    CTX::instance()->mesh.mshFileVersion = 2.2;
+#endif
+
+    CTX::instance()->mesh.binary = (format=="binary");
+    // gmsh::write("toto.msh");
+    gmsh::model::mesh::partition(Environment::comm().size());
+    gmsh::write(mshfile);
+    // gmsh::model::remove();
+    gmsh::clear();
+    // gmsh::finalize();
+#endif
+
+
 }
 
 void

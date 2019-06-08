@@ -48,6 +48,17 @@ ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 endif
 
+# get the major version of gmsh
+STR_MAJOR="$(shell grep "GMSH_MAJOR_VERSION" $(GMSH_DIR)/include/gmsh/GmshVersion.h)"
+GMSH_MAJOR_VERSION=$(shell echo $(STR_MAJOR) | awk '{print $$NF}')
+MAJOR_VERSION=$(shell echo $(GMSH_MAJOR_VERSION) \>= 4 | sed -e 's/\.//g' | bc)
+
+# add extra include path for gmsh using metis 5
+ifeq ($(MAJOR_VERSION),1)
+	CXXFLAGS += -I $(GMSH_DIR)/include
+	CXXFLAGS += -DGMSH_METIS_V5
+endif
+
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
 CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
