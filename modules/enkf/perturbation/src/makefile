@@ -40,10 +40,13 @@ CXXFLAGS += -std=c++11
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v #-pedantic
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread
+#CXXFLAGS += -v
+#CXXFLAGS += -pedantic
 
 # add include paths
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(BOOST_INCDIR)
+#CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
+CXXFLAGS += -I $(BOOST_INCDIR)
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
 LNKFLAGS  = -lstdc++ -lgfortran
 
@@ -60,14 +63,18 @@ FCOBJS= \
 	$(OBJECTDIR)mod_random_forcing.o \
 	$(OBJECTDIR)p_pseudo2D_fld.o
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
+MODS=$(FCSRC:%.F90=$(FCSRCDIR)%.mod)
 
 FFTW_INC   = $(FFTW_DIR)/include
 FFTW_LIB   = $(FFTW_DIR)/lib
 
 FC = gfortran
-F90FLG= -free
 FFLAGS = -fPIC -O3 -fconvert=big-endian -fdefault-real-8
-FFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(FFTW_INC)
+#FC = ifort
+#FFLAGS = -fPIC -O3 -r8
+F90FLG= -free
+#FFLAGS += -I $(OPENMPI_INCLUDE_DIR)
+FFLAGS += -I $(FFTW_INC)
 # ========================================================
 
 # ========================================================
@@ -90,10 +97,10 @@ all: lib
 
 # Delete the object and dependancy files.
 clean:
-	$(RM) $(OBJS) $(FCOBJS) $(DEPS) $(FCDEPS)
+	$(RM) $(OBJS) $(FCOBJS) $(DEPS) $(FCDEPS) $(MODS)
 
 # Delete the object and dependancy files, and the executable
-vclean: clean
+mrproper: clean
 	$(RM) $(BINARYDIR)$(PROG) $(LIBRARYDIR)*
 
 # Delete the executable
