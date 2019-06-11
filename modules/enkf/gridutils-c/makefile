@@ -120,7 +120,7 @@ libgu.a: $(LIBOBJECTS)
 
 libgu.so: $(SHLIBOBJECTS)
 	rm -f $@
-	$(CC) -shared -o $@ $(SHLIBOBJECTS)
+	$(CC) -shared -o $@ $(SHLIBOBJECTS) $(MLIB)
 
 standalone: override LDFLAGS+=-static
 standalone: $(PROGRAMS)
