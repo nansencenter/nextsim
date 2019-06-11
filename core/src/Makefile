@@ -72,10 +72,10 @@ else
 endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
+ifdef MACHINE_FRAM
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpicxx -lmpi -ldl -lstdc++ #-lpthread
 endif
 
 #boost
