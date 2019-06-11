@@ -44,10 +44,12 @@ mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE) clean
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
-	rm -r objs  || true
-	rm -r lib   || true
-	rm -r .deps || true
+	rm -rf objs
+	rm -rf lib
+	rm -rf .deps
 
 fresh: mrproper all
