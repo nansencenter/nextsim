@@ -454,6 +454,8 @@ namespace Nextsim
             ("wave_coupling.welding_switch", po::value<bool>()->default_value( true ), "activate/unactivate welding")
             ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
             ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value. By default, dmax is the size associated with the 9th decile of sea ice")
+            ("wave_coupling.thick_min_breakup", po::value<double>()->default_value( 0. ), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
 #endif
 
 #if defined(WAVES)

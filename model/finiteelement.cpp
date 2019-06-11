@@ -1362,7 +1362,9 @@ FiniteElement::initOptAndParam()
     M_flex_strength = vm["wave_coupling.flex_strength"].as<double>();
     M_welding_switch= vm["wave_coupling.welding_switch"].as<bool>();
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
-    M_dmax_c_threshold= vm["wave_coupling.dmax_c_threshold"].as<double>();
+    M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
+    M_thick_min_breakup     = vm["wave_coupling.thick_min_breakup"].as<double>();
+    M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
@@ -4771,7 +4773,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
         }
 
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
-                            (2* M_str_var[i]* std::pow(M_thick[i]/2,2) ) 
+                            (2* M_str_var[i]* (std::pow(std::min(M_thick_min_breakup,M_thick[i])/2.,2) ) ) 
                          ) ;
     }
 #endif
@@ -4790,8 +4792,6 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
     const double threshold1=0.01  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
-    const double threshold2=0.01 ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
-
     const double young_flex=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
 
@@ -4822,11 +4822,11 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             //! 1.b Define a redistributor beta (Zhang et al,.2015)
             // beta = 1./j ; // uniform redistribution in term of area, overestimates break-up
             // uniform redistribution considering number of floes
-            double beta = broken_area / std::accumulate(M_floe_area_centered.begin(), M_floe_area_centered.begin()+j, 0.) ; 
+            double beta = 1./ ( std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3) ) ;
             // So far, redistribution also occurs within the broken category
             //! 2. Redistribute uniformly
-            for (int k=0; k<j ; k++)
-                M_conc_fsd[k][i] += beta * M_floe_area_centered[k] ;
+            for (int k=0; k<=j ; k++)
+                M_conc_fsd[k][i] +=  broken_area *beta * ( std::pow(M_fsd_bin_up_limits[k],3) - std::pow(M_fsd_bin_low_limits[k],3) )    ;
         }
 // DEBUG GUILLAUME 
         std::stringstream crash_msg;
@@ -5638,7 +5638,7 @@ FiniteElement::thermo(int dt)
                         del_c += 0.;
                     if (M_num_fsd_bins>1)
                     {
-                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
+                        throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
                     }
                     break;
                 case 2:

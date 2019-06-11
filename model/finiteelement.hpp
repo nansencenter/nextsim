@@ -751,6 +751,7 @@ private:
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
     std::vector<double> M_fsd_bin_up_limits;
+    double M_fsd_unbroken_floe_size     ;
     // Non-circularity of floes
     double M_floe_shape                              ;
     // Lettie's variables
@@ -772,6 +773,7 @@ private:
     double M_welding_kappa    ;
     bool M_welding_switch    ;
     double M_dmax_c_threshold  ;
+    double M_thick_min_breakup  ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     double M_lead_width    ;
 
