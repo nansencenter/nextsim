@@ -23,7 +23,8 @@ namespace setup
         EC_ERAi   = 5,
         CFSR      = 6,
         CFSR_HI   = 7,
-        EC2_AROME = 8
+        EC2_AROME = 8,
+        ERA5      = 9
     };
 
 	enum class OceanType
@@ -58,7 +59,8 @@ namespace setup
         BINARY              = 17,
         TOPAZ4OSISAFICESAT  = 18,
         TOPAZ4FAMSR2OSISAFNIC= 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20
+        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20,
+        CREG                = 21
 	};
 
     enum class WaveType
@@ -106,6 +108,13 @@ namespace setup
     {
         LINEAR     = 0,
         NON_LINEAR = 1
+    };
+
+
+    enum class OceanHeatfluxScheme
+    {
+        BASIC      = 0,
+        EXCHANGE   = 1
     };
 
     enum class DynamicsType

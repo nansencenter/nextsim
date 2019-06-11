@@ -161,6 +161,7 @@ private:
     std::string M_mppfile;
     int M_ghosts_width;
     LogLevel M_log_level;
+    bool M_log_all;
 
     std::vector<point_type> M_nodes_vec;
     std::map<int, point_type > M_nodes;
