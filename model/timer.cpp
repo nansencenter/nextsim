@@ -22,11 +22,10 @@ Timer::Timer()
     M_lineage.push_back(M_global_timer);
 
     M_timer[M_global_timer].elapsed = 0.;
-    M_timer[M_global_timer].parent = M_global_timer;
+    M_timer[M_global_timer].parent = "";
     M_timer[M_global_timer].generation = 0;
     M_timer[M_global_timer].running = true;
     M_timer[M_global_timer].timer.restart();
-
 }
 
 Timer::~Timer()
@@ -82,7 +81,7 @@ void Timer::tock(const std::string & name)
 
     M_lineage.pop_back();
 
-    // Now repeated calls to tock won't mess everything up (but who would anyone do this?)
+    // Now repeated calls to tock won't mess everything up (but why would anyone do this?)
     M_timer[name].timer.restart();
 
     M_timer[name].running = false;
@@ -104,7 +103,7 @@ const double Timer::elapsed(const std::string & name)
     return M_timer[name].elapsed;
 }
 
-//! Pretty-print all the timers initialised by the constructor
+//! Pretty-print all the timers
 const std::string Timer::printAll()
 {
     // Don't write out anything if M_names is empty
@@ -113,71 +112,96 @@ const std::string Timer::printAll()
 
     // Wall timer
     this->tock(M_global_timer);
-    double wall_time = this->elapsed(M_global_timer);
-    double not_counted = wall_time;
 
     // Column width
-    std::size_t width = 15; // Minimum width of the name column
-    int padding = 2; // Multiplier for the indent for each generation
+    M_width = 15; // Minimum width of the name column
+    M_padding = 2; // Multiplier for the indent for each generation
     for ( const std::string & name : M_names )
-        width = std::max(name.length() + padding*M_timer[name].generation, width);
+        M_width = std::max(name.length() + M_padding*M_timer[name].generation, M_width);
 
     // Actual output
     std::stringstream return_string;
     return_string << "   =====   Timer results =====   " << std::endl;
-    return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Timer name"
+    return_string << " " << std::setfill(' ') << std::setw(M_width) << std::left << "Timer name"
         << " | time spent | % of parent | % of total" << std::endl;
 
-    for ( const std::string & name : M_names )
-    {
-        // Just here for readability
-        double elapsed = this->elapsed(name);
-        std::string parent = M_timer[name].parent;
+    double not_counted_dummy = 0.;
+    const double wall_time = this->elapsed(M_global_timer);
+    printTimer(M_global_timer, M_global_timer, wall_time, return_string, not_counted_dummy);
 
-        // Integer division!
-        int hours   = elapsed/3600;
-        int minutes = (elapsed - hours*3600)/60;
-        int seconds = (elapsed - hours*3600 - minutes*60);
-        double fraction_parent = elapsed / this->elapsed(parent) * 100.;
-        double fraction_total  = elapsed / wall_time * 100.;
-
-        // We don't subtract children's time from the total
-        if ( parent == M_global_timer &&  name != M_global_timer )
-                not_counted -= elapsed;
-
-        int indent = padding*M_timer[name].generation;
-        return_string
-            << std::setfill(' ') << std::setw(indent+1) << " "
-            << std::setfill(' ') << std::setw(width-indent) << std::left << name << " | "
-            << std::right
-            << std::setfill(' ') << std::setw(4) << hours << ":"
-            << std::setfill('0') << std::setw(2) << minutes << ":"
-            << std::setfill('0') << std::setw(2) << seconds << " | ";
-
-        if ( parent == M_global_timer &&  name != M_global_timer )
-            return_string << std::setfill(' ') << std::setw(11) << " ";
-        else
-            return_string << std::setfill(' ') << std::setw(11) << std::setprecision(2) << std::fixed
-                << fraction_parent;
-
-        return_string << " | "
-            << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed
-            << fraction_total << std::endl;
-    }
-
-    // Not counted
-    int hours   = not_counted/3600;
-    int minutes = (not_counted - hours*3600)/60;
-    int seconds = (not_counted - hours*3600 - minutes*60);
-    double fraction = not_counted/wall_time * 100.;
-    return_string << " " << std::setfill(' ') << std::setw(width) << std::left << "Unaccounted for" << " | "
-        << std::right
-        << std::setfill(' ') << std::setw(4) << hours << ":"
-        << std::setfill('0') << std::setw(2) << minutes << ":"
-        << std::setfill('0') << std::setw(2) << seconds << " | "
-        << std::setfill(' ') << std::setw(11) << " " << " | "
-        << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed << fraction << std::endl;
+    // Write out all children of M_global_timer (and recursively everyone else's children as well)
+    return_string << this->printChildren(M_global_timer, wall_time);
 
     return return_string.str();
 }
 
+//! Pretty-print all children of a given timer - and recursively its children as well
+std::string Timer::printChildren(const std::string & parent, const double wall_time)
+{
+    std::stringstream return_string;
+    double not_counted = this->elapsed(parent);
+
+    // Loop over all timers and skip those that are not my children
+    int nb_children = 0;
+    for ( const std::string & name : M_names )
+    {
+        if ( M_timer[name].parent != parent )
+            continue;
+        else
+            ++nb_children;
+
+        // Add to the string for this timer and subtract from not_counted
+        printTimer(name, parent, wall_time, return_string, not_counted);
+
+        // Call myself for this child
+        return_string << this->printChildren(name, wall_time);
+    }
+
+    // Not counted
+    if ( nb_children > 0 )
+        printTimer(M_not_counted, parent, wall_time, return_string, not_counted);
+
+    return return_string.str();
+}
+
+//! Pretty-print a given timer
+void Timer::printTimer(const std::string & name, const std::string & parent, const double wall_time,
+        std::stringstream & return_string, double & not_counted)
+{
+    int indent;
+    if ( name == parent )
+        indent = 0;
+    else
+        indent = M_padding*(M_timer[parent].generation+1);
+
+    double elapsed;
+    if ( name == M_not_counted )
+        elapsed = not_counted;
+    else
+        elapsed = this->elapsed(name);
+
+    // Integer division!
+    int hours   = elapsed/3600;
+    int minutes = (elapsed - hours*3600)/60;
+    int seconds = (elapsed - hours*3600 - minutes*60);
+    double fraction_parent = elapsed / this->elapsed(parent) * 100.;
+    double fraction_total  = elapsed / wall_time * 100.;
+
+    not_counted -= elapsed;
+
+    return_string
+        << std::setfill(' ') << std::setw(indent+1) << " "
+        << std::setfill(' ') << std::setw(M_width-indent) << std::left << name << " | "
+        << std::right
+        << std::setfill(' ') << std::setw(4) << hours << ":"
+        << std::setfill('0') << std::setw(2) << minutes << ":"
+        << std::setfill('0') << std::setw(2) << seconds << " | ";
+
+    return_string
+        << std::setfill(' ') << std::setw(11) << std::setprecision(2) << std::fixed
+        << fraction_parent;
+
+    return_string << " | "
+        << std::setfill(' ') << std::setw(10) << std::setprecision(2) << std::fixed
+        << fraction_total << std::endl;
+}

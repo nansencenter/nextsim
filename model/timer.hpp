@@ -40,6 +40,10 @@ class Timer
         const std::string printAll();
 
     private:
+        std::string printChildren(const std::string & parent, const double wall_time);
+        void printTimer(const std::string & name, const std::string & parent, const double wall_time,
+                std::stringstream & return_string, double & not_counted);
+
         typedef struct Works
         {
             boost::mpi::timer timer;
@@ -55,6 +59,10 @@ class Timer
         std::vector<std::string> M_names;
         std::vector<std::string> M_lineage;
         std::string M_global_timer = "Total";
+        std::string M_not_counted = "Unaccounted for";
+
+        std::size_t M_width;
+        int M_padding;
 };
 
 #endif
