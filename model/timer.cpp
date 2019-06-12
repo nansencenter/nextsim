@@ -110,26 +110,27 @@ const std::string Timer::printAll()
     if ( M_names.size() == 0 )
         return std::string();
 
-    // Wall timer
-    this->tock(M_global_timer);
-
-    // Column width
-    M_width = 15; // Minimum width of the name column
-    M_padding = 2; // Multiplier for the indent for each generation
+    // Adjust name column width
     for ( const std::string & name : M_names )
         M_width = std::max(name.length() + M_padding*M_timer[name].generation, M_width);
 
-    // Actual output
+    // Header
     std::stringstream return_string;
     return_string << "   =====   Timer results =====   " << std::endl;
     return_string << " " << std::setfill(' ') << std::setw(M_width) << std::left << "Timer name"
         << " | time spent | % of parent | % of total" << std::endl;
 
-    double not_counted_dummy = 0.;
+    // Stop and print the global timer first
+    this->tock(M_global_timer);
     const double wall_time = this->elapsed(M_global_timer);
+
+    double not_counted_dummy = 0.;
     printTimer(M_global_timer, M_global_timer, wall_time, return_string, not_counted_dummy);
 
-    // Write out all children of M_global_timer (and recursively everyone else's children as well)
+    // Re-start the global timer, just in case we're called again
+    this->tick(M_global_timer);
+
+    // Print all children of M_global_timer (and recursively everyone else's children as well)
     return_string << this->printChildren(M_global_timer, wall_time);
 
     return return_string.str();
@@ -169,12 +170,14 @@ void Timer::printTimer(const std::string & name, const std::string & parent, con
         std::stringstream & return_string, double & not_counted)
 {
     int indent;
+    // Check if we're at the root (aka global timer)
     if ( name == parent )
         indent = 0;
     else
         indent = M_padding*(M_timer[parent].generation+1);
 
     double elapsed;
+    // Slightly different behaviour for the "not counted" row
     if ( name == M_not_counted )
         elapsed = not_counted;
     else

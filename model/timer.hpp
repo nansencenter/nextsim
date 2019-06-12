@@ -54,15 +54,14 @@ class Timer
             bool running;
         } Works;
 
-        static constexpr double M_max_time = std::numeric_limits<double>::max();
-        std::map<std::string,Works> M_timer;
-        std::vector<std::string> M_names;
-        std::vector<std::string> M_lineage;
-        std::string M_global_timer = "Total";
-        std::string M_not_counted = "Unaccounted for";
+        std::map<std::string,Works> M_timer; // The central timer object
+        std::vector<std::string> M_names;  // A vector of all timer names
+        std::vector<std::string> M_lineage; // A vector of timer lineage {... ,grandparent, parent, child}
+        std::string M_global_timer = "Total"; // Row label / name for the global timer
+        std::string M_not_counted = "Unaccounted for"; // Row label for the "not counted time"
 
-        std::size_t M_width;
-        int M_padding;
+        std::size_t M_width = M_not_counted.size(); // Width of the name column (dynamically adjusted)
+        const int M_padding = 2; // Multiplier for the indent for each generation
 };
 
 #endif
