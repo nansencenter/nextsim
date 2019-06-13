@@ -1,0 +1,19 @@
+unset GMSH_DIR
+export GMSH_PREFIX=/opt/local/PKGGCC6/gmsh/4.3.0
+
+cmake .. \
+      -DCMAKE_CXX_COMPILER=`which g++` \
+	  -DCMAKE_C_COMPILER=`which gcc` \
+	  -DCMAKE_INSTALL_PREFIX=$GMSH_PREFIX \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DENABLE_BUILD_LIB=ON \
+	  -DENABLE_BUILD_SHARED=ON \
+	  -DENABLE_BUILD_DYNAMIC=ON \
+      -DENABLE_NCURSES=ON \
+      -DENABLE_PRIVATE_API=ON \
+	  -DENABLE_MPI=OFF \
+	  -DENABLE_MUMPS=OFF \
+	  -DENABLE_PETSC=OFF \
+	  -DENABLE_OPENMP=OFF \
+      -DMETIS_LIB="$PETSC_DIR/lib/libmetis.dylib" \
+      -DMETIS_INC="$PETSC_DIR/include/"

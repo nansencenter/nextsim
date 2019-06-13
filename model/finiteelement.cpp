@@ -2283,8 +2283,11 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
     {
         // ALE case where M_UM is updated with a smoothed version of M_VT
         use_ALE = true;
-        if (ALE_smoothing_step_nb<=0)
-            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+        // if (ALE_smoothing_step_nb<=0)
+        //     throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >0");
+
+        if (ALE_smoothing_step_nb<0)
+            throw std::runtime_error("numerics.ALE_smoothing_step_nb option should be >=0");
     }
     else
         throw std::runtime_error("numerics.advection_scheme option should be Eulerian, Lagrangian or ALE");
