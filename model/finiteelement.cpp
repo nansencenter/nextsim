@@ -6751,11 +6751,14 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
+        M_timer.tick("angle_check");
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+
+        M_timer.tock("angle_check");
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
@@ -6774,12 +6777,16 @@ FiniteElement::step()
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
+            {
+                M_timer.tick("updateGridMean");
                 M_moorings.updateGridMean(bamgmesh);
+                M_timer.tock("updateGridMean");
+            }
 
 #ifdef OASIS
-            M_timer.tick("updateGridMean");
+            M_timer.tick("updateGridMean_cpl");
             M_cpl_out.updateGridMean(bamgmesh);
-            M_timer.tock("updateGridMean");
+            M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
             M_timer.tick("regrid");
@@ -6795,7 +6802,7 @@ FiniteElement::step()
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
-            M_timer.tick("resetMeshMean");
+            M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
@@ -6803,11 +6810,12 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-            M_timer.tock("resetMeshMean");
+            M_timer.tock("resetMeshMean_cpl");
 #endif
 
             if ( M_use_moorings )
             {
+                M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
@@ -6815,6 +6823,7 @@ FiniteElement::step()
                 else
 #endif
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                M_timer.tock("resetMeshMean");
             }
 
             ++M_nb_regrid;
