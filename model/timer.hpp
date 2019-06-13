@@ -61,7 +61,7 @@ class Timer
         std::string M_not_counted = "Unaccounted for"; // Row label for the "not counted time"
 
         std::size_t M_width = M_not_counted.size(); // Width of the name column (dynamically adjusted)
-        const int M_padding = 2; // Multiplier for the indent for each generation
+        static const int M_padding = 2; // Multiplier for the indent for each generation
 };
 
 #endif
