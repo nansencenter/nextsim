@@ -929,6 +929,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
         const bool use_timer)
 {
+    M_timer.tick("checkReloadDatasets");
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -951,6 +952,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #endif
         M_timer.tock((*it)->getName());
     }
+    M_timer.tock("checkReloadDatasets");
 }//checkReloadDatasets
 
 
@@ -965,14 +967,18 @@ FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
+    M_timer.tick("bCoord");
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
+    M_timer.tock("bCoord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
     this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 
     // - mesh nodes
+    M_timer.tick("Coord");
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
+    M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
