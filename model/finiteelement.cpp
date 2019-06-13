@@ -927,7 +927,7 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
-        bool use_timer)
+        const bool use_timer)
 {
     if ( ext_data_vec.size()==0 )
     {
@@ -961,20 +961,20 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 //!   needs to be reloaded and/or reinterpolated
 //! Called by init() and step()
 void
-FiniteElement::checkReloadMainDatasets(double const CRtime)
+FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, true);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 
     // - mesh nodes
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, true);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
 
 
@@ -6823,9 +6823,8 @@ FiniteElement::step()
     M_timer.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    chrono.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< chrono.elapsed() <<"s\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
 
     M_timer.tock("checkReload");
 
