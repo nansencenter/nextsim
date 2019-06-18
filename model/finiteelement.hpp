@@ -297,6 +297,7 @@ public:
     std::vector<double> computeWaveBreakingProb();
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
+    void weldingRoach(const int cpt);
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -433,6 +434,7 @@ private:
     setup::OceanHeatfluxScheme M_Qio_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
+    setup::WeldingType M_welding_type    ;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
 
@@ -769,9 +771,12 @@ private:
 
     std::vector<std::vector<int> > M_alpha_fsd_merge ;
     // In namelist
-    double M_flex_strength    ;
+    int    M_fsd_damage_type  ;
+    double M_fsd_damage_max   ;
+    double M_floes_flex_strength ;
+    double M_floes_flex_young    ;
     double M_welding_kappa    ;
-    bool M_welding_switch    ;
+    bool M_fsd_welding_use_scaled_area    ;
     double M_dmax_c_threshold  ;
     double M_thick_min_breakup  ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width

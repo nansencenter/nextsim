@@ -92,6 +92,13 @@ namespace setup
         MULTI       = 2
     };
 
+    enum class WeldingType
+    {
+        NONE     = 0,
+        ROACH    = 1,
+        WILLIAMS = 2
+    };
+
     enum class MeshType
     {
         FROM_UNREF     = 0,

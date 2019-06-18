@@ -1359,12 +1359,25 @@ FiniteElement::initOptAndParam()
     // set number of floe size bins
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
     M_fsd_bin_widths= vm["wave_coupling.fsd_bins_width"].as<double>();
-    M_flex_strength = vm["wave_coupling.flex_strength"].as<double>();
-    M_welding_switch= vm["wave_coupling.welding_switch"].as<bool>();
+    M_floes_flex_strength = vm["wave_coupling.floes_flex_strength"].as<double>();
+    M_floes_flex_young    = vm["wave_coupling.floes_flex_young"].as<double>();
+    // welding
+    const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
+        ("none", setup::WeldingType::NONE) 
+        ("roach", setup::WeldingType::ROACH)
+        ("williams", setup::WeldingType::WILLIAMS);
+    option_str = vm["wave_coupling.welding_type"].as<std::string>();
+    if ( str2welding.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.welding_type: " + option_str);
+    M_welding_type = str2welding.find(option_str)->second; //! 
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
+    M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
+
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
     M_thick_min_breakup     = vm["wave_coupling.thick_min_breakup"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
+    M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
+    M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
@@ -4759,21 +4772,19 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
 //------------------------------------------------------------------------------------------------------
 {
     std::vector<double> prob(M_num_elements);
-    const double young_flex=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-    double const strain_c = M_flex_strength / young_flex ; // valid for a beam... should be changed
+    double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
 #ifdef OASIS
     for (int i=0; i<M_num_elements; i++)
     {
-        if( M_tm02[i] < 2. || M_str_var[i]<1.e-10 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
-        {
-            prob[i] = 0.;
-            continue;
-        }
-
+        // if( M_tm02[i] < 2. || M_str_var[i]<1.e-10 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
+        // {
+        //     prob[i] = 0.;
+        //     continue;
+        // }
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
-                            (2* M_str_var[i]* (std::pow(std::min(M_thick_min_breakup,M_thick[i])/2.,2) ) ) 
+                            (2* M_str_var[i]* (std::pow(std::max(M_thick_min_breakup,M_thick[i])/2.,2) ) ) 
                          ) ;
     }
 #endif
@@ -4788,57 +4799,54 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 //------------------------------------------------------------------------------------------------------
 {
 #ifdef OASIS
+    
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
     const double threshold1=0.01  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
-    const double young_flex=5.49e9 ; //In Pa, should be put as a namelist parameter. Should be coherent with the value in WW3 attenuation
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-
+     
     auto P_inf = this -> computeWaveBreakingProb();
     for (int i=0; i<M_num_elements; i++)
     {
-        //! Compute the wavelength associated with Tm02
-        double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
-        double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-        double  tau_w = 1.*M_res_root_mesh/cg_w               ;
-        double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*young_flex*std::pow(M_thick[i],3) /
-                                        (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
-                                      , 0.25 ) ;
-        //! Compute wave induced break-up probability for the different floe size categories
-        for (int j=1; j<M_num_fsd_bins; j++)
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+           ctot += M_conc_thin[i];
+        if (ctot>0)
         {
-            // don't try to break if there are no waves
-            if( P_inf[i] <= threshold1)
-                break;
-            // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
-            P[j] = P_inf[i] * std::max(0.,
-                              std::tanh( namelistparam2*(M_fsd_bin_centres[j]-d_flex) / lambda )
-                                      ) ;
-            //! Then update FSD with uniform redistribution
-            //! 1.a Compute the broken area in each category
-            double broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
-            M_conc_fsd[j][i] -= broken_area ;
-            //! 1.b Define a redistributor beta (Zhang et al,.2015)
-            // beta = 1./j ; // uniform redistribution in term of area, overestimates break-up
-            // uniform redistribution considering number of floes
-            double beta = 1./ ( std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3) ) ;
-            // So far, redistribution also occurs within the broken category
-            //! 2. Redistribute uniformly
-            for (int k=0; k<=j ; k++)
-                M_conc_fsd[k][i] +=  broken_area *beta * ( std::pow(M_fsd_bin_up_limits[k],3) - std::pow(M_fsd_bin_low_limits[k],3) )    ;
-        }
-// DEBUG GUILLAUME 
-        std::stringstream crash_msg;
-        bool crash = false;
-        if(M_num_fsd_bins>0)
-        {
-            double ctot = M_conc[i];
-            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                ctot += M_conc_thin[i];
-            //if ( (ctot>0)&&(P_inf[i]>0.01))
-              //  std::cout<< "M_conc :"<< ctot <<", M_thick :"<< M_thick[i]<<", Tm02 :"<< M_tm02[i] <<", dflex :"<< d_flex << ", lambda :"<< lambda << " ,cg :"<<cg_w<<
-                //", P_inf[i] :"<< P_inf[i]<<  "\n ";
+            //! Compute the wavelength associated with Tm02
+            double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+            double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
+            double  tau_w = 1.*M_res_root_mesh/cg_w               ;
+            double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(M_thick[i],3) /
+                                            (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
+                                          , 0.25 ) ;
+            //! Compute wave induced break-up probability for the different floe size categories
+            for (int j=0; j<M_num_fsd_bins; j++)
+            {
+                // don't try to break if there are no waves
+                if( P_inf[i] <= threshold1)
+                    break;
+                // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
+                P[j] = P_inf[i] * std::max(0.,
+                                  std::tanh( namelistparam2*(M_fsd_bin_centres[j]-d_flex) / lambda )
+                                          ) ;
+                //! Then update FSD with uniform redistribution
+                //! 1.a Compute the broken area in each category
+                double broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
+                M_conc_fsd[j][i] -= broken_area ;
+                //! 1.b Define a redistributor beta (Zhang et al,.2015)
+                // beta = 1./j ; // uniform redistribution in term of area, overestimates break-up
+                // uniform redistribution considering number of floes
+                double beta = 1./ ( std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3) ) ;
+                // So far, redistribution also occurs within the broken category
+                //! 2. Redistribute uniformly
+                for (int k=0; k<=j ; k++)
+                    M_conc_fsd[k][i] +=  broken_area *beta * ( std::pow(M_fsd_bin_up_limits[k],3) - std::pow(M_fsd_bin_low_limits[k],3) )    ;
+            }
+            // Mini Checkfields 
+            std::stringstream crash_msg;
+            bool crash = false;
             double ctot2 = M_conc_fsd[0][i];
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][i] ;
@@ -4854,12 +4862,44 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                crash_msg << "Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
                           <<ctot<< "), diff =" << ctot-ctot2 << " \n";
             }
-        if(crash)
-            throw std::runtime_error(crash_msg.str());
-        }
+            
+            if(crash)
+                throw std::runtime_error(crash_msg.str());
+            /* Choice of relationship between break-up and damage */
+            /* By default, M_fsd_damage_type=0, no change in damage  */
+            if ( (M_fsd_damage_type>0) && (M_damage[i]<M_fsd_damage_max) )
+            {
+                switch (M_fsd_damage_type)
+                {
+                    /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
+                    case 1:
+                        M_damage[i] = std::min(std::max(M_damage[i],1.-M_conc_fsd[M_num_fsd_bins-1][i]/ctot),M_fsd_damage_max);
+                        break;
 
-// END DEBUG GUILLAUME
-    }//loop over elements
+                    /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
+                    case 2:
+                    {
+                        if( P_inf[i] > threshold1)
+                        {
+                            double broken_area = M_conc_fsd[0][i] *(1-std::exp(-P[0]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
+                            for(int j=1;j<M_num_fsd_bins;j++)
+                                broken_area += M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ;
+                            M_damage[i] = std::min(M_damage[i]*(1.-broken_area/ctot)+broken_area/ctot,M_fsd_damage_max);
+                        }
+                        break;
+                    }
+                    default:
+                         std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
+                         throw std::logic_error("Wrong M_fsd_damage_type");
+                }
+            }
+        }// if there is ice
+        else
+        {
+            for(int j=0;j<M_num_fsd_bins;j++)
+                M_conc_fsd[j][i]=0. ;
+        }
+    }// loop over all elements
 #endif
 }//redistributeFSD
 
@@ -4939,6 +4979,162 @@ FiniteElement::computeLateralAreaFSD(const int cpt)
     }
     
     return lateral_area;
+}
+//------------------------------------------------------------------------------------------------------
+void
+FiniteElement::weldingRoach(const int cpt)
+//! welding following Roach et al. 2018, called in thermo() 
+//------------------------------------------------------------------------------------------------------
+{
+    double ddt = double(thermo_timestep);
+    double c_fsd_broken = M_conc_fsd[0][cpt];
+    bool crash = false ;
+    std::stringstream crash_msg;
+
+    std::vector<double>  old_conc_fsd(M_num_fsd_bins,0.) ; // vector  keeping in memory old fsd
+    for(int j=0;j<M_num_fsd_bins;j++)
+        old_conc_fsd[j]=M_conc_fsd[j][cpt] ;
+    double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.); 
+
+    for(int j=1;j<M_num_fsd_bins-1;j++) 
+        c_fsd_broken += M_conc_fsd[j][cpt] ;
+    if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
+    {
+         double unbroken_area_loss=0.; 
+         // time step limitations for merging
+         double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
+         int ndt_mrg = std::round(stability+0.5) ; // round up                        
+         double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
+         std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
+         std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
+         std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
+
+         
+         //DEBUG
+        // if ( abs(old_conc_tot-M_conc[cpt])>1.e-7 )
+        // {
+        //     crash=true ;
+        //     crash_msg << "Difference in total conc. to begin with (fsd-conc) :"<< old_conc_tot-M_conc[cpt] <<" \n" ;
+        //     crash_msg << "(If there is thin ice activated, remove or recode this check) <<" \n" ;
+        // }
+        // if(crash)
+        // {
+        //     crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+        //     crash_msg << "conc :" << M_conc[cpt]  << " \n";
+        //     crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
+        //     for(int m=0; m<M_num_fsd_bins;m++) 
+        //     {
+        //         crash_msg << "Conc_fsd cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
+        //     }
+        //     throw std::runtime_error(crash_msg.str());
+        // }
+        // // END DEBUG
+         for(int t=0;t<ndt_mrg;t++)
+         {
+             for(int kx=0; kx<M_num_fsd_bins;kx++)
+             {
+                 coag_pos[kx]=0. ;
+                 for(int ky=0; ky<=kx;ky++)
+                 {
+                     int a = M_alpha_fsd_merge[kx][ky] ;
+                     double sum_mergers = 0.           ;
+                     if (a<M_num_fsd_bins)
+                     { 
+                        for(int p=a; p<M_num_fsd_bins; p++)
+                            sum_mergers += tmp_conc_fsd[p] ;
+                     }
+                     coag_pos[kx] = coag_pos[kx] +
+                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * ( 
+                                    sum_mergers +  
+                                    (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
+                                    ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
+                 }
+             } 
+             coag_neg[0]=0. ; // no gain of area for the smallest bin
+             tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
+             for (int m=1; m<M_num_fsd_bins;m++)
+             {
+                 coag_neg[m]     = coag_pos[m-1] ;
+                 tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
+             }
+             unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
+         
+             // SAFETY CHECK
+             for (int m=0; m<M_num_fsd_bins;m++)
+             {
+                 if (tmp_conc_fsd[m] < -1e-12)
+                 {
+                     crash = true ;
+                     crash_msg << "Negative FSD merge" <<" \n" ;
+                 }
+                 if (tmp_conc_fsd[m] > 1.)
+                 {
+                     crash = true ;
+                     crash_msg << "FSD cat conc > 1. " <<" \n" ;
+                 }
+                 if ( subdt * M_welding_kappa *coag_pos[m]<0.)
+                 {
+                     crash = true ;
+                     crash_msg << "Negative wielding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                 }
+                 if(crash)
+                 {
+                     crash_msg <<"DIAG: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
+                                <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                     crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+                     for (int n=0; n<M_num_fsd_bins;n++)
+                     {
+                         crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
+                         crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
+                     }
+                     throw std::runtime_error(crash_msg.str());
+                 }
+             }
+             // end safety check
+         } // end welding sub-timestep
+         tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
+         
+         // following lines are additional check and correction for potential numeric erros
+         double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
+         if (abs(conc_loss)>1.e-6)
+         {
+             crash = true ;
+             crash_msg << "Change in sea ice conc superior to 1e-6 (new-old)  : "<< conc_loss <<" \n";
+         }
+         for(int m=0; m<M_num_fsd_bins;m++)
+         {
+             M_conc_fsd[m][cpt] = tmp_conc_fsd[m] *  old_conc_tot / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
+                                                 ; // correction for small numeric errors 
+             if (M_conc_fsd[m][cpt]<0.)
+             {    
+             // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
+             // (it should not impact much sea ice conservation)
+                 if (M_conc_fsd[m][cpt]<-1e-12)
+                 {
+                     crash = true ;
+                     crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][cpt]) <<" \n";
+                 }
+                 else
+                 {
+                     M_conc_fsd[m][cpt]=0.;
+                 }
+             }    
+         }
+         if(crash)
+         {
+             crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+             crash_msg << "conc :" << M_conc[cpt]  << " \n";
+             crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
+             crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
+             for(int m=0; m<M_num_fsd_bins;m++) 
+             {
+                 crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
+                 crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
+                 crash_msg << "Coag_pos ("<< m<<") :" << coag_pos[m]  << " \n";
+             }
+             throw std::runtime_error(crash_msg.str());
+         }
+    }
 }
 //------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
@@ -5591,7 +5787,6 @@ FiniteElement::thermo(int dt)
 
                     newice  = M_h_thin[i];
                     newsnow = M_hs_thin[i];
-
                     M_h_thin[i] = 0.;
                     M_hs_thin[i]= 0.;
                 }
@@ -5916,159 +6111,22 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
         // -------------------------------------------------
-        // Lettie's code 
-        if ( (M_num_fsd_bins>0) && (del_hi>0.) && M_welding_switch)   // If FSD && freezing condition
-        {   
-            double c_fsd_broken = M_conc_fsd[0][i];
-            bool crash = false ;
-            std::stringstream crash_msg;
-
-            std::vector<double>  old_conc_fsd(M_num_fsd_bins,0.) ; // vector  keeping in memory old fsd
-            for(int j=0;j<M_num_fsd_bins;j++)
-                old_conc_fsd[j]=M_conc_fsd[j][i] ;
-            double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.); 
-
-            for(int j=1;j<M_num_fsd_bins-1;j++) 
-                c_fsd_broken += M_conc_fsd[j][i] ;
-            if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
+        if ( (M_num_fsd_bins>0) && (del_hi>0.))   // If FSD && freezing condition
+        {  
+            switch (M_welding_type)
             {
-                 double unbroken_area_loss=0.; 
-                 // time step limitations for merging
-                 double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
-                 int ndt_mrg = std::round(stability+0.5) ; // round up                        
-                 double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
-                 std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
-                 std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
-                 std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
-
-                 
-                 //DEBUG
-                // if ( abs(old_conc_tot-M_conc[i])>1.e-7 )
-                // {
-                //     crash=true ;
-                //     crash_msg << "Difference in total conc. to begin with (fsd-conc) :"<< old_conc_tot-M_conc[i] <<" \n" ;
-                //     crash_msg << "(If there is thin ice activated, remove or recode this check) <<" \n" ;
-                // }
-                // if(crash)
-                // {
-                //     crash_msg << "Wielding : [" <<M_rank << "], element : "<<i<<" \n";
-                //     crash_msg << "conc :" << M_conc[i]  << " \n";
-                //     crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
-                //     for(int m=0; m<M_num_fsd_bins;m++) 
-                //     {
-                //         crash_msg << "Conc_fsd cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
-                //     }
-                //     throw std::runtime_error(crash_msg.str());
-                // }
-                // // END DEBUG
-                 for(int t=0;t<ndt_mrg;t++)
-                 {
-                     for(int kx=0; kx<M_num_fsd_bins;kx++)
-                     {
-                         coag_pos[kx]=0. ;
-                         for(int ky=0; ky<=kx;ky++)
-                         {
-                             int a = M_alpha_fsd_merge[kx][ky] ;
-                             double sum_mergers = 0.           ;
-                             if (a<M_num_fsd_bins)
-                             { 
-                                for(int p=a; p<M_num_fsd_bins; p++)
-                                    sum_mergers += tmp_conc_fsd[p] ;
-                             }
-                             coag_pos[kx] = coag_pos[kx] +
-                                            M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * ( 
-                                            sum_mergers +  
-                                            (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
-                                            ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
-                         }
-                     } 
-                     coag_neg[0]=0. ; // no gain of area for the smallest bin
-                     tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
-                     for (int m=1; m<M_num_fsd_bins;m++)
-                     {
-                         coag_neg[m]     = coag_pos[m-1] ;
-                         tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
-                     }
-                     unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
-                 
-                     // SAFETY CHECK
-                     for (int m=0; m<M_num_fsd_bins;m++)
-                     {
-                         if (tmp_conc_fsd[m] < -1e-12)
-                         {
-                             crash = true ;
-                             crash_msg << "Negative FSD merge" <<" \n" ;
-                         }
-                         if (tmp_conc_fsd[m] > 1.)
-                         {
-                             crash = true ;
-                             crash_msg << "FSD cat conc > 1. " <<" \n" ;
-                         }
-                         if ( subdt * M_welding_kappa *coag_pos[m]<0.)
-                         {
-                             crash = true ;
-                             crash_msg << "Negative wielding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
-                         }
-                         if(crash)
-                         {
-                             crash_msg <<"DIAG: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
-                                        <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
-                             crash_msg << "Wielding : [" <<M_rank << "], element : "<<i<<" \n";
-                             for (int n=0; n<M_num_fsd_bins;n++)
-                             {
-                                 crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
-                                 crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
-                             }
-                             throw std::runtime_error(crash_msg.str());
-                         }
-                     }
-                     // end safety check
-                 } // end welding sub-timestep
-                 tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
-                 
-                 // following lines are additional check and correction for potential numeric erros
-                 double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
-                 if (abs(conc_loss)>1.e-6)
-                 {
-                     crash = true ;
-                     crash_msg << "Change in sea ice conc superior to 1e-6 (new-old)  : "<< conc_loss <<" \n";
-                 }
-                 for(int m=0; m<M_num_fsd_bins;m++)
-                 {
-                     M_conc_fsd[m][i] = tmp_conc_fsd[m] *  old_conc_tot / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
-                                                         ; // correction for small numeric errors 
-                     if (M_conc_fsd[m][i]<0.)
-                     {    
-                     // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
-                     // (it should not impact much sea ice conservation)
-                         if (M_conc_fsd[m][i]<-1e-12)
-                         {
-                             crash = true ;
-                             crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][i]) <<" \n";
-                         }
-                         else
-                         {
-                             M_conc_fsd[m][i]=0.;
-                         }
-                     }    
-                 }
-                 if(crash)
-                 {
-                     crash_msg << "Wielding : [" <<M_rank << "], element : "<<i<<" \n";
-                     crash_msg << "conc :" << M_conc[i]  << " \n";
-                     crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
-                     crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
-                     for(int m=0; m<M_num_fsd_bins;m++) 
-                     {
-                         crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
-                         crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
-                         crash_msg << "Coag_pos ("<< m<<") :" << coag_pos[m]  << " \n";
-                     }
-                     throw std::runtime_error(crash_msg.str());
-                 }
+                case (setup::WeldingType::NONE):
+                    break;
+                case (setup::WeldingType::ROACH):
+                    this->weldingRoach(i);
+                    break;
+                case (setup::WeldingType::WILLIAMS):
+                    break;
+                default:
+                    std::cout << "welding_type= " << (int)M_welding_type << "\n";
+                    throw std::logic_error("Wrong welding_type");
             }
-        }
-
+       } 
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
         M_snow_thick[i] = hs*M_conc[i];
@@ -7182,11 +7240,17 @@ FiniteElement::initFsd()
         M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]                          ;
     }
     M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
-    
-    for(int m=0; m<M_num_fsd_bins+1; m++)
-        M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
-                 / *std::max_element(M_floe_area_binwidth.begin(),M_floe_area_binwidth.end() ) ;
-    
+    if (M_fsd_welding_use_scaled_area) 
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
+                     / *std::max_element(M_floe_area_binwidth.begin(),M_floe_area_binwidth.end() ) ;
+    }
+    else
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0]);
+    }
     for(int m=0; m<M_num_fsd_bins; m++)
     {
         M_fsd_area_scaled_up[m]  = M_fsd_area_lims_scaled[m+1] ;
@@ -7729,10 +7793,10 @@ FiniteElement::step()
         this->checkFields();
         LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
+#ifdef OASIS
     //======================================================================
     //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
     //======================================================================
-#ifdef OASIS
     if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) )
     {        
         chrono.restart();
