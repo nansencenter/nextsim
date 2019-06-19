@@ -3591,7 +3591,7 @@ FiniteElement::regrid(bool step)
 
     M_timer.tick("gatherNodalField");
     this->gatherNodalField(M_UM,um_root);
-    M_timer.tock("gatherNodelField");
+    M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
     {
