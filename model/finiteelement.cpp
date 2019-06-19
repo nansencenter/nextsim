@@ -926,8 +926,10 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 //! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
+        double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+        const bool use_timer)
 {
+    M_timer.tick("checkReloadDatasets");
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -938,8 +940,12 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
+        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+            << " of dataset " << (*it)->getDatasetName() << "\n";
+
+        M_timer.tick((*it)->getDatasetName());
         std::string msg = "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet";
+                + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
             throw std::runtime_error(msg);
 #ifdef OASIS
@@ -947,7 +953,9 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #else
         (*it)->check_and_reload(RX, RY, CRtime);
 #endif
+        M_timer.tock((*it)->getDatasetName());
     }
+    M_timer.tock("checkReloadDatasets");
 }//checkReloadDatasets
 
 
@@ -958,20 +966,24 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 //!   needs to be reloaded and/or reinterpolated
 //! Called by init() and step()
 void
-FiniteElement::checkReloadMainDatasets(double const CRtime)
+FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
+    M_timer.tick("bCoord");
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
+    M_timer.tock("bCoord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 
     // - mesh nodes
+    M_timer.tick("Coord");
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
+    M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
 
 
@@ -3580,7 +3592,9 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
+    M_timer.tick("gatherNodalField");
     this->gatherNodalField(M_UM,um_root);
+    M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
     {
@@ -3649,10 +3663,11 @@ FiniteElement::regrid(bool step)
                 LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
             }
 
-            chrono.restart();
+            M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 
 
             // save mesh (only root process)
@@ -3663,6 +3678,7 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
             LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
+            M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");
             chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
@@ -3678,6 +3694,7 @@ FiniteElement::regrid(bool step)
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -3694,9 +3711,10 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    chrono.restart();
+    M_timer.tick("interpFields");
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFields done in "<< chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+    M_timer.tock("interpFields");
 
     // --------------------------------END-------------------------------
 
@@ -6736,11 +6754,14 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
+        M_timer.tick("angle_check");
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+
+        M_timer.tock("angle_check");
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
@@ -6759,36 +6780,32 @@ FiniteElement::step()
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
+            {
+                M_timer.tick("updateGridMean");
                 M_moorings.updateGridMean(bamgmesh);
+                M_timer.tock("updateGridMean");
+            }
 
 #ifdef OASIS
+            M_timer.tick("updateGridMean_cpl");
             M_cpl_out.updateGridMean(bamgmesh);
+            M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
-            chrono.restart();
+            M_timer.tick("regrid");
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
-            if ( M_use_moorings )
-            {
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>() == "coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#else
-                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#endif
-            }
+            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+            M_timer.tock("regrid");
 
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
+            M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
@@ -6796,10 +6813,12 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+            M_timer.tock("resetMeshMean_cpl");
 #endif
 
             if ( M_use_moorings )
             {
+                M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
@@ -6807,10 +6826,12 @@ FiniteElement::step()
                 else
 #endif
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                M_timer.tock("resetMeshMean");
             }
 
             ++M_nb_regrid;
 
+            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
 
@@ -6820,9 +6841,8 @@ FiniteElement::step()
     M_timer.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    chrono.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< chrono.elapsed() <<"s\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
 
     M_timer.tock("checkReload");
 
@@ -6937,7 +6957,7 @@ FiniteElement::step()
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
-    M_timer.tick("coupler");
+    M_timer.tick("coupler put");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6975,7 +6995,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
-    M_timer.tock("coupler");
+    M_timer.tock("coupler put");
 #endif
 
     //======================================================================
