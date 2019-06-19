@@ -126,7 +126,8 @@ public:
 
 	bool isInitialized() const { return M_initialized; }
 
-    std::string getName() const { return M_dataset->name; }
+    std::string getDatasetName() const { return M_dataset->name; }
+    std::string getVariableName() const { return M_dataset->variables[M_VariableId].name; }
 
 private:
     double fdt;

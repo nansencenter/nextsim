@@ -940,9 +940,12 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
-        M_timer.tick((*it)->getName());
+        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+            << " of dataset " << (*it)->getDatasetName() << "\n";
+
+        M_timer.tick((*it)->getDatasetName());
         std::string msg = "checkReloadDatasets: ExternalData object "
-                + (*it)->getName() + " is not initialised yet";
+                + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
             throw std::runtime_error(msg);
 #ifdef OASIS
@@ -950,7 +953,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #else
         (*it)->check_and_reload(RX, RY, CRtime);
 #endif
-        M_timer.tock((*it)->getName());
+        M_timer.tock((*it)->getDatasetName());
     }
     M_timer.tock("checkReloadDatasets");
 }//checkReloadDatasets
