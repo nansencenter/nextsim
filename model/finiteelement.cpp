@@ -3589,7 +3589,7 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
-    M_timer.tick("gatherNodelField");
+    M_timer.tick("gatherNodalField");
     this->gatherNodalField(M_UM,um_root);
     M_timer.tock("gatherNodelField");
 
