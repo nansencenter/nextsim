@@ -1356,12 +1356,23 @@ FiniteElement::initOptAndParam()
     M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
-    // set number of floe size bins
+    //! FSD Initialization
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
-    M_fsd_bin_widths= vm["wave_coupling.fsd_bins_width"].as<double>();
+    const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
+        ("constant_size", setup::FSDType::CONSTANT_SIZE) 
+        ("constant_area", setup::FSDType::CONSTANT_AREA);
+    option_str = vm["wave_coupling.fsd_type"].as<std::string>();
+    if ( str2fsd.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.fsd_type: " + option_str);
+    M_fsd_type = str2fsd.find(option_str)->second; //! 
+    //
+    M_fsd_bin_cst_width= vm["wave_coupling.fsd_bin_cst_width"].as<double>();
+    M_fsd_min_floe_size= vm["wave_coupling.fsd_min_floe_size"].as<double>();
+
     M_floes_flex_strength = vm["wave_coupling.floes_flex_strength"].as<double>();
     M_floes_flex_young    = vm["wave_coupling.floes_flex_young"].as<double>();
-    // welding
+
+    //! If FSD : Welding
     const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
         ("none", setup::WeldingType::NONE) 
         ("roach", setup::WeldingType::ROACH)
@@ -1373,11 +1384,13 @@ FiniteElement::initOptAndParam()
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
 
+    //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
     M_thick_min_breakup     = vm["wave_coupling.thick_min_breakup"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
+
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
@@ -5880,7 +5893,7 @@ FiniteElement::thermo(int dt)
                         lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
                         /* Following code is from Horvat & Tzipermann (2015) */
                         lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
-                        double cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths * ddt ; //<0
+                        double cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
                         for (int j=0;j<M_num_fsd_bins-1;++j) 
                             del_c = del_c + lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
                         del_c = del_c + cat0_del_c ;
@@ -5983,7 +5996,7 @@ FiniteElement::thermo(int dt)
                    
                    for(int m=1; m<M_num_fsd_bins-1;m++)
                        // m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
-                       fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths ;
+                       fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
                    for(int m=0; m<M_num_fsd_bins;m++)
                        dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
                   
@@ -6007,9 +6020,9 @@ FiniteElement::thermo(int dt)
                        M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
                    }
                    if (lat_melt_rate<0.) // if ice is melting
-                       M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
+                       M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths[0]* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
                    else                  // if there is freezing, flux of growing floes that become "unbroken"
-                       M_conc_fsd[M_num_fsd_bins-1][i] += M_conc_fsd[M_num_fsd_bins-1][i] / M_fsd_bin_widths* dt * lat_melt_rate;
+                       M_conc_fsd[M_num_fsd_bins-1][i] += M_conc_fsd[M_num_fsd_bins-1][i] / M_fsd_bin_widths[M_num_fsd_bins-1]* dt * lat_melt_rate;
 
 
 
@@ -7187,26 +7200,87 @@ FiniteElement::initFsd()
     if (M_num_fsd_bins==0)
         return ;
     
+    // Floe size variables
+    M_fsd_bin_widths.assign(M_num_fsd_bins, 0.)                  ;
+    M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.)                  ;
+    M_fsd_bin_up_limits.assign(M_num_fsd_bins,0.) ;
+    M_fsd_bin_centres.resize(M_num_fsd_bins)                            ;
     // Parameters:
     M_floe_shape = 0.66;
-    double d_min=10.; // Lower floe size allowed : Might be tunable  ?
-    // Define the categories TODO: Must be tunable in namelist
-    M_fsd_bin_low_limits.assign(M_num_fsd_bins, d_min)                  ;
-    M_fsd_bin_up_limits.assign(M_num_fsd_bins,d_min + M_fsd_bin_widths) ;
-    M_fsd_bin_centres.resize(M_num_fsd_bins)                            ;
+
+    // Lettie's variables
+    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ; 
+    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ; 
+    M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
+    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ; 
+    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;        
+    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;   
+    M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
+    M_fsd_area_lims_scaled.assign(M_num_fsd_bins+1, 0.)   ;
+
+    switch (M_fsd_type)
+    {
+        case (setup::FSDType::CONSTANT_SIZE):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+            M_fsd_bin_widths[0]      = M_fsd_bin_cst_width      ;
+            M_fsd_bin_up_limits[0]  = M_fsd_min_floe_size+M_fsd_bin_cst_width  ;
+            M_fsd_bin_centres[0]    = (M_fsd_bin_up_limits[0]
+                                +  M_fsd_bin_low_limits[0]) / 2 ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_bin_widths[m]      = M_fsd_bin_cst_width          ;
+                M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
+                                        + M_fsd_bin_cst_width  ; 
+                M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
+                                        + M_fsd_bin_cst_width  ;  
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
+                                        +  M_fsd_bin_low_limits[m]) / 2 ; 
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_up[m] = M_floe_shape*std::pow(M_fsd_bin_up_limits[m],2)      ;
+                M_floe_area_low[m] = M_floe_shape*std::pow(M_fsd_bin_low_limits[m],2)    ;
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+                M_fsd_area_lims[m]=M_floe_area_low[m]                                    ;
+                M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]         ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        case (setup::FSDType::CONSTANT_AREA):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+//            M_floe_area_binwidth[0] = M_floe_shape*std::pow(M_fsd_bin_cst_width,2)  ;
+            M_floe_area_binwidth[0] = M_floe_shape*(std::pow(M_fsd_bin_cst_width,2)+2*M_fsd_min_floe_size*M_fsd_bin_cst_width)  ;
+            M_floe_area_low[0] = M_floe_shape*std::pow(M_fsd_bin_low_limits[0],2)    ;
+            M_floe_area_up[0] =  M_floe_area_low[0] + M_floe_area_binwidth[0]        ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_binwidth[m]  = M_floe_area_binwidth[0]   ;
+                M_floe_area_low[m]       = M_floe_area_up[m-1]                             ;
+                M_floe_area_up[m]        = M_floe_area_up[m-1]+M_floe_area_binwidth[m]     ;
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_area_lims[m]      = M_floe_area_low[m]                         ;
+                M_fsd_bin_low_limits[m] = std::sqrt(M_floe_area_low[m]/M_floe_shape)  ; 
+                M_fsd_bin_up_limits[m]  = std::sqrt(M_floe_area_up[m] /M_floe_shape)  ; 
+                M_fsd_bin_widths[m]      = M_fsd_bin_up_limits[m] - M_fsd_bin_low_limits[m]     ;
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]+ M_fsd_bin_low_limits[m])/ 2 ; 
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        default:
+            std::cout << "fsd_type= " << (int)M_fsd_type << "\n";
+            throw std::logic_error("Wrong fsd_type");
+    }
 
  
-    for(int m=1; m<M_num_fsd_bins; m++)
-    {
-        M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
-                                + M_fsd_bin_widths   ; 
-        M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
-                                + M_fsd_bin_widths   ;  
-        M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
-                                +  M_fsd_bin_low_limits[m]) / 2 ; 
-    }
-    M_fsd_bin_centres[0]=(M_fsd_bin_up_limits[0]
-                        +  M_fsd_bin_low_limits[0]) / 2;
    // LOGS
     if (M_rank==0) 
     {
@@ -7219,27 +7293,7 @@ FiniteElement::initFsd()
                       << "FSD bin up lim.  : (" << m << ") "<< M_fsd_bin_up_limits[m] << " \n"   ;
         }
     }
-    // Lettie's variables
-    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ; 
-    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ; 
-    M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
-    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ; 
-    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;        
-    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;   
-    M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
-    M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
-    M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
-    M_fsd_area_lims_scaled.assign(M_num_fsd_bins+1, 0.)   ; 
 
-    for(int m=0; m<M_num_fsd_bins; m++)
-    {
-        M_floe_area_up[m] = M_floe_shape*std::pow(M_fsd_bin_up_limits[m],2)              ;
-        M_floe_area_low[m] = M_floe_shape*std::pow(M_fsd_bin_low_limits[m],2)            ;
-        M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)         ;
-        M_fsd_area_lims[m]=M_floe_area_low[m]                                                     ;
-        M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]                          ;
-    }
-    M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
     if (M_fsd_welding_use_scaled_area) 
     {
         for(int m=0; m<M_num_fsd_bins+1; m++)
@@ -7620,7 +7674,8 @@ FiniteElement::updateIceDiagnostics()
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
                     {   
-                        D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ; // ONLY WORKS WITH CST width 
+                        D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i]
+                                    * M_fsd_bin_widths[j] /std::accumulate(M_fsd_bin_widths.begin(),M_fsd_bin_widths.end(),0.);  
                     }
             
                 }

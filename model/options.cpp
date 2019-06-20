@@ -448,7 +448,9 @@ namespace Nextsim
             //-----------------------------------------------------------------------------------
             // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
-            ("wave_coupling.fsd_bins_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
+            ("wave_coupling.fsd_bin_cst_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            ("wave_coupling.fsd_min_floe_size", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
             // Rheology related (careful to agree with WW3 !!)
             ("wave_coupling.floes_flex_strength", po::value<double>()->default_value( 0.27e6 ), "Value used in Williams et al. 2013")
             ("wave_coupling.floes_flex_young", po::value<double>()->default_value( 5.49e9 ), "Value used in Williams et al. 2013")

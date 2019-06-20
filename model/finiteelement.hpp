@@ -435,6 +435,7 @@ private:
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     setup::WeldingType M_welding_type    ;
+    setup::FSDType M_fsd_type    ;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
 
@@ -749,7 +750,9 @@ private:
     // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     int M_num_fsd_bins;
-    int M_fsd_bin_widths; // Only uniform widths so far
+    std::vector<double> M_fsd_bin_widths; 
+    double M_fsd_bin_cst_width; 
+    double M_fsd_min_floe_size;
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
     std::vector<double> M_fsd_bin_up_limits;

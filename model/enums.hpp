@@ -99,6 +99,11 @@ namespace setup
         WILLIAMS = 2
     };
 
+    enum class FSDType
+    {
+        CONSTANT_SIZE   = 0,
+        CONSTANT_AREA   = 1
+    };
     enum class MeshType
     {
         FROM_UNREF     = 0,
