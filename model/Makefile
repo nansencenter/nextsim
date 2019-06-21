@@ -146,7 +146,10 @@ BINARYDIR=bin/
 
 # C++ files
 CXXSRCDIR=.
+CXXHDRDIR=.
 CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
+# We must exclude the version.hpp file from the list of header files because otherwise we get a circular dependency
+CXXHDR=$(filter-out $(CXXHDRDIR)/version.hpp, $(wildcard $(CXXHDRDIR)/*.hpp))
 
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
@@ -156,6 +159,10 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Default action.
 exec: $(PROGNAME)
+
+# Create a header file with the git version
+version.hpp: version.sh $(CXXSRC) $(CXXHDR)
+	$(SHELL) -x $<
 
 # Delete the object files.
 clean:
