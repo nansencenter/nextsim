@@ -200,7 +200,7 @@ $(OBJECTDIR)%.o: %.cpp
 # Make dependancy rules
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	$(CXX) -M -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
+	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
