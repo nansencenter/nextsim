@@ -4,12 +4,12 @@ version=$( git describe --dirty --always --tags )
 date=$( date )
 
 cat << EOF > version.hpp
-#if !defined (NEXTSIM_VERSION_GIT)
-#define NEXTSIM_VERSION_GIT "$version"
-#endif
+#ifndef __VERSION_HPP
+#define __VERSION_HPP 1
 
-#if !defined (NEXTSIM_BUILD_TIME)
+#define NEXTSIM_VERSION_GIT "$version"
 #define NEXTSIM_BUILD_TIME "$date"
+
 #endif
 EOF
 
