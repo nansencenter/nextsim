@@ -12540,8 +12540,8 @@ FiniteElement::writeLogFile()
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git revision "  << NEXTSIM_VERSION_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
