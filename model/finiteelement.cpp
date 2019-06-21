@@ -12540,8 +12540,8 @@ FiniteElement::writeLogFile()
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git revision "  << NEXTSIM_VERSION_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
@@ -12551,10 +12551,14 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
-        logfile << "#----------Program options\n";
+        logfile << "#----------Program options (non-default)\n";
 
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
+            // Skip default values
+            if ( vm[it->first].defaulted() )
+                continue;
+
             // ignore wim options if no coupling
 #if !defined (WAVES)
             if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
