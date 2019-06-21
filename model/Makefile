@@ -193,7 +193,7 @@ $(OBJECTDIR)%.o: %.cpp
 # Make dependancy rules
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
+	$(CXX) -M -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
