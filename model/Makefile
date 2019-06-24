@@ -192,15 +192,17 @@ $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@echo " "
 
 # Rules for object files from cpp files
+# Make dependancy rules at the same time
+# (doing separately caused them to be
+# created even during eg "make clean")
 $(OBJECTDIR)%.o: %.cpp
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
 	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
-
-# Make dependancy rules
-$(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
+	$(CXX) -M -MG -MT $@ $(CXXFLAGS) $< \
+	    -MF $(patsubst $(OBJECTDIR)%.o, $(DEPENDDIR)%.d, $@)
+
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
@@ -219,6 +221,7 @@ mrproperall:
 	cd ..; $(MAKE) mrproper
 
 # Properly clean & recompile
-fresh: mrproperall all
+fresh:
+	cd ..; $(MAKE) fresh
 
 -include $(DEPS)
