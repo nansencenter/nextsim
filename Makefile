@@ -50,8 +50,10 @@ ifdef USE_ENSEMBLE
 endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
-	rm -r objs  || true
-	rm -r lib   || true
-	rm -r .deps || true
+	rm -rf objs
+	rm -rf lib
+	rm -rf .deps
 
-fresh: mrproper all
+fresh:
+	$(MAKE) mrproper
+	$(MAKE) all
