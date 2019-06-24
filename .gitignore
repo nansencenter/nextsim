@@ -1,6 +1,7 @@
 # untracked files to ignore
 mesh/mesh_links
 data/data_links
+model/version.hpp
 nextsim-doc
 *.m
 *.msh
