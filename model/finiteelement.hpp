@@ -12,6 +12,7 @@
 #define __FiniteElement_HPP 1
 
 #include "version.hpp"
+
 #include <solverpetsc.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>

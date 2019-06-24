@@ -15,7 +15,7 @@ CC = gcc
 
 # add gcc option flags
 CCFLAGS += -pedantic -Wno-inline -fPIC
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifndef NEXTSIM_COMPILE_QUIET
    	CXXFLAGS += -v
 endif
 
