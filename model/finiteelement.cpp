@@ -1415,6 +1415,38 @@ FiniteElement::initOptAndParam()
 
 
 //------------------------------------------------------------------------------------------------------
+//! given a map eg [("ec2", setup::AtmosphereType::EC2), ...]
+//! and an option name opt_name eg "setup.atmosphere-type" with
+//! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
+//! Called by initOptAndParam()
+template<typename enum_type>
+void
+FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> const &map) const
+{
+
+    if(vm.count(opt_name)==0)
+        throw std::runtime_error(
+                "FiniteElement::getOptionFromMap: Unknown option name: "
+                + opt_name+"\n");
+
+    std::string const option_str = vm[opt_name].as<std::string>();
+    if ( map.count(option_str) == 0 )
+    {
+        LOG(ERROR)<< "FiniteElement::checkOptions: Unknown option for "
+                << opt_name << ": " << option_str<< "\n";
+        LOG(ERROR)<<"Valid options are:\n";
+        for (auto ptr=map.begin(); ptr!=map.end(); ptr++)
+            LOG(ERROR)<<"  "<< ptr->first <<"\n";
+        throw std::runtime_error("Invalid option for "
+                +opt_name + ": " + option_str+"\n");
+    }
+    opt_val = map[option_str];
+}
+
+
+
+//------------------------------------------------------------------------------------------------------
 //! Creates a GMSH mesh grid.
 //! !Does not seem to be used!
 void
