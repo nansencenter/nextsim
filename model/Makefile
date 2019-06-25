@@ -15,7 +15,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
-ifndef NEXTSIM_COMPILE_QUIET
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
@@ -192,17 +192,15 @@ $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@echo " "
 
 # Rules for object files from cpp files
-# Make dependancy rules at the same time
-# (doing separately caused them to be
-# created even during eg "make clean")
 $(OBJECTDIR)%.o: %.cpp
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
 	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
-	@mkdir -p $(DEPENDDIR)
-	$(CXX) -M -MG -MT $@ $(CXXFLAGS) $< \
-	    -MF $(patsubst $(OBJECTDIR)%.o, $(DEPENDDIR)%.d, $@)
 
+# Make dependancy rules
+$(DEPENDDIR)%.d: %.cpp
+	@mkdir -p $(DEPENDDIR)
+	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile

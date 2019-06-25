@@ -44,7 +44,7 @@ else
 	CXXFLAGS += -O3 -pthread
 endif
 
-ifndef NEXTSIM_COMPILE_QUIET
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
