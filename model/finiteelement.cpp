@@ -1214,7 +1214,7 @@ FiniteElement::initOptAndParam()
         ("basic", setup::OceanHeatfluxScheme::BASIC)
         ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
     this->getOptionFromMap(
-            M_Qio_type, "setup.Qio-type", str2qiot);
+            M_Qio_type, "thermo.Qio-type", str2qiot);
         //! \param M_Qio_type (enum) Option on the ocean heat flux scheme (basic or exchange)
     LOG(DEBUG)<< "M_Qio_type: "<< (int)M_Qio_type <<"\n";
 
@@ -1223,7 +1223,7 @@ FiniteElement::initOptAndParam()
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
     this->getOptionFromMap(
-            M_freezingpoint_type, "setup.freezingpoint-type", str2fpt);
+            M_freezingpoint_type, "thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
     LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
@@ -1235,7 +1235,6 @@ FiniteElement::initOptAndParam()
     if ( M_ocean_type == setup::OceanType::COUPLED )
         M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
 #endif
-    LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
 
 
 #ifdef AEROBULK
@@ -1247,7 +1246,7 @@ FiniteElement::initOptAndParam()
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
     this->getOptionFromMap(
-            M_freezingpoint_type, "setup.freezingpoint-type", str2oblk);
+            M_ocean_bulk_formula, "thermo.ocean_bulk_formula", str2oblk);
         //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes
         //! (only when compiled together with aerobulk)
     LOG(DEBUG)<< "M_ocean_bulk_formula: "<< (int)M_ocean_bulk_formula <<"\n";
@@ -1288,7 +1287,6 @@ FiniteElement::initOptAndParam()
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
-    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
     if (M_use_nesting)
@@ -1402,6 +1400,8 @@ FiniteElement::initOptAndParam()
             M_moorings_file_length, "moorings.file_length", str2mooringsfl);
         //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    LOG(DEBUG) << "M_moorings_file_length: " << (int)M_moorings_file_length<<"\n";
+
     M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
         //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
@@ -1415,6 +1415,7 @@ FiniteElement::initOptAndParam()
     this->getOptionFromMap(
             M_partitioner, "mesh.partitioner", str2partitioner);
         //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
 
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
@@ -1422,7 +1423,8 @@ FiniteElement::initOptAndParam()
 
     this->getOptionFromMap(
             M_partition_space, "mesh.partitioner-space", str2partitionspace);
-    //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
+        //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
+    LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
 
     //! - Set the drifter options
     //  NB needs to be done before readRestart()
