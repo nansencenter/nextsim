@@ -1225,7 +1225,6 @@ FiniteElement::initOptAndParam()
     this->getOptionFromMap(
             M_freezingpoint_type, "thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
-    LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -1235,6 +1234,7 @@ FiniteElement::initOptAndParam()
     if ( M_ocean_type == setup::OceanType::COUPLED )
         M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
 #endif
+    LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
 
 #ifdef AEROBULK
@@ -1356,9 +1356,9 @@ FiniteElement::initOptAndParam()
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-        //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     this->getOptionFromMap(
             M_basal_stress_type, "setup.basal_stress-type", str2basal_stress);
+        //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
 
@@ -1462,7 +1462,6 @@ FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
     }
     opt_val = map[option_str];
 }
-
 
 
 //------------------------------------------------------------------------------------------------------
