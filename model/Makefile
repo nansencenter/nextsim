@@ -15,7 +15,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
-ifndef NEXTSIM_COMPILE_QUIET
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
