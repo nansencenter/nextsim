@@ -64,23 +64,25 @@ public:
 
     typedef struct Grid
     {
-        Grid() {}
+        Grid()
+            : loaded(false), defined(false)
+        {}
 
         Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         interpMethod interp_method;

@@ -10160,9 +10160,6 @@ FiniteElement::initIce()
         case setup::IceType::PIOMAS:
             this->piomasIce();
             break;
-        case setup::IceType::CREG:
-            this->cregIce();
-            break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
             break;
