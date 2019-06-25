@@ -219,6 +219,7 @@ mrproperall:
 	cd ..; $(MAKE) mrproper
 
 # Properly clean & recompile
-fresh: mrproperall all
+fresh:
+	cd ..; $(MAKE) fresh
 
 -include $(DEPS)
