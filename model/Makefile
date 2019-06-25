@@ -2,7 +2,7 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -25,6 +25,7 @@ ifdef USE_OASIS
 	LDFLAGS += -lgfortran
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
+	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 endif
 
@@ -63,6 +64,7 @@ CXXFLAGS += -I $(BOOST_INCDIR)/ -I .
 
 # netcdf
 CXXFLAGS +=	-I $(NETCDF_DIR)/include
+CXXFLAGS +=	-I /home3/datahome/eolason/packages/netcdf_cxx/include
 
 # gmsh
 CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
@@ -93,14 +95,15 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
+	#LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
         LDFLAGS += -Wl,-rpath,$(BLAS_LAPACK_DIR)/lib
         LDFLAGS += -L $(BLAS_LAPACK_DIR)/lib -lsci_gnu_mp
 endif
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf -lnetcdff
+LDFLAGS += -Wl,-rpath,/home3/datahome/eolason/packages/netcdf_cxx/lib -L /home3/datahome/eolason/packages/netcdf_cxx/lib -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time

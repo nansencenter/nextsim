@@ -234,6 +234,21 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
+        case (variableID::M_conc_fsd):
+            // concentration of thin ice
+            M_name = "M_conc_fsd";
+            M_export_name = "Concentration_fsd";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
         case (variableID::M_fyi_fraction):
             M_name = "M_fyi_fraction";
             M_export_name = "Fyi_fraction";
@@ -426,6 +441,22 @@ ModelVariable::initElemental()
             M_export_name = "D_brine";
             M_prognostic = false;
             M_exporting = false;
+            break;
+
+        case (variableID::D_dmax):
+            // mean floe diameter
+            M_name = "D_dmax";
+            M_export_name = "Dmax";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
+        case (variableID::D_dmean):
+            // mean floe diameter
+            M_name = "D_dmean";
+            M_export_name = "Dmean";
+            M_prognostic = false;
+            M_exporting = true;
             break;
 
         default:

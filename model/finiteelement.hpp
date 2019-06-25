@@ -204,6 +204,10 @@ public:
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
+#ifdef OASIS
+    Dataset M_wave_nodes_dataset;
+    Dataset M_wave_elements_dataset;
+#endif
 
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
@@ -250,6 +254,9 @@ public:
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+#ifdef OASIS
+    void forcingWaves();
+#endif
     void forcingNesting();
 	void initBathymetry();
 
@@ -271,6 +278,7 @@ public:
     void initVariables();
     void calcAuxiliaryVariables();
     void initModelVariables();
+    void initFsd();
     void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
@@ -281,6 +289,13 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
+    // FSD related functions
+    void redistributeFSD();
+    void updateFSD();
+    std::vector<double> computeWaveBreakingProb();
+    double computeLateralAreaFSD(const int cpt);
+    double computeLeadFractionFSD(const int cpt);
+    void weldingRoach(const int cpt);
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -417,6 +432,8 @@ private:
     setup::FreezingPointType M_freezingpoint_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
+    setup::WeldingType M_welding_type    ;
+    setup::FSDType M_fsd_type    ;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
 
@@ -457,6 +474,11 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
+#ifdef OASIS
+    ExternalData M_tau_wi;
+    ExternalData M_str_var;
+    ExternalData M_tm02;
+#endif
     std::vector<double> M_tau_ow;
 
     external_data_vec M_external_data_elements, M_external_data_nodes;
@@ -503,6 +525,8 @@ private:
     // =============================================================================
 
     LogLevel M_log_level;
+    bool M_log_all;
+
 
 private:
 
@@ -715,6 +739,44 @@ private:
     ModelVariable M_age;
     ModelVariable M_conc_upd;               // Ice concentration update by assimilation
 
+    // Following variables are related to floe size distribution
+    std::vector<ModelVariable> M_conc_fsd;
+    int M_num_fsd_bins;
+    std::vector<double> M_fsd_bin_widths; 
+    double M_fsd_bin_cst_width; 
+    double M_fsd_min_floe_size;
+    std::vector<double> M_fsd_bin_centres;
+    std::vector<double> M_fsd_bin_low_limits;
+    std::vector<double> M_fsd_bin_up_limits;
+    double M_fsd_unbroken_floe_size     ;
+    // Non-circularity of floes
+    double M_floe_shape                              ;
+    // Lettie's variables
+    std::vector<double> M_floe_area_up             ;
+    std::vector<double> M_floe_area_low            ;
+    std::vector<double> M_floe_area_centered       ;
+    std::vector<double> M_floe_area_binwidth       ;
+
+    std::vector<double> M_fsd_area_scaled_up       ;
+    std::vector<double> M_fsd_area_scaled_low      ;
+    std::vector<double> M_fsd_area_scaled_centered ;
+    std::vector<double> M_fsd_area_scaled_binwidth ;
+    std::vector<double> M_fsd_area_lims            ;
+    std::vector<double> M_fsd_area_lims_scaled     ;
+
+    std::vector<std::vector<int> > M_alpha_fsd_merge ;
+    // In namelist
+    int    M_fsd_damage_type  ;
+    double M_fsd_damage_max   ;
+    double M_floes_flex_strength ;
+    double M_floes_flex_young    ;
+    double M_welding_kappa    ;
+    bool M_fsd_welding_use_scaled_area    ;
+    double M_dmax_c_threshold  ;
+    double M_thick_min_breakup  ;
+    // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
+    double M_lead_width    ;
+
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
     ModelVariable D_thick; // total thickness [m]
@@ -733,6 +795,11 @@ private:
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_emp; // Evaporation minus Precipitation [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
+    ModelVariable D_dmax; //max floe size [m]
+    ModelVariable D_dmean; //mean floe size [m]
+    ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
+    ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
@@ -775,26 +842,8 @@ private:
     std::vector<int> var_id_snd;
     std::vector<int> var_id_rcv;
 
-    const std::vector<std::string> var_snd{
-    //  "12345678" 8 characters field sent by neXtSIM to ocean
-        "I_taux",    // tau_u (at u-point)
-        "I_tauy",    // tau_v (at v-point)
-        "I_taumod",  // |tau| (at t-point)
-        "I_emp",     // Evap minus precip
-        "I_rsnos",   // Non-solar heatflux
-        "I_rsso",    // Solar/Shortwave radiation
-        "I_sfi",     // Salt/brine flux
-        "I_sic"   }; // Concentration
-
-    const std::vector<std::string> var_rcv{
-    //  "12345678"  8 characters field received by neXtSIM from ocean
-        "I_SST",   // Sea surface temperature
-        "I_SSS",   // Sea surface salinity
-        "I_Uocn",     // Ocean current - u
-        "I_Vocn",     // Ocean current - v
-        "I_SSH",   // Sea surface height
-        "I_MLD",   // Mixed layer depth
-        "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
+    std::vector<std::string> var_snd;
+    std::vector<std::string> var_rcv;
 
     int cpl_time_step;
     void initOASIS();
@@ -809,6 +858,7 @@ private:
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
+    void cregIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();

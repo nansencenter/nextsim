@@ -12,6 +12,7 @@
 #include <environment.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
@@ -21,6 +22,9 @@
 #include <dataset.hpp>
 #include "debug.hpp"
 
+#if defined ENSEMBLE 
+#include "ensemble.hpp"
+#endif
 
 /**
  * @class ExternalData
@@ -117,7 +121,7 @@ public:
         mapx_class *mapNextsim);//(double const& u, double const& v)
     
 #if defined OASIS
-    void recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
+    void receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
 	bool isInitialized() const { return M_initialized; }
@@ -143,6 +147,8 @@ private:
     double M_factor;
 
     LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim

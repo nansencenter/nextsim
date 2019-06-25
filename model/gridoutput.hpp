@@ -91,6 +91,7 @@ public:
         std::string thetaName;
 
         bool loaded;
+        bool defined;
         bool transpose;
 
         std::string dimNameX;
@@ -167,7 +168,8 @@ public:
         snowfr      = 210,
 
         // WIM variables
-        dfloe       = 300,
+        dmax        = 300,
+        dmean       = 301,
 
         // Coupling variables not already covered elsewhere
         taux        = 901,
@@ -447,11 +449,20 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+
                 //WIM variables
-                case (variableID::dfloe):
-                    name     = "dfloe";
+                case (variableID::dmax):
+                    name     = "dmax";
                     longName = "Maximum floe size";
                     stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dmean):
+                    name     = "dmean";
+                    longName = "Mean floe size";
+                    stdName  = "mean_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;

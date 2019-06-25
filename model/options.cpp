@@ -123,7 +123,7 @@ namespace Nextsim
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "disk" ),
+            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
@@ -424,8 +424,27 @@ namespace Nextsim
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
             ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ), "File containing neccesary grid information for coupling.")
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
-            // ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            //-----------------------------------------------------------------------------------
+            //!wave_coupling
+            //-----------------------------------------------------------------------------------
+            // FSD related
+            ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
+            ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
+            ("wave_coupling.fsd_bin_cst_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            ("wave_coupling.fsd_min_floe_size", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            // Rheology related (careful to agree with WW3 !!)
+            ("wave_coupling.floes_flex_strength", po::value<double>()->default_value( 0.27e6 ), "Value used in Williams et al. 2013")
+            ("wave_coupling.floes_flex_young", po::value<double>()->default_value( 5.49e9 ), "Value used in Williams et al. 2013")
+            ("wave_coupling.welding_type", po::value<std::string>()->default_value( "none" ), "none -> no welding, roach -> welding following Roach et al. 2018, williams-> welding following Tim")
+            ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
+            ("wave_coupling.fsd_welding_use_scaled_area", po::value<bool>()->default_value( false ), "Roach et al., 2018-> True")
+            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value. By default, dmax is the size associated with the 9th decile of sea ice")
+            ("wave_coupling.thick_min_breakup", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
+            ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship betzeen damage and FSD: 0 none, 1 related to unbroken floes concentration")
+            ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
 #endif
 
 #if defined(WAVES)
