@@ -222,4 +222,8 @@ mrproperall:
 fresh:
 	cd ..; $(MAKE) fresh
 
--include $(DEPS)
+# Include dependencies only if the goal needs it
+MAKEFILE_TARGETS_WITHOUT_INCLUDE := clean mrproper cleanall mrproperall fresh
+ifeq ($(filter $(MAKECMDGOALS),$(MAKEFILE_TARGETS_WITHOUT_INCLUDE)),)
+	-include $(DEPS)
+endif
