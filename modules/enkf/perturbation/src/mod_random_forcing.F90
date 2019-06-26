@@ -53,7 +53,7 @@ module mod_random_forcing
    integer, save :: rf_prsflg=2 ! initial value
    integer, save :: xdim, ydim
    integer, save :: idm=360, jdm=360
-   character(80) :: iopath = '/docker_io' ! modified in namelist
+   character(150) :: iopath = '/docker_io' ! modified in namelist
    real,parameter     :: airdns  =  1.2
    real, parameter    :: radian  = 57.2957795
    real, parameter    :: pi      =  3.1415926536
@@ -707,7 +707,7 @@ contains
    subroutine randfld_rd(time_index)
 
            character(2)  :: time_index
-           character(80) :: filename
+           character(150) :: filename
            integer :: ix,jy
 
            filename = trim(iopath)//'/randfld.'//time_index
@@ -732,7 +732,7 @@ contains
    subroutine synforc_rd(time_index)
 
            character(2)  :: time_index
-           character(80) :: filename
+           character(150) :: filename
            integer       :: ix,jy, xx, yy
 
            filename = trim(iopath)//'/synforc.'//time_index
@@ -757,7 +757,7 @@ contains
    subroutine randfld_wr(time_index)
 
            character(2)  :: time_index
-           character(80) :: filename
+           character(150) :: filename
            integer :: ix,jy
 
            filename = trim(iopath)//'/randfld.'//time_index
@@ -783,7 +783,7 @@ contains
    subroutine synforc_wr(time_index)
 
            character(2)  :: time_index
-           character(80) :: filename
+           character(150) :: filename
            integer       :: ix,jy
 
            filename = trim(iopath)//'/synforc.'//time_index
