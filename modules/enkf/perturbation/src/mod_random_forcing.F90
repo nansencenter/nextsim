@@ -371,8 +371,6 @@ contains
 
       dpresx=0.
       dpresy=0.
-!$OMP PARALLEL DO PRIVATE (ix,jy)
-!$OMP&SCHEDULE(STATIC,jblk)
       do jy=2,jdm
       do ix=2,idm
          ! Pressure gradient. Coversion from mBar to Pa
@@ -385,15 +383,10 @@ contains
             dpresy(ix,jy)=dpresy(ix,jy)*wprsfac
       end do
       end do
-!$OMP END PARALLEL DO
 
 
 
 
-!$OMP PARALLEL DO PRIVATE (ix,jy,fcor,
-!$OMP&                     ucor,vcor,
-!$OMP&                     ueq,veq,wcor)
-!$OMP&SCHEDULE(STATIC,jblk)
       do jy=1,jdm
       do ix=1,idm
 
@@ -433,7 +426,6 @@ contains
          synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
       end do
       end do
-!$OMP END PARALLEL DO
 !      synuwind = synuwind - compute_mean(synuwind)
 !      synvwind = synvwind - compute_mean(synvwind)
 
@@ -441,8 +433,6 @@ contains
 
 
          ! Drag
-!$OMP PARALLEL DO PRIVATE (ix,jy,wndfac,cd_new,w4,wfact)
-!$OMP&SCHEDULE(STATIC,jblk)
       do jy=2,jdm-1
       do ix=2,idm-1
          wndfac=(1.+sign(1.,synwndspd(ix,jy)-11.))*.5
@@ -462,7 +452,6 @@ contains
          syntauy(ix,jy)=synvwind(ix,jy)*wfact
       end do
       end do
-!$OMP END PARALLEL DO
 
 
 
@@ -472,7 +461,6 @@ contains
       else  ! rf_prsflg .eq. 0
 
 
-!!$OMP PARALLEL DO PRIVATE (ix,jy,wspd) SCHEDULE(STATIC,jblk)
       do jy=2,jdm-1
       do ix=2,idm-1
       !if (ip(ix,jy)==1) then
