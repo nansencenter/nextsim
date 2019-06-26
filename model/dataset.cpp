@@ -4960,7 +4960,178 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
      }
-/* EnKFC :: define a restart dataset similar to ice initialization for all the state variables*/
+#ifdef ENSEMBLE
+    else if (strcmp (DatasetName, "enkf_analysis_elements") == 0)
+    {
+        // Definition of topaz grid and datasets
+        Dimension dimension_x={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time", // "Time"
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            name: "plat",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable longitude={
+            name: "plon",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable time_tmp={
+            name: "time",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "days",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable thickness={
+            name: "sit",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+//        Variable conc={
+//            name: "sic",
+//            dimensions: dimensions,
+//            land_mask_defined: true,
+//            land_mask_value: 12500.,
+//            NaN_mask_defined: true,
+//            NaN_mask_value: 11500.,
+//            use_FillValue: false,
+//            use_missing_value: false,
+//            a: 0.01,
+//            b: 0.,
+//            Units: "",
+//            loaded_data: loaded_data_tmp,
+//            interpolated_data: interpolated_data_tmp,
+//            wavDirOptions: wavdiropt_none
+//        };
+        // The masking, lon, and lat variables in NEMO.nc
+        Variable mask={
+            name: "mask",
+            dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            dirname: "",
+            prefix: "mem"+Environment::vm()["statevector.id"].as<std::string>()+".nc.analysis",
+            postfix: "",
+            gridfile: "mem"+Environment::vm()["statevector.id"].as<std::string>()+".nc.analysis",
+            reference_date: "1979-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
+
+            loaded: false,
+            dataset_frequency:"constant",
+
+            waveOptions: wavopt_none,
+
+            masking: true,
+            masking_variable: mask,
+        };
+
+        std::vector<Variable> variables_tmp(1);
+        variables_tmp[0] = thickness;
+//        variables_tmp[1] = conc;
+
+        variables= variables_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.; // days
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+     }
+#endif
     else if (strcmp (DatasetName, "ice_nic_elements") == 0)
     {
         // Definition of topaz grid and datasets
@@ -8953,7 +9124,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         // Then we load the reduced grid
         getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
-#if defined OASIS
+#if defined (OASIS) || (ENSEMBLE)
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
         if(grid_ptr->gridded_rotation_angle)
@@ -9036,7 +9207,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			std::vector<double> reduced_LAT;
 			std::vector<double> reduced_LON;
 			std::vector<int> reduced_nodes_ind;
-#if defined OASIS
+#if defined (OASIS) || (ENSEMBLE)
             std::vector<double> reduced_Theta;
 #endif
 
@@ -9167,7 +9338,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 						reduced_LAT.push_back(LAT[grid_ptr->dimension_x_count*i+j]);
 						reduced_LON.push_back(LON[grid_ptr->dimension_x_count*i+j]);
 						reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
-#ifdef OASIS
+#if defined (OASIS) || (ENSEMBLE)
                         if(grid_ptr->gridded_rotation_angle)
                             reduced_Theta.push_back(Theta[grid_ptr->dimension_x_count*i+j]);
 #endif
@@ -9178,7 +9349,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			grid_ptr->gridY=reduced_Y;
 			grid_ptr->gridLAT=reduced_LAT;
 			grid_ptr->gridLON=reduced_LON;
-#ifdef OASIS
+#if defined (OASIS) || (ENSEMBLE)
             grid_ptr->gridTheta=reduced_Theta;
 #endif
 			grid_ptr->reduced_nodes_ind=reduced_nodes_ind;
@@ -9189,7 +9360,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 			grid_ptr->gridY=Y;
 			grid_ptr->gridLAT=LAT;
 			grid_ptr->gridLON=LON;
-#ifdef OASIS
+#if defined (OASIS) || (ENSEMBLE)
             grid_ptr->gridTheta=Theta;
 #endif
 		}
@@ -9205,7 +9376,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		LOG(DEBUG) <<"GRID : Triangulate done\n";
 
 	}//interpolation_method==InterpolationType::FromMeshToMesh2dx
-#ifdef OASIS
+#if defined (OASIS) || (ENSEMBLE)
     else if (grid_ptr->interpolation_method==InterpolationType::ConservativeRemapping)
     {
 		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
@@ -9632,7 +9803,7 @@ DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on
     return th;
 }
 
-#if defined OASIS
+#ifdef OASIS
 void
 DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights)
 {

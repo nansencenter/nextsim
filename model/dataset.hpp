@@ -43,7 +43,7 @@ namespace Nextsim
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
-#if defined OASIS
+#if defined (OASIS) || defined (ENSEMBLE)
         ConservativeRemapping = 3
 #endif
     };
@@ -156,7 +156,7 @@ public:
         Variable masking_variable;
 
         // optional variables below here...
-#if defined OASIS
+#if defined (OASIS) || defined (ENSEMBLE)
         bool gridded_rotation_angle;
         Variable vector_rotation_variable;
 
