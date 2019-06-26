@@ -43,7 +43,7 @@ static int obs_badob(observations* obs, int i)
 
     if (o->status != STATUS_OK)
         return 0;
-    if (o->type < 0 || o->product < 0 || o->instrument < 0 || o->fid < 0 || o->batch < 0 || !isfinite(o->value) || fabs(o->value) > MAXOBSVAL || isnan(o->std) || o->std <= 0.0 || !isfinite(o->fi) || !isfinite(o->fj) || !isfinite(o->fk) || !isfinite(o->lon) || !isfinite(o->lat) || !isfinite(o->depth))
+    if (o->type < 0 || o->product < 0 || o->instrument < 0 || o->fid < 0 || o->batch < 0 || !isfinite(o->value) || fabs(o->value) > MAXOBSVAL || isnan(o->std) || o->std < 0.0 || !isfinite(o->fi) || !isfinite(o->fj) || !isfinite(o->fk) || !isfinite(o->lon) || !isfinite(o->lat) || !isfinite(o->depth))
         return 1;
     return 0;
 }
@@ -171,7 +171,9 @@ void obs_add(observations* obs, model* m, obsmeta* meta)
             }
             if (depth != NULL) {
                 o->model_depth = (double) interpolate2d(o->fi, o->fj, ni, nj, depth, numlevels, isperiodic_i);
-                if (!isfinite(o->model_depth) || o->model_depth == 0) {
+//                enkf_printf("        %f MODEL DEPTH\n", o->model_depth);
+//                if (!isfinite(o->model_depth) || o->model_depth == 0) {
+                if (!isfinite(o->model_depth)) {
                     o->status = STATUS_LAND;
                     nland++;
                     continue;
@@ -349,7 +351,7 @@ void obs_add(observations* obs, model* m, obsmeta* meta)
         if (obs_badob(obs, i)) {
             enkf_printf("        bad observation detected: ");
             obs_printob(obs, i);
-            enkf_quit("bad observation");
+//            enkf_quit("bad observation");
         }
     }
 }
