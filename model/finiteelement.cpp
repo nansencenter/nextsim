@@ -90,6 +90,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_nodes = M_mesh.nodes();
 
     M_num_elements = M_mesh.numTriangles();
+    LOG(DEBUG)<<"-------------------M_num_elements "<< M_num_elements <<"\n";
     M_ndof = M_mesh.numGlobalNodes();
 
     M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
@@ -1382,13 +1383,13 @@ FiniteElement::initOptAndParam()
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
 
 #ifdef ENSEMBLE
-    M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_id_statevector               = vm["statevector.id"].as<int>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_statevector_prefix           = vm["statevector.prefix"].as<std::string>();
-    M_use_statevector              = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_statevector_snapshot         = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
-    M_statevector_false_easting    = vm["statevector.false_easting"].as<bool>();
-    M_statevector_parallel_output  = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
+    M_use_statevector = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_id_statevector = vm["statevector.id"].as<std::string>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
+    M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
+    M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
+    M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
@@ -1396,7 +1397,7 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_statevector_file_length      = str2statevectorfl.find(vm["statevector.file_length"].as<std::string>())->second;
+    M_statevector_file_length = str2statevectorfl.find(vm["statevector.file_length"].as<std::string>())->second;
     if(!M_statevector_snapshot)
         M_statevector_averaging_period = statevector_output_time_step/days_in_sec;
     if(vm["statevector.output_time_step_units"].as<std::string>() == "days")
@@ -6256,10 +6257,6 @@ FiniteElement::init()
         if ( res_str.empty() )
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
-//       -aLi- if ( M_use_statevector )
-//        {
-//           readStateVector();
-//        }
     }
     else
     {
@@ -6320,6 +6317,17 @@ FiniteElement::init()
     if ( M_use_moorings )
         this->initMoorings();
 
+
+#ifdef ENSEMBLE
+    if ( M_use_statevector ){
+        this->initStateVector();
+        LOG(DEBUG) <<"initStateVector...\n";
+    }
+    if (M_restart_from_analysis){
+       this->readStateVector();
+       LOG(DEBUG) <<"readStateVector\n";
+    }
+#endif
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
     // 1. moorings:
     // - check if we are adding snapshot to netcdf file
@@ -7127,11 +7135,12 @@ FiniteElement::run()
     // **********************************************************************
     this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
-#ifdef ENSEMBLE
-    this->exportStateVector();
-#endif
     if (M_write_restart_end)
         this->writeRestart("final");
+#ifdef ENSEMBLE
+    if (M_use_statevector)
+        this->exportStateVector(false);
+#endif
 
     // **********************************************************************
     // Finalizing
@@ -7843,7 +7852,6 @@ void
 FiniteElement::initStateVector()
 {
 
-    LOG(INFO) <<"initialized state vector"<<"\n";
     if (       (!M_statevector_snapshot)
             && ( pcpt*time_step % statevector_output_time_step != 0 ) )
     {
@@ -8091,6 +8099,15 @@ FiniteElement::initStateVector()
             filename_root = M_export_path + "/" + M_statevector_prefix;
 
         M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time, M_use_restart);
+
+        if(vm["statevector.grid_type"].as<std::string>() == "reference") {
+            if ( M_rank==0 )
+                M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+            else
+                M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+            }
+        else
+            M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
     }
 }//initStateVector
 
@@ -8103,12 +8120,13 @@ FiniteElement::updateStateVector()
 {
     // If we're taking snapshots then we only call updateMeans before writing to file
     // - otherwise we update every time step
-    if ( !M_statevector_snapshot )
-        this->updateMeans(M_statevector, statevector_time_factor);
+//    if ( !M_statevector_snapshot )
+//        this->updateMeans(M_statevector, statevector_time_factor);
 
     //check if we are outputting
     if ( pcpt*time_step % statevector_output_time_step == 0 )
     {
+        LOG(DEBUG) <<"TIME: " << pcpt << time_step << statevector_output_time_step <<"\n";
         double output_time = M_current_time;
         if ( M_statevector_snapshot )
         {
@@ -8167,7 +8185,25 @@ void
 FiniteElement::stateVectorAppendNetcdf(double const &output_time)
 {
 
-    LOG(INFO) <<"appending netcdf"<<"\n";
+    // Initialise netCDF output
+    if ( (M_rank==0) || M_statevector_parallel_output )
+    {
+
+        double output_time;
+        if ( M_statevector_snapshot )
+            output_time = M_current_time;
+        else
+            // shift the timestamp in the file to the centre of the output interval
+            output_time = M_current_time + double(statevector_output_time_step)/86400./2.;
+
+        std::string filename_root;
+        if ( M_statevector_parallel_output )
+            filename_root = M_export_path + "/" + M_statevector_prefix + "_" + std::to_string(M_rank);
+        else
+            filename_root = M_export_path + "/" + M_statevector_prefix;
+
+        M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time, M_use_restart);
+    }
     // update data on grid
     M_statevector.updateGridMean(bamgmesh);
 
@@ -8186,48 +8222,76 @@ FiniteElement::stateVectorAppendNetcdf(double const &output_time)
             boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
             if (M_rank==0) it->data_grid = result;
         }
-    }
 
+    }
     //append to netcdf
     if ( (M_rank==0) || M_statevector_parallel_output )
         M_statevector.appendNetCDF(M_statevector_file, output_time);
+    LOG(DEBUG) <<"M_statevector.appendNetCDF"<<"\n";
 
     //reset means on mesh and grid
     M_statevector.resetMeshMean(bamgmesh);
     M_statevector.resetGridMean();
 }//statevectorAppendNetcdf
 
-void
-FiniteElement::exportStateVector()
-{
 
+void
+FiniteElement::exportStateVector(bool const& at_init_time)
+{
     if(M_use_statevector)
     {
-
+        this->initStateVector();
+        LOG(DEBUG) <<"M_statevector_file: "<< M_statevector_file << "\n";
+        if(!at_init_time)
+            this->updateStateVector();
         if(    M_statevector_snapshot
                 && pcpt*time_step % statevector_output_time_step == 0
                 && !M_use_restart )
         {
-            this->initStateVector();
-
-            if(vm["statevector.grid_type"].as<std::string>() == "reference") {
-                if ( M_rank==0 )
-                    M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
-                }
-            else
-                M_statevector.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-        }
-           // write initial conditions to statevector file if using snapshot option
-            // (only if at the right time though)
             // - set the fields on the mesh
             this->updateMeans(M_statevector, 1.);
-            // - interpolate to the grid and write them to the netcdf file
-            this->stateVectorAppendNetcdf(M_current_time);
+
+        }
+
+        // - interpolate to the grid and write them to the netcdf file
+        this->stateVectorAppendNetcdf(M_current_time);
      }
 }//exportStateVector
 
+void
+FiniteElement::readStateVector()
+{
+
+    M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
+
+    external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);
+//    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_analysis_thick);
+//    external_data_tmp.push_back(&M_analysis_conc);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+//    external_data_tmp.resize(0);
+
+    LOG(DEBUG)<<"-------------------M_size M_analysis_thick "<< M_analysis_thick.size() <<"\n";
+    LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
+    for(int i=0; i<M_num_elements; ++i){
+        LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
+//        LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
+        LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
+//        LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
+        M_thick[i]  = (M_analysis_thick[i]>1e-14) ? M_analysis_thick[i] : 0.;
+//        M_conc[i]   = (M_analysis_conc[i] >1e-14) ? M_analysis_conc[i] : 0.;
+
+        LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
+//        LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
+    }
+
+}//readStateVector
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------

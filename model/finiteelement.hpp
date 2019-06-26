@@ -218,6 +218,9 @@ public:
     Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
+#if defined (ENSEMBLE)
+    Dataset M_enkf_analysis_elements_dataset;
+#endif
 
     // Datasets for nesting from outer domain with coarse resolution
     Dataset M_nesting_ocean_elements_dataset;
@@ -869,9 +872,10 @@ private:
     int    statevector_output_time_step;
     double statevector_time_factor;
     bool   M_use_statevector;
-    int    M_id_statevector;
+    bool   M_restart_from_analysis;
     bool   M_statevector_snapshot;
     bool   M_statevector_parallel_output;
+    std::string M_id_statevector;
     std::string M_statevector_file;
     std::string M_statevector_prefix;
     GridOutput::fileLength M_statevector_file_length;
@@ -881,8 +885,9 @@ private:
 
     void initStateVector();
     void updateStateVector();
-    void stateVectorAppendNetcdf(double const &output_time);
-    void exportStateVector();
+    void stateVectorAppendNetcdf(double const& output_time);
+    void exportStateVector(bool const& init_time);
+    void readStateVector();
 #endif
 };
 } // Nextsim
