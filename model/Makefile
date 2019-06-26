@@ -15,7 +15,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
@@ -144,16 +144,23 @@ BINARYDIR=bin/
 
 # C++ files
 CXXSRCDIR=.
+CXXHDRDIR=.
 CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
+# We must exclude the version.hpp file from the list of header files because otherwise we get a circular dependency
+CXXHDR=$(filter-out $(CXXHDRDIR)/version.hpp, $(wildcard $(CXXHDRDIR)/*.hpp))
 
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs
+.PHONY: exec clean mrproper all cleanall mrproperall
 
 # Default action.
 exec: $(PROGNAME)
+
+# Create a header file with the git version
+version.hpp: version.sh $(CXXSRC) $(CXXHDR)
+	$(SHELL) -x $<
 
 # Delete the object files.
 clean:
@@ -191,30 +198,30 @@ $(OBJECTDIR)%.o: %.cpp
 # Make dependancy rules
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
+	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
-# Make the required libraries
-libs:
-	cd ..; make
+# Make everything
+all:
+	cd ..; $(MAKE) all
 
-# Compile the libraries as well as the executable
-all: libs exec
 
-# Clean the required libraries
-cleanlibs:
-	cd ..; make clean
+# Clean everything
+cleanall:
+	cd ..; $(MAKE) clean
 
-# Clean libs and current dir
-cleanall: cleanlibs clean
+# Properly clean everything
+mrproperall:
+	cd ..; $(MAKE) mrproper
 
-# Clean recompile
-fresh: cleanall all
+# Properly clean & recompile
+fresh:
+	cd ..; $(MAKE) fresh
 
-# Fully clean the required libraries
-mrproperlibs:
-	cd ..; make mrproper
-
--include $(DEPS)
+# Include dependencies only if the goal needs it
+MAKEFILE_TARGETS_WITHOUT_INCLUDE := clean mrproper cleanall mrproperall fresh
+ifeq ($(filter $(MAKECMDGOALS),$(MAKEFILE_TARGETS_WITHOUT_INCLUDE)),)
+	-include $(DEPS)
+endif

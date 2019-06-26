@@ -660,6 +660,7 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
+    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
     // root
@@ -925,8 +926,10 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 //! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
+        double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+        const bool use_timer)
 {
+    M_timer.tick("checkReloadDatasets");
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -937,8 +940,12 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
+        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+            << " of dataset " << (*it)->getDatasetName() << "\n";
+
+        M_timer.tick((*it)->getDatasetName());
         std::string msg = "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet";
+                + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
             throw std::runtime_error(msg);
 #ifdef OASIS
@@ -946,7 +953,9 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #else
         (*it)->check_and_reload(RX, RY, CRtime);
 #endif
+        M_timer.tock((*it)->getDatasetName());
     }
+    M_timer.tock("checkReloadDatasets");
 }//checkReloadDatasets
 
 
@@ -957,20 +966,24 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 //!   needs to be reloaded and/or reinterpolated
 //! Called by init() and step()
 void
-FiniteElement::checkReloadMainDatasets(double const CRtime)
+FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
+    M_timer.tick("bCoord");
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
+    M_timer.tock("bCoord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 
     // - mesh nodes
+    M_timer.tick("Coord");
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
+    M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
 
 
@@ -1174,6 +1187,8 @@ FiniteElement::initOptAndParam()
 
 
     //! Sets mechanical parameter values
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
+    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strength as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
@@ -3613,7 +3628,9 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
+    M_timer.tick("gatherNodalField");
     this->gatherNodalField(M_UM,um_root);
+    M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
     {
@@ -3682,10 +3699,11 @@ FiniteElement::regrid(bool step)
                 LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
             }
 
-            chrono.restart();
+            M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 
 
             // save mesh (only root process)
@@ -3696,6 +3714,7 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
             LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
+            M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");
             chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
@@ -3711,6 +3730,7 @@ FiniteElement::regrid(bool step)
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -3727,9 +3747,10 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    chrono.restart();
+    M_timer.tick("interpFields");
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFields done in "<< chrono.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+    M_timer.tock("interpFields");
 
     // --------------------------------END-------------------------------
 
@@ -4409,11 +4430,13 @@ FiniteElement::FETensors()
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_Cohesion.size(); ++i)
+    for (int i=0; i<M_num_elements; ++i)
+    {
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-}
-//calcCohesion
+        M_Compressive_strength[i] = compr_strength*scale_coef;
+    }
 
+}//calcCohesion
 
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
@@ -4469,13 +4492,12 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
 
-
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double sigma_t, sigma_c;
+        double tract_max, sigma_t, sigma_c;
         double tmp, sigma_target, tmp_factor;
 
 
@@ -4502,19 +4524,15 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
-        // Before, we updated only elements which had deformed. It did not improve performance. We update them all now.
-        bool to_be_updated=true;
-
-
         /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
+        bool to_be_updated=true;
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
@@ -4548,16 +4566,13 @@ FiniteElement::update()
 
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
             open_water_concentration -= M_conc_thin[cpt];
-        }
 
         // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
-
 
         /* Thin ice category */
         double new_conc_thin=0.;
@@ -4682,22 +4697,36 @@ FiniteElement::update()
             sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-
-            double hi=0.;
-            if(M_conc[cpt]>0.1)
-                hi = M_thick[cpt]/M_conc[cpt];
-            else
-                hi = M_thick[cpt]/0.1;
-
             sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
             sigma_t=-sigma_c/q;
-
+            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
             /* Calculate the characteristic time for damage */
             if (td_type == "damage_dependent")
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            if(sigma_n>M_Compressive_strength[cpt])
+            {
+                sigma_target=M_Compressive_strength[cpt];
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
+
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
@@ -4719,6 +4748,26 @@ FiniteElement::update()
                 }
             }
 
+            if(sigma_n<tract_max)
+            {
+                sigma_target = tract_max;
+                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+
+                if (disc_scheme == "explicit") {
+                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                }
+                if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                }
+
+                if(tmp>M_damage[cpt])
+                {
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
 
         }
         else // if M_conc or M_thick too low, set sigma to 0.
@@ -6745,11 +6794,14 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
+        M_timer.tick("angle_check");
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+
+        M_timer.tock("angle_check");
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
@@ -6768,23 +6820,32 @@ FiniteElement::step()
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
+            {
+                M_timer.tick("updateGridMean");
                 M_moorings.updateGridMean(bamgmesh);
+                M_timer.tock("updateGridMean");
+            }
 
 #ifdef OASIS
+            M_timer.tick("updateGridMean_cpl");
             M_cpl_out.updateGridMean(bamgmesh);
+            M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
-            chrono.restart();
+            M_timer.tick("regrid");
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+            M_timer.tock("regrid");
+
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
+            M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
@@ -6792,10 +6853,12 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+            M_timer.tock("resetMeshMean_cpl");
 #endif
 
             if ( M_use_moorings )
             {
+                M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
@@ -6803,10 +6866,12 @@ FiniteElement::step()
                 else
 #endif
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                M_timer.tock("resetMeshMean");
             }
 
             ++M_nb_regrid;
 
+            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
 
@@ -6816,9 +6881,8 @@ FiniteElement::step()
     M_timer.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    chrono.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< chrono.elapsed() <<"s\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
 
     M_timer.tock("checkReload");
 
@@ -6933,7 +6997,7 @@ FiniteElement::step()
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
-    M_timer.tick("coupler");
+    M_timer.tick("coupler put");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6971,7 +7035,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
-    M_timer.tock("coupler");
+    M_timer.tock("coupler put");
 #endif
 
     //======================================================================
@@ -12916,8 +12980,8 @@ FiniteElement::writeLogFile()
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git revision "  << NEXTSIM_VERSION_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
@@ -12927,10 +12991,14 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
-        logfile << "#----------Program options\n";
+        logfile << "#----------Program options (non-default)\n";
 
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
+            // Skip default values
+            if ( vm[it->first].defaulted() )
+                continue;
+
             // ignore wim options if no coupling
 #if !defined (WAVES)
             if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
