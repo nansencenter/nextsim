@@ -457,11 +457,13 @@ namespace Nextsim
             ("wave_coupling.welding_type", po::value<std::string>()->default_value( "none" ), "none -> no welding, roach -> welding following Roach et al. 2018, williams-> welding following Tim")
             ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
             ("wave_coupling.fsd_welding_use_scaled_area", po::value<bool>()->default_value( false ), "Roach et al., 2018-> True")
-            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value. By default, dmax is the size associated with the 9th decile of sea ice")
-            ("wave_coupling.thick_min_breakup", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value.             By default, dmax is the size associated with the 9th decile of sea ice")
             ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
             ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship betzeen damage and FSD: 0 none, 1 related to unbroken floes concentration")
             ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
+            ("wave_coupling.breakup_thick_min", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
 #endif
 
 #if defined(WAVES)

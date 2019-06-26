@@ -1384,9 +1384,19 @@ FiniteElement::initOptAndParam()
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
 
+    //! If FSD : Break-up (redistribution) 
+    const boost::unordered_map<const std::string, setup::BreakupType> str2breakup= boost::assign::map_list_of
+        ("none", setup::BreakupType::NONE) 
+        ("zhang", setup::BreakupType::ZHANG)
+        ("uniform_size", setup::BreakupType::UNIFORM_SIZE);
+    option_str = vm["wave_coupling.breakup_type"].as<std::string>();
+    if ( str2breakup.count(option_str) == 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.breakup_type: " + option_str);
+    M_breakup_type = str2breakup.find(option_str)->second; //! 
+    M_breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
+    M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
     //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
-    M_thick_min_breakup     = vm["wave_coupling.thick_min_breakup"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
@@ -4797,7 +4807,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
         //     continue;
         // }
         prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
-                            (2* M_str_var[i]* (std::pow(std::max(M_thick_min_breakup,M_thick[i])/2.,2) ) ) 
+                            (2* M_str_var[i]* (std::pow(std::max(M_breakup_thick_min,M_thick[i])/2.,2) ) ) 
                          ) ;
     }
 #endif
@@ -4830,7 +4840,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             //! Compute the wavelength associated with Tm02
             double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-            double  tau_w = 1.*M_res_root_mesh/cg_w               ;
+            double  tau_w = M_breakup_timescale_tuning*M_res_root_mesh/cg_w               ;
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(M_thick[i],3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
@@ -4848,14 +4858,40 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 //! 1.a Compute the broken area in each category
                 double broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
                 M_conc_fsd[j][i] -= broken_area ;
-                //! 1.b Define a redistributor beta (Zhang et al,.2015)
-                // beta = 1./j ; // uniform redistribution in term of area, overestimates break-up
-                // uniform redistribution considering number of floes
-                double beta = 1./ ( std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3) ) ;
-                // So far, redistribution also occurs within the broken category
-                //! 2. Redistribute uniformly
-                for (int k=0; k<=j ; k++)
-                    M_conc_fsd[k][i] +=  broken_area *beta * ( std::pow(M_fsd_bin_up_limits[k],3) - std::pow(M_fsd_bin_low_limits[k],3) )    ;
+                switch (M_breakup_type)
+                {
+                    //! 2. Redistribute the broken sea ice area 
+                    //! So far, redistribution also occurs within the broken category
+                    case (setup::BreakupType::ZHANG):
+                    {
+                        //! Define a redistributor beta (Zhang et al,.2015)
+                        //! whith uniform redistribution in term of area, favorises small floes
+                        for (int k=0; k<=j ; k++)
+                        {
+                            double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
+                            M_conc_fsd[k][i] +=  broken_area *beta   ;
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::UNIFORM_SIZE):
+                    {
+                    //!Define a redistributor beta 
+                    //! with uniform redistribution of floes for sizes below the broken categories
+                    //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                    for (int k=0; k<=j ; k++)
+                    {
+                        double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                    /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
+                        M_conc_fsd[k][i] +=  broken_area *beta   ;
+                    }
+                        break;
+                    }
+                    case (setup::BreakupType::NONE):
+                        break;
+                    default:
+                        std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
+                        throw std::logic_error("Wrong breakup_type");
+                }
             }
             // Mini Checkfields 
             std::stringstream crash_msg;

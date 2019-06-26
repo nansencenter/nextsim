@@ -104,6 +104,12 @@ namespace setup
         CONSTANT_SIZE   = 0,
         CONSTANT_AREA   = 1
     };
+    enum class BreakupType
+    {
+        NONE  = 0,
+        UNIFORM_SIZE = 1,
+        ZHANG   =2
+    };
     enum class MeshType
     {
         FROM_UNREF     = 0,

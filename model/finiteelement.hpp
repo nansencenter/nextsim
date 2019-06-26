@@ -434,10 +434,12 @@ private:
     setup::OceanHeatfluxScheme M_Qio_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
-    setup::WeldingType M_welding_type    ;
-    setup::FSDType M_fsd_type    ;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
+    //fsd related
+    setup::WeldingType M_welding_type    ;
+    setup::BreakupType M_breakup_type    ;
+    setup::FSDType M_fsd_type    ;
 
     bool M_flooding;
 
@@ -781,7 +783,8 @@ private:
     double M_welding_kappa    ;
     bool M_fsd_welding_use_scaled_area    ;
     double M_dmax_c_threshold  ;
-    double M_thick_min_breakup  ;
+    double M_breakup_thick_min  ;
+    double M_breakup_timescale_tuning ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     double M_lead_width    ;
 
