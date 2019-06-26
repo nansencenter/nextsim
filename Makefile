@@ -5,45 +5,55 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: contrib modules model core
+all: contrib modules core model
 
 contrib:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE)
 
 modules:
 ifdef USE_OASIS
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
 endif
-ifdef USE_AEROBULK
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
 
-model: core
-	@cd $(NEXTSIMDIR)/model; make;
+model: core modules
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
-core:
-	@cd $(NEXTSIMDIR)/core/src; make
+core: contrib
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make clean
-	@cd $(NEXTSIMDIR)/core/src; make clean
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
+ifdef USE_OASIS
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
+endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
+endif
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
 
 cleanmodel:
-	@cd $(NEXTSIMDIR)/model; make clean;
+	@cd $(NEXTSIMDIR)/model; $(MAKE) clean;
 
 mrproper: clean
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make mrproper
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make mrproper
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make mrproper
-	@cd $(NEXTSIMDIR)/core/src; make mrproper
-	@cd $(NEXTSIMDIR)/model; make mrproper
-	rm -r objs  || true
-	rm -r lib   || true
-	rm -r .deps || true
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
+ifdef USE_OASIS
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
+endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+endif
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
+	rm -rf objs
+	rm -rf lib
+	rm -rf .deps
 
-fresh: mrproper all
+fresh:
+	$(MAKE) mrproper
+	$(MAKE) all

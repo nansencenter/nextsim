@@ -76,6 +76,7 @@ public:
         M_fyi_fraction  = 15,
         M_age_det       = 16,
         M_age           = 17,
+        M_conc_upd      = 18,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -91,9 +92,14 @@ public:
         D_Qo         = 110,
         D_Qnosun     = 111,
         D_Qsw_ocean  = 112,
-        D_delS       = 113,
-        D_emp        = 114,
-        D_brine      = 115
+        D_tau_ow     = 113,
+        D_delS       = 114,
+        D_fwflux     = 115,
+        D_brine      = 116,
+        D_evap       = 117,
+        D_rain       = 118,
+        D_Qassim     = 119,
+        D_fwflux_ice = 120,
     };
 
 

@@ -12,6 +12,7 @@
 #include <environment.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
@@ -21,6 +22,9 @@
 #include <dataset.hpp>
 #include "debug.hpp"
 
+#if defined ENSEMBLE 
+#include "ensemble.hpp"
+#endif
 
 /**
  * @class ExternalData
@@ -122,6 +126,9 @@ public:
 
 	bool isInitialized() const { return M_initialized; }
 
+    std::string getDatasetName() const { return M_dataset->name; }
+    std::string getVariableName() const { return M_dataset->variables[M_VariableId].name; }
+
 private:
     double fdt;
     std::vector<double> fcoeff;
@@ -143,6 +150,8 @@ private:
     double M_factor;
 
     LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim

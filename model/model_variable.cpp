@@ -272,6 +272,21 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
 
+        case (variableID::M_conc_upd):
+            // update of concentration by assimilation
+            M_name = "M_conc_upd";
+            M_export_name = "Concentration_update";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = -1.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
         // Diagnostic variables
         case (variableID::D_conc):
             // total concentration (thin + thick ice)
@@ -381,6 +396,14 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_Qassim):
+            // flux from assim [W/m^2]
+            M_name = "D_Qassim";
+            M_export_name = "Qassim";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
         case (variableID::D_delS):
             // Salt balance of the ocean (all sources) [kg/day]
             M_name = "D_delS";
@@ -389,10 +412,18 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_emp):
+        case (variableID::D_fwflux):
             // Freshwater balance at the surface [kg/m^2/s]
-            M_name = "D_emp";
-            M_export_name = "D_emp";
+            M_name = "D_fwflux";
+            M_export_name = "D_fwflux";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_fwflux_ice):
+            // Freshwater flux at the surface due to ice processes [kg/m^2/s]
+            M_name = "D_fwflux_ice";
+            M_export_name = "D_fwflux_ice";
             M_prognostic = false;
             M_exporting = false;
             break;
@@ -403,6 +434,32 @@ ModelVariable::initElemental()
             M_export_name = "D_brine";
             M_prognostic = false;
             M_exporting = false;
+            break;
+
+        case (variableID::D_tau_ow):
+            // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m]
+            M_name = "D_tau_ow";
+            M_export_name = "D_tau_ow";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_evap):
+            // Evaporation - kg/m^2/s
+            M_name = "D_evap";
+            M_export_name = "D_evap";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_rain):
+            // Rain - kg/m^2/s
+            M_name = "D_rain";
+            M_export_name = "D_rain";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
             break;
 
         default:

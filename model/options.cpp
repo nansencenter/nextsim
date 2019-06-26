@@ -31,11 +31,11 @@ namespace Nextsim
             ("config-file", po::value<std::string>(), "specify a configuration file")
             ("config-files", po::value<std::vector<std::string> >()->multitoken(), "specify a list of configuration files" )
 
-        
+
             //-----------------------------------------------------------------------------------
             //! - Simulation parameters
             //-----------------------------------------------------------------------------------
-        
+
 
             // Basics
             ("simul.time_init", po::value<std::string>()->default_value( "" ),
@@ -46,34 +46,32 @@ namespace Nextsim
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-        
              //-----------------------------------------------------------------------------------
              //! - Debugging options
              // -----------------------------------------------------------------------------------
-        
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
+            ("debugging.gmsh_verbose", po::value<int>()->default_value( 0 ),
+                 "Gmsh verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
-            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.log-all", po::value<bool>()->default_value( false ),
+                "Whether printouts from debugging.log-level are to be done on all processors [true|false(default)].")
+            ("debugging.ptime_percent", po::value<int>()->default_value( 5 ), "frequency of info printouts in % of runtime.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
                 "call checkFields")
-            ("debugging.write_restart_before_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results before regrid")
-            ("debugging.write_restart_after_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results after regrid")
             ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
 
-        
              //-----------------------------------------------------------------------------------
              //! - Numerics
              // -----------------------------------------------------------------------------------
-        
+
 
             // remeshing
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
@@ -99,7 +97,7 @@ namespace Nextsim
             ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
             ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Setup
              //-----------------------------------------------------------------------------------
@@ -123,7 +121,7 @@ namespace Nextsim
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "disk" ),
+            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
@@ -194,24 +192,41 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.filename", po::value<std::string>()->default_value( "" ),
-                "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
-            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
-                "reset ice velocity to zero if starting from restart")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
-                "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.basename", po::value<std::string>()->default_value( "" ),
+                "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
+            ("restart.type", po::value<std::string>()->default_value( "extend" ),
+                "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
 
             // -- outputs
-            ("restart.write_restart", po::value<bool>()->default_value( false ), "")
-            ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
-                "units of restart.output_time_step: days or time_steps")
+            ("restart.write_final_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at the end of the run")
+            ("restart.write_interval_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at an interval given by restart.restart_output_interval")
+            ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at the start of the run")
+            ("restart.output_interval", po::value<double>()->default_value( 15 ), "How often to write restarts (with restart.write_interval_restart), in days or time_steps, according to restart.output_interval_units")
+            ("restart.datetime_in_filename", po::value<bool>()->default_value( true ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
+
+            // -- restart debugging
+            ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
+                "Units of restart.output_interval: days or time_steps")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
+                "reset ice velocity to zero if starting from restart")
+            ("restart.write_restart_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart before regrid")
+            ("restart.write_restart_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart after regrid")
 
             // -- general outputs
             ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
             ("output.logfile", po::value<std::string>()->default_value( "" ), "")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.export_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
+            ("output.export_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results after regrid")
 #if 0
             //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
             ("output.variables", po::value<std::vector<std::string>>()->multitoken()
@@ -220,18 +235,18 @@ namespace Nextsim
 #endif
 
             // --exporter
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+            ("output.datetime_in_filename", po::value<bool>()->default_value( true ),
                 "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "nextsim_outputs" ),
                 "Path where results should be exported")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Ideal configurations (constant initial bathymetry, ice, atmosphere and ocean)
              //-----------------------------------------------------------------------------------
-        
+
 
             // - if setup.bathymetry-type = constant
             ("ideal_simul.constant_bathymetry", po::value<double>()->default_value( 200. ), "")
@@ -269,11 +284,11 @@ namespace Nextsim
             // -----------------------------------------------------------------------------------
 
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Dynamics
              //-----------------------------------------------------------------------------------
-        
+
 
             // - Internal stresses
             ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
@@ -283,6 +298,8 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -302,6 +319,7 @@ namespace Nextsim
 
             // - Water and air drag parameterizations
             ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("dynamics.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
@@ -320,18 +338,18 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_Cb", po::value<double>()->default_value( 20. ), "")
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
-        
+
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
-        
-        
+
+
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
              //-----------------------------------------------------------------------------------
-        
+
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
             ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or non-linear")
@@ -370,10 +388,14 @@ namespace Nextsim
             ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
                 "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
+            // -- assimilation compensating flux
+            ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
+             "Exponent of factor for heat flux that compensates assimilation of concentration")
+
 #ifdef AEROBULK
-            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
-        
+
              //-----------------------------------------------------------------------------------
              //! - Nesting
              // -----------------------------------------------------------------------------------
@@ -396,11 +418,11 @@ namespace Nextsim
                 "Length scale (units = mesh resolution) of the nudging function")
             ("nesting.nest_dynamic_vars", po::value<bool>()->default_value( false ), "")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Forecasting
              //-----------------------------------------------------------------------------------
-        
+
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
             ("forecast.true_forecast", po::value<bool>()->default_value( false ),
@@ -410,11 +432,11 @@ namespace Nextsim
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
 
-        
+
              //-----------------------------------------------------------------------------------
              //! - Modules
              //-----------------------------------------------------------------------------------
-        
+
 #if defined(OASIS)
             ("coupler.component_name", po::value<std::string>()->default_value( "nxtsim" ), "Component name (6 characters) same as in the namcouple")
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
