@@ -37,11 +37,11 @@ stats-prep: enkf_prep conf obs stats.prm
 stats-calc: enkf_calc observations.nc conf background_6565
 	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --forecast-stats-only stats.prm 2>&1 | tee calc.out
 
-#singleob-calc: clean enkf_calc prior
-#	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 100 60 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
-#
 singleob-calc: clean enkf_calc prior
-	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-xyz .5 .5 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
+	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-ijk 350 360 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
+
+#singleob-calc: clean enkf_calc prior
+#	nice -n +19 mpirun -np $(NP_CALC) ./enkf_calc --single-observation-xyz .5 .5 0 sea_ice_thickness 2 .003 singleob.prm 2>&1 | tee calc.out
 
 singleob-update: enkf_update prior
 	nice -n +19 mpirun -np $(NP_UPDATE) ./enkf_update --output-increment singleob.prm 2>&1 | tee update.out
