@@ -181,6 +181,7 @@ public:
         QNoSw       = 905,
         QSwOcean    = 906,
         saltflux    = 907,
+        fwflux_ice  = 908,
 
         // Non-output variables - all negative
         proc_mask   = -1,
@@ -441,6 +442,13 @@ public:
                     name     = "fwflux";
                     longName = "Surface Net Downward Ocean Freshwater Flux";
                     stdName  = "surface_net_downward_ocean_freshwater_flux";
+                    Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::fwflux_ice):
+                    name     = "fwflux_ice";
+                    longName = "Surface Ice Originating Downward Ocean Freshwater Flux";
+                    stdName  = "surface_ice_originating_downward_ocean_freshwater_flux";
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;

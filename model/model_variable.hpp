@@ -98,7 +98,8 @@ public:
         D_brine      = 116,
         D_evap       = 117,
         D_rain       = 118,
-        D_Qassim     = 119
+        D_Qassim     = 119,
+        D_fwflux_ice = 120,
     };
 
 

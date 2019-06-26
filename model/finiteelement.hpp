@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include "version.hpp"
 #include <solverpetsc.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
@@ -197,8 +198,9 @@ public:
     inline double windSpeedElement(const int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadMainDatasets(double const CRtime);
+                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+                    const bool use_timer=false);
+    void checkReloadMainDatasets(double const CRtime, const bool use_timer=false);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -744,6 +746,7 @@ private:
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
+    ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]

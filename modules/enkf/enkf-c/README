@@ -25,6 +25,7 @@ See doc/enkf-userguide.pdf.
 STARTING UP
 
 Run example 1 - see examples/1/README for details.
+Link enkf/enkf-c/make.inc to correct one in arch
 
 INDENTING
 
