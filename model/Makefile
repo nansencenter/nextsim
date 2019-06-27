@@ -54,26 +54,26 @@ ifdef USE_ENSEMBLE
 endif
 
 ifdef USE_AEROBULK
-		CXXFLAGS += -I $(AEROBULK_DIR)/include
+		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
 		CXXFLAGS += -DAEROBULK
 endif
 
 # openmpi
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
 
 # petsc
-CXXFLAGS +=	-I $(PETSC_DIR)/include
+CXXFLAGS += -isystem $(PETSC_DIR)/include
 
 # boost
-CXXFLAGS += -I $(BOOST_INCDIR)/ -I .
+CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
-CXXFLAGS +=	-I $(NETCDF_DIR)/include
+CXXFLAGS += -isystem $(NETCDF_DIR)/include
 
 # gmsh
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
-CXXFLAGS +=	-I /opt/local/include
+CXXFLAGS += -isystem /opt/local/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
@@ -84,7 +84,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
+	CXXFLAGS += -isystem /usr/local/include #-I /opt/local/include/openmpi-mp
 
 	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
 	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
@@ -200,7 +200,7 @@ $(OBJECTDIR)%.o: %.cpp
 # Make dependancy rules
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
+	$(CXX) -MM -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< -MF $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
