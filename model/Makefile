@@ -101,7 +101,7 @@ LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifdef MACHINE_FRAM
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpicxx -lmpi -ldl -lstdc++ #-lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
@@ -196,7 +196,7 @@ $(OBJECTDIR)%.o: %.cpp
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
 # Make dependancy rules
-$(DEPENDDIR)%.d: %.cpp
+$(DEPENDDIR)%.d: %.cpp %.o
 	@mkdir -p $(DEPENDDIR)
 	$(CXX) -M -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< > $@
 
@@ -222,6 +222,6 @@ fresh:
 
 # Include dependencies only if the goal needs it
 MAKEFILE_TARGETS_WITHOUT_INCLUDE := clean mrproper cleanall mrproperall fresh
-ifeq ($(filter $(MAKECMDGOALS),$(MAKEFILE_TARGETS_WITHOUT_INCLUDE)),)
+ifneq ($(filter $(MAKECMDGOALS),$(MAKEFILE_TARGETS_WITHOUT_INCLUDE)),)
 	-include $(DEPS)
 endif
