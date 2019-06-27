@@ -68,7 +68,12 @@ CXXFLAGS += -isystem $(PETSC_DIR)/include
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
-CXXFLAGS += -isystem $(NETCDF_DIR)/include
+ifeq ($(NETCDF_DIR),/usr)
+	#need -I /usr/include otherwise problem with stdlib.h
+	CXXFLAGS += -I $(NETCDF_DIR)/include
+else
+	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+endif
 
 # gmsh
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
@@ -77,6 +82,7 @@ CXXFLAGS += -isystem /opt/local/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
+	CXXFLAGS += -I /usr/include
 
 else
 
