@@ -75,7 +75,7 @@ LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 ifdef MACHINE_FRAM
 	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpicxx -lmpi -ldl -lstdc++ #-lpthread
+	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
 endif
 
 #boost
