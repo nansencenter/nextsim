@@ -44,8 +44,8 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 
 ifdef USE_ENSEMBLE
@@ -53,6 +53,8 @@ ifdef USE_ENSEMBLE
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
 endif
 
+# include with -isystem instead of -I to suppress warnings and to not
+# add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
 		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
 		CXXFLAGS += -DAEROBULK
@@ -69,7 +71,7 @@ CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
 ifeq ($(NETCDF_DIR),/usr)
-	#need -I /usr/include otherwise problem with stdlib.h
+	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I $(NETCDF_DIR)/include
 else
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
