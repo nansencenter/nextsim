@@ -44,8 +44,8 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
-CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
 
 ifdef USE_ENSEMBLE
