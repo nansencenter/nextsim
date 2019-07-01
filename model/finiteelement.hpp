@@ -784,6 +784,7 @@ private:
     bool M_fsd_welding_use_scaled_area    ;
     double M_dmax_c_threshold  ;
     double M_breakup_thick_min  ;
+    int  M_breakup_prob_type  ;
     double M_breakup_timescale_tuning ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     double M_lead_width    ;

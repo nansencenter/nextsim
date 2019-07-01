@@ -1388,13 +1388,15 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::BreakupType> str2breakup= boost::assign::map_list_of
         ("none", setup::BreakupType::NONE) 
         ("zhang", setup::BreakupType::ZHANG)
-        ("uniform_size", setup::BreakupType::UNIFORM_SIZE);
+        ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
+        ("dumont", setup::BreakupType::DUMONT);
     option_str = vm["wave_coupling.breakup_type"].as<std::string>();
     if ( str2breakup.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.breakup_type: " + option_str);
     M_breakup_type = str2breakup.find(option_str)->second; //! 
     M_breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
     M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
+    M_breakup_prob_type  = vm["wave_coupling.breakup_prob_type"].as<int>();
     //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
@@ -4841,56 +4843,95 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
             double  tau_w = M_breakup_timescale_tuning*M_res_root_mesh/cg_w               ;
+            int     N_waves = dtime_step /(M_tm02[i]) ;
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(M_thick[i],3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
-            //! Compute wave induced break-up probability for the different floe size categories
+            double broken_area ;
+             //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
             {
                 // don't try to break if there are no waves
                 if( P_inf[i] <= threshold1)
                     break;
-                // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
-                P[j] = P_inf[i] * std::max(0.,
-                                  std::tanh( namelistparam2*(M_fsd_bin_centres[j]-d_flex) / lambda )
-                                          ) ;
                 //! Then update FSD with uniform redistribution
-                //! 1.a Compute the broken area in each category
-                double broken_area = M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
-                M_conc_fsd[j][i] -= broken_area ;
-                switch (M_breakup_type)
+                //! 1. Compute the broken area in each category
+                P[j] = P_inf[i] ;
+                //! 1.a Probability that the wave-induced strain is over the flex. failure
+                int const breakup_prob_type = M_breakup_prob_type ;
+                switch (breakup_prob_type)
                 {
-                    //! 2. Redistribute the broken sea ice area 
-                    //! So far, redistribution also occurs within the broken category
-                    case (setup::BreakupType::ZHANG):
-                    {
-                        //! Define a redistributor beta (Zhang et al,.2015)
-                        //! whith uniform redistribution in term of area, favorises small floes
-                        for (int k=0; k<=j ; k++)
-                        {
-                            double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
-                            M_conc_fsd[k][i] +=  broken_area *beta   ;
-                        }
+                    case 0:
+                        P[j] = 1-std::exp(-P[j]*dtime_step/tau_w) ;
                         break;
-                    }
-                    case (setup::BreakupType::UNIFORM_SIZE):
-                    {
-                    //!Define a redistributor beta 
-                    //! with uniform redistribution of floes for sizes below the broken categories
-                    //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
-                    for (int k=0; k<=j ; k++)
-                    {
-                        double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
-                                    /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
-                        M_conc_fsd[k][i] +=  broken_area *beta   ;
-                    }
-                        break;
-                    }
-                    case (setup::BreakupType::NONE):
+                    case 1:
+                        P[j] = ( 1.- std::pow(1-P[j],N_waves)) ;
                         break;
                     default:
-                        std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
-                        throw std::logic_error("Wrong breakup_type");
+                        std::cout << "breakup_prob_type= " << breakup_prob_type << "\n";
+                        throw std::logic_error("Wrong breakup_prob_type");
+                }
+                //! 1.b Probability that the ice floe actually breaks (depends on lambda wave, floe size and sea ice thickness )
+                // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
+                double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / d_flex ) ) ;
+                double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-0.5*lambda) / lambda ) ) ;
+                P[j] = P[j] * lim_dflex * lim_lambda ;
+                if (P[j]>0) 
+                {
+                    broken_area= M_conc_fsd[j][i] * P[j] ;
+                    M_conc_fsd[j][i] -= broken_area ;
+                    switch (M_breakup_type)
+                    {
+                        //! 2. Redistribute the broken sea ice area 
+                        //! So far, redistribution also occurs within the broken category
+                        case (setup::BreakupType::ZHANG):
+                        {
+                            //! Define a redistributor beta (Zhang et al,.2015)
+                            //! whith uniform redistribution in term of area, favorises small floes
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
+                                M_conc_fsd[k][i] +=  broken_area *beta   ;
+                            }
+                            break;
+                        }
+                        case (setup::BreakupType::UNIFORM_SIZE):
+                        {
+                        //!Define a redistributor beta 
+                        //! with uniform redistribution of floes for sizes below the broken categories
+                        //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                        for (int k=0; k<=j ; k++)
+                        {
+                            double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                        /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
+                            M_conc_fsd[k][i] +=  broken_area *beta   ;
+                        }
+                            break;
+                        }
+                        case (setup::BreakupType::DUMONT):
+                        {
+                            //! Assuming a broken floe create ksi^2 new floes
+                            int ksi=2 ;
+                            //! Defining fragility as the probability that floes of a given size will break, the exponent of the redistribution is
+                            //! (Toyota et al. 2011, Dumont et al. 2011)
+                            double exponent = std::max(2. - (2. + std::log(P[j])/std::log(ksi)),1e-6) ;
+                            //std::cout<<"exponent ="<< exponent<< "\n";
+                            //! with uniform redistribution of floes for sizes below the broken categories
+                            //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
+                                            /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                M_conc_fsd[k][i] +=  broken_area *beta   ;
+                            }
+                                break;
+                            }
+                        case (setup::BreakupType::NONE):
+                            break;
+                        default:
+                            std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
+                            throw std::logic_error("Wrong breakup_type");
+                    }
                 }
             }
             // Mini Checkfields 

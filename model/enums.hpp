@@ -108,7 +108,8 @@ namespace setup
     {
         NONE  = 0,
         UNIFORM_SIZE = 1,
-        ZHANG   =2
+        ZHANG   =2,
+        DUMONT  =3
     };
     enum class MeshType
     {

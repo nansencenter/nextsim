@@ -462,7 +462,8 @@ namespace Nextsim
             ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship betzeen damage and FSD: 0 none, 1 related to unbroken floes concentration")
             ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
             ("wave_coupling.breakup_thick_min", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
-            ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.breakup_prob_type", po::value<int>()->default_value(0), " TODO ")
+            ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Tuning for breakup_prob_type=0")
             ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
 #endif
 
