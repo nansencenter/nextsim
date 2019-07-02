@@ -7596,6 +7596,7 @@ FiniteElement::initMoorings()
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
@@ -7631,10 +7632,6 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
-            ("damage", GridOutput::variableID::damage)
-            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
-
-
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
