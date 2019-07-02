@@ -4971,10 +4971,10 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                     {
                         if( P_inf[i] > threshold1)
                         {
-                            double broken_area = M_conc_fsd[0][i] *(1-std::exp(-P[0]*dtime_step/tau_w)) ; // area of broken floes in each category to be redistributed
+                            double tot_broken_area = M_conc_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
                             for(int j=1;j<M_num_fsd_bins;j++)
-                                broken_area += M_conc_fsd[j][i] *(1-std::exp(-P[j]*dtime_step/tau_w)) ;
-                            M_damage[i] = std::min(M_damage[i]*(1.-broken_area/ctot)+broken_area/ctot,M_fsd_damage_max);
+                                tot_broken_area += M_conc_fsd[j][i] *P[j] ;
+                            M_damage[i] = std::min(M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot,M_fsd_damage_max);
                         }
                         break;
                     }
@@ -6047,7 +6047,7 @@ FiniteElement::thermo(int dt)
                 bool crash = false;
                 double del_c_thin = 0.;
                 double del_c_fsd = M_conc[i] - old_conc;
-
+                double cat0_del_c =0. ;
                 std::vector<double> fsd_init(M_num_fsd_bins,0.);
                 for(int m=0; m<M_num_fsd_bins;m++)
                         fsd_init[m]=M_conc_fsd[m][i] ;
@@ -6071,8 +6071,8 @@ FiniteElement::thermo(int dt)
                    std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
                    std::vector<double> dfsd_dr(M_num_fsd_bins,0.);
                    
+                   // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
                    for(int m=1; m<M_num_fsd_bins-1;m++)
-                       // m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
                        fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
                    for(int m=0; m<M_num_fsd_bins;m++)
                        dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
@@ -6081,25 +6081,28 @@ FiniteElement::thermo(int dt)
                    {
                        crash=true ;
                        crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
-                       for(int j=0;j<M_num_fsd_bins+2;j++)
+                       for(int j=0;j<M_num_fsd_bins+1;j++)
                        {
                            crash_msg << "fsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
                        }
-                       for(int j=0;j<M_num_fsd_bins+1;j++)
+                       for(int j=0;j<M_num_fsd_bins;j++)
                        {
-                           crash_msg << "dfsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
+                           crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
                        }
                    }
                    /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
                    for (int m=0; m<M_num_fsd_bins-1;m++)
                    {
-                       del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + 2. * fsd_init[m] * ( 1./M_fsd_bin_centres[m] ) );
+                       del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
                        M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
                    }
                    if (lat_melt_rate<0.) // if ice is melting
-                       M_conc_fsd[0][i] += M_conc_fsd[0][i] / M_fsd_bin_widths[0]* dt * lat_melt_rate ; // lower cat -> open ocean (lat_melt_rate <0)
+                   {
+                       cat0_del_c =  lat_melt_rate * fsd_init[0] / M_fsd_bin_widths[0] * ddt ; //<0
+                       M_conc_fsd[0][i] += cat0_del_c ;
+                   }
                    else                  // if there is freezing, flux of growing floes that become "unbroken"
-                       M_conc_fsd[M_num_fsd_bins-1][i] += M_conc_fsd[M_num_fsd_bins-1][i] / M_fsd_bin_widths[M_num_fsd_bins-1]* dt * lat_melt_rate;
+                       M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]* dt * lat_melt_rate;
 
 
 
@@ -6109,15 +6112,15 @@ FiniteElement::thermo(int dt)
                        crash =  true;
                        crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
                    }
-                  // double ctot=0.;
-                  // for(int m=0;m<M_num_fsd_bins;m++)
-                  //     ctot+=M_conc_fsd[m][i] ;
-                  // if (ctot-std::accumulate(fsd_init.begin(), fsd_init.end(),0.)!=del_c_fsd)
-                  // {
-                  //     crash=true ;
-                  //     crash_msg <<"Error during recombination : change in sea ice conc. not equal to del_c_fsd" <<"\n";
-                  //     crash_msg <<"del_c_fsd = "<<del_c_fsd<<" , c_tot_fsd_fin-c_tot_fsd_init = "<<  std::accumulate(fsd_init.begin(), fsd_init.end(),0.) <<"\n";
-                  // }
+                   double ctot=0.;
+                   for(int m=0;m<M_num_fsd_bins;m++)
+                       ctot+=M_conc_fsd[m][i] ;
+                   if (std::abs( (ctot-std::accumulate(fsd_init.begin(), fsd_init.end(),0.)) -del_c_fsd ) >1e-11)
+                   {
+                       crash=true ;
+                       crash_msg <<"Error during recombination : change in sea ice conc. not equal to del_c_fsd" <<"\n";
+                       crash_msg <<"del_c_fsd = "<<del_c_fsd<<" , c_tot_fsd_fin-c_tot_fsd_init = "<< ctot- std::accumulate(fsd_init.begin(), fsd_init.end(),0.) <<"\n";
+                   }
                }
                else //if lat_melt_rate==0
                {
@@ -6185,7 +6188,7 @@ FiniteElement::thermo(int dt)
                        crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
                        sum_del_fsd += del_c_bin_melt[j] ;
                    }
-                   crash_msg << "sum_del_fsd :"<< sum_del_fsd <<" \n";
+                   crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
                    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
                    {
                       crash_msg << "M_conc_thin :" << M_conc_thin[i] << "; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
