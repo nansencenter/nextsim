@@ -250,6 +250,9 @@ public:
 
     void initBamg();
     void initOptAndParam();
+    template<typename enum_type>
+    void getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map) const;
     void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
