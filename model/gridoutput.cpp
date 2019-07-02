@@ -970,7 +970,7 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
 
     // Append to the output variables
     start = {nc_step, 0, 0};
-    count = {1, M_ncols, M_nrows};
+    count = {1, (size_t) M_ncols, (size_t) M_nrows};
 
     // Apply mask - if needed
     if (M_use_lsm)

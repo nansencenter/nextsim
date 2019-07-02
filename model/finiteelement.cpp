@@ -7248,6 +7248,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::ridge_ratio):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
+                break;
+
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_snow_thick[i]*time_factor;
@@ -7625,6 +7630,8 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
+            ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
 
 
         ;
