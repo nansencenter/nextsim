@@ -5152,7 +5152,7 @@ FiniteElement::weldingRoach(const int cpt)
              // SAFETY CHECK
              for (int m=0; m<M_num_fsd_bins;m++)
              {
-                 if (tmp_conc_fsd[m] < -1e-12)
+                 if (tmp_conc_fsd[m] < -1e-11)
                  {
                      crash = true ;
                      crash_msg << "Negative FSD merge" <<" \n" ;
@@ -5162,16 +5162,16 @@ FiniteElement::weldingRoach(const int cpt)
                      crash = true ;
                      crash_msg << "FSD cat conc > 1. " <<" \n" ;
                  }
-                 if ( subdt * M_welding_kappa *coag_pos[m]<0.)
+                 if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
                  {
                      crash = true ;
-                     crash_msg << "Negative wielding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                     crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
                  }
                  if(crash)
                  {
                      crash_msg <<"DIAG: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
                                 <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
-                     crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+                     crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
                      for (int n=0; n<M_num_fsd_bins;n++)
                      {
                          crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";

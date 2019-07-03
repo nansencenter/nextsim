@@ -5092,7 +5092,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mask={
             name: "land",
-            dimensions: dimensions_latlon,
+            dimensions: dimensions,
             land_mask_defined: true,
             land_mask_value: 0.,
             NaN_mask_defined: false,
