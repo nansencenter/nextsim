@@ -7,7 +7,7 @@ ydim     = 360
 /
 
 &pseudo2D
-randf    = .true.
+randf    = .false.
 seed     = 11
 vslp     =  10
 vtaux    =  0.001
