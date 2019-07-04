@@ -7248,6 +7248,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::ridge_ratio):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
+                break;
+
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_snow_thick[i]*time_factor;
@@ -7590,6 +7595,8 @@ FiniteElement::initMoorings()
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
+            ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
@@ -7625,8 +7632,6 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
-
-
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
