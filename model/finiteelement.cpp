@@ -1397,6 +1397,7 @@ FiniteElement::initOptAndParam()
     M_breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
     M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
     M_breakup_prob_type  = vm["wave_coupling.breakup_prob_type"].as<int>();
+    M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
     //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
@@ -4800,17 +4801,27 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
+    double sea_ice_thickness=0.  ; // sea ice thickness, equal to M_thick or M_thick / ctot
 #ifdef OASIS
     for (int i=0; i<M_num_elements; i++)
     {
-        // if( M_tm02[i] < 2. || M_str_var[i]<1.e-10 || isnan(M_tm02[i]) || isnan(M_str_var[i]))
-        // {
-        //     prob[i] = 0.;
-        //     continue;
-        // }
-        prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
-                            (2* M_str_var[i]* (std::pow(std::max(M_breakup_thick_min,M_thick[i])/2.,2) ) ) 
-                         ) ;
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+           ctot += M_conc_thin[i];
+
+        if (ctot>0)
+        { 
+            if (M_breakup_cell_average_thickness)
+                sea_ice_thickness = M_thick[i] ;
+            else if (M_conc[i]>0.) 
+                sea_ice_thickness = M_thick[i]/M_conc[i] ;
+            else 
+               sea_ice_thickness = M_breakup_thick_min ;
+
+            prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
+                                (2* M_str_var[i]* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
+                             ) ;
+        }
     }
 #endif
     return prob;
