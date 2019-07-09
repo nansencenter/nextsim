@@ -4752,7 +4752,7 @@ FiniteElement::update()
                 tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
                 else if (disc_scheme == "implicit") {
                     tmp=tmp_factor*(1.0-dcrit)*dtime_step/td + old_damage;
