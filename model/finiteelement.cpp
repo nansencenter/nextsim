@@ -12596,7 +12596,9 @@ FiniteElement::writeLogFile()
     {
         logfile << "#----------Info\n";
         logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git description "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git branch "  << NEXTSIM_BRANCH_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
@@ -12607,7 +12609,6 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
         logfile << "#----------Program options (non-default)\n";
-
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
             // Skip default values
