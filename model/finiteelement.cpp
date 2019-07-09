@@ -4517,6 +4517,7 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
+        D_dcrit[cpt] = 1.;
 
         /*======================================================================
          * Diagnostic:
@@ -7332,6 +7333,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::d_crit):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dcrit[i]*time_factor;
+
 
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
@@ -7641,6 +7646,7 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
+            ("d_crit", GridOutput::variableID::d_crit)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
