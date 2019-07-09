@@ -4512,7 +4512,7 @@ FiniteElement::update()
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tmp, sigma_target, tmp_factor, dcrit;
 
 
         // Temporary memory
@@ -4720,66 +4720,73 @@ FiniteElement::update()
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            dcrit = 1;
             if(sigma_n>M_Compressive_strength[cpt])
             {
                 sigma_target=M_Compressive_strength[cpt];
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
-                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+                tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
                     tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,dtime_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if(sigma_n<tract_max)
             {
                 sigma_target = tract_max;
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
