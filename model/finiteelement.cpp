@@ -7124,16 +7124,17 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     // check if we are outputting results file
-    if( output_time_step > 0 )
+    bool exporting = false; 
+    if(output_time_step>0)
+        exporting = (pcpt*time_step % output_time_step);
+    if(exporting)
     {
-        if( pcpt*time_step % output_time_step == 0 )
-        {
-            chrono.restart();
-            LOG(DEBUG) <<"export starts\n";
-            this->exportResults(true, true, true);
-            LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
-        }
+        chrono.restart();
+        LOG(DEBUG) <<"export starts\n";
+        this->exportResults(true, true, true);
+        LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
+
     // check if writing restart
     if(at_init_time)
     {
