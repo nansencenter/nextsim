@@ -43,7 +43,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(BOOST_INCDIR)
+CXXFLAGS += -I $(BOOST_INCDIR)/
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
 LNKFLAGS  = -lstdc++ -lgfortran
 
@@ -67,7 +67,7 @@ FFTW_LIB   = $(FFTW_DIR)/lib
 FC = gfortran
 F90FLG= -free
 FFLAGS = -fPIC -O3 -fconvert=big-endian -fdefault-real-8
-FFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(FFTW_INC)
+FFLAGS += -I $(FFTW_INC)/
 # ========================================================
 
 # ========================================================
