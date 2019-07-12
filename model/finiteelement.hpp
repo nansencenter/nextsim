@@ -884,6 +884,7 @@ private:
     //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
+    void Amsr2CstThickIce();
 
     void warrenClimatology();
     void assimilate_topazForecastAmsr2OsisafIce();
