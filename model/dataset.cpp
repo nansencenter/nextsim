@@ -891,26 +891,23 @@ DataSet::DataSet(char const *DatasetName)
             name:"x",
             cyclic:false
         };
-
         Dimension dimension_y={
             name:"y",
             cyclic:false
         };
-
         Dimension dimension_time={
             name:"time",
             cyclic:false
         };
+        Dimension dimension_ens={
+            name:"ensemble_member",
+            cyclic:false
+        };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
-        dimensions_latlon[1] = dimension_x;
-
-        std::vector<Dimension> dimensions(3);
-        dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
-        dimensions[2] = dimension_x;
-
+        std::vector<Dimension> dimensions_latlon = {
+            dimension_y, dimension_x};
+        std::vector<Dimension> dimensions = {
+            dimension_time, dimension_ens, dimension_y, dimension_x};
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
@@ -1062,26 +1059,23 @@ DataSet::DataSet(char const *DatasetName)
             name:"x",
             cyclic:false
         };
-
         Dimension dimension_y={
             name:"y",
             cyclic:false
         };
-
         Dimension dimension_time={
             name:"time",
             cyclic:false
         };
+        Dimension dimension_ens={
+            name:"ensemble_member",
+            cyclic:false
+        };
 
-        std::vector<Dimension> dimensions_latlon(2);
-        dimensions_latlon[0] = dimension_y;
-        dimensions_latlon[1] = dimension_x;
-
-        std::vector<Dimension> dimensions(3);
-        dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
-        dimensions[2] = dimension_x;
-
+        std::vector<Dimension> dimensions_latlon = {
+            dimension_y, dimension_x};
+        std::vector<Dimension> dimensions = {
+            dimension_time, dimension_ens, dimension_y, dimension_x};
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
