@@ -32,7 +32,8 @@ ExternalData::ExternalData( ):
 M_initialized(false)
 {}
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId,
+        bool is_vector, double StartingTime )//5 args
 	:
     M_is_constant( false ),
     M_dataset( dataset ),
@@ -56,25 +57,26 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration ) //6 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
     {
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime )
-	:
-    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
-    {
-        M_bias_correction= bias_correction ;
-    }
-
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration, double bias_correction )//7 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
     {
         M_bias_correction= bias_correction ;
+    }
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration, double bias_correction, int const& ensemble_member )//8 args
+	:
+    ExternalData(dataset, mesh, VariableId, is_vector,
+            StartingTime, SpinUpDuration, bias_correction )
+    {
+        M_ensemble_member = ensemble_member ;
     }
 
 ExternalData::ExternalData( double ConstantValue )

@@ -1292,6 +1292,7 @@ FiniteElement::initOptAndParam()
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
@@ -8875,8 +8876,10 @@ FiniteElement::forcingAtmosphere()
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1,false,
+                    time_init, 0, air_temperature_correction);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
                 M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
@@ -8893,8 +8896,10 @@ FiniteElement::forcingAtmosphere()
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0,air_temperature_correction);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
@@ -8939,7 +8944,6 @@ FiniteElement::forcingAtmosphere()
         break;
 
         case setup::AtmosphereType::EC2_AROME:
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
@@ -8947,10 +8951,27 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
+                time_init, M_spinup_duration, 0, M_ensemble_member);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
+                    time_init, 0, M_ensemble_member);
         break;
 
         default:

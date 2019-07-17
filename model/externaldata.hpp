@@ -44,74 +44,53 @@ public:
 
 	typedef std::size_t size_type;
     typedef double value_type;
-
     typedef DataSet Dataset;
-
-    // typedef DataSet::Grid Grid;
-    // typedef DataSet::Dimension Dimension;
-    // typedef DataSet::Variable Variable;
-    // typedef DataSet::Vectorial_Variable Vectorial_Variable;
-
     typedef void (* vFunctionCall)(value_type args);
 
+    //constructor for empty object
     ExternalData();
 
+    //normal constructors
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double StartingTime );
-
+            double StartingTime ); // 5 args
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double StartingTime, double SpinUpDuration );
-    
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector,
-        double StartingTime );
+            double StartingTime, double SpinUpDuration ); //6 args
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
+            bool is_vector, double StartingTime, double SpinUpDuration,
+            double bias_correction );// 7 args
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
+            bool is_vector, double StartingTime, double SpinUpDuration,
+            double bias_correction, int const& ensemble_member );// 8 args
 
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector,
-        double StartingTime, double SpinUpDuration );
-
-
-    ExternalData(double ConstantValue );
-
-    ExternalData(double ConstantValue, double ConstantValuebis );
-
+    //constructors for constant forcing
+    ExternalData(double ConstantValue );//1 arg
+    ExternalData(double ConstantValue, double ConstantValuebis );//2 args
     ExternalData(double ConstantValue,
-        double StartingTime, double SpinUpDuration );
-
+        double StartingTime, double SpinUpDuration );//3 args
     ExternalData(double ConstantValue, double ConstantValuebis,
-        double StartingTime, double SpinUpDuration );
+        double StartingTime, double SpinUpDuration );//4 args
 
-	~ExternalData();
-#if 0
-    void init( const size_type n, bool fast = false );
+    ~ExternalData();
 
-    void resize(const size_type n, bool fast = false);
-
-	void close();
-#endif
-    //void check_and_reload(GmshMesh const& mesh, const double current_time );
     void check_and_reload(std::vector<double> const& RX,
             std::vector<double> const& RY, const double current_time );
 
 	value_type operator[] (const size_type i);
-
     value_type get(const size_type i);
-
     size_type size();
 
     std::vector<double> getVector();
-
 	void clear();
-
-    //void loadDataset(Dataset *dataset, GmshMesh const& mesh);
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
 #if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt);
+            std::vector<double> const& RY_in, const double current_time,
+            Communicator comm, const int cpl_time, const int cpl_dt);
 #endif
 
     void transformData(Dataset *dataset);
-
     void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
@@ -148,6 +127,7 @@ private:
     double M_StartingTime;
     double M_SpinUpDuration;
     double M_factor;
+    int M_ensemble_member;
 
     LogLevel M_log_level;
     bool M_log_all;

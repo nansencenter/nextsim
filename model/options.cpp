@@ -445,6 +445,10 @@ namespace Nextsim
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
 #endif
 
+            // for ensemble forcing
+            ("statevector.ensemble_member", po::value<int>()->default_value(0),
+                "id of ensemble member")
+
 #if defined(WAVES)
         ;
         return desc.add( Wim::descrWimOptions() );
