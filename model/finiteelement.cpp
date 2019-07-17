@@ -4505,11 +4505,12 @@ FiniteElement::update()
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tmp, sigma_target, tmp_factor, dcrit;
 
 
         // Temporary memory
         old_damage = M_damage[cpt];
+        D_dcrit[cpt] = 1.;
 
         /*======================================================================
          * Diagnostic:
@@ -4713,66 +4714,73 @@ FiniteElement::update()
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            dcrit = 1;
             if(sigma_n>M_Compressive_strength[cpt])
             {
                 sigma_target=M_Compressive_strength[cpt];
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
-                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+                tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,dtime_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if(sigma_n<tract_max)
             {
                 sigma_target = tract_max;
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
@@ -6540,6 +6548,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
+    D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
+    M_variables_elt.push_back(&D_dcrit);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -7319,7 +7329,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
-
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7356,6 +7365,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::rain):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d_crit):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dcrit[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7561,6 +7574,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 //------------------------------------------------------------------------------------------------------
 //! Initializes the moorings datasets and variables recorded by the moorings.
 //! Called by the init() function.
+//! \note to add a new moorings variable
+//! - 1) Add an id to gridoutput.hpp
+//! - 2) Define netcdf attributes in gridoutput.hpp
+//! - 3) Add mapping from config file to id in mooring_name_map_elements
+//!      in initMoorings below
+//! - 4) add calculation of mean value to updateMeans
 void
 FiniteElement::initMoorings()
 {
@@ -7628,6 +7647,7 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
+            ("d_crit", GridOutput::variableID::d_crit)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -9497,6 +9517,9 @@ FiniteElement::checkConsistency()
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
             }//Winton
         }
+
+        //initialise this to 1
+        D_dcrit[i] = 1;
     }
 }//checkConsistency
 
