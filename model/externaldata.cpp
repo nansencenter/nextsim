@@ -57,21 +57,25 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration ) //6 args
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration )//6 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
     {
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration, double bias_correction )//7 args
-	:
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration, double bias_correction )//7 args
+    :
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
     {
         M_bias_correction= bias_correction ;
     }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration, double bias_correction, int const& ensemble_member )//8 args
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration, double bias_correction,
+        int const& ensemble_member )//8 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector,
             StartingTime, SpinUpDuration, bias_correction )

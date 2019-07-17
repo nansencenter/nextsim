@@ -42,7 +42,7 @@ class ExternalData: public DataSet
 
 public:
 
-	typedef std::size_t size_type;
+    typedef std::size_t size_type;
     typedef double value_type;
     typedef DataSet Dataset;
     typedef void (* vFunctionCall)(value_type args);
@@ -63,12 +63,12 @@ public:
             double bias_correction, int const& ensemble_member );// 8 args
 
     //constructors for constant forcing
-    ExternalData(double ConstantValue );//1 arg
-    ExternalData(double ConstantValue, double ConstantValuebis );//2 args
+    ExternalData(double ConstantValue );
+    ExternalData(double ConstantValue, double ConstantValuebis );
     ExternalData(double ConstantValue,
-        double StartingTime, double SpinUpDuration );//3 args
+        double StartingTime, double SpinUpDuration );
     ExternalData(double ConstantValue, double ConstantValuebis,
-        double StartingTime, double SpinUpDuration );//4 args
+        double StartingTime, double SpinUpDuration );
 
     ~ExternalData();
 
@@ -80,7 +80,7 @@ public:
     size_type size();
 
     std::vector<double> getVector();
-	void clear();
+    void clear();
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
