@@ -42,7 +42,7 @@ class ExternalData: public DataSet
 
 public:
 
-	typedef std::size_t size_type;
+    typedef std::size_t size_type;
     typedef double value_type;
     typedef DataSet Dataset;
     typedef void (* vFunctionCall)(value_type args);
