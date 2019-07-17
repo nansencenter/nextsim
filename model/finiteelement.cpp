@@ -762,11 +762,6 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ERAi_elements");
             break;
 
-        case setup::AtmosphereType::EC:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
-            break;
-
         case setup::AtmosphereType::EC2:
             M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
             M_atmosphere_elements_dataset=DataSet("ec2_elements");
@@ -1259,7 +1254,6 @@ FiniteElement::initOptAndParam()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
-        ("ec", setup::AtmosphereType::EC)
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
@@ -1279,7 +1273,6 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
@@ -8884,31 +8877,15 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec. Use thermo.use_parameterised_long_wave_radiation=true");
-
-            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_precip=ExternalData(0.);
-        break;
-
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, air_temperature_correction);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
