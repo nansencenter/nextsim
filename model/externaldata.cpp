@@ -67,7 +67,7 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 
 
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double bias_correction, double StartingTime, double SpinUpDuration )//7 args
+        double StartingTime, double SpinUpDuration, double bias_correction )//7 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
     {
