@@ -4510,7 +4510,7 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
-        D_dcrit[cpt] = 1.;
+        D_dcrit[cpt] = 0.;// 0 in water
 
         /*======================================================================
          * Diagnostic:
@@ -4698,6 +4698,10 @@ FiniteElement::update()
              *======================================================================
              */
 
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
+
             /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
             sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
             sigma_n =-          (sigma[0]+sigma[1])/2.;
@@ -4709,88 +4713,61 @@ FiniteElement::update()
             sigma_t=-sigma_c/q;
             tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-            /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent")
-                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
+            // compressive failure for
+            // sigma_2 < slope_compr_upper*sigma_1
+            // && sigma_1 < slope_compr_upper*sigma_2
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
 
-            /* Calculate the adjusted level of damage */
-            dcrit = 1;
-            if(sigma_n>M_Compressive_strength[cpt])
+            // tensile failure for
+            // sigma_2 < slope_tens_upper*sigma_1
+            // && sigma_1 < slope_tens_upper*sigma_2
+            double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
+
+            if( sigma_1 > 0 && sigma_2 > 0
+                && sigma_2 < slope_compr_upper*sigma_1
+                && sigma_1 < slope_compr_upper*sigma_2 )
             {
-                sigma_target=M_Compressive_strength[cpt];
+                // compressive failure region
+                sigma_target = compr_strength;
                 dcrit = sigma_target/sigma_n;
-                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
-
-                if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
-                }
-                else if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
-                }
-                else if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
-                }
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = min(tmp, 1.0);
-                    D_dcrit[cpt] = dcrit;//only update if damaging
-                }
             }
-
-            if((sigma_1-q*sigma_2)>sigma_c)
+            else if( sigma_1 < 0 && sigma_2 < 0
+                && sigma_2 < slope_tens_upper*sigma_1
+                && sigma_1 < slope_tens_upper*sigma_2 )
             {
-                sigma_target = sigma_c;
-                dcrit = sigma_target/(sigma_1-q*sigma_2);
-                tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
-
-                if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-dcrit)*dtime_step/td + old_damage;
-                }
-                else if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-dcrit)*dtime_step/td + old_damage;
-                }
-                else if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(dcrit,dtime_step/td);
-                }
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = min(tmp, 1.0);
-                    D_dcrit[cpt] = dcrit;//only update if damaging
-                }
-            }
-
-            if(sigma_n<tract_max)
-            {
+                // tensile failure region
                 sigma_target = tract_max;
                 dcrit = sigma_target/sigma_n;
-                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
+            }
+            else
+            {
+                // Mohr-Coulomb failure region
+                sigma_target = sigma_c;
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+            }
+            D_dcrit[cpt] = dcrit;//save diagnostic
 
-                if (disc_scheme == "explicit") {
+            /* Calculate the adjusted level of damage */
+            if (dcrit < 1)
+            {
+                if (disc_scheme == "explicit")
                     tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
-                }
-                if (disc_scheme == "implicit") {
+                else if (disc_scheme == "implicit")
+                {
+                    tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
                     tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
+                else if (disc_scheme == "recursive")
                     tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
-                }
 
                 if(tmp>M_damage[cpt])
-                {
                     M_damage[cpt] = min(tmp, 1.0);
-                    D_dcrit[cpt] = dcrit;//only update if damaging
-                }
             }
-
         }
         else // if M_conc or M_thick too low, set sigma to 0.
         {
             for(int i=0;i<3;i++)
-            {
                 M_sigma[i][cpt] = 0.;
-            }
         }
 
         /*======================================================================
@@ -9518,8 +9495,8 @@ FiniteElement::checkConsistency()
             }//Winton
         }
 
-        //initialise this to 1
-        D_dcrit[i] = 1;
+        //initialise this to 0 (water value)
+        D_dcrit[i] = 0;
     }
 }//checkConsistency
 
