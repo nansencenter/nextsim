@@ -12577,22 +12577,9 @@ FiniteElement::getEnv(std::string const& envname)
 void
 FiniteElement::writeLogFile()
 {
-    std::string logfilename = "";
-    if ((vm["output.logfile"].as<std::string>()).empty())
-    {
-        logfilename = "nextsim.log";
-    }
-    else
-    {
-        logfilename = vm["output.logfile"].as<std::string>();
-    }
-
-    std::string fileout = (boost::format( "%1%/%2%" )
-               % M_export_path
-               % logfilename ).str();
-
-    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
-    LOG(VERBOSE) << "Writing log file " << fileout << "...\n";
+    std::string logfile_name = M_export_path + "/nextsim.log";
+    std::fstream logfile(logfile_name, std::ios::out | std::ios::trunc);
+    LOG(VERBOSE) << "Writing log file " << logfile_name << "...\n";
 
     int log_width = 55;
     if (logfile.is_open())
@@ -12611,32 +12598,18 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
-        logfile << "#----------Program options (non-default)\n";
+        logfile << "#----------Program options\n";
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
-            // Skip default values
-            if ( vm[it->first].defaulted() )
-                continue;
 
             // ignore wim options if no coupling
 #if !defined (WAVES)
-            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
-            {
+            if ((it->first.find("nextwim.") != std::string::npos)
+                    || (it->first.find("wim.") != std::string::npos))
                 continue;
-            }
 #endif
 
             logfile << std::setw(log_width) << std::left << it->first;
-
-#if 0
-            if (((boost::any)it->second.value()).empty())
-            {
-                std::cout << "(empty)";
-            }
-            if (vm[it->first].defaulted() || it->second.defaulted()) {
-                std::cout << "(default)";
-            }
-#endif
 
             bool is_char;
             try
@@ -12661,37 +12634,15 @@ FiniteElement::writeLogFile()
             }
 
             if (((boost::any)it->second.value()).type() == typeid(int))
-            {
                 logfile << vm[it->first].as<int>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(bool))
-            {
                 logfile << vm[it->first].as<bool>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(double))
-            {
                 logfile << vm[it->first].as<double>() <<"\n";
-            }
             else if (is_char)
-            {
                 logfile << vm[it->first].as<const char * >() <<"\n";
-            }
             else if (is_str)
-            {
-                std::string temp = vm[it->first].as<std::string>();
-
-                logfile << temp <<"\n";
-#if 0
-                if (temp.size())
-                {
-                    logfile << temp <<"\n";
-                }
-                else
-                {
-                    logfile << "true" <<"\n";
-                }
-#endif
-            }
+                logfile << vm[it->first].as<std::string>() <<"\n";
             else
             { // Assumes that the only remainder is vector<string>
                 try
@@ -12713,28 +12664,24 @@ FiniteElement::writeLogFile()
                 }
                 catch (const boost::bad_any_cast &)
                 {
-                    LOG(WARNING) << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                    LOG(WARNING) << "UnknownType("
+                        << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
                 }
             }
-        }
-    }
+        }//iteration over vm
+    }//write log file
 
-    //move git_changes.txt from current dir to output dir
-    fs::path path1("git_changes.txt");
-    if ( fs::exists(path1) )
+    // copy the config files to the output directory
+    for (auto cfg_file: Environment::nextsimConfigFiles())
     {
-        // try to rename, otherwise copy and remove
-        fs::path path2(M_export_path+"/git_changes.txt");
-        try
+        fs::path path1(cfg_file);
+        if ( fs::exists(path1) )
         {
-            fs::rename(path1,path2);
-        }
-        catch (const boost::filesystem::filesystem_error &)
-        {
+            fs::path path2(M_export_path+ "/" + path1.filename().string());
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
-            fs::remove(path1);
         }
     }
+    
 }//writeLogFile
 
 
