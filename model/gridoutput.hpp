@@ -146,15 +146,16 @@ public:
         conc_upd     = 20,
 
         // Diagnostic variables
-        Qa   = 100,
-        Qsw  = 101,
-        Qlw  = 102,
-        Qsh  = 103,
-        Qlh  = 104,
-        Qo   = 105,
-        delS = 106,
-        rain = 107,
-        evap = 108,
+        Qa     = 100,
+        Qsw    = 101,
+        Qlw    = 102,
+        Qsh    = 103,
+        Qlh    = 104,
+        Qo     = 105,
+        delS   = 106,
+        rain   = 107,
+        evap   = 108,
+        d_crit = 109,
 
         // Forcing variables
         tair     = 200,
@@ -421,6 +422,13 @@ public:
                     longName = "Surface Ocean Evaporation";
                     stdName  = "surface_ocean_evaporation";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::d_crit):
+                    name     = "d_crit";
+                    longName = "Distance_To_Yield_Criterion";
+                    stdName  = "distance_to_yield_criterion";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 
