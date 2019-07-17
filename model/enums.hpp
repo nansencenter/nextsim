@@ -18,13 +18,12 @@ namespace setup
         CONSTANT  = 0,
         ASR       = 1,
         ERAi      = 2,
-        EC        = 3,
-        EC2       = 4,
-        EC_ERAi   = 5,
-        CFSR      = 6,
-        CFSR_HI   = 7,
-        EC2_AROME = 8,
-        ERA5      = 9
+        EC2       = 3,
+        EC_ERAi   = 4,
+        CFSR      = 5,
+        CFSR_HI   = 6,
+        EC2_AROME = 7,
+        ERA5      = 8
     };
 
 	enum class OceanType

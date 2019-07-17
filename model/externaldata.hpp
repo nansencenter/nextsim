@@ -76,7 +76,7 @@ public:
     size_type size();
 
     std::vector<double> getVector();
-	void clear();
+    void clear();
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
