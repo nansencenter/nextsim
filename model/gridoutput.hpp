@@ -426,7 +426,7 @@ public:
                     break;
                 case (variableID::d_crit):
                     name     = "d_crit";
-                    longName = "d_crit";
+                    longName = "Distance_To_Yield_Criterion";
                     stdName  = "d_crit";
                     Units    = "1";
                     cell_methods = "area: mean";
