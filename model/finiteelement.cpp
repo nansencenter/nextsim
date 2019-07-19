@@ -4510,7 +4510,6 @@ FiniteElement::update()
 
         // Temporary memory
         old_damage = M_damage[cpt];
-        D_dcrit[cpt] = 0.;// 0 in water
 
         /*======================================================================
          * Diagnostic:
@@ -4713,14 +4712,8 @@ FiniteElement::update()
             sigma_t=-sigma_c/q;
             tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-            // compressive failure for
-            // sigma_2 < slope_compr_upper*sigma_1
-            // && sigma_1 < slope_compr_upper*sigma_2
+            // to test for tensile or compressive failure
             double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
-
-            // tensile failure for
-            // sigma_2 < slope_tens_upper*sigma_1
-            // && sigma_1 < slope_tens_upper*sigma_2
             double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
 
             if( sigma_1 > 0 && sigma_2 > 0
@@ -4745,7 +4738,7 @@ FiniteElement::update()
                 sigma_target = sigma_c;
                 dcrit = sigma_target/(sigma_1-q*sigma_2);
             }
-            D_dcrit[cpt] = dcrit;//save diagnostic
+            D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
 
             /* Calculate the adjusted level of damage */
             if (dcrit < 1)
@@ -4768,6 +4761,7 @@ FiniteElement::update()
         {
             for(int i=0;i<3;i++)
                 M_sigma[i][cpt] = 0.;
+            D_dcrit[cpt] = 0.;
         }
 
         /*======================================================================
