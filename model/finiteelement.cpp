@@ -6127,7 +6127,8 @@ FiniteElement::thermo(int dt)
                    double ctot=0.;
                    for(int m=0;m<M_num_fsd_bins;m++)
                        ctot+=M_conc_fsd[m][i] ;
-                   if (std::abs( (ctot-std::accumulate(fsd_init.begin(), fsd_init.end(),0.)) -del_c_fsd ) >1e-11)
+                   if (std::abs( (ctot-std::accumulate(fsd_init.begin(), fsd_init.end(),0.))
+                               -(del_c_fsd + thin_ice_to_new_ice ) >1e-11) )
                    {
                        crash=true ;
                        crash_msg <<"Error during recombination : change in sea ice conc. not equal to del_c_fsd" <<"\n";
@@ -6136,7 +6137,7 @@ FiniteElement::thermo(int dt)
                }
                else //if lat_melt_rate==0
                {
-                   // Refreezing without FSD recombination -> new ice is supposed to be unbroken 
+                   // Refreezing without FSD recombination
                    M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd + thin_ice_to_new_ice ;              
                    if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
                    {
@@ -8617,6 +8618,7 @@ FiniteElement::initMoorings()
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
@@ -8633,6 +8635,8 @@ FiniteElement::initMoorings()
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
             ("saltflux", GridOutput::variableID::saltflux)
+            ("dmax",GridOutput::variableID::dmax)
+            ("dmean",GridOutput::variableID::dmean)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
