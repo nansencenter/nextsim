@@ -298,6 +298,8 @@ public:
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
     void weldingRoach(const int cpt);
+    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
+    double lateralMeltFSD(const int i,double ddt) ;
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -751,6 +753,9 @@ private:
 
     // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
+    //std::vector<ModelVariable> M_conc_fsd_thick;
+    //std::vector<ModelVariable> M_conc_fsd_thin ;
+    std::vector<ModelVariable> M_conc_mech_fsd;
     int M_num_fsd_bins;
     std::vector<double> M_fsd_bin_widths; 
     double M_fsd_bin_cst_width; 
@@ -776,6 +781,7 @@ private:
 
     std::vector<std::vector<int> > M_alpha_fsd_merge ;
     // In namelist
+    bool   M_distinguish_mech_fsd             ;
     int    M_fsd_damage_type                  ;
     double M_fsd_damage_max                   ;
     double M_floes_flex_strength              ;

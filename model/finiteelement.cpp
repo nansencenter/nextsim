@@ -1404,6 +1404,7 @@ FiniteElement::initOptAndParam()
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
+    M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -4799,10 +4800,12 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
 //------------------------------------------------------------------------------------------------------
 {
     std::vector<double> prob(M_num_elements);
-    double namelistpar = 1. ;   // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
+    double namelistpar = 1. ;  // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-    double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
+    //double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
+    double const strain_c = M_floes_flex_strength * (1-std::pow(poisson,2))/ M_floes_flex_young ; // valid for a plate
     double sea_ice_thickness=0.  ; // sea ice thickness, equal to M_thick or M_thick / ctot
+
 #ifdef OASIS
     for (int i=0; i<M_num_elements; i++)
     {
@@ -4819,7 +4822,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
             else 
                sea_ice_thickness = M_breakup_thick_min ;
 
-            prob[i] =std::exp(- namelistpar * std::pow(strain_c,2) /
+            prob[i] =std::exp(-  std::pow(strain_c,2) /
                                 (2* M_str_var[i]* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
                              ) ;
         }
@@ -4854,19 +4857,24 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             //! Compute the wavelength associated with Tm02
             double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-            double  tau_w = M_breakup_timescale_tuning*M_res_root_mesh/cg_w               ;
             int     N_waves = dtime_step /(M_tm02[i]) ;
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(M_thick[i],3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
-            double broken_area ;
+            double broken_area =0.;
+            double tau_w =0.;
              //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
             {
                 // don't try to break if there are no waves
                 if( P_inf[i] <= threshold1)
                     break;
-                //! Then update FSD with uniform redistribution
+                //! As break-up indeed occurs reset "real" FSD to mechanical FSD
+                if (M_distinguish_mech_fsd)
+                {    
+                    for(int j=0;j<M_num_fsd_bins;j++)
+                        M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
+                }
                 //! 1. Compute the broken area in each category
                 P[j] = P_inf[i] ;
                 //! 1.a Probability that the wave-induced strain is over the flex. failure
@@ -4874,9 +4882,14 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 switch (breakup_prob_type)
                 {
                     case 0:
-                        P[j] = 1-std::exp(-P[j]*dtime_step/tau_w) ;
+                        tau_w = M_breakup_timescale_tuning*dtime_step   ;
+                        P[j] =  1.-std::exp(-P[j]*dtime_step/tau_w)     ;
                         break;
                     case 1:
+                        tau_w = M_breakup_timescale_tuning*M_res_root_mesh/cg_w ;
+                        P[j] = 1-std::exp(-P[j]*dtime_step/tau_w);
+                        break;
+                    case 2:
                         P[j] = ( 1.- std::pow(1-P[j],N_waves)) ;
                         break;
                     default:
@@ -4887,17 +4900,18 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
                 double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / d_flex ) ) ;
                 double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-0.5*lambda) / lambda ) ) ;
-                P[j] = P[j] * lim_dflex * lim_lambda ;
+
                 if (P[j]>0) 
                 {
-                    broken_area= M_conc_fsd[j][i] * P[j] ;
-                    M_conc_fsd[j][i] -= broken_area ;
                     switch (M_breakup_type)
                     {
                         //! 2. Redistribute the broken sea ice area 
                         //! So far, redistribution also occurs within the broken category
                         case (setup::BreakupType::ZHANG):
                         {
+                            P[j] = P[j] * lim_dflex * lim_lambda ;
+                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                            M_conc_fsd[j][i] -= broken_area ;
                             //! Define a redistributor beta (Zhang et al,.2015)
                             //! whith uniform redistribution in term of area, favorises small floes
                             for (int k=0; k<=j ; k++)
@@ -4909,35 +4923,44 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                         }
                         case (setup::BreakupType::UNIFORM_SIZE):
                         {
-                        //!Define a redistributor beta 
-                        //! with uniform redistribution of floes for sizes below the broken categories
-                        //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
-                        for (int k=0; k<=j ; k++)
-                        {
-                            double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
-                                        /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
-                            M_conc_fsd[k][i] +=  broken_area *beta   ;
-                        }
-                            break;
-                        }
-                        case (setup::BreakupType::DUMONT):
-                        {
-                            //! Assuming a broken floe create ksi^2 new floes
-                            int ksi=2 ;
-                            //! Defining fragility as the probability that floes of a given size will break, the exponent of the redistribution is
-                            //! (Toyota et al. 2011, Dumont et al. 2011)
-                            double exponent = std::max(2. - (2. + std::log(P[j])/std::log(ksi)),1e-6) ;
-                            //std::cout<<"exponent ="<< exponent<< "\n";
+                            P[j] = P[j] * lim_dflex * lim_lambda ;
+                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                            M_conc_fsd[j][i] -= broken_area ;
+                            //!Define a redistributor beta 
                             //! with uniform redistribution of floes for sizes below the broken categories
                             //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
                             for (int k=0; k<=j ; k++)
                             {
-                                double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
-                                            /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                            /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
                                 M_conc_fsd[k][i] +=  broken_area *beta   ;
                             }
-                                break;
+                            break;
+                        }
+                        case (setup::BreakupType::DUMONT):
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                            //! Defining fragility as the probability that floes of a given size will break...
+                            double fragility =  lim_dflex * lim_lambda ;
+                            if (fragility>0)
+                            {
+                                M_conc_fsd[j][i] -= broken_area ;
+                                //! Assuming a broken floe create ksi^2 new floes
+                                int ksi=2 ;
+                                //! ...then the exponent of the redistribution is (Toyota et al. 2011, Dumont et al. 2011)
+                                double exponent = std::max(2. - (2. + std::log(P[j])/std::log(ksi)),1e-6) ;
+                                //! with uniform redistribution of floes for sizes below the broken categories
+                                //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                                for (int k=0; k<=j ; k++)
+                                {
+                                    double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
+                                                /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                    M_conc_fsd[k][i] += broken_area * beta   ;
+                                }
+                            
                             }
+                            break;
+                        }
                         case (setup::BreakupType::NONE):
                             break;
                         default:
@@ -4967,6 +4990,13 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             
             if(crash)
                 throw std::runtime_error(crash_msg.str());
+            /* Ensure that mech FSD and "real" FSD are the same after break-up */
+            if (M_distinguish_mech_fsd)
+            {    
+                for(int j=0;j<M_num_fsd_bins;j++)
+                    M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
+            }
+
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
             if ( (M_fsd_damage_type>0) && (M_damage[i]<M_fsd_damage_max) )
@@ -4975,7 +5005,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 {
                     /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
                     case 1:
-                        M_damage[i] = std::min(std::max(M_damage[i],1.-M_conc_fsd[M_num_fsd_bins-1][i]/ctot),M_fsd_damage_max);
+                        M_damage[i] = std::min(std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot),M_fsd_damage_max);
                         break;
 
                     /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
@@ -4983,10 +5013,10 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                     {
                         if( P_inf[i] > threshold1)
                         {
-                            double tot_broken_area = M_conc_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
+                            double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
                             for(int j=1;j<M_num_fsd_bins;j++)
-                                tot_broken_area += M_conc_fsd[j][i] *P[j] ;
-                            M_damage[i] = std::min(M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot,M_fsd_damage_max);
+                                tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
+                            M_damage[i] = std::min(M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*M_fsd_damage_max,M_fsd_damage_max);
                         }
                         break;
                     }
@@ -4999,12 +5029,194 @@ FiniteElement::redistributeFSD()//----------------------------------------------
         else
         {
             for(int j=0;j<M_num_fsd_bins;j++)
+            {
                 M_conc_fsd[j][i]=0. ;
+                M_conc_mech_fsd[j][i]=0. ;
+            }
         }
     }// loop over all elements
 #endif
 }//redistributeFSD
 
+void
+FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
+//------------------------------------------------------------------------------------------------------
+//! Takes care of changes induced by lateral growth and melt in the FSD
+//Input : 
+// -- const int i -> Element Index
+// -- lat_melt_rate -> lateral melt rate in m/s. Computed in thermo()
+// -- thin_ice_growth -> the delta concentration due to thin ice reduction by bottom melt
+//------------------------------------------------------------------------------------------------------
+{
+    // Used for debug
+    std::stringstream crash_msg;
+    bool crash = false;
+    // 
+    double del_c_thin = 0.;
+    double del_c_fsd = M_conc[i] - old_conc;
+    double cat0_del_c =0. ;
+
+    double ctot_init=0.;
+    for(int m=0;m<M_num_fsd_bins;m++)
+        ctot_init+=M_conc_fsd[m][i] ;
+
+    std::vector<double> fsd_init(M_num_fsd_bins,0.);
+    for(int m=0; m<M_num_fsd_bins;m++)
+        fsd_init[m]=M_conc_fsd[m][i] ;
+    // DEBUG
+    if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+    {
+        crash =  true;
+        crash_msg <<"Negative unbroken floes conc. initially :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+    }
+
+    // THIN ICE CASE
+    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+             del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
+    del_c_fsd += del_c_thin ; 
+    
+    /*FSD : initialize a vector for ulterior redistribution  */
+    std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
+
+    if ( ( abs(lat_melt_rate)>0.) && (ctot_init>1e-12) )// So far, it is only the case for lat. melt, but same equation applies to lat. growth 
+    {
+        /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
+        std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
+        std::vector<double> dfsd_dr(M_num_fsd_bins,0.)  ;
+        
+        // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
+        for(int m=1; m<M_num_fsd_bins-1;m++)
+            fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
+        for(int m=0; m<M_num_fsd_bins;m++)
+            dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
+       
+        if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11)
+        {
+            crash=true ;
+            crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
+            for(int j=0;j<M_num_fsd_bins+1;j++)
+            {
+                crash_msg << "fsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
+            }
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
+            }
+        }
+        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
+        for (int m=0; m<M_num_fsd_bins-1;m++)
+        {
+            del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
+            M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
+        }
+        if (lat_melt_rate<0.) // if ice is melting
+        {
+            cat0_del_c =  lat_melt_rate * fsd_init[0] / M_fsd_bin_widths[0] * ddt ; //<0
+            M_conc_fsd[0][i] += cat0_del_c ;
+        }
+        else                  // if there is freezing, flux of growing floes that become "unbroken"
+            M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]*ddt * lat_melt_rate;
+        
+        double ctot=0.;
+        for(int m=0;m<M_num_fsd_bins;m++)
+            ctot+=M_conc_fsd[m][i] ;
+        // If bottom melt reduces the thin ice fraction
+        if (thin_ice_growth<0)
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                 M_conc_fsd[m][i]+=(thin_ice_growth)*M_conc_fsd[m][i]/ctot ;
+        }
+
+        // DEBUG RECOMB.
+        if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+        //if ( (std::abs( (ctot-ctot_init)-(del_c_fsd) >1e-11) ) && (M_conc_thin[i]==0) )
+        //{
+        //    crash=true ;
+        //    crash_msg <<"Error during recombination : change in sea ice conc. not equal to del_c_fsd" <<"\n";
+        //    crash_msg <<"del_c_fsd = "<<del_c_fsd<<" , c_tot_fsd_fin-c_tot_fsd_init = "<< ctot- ctot_init <<"\n";
+        //}
+        //END DEBUG
+        
+        // If lateral melt, the mechanical FSD is updated
+        if (M_distinguish_mech_fsd)
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                M_conc_mech_fsd[m][i]=std::min(M_conc_fsd[m][i], M_conc_mech_fsd[m][i]);
+        }
+    }
+    else //if lat_melt_rate==0 (or lower, but not possible yet)
+    {   // REFREEZING
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        { // Complete refreezing if thin ice fills the lead
+            if (M_conc[i] + M_conc_thin[i]==1.)
+            {
+                M_conc_fsd[M_num_fsd_bins-1][i] =1.; // 
+                for(int m=0;m<M_num_fsd_bins-1;m++)
+                   M_conc_fsd[m][i]=0.;
+            }
+            else if (del_c_fsd>=0)
+                M_conc_fsd[M_num_fsd_bins-1][i]+=del_c_fsd  ;
+            else
+            {
+                for(int m=0;m<M_num_fsd_bins;m++)
+                    M_conc_fsd[m][i]+=del_c_fsd*M_conc_fsd[m][i]/ctot_init ;
+            }
+            if (M_distinguish_mech_fsd)
+                M_conc_mech_fsd[M_num_fsd_bins-1][i]+=std::max(del_c_fsd,-M_conc_mech_fsd[M_num_fsd_bins-1][i]) ;
+        }    
+        else // Refreezing without FSD recombination
+            M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1 
+    } 
+
+    // DEBUG GUILLAUME
+    if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+    {
+        crash =  true;
+        crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+    }
+
+    double ctot = M_conc[i];
+    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        ctot += M_conc_thin[i];
+
+    double ctot2 = M_conc_fsd[0][i];
+    for(int j=1;j<M_num_fsd_bins;j++)
+        ctot2 += M_conc_fsd[j][i] ;
+
+    if (std::abs(ctot-ctot2)>1e-7)
+    {
+        crash =  true;
+        crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                  << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
+    }
+    if(crash)
+    {
+        crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
+        crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
+        crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
+        crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
+        double sum_del_fsd=0. ;
+        for(int j=0;j<M_num_fsd_bins;j++)
+        {
+            crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
+            crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
+            sum_del_fsd += del_c_bin_melt[j] ;
+        }
+        crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+        {
+           crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
+           crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+        }
+        crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
+        throw std::runtime_error(crash_msg.str())                            ;
+    }
+   // END DEBUG
+}       
 void
 FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
 //! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
@@ -5023,23 +5235,47 @@ FiniteElement::updateFSD()//----------------------------------------------------
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][cpt] ;
 
-            if (ctot>=1.)
+            if (ctot>=1.) // Before ridge creation
             {
                 for(int k=0;k<M_num_fsd_bins;k++)
                     M_conc_fsd[k][cpt]*=ctot/ctot2;
             }
-            else if(std::abs(ctot-ctot2)>1e-11)
+
+            else if (std::abs(ctot-ctot2)>1e-11)        
             {  
-                if (ctot2==0.)
-                   M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot;
+                if ( (ctot2==0.)and(ctot>0.) )
+                   M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot ;
                 else
                 {
-                for(int k=0;k<M_num_fsd_bins;k++)
-                    M_conc_fsd[k][cpt]*= ctot/ctot2;
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_fsd[k][cpt]*= ctot/ctot2;
+                }
+            }
+          
+            if (M_distinguish_mech_fsd)
+            {
+                double  ctot3= M_conc_mech_fsd[0][cpt];
+                for(int j=1;j<M_num_fsd_bins;j++)
+                    ctot3 += M_conc_mech_fsd[j][cpt] ;
+
+                if (ctot>=1.) // Before ridge creation
+                {
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_mech_fsd[k][cpt]*=ctot/ctot3;
+                }
+                else if (std::abs(ctot-ctot3)>1e-11)         
+                {  
+                    if  ( (ctot3==0.)and(ctot>0.) )
+                       M_conc_mech_fsd[M_num_fsd_bins-1][cpt]=ctot ;
+                    else
+                    {
+                        for(int k=0;k<M_num_fsd_bins;k++)
+                            M_conc_mech_fsd[k][cpt]*= ctot/ctot3;
+                    }
                 }
             }
         }
-     }
+    }
 }
 //------------------------------------------------------------------------------------------------------
 //MIGHT BE REMOVED AT SOME POINT AS IT NOT USED
@@ -5224,7 +5460,7 @@ FiniteElement::weldingRoach(const int cpt)
          }
          if(crash)
          {
-             crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+             crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
              crash_msg << "conc :" << M_conc[cpt]  << " \n";
              crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
              crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
@@ -5811,9 +6047,9 @@ FiniteElement::thermo(int dt)
         ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
       	double lat_melt_rate = 0.;
         // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
-        double thin_ice_to_new_ice =0.;
+        double thin_ice_growth =0.;
         //double lead_fraction = this-> computeLeadFractionFSD(i); // Not used so far 
-        double lateral_area  = this-> computeLateralAreaFSD(i); // Not used so far
+        //double lateral_area  = this-> computeLateralAreaFSD(i); // Not used so far
 
 
         /* Freezing conditions */
@@ -5858,6 +6094,7 @@ FiniteElement::thermo(int dt)
                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
                     {
                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;       
                     }
                     else
                     {
@@ -5878,8 +6115,6 @@ FiniteElement::thermo(int dt)
                             M_conc_thin[i] -= del_c;
                             M_h_thin[i]    -= del_h_thin;
                             M_hs_thin[i]   -= del_hs_thin;
-                            
-                            thin_ice_to_new_ice -=del_c;
                         }
                     }
                 }
@@ -5893,26 +6128,6 @@ FiniteElement::thermo(int dt)
                     M_hs_thin[i]= 0.;
                 }
                 break;
-           // case 5:
-           // { 
-           //     /* See  Roach et al. 2018  -- originally from Horvat and Tzipperman 2015 --  */
-           //     /* Note that we assume that lead fraction = open water fraction (no distinction between a lead region and an open water region)  */
-           //     // Freezing rate [m/s], needed for FSD recombination
-           //     lat_melt_rate =  newice *lateral_area/(M_conc[i]+lateral_area) *old_ow_fraction  /ddt ; // if freezing, then must be >0
-           //     lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the freezing/melt rate is twice as big
-           //     if (M_num_fsd_bins>0) 
-           //     {
-           //         double catN_del_c =  lat_melt_rate * M_conc_fsd[M_num_fsd_bins-1][i] / M_fsd_bin_widths * ddt ; //<0
-           //         for (int j=0;j<M_num_fsd_bins-1;++j) 
-           //             del_c = del_c + lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
-           //         del_c = del_c + catN_del_c ;
-           //     }
-           //     else
-           //     {
-           //         throw std::logic_error("newice_type=5 && nnum_fsd_bins <1 are not compatible (designed to be used with FSD only)");
-           //     }
-           //     break;
-           // }
             default:
                 std::cout << "newice_type = " << newice_type << "\n";
                 throw std::logic_error("Wrong newice_type");
@@ -5962,34 +6177,54 @@ FiniteElement::thermo(int dt)
                     }
                     break;
                 case 3:
-                { 
-                    /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
-                    *--- originally from Josberger 1979 ---
-                     (Tw - Tf) = elevation of water temp above freezing
-                     m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
-                     m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
-                    // TODO the heat budget is not closed ! Need to remove heat  
-                    // This code is re-usable for any lateral melt rate w_lat
+                    /* Only if FSD, Roach et al. (2018) */
                     if (M_num_fsd_bins<1)
-                    {
                         throw std::logic_error("melt_type =3 && num_fsd_bins <1 are not compatible");
-                    }
-                    else if (tw_new>tfrw)    
-                    {    
-                        double m1=3.e-6 ;
-                        double m2=1.36  ; 
-                        // Melt speed rate [m/s]
-                        lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
-                        /* Following code is from Horvat & Tzipermann (2015) */
-                        lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
-                        double cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
-                        for (int j=0;j<M_num_fsd_bins-1;++j) 
-                            del_c = del_c + lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
-                        del_c = del_c + cat0_del_c ;
-                        Qow_mean -= del_c*hi*qi/ddt; // Guillaume : snow is treated below ??
+                    else if (tw_new>tfrw)  
+                    { 
+                        /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
+                        // *--- originally from Josberger 1979 ---
+                        (Tw - Tf) = elevation of water temp above freezing
+                        m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
+                        m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
+                        double m1=3.e-6 ; double m2=1.36  ;
+                        double del_c_melt=0. ; 
+                        double cat0_del_c=0. ;
+                        if (hi>0)  //case hi==0 is treated in thermo 
+                        {
+                            // It would be worthy checking that lat. melt is indeed lower for unbroken ice than for broken ice
+                            double ctot = M_conc[i] + M_conc_thin[i];
+                            if (ctot<1e-11)
+                                break;
+                            double h0 = 0. ;
+                            if (M_conc_thin[i]>0.)
+                                h0=h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        
+                            if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
+                            {
+                                /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                                del_c_melt += PhiM*(1.-ctot)*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs ); //No lat melt if no divergence
+                                del_c_melt = std::max(del_c_melt,-ctot);
+                                /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                                Qow_mean *= (1.-PhiM);
+                            }   
+                            else 
+                            {    
+                                // Melt speed rate [m/s]
+                                lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
+                                /* Following code is from Horvat & Tzipermann (2015) */
+                                lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
+                                cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
+                                del_c_melt += cat0_del_c ;
+                                for (int j=0;j<M_num_fsd_bins-1;++j) 
+                                    del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
+                                Qow_mean -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
+                            }
+                            del_c +=  (M_conc[i]/ctot)*del_c_melt ;
+                            M_conc_thin[i] += del_c_melt * (M_conc_thin[i]/ctot) ;
+                        }
                     }
                     break;
-                }
 
                 default:
                     std::cout << "melt_type = " << melt_type << "\n";
@@ -6003,7 +6238,7 @@ FiniteElement::thermo(int dt)
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*old_conc + newice )/M_conc[i];
+            hi = ( hi*old_conc + newice )/M_conc[i]; //TODO: Is it still valid with thin ice ?
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
@@ -6044,174 +6279,25 @@ FiniteElement::thermo(int dt)
             if(M_num_fsd_bins>0)
             {
                 for(int k=0; k<M_num_fsd_bins; k++)
+                {
                     M_conc_fsd[k][i] = 0.;
-                // TODO not very nice
+                    if (M_distinguish_mech_fsd)
+                        M_conc_mech_fsd[k][i] = 0. ;
+                }
+                // TODO not very nice... Don't know how to change it G.B
                 if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                {
                     M_conc_fsd[M_num_fsd_bins-1][i] = M_conc_thin[i];
+                    if (M_distinguish_mech_fsd)
+                        M_conc_mech_fsd[M_num_fsd_bins-1][i] = M_conc_thin[i];
+                }
             } 
         }
         else
         {
-	    /* In case there is an FSD: */
+	        /* In case there is an FSD: */
             if(M_num_fsd_bins>0)
-            {
-                std::stringstream crash_msg;
-                bool crash = false;
-                double del_c_thin = 0.;
-                double del_c_fsd = M_conc[i] - old_conc;
-                double cat0_del_c =0. ;
-                std::vector<double> fsd_init(M_num_fsd_bins,0.);
-                for(int m=0; m<M_num_fsd_bins;m++)
-                        fsd_init[m]=M_conc_fsd[m][i] ;
-               // DEBUG
-               if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
-               {
-                   crash =  true;
-                   crash_msg <<"Negative unbroken floes conc. initially :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-               }
- 
-                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-                        del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
-
-               /*FSD : initialize a vector for ulterior redistribution  */
-               std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
-
-
-               if ( abs(lat_melt_rate)>0. ) // So far, it is only the case for lat. melt, but same equation applies to lat. growth 
-               {
-                   /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
-                   std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
-                   std::vector<double> dfsd_dr(M_num_fsd_bins,0.);
-                   
-                   // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
-                   for(int m=1; m<M_num_fsd_bins-1;m++)
-                       fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
-                   for(int m=0; m<M_num_fsd_bins;m++)
-                       dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
-                  
-                   if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11)
-                   {
-                       crash=true ;
-                       crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
-                       for(int j=0;j<M_num_fsd_bins+1;j++)
-                       {
-                           crash_msg << "fsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
-                       }
-                       for(int j=0;j<M_num_fsd_bins;j++)
-                       {
-                           crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
-                       }
-                   }
-                   /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
-                   for (int m=0; m<M_num_fsd_bins-1;m++)
-                   {
-                       del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
-                       M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
-                   }
-                   if (lat_melt_rate<0.) // if ice is melting
-                   {
-                       cat0_del_c =  lat_melt_rate * fsd_init[0] / M_fsd_bin_widths[0] * ddt ; //<0
-                       M_conc_fsd[0][i] += cat0_del_c ;
-                   }
-                   else                  // if there is freezing, flux of growing floes that become "unbroken"
-                       M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]* dt * lat_melt_rate;
-
-
-
-                   // DEBUG RECOMB.
-                   if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
-                   {
-                       crash =  true;
-                       crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-                   }
-                   double ctot=0.;
-                   for(int m=0;m<M_num_fsd_bins;m++)
-                       ctot+=M_conc_fsd[m][i] ;
-                   if (std::abs( (ctot-std::accumulate(fsd_init.begin(), fsd_init.end(),0.))
-                               -(del_c_fsd + thin_ice_to_new_ice ) >1e-11) )
-                   {
-                       crash=true ;
-                       crash_msg <<"Error during recombination : change in sea ice conc. not equal to del_c_fsd" <<"\n";
-                       crash_msg <<"del_c_fsd = "<<del_c_fsd<<" , c_tot_fsd_fin-c_tot_fsd_init = "<< ctot- std::accumulate(fsd_init.begin(), fsd_init.end(),0.) <<"\n";
-                   }
-               }
-               else //if lat_melt_rate==0
-               {
-                   // Refreezing without FSD recombination
-                   M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd + thin_ice_to_new_ice ;              
-                   if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
-                   {
-                       crash =  true;
-                       crash_msg <<"Negative unbroken floes conc. after refreezing :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-                   }
-               }
-               /* Thin ice redistribution */
-               if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-               {
-                   //new thin ice is added to unbroken sea ice (so far)
-                   if (del_c_thin>=0.)
-                   {
-                       M_conc_fsd[M_num_fsd_bins-1][i]+= (del_c_thin-thin_ice_to_new_ice)  ;
-                   // thin ice that is removed is assumed to have the same FSD as thick ice
-                   // and is therefore removed equally from each category
-                   }
-                   else
-                   {
-                       double ctot=0.;
-                       for(int m=0;m<M_num_fsd_bins;m++)
-                           ctot+=M_conc_fsd[m][i] ;
-                       for(int m=0;m<M_num_fsd_bins;m++)
-                           M_conc_fsd[m][i]+=(del_c_thin-thin_ice_to_new_ice)*M_conc_fsd[m][i]/ctot ;
-                   }
-               }
-               if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
-               {
-                   crash =  true;
-                   crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-               }
-
-               // DEBUG GUILLAUME
-
-               double ctot = M_conc[i];
-               if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                   ctot += M_conc_thin[i];
-
-               double ctot2 = M_conc_fsd[0][i];
-               for(int j=1;j<M_num_fsd_bins;j++)
-                   ctot2 += M_conc_fsd[j][i] ;
-
-               if (std::abs(ctot-ctot2)>1e-7)
-               {
-                   crash =  true;
-                   crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
-                             << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
-               }
-               if(crash)
-               {
-                   crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
-                   crash_msg <<"del_hi " << del_hi <<", newice "<< newice <<"\n";
-                   crash_msg <<"current M_conc = "<< M_conc[i] <<", old_conc = "<<old_conc <<"\n";
-                   crash_msg <<"old conc_thin =" <<old_conc_thin <<  ", del_conc_thin =" << del_c_thin << "\n" ;
-                   crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
-                   crash_msg <<"diff M_conc_new -old_conc :"<< M_conc[i]-old_conc <<"  \n";
-                   double sum_del_fsd=0. ;
-                   for(int j=0;j<M_num_fsd_bins;j++)
-                   {
-                       crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
-                       crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
-                       sum_del_fsd += del_c_bin_melt[j] ;
-                   }
-                   crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
-                   if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                   {
-                      crash_msg << "M_conc_thin :" << M_conc_thin[i] << "; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
-                      crash_msg << "thin_ice_to_new_ice ="<< thin_ice_to_new_ice <<" \n";
-                   }
-                   crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
-                   throw std::runtime_error(crash_msg.str())                            ;
-               }
-               // END DEBUG
-            }        
+                this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
         }
        
         // -------------------------------------------------
@@ -6322,6 +6408,19 @@ FiniteElement::thermo(int dt)
             else
             {
                 M_time_relaxation_damage[i] = 1e36;
+            }
+        }
+        // -------------------------------------------------
+        //! 9.b) Mechanical FSD healing 
+        // -------------------------------------------------
+        // // If FSD && Mech FSD && freezing condition
+        if ( M_distinguish_mech_fsd && (M_num_fsd_bins>0) && (del_hi>0.) )          
+        {
+            double fsd_mech_healing_weight = std::min(1.,ddt/M_time_relaxation_damage[i]) ;
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_conc_mech_fsd[m][i]=M_conc_mech_fsd[m][i]*(1.-fsd_mech_healing_weight) 
+                                     + fsd_mech_healing_weight* M_conc_fsd[m][i]       ;
             }
         }
         // -------------------------------------------------
@@ -7176,14 +7275,19 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
-
+    // FSD
     M_conc_fsd.resize(M_num_fsd_bins);
     for(int k=0; k<M_num_fsd_bins; k++)
     {
         M_conc_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_fsd, k);
         M_variables_elt.push_back(&(M_conc_fsd[k]));
     }
-
+    M_conc_mech_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_mech_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_mech_fsd, k);
+        M_variables_elt.push_back(&(M_conc_mech_fsd[k]));
+    }
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
     M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);//! \param M_age_det (double) Sea ice age observable/detectable from space [s]
@@ -7372,8 +7476,6 @@ FiniteElement::initFsd()
             std::cout << "fsd_type= " << (int)M_fsd_type << "\n";
             throw std::logic_error("Wrong fsd_type");
     }
-
- 
    // LOGS
     if (M_rank==0) 
     {
@@ -7458,8 +7560,13 @@ FiniteElement::initFsd()
         //nothing in the other bins
         for(int k=0; k<M_num_fsd_bins-1; k++)
             M_conc_fsd[k][i] = 0.; 
+        // If we want to distinguish between mechanical and thermodynamical properties
+        if (M_distinguish_mech_fsd)
+            for(int k=0; k<M_num_fsd_bins-1; k++)
+                M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
     }
-// TODO : Add a debug whith a print of the bins, their widths, centers, and limits
+    
+ 
 }//init FSD
 
 
@@ -7752,12 +7859,12 @@ FiniteElement::updateIceDiagnostics()
             {
                 D_dmax[i]=1000.;
                 D_dmean[i]=1000.;
-                if (M_conc_fsd[M_num_fsd_bins-1][i]<M_dmax_c_threshold*D_conc[i])
+                if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<M_dmax_c_threshold*D_conc[i])
                 {
-                    double ctot_fsd = M_conc_fsd[M_num_fsd_bins-1][i];
+                    double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
                     for(int j=M_num_fsd_bins-2;j>-1;j--)
                     {
-                        ctot_fsd += M_conc_fsd[j][i] ;
+                        ctot_fsd += M_conc_mech_fsd[j][i] ;
                         if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
                         {   
                             D_dmax[i]=M_fsd_bin_up_limits[j]   ;
@@ -7767,7 +7874,7 @@ FiniteElement::updateIceDiagnostics()
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
                     {   
-                        D_dmean[i] += M_conc_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i]
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i]
                                     * M_fsd_bin_widths[j] /std::accumulate(M_fsd_bin_widths.begin(),M_fsd_bin_widths.end(),0.);  
                     }
             
