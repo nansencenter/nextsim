@@ -1098,7 +1098,20 @@ FiniteElement::initOptAndParam()
     }
 #endif
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<=0) ? 0 : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
+    if ( vm["output.output_per_day"].as<int>() > 0 )
+    {
+       output_time_step = time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
+    }
+    else if ( vm["output.output_per_day"].as<int>() == 0 )
+    {
+       output_time_step = 0;
+    }
+    else
+    {
+       output_time_step = time_step;
+    }
+
+    //output_time_step =  (vm["output.output_per_day"].as<int>()<=0) ? 0 : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
