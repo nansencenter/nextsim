@@ -1093,7 +1093,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
     // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
-    thermo_timestep = time_step;
+    // thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
     // for now thermo_timestep must be equal to cpl_time_step
@@ -1405,6 +1405,7 @@ FiniteElement::initOptAndParam()
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
     M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
+    M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
@@ -2823,7 +2824,29 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
 
-
+// TEST GUILLAUME
+//void
+// FiniteElement::outputElementConnectivity()
+// {
+//     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+//     for (int j=0; j<num_elements; j++)
+//      {
+//          int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
+//          // Negative elt_num means there are no more elements belonging to this node
+//         if ( elt_num < 0 ) continue;
+//         if ( ! visited(elt_num, triangles) )
+//            checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
+//      }
+// }//scatterElementConnectivity
+// // Check if we've already visited this triangle
+// inline bool visited(int current_triangle, std::vector<int> const &triangles)
+// {
+//     for (auto it=triangles.begin(); it!=triangles.end(); ++it)
+//         if ( current_triangle == *it )
+//             return true;
+// 
+//     return false;
+// }
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -4804,6 +4827,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     //double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
     double const strain_c = M_floes_flex_strength * (1-std::pow(poisson,2))/ M_floes_flex_young ; // valid for a plate
+//    double const strain_c = M_floes_flex_strength/ M_floes_flex_young ; // valid for a plate
     double sea_ice_thickness=0.  ; // sea ice thickness, equal to M_thick or M_thick / ctot
 
 #ifdef OASIS
@@ -4812,9 +4836,13 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
         double ctot = M_conc[i];
         if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
            ctot += M_conc_thin[i];
-
         if (ctot>0)
         { 
+            if (M_str_var[i]<-1e-11)
+                std::runtime_error("Pb: Curvature received from WW3 is negative") ;
+            else if (std::isnan(M_str_var[i]) )
+                std::runtime_error("Pb: Curvature received from WW3 is NaN") ;
+
             if (M_breakup_cell_average_thickness)
                 sea_ice_thickness = M_thick[i] ;
             else if (M_conc[i]>0.) 
@@ -4823,7 +4851,7 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
                sea_ice_thickness = M_breakup_thick_min ;
 
             prob[i] =std::exp(-  std::pow(strain_c,2) /
-                                (2* M_str_var[i]* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
+                                (2* std::max(0.,M_str_var[i])* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
                              ) ;
         }
     }
@@ -4843,8 +4871,10 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
-    const double threshold1=0.01  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
+    const double threshold1=1e-02  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+    std::stringstream crash_msg;
+    bool crash = false;
      
     auto P_inf = this -> computeWaveBreakingProb();
     for (int i=0; i<M_num_elements; i++)
@@ -4854,11 +4884,23 @@ FiniteElement::redistributeFSD()//----------------------------------------------
            ctot += M_conc_thin[i];
         if (ctot>0)
         {
+            // don't try to break if there are no waves
+            if( P_inf[i] <= threshold1)
+                continue ;
+            if (M_distinguish_mech_fsd)
+            {    
+            //! As break-up indeed occurs reset "real" FSD to mechanical FSD
+               for(int j=0;j<M_num_fsd_bins;j++)
+               { 
+                   M_conc_fsd[j][i]= M_conc_mech_fsd[j][i] ;
+               } 
+            }
             //! Compute the wavelength associated with Tm02
+            double  sea_ice_thickness = std::max(M_breakup_thick_min,M_thick[i]/M_conc[i]) ;
             double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
             int     N_waves = dtime_step /(M_tm02[i]) ;
-            double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(M_thick[i],3) /
+            double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
             double broken_area =0.;
@@ -4866,15 +4908,6 @@ FiniteElement::redistributeFSD()//----------------------------------------------
              //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
             {
-                // don't try to break if there are no waves
-                if( P_inf[i] <= threshold1)
-                    break;
-                //! As break-up indeed occurs reset "real" FSD to mechanical FSD
-                if (M_distinguish_mech_fsd)
-                {    
-                    for(int j=0;j<M_num_fsd_bins;j++)
-                        M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
-                }
                 //! 1. Compute the broken area in each category
                 P[j] = P_inf[i] ;
                 //! 1.a Probability that the wave-induced strain is over the flex. failure
@@ -4901,15 +4934,15 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / d_flex ) ) ;
                 double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-0.5*lambda) / lambda ) ) ;
 
-                if (P[j]>0) 
+                switch (M_breakup_type)
                 {
-                    switch (M_breakup_type)
+                    //! 2. Redistribute the broken sea ice area 
+                    //! So far, redistribution also occurs within the broken category
+                    case (setup::BreakupType::ZHANG):
                     {
-                        //! 2. Redistribute the broken sea ice area 
-                        //! So far, redistribution also occurs within the broken category
-                        case (setup::BreakupType::ZHANG):
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
                         {
-                            P[j] = P[j] * lim_dflex * lim_lambda ;
                             broken_area= M_conc_fsd[j][i] * P[j] ;
                             M_conc_fsd[j][i] -= broken_area ;
                             //! Define a redistributor beta (Zhang et al,.2015)
@@ -4919,64 +4952,73 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                                 double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
                                 M_conc_fsd[k][i] +=  broken_area *beta   ;
                             }
-                            break;
                         }
-                        case (setup::BreakupType::UNIFORM_SIZE):
+                        break;
+                    }
+                    case (setup::BreakupType::UNIFORM_SIZE):
+                    {
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
                         {
-                            P[j] = P[j] * lim_dflex * lim_lambda ;
-                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                             broken_area= M_conc_fsd[j][i] * P[j] ;
+                             M_conc_fsd[j][i] -= broken_area ;
+                            
+                             //!Define a redistributor beta 
+                             //! with uniform redistribution of floes for sizes below the broken categories
+                             //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                             for (int k=0; k<=j ; k++)
+                             {
+                                 double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                             /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
+                                 M_conc_fsd[k][i] +=  broken_area *beta   ;
+                             }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::DUMONT):
+                    {
+                        //! Defining fragility as the probability that floes of a given size will break...
+                        double fragility =  lim_dflex * lim_lambda ;
+                        if (fragility>0)
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] *fragility;
                             M_conc_fsd[j][i] -= broken_area ;
-                            //!Define a redistributor beta 
+                            //! Assuming a broken floe create ksi^2 new floes
+                            int ksi=2 ;
+                            //! ...then the exponent of the redistribution is (Toyota et al. 2011, Dumont et al. 2011)
+                            double exponent = std::max(2. - (2. + std::log(fragility)/std::log(ksi)),1e-6) ;
                             //! with uniform redistribution of floes for sizes below the broken categories
                             //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
                             for (int k=0; k<=j ; k++)
                             {
-                                double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
-                                            /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
-                                M_conc_fsd[k][i] +=  broken_area *beta   ;
+                                double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
+                                            /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                M_conc_fsd[k][i] += broken_area * beta   ;
                             }
-                            break;
                         }
-                        case (setup::BreakupType::DUMONT):
-                        {
-                            broken_area= M_conc_fsd[j][i] * P[j] ;
-                            //! Defining fragility as the probability that floes of a given size will break...
-                            double fragility =  lim_dflex * lim_lambda ;
-                            if (fragility>0)
-                            {
-                                M_conc_fsd[j][i] -= broken_area ;
-                                //! Assuming a broken floe create ksi^2 new floes
-                                int ksi=2 ;
-                                //! ...then the exponent of the redistribution is (Toyota et al. 2011, Dumont et al. 2011)
-                                double exponent = std::max(2. - (2. + std::log(P[j])/std::log(ksi)),1e-6) ;
-                                //! with uniform redistribution of floes for sizes below the broken categories
-                                //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
-                                for (int k=0; k<=j ; k++)
-                                {
-                                    double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
-                                                /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
-                                    M_conc_fsd[k][i] += broken_area * beta   ;
-                                }
-                            
-                            }
-                            break;
-                        }
-                        case (setup::BreakupType::NONE):
-                            break;
-                        default:
-                            std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
-                            throw std::logic_error("Wrong breakup_type");
+                        break;
                     }
+                    case (setup::BreakupType::NONE):
+                        break;
+                    default:
+                        std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
+                        throw std::logic_error("Wrong breakup_type");
                 }
+            
             }
+            /* Ensure that mech FSD and "real" FSD are the same after break-up */
+            if (M_distinguish_mech_fsd)
+            {    
+                for(int j=0;j<M_num_fsd_bins;j++)
+                    M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
+            }
+
             // Mini Checkfields 
-            std::stringstream crash_msg;
-            bool crash = false;
             double ctot2 = M_conc_fsd[0][i];
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][i] ;
             
-            if(std::abs(ctot-ctot2)>2e-7)
+            if( (std::abs(ctot-ctot2)>2e-7) && M_debug_fsd )
             {  
                std::cout<<"Crash message coming !\n";
                std::cout<<"Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
@@ -4990,12 +5032,6 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             
             if(crash)
                 throw std::runtime_error(crash_msg.str());
-            /* Ensure that mech FSD and "real" FSD are the same after break-up */
-            if (M_distinguish_mech_fsd)
-            {    
-                for(int j=0;j<M_num_fsd_bins;j++)
-                    M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
-            }
 
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
@@ -5059,16 +5095,9 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     double ctot_init=0.;
     for(int m=0;m<M_num_fsd_bins;m++)
         ctot_init+=M_conc_fsd[m][i] ;
-
     std::vector<double> fsd_init(M_num_fsd_bins,0.);
     for(int m=0; m<M_num_fsd_bins;m++)
         fsd_init[m]=M_conc_fsd[m][i] ;
-    // DEBUG
-    if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
-    {
-        crash =  true;
-        crash_msg <<"Negative unbroken floes conc. initially :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-    }
 
     // THIN ICE CASE
     if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
@@ -5090,7 +5119,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         for(int m=0; m<M_num_fsd_bins;m++)
             dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
        
-        if  (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11)
+        if  ( (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11) && M_debug_fsd)
         {
             crash=true ;
             crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
@@ -5128,7 +5157,8 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         }
 
         // DEBUG RECOMB.
-        if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+        if ((M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)&& M_debug_fsd)
+
         {
             crash =  true;
             crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
@@ -5142,11 +5172,6 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         //END DEBUG
         
         // If lateral melt, the mechanical FSD is updated
-        if (M_distinguish_mech_fsd)
-        {
-            for(int m=0;m<M_num_fsd_bins;m++)
-                M_conc_mech_fsd[m][i]=std::min(M_conc_fsd[m][i], M_conc_mech_fsd[m][i]);
-        }
     }
     else //if lat_melt_rate==0 (or lower, but not possible yet)
     {   // REFREEZING
@@ -5159,63 +5184,95 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
                    M_conc_fsd[m][i]=0.;
             }
             else if (del_c_fsd>=0)
+            {
                 M_conc_fsd[M_num_fsd_bins-1][i]+=del_c_fsd  ;
+            }
             else
             {
                 for(int m=0;m<M_num_fsd_bins;m++)
+                {
                     M_conc_fsd[m][i]+=del_c_fsd*M_conc_fsd[m][i]/ctot_init ;
+                }
             }
-            if (M_distinguish_mech_fsd)
-                M_conc_mech_fsd[M_num_fsd_bins-1][i]+=std::max(del_c_fsd,-M_conc_mech_fsd[M_num_fsd_bins-1][i]) ;
         }    
         else // Refreezing without FSD recombination
             M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1 
     } 
 
-    // DEBUG GUILLAUME
-    if (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+    if (M_distinguish_mech_fsd)
     {
-        crash =  true;
-        crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
-    }
-
-    double ctot = M_conc[i];
-    if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-        ctot += M_conc_thin[i];
-
-    double ctot2 = M_conc_fsd[0][i];
-    for(int j=1;j<M_num_fsd_bins;j++)
-        ctot2 += M_conc_fsd[j][i] ;
-
-    if (std::abs(ctot-ctot2)>1e-7)
-    {
-        crash =  true;
-        crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
-                  << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
-    }
-    if(crash)
-    {
-        crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
-        crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
-        crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
-        crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
-        double sum_del_fsd=0. ;
-        for(int j=0;j<M_num_fsd_bins;j++)
+        double ctot_mech = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot_mech += M_conc_mech_fsd[j][i] ;
+        if (del_c_fsd>=0)
+            M_conc_mech_fsd[M_num_fsd_bins-1][i]+= del_c_fsd ;
+        else
         {
-            crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
-            crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
-            sum_del_fsd += del_c_bin_melt[j] ;
+            for(int m=0;m<M_num_fsd_bins;m++)
+            {
+                M_conc_mech_fsd[m][i]+= del_c_fsd*M_conc_mech_fsd[m][i]/ctot_mech ;
+            }
         }
-        crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
+    }
+
+    // Debug FSD
+    if (M_debug_fsd)
+    {
+        if  (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+
+        double ctot = M_conc[i];
         if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            ctot += M_conc_thin[i];
+
+        double ctot2 = M_conc_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot2 += M_conc_fsd[j][i] ;
+
+
+        double ctot3 = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot3 += M_conc_mech_fsd[j][i] ;
+
+        if (std::abs(ctot-ctot2)>1e-7)
         {
-           crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
-           crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+            crash =  true;
+            crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
         }
-        crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
-        throw std::runtime_error(crash_msg.str())                            ;
-    }
-   // END DEBUG
+        if (std::abs(ctot-ctot3)>1e-7)
+        {
+            crash =  true;
+            crash_msg << "-> sum M_conc_MECH_fsd (="<<ctot3 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot3 << " \n"                        ;
+        }
+        if(crash)
+        {
+            crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
+            crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
+            crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
+            crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
+            double sum_del_fsd=0. ;
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
+                crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
+                sum_del_fsd += del_c_bin_melt[j] ;
+            }
+            crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            {
+               crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
+               crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+            }
+            crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
+            throw std::runtime_error(crash_msg.str())                            ;
+        }
+    }// END DEBUG
 }       
 void
 FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
@@ -5320,11 +5377,10 @@ FiniteElement::computeLateralAreaFSD(const int cpt)
 }
 //------------------------------------------------------------------------------------------------------
 void
-FiniteElement::weldingRoach(const int cpt)
+FiniteElement::weldingRoach(const int cpt, double ddt)
 //! welding following Roach et al. 2018, called in thermo() 
 //------------------------------------------------------------------------------------------------------
 {
-    double ddt = double(thermo_timestep);
     double c_fsd_broken = M_conc_fsd[0][cpt];
     bool crash = false ;
     std::stringstream crash_msg;
@@ -5349,24 +5405,24 @@ FiniteElement::weldingRoach(const int cpt)
 
          
          //DEBUG
-        // if ( abs(old_conc_tot-M_conc[cpt])>1.e-7 )
-        // {
-        //     crash=true ;
-        //     crash_msg << "Difference in total conc. to begin with (fsd-conc) :"<< old_conc_tot-M_conc[cpt] <<" \n" ;
-        //     crash_msg << "(If there is thin ice activated, remove or recode this check) <<" \n" ;
-        // }
-        // if(crash)
-        // {
-        //     crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
-        //     crash_msg << "conc :" << M_conc[cpt]  << " \n";
-        //     crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
-        //     for(int m=0; m<M_num_fsd_bins;m++) 
-        //     {
-        //         crash_msg << "Conc_fsd cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
-        //     }
-        //     throw std::runtime_error(crash_msg.str());
-        // }
-        // // END DEBUG
+         //if ( ( abs(old_conc_tot-M_conc[cpt])>1.e-7 ) && M_debug_fsd )
+         //{
+         //    crash=true ;
+         //    crash_msg << "Difference in total conc. to begin with (fsd-conc) :"<< old_conc_tot-M_conc[cpt] <<" \n" ;
+         //    crash_msg << "(If there is thin ice activated, remove or recode this check)"<<" \n" ;
+         //}
+         //if(crash)
+         //{
+         //    crash_msg << "Wielding : [" <<M_rank << "], element : "<<cpt<<" \n";
+         //    crash_msg << "conc :" << M_conc[cpt]  << " \n";
+         //    crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
+         //    for(int m=0; m<M_num_fsd_bins;m++) 
+         //    {
+         //        crash_msg << "Conc_fsd cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
+         //    }
+         //    throw std::runtime_error(crash_msg.str());
+         //}
+         //// END DEBUG
          for(int t=0;t<ndt_mrg;t++)
          {
              for(int kx=0; kx<M_num_fsd_bins;kx++)
@@ -5398,37 +5454,39 @@ FiniteElement::weldingRoach(const int cpt)
              unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
          
              // SAFETY CHECK
-             for (int m=0; m<M_num_fsd_bins;m++)
+             if (M_debug_fsd)
              {
-                 if (tmp_conc_fsd[m] < -1e-11)
+                 for (int m=0; m<M_num_fsd_bins;m++)
                  {
-                     crash = true ;
-                     crash_msg << "Negative FSD merge" <<" \n" ;
-                 }
-                 if (tmp_conc_fsd[m] > 1.)
-                 {
-                     crash = true ;
-                     crash_msg << "FSD cat conc > 1. " <<" \n" ;
-                 }
-                 if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
-                 {
-                     crash = true ;
-                     crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
-                 }
-                 if(crash)
-                 {
-                     crash_msg <<"DIAG: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
-                                <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
-                     crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
-                     for (int n=0; n<M_num_fsd_bins;n++)
+                     if (tmp_conc_fsd[m] < -1e-11)
                      {
-                         crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
-                         crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
+                         crash = true ;
+                         crash_msg << "Negative FSD merge" <<" \n" ;
                      }
-                     throw std::runtime_error(crash_msg.str());
+                     if (tmp_conc_fsd[m] > 1.)
+                     {
+                         crash = true ;
+                         crash_msg << "FSD cat conc > 1. " <<" \n" ;
+                     }
+                     if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
+                     {
+                         crash = true ;
+                         crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                     }
+                     if(crash)
+                     {
+                         crash_msg <<"DIAG: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
+                                    <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                         crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
+                         for (int n=0; n<M_num_fsd_bins;n++)
+                         {
+                             crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
+                             crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
+                         }
+                         throw std::runtime_error(crash_msg.str());
+                     }
                  }
-             }
-             // end safety check
+             }    // end safety check
          } // end welding sub-timestep
          tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
          
@@ -6310,7 +6368,7 @@ FiniteElement::thermo(int dt)
                 case (setup::WeldingType::NONE):
                     break;
                 case (setup::WeldingType::ROACH):
-                    this->weldingRoach(i);
+                    this->weldingRoach(i,ddt);
                     break;
                 case (setup::WeldingType::WILLIAMS):
                     break;
@@ -6318,7 +6376,7 @@ FiniteElement::thermo(int dt)
                     std::cout << "welding_type= " << (int)M_welding_type << "\n";
                     throw std::logic_error("Wrong welding_type");
             }
-       } 
+        } 
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
         M_snow_thick[i] = hs*M_conc[i];
@@ -7562,7 +7620,7 @@ FiniteElement::initFsd()
             M_conc_fsd[k][i] = 0.; 
         // If we want to distinguish between mechanical and thermodynamical properties
         if (M_distinguish_mech_fsd)
-            for(int k=0; k<M_num_fsd_bins-1; k++)
+            for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
     }
     
@@ -8022,9 +8080,9 @@ FiniteElement::step()
         }
 
         // check the fields for nans etc after regrid
-        if(vm["debugging.check_fields"].as<bool>())
+        if( (vm["debugging.check_fields"].as<bool>())&& M_debug_fsd) 
             this->checkFields();
-        LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
+            LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
     }
     else if(pcpt==0)
     {
@@ -8044,9 +8102,10 @@ FiniteElement::step()
         this->thermo(thermo_timestep);
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
-        LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
-        this->checkFields();
-        LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
+        
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
+        // this->checkFields();
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
 #ifdef OASIS
     //======================================================================
@@ -8057,8 +8116,13 @@ FiniteElement::step()
         chrono.restart();
         LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
         this->redistributeFSD();   
-        LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
         this->updateFSD();
+        if (M_debug_fsd)
+        {
+            LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
+            this->checkFields();
+            //std:cout <<"["<<M_rank<<"], Post-FSD checkfields is a success \n";
+        }
     }
     //======================================================================
 #endif
@@ -8119,8 +8183,6 @@ FiniteElement::step()
         this->update();
         M_timer.tock("update");
         LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
-        this->checkFields();
-        LOG(DEBUG) <<"["<<M_rank<<"], Post-Update checkfields is a success \n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();

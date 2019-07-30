@@ -297,7 +297,7 @@ public:
     std::vector<double> computeWaveBreakingProb();
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
-    void weldingRoach(const int cpt);
+    void weldingRoach(const int cpt, double ddt);
     void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
     double lateralMeltFSD(const int i,double ddt) ;
 
@@ -782,6 +782,7 @@ private:
     std::vector<std::vector<int> > M_alpha_fsd_merge ;
     // In namelist
     bool   M_distinguish_mech_fsd             ;
+    bool   M_debug_fsd                        ;
     int    M_fsd_damage_type                  ;
     double M_fsd_damage_max                   ;
     double M_floes_flex_strength              ;

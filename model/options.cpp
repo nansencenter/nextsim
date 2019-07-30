@@ -467,6 +467,7 @@ namespace Nextsim
             ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Time scale tuning for breakup_prob_type=0")
             ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
             ("wave_coupling.distinguish_mech_fsd", po::value<bool>()->default_value( true ), "Do we distinguish a mech. FSD from the real FSD ?")
+            ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
 
 #if defined(WAVES)
