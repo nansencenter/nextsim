@@ -519,6 +519,16 @@ FiniteElement::initVariables()
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
+        int nb_var_element=3; 
+        M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
+        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+            for (int j=0; j<nb_var_element; ++j)
+            {
+                M_elements_to_nodes_root[ri+j]=(M_mesh_root.triangles()[i]).indices[j];
+            }
+        }
     }
 
     if ((M_rank == 0) && (M_use_drifters))
@@ -670,12 +680,20 @@ FiniteElement::assignVariables()
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-
+       
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
+        }
+        int nb_var_element=3; 
+        M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
+        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+            for (int j=0; j<nb_var_element; ++j)
+                M_elements_to_nodes_root[ri+j]=(M_mesh_root.triangles()[i]).indices[j];
         }
     }
 }//assignVariables
@@ -2879,6 +2897,7 @@ FiniteElement::scatterElementConnectivity()
                 if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
                 {
                     connectivity_root[nb_var_element*i+j] = neighbour_id_db;
+
                 }
                 else
                 {
@@ -13761,6 +13780,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
+//          exporter.writeField(outbin, M_connectivity_root, "Element_connectivity");
+            exporter.writeField(outbin, M_elements_to_nodes_root, "Elements_to_nodes");
 #if defined (OASIS)
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
