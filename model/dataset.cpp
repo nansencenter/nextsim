@@ -7058,8 +7058,8 @@ DataSet::DataSet(char const *DatasetName)
         }; //PSFC, a=1.
 
         Variable Qsw_in={
-            filename_prefix: "ERA5_ssrd_y",
-            name:"ssrd",
+            filename_prefix: "ERA5_msdwswrf_y",
+            name:"msdwswrf",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -7067,7 +7067,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(3.*3600),
+            a:1.,
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
@@ -7076,8 +7076,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable Qlw_in={
-            filename_prefix: "ERA5_strd_y",
-            name:"strd",
+            filename_prefix: "ERA5_msdwlwrf_y",
+            name:"msdwlwrf",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -7085,7 +7085,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(3.*3600),
+            a:1.,
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
