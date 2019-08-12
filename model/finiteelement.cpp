@@ -7554,9 +7554,9 @@ FiniteElement::initMoorings()
     {
         // Read the grid in from file
         GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                Environment::vm()["moorings.grid_latitute"].as<std::string>(),
+                Environment::vm()["moorings.grid_latitude"].as<std::string>(),
                 Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<std::string>() );
+                Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
         // Define the mooring dataset
         M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
