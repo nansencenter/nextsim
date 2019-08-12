@@ -5164,6 +5164,10 @@ FiniteElement::thermo(int dt)
 
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            // ice-ocean flux doesn't depend on ice properties
+            Qio_thin = Qio;
+
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
         switch ( M_thermo_type )
@@ -7389,6 +7393,7 @@ FiniteElement::initMoorings()
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
+            ("damage", GridOutput::variableID::damage)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
