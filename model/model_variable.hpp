@@ -79,6 +79,8 @@ public:
         M_age           = 18,
         M_conc_upd      = 19,
         M_conc_mech_fsd = 20,
+        M_cum_damage    = 21,
+        M_cum_wave_damage=22,
 
         // Diagnostic variables
         D_conc       = 100,

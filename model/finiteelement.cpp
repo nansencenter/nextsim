@@ -523,10 +523,9 @@ FiniteElement::initVariables()
         M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
-            int ri = M_id_elements[i]-1;
             for (int j=0; j<nb_var_element; ++j)
             {
-                M_elements_to_nodes_root[ri+j]=(M_mesh_root.triangles()[i]).indices[j];
+                M_elements_to_nodes_root[3*i+j]=(M_mesh_root.triangles()[i]).indices[j];
             }
         }
     }
@@ -691,9 +690,8 @@ FiniteElement::assignVariables()
         M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
         for (int i=0; i<M_mesh_root.numTriangles(); ++i)
         {
-            int ri = M_id_elements[i]-1;
             for (int j=0; j<nb_var_element; ++j)
-                M_elements_to_nodes_root[ri+j]=(M_mesh_root.triangles()[i]).indices[j];
+                M_elements_to_nodes_root[3*i+j]=(M_mesh_root.triangles()[i]).indices[j];
         }
     }
 }//assignVariables
@@ -4795,6 +4793,7 @@ FiniteElement::update()
 
                 if(tmp>M_damage[cpt])
                 {
+                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ; 
                     M_damage[cpt] = min(tmp, 1.0);
                 }
             }
@@ -4828,8 +4827,6 @@ FiniteElement::update()
 
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }//loop over elements
-    if(M_num_fsd_bins>0)
-        this -> updateFSD();
 }//update
 
 
@@ -5054,32 +5051,31 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
-            if ( (M_fsd_damage_type>0) && (M_damage[i]<M_fsd_damage_max) )
+            double tmp=M_damage[i];
+            switch (M_fsd_damage_type)
             {
-                switch (M_fsd_damage_type)
+                case 0:
+                    break;
+                /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
+                case 1:
+                    tmp = std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot);
+                /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
+                case 2:
                 {
-                    /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
-                    case 1:
-                        M_damage[i] = std::min(std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot),M_fsd_damage_max);
-                        break;
-
-                    /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
-                    case 2:
-                    {
-                        if( P_inf[i] > threshold1)
-                        {
-                            double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
-                            for(int j=1;j<M_num_fsd_bins;j++)
-                                tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
-                            M_damage[i] = std::min(M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*M_fsd_damage_max,M_fsd_damage_max);
-                        }
-                        break;
-                    }
-                    default:
-                         std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
-                         throw std::logic_error("Wrong M_fsd_damage_type");
+                    double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
+                    for(int j=1;j<M_num_fsd_bins;j++)
+                        tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
+                    tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*M_fsd_damage_max ;
+                    break;
                 }
+                default:
+                     std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
+                     throw std::logic_error("Wrong M_fsd_damage_type");
             }
+            // Update damage
+            M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
+            M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
+            M_damage[i]       =std::min(tmp,M_fsd_damage_max);
         }// if there is ice
         else
         {
@@ -7365,6 +7361,12 @@ FiniteElement::initModelVariables()
         M_conc_mech_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_mech_fsd, k);
         M_variables_elt.push_back(&(M_conc_mech_fsd[k]));
     }
+
+    M_cum_damage = ModelVariable(ModelVariable::variableID::M_cum_damage);//! \param M_cum_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_damage);
+    M_cum_wave_damage = ModelVariable(ModelVariable::variableID::M_cum_wave_damage);//! \param M_cum_wave_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_wave_damage);
+
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
     M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);//! \param M_age_det (double) Sea ice age observable/detectable from space [s]
@@ -8205,6 +8207,9 @@ FiniteElement::step()
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
+    
+    if(M_num_fsd_bins>0)
+        this -> updateFSD();
 
     M_timer.tock("dynamics");
 
@@ -10756,8 +10761,10 @@ FiniteElement::checkConsistency()
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
             }//Winton
         }
+    // Init cumulated damage
+    M_cum_damage[i]=M_damage[i];
+    M_cum_wave_damage[i]=M_damage[i];
     }
-
     //FSD
     this->initFsd();
 }//checkConsistency

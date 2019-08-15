@@ -97,6 +97,32 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
+        case (variableID::M_cum_damage):
+            // damage
+            M_name = "M_cum_damage";
+            M_export_name = "Cumulated_damage";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
+        case (variableID::M_cum_wave_damage):
+            // damage
+            M_name = "M_cum_wave_damage";
+            M_export_name = "Cumulated_wave_damage";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
         case (variableID::M_ridge_ratio):
             // volume ratio of ridged ice
             M_name = "M_ridge_ratio";
@@ -506,7 +532,6 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_diffusivity = 0;
             break;
-
         default:
             elemental = false;
     }
