@@ -7938,7 +7938,7 @@ FiniteElement::updateIceDiagnostics()
             {
                 D_dmax[i]=1000.;
                 D_dmean[i]=1000.;
-                if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<M_dmax_c_threshold*D_conc[i])
+                if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
                 {
                     double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
                     for(int j=M_num_fsd_bins-2;j>-1;j--)
@@ -7951,12 +7951,18 @@ FiniteElement::updateIceDiagnostics()
                         }
                     }
                     D_dmean[i]=0.;
+                    for(int j=0;j<M_num_fsd_bins;j++)
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i];
+                }
+                else
+                {
+                    D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
+                           * (1000.-M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+                    
+                    D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
-                    {   
-                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i]
-                                    * M_fsd_bin_widths[j] /std::accumulate(M_fsd_bin_widths.begin(),M_fsd_bin_widths.end(),0.);  
-                    }
-            
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
+                    D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
                 }
             }
         }
