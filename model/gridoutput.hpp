@@ -121,71 +121,73 @@ public:
     enum variableID
     {
         // Land-sea mask
-        lsm         =  0,
+        lsm =  0,
 
         // Prognostic variables
-        conc        =  1,
-        thick       =  2,
-        damage      =  3,
-        snow        =  4,
-        VT_x        =  5,
-        VT_y        =  6,
-        tsurf       =  7,
-        sst         =  8,
-        sss         =  9,
-        tsurf_ice   = 10,
-        t1          = 11,
-        t2          = 12,
-        h_thin      = 13,
-        hs_thin     = 14,
-        conc_thin   = 15,
-        fyi_fraction    = 16,
-        age_d       = 17,
-        age         = 18,
-        conc_upd    = 19,
+        conc         =  1,
+        thick        =  2,
+        snow         =  3,
+        damage       =  4,
+        ridge_ratio  =  5,
+        VT_x         =  6,
+        VT_y         =  7,
+        tsurf        =  8,
+        sst          =  9,
+        sss          = 10,
+        tsurf_ice    = 11,
+        t1           = 12,
+        t2           = 13,
+        h_thin       = 14,
+        hs_thin      = 15,
+        conc_thin    = 16,
+        fyi_fraction = 17,
+        age_d        = 18,
+        age          = 19,
+        conc_upd     = 20,
 
         // Diagnostic variables
-        Qa          = 100,
-        Qsw         = 101,
-        Qlw         = 102,
-        Qsh         = 103,
-        Qlh         = 104,
-        Qo          = 105,
-        delS        = 106,
-        rain        = 107,
-        evap        = 108,
+        Qa     = 100,
+        Qsw    = 101,
+        Qlw    = 102,
+        Qsh    = 103,
+        Qlh    = 104,
+        Qo     = 105,
+        delS   = 106,
+        rain   = 107,
+        evap   = 108,
+        d_crit = 109,
 
         // Forcing variables
-        tair        = 200,
-        sphuma      = 201,
-        mixrat      = 202,
-        d2m         = 203,
-        mslp        = 204,
-        Qsw_in      = 205,
-        Qlw_in      = 206,
-        tcc         = 207,
-        snowfall    = 208,
-        precip      = 209,
-        snowfr      = 210,
-        wind_x      = 211,
-        wind_y      = 212,
+        tair     = 200,
+        sphuma   = 201,
+        mixrat   = 202,
+        d2m      = 203,
+        mslp     = 204,
+        Qsw_in   = 205,
+        Qlw_in   = 206,
+        tcc      = 207,
+        snowfall = 208,
+        precip   = 209,
+        snowfr   = 210,
+        wind_x   = 211,
+        wind_y   = 212,
 
         // WIM variables
-        dfloe       = 300,
+        dfloe = 300,
 
         // Coupling variables not already covered elsewhere
-        taux        = 901,
-        tauy        = 902,
-        taumod      = 903,
-        fwflux      = 904,
-        QNoSw       = 905,
-        QSwOcean    = 906,
-        saltflux    = 907,
-        fwflux_ice  = 908,
+        taux       = 901,
+        tauy       = 902,
+        taumod     = 903,
+        fwflux     = 904,
+        QNoSw      = 905,
+        QSwOcean   = 906,
+        saltflux   = 907,
+        fwflux_ice = 908,
 
         // Non-output variables - all negative
-        proc_mask   = -1,
-        ice_mask    = -2
+        proc_mask = -1,
+        ice_mask  = -2
     };
 
 
@@ -230,6 +232,13 @@ public:
                     name     = "damage";
                     longName = "Sea Ice Damage";
                     stdName  = "sea_ice_damage";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::ridge_ratio):
+                    name     = "ridge_ratio";
+                    longName = "Sea Ice Ridge Ratio";
+                    stdName  = "sea_ice_ridge_ratio";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -413,6 +422,13 @@ public:
                     longName = "Surface Ocean Evaporation";
                     stdName  = "surface_ocean_evaporation";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::d_crit):
+                    name     = "d_crit";
+                    longName = "Distance_To_Yield_Criterion";
+                    stdName  = "distance_to_yield_criterion";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 

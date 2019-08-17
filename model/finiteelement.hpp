@@ -250,6 +250,9 @@ public:
 
     void initBamg();
     void initOptAndParam();
+    template<typename enum_type>
+    void getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map) const;
     void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
@@ -748,6 +751,7 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
+    ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
 
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]

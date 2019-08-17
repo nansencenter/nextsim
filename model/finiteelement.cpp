@@ -762,11 +762,6 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ERAi_elements");
             break;
 
-        case setup::AtmosphereType::EC:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
-            break;
-
         case setup::AtmosphereType::EC2:
             M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
             M_atmosphere_elements_dataset=DataSet("ec2_elements");
@@ -1103,7 +1098,18 @@ FiniteElement::initOptAndParam()
     }
 #endif
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
+    if ( vm["output.output_per_day"].as<int>() > 0 )
+    {
+       output_time_step = time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
+    }
+    else if ( vm["output.output_per_day"].as<int>() == 0 )
+    {
+       output_time_step = 0;
+    }
+    else
+    {
+       output_time_step = time_step;
+    }
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
@@ -1204,26 +1210,27 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+    this->getOptionFromMap(
+            M_thermo_type, "setup.thermo-type", str2thermo);
+        //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
     //! Sets options on the oceanic heat-flux scheme
     const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
         ("basic", setup::OceanHeatfluxScheme::BASIC)
         ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
-    std::string option_str = vm["thermo.Qio-type"].as<std::string>();
-    if ( str2qiot.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.Qio-type: " + option_str);
-    M_Qio_type = str2qiot.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+    this->getOptionFromMap(
+            M_Qio_type, "thermo.Qio-type", str2qiot);
+        //! \param M_Qio_type (enum) Option on the ocean heat flux scheme (basic or exchange)
+    LOG(DEBUG)<< "M_Qio_type: "<< (int)M_Qio_type <<"\n";
 
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    option_str = vm["thermo.freezingpoint-type"].as<std::string>();
-    if ( str2fpt.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
-    M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+    this->getOptionFromMap(
+            M_freezingpoint_type, "thermo.freezingpoint-type", str2fpt);
+        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -1233,7 +1240,7 @@ FiniteElement::initOptAndParam()
     if ( M_ocean_type == setup::OceanType::COUPLED )
         M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
 #endif
-    LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
+    LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
 
 #ifdef AEROBULK
@@ -1244,10 +1251,11 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
-    if ( str2oblk.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.ocean_bulk_formula: " + option_str);
-    M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
+    this->getOptionFromMap(
+            M_ocean_bulk_formula, "thermo.ocean_bulk_formula", str2oblk);
+        //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes
+        //! (only when compiled together with aerobulk)
+    LOG(DEBUG)<< "M_ocean_bulk_formula: "<< (int)M_ocean_bulk_formula <<"\n";
 #endif
 
 
@@ -1257,17 +1265,15 @@ FiniteElement::initOptAndParam()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
-        ("ec", setup::AtmosphereType::EC)
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME);
-
-    option_str = vm["setup.atmosphere-type"].as<std::string>();
-    if ( str2atmosphere.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.atmosphere-type: " + option_str);
-    M_atmosphere_type = str2atmosphere.find(option_str)->second; //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+    this->getOptionFromMap(
+            M_atmosphere_type, "setup.atmosphere-type", str2atmosphere);
+        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     // set the drag coefficient for air
     switch(M_atmosphere_type)
@@ -1278,7 +1284,6 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
@@ -1286,7 +1291,6 @@ FiniteElement::initOptAndParam()
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
-    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
     if (M_use_nesting)
@@ -1308,7 +1312,9 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED);
-    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second; //! \param M_ocean_type (string) Option on the type of ocean forcing (constant or Topaz options)
+    this->getOptionFromMap(
+            M_ocean_type, "setup.ocean-type", str2ocean);
+        //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
@@ -1328,30 +1334,35 @@ FiniteElement::initOptAndParam()
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
-    option_str = vm["setup.ice-type"].as<std::string>();
-    if ( str2conc.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
-    M_ice_type = str2conc.find(option_str)->second;
-    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
+    this->getOptionFromMap(
+            M_ice_type, "setup.ice-type", str2conc);
+        //! \param M_ice_type (enum) Option on the type of ice initialisation
+    LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
-    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second; //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
-    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
+    this->getOptionFromMap(
+            M_dynamics_type, "setup.dynamics-type", str2dynamics);
+        //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
+    LOG(DEBUG) <<"DynamicsType= "<< (int)M_dynamics_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
-    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second; //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
-    LOG(DEBUG) <<"BATHYMETRYTYPE= "<< (int) M_bathymetry_type <<"\n";
+        //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
+    this->getOptionFromMap(
+            M_bathymetry_type, "setup.bathymetry-type", str2bathymetry);
+    LOG(DEBUG) <<"BathymetryType= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
+    this->getOptionFromMap(
+            M_basal_stress_type, "setup.basal_stress-type", str2basal_stress);
+        //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
 
@@ -1360,7 +1371,9 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
         ("from_split", setup::MeshType::FROM_SPLIT);
-    M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second; //! \param M_mesh_type (string) Mesh type (unref or split)
+    this->getOptionFromMap(
+            M_mesh_type, "mesh.type", str2mesh);
+        //! \param M_mesh_type (enum) Mesh type (unref or split)
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
     M_mesh_basename = vm["mesh.filename"].as<std::string>(); //! \param M_mesh_basename (string) Mesh filename
@@ -1387,9 +1400,12 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
+    this->getOptionFromMap(
+            M_moorings_file_length, "moorings.file_length", str2mooringsfl);
         //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    LOG(DEBUG) << "M_moorings_file_length: " << (int)M_moorings_file_length<<"\n";
+
     M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
         //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
@@ -1400,18 +1416,56 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
-    M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second; //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    this->getOptionFromMap(
+            M_partitioner, "mesh.partitioner", str2partitioner);
+        //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
 
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
 
-    M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second; //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
+    this->getOptionFromMap(
+            M_partition_space, "mesh.partitioner-space", str2partitionspace);
+        //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
+    LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
+
     //! - Set the drifter options
     //  NB needs to be done before readRestart()
     this->initDrifterOpts();
 
 }//initOptAndParam
+
+
+//------------------------------------------------------------------------------------------------------
+//! given a map eg [("ec2", setup::AtmosphereType::EC2), ...]
+//! and an option name opt_name eg "setup.atmosphere-type" with
+//! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
+//! Called by initOptAndParam()
+template<typename enum_type>
+void
+FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map) const
+{
+
+    if(vm.count(opt_name)==0)
+        throw std::runtime_error(
+                "FiniteElement::getOptionFromMap: Unknown option name: "
+                + opt_name+"\n");
+
+    std::string const option_str = vm[opt_name].as<std::string>();
+    if ( map.count(option_str) == 0 )
+    {
+        LOG(ERROR)<< "FiniteElement::checkOptions: Unknown option for "
+                << opt_name << ": " << option_str<< "\n";
+        LOG(ERROR)<<"Valid options are:\n";
+        for (auto ptr=map.begin(); ptr!=map.end(); ptr++)
+            LOG(ERROR)<<"  "<< ptr->first <<"\n";
+        throw std::runtime_error("Invalid option for "
+                +opt_name + ": " + option_str+"\n");
+    }
+    opt_val = map[option_str];
+}
 
 
 //------------------------------------------------------------------------------------------------------
@@ -4462,11 +4516,12 @@ FiniteElement::update()
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tmp, sigma_target, tmp_factor, dcrit;
 
 
         // Temporary memory
         old_damage = M_damage[cpt];
+        D_dcrit[cpt] = 1.;
 
         /*======================================================================
          * Diagnostic:
@@ -4670,66 +4725,73 @@ FiniteElement::update()
                 td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
             /* Calculate the adjusted level of damage */
+            dcrit = 1;
             if(sigma_n>M_Compressive_strength[cpt])
             {
                 sigma_target=M_Compressive_strength[cpt];
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if((sigma_1-q*sigma_2)>sigma_c)
             {
                 sigma_target = sigma_c;
-                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+                tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
+                else if (disc_scheme == "implicit") {
+                    tmp=tmp_factor*(1.0-dcrit)*dtime_step/td + old_damage;
                 }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
+                else if (disc_scheme == "recursive") {
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,dtime_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
             if(sigma_n<tract_max)
             {
                 sigma_target = tract_max;
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
+                dcrit = sigma_target/sigma_n;
+                tmp_factor=1.0/((1.0-dcrit)*time_step/td + 1.0);
 
                 if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
                 if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
                 }
 
                 if(tmp>M_damage[cpt])
                 {
                     M_damage[cpt] = min(tmp, 1.0);
+                    D_dcrit[cpt] = dcrit;//only update if damaging
                 }
             }
 
@@ -6497,6 +6559,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
+    D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
+    M_variables_elt.push_back(&D_dcrit);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -7074,7 +7138,10 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     // check if we are outputting results file
-    if( pcpt*time_step % output_time_step == 0)
+    bool exporting = false; 
+    if(output_time_step>0)
+        exporting = (pcpt*time_step % output_time_step == 0);
+    if(exporting)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
@@ -7198,6 +7265,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_damage[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::ridge_ratio):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
+                break;
+
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_snow_thick[i]*time_factor;
@@ -7268,7 +7340,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
-
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7305,6 +7376,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::rain):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d_crit):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dcrit[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7510,6 +7585,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 //------------------------------------------------------------------------------------------------------
 //! Initializes the moorings datasets and variables recorded by the moorings.
 //! Called by the init() function.
+//! \note to add a new moorings variable
+//! - 1) Add an id to gridoutput.hpp
+//! - 2) Define netcdf attributes in gridoutput.hpp
+//! - 3) Add mapping from config file to id in mooring_name_map_elements
+//!      in initMoorings below
+//! - 4) add calculation of mean value to updateMeans
 void
 FiniteElement::initMoorings()
 {
@@ -7540,6 +7621,8 @@ FiniteElement::initMoorings()
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
+            ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
@@ -7575,8 +7658,7 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
-
-
+            ("d_crit", GridOutput::variableID::d_crit)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -8806,31 +8888,15 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec. Use thermo.use_parameterised_long_wave_radiation=true");
-
-            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_precip=ExternalData(0.);
-        break;
-
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, air_temperature_correction);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
@@ -9462,6 +9528,9 @@ FiniteElement::checkConsistency()
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
             }//Winton
         }
+
+        //initialise this to 1
+        D_dcrit[i] = 1;
     }
 }//checkConsistency
 
@@ -12519,29 +12588,18 @@ FiniteElement::getEnv(std::string const& envname)
 void
 FiniteElement::writeLogFile()
 {
-    std::string logfilename = "";
-    if ((vm["output.logfile"].as<std::string>()).empty())
-    {
-        logfilename = "nextsim.log";
-    }
-    else
-    {
-        logfilename = vm["output.logfile"].as<std::string>();
-    }
-
-    std::string fileout = (boost::format( "%1%/%2%" )
-               % M_export_path
-               % logfilename ).str();
-
-    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
-    LOG(VERBOSE) << "Writing log file " << fileout << "...\n";
+    std::string logfile_name = M_export_path + "/nextsim.log";
+    std::fstream logfile(logfile_name, std::ios::out | std::ios::trunc);
+    LOG(VERBOSE) << "Writing log file " << logfile_name << "...\n";
 
     int log_width = 55;
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
         logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git description "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git branch "  << NEXTSIM_BRANCH_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
@@ -12551,33 +12609,18 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
-        logfile << "#----------Program options (non-default)\n";
-
+        logfile << "#----------Program options\n";
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
-            // Skip default values
-            if ( vm[it->first].defaulted() )
-                continue;
 
             // ignore wim options if no coupling
 #if !defined (WAVES)
-            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
-            {
+            if ((it->first.find("nextwim.") != std::string::npos)
+                    || (it->first.find("wim.") != std::string::npos))
                 continue;
-            }
 #endif
 
             logfile << std::setw(log_width) << std::left << it->first;
-
-#if 0
-            if (((boost::any)it->second.value()).empty())
-            {
-                std::cout << "(empty)";
-            }
-            if (vm[it->first].defaulted() || it->second.defaulted()) {
-                std::cout << "(default)";
-            }
-#endif
 
             bool is_char;
             try
@@ -12602,37 +12645,15 @@ FiniteElement::writeLogFile()
             }
 
             if (((boost::any)it->second.value()).type() == typeid(int))
-            {
                 logfile << vm[it->first].as<int>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(bool))
-            {
                 logfile << vm[it->first].as<bool>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(double))
-            {
                 logfile << vm[it->first].as<double>() <<"\n";
-            }
             else if (is_char)
-            {
                 logfile << vm[it->first].as<const char * >() <<"\n";
-            }
             else if (is_str)
-            {
-                std::string temp = vm[it->first].as<std::string>();
-
-                logfile << temp <<"\n";
-#if 0
-                if (temp.size())
-                {
-                    logfile << temp <<"\n";
-                }
-                else
-                {
-                    logfile << "true" <<"\n";
-                }
-#endif
-            }
+                logfile << vm[it->first].as<std::string>() <<"\n";
             else
             { // Assumes that the only remainder is vector<string>
                 try
@@ -12654,28 +12675,24 @@ FiniteElement::writeLogFile()
                 }
                 catch (const boost::bad_any_cast &)
                 {
-                    LOG(WARNING) << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                    LOG(WARNING) << "UnknownType("
+                        << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
                 }
             }
-        }
-    }
+        }//iteration over vm
+    }//write log file
 
-    //move git_changes.txt from current dir to output dir
-    fs::path path1("git_changes.txt");
-    if ( fs::exists(path1) )
+    // copy the config files to the output directory
+    for (auto cfg_file: Environment::nextsimConfigFiles())
     {
-        // try to rename, otherwise copy and remove
-        fs::path path2(M_export_path+"/git_changes.txt");
-        try
+        fs::path path1(cfg_file);
+        if ( fs::exists(path1) )
         {
-            fs::rename(path1,path2);
-        }
-        catch (const boost::filesystem::filesystem_error &)
-        {
+            fs::path path2(M_export_path+ "/" + path1.filename().string());
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
-            fs::remove(path1);
         }
     }
+    
 }//writeLogFile
 
 
