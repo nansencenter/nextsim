@@ -138,6 +138,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
+    chrono.restart();
+    this->initUpdateGhosts();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+
 #if 0
     // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
     // LOG(DEBUG) << ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
@@ -8553,6 +8557,7 @@ FiniteElement::updateVelocity()
     {
         M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
     }
+    // this->updateGhosts(M_VT);
 }//updateVelocity
 
 
@@ -12254,6 +12259,177 @@ FiniteElement::createGraph()
 
 }//createGraph
 
+void
+FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
+{
+    std::vector<std::vector<double>> extract_local_values(M_comm.size());
+
+    for (int i=0; i<M_extract_local_index.size(); i++)
+    {
+        int srl = M_extract_local_index[i].size();
+        extract_local_values[i].resize(2*srl);
+
+        for (int j=0; j<M_extract_local_index[i].size(); j++)
+        {
+            extract_local_values[i][j] = mesh_nodal_vec[M_extract_local_index[i][j]];
+            extract_local_values[i][j+srl] = mesh_nodal_vec[M_extract_local_index[i][j]+M_num_nodes];
+        }
+    }
+
+    std::vector<std::vector<int>> ghost_update_values(M_comm.size());
+    std::vector<boost::mpi::request> reqs;
+
+    for (int const& proc : M_recipients_proc_id)
+    {
+        // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
+        auto req = M_comm.isend(proc, M_rank, extract_local_values[proc]);
+        reqs.push_back(req);
+    }
+
+    boost::mpi::wait_all(reqs.begin(),reqs.end());
+
+    reqs.resize(0);
+    for (int const& proc : M_local_ghosts_proc_id)
+    {
+        if (proc >= 0)
+        {
+            // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
+            auto req = M_comm.irecv(proc, proc, ghost_update_values[proc]);
+            reqs.push_back(req);
+        }
+    }
+
+    boost::mpi::wait_all(reqs.begin(),reqs.end());
+
+    for (int i=0; i<M_local_ghosts_local_index.size(); i++)
+    {
+        for (int j=0; j<M_local_ghosts_local_index[i].size(); j++)
+        {
+            int srl = M_local_ghosts_local_index[i].size();
+            mesh_nodal_vec[M_local_ghosts_local_index[i][j]] = ghost_update_values[i][j];
+            mesh_nodal_vec[M_local_ghosts_local_index[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
+        }
+    }
+} //updateGhosts
+
+void
+FiniteElement::initUpdateGhosts()
+{
+    auto M_transfer_map = M_mesh.transferMap();
+    auto M_local_ghost = M_mesh.localGhost();
+
+    M_local_ghosts_proc_id.resize(M_comm.size());
+    std::vector<std::vector<int>> local_ghosts_global_index(M_comm.size());
+    M_local_ghosts_local_index.resize(M_comm.size());
+
+    for (int i=0; i<M_local_ghost.size(); i++)
+    {
+        int currentid = M_local_ghost[i];
+
+        // std::cout<<"["<< M_comm.rank() <<"]: Global id= "
+        //          << currentid
+        //          << " <-----> " << M_transfer_map.left.find(currentid)->second
+        //          <<" true ghost= "<< globalNumToprocId(currentid) <<"\n";
+
+        local_ghosts_global_index[globalNumToprocId(currentid)].push_back(currentid);
+    }
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if (local_ghosts_global_index[i].size() != 0)
+        {
+            M_local_ghosts_proc_id[i] = i;
+        }
+        else
+        {
+            M_local_ghosts_proc_id[i] = -1;
+        }
+
+        M_local_ghosts_local_index[i].resize(local_ghosts_global_index[i].size());
+
+        // std::cout<<"            ["<< M_rank <<"] <---> "<< i <<"             \n";
+
+        for (int j=0; j<local_ghosts_global_index[i].size(); j++)
+        {
+            int currentindex = local_ghosts_global_index[i][j];
+            M_local_ghosts_local_index[i][j] = M_transfer_map.left.find(currentindex)->second-1;
+            // std::cout<<" "<< M_local_ghosts_local_index[i][j] <<"  ";
+        }
+        // std::cout<<"\n";
+    }
+
+    std::vector<int> recipients_proc_id_extended;
+    boost::mpi::all_gather(M_comm, &M_local_ghosts_proc_id[0], M_comm.size(), recipients_proc_id_extended);
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        // if (M_rank == 0)
+        // {
+        //     std::cout<<"["<< i <<"]  ";
+        //     for (int j=0; j<M_comm.size(); j++)
+        //         std::cout<< recipients_proc_id_extended[M_comm.size()*i+j] <<"  ";
+
+        //     std::cout<<"\n";
+        // }
+
+        for (int j=0; j<M_comm.size(); j++)
+        {
+            if (recipients_proc_id_extended[M_comm.size()*i+j] == M_rank)
+                M_recipients_proc_id.push_back(i);
+        }
+    }
+
+    std::vector<std::vector<int>> extract_global_index(M_comm.size());
+    std::vector<boost::mpi::request> reqs;
+
+    for (int const& proc : M_local_ghosts_proc_id)
+    {
+        if (proc >= 0)
+        {
+            // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
+            auto req = M_comm.isend(proc, M_rank, local_ghosts_global_index[proc]);
+            reqs.push_back(req);
+        }
+    }
+
+    boost::mpi::wait_all(reqs.begin(),reqs.end());
+
+    reqs.resize(0);
+    for (int const& proc : M_recipients_proc_id)
+    {
+        // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
+        auto req = M_comm.irecv(proc, proc, extract_global_index[proc]);
+        reqs.push_back(req);
+    }
+
+    boost::mpi::wait_all(reqs.begin(),reqs.end());
+
+    M_extract_local_index.resize(M_comm.size());
+
+    for (int i=0; i<extract_global_index.size(); i++)
+    {
+        int srl = extract_global_index[i].size();
+        M_extract_local_index[i].resize(srl);
+
+        for (int j=0; j<extract_global_index[i].size(); j++)
+        {
+            M_extract_local_index[i][j] = M_transfer_map.left.find(extract_global_index[i][j])->second-1;
+        }
+    }
+} //initUpdateGhosts
+
+int
+FiniteElement::globalNumToprocId(int global_num)
+{
+    int cpt = 0;
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if ((cpt < global_num) && (global_num <= cpt+M_sizes_nodes[i]))
+            return i;
+
+        cpt += 2*M_sizes_nodes[i];
+    }
+} //globalNumToprocId
 
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.
