@@ -7099,7 +7099,7 @@ FiniteElement::run()
     this->init();
     int maxiter = vm["debugging.maxiteration"].as<int>();
     int niter = 0;
-#if 1
+#if 0
     // write the logfile: assigned to the process master (rank 0)
     if (M_comm.rank() == 0)
     {
@@ -12291,12 +12291,9 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
     reqs.resize(0);
     for (int const& proc : M_local_ghosts_proc_id)
     {
-        if (proc >= 0)
-        {
-            // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
-            auto req = M_comm.irecv(proc, proc, ghost_update_values[proc]);
-            reqs.push_back(req);
-        }
+        // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
+        auto req = M_comm.irecv(proc, proc, ghost_update_values[proc]);
+        reqs.push_back(req);
     }
 
     boost::mpi::wait_all(reqs.begin(),reqs.end());
@@ -12318,9 +12315,7 @@ FiniteElement::initUpdateGhosts()
     auto M_transfer_map = M_mesh.transferMap();
     auto M_local_ghost = M_mesh.localGhost();
 
-    M_local_ghosts_proc_id.resize(M_comm.size());
     std::vector<std::vector<int>> local_ghosts_global_index(M_comm.size());
-    M_local_ghosts_local_index.resize(M_comm.size());
 
     for (int i=0; i<M_local_ghost.size(); i++)
     {
@@ -12334,15 +12329,14 @@ FiniteElement::initUpdateGhosts()
         local_ghosts_global_index[globalNumToprocId(currentid)].push_back(currentid);
     }
 
+    M_local_ghosts_proc_id.resize(0);
+    M_local_ghosts_local_index.resize(M_comm.size());
+
     for (int i=0; i<M_comm.size(); i++)
     {
         if (local_ghosts_global_index[i].size() != 0)
         {
-            M_local_ghosts_proc_id[i] = i;
-        }
-        else
-        {
-            M_local_ghosts_proc_id[i] = -1;
+            M_local_ghosts_proc_id.push_back(i);
         }
 
         M_local_ghosts_local_index[i].resize(local_ghosts_global_index[i].size());
@@ -12358,23 +12352,25 @@ FiniteElement::initUpdateGhosts()
         // std::cout<<"\n";
     }
 
-    std::vector<int> recipients_proc_id_extended;
-    boost::mpi::all_gather(M_comm, &M_local_ghosts_proc_id[0], M_comm.size(), recipients_proc_id_extended);
+    std::vector<std::vector<int>> recipients_proc_id_extended;
+    boost::mpi::all_gather(M_comm, M_local_ghosts_proc_id, recipients_proc_id_extended);
+
+    M_recipients_proc_id.resize(0);
 
     for (int i=0; i<M_comm.size(); i++)
     {
-        // if (M_rank == 0)
-        // {
-        //     std::cout<<"["<< i <<"]  ";
-        //     for (int j=0; j<M_comm.size(); j++)
-        //         std::cout<< recipients_proc_id_extended[M_comm.size()*i+j] <<"  ";
-
-        //     std::cout<<"\n";
-        // }
-
-        for (int j=0; j<M_comm.size(); j++)
+        if (M_rank == 0)
         {
-            if (recipients_proc_id_extended[M_comm.size()*i+j] == M_rank)
+            std::cout<<"["<< i <<"]  ";
+            for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
+                std::cout<< recipients_proc_id_extended[i][j] <<"  ";
+
+            std::cout<<"\n";
+        }
+
+        for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
+        {
+            if (recipients_proc_id_extended[i][j] == M_rank)
                 M_recipients_proc_id.push_back(i);
         }
     }
@@ -12384,12 +12380,9 @@ FiniteElement::initUpdateGhosts()
 
     for (int const& proc : M_local_ghosts_proc_id)
     {
-        if (proc >= 0)
-        {
-            // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
-            auto req = M_comm.isend(proc, M_rank, local_ghosts_global_index[proc]);
-            reqs.push_back(req);
-        }
+        // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
+        auto req = M_comm.isend(proc, M_rank, local_ghosts_global_index[proc]);
+        reqs.push_back(req);
     }
 
     boost::mpi::wait_all(reqs.begin(),reqs.end());
