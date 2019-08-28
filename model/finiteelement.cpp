@@ -1411,15 +1411,12 @@ FiniteElement::initOptAndParam()
     if ( str2breakup.count(option_str) == 0 )
         throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.breakup_type: " + option_str);
     M_breakup_type = str2breakup.find(option_str)->second; //! 
-    M_breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
     M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
-    M_breakup_prob_type  = vm["wave_coupling.breakup_prob_type"].as<int>();
     M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
     //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
     M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
-    M_fsd_damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
     M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
     M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
 
@@ -4861,12 +4858,10 @@ std::vector<double> FiniteElement::computeWaveBreakingProb()
 
             if (M_breakup_cell_average_thickness)
                 sea_ice_thickness = M_thick[i] ;
-            else if (M_conc[i]>0.) 
-                sea_ice_thickness = M_thick[i]/M_conc[i] ;
-            else 
-               sea_ice_thickness = M_breakup_thick_min ;
+            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
 
-            prob[i] =std::exp(-  std::pow(strain_c,2) /
+            prob[i] =std::exp(-std::pow(strain_c,2) /
                                 (2* std::max(0.,M_str_var[i])* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
                              ) ;
         }
@@ -4886,13 +4881,15 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
-    double namelistparam2=1.  ; // tuning param. for tanh function used in breaking prob.
-    const double threshold1=1e-02  ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+    const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double prob_cutoff= vm["wave_coupling.breakup_prob_cutoff"].as<double>(); ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     std::stringstream crash_msg;
     bool crash = false;
-     
     auto P_inf = this -> computeWaveBreakingProb();
+
+    M_breakup_in_dt = false ;
     for (int i=0; i<M_num_elements; i++)
     {
         double ctot = M_conc[i];
@@ -4901,8 +4898,9 @@ FiniteElement::redistributeFSD()//----------------------------------------------
         if (ctot>0)
         {
             // don't try to break if there are no waves
-            if( P_inf[i] <= threshold1)
+            if( P_inf[i] <= prob_cutoff)
                 continue ;
+            M_breakup_in_dt=true ;
             if (M_distinguish_mech_fsd)
             {    
             //! As break-up indeed occurs reset "real" FSD to mechanical FSD
@@ -4911,15 +4909,22 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                    M_conc_fsd[j][i]= M_conc_mech_fsd[j][i] ;
                } 
             }
-            //! Compute the wavelength associated with Tm02
-            double  sea_ice_thickness = std::max(M_breakup_thick_min,M_thick[i]/M_conc[i]) ;
-            double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
-            double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-            int     N_waves = dtime_step /(M_tm02[i]) ;
+            // Sea ice properties
+            double  sea_ice_thickness = 0;
+            if (M_breakup_cell_average_thickness)
+                sea_ice_thickness = M_thick[i] ;
+            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
+               
+            sea_ice_thickness = std::max(M_breakup_thick_min,sea_ice_thickness) ;
+
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
-            double broken_area =0.;
+            //! Compute the wavelength associated with Tm02
+            double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+            double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
+            int     N_waves = dtime_step /(M_tm02[i]) ;
             double tau_w =0.;
              //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
@@ -4927,15 +4932,17 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 //! 1. Compute the broken area in each category
                 P[j] = P_inf[i] ;
                 //! 1.a Probability that the wave-induced strain is over the flex. failure
-                int const breakup_prob_type = M_breakup_prob_type ;
+                int const breakup_prob_type =  vm["wave_coupling.breakup_prob_type"].as<int>();
+                double breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
+                double  broken_area =0.;
                 switch (breakup_prob_type)
                 {
                     case 0:
-                        tau_w = M_breakup_timescale_tuning*dtime_step   ;
+                        tau_w = breakup_timescale_tuning*dtime_step   ;
                         P[j] =  1.-std::exp(-P[j]*dtime_step/tau_w)     ;
                         break;
                     case 1:
-                        tau_w = M_breakup_timescale_tuning*M_res_root_mesh/cg_w ;
+                        tau_w = breakup_timescale_tuning*M_res_root_mesh/cg_w ;
                         P[j] = 1-std::exp(-P[j]*dtime_step/tau_w);
                         break;
                     case 2:
@@ -4948,7 +4955,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 //! 1.b Probability that the ice floe actually breaks (depends on lambda wave, floe size and sea ice thickness )
                 // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
                 double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / d_flex ) ) ;
-                double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-0.5*lambda) / lambda ) ) ;
+                double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-coef1*lambda) / (coef2*lambda) ) ) ;
 
                 switch (M_breakup_type)
                 {
@@ -5051,6 +5058,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
 
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
+            double damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
             double tmp=M_damage[i];
             switch (M_fsd_damage_type)
             {
@@ -5065,7 +5073,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                     double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
                     for(int j=1;j<M_num_fsd_bins;j++)
                         tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
-                    tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*M_fsd_damage_max ;
+                    tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*damage_max ;
                     break;
                 }
                 default:
@@ -5075,7 +5083,7 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             // Update damage
             M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
             M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
-            M_damage[i]       =std::min(tmp,M_fsd_damage_max);
+            M_damage[i]       =std::min(tmp,damage_max);
         }// if there is ice
         else
         {
@@ -5224,9 +5232,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         else
         {
             for(int m=0;m<M_num_fsd_bins;m++)
-            {
                 M_conc_mech_fsd[m][i]+= del_c_fsd*M_conc_mech_fsd[m][i]/ctot_mech ;
-            }
         }
     }
 
@@ -6348,21 +6354,37 @@ FiniteElement::thermo(int dt)
             hi     = 0.;
             hs     = 0.;
 
-            // FSD
+            // If FSD : Don't change its shape. Remove all ice if no thin ice
             if(M_num_fsd_bins>0)
             {
-                for(int k=0; k<M_num_fsd_bins; k++)
+                double ctot=0;
+                double ctot_mech=0;
+
+                for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot+=M_conc_fsd[m][i] ;
+                if ( (ctot>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
                 {
-                    M_conc_fsd[k][i] = 0.;
-                    if (M_distinguish_mech_fsd)
-                        M_conc_mech_fsd[k][i] = 0. ;
+                    for(int m=0 ; m<M_num_fsd_bins;m++)
+                        M_conc_fsd[m][i]+= (-old_conc)*M_conc_fsd[m][i]/ctot ;
                 }
-                // TODO not very nice... Don't know how to change it G.B
-                if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                if (M_distinguish_mech_fsd)
+                {   
+                    for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot_mech+=M_conc_mech_fsd[m][i] ;
+                    if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                    {
+                        for(int m=0;m<M_num_fsd_bins;m++)
+                            M_conc_mech_fsd[m][i]+= (-old_conc)*M_conc_mech_fsd[m][i]/ctot_mech ;
+                    }
+                } 
+                else
                 {
-                    M_conc_fsd[M_num_fsd_bins-1][i] = M_conc_thin[i];
-                    if (M_distinguish_mech_fsd)
-                        M_conc_mech_fsd[M_num_fsd_bins-1][i] = M_conc_thin[i];
+                    for(int k=0; k<M_num_fsd_bins; k++)
+                    {
+                        M_conc_fsd[k][i] = 0.;
+                        if (M_distinguish_mech_fsd)
+                            M_conc_mech_fsd[k][i] = 0. ;
+                    }
                 }
             } 
         }
@@ -7551,6 +7573,7 @@ FiniteElement::initFsd()
             M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
             break;
         }
+        M_breakup_in_dt=false ;
         default:
             std::cout << "fsd_type= " << (int)M_fsd_type << "\n";
             throw std::logic_error("Wrong fsd_type");
@@ -7957,7 +7980,8 @@ FiniteElement::updateIceDiagnostics()
                 else
                 {
                     D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
-                           * (1000.-M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+                           * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+                    D_dmax[i]=std::max(D_dmax[i],M_fsd_unbroken_floe_size);
                     
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)

@@ -443,6 +443,7 @@ namespace Nextsim
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+#endif
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
@@ -457,18 +458,22 @@ namespace Nextsim
             ("wave_coupling.welding_type", po::value<std::string>()->default_value( "none" ), "none -> no welding, roach -> welding following Roach et al. 2018, williams-> welding following Tim")
             ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
             ("wave_coupling.fsd_welding_use_scaled_area", po::value<bool>()->default_value( false ), "Roach et al., 2018-> True")
-            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to dertermine dmax value.             By default, dmax is the size associated with the 9th decile of sea ice")
+            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to determine dmax value.             By default, dmax is the size associated with the 9th decile of sea ice")
             ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
-            ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship betzeen damage and FSD: 0 none, 1 related to unbroken floes concentration")
+            ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship betzeen damage and FSD: 0 none, 1 related to unbroken floes concentration, 2 : related to break-up prob.")
             ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
+            // Break-up parameters 
             ("wave_coupling.breakup_thick_min", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
-            ("wave_coupling.breakup_prob_type", po::value<int>()->default_value(0), " TODO ")
+            ("wave_coupling.breakup_prob_type", po::value<int>()->default_value(0), "0: None. 1: Not working. Better use 2 ")
             ("wave_coupling.breakup_cell_average_thickness", po::value<bool>()->default_value(false), "Are we using M_thick (volume, if false) or sea ice thickness averaged on sea ice cover only (if true) in break-up determination ?")
             ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Time scale tuning for breakup_prob_type=0")
             ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
+            ("wave_coupling.breakup_coef1", po::value<double>()->default_value( 0.5), "Coef1 is used to tune the size D of fsd regime transition : D=lambda_wave*coef1")
+            ("wave_coupling.breakup_coef2", po::value<double>()->default_value( 1.), "Coef2 is used to tune the size range on which the fsd transition is seen : range=lambda_wave*coef2")
+            ("wave_coupling.breakup_prob_cutoff", po::value<double>()->default_value( 0.0015), "Minimum value of break-up probability for which break-up occurs (if prob<prob_cut_off -> prob=0.)")
+
             ("wave_coupling.distinguish_mech_fsd", po::value<bool>()->default_value( true ), "Do we distinguish a mech. FSD from the real FSD ?")
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
-#endif
 
 #if defined(WAVES)
         ;

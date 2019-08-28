@@ -788,16 +788,14 @@ private:
     bool   M_distinguish_mech_fsd             ;
     bool   M_debug_fsd                        ;
     int    M_fsd_damage_type                  ;
-    double M_fsd_damage_max                   ;
     double M_floes_flex_strength              ;
     double M_floes_flex_young                 ;
     double M_welding_kappa                    ;
     bool   M_fsd_welding_use_scaled_area      ;
     double M_dmax_c_threshold                 ;
     double M_breakup_thick_min                ;
-    int    M_breakup_prob_type                ;
-    bool   M_breakup_cell_average_thickness  ;
-    double M_breakup_timescale_tuning         ;
+    bool   M_breakup_in_dt                    ;
+    bool   M_breakup_cell_average_thickness   ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     double M_lead_width    ;
 
