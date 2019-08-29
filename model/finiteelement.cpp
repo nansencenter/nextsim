@@ -7959,7 +7959,7 @@ FiniteElement::updateIceDiagnostics()
         {   
             if (D_conc[i]>0)
             {
-                D_dmax[i]=1000.;
+                D_dmax[i]=1000. ;
                 D_dmean[i]=1000.;
                 if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
                 {
@@ -7981,13 +7981,18 @@ FiniteElement::updateIceDiagnostics()
                 {
                     D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
                            * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
-                    D_dmax[i]=std::max(D_dmax[i],M_fsd_unbroken_floe_size);
+                    D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
                     
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
                         D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
                     D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
                 }
+            }
+            else
+            {
+                D_dmax[i]  = 0. ;
+                D_dmean[i] = 0. ;
             }
         }
 #endif
