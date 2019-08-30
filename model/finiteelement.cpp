@@ -5357,11 +5357,6 @@ FiniteElement::thermo(int dt)
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
 
-        // Element mean ice-ocean heat flux
-        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
-        // Element mean open water heat flux
-        double Qow_mean = Qow[i]*old_ow_fraction;
-
         // Compensation of heatflux for concentration reduced by assimilation
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
@@ -5372,7 +5367,7 @@ FiniteElement::thermo(int dt)
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow_mean + Qio_mean) *
+            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                     (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
         }
 
@@ -5383,14 +5378,14 @@ FiniteElement::thermo(int dt)
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qassm)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
         if ( tw_new < tfrw )
         {
-            newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow_mean -= newice*qi/ddt;
+            newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
 
         /* Decide the change in ice fraction (del_c) */
@@ -5499,9 +5494,9 @@ FiniteElement::thermo(int dt)
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                        Qow_mean *= (1.-PhiM);
+                        Qow[i] *= (1.-PhiM);
                     }
                     else
                     {
@@ -5530,7 +5525,7 @@ FiniteElement::thermo(int dt)
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow_mean -= del_c*hs*qs/ddt;
+                Qow[i] -= del_c*hs*qs/ddt;
             }
             else
             {
@@ -5553,7 +5548,7 @@ FiniteElement::thermo(int dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow_mean  += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
+            Qow[i]    += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5595,6 +5590,11 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
+
+        // Element mean ice-ocean heat flux
+        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        // Element mean open water heat flux
+        double Qow_mean = Qow[i]*old_ow_fraction;
 
         /* Heat-flux */
 #ifdef OASIS
