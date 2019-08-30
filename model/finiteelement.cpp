@@ -6889,7 +6889,11 @@ FiniteElement::step()
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
+                if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                else
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+
                 M_timer.tock("resetMeshMean");
             }
 
@@ -7799,14 +7803,26 @@ FiniteElement::initMoorings()
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
         // Read the grid in from file
-        GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                Environment::vm()["moorings.grid_latitute"].as<std::string>(),
-                Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
-        // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, M_moorings_false_easting);
+        if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+        {
+            // and use the conservative remapping
+            GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
+                    "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
+
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        } else {
+            // don't use conservative remapping
+            GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_transpose"].as<bool>() );
+
+            // Define the mooring dataset
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting);
+        }
     }
 #ifdef OASIS
     else if(vm["moorings.grid_type"].as<std::string>()=="coupled")
