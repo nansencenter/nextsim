@@ -137,7 +137,7 @@ namespace Nextsim
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
             ("moorings.use_conservative_remapping", po::value<bool>()->default_value( false ),
-                 "Use the conservative remapping scheme to interpolate onto the moorings grid. Requires mooring.grid_type=from_file and a specially crafted file (default: false)")
+                 "Use the conservative remapping scheme to interpolate onto the moorings grid. Requires mooring.grid_type=from_file, mesh.type=from_split and .msh and .nc files from the mkCplMesh.m script in nextsim-env (default: false)")
 #endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
