@@ -4924,8 +4924,8 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             //! Compute the wavelength associated with Tm02
             double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-            int     N_waves = dtime_step /(M_tm02[i]) ;
-            double tau_w =0.;
+            int     N_waves = cpl_time_step /(M_tm02[i]) ;
+            double  tau_w =0.;
              //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
             {
@@ -4938,12 +4938,12 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 switch (breakup_prob_type)
                 {
                     case 0:
-                        tau_w = breakup_timescale_tuning*dtime_step   ;
-                        P[j] =  1.-std::exp(-P[j]*dtime_step/tau_w)     ;
+                        tau_w = breakup_timescale_tuning*cpl_time_step   ;
+                        P[j] =  1.-std::exp(-P[j]*cpl_time_step/tau_w)     ;
                         break;
                     case 1:
                         tau_w = breakup_timescale_tuning*M_res_root_mesh/cg_w ;
-                        P[j] = 1-std::exp(-P[j]*dtime_step/tau_w);
+                        P[j] = 1-std::exp(-P[j]*cpl_time_step/tau_w);
                         break;
                     case 2:
                         P[j] = ( 1.- std::pow(1-P[j],N_waves)) ;
@@ -8167,7 +8167,7 @@ FiniteElement::step()
     //======================================================================
     //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
     //======================================================================
-    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) )
+    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
     {        
         chrono.restart();
         LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
