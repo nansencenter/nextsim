@@ -4712,8 +4712,13 @@ FiniteElement::update()
             sigma_t=-sigma_c/q;
             tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-            // to test for tensile or compressive failure
+            // to test for compressive failure
+            // - slope of line between origin and the intersection of the
+            // compressive failure line and the upper Coulomb branch
             double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            // to test for tensile failure
+            // - slope of line between origin and the intersection of the
+            // tensile failure line and the upper Coulomb branch
             double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
 
             if( sigma_1 > 0 && sigma_2 > 0
