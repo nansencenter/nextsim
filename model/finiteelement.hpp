@@ -484,8 +484,9 @@ private:
 
 #ifdef OASIS
     ExternalData M_tau_wi;
-    ExternalData M_str_var;
-    ExternalData M_tm02;
+//    ExternalData M_str_var;
+//    ExternalData M_tm02;
+    ExternalData M_wlbk;
 #endif
 
     external_data_vec M_external_data_elements, M_external_data_nodes;

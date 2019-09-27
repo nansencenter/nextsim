@@ -470,6 +470,7 @@ namespace Nextsim
             ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
             ("wave_coupling.breakup_coef1", po::value<double>()->default_value( 0.5), "Coef1 is used to tune the size D of fsd regime transition : D=lambda_wave*coef1")
             ("wave_coupling.breakup_coef2", po::value<double>()->default_value( 1.), "Coef2 is used to tune the size range on which the fsd transition is seen : range=lambda_wave*coef2")
+            ("wave_coupling.breakup_coef3", po::value<double>()->default_value( 1.), "Coef3 is used to tune the size range on which the fsd transition is seen : range=dflex*coef3")
             ("wave_coupling.breakup_prob_cutoff", po::value<double>()->default_value( 0.0015), "Minimum value of break-up probability for which break-up occurs (if prob<prob_cut_off -> prob=0.)")
 
             ("wave_coupling.distinguish_mech_fsd", po::value<bool>()->default_value( true ), "Do we distinguish a mech. FSD from the real FSD ?")

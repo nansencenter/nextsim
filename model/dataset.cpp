@@ -1985,25 +1985,25 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions = {dimension_x, dimension_y};
 
         // Variables received through OASIS
-        Variable str_var ={
-            name: "I_str_var",
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
+        //Variable str_var ={
+        //    name: "I_str_var",
+        //    dimensions: dimensions,
+        //    land_mask_defined: false,
+        //    land_mask_value: 0.,
+        //    NaN_mask_defined: false,
+        //    NaN_mask_value: 0.,
+        //    use_FillValue: true,
+        //    use_missing_value: true,
+        //    a: 1.,
+        //    b: 0.,
+        //    Units: "",
+        //    loaded_data: loaded_data_tmp,
+        //    interpolated_data: interpolated_data_tmp,
+        //    wavDirOptions: wavdiropt_none
+        //};
 
-        Variable Tm02 ={
-            name: "I_tm02",
+        Variable wlbk ={
+            name: "I_wlbk",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2011,13 +2011,29 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 2.,
             b: 0.,
-            Units: "s",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
+        //Variable Tm02 ={
+        //    name: "I_tm02",
+        //    dimensions: dimensions,
+        //    land_mask_defined: false,
+        //    land_mask_value: 0.,
+        //    NaN_mask_defined: false,
+        //    NaN_mask_value: 0.,
+        //    use_FillValue: true,
+        //    use_missing_value: true,
+        //    a: 1.,
+        //    b: 0.,
+        //    Units: "s",
+        //    loaded_data: loaded_data_tmp,
+        //    interpolated_data: interpolated_data_tmp,
+        //    wavDirOptions: wavdiropt_none
+        //};
 
         // These are lat, lon, masking, and vector rotation variables in NEMO.nc
         Variable mask={
@@ -2132,7 +2148,7 @@ DataSet::DataSet(char const *DatasetName)
             vector_rotation_variable: theta
         };
 
-        variables = {str_var, Tm02};
+        variables = {wlbk};
         vectorial_variables = {};
 
         loaded=false;

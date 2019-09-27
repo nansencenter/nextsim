@@ -4827,48 +4827,48 @@ FiniteElement::update()
 }//update
 
 
-//------------------------------------------------------------------------------------------------------
-//! 
-std::vector<double> FiniteElement::computeWaveBreakingProb()
-//------------------------------------------------------------------------------------------------------
-//! Computes the probability for very big floes to be broken from curvature sent by the wave model M_str_var
-//! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
-//------------------------------------------------------------------------------------------------------
-{
-    std::vector<double> prob(M_num_elements);
-    double namelistpar = 1. ;  // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
-    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
-    //double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
-    double const strain_c = M_floes_flex_strength * (1-std::pow(poisson,2))/ M_floes_flex_young ; // valid for a plate
-//    double const strain_c = M_floes_flex_strength/ M_floes_flex_young ; // valid for a plate
-    double sea_ice_thickness=0.  ; // sea ice thickness, equal to M_thick or M_thick / ctot
-
-#ifdef OASIS
-    for (int i=0; i<M_num_elements; i++)
-    {
-        double ctot = M_conc[i];
-        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-           ctot += M_conc_thin[i];
-        if (ctot>0)
-        { 
-            if (M_str_var[i]<-1e-11)
-                std::runtime_error("Pb: Curvature received from WW3 is negative") ;
-            else if (std::isnan(M_str_var[i]) )
-                std::runtime_error("Pb: Curvature received from WW3 is NaN") ;
-
-            if (M_breakup_cell_average_thickness)
-                sea_ice_thickness = M_thick[i] ;
-            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
-               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
-
-            prob[i] =std::exp(-std::pow(strain_c,2) /
-                                (2* std::max(0.,M_str_var[i])* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
-                             ) ;
-        }
-    }
-#endif
-    return prob;
-}
+////------------------------------------------------------------------------------------------------------
+////! 
+//std::vector<double> FiniteElement::computeWaveBreakingProb()
+////------------------------------------------------------------------------------------------------------
+////! Computes the probability for very big floes to be broken from curvature sent by the wave model M_str_var
+////! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
+////------------------------------------------------------------------------------------------------------
+//{
+//    std::vector<double> prob(M_num_elements);
+//    double namelistpar = 1. ;  // Breaking is very sensitive... Can be used for sensitivity study + depend on which strain do we take (average, or max strain during a period of time)
+//    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+//    //double const strain_c = M_floes_flex_strength / M_floes_flex_young ; // valid for a beam... should be changed
+//    double const strain_c = M_floes_flex_strength * (1-std::pow(poisson,2))/ M_floes_flex_young ; // valid for a plate
+////    double const strain_c = M_floes_flex_strength/ M_floes_flex_young ; // valid for a plate
+//    double sea_ice_thickness=0.  ; // sea ice thickness, equal to M_thick or M_thick / ctot
+//
+//#ifdef OASIS
+//    for (int i=0; i<M_num_elements; i++)
+//    {
+//        double ctot = M_conc[i];
+//        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+//           ctot += M_conc_thin[i];
+//        if (ctot>0)
+//        { 
+//            if (M_str_var[i]<-1e-11)
+//                std::runtime_error("Pb: Curvature received from WW3 is negative") ;
+//            else if (std::isnan(M_str_var[i]) )
+//                std::runtime_error("Pb: Curvature received from WW3 is NaN") ;
+//
+//            if (M_breakup_cell_average_thickness)
+//                sea_ice_thickness = M_thick[i] ;
+//            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+//               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
+//
+//            prob[i] =std::exp(-std::pow(strain_c,2) /
+//                                (2* std::max(0.,M_str_var[i])* (std::pow(std::max(M_breakup_thick_min,sea_ice_thickness)/2.,2) ) ) 
+//                             ) ;
+//        }
+//    }
+//#endif
+//    return prob;
+//}
 //if 0
 
 void
@@ -4884,10 +4884,12 @@ FiniteElement::redistributeFSD()//----------------------------------------------
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
     const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef3 = vm["wave_coupling.breakup_coef3"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
     const double prob_cutoff= vm["wave_coupling.breakup_prob_cutoff"].as<double>(); ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
     std::stringstream crash_msg;
     bool crash = false;
-    auto P_inf = this -> computeWaveBreakingProb();
+    // Now useless
+    //auto P_inf = this -> computeWaveBreakingProb();
 
     M_breakup_in_dt = false ;
     for (int i=0; i<M_num_elements; i++)
@@ -4898,7 +4900,10 @@ FiniteElement::redistributeFSD()//----------------------------------------------
         if (ctot>0)
         {
             // don't try to break if there are no waves
-            if( P_inf[i] <= prob_cutoff)
+            double P_inf =0. ;
+            if (M_wlbk[i]<500.-1.)
+                P_inf=1. ;
+            if( P_inf <= prob_cutoff)
                 continue ;
             M_breakup_in_dt=true ;
             if (M_distinguish_mech_fsd)
@@ -4922,15 +4927,17 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
             //! Compute the wavelength associated with Tm02
-            double  lambda= physical::g * std::pow(M_tm02[i],2) /2 / PI  ;
+            double  lambda= M_wlbk[i] ;
+            // Now useless
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
-            int     N_waves = cpl_time_step /(M_tm02[i]) ;
+            //int     N_waves = cpl_time_step /(M_tm02[i]) ;
+
             double  tau_w =0.;
              //! Compute wave induced break-up probability for the different floe size categories
             for (int j=0; j<M_num_fsd_bins; j++)
             {
                 //! 1. Compute the broken area in each category
-                P[j] = P_inf[i] ;
+                P[j] = P_inf ;
                 //! 1.a Probability that the wave-induced strain is over the flex. failure
                 int const breakup_prob_type =  vm["wave_coupling.breakup_prob_type"].as<int>();
                 double breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
@@ -4938,25 +4945,26 @@ FiniteElement::redistributeFSD()//----------------------------------------------
                 switch (breakup_prob_type)
                 {
                     case 0:
-                        tau_w = breakup_timescale_tuning*cpl_time_step   ;
-                        P[j] =  1.-std::exp(-P[j]*cpl_time_step/tau_w)     ;
+                        tau_w = breakup_timescale_tuning   ;
+                        P[j] =  P[j]* (1.-std::exp(-P[j]*cpl_time_step/tau_w) )    ;
+                  //      P[j] = P[j]*cpl_time_step/tau_w     ;
                         break;
-                    case 1:
-                        tau_w = breakup_timescale_tuning*M_res_root_mesh/cg_w ;
-                        P[j] = 1-std::exp(-P[j]*cpl_time_step/tau_w);
-                        break;
-                    case 2:
-                        P[j] = ( 1.- std::pow(1-P[j],N_waves)) ;
-                        break;
+                 //    case 1:
+                 //        tau_w = breakup_timescale_tuning*M_res_root_mesh/cg_w ;
+                 //        P[j] = 1-std::exp(-P[j]*cpl_time_step/tau_w);
+                 //       break;
+                 // Now useless, done in WW3       
+                 //   case 2:
+                 //       P[j] = ( 1.- std::pow(1-P[j],N_waves)) ;
+                 //       break;
                     default:
                         std::cout << "breakup_prob_type= " << breakup_prob_type << "\n";
                         throw std::logic_error("Wrong breakup_prob_type");
                 }
                 //! 1.b Probability that the ice floe actually breaks (depends on lambda wave, floe size and sea ice thickness )
                 // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
-                double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / d_flex ) ) ;
                 double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-coef1*lambda) / (coef2*lambda) ) ) ;
-
+                double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / (coef3*d_flex) ) ) ;
                 switch (M_breakup_type)
                 {
                     //! 2. Redistribute the broken sea ice area 
@@ -5055,35 +5063,39 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             
             if(crash)
                 throw std::runtime_error(crash_msg.str());
-
+            
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
-            double damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
-            double tmp=M_damage[i];
-            switch (M_fsd_damage_type)
+            /* So far, only thick ice can be damaged  */
+            if (M_thick[i]>0.)
             {
-                case 0:
-                    break;
-                /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
-                case 1:
-                    tmp = std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot);
-                /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
-                case 2:
+                double damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
+                double tmp=M_damage[i];
+                switch (M_fsd_damage_type)
                 {
-                    double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
-                    for(int j=1;j<M_num_fsd_bins;j++)
-                        tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
-                    tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*damage_max ;
-                    break;
+                    case 0:
+                        break;
+                    /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
+                    case 1:
+                        tmp = std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot);
+                    /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
+                    case 2:
+                    {
+                        double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
+                        for(int j=1;j<M_num_fsd_bins;j++)
+                            tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
+                        tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*damage_max ;
+                        break;
+                    }
+                    default:
+                         std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
+                         throw std::logic_error("Wrong M_fsd_damage_type");
                 }
-                default:
-                     std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
-                     throw std::logic_error("Wrong M_fsd_damage_type");
+                // Update damage
+                M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
+                M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
+                M_damage[i]          = std::max(M_damage[i],std::min(tmp,damage_max) );
             }
-            // Update damage
-            M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
-            M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
-            M_damage[i]       =std::min(tmp,damage_max);
         }// if there is ice
         else
         {
@@ -7854,8 +7866,9 @@ FiniteElement::initOASIS()
     {
         var_rcv.push_back(std::string("I_tauwix"));
         var_rcv.push_back(std::string("I_tauwiy"));
-        var_rcv.push_back(std::string("I_tm02"));
-        var_rcv.push_back(std::string("I_str_var"));
+        var_rcv.push_back(std::string("I_wlbk"));
+        //var_rcv.push_back(std::string("I_tm02"));
+        //var_rcv.push_back(std::string("I_str_var"));
     }
 
     // Ask OASIS to link var_rcv and var_id_rcv
@@ -10489,14 +10502,19 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
     M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
     M_external_data_nodes.push_back(&M_tau_wi);
-    M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+    //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_str_var);
+    //M_external_data_elements_names.push_back("M_str_var");
+    //M_tm02 = ExternalData(&M_wave_elements_dataset, M_mesh, 1, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_tm02);
+    //M_external_data_elements_names.push_back("M_tm02");
+
+    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
                 time_init, 0);
-    M_external_data_elements.push_back(&M_str_var);
-    M_external_data_elements_names.push_back("M_str_var");
-    M_tm02 = ExternalData(&M_wave_elements_dataset, M_mesh, 1, false,
-                time_init, 0);
-    M_external_data_elements.push_back(&M_tm02);
-    M_external_data_elements_names.push_back("M_tm02");
+    M_external_data_elements.push_back(&M_wlbk);
+    M_external_data_elements_names.push_back("M_wlbk");
 }
 #endif
 
@@ -13847,6 +13865,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
             }
 
+            std::cout<<"PB here 4 ? \n";
             outbin.close();
 
             fileout = filenames[1]+".dat";
