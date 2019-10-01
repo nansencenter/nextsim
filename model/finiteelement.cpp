@@ -759,7 +759,7 @@ FiniteElement::initDatasets()
 
         case setup::AtmosphereType::ERA5:
             M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
+            M_atmosphere_elements_dataset=DataSet("ERA5_elements");
             break;
 
         case setup::AtmosphereType::EC2:

@@ -818,19 +818,40 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     LOG(DEBUG)<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
-        filename=filename_fstep[fstep];
-        index=index_fstep[fstep];
-
-        LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
-        if ( ! boost::filesystem::exists(filename) )
-            throw std::runtime_error("File not found: " + filename);
-
-        // Open the netcdf file
-        netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
+            filename=filename_fstep[fstep];
+            index=index_fstep[fstep];
+
+            // Replace the "prefix" if we have one variable per file
+            if ( dataset->variables[j].filename_prefix != "" )
+            {
+                // extract the f_timestr for this fstep ( +1 for the directory / )
+                std::string::size_type start = Environment::nextsimDataDir().string().size() + 1
+                    + dataset->grid.dirname.size() + 1
+                    + dataset->grid.prefix.size();
+
+                std::string::size_type end = filename.find(dataset->grid.postfix, start);
+                f_timestr = filename.substr(start, end-start);
+
+                // Re-build filename with grid.prefix replaced with variables[j].filename_prefix
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                            % Environment::nextsimDataDir().string()
+                            % dataset->grid.dirname
+                            % dataset->variables[j].filename_prefix
+                            % f_timestr
+                            % dataset->grid.postfix
+                            ).str();
+            }
+
+            LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
+            if ( ! boost::filesystem::exists(filename) )
+                throw std::runtime_error("File not found: " + filename);
+
+            // Open the netcdf file
+            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
             LOG(DEBUG)<<"variables number:" << j  << "\n";
             if ((dataset->variables[j].wavDirOptions.isWavDir)
                     &&(!dataset->variables[j].wavDirOptions.xComponent))
