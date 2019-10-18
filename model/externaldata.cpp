@@ -745,11 +745,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             int nt = XTIME.size();
             if(is_ec_fc && (!true_forecast))
             {
-                double ftime_res = dataset->time.a*(XTIME[1] - XTIME[0]);//forcing resolution in hours
+                int ftime_res = dataset->time.a*(XTIME[1] - XTIME[0]);//forcing resolution in hours
                 nt = 24/ftime_res;// just use the first day of each file
             }
-            std::cout<< nt<<"\n";
-            std::abort();
 
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
