@@ -704,7 +704,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename <<"\n";
+            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
+                << ". Exists? " << boost::filesystem::exists(filename)
+                <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
 
@@ -742,7 +744,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             double f;
             int nt = XTIME.size();
             if(is_ec_fc && (!true_forecast))
-                nt = 4;// just use the first day of each file (1st 4 records, each 6 hours apart)
+            {
+                double ftime_res = dataset->time.a*(XTIME[1] - XTIME[0]);//forcing resolution in hours
+                nt = 24/ftime_res;// just use the first day of each file
+            }
+            std::cout<< nt<<"\n";
+            std::abort();
 
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
