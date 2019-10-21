@@ -8947,10 +8947,10 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
             M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
                 time_init, M_spinup_duration, 0, M_ensemble_member);
@@ -8960,13 +8960,13 @@ FiniteElement::forcingAtmosphere()
                     time_init, 0, 0, M_ensemble_member);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
                     time_init, 0, 0, M_ensemble_member);
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
                     time_init, 0, 0, M_ensemble_member);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 4, false,
                     time_init, 0, 0, M_ensemble_member);
-            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
                     time_init, 0, 0, M_ensemble_member);
-            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
+            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
                     time_init, 0, M_ensemble_member);
         break;
 

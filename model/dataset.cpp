@@ -8596,13 +8596,12 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "valid types are:\n");
         fprintf (stderr, "asr_nodes\n");
         fprintf (stderr, "asr_elements\n");
-        fprintf (stderr, "ec_nodes\n");
-        fprintf (stderr, "ec_elements\n");
         fprintf (stderr, "ec2_nodes\n");
         fprintf (stderr, "ec2_elements\n");
         fprintf (stderr, "ec2_arome_nodes\n");
-        fprintf (stderr, "ec2_arome_elements_instaneous\n");
-        fprintf (stderr, "ec2_arome_elements_integrated\n");
+        fprintf (stderr, "ec2_arome_elements\n");
+        fprintf (stderr, "ec2_arome_ensemble_nodes\n");
+        fprintf (stderr, "ec2_arome_ensemble_elements\n");
         fprintf (stderr, "cfsr_nodes\n");
         fprintf (stderr, "cfsr_elements\n");
         fprintf (stderr, "cfsr_nodes_hi\n");
