@@ -100,6 +100,7 @@ public:
         D_rain       = 118,
         D_Qassim     = 119,
         D_fwflux_ice = 120,
+        D_dcrit      = 121,
     };
 
 

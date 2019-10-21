@@ -759,7 +759,7 @@ FiniteElement::initDatasets()
 
         case setup::AtmosphereType::ERA5:
             M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
+            M_atmosphere_elements_dataset=DataSet("ERA5_elements");
             break;
 
         case setup::AtmosphereType::EC2:
@@ -1102,7 +1102,18 @@ FiniteElement::initOptAndParam()
     }
 #endif
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<=0) ? 0 : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
+    if ( vm["output.output_per_day"].as<int>() > 0 )
+    {
+       output_time_step = time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
+    }
+    else if ( vm["output.output_per_day"].as<int>() == 0 )
+    {
+       output_time_step = 0;
+    }
+    else
+    {
+       output_time_step = time_step;
+    }
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
@@ -4512,7 +4523,7 @@ FiniteElement::update()
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
         double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tmp, sigma_target, tmp_factor, dcrit;
 
 
         // Temporary memory
@@ -4704,6 +4715,10 @@ FiniteElement::update()
              *======================================================================
              */
 
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
+
             /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
             sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
             sigma_n =-          (sigma[0]+sigma[1])/2.;
@@ -4715,81 +4730,61 @@ FiniteElement::update()
             sigma_t=-sigma_c/q;
             tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-            /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent")
-                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
+            // to test for compressive failure
+            // - slope of line between origin and the intersection of the
+            // compressive failure line and the upper Coulomb branch
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            // to test for tensile failure
+            // - slope of line between origin and the intersection of the
+            // tensile failure line and the upper Coulomb branch
+            double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
+
+            if( sigma_1 > 0 && sigma_2 > 0
+                && sigma_2 < slope_compr_upper*sigma_1
+                && sigma_1 < slope_compr_upper*sigma_2 )
+            {
+                // compressive failure region
+                sigma_target = compr_strength;
+                dcrit = sigma_target/sigma_n;
+            }
+            else if( sigma_1 < 0 && sigma_2 < 0
+                && sigma_2 < slope_tens_upper*sigma_1
+                && sigma_1 < slope_tens_upper*sigma_2 )
+            {
+                // tensile failure region
+                sigma_target = tract_max;
+                dcrit = sigma_target/sigma_n;
+            }
+            else
+            {
+                // Mohr-Coulomb failure region
+                sigma_target = sigma_c;
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+            }
+            D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
 
             /* Calculate the adjusted level of damage */
-            if(sigma_n>M_Compressive_strength[cpt])
+            if (dcrit < 1)
             {
-                sigma_target=M_Compressive_strength[cpt];
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-                if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
+                if (disc_scheme == "explicit")
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
+                else if (disc_scheme == "implicit")
+                {
+                    tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
                 }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-                }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-                }
+                else if (disc_scheme == "recursive")
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
 
                 if(tmp>M_damage[cpt])
-                {
                     M_damage[cpt] = min(tmp, 1.0);
-                }
             }
-
-            if((sigma_1-q*sigma_2)>sigma_c)
-            {
-                sigma_target = sigma_c;
-                tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
-
-                if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-                }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-                }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
-                }
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = min(tmp, 1.0);
-                }
-            }
-
-            if(sigma_n<tract_max)
-            {
-                sigma_target = tract_max;
-                tmp_factor=1.0/((1.0-sigma_target/sigma_n)*time_step/td + 1.0);
-
-                if (disc_scheme == "explicit") {
-                    tmp=(1.0-old_damage)*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-                }
-                if (disc_scheme == "implicit") {
-                    tmp=tmp_factor*(1.0-sigma_target/sigma_n)*time_step/td + old_damage;
-                }
-                if (disc_scheme == "recursive") {
-                    tmp=1.0-(1.0-old_damage)*pow(sigma_target/sigma_n,time_step/td);
-                }
-
-                if(tmp>M_damage[cpt])
-                {
-                    M_damage[cpt] = min(tmp, 1.0);
-                }
-            }
-
         }
         else // if M_conc or M_thick too low, set sigma to 0.
         {
             for(int i=0;i<3;i++)
-            {
                 M_sigma[i][cpt] = 0.;
-            }
+            D_dcrit[cpt] = 0.;
         }
 
         /*======================================================================
@@ -5345,11 +5340,6 @@ FiniteElement::thermo(int dt)
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
 
-        // Element mean ice-ocean heat flux
-        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
-        // Element mean open water heat flux
-        double Qow_mean = Qow[i]*old_ow_fraction;
-
         // Compensation of heatflux for concentration reduced by assimilation
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
@@ -5360,7 +5350,7 @@ FiniteElement::thermo(int dt)
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow_mean + Qio_mean) *
+            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                     (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
         }
 
@@ -5371,14 +5361,14 @@ FiniteElement::thermo(int dt)
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qassm)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
         if ( tw_new < tfrw )
         {
-            newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow_mean -= newice*qi/ddt;
+            newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
 
         /* Decide the change in ice fraction (del_c) */
@@ -5487,9 +5477,9 @@ FiniteElement::thermo(int dt)
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                        Qow_mean *= (1.-PhiM);
+                        Qow[i] *= (1.-PhiM);
                     }
                     else
                     {
@@ -5518,7 +5508,7 @@ FiniteElement::thermo(int dt)
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow_mean -= del_c*hs*qs/ddt;
+                Qow[i] -= del_c*hs*qs/ddt;
             }
             else
             {
@@ -5541,7 +5531,7 @@ FiniteElement::thermo(int dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow_mean  += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
+            Qow[i]    += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5583,6 +5573,11 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
+
+        // Element mean ice-ocean heat flux
+        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        // Element mean open water heat flux
+        double Qow_mean = Qow[i]*old_ow_fraction;
 
         /* Heat-flux */
 #ifdef OASIS
@@ -6547,6 +6542,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
+    D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
+    M_variables_elt.push_back(&D_dcrit);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -6875,7 +6872,11 @@ FiniteElement::step()
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
+                if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                else
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+
                 M_timer.tock("resetMeshMean");
             }
 
@@ -7326,7 +7327,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
-
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7363,6 +7363,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::rain):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d_crit):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dcrit[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7568,6 +7572,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 //------------------------------------------------------------------------------------------------------
 //! Initializes the moorings datasets and variables recorded by the moorings.
 //! Called by the init() function.
+//! \note to add a new moorings variable
+//! - 1) Add an id to gridoutput.hpp
+//! - 2) Define netcdf attributes in gridoutput.hpp
+//! - 3) Add mapping from config file to id in mooring_name_map_elements
+//!      in initMoorings below
+//! - 4) add calculation of mean value to updateMeans
 void
 FiniteElement::initMoorings()
 {
@@ -7635,6 +7645,7 @@ FiniteElement::initMoorings()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
+            ("d_crit", GridOutput::variableID::d_crit)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -7775,14 +7786,26 @@ FiniteElement::initMoorings()
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
         // Read the grid in from file
-        GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                Environment::vm()["moorings.grid_latitute"].as<std::string>(),
-                Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
-        // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, M_moorings_false_easting);
+        if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+        {
+            // and use the conservative remapping
+            GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
+                    "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
+
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        } else {
+            // don't use conservative remapping
+            GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_transpose"].as<bool>() );
+
+            // Define the mooring dataset
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting);
+        }
     }
 #ifdef OASIS
     else if(vm["moorings.grid_type"].as<std::string>()=="coupled")
@@ -9521,6 +9544,9 @@ FiniteElement::checkConsistency()
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
             }//Winton
         }
+
+        //initialise this to 0 (water value)
+        D_dcrit[i] = 0;
     }
 }//checkConsistency
 
