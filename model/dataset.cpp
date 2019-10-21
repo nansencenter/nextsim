@@ -828,6 +828,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //PSFC, a=1.
         // conversion factors: xnew = a*x + b
         Variable Qsw_in={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -844,6 +845,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable Qlw_in={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -860,6 +862,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable snowfall={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"integral_of_snowfall_amount_wrt_time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -876,6 +879,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable precip={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"precipitation_amount_acc",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -938,6 +942,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "latitude",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -955,6 +960,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "longitude",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -972,6 +978,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable time_tmp={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "time",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -990,6 +997,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // conversion factors: xnew = a*x + b
         Variable u={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "x_wind_10m", // U10M
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1007,6 +1015,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable v={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "x_wind_10m", // V10M
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1192,6 +1201,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // conversion factors: xnew = a*x + b
         Variable tair={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"air_temperature_2m",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1208,6 +1218,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // T2M
         Variable sphuma={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"specific_humidity_2m",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1224,6 +1235,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // Q2M
         Variable mslp={
+            filename_prefix: "", // All variables are in the same (grid) file
             name:"air_pressure_at_sea_level",
             dimensions: dimensions,
             land_mask_defined: false,
