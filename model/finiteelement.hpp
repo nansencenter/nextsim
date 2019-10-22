@@ -56,7 +56,7 @@ extern "C"
 namespace Nextsim
 {
 
-double clip_damage(double damage);
+double clip_damage(double damage, double damage_min);
 
 class FiniteElement
 {
