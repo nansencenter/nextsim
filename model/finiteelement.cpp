@@ -7785,8 +7785,6 @@ FiniteElement::initMoorings()
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
-        // Read the grid in from file
-
         if ( vm["moorings.use_conservative_remapping"].as<bool>() )
         {
             // and use the conservative remapping
@@ -7798,8 +7796,8 @@ FiniteElement::initMoorings()
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                    Environment::vm()["moorings.grid_latitute"].as<std::string>(),
-                    Environment::vm()["moorings.grid_longitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitude"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitude"].as<std::string>(),
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
