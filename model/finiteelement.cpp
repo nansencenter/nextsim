@@ -1273,7 +1273,7 @@ FiniteElement::initOptAndParam()
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
         ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
     this->getOptionFromMap(
             M_atmosphere_type, "setup.atmosphere-type", str2atmosphere);
