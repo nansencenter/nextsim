@@ -9,12 +9,17 @@ export MPIWRAP_DEBUG=warn
 
 if [ "$1" = "" -o "$2" = "" ]
 then
-        echo "Usage: $0 config_file.cfg num_cpus"
-        exit 1
+    echo "Usage: $0 [CONFIG_FILE NUM_CPUS]"
+    echo "Or: $0 [CONFIG_FILE NUM_CPUS MUMPS_MEM]"
+    echo "where MUMPS_MEM is the memory reserved for the solver (%)"
+    exit 1
 fi
 
-config=$1
-ncpu=$2
+CONFIG=$1
+NCPU=$2
+# Memory reserved for solver
+MUMPS_MEM=${3-400}
+MAXITS=${4-"None"} 
 
 # record changes from last git commit:
 # file gets moved from current dir to "output_directory" inside nextsim code
@@ -25,13 +30,25 @@ git diff > $P/git_changes.txt
 cd $P
 
 # valgrind options
-vopts[0]="--log-file=vlgrnd.log"
-vopts[1]="--leak-check=full"  # see details of leaked memory
-vopts[2]="--track-origins=yes" # see where uninitialised values come from
+vopts=()
+vopts+=("--log-file=vlgrnd.log")
+vopts+=("--leak-check=full")  # see details of leaked memory
+vopts+=("--track-origins=yes") # see where uninitialised values come from
 
 # nextsim options
-nsopts[0]="--config-file=$config"
-nsopts[1]="--debugging.maxiteration=1" # just run nextsim for 1 time step
+nsopts=()
+nsopts+=("--config-file=$CONFIG")
+if [ $MAXITS != "None" ]
+then
+   if [ $MAXITS -gt 0 ] 2>/dev/null 
+   then
+      # no error from -gt if integer
+      nsopts+=("--debugging.maxiteration=$MAXITS") # just run nextsim for 1 time step
+   else
+      echo "MAXITS argument needs to be 'None' or an integer >0"
+      exit 1
+   fi
+fi
 
 prog=bin/nextsim.exec
 if [ `pwd` != $NEXTSIMDIR/model ]
@@ -59,4 +76,4 @@ then
 fi
 
 # Run the nextsim model
-mpirun $mpi_opts -np $ncpu valgrind ${vopts[@]} $prog -mat_mumps_icntl_14 60 ${nsopts[@]} 2>&1 | tee simdebug.log
+mpirun $mpi_opts -np $NCPU valgrind ${vopts[@]} $prog -mat_mumps_icntl_23 $MUMPS_MEM ${nsopts[@]} 2>&1 | tee simdebug.log

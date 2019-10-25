@@ -46,48 +46,33 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
 
         if ( vmenv.count( "config-file" ) || vmenv.count( "config-files" ) )
         {
-
             if ( vmenv.count( "config-file" ) )
+                configFiles = {vmenv["config-file"].as<std::string>()};
+            else if ( vmenv.count( "config-files" ) )
+                configFiles = vmenv["config-files"].as<std::vector<std::string>>();
+        }
+
+        if (configFiles.size() == 0)
+        {
+            std::stringstream msg;
+            msg << "Please provide (a) config file(s) with command line options\n";
+            msg << "--config-file=CFGFILE or --config-files=CFGFILE1 CFGFILE2\n";
+            throw std::runtime_error(msg.str());
+        }
+
+        // loop over config files
+        for ( std::string cfgfile : configFiles )
+        {
+            if ( fs::exists( cfgfile ) )
             {
-                // only 1 config file
-                std::string cfg_file = vmenv["config-file"].as<std::string>();
-                if ( fs::exists(cfg_file) )
-                {
-                    if (Communicator::commSelf().rank()==0)
-                        std::cout << "Reading " << cfg_file << "...\n";
-                    std::ifstream ifs( cfg_file.c_str() );
-
-                    // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
-                    po::store( parse_config_file( ifs, desc, false ), vmenv );
-                }
-                else
-                {
-                    std::cout << "Cannot find " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
-                }
+                if (Communicator::commSelf().rank()==0)
+                    std::cout << "Reading " << cfgfile << "...\n";
+                std::ifstream ifs( cfgfile.c_str() );
+                // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
+                po::store( parse_config_file( ifs, desc, false ), vmenv );
             }
-
-            if ( vmenv.count( "config-files" ) )
-            {
-                std::vector<std::string> configFiles = vmenv["config-files"].as<std::vector<std::string> >();
-
-                // multiple config files: loop over them all
-                for ( std::string cfgfile : configFiles )
-                {
-                    if ( fs::exists( cfgfile ) )
-                    {
-                        if (Communicator::commSelf().rank()==0)
-                            std::cout << "Reading " << cfgfile << "...\n";
-                        std::ifstream ifs( cfgfile.c_str() );
-                        // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
-                        po::store( parse_config_file( ifs, desc, false ), vmenv );
-                    }
-                    else
-                    {
-                        std::cout << "Cannot find " << "config-file `" << cfgfile <<"`\n";
-                    }
-                }
-            }
-
+            else
+                std::cout << "Cannot find " << "config-file `" << cfgfile <<"`\n";
         }
 
         po::notify(vmenv);
@@ -168,12 +153,15 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
             ).str();
 
     const boost::unordered_map<const std::string, LogLevel> str2log = boost::assign::map_list_of
+        ("debug", DEBUG)
+        ("verbose", VERBOSE)
         ("info", INFO)
         ("warning", WARNING)
-        ("debug", DEBUG)
         ("error", ERROR);
 
     log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
+
+    log_all = vmenv["debugging.log-all"].as<bool>();
 }
 
 
@@ -216,7 +204,9 @@ po::variables_map Environment::vmenv;
 fs::path Environment::nextsim_data_dir_env;
 fs::path Environment::nextsim_mesh_dir_env;
 std::string Environment::nextsim_mppfile;
+std::vector<std::string> Environment::configFiles;
 LogLevel Environment::log_level;
+bool Environment::log_all;
 
 MemoryUsage
 Environment::logMemoryUsage(std::string const& message)

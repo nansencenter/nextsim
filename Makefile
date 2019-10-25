@@ -2,52 +2,58 @@
 # @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
 # @date   Tue May 10 10:52:04 2016
 
-.PHONY: all clean mrproper All Clean Mrproper fresh
+.PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
-all:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make
-	#@cd $(NEXTSIMDIR)/contrib/interp/src; make
-	@cd $(NEXTSIMDIR)/core/src; make;
+
+all: contrib modules core model
+
+contrib:
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE)
+
+modules:
 ifdef USE_OASIS
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
 endif
-ifdef USE_AEROBULK
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
 
-clean:
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean
-	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean
-	@cd $(NEXTSIMDIR)/core/src; make clean
+model: core modules
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
+
+core: contrib
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
+
+clean: cleanmodel
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
 ifdef USE_OASIS
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make clean
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
 endif
-ifdef USE_AEROBULK
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make clean
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
 endif
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
+
+cleanmodel:
+	@cd $(NEXTSIMDIR)/model; $(MAKE) clean;
 
 mrproper: clean
-	@cd $(NEXTSIMDIR)/contrib/bamg/src; make clean mrproper
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; make clean mrproper
-	#@cd $(NEXTSIMDIR)/contrib/interp/src; make clean mrproper
-	@cd $(NEXTSIMDIR)/core/src; make clean mrproper
+	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
 ifdef USE_OASIS
-	@cd $(NEXTSIMDIR)/modules/oasis/src; make mrproper
+	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
 endif
-ifdef USE_AEROBULK
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; make mrproper
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
 endif
-# rules to compile model code as well as lib's
-All: all
-	@cd $(NEXTSIMDIR)/model; make;
+	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
+	rm -rf objs
+	rm -rf lib
+	rm -rf .deps
 
-Clean: clean
-	@cd $(NEXTSIMDIR)/model; make clean;
-
-Mrproper: mrproper
-	@cd $(NEXTSIMDIR)/model; make mrproper;
-
-# fresh compile (clean first)
-fresh: Clean All
+fresh:
+	$(MAKE) mrproper
+	$(MAKE) all

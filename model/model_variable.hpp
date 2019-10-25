@@ -10,6 +10,7 @@
 #define __ModelVariable_H 1
 
 #include <environment.hpp>
+#include <constants.hpp>
 
 /**
  * @class GridOutput
@@ -22,7 +23,7 @@
 namespace Nextsim
 {
 
-class ModelVariable//: public std::vector<double> // inherit from std::vector<double>
+class ModelVariable: public std::vector<double> // inherit from std::vector<double>
 {
 
 public:
@@ -72,9 +73,10 @@ public:
         M_hs_thin       = 12,
         M_conc_thin     = 13,
         M_random_number = 14,
-        //M_fyi_fraction  = 15,
-        //M_age_obs       = 16,
-        //M_age           = 17,
+        M_fyi_fraction  = 15,
+        M_age_det       = 16,
+        M_age           = 17,
+        M_conc_upd      = 18,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -88,9 +90,17 @@ public:
         D_Qsh        = 108,
         D_Qlh        = 109,
         D_Qo         = 110,
-        D_delS       = 111,
-        D_emp        = 112,
-        D_brine      = 113
+        D_Qnosun     = 111,
+        D_Qsw_ocean  = 112,
+        D_tau_ow     = 113,
+        D_delS       = 114,
+        D_fwflux     = 115,
+        D_brine      = 116,
+        D_evap       = 117,
+        D_rain       = 118,
+        D_Qassim     = 119,
+        D_fwflux_ice = 120,
+        D_dcrit      = 121,
     };
 
 
@@ -107,6 +117,13 @@ private:
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
+    bool M_has_min = false; //does the variable have a strict min (eg >0)?
+    bool M_has_max = false; //does the variable have a strict max (eg <1)?
+    bool M_has_value_no_thick_ice = false; //does the variable have a designated value if no thick ice (eg 0, freezing temp)?
+    double M_min_val;
+    double M_max_val;
+    double M_value_no_thick_ice;
+    double M_tfr_ice;
 
 
 public:
@@ -117,6 +134,9 @@ public:
     ModelVariable(variableID id, int comp_num=-1)
         : M_varID(id), M_component_number(comp_num)
     {
+
+        M_tfr_ice = -physical::mu*physical::si;
+        // freezing point of ice - value for M_tice[i] in open water
 
         // see if it is an elemental variable
         bool elemental = this->initElemental();
@@ -155,12 +175,18 @@ public:
     variableKind varKind() { return M_var_kind; }
     int componentNumber() { return M_component_number; }
     std::string name() { return M_name; }
-    std::string export_name() { return M_export_name; }
-    bool is_prognostic() {return M_prognostic; }
+    std::string exportName() { return M_export_name; }
+    bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    interpMethod interp_method() {return M_interp_method; }
-    interpTransformation interpTransform() { return M_interp_transformation; }
+    interpMethod getInterpMethod() {return M_interp_method; }
+    interpTransformation getInterpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
+    bool hasMinVal() { return M_has_min; }
+    bool hasMaxVal() { return M_has_max; }
+    bool hasValueNoThickIce() { return M_has_value_no_thick_ice; }
+    double minVal() { return M_min_val; }
+    double maxVal() { return M_max_val; }
+    double valueNoThickIce() { return M_value_no_thick_ice; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }

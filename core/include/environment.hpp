@@ -85,8 +85,14 @@ public:
     //! return neXtSIM .mpp file
 	static std::string const& nextsimMppfile() { return nextsim_mppfile; }
 
+    //! return neXtSIM config files
+	static std::vector<std::string> const& nextsimConfigFiles() { return configFiles; }
+    
     //! return log level
 	static LogLevel const& logLevel() { return log_level; }
+
+    //! return bool to log on all processors
+	static bool const& logAll() { return log_all; }
 
     //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
     //! and some sub-directories
@@ -109,8 +115,15 @@ private:
     //! .mpp file for nextsim
     static std::string nextsim_mppfile;
 
+
+    //! neXtSIM config files
+    static std::vector<std::string> configFiles;
+
     //! log level
     static LogLevel log_level;
+
+    //! log on all cpus
+    static bool log_all;
 };
 
 } // Nextsim
