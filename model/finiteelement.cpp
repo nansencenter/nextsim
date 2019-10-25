@@ -4506,26 +4506,30 @@ FiniteElement::update()
     M_sigma_MM = M_sigma_M;
     double beta;
     std::vector<double> b(3,0.);
-    if (pcpt > 1)
+    // The order we can use depends on time step.
+    int bdf_order = std::min(pcpt+1, vm["numerics.bdf_order"].as<int>());
+    switch ( bdf_order )
     {
-        // Third order
-        beta =   6./11.;
-        b[0] =  18./11.;
-        b[1] = - 9./11.;
-        b[2] =   2./11.;
-    }
-    else if (pcpt == 1)
-    {
-        // Second order
-        beta =  2./3.;
-        b[0] =  4./3.;
-        b[1] = -1./3.;
-    }
-    else if (pcpt == 0)
-    {
-        // Euler implicit
-        beta =  1.;
-        b[0] =  1.;
+        case 3: // Third order
+            beta =   6./11.;
+            b[0] =  18./11.;
+            b[1] = - 9./11.;
+            b[2] =   2./11.;
+            break;
+        case 2: // Second order
+            beta =    2./3.;
+            b[0] =    4./3.;
+            b[1] =   -1./3.;
+            b[2] =       0.;
+            break;
+        case 1: // Euler implicit
+            beta =       1.;
+            b[0] =       1.;
+            b[1] =       0.;
+            b[2] =       0.;
+            break;
+        default:
+            throw std::logic_error("FiniteElement::update: Wrong bdf_order " + std::to_string(bdf_order) + ". Must be integer in [1 3]");
     }
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
