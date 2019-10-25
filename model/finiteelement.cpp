@@ -26,6 +26,8 @@ namespace Nextsim
 double
 clip_damage(double damage, double damage_min){
     return damage > damage_min ? damage : 0;
+    //double damage_tanh_factor = 1000;
+    //return damage * (0.5 + 0.5 * std::tanh(damage_tanh_factor * (damage - damage_min)));
 }
 
 //------------------------------------------------------------------------------------------------------
