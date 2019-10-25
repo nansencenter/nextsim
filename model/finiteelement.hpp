@@ -93,6 +93,22 @@ public:
 
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
+    typedef struct IabpDrifter
+    {
+        IabpDrifter() {}
+        IabpDrifter(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
+                std::vector<double> const& y_in, std::vector<double> const& conc_in) :
+                buoy_id(buoy_id_in), x(x_in), y(y_in),
+                conc(conc_in), initialised(true)
+        {}
+
+        bool initialised = false;
+        std::vector<int> buoy_id;
+        std::vector<double> x;
+        std::vector<double> y;
+        std::vector<double> conc;
+    } IabpDrifter;
+
     FiniteElement(Communicator const& comm = Environment::comm());
 
     // FiniteElement(Communicator const& comm = Environment::comm());
@@ -665,8 +681,7 @@ private:
     bool M_use_iabp_drifters;
     double M_iabp_drifters_input_time_step;
     double M_iabp_drifters_output_time_step;
-    std::vector<double> M_iabp_conc;
-    boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
+    IabpDrifter M_iabp_drifters;
     std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
     std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
 
