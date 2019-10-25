@@ -4501,6 +4501,32 @@ FiniteElement::update()
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    // BDF for Sigma
+    M_sigma_M  = M_sigma;
+    M_sigma_MM = M_sigma_M;
+    double beta;
+    std::vector<double> b(3,0.);
+    if (pcpt > 1)
+    {
+        // Third order
+        beta =   6./11.;
+        b[0] =  18./11.;
+        b[1] = - 9./11.;
+        b[2] =   2./11.;
+    }
+    else if (pcpt == 1)
+    {
+        // Second order
+        beta =  2./3.;
+        b[0] =  4./3.;
+        b[1] = -1./3.;
+    }
+    else if (pcpt == 0)
+    {
+        // Euler implicit
+        beta =  1.;
+        b[0] =  1.;
+    }
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4684,7 +4710,8 @@ FiniteElement::update()
             double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
+            // double multiplicator=time_viscous/(time_viscous+dtime_step);
+            double multiplicator=time_viscous/(time_viscous+beta*dtime_step);
 
 
             //Calculating the new state of stress
@@ -4696,7 +4723,8 @@ FiniteElement::update()
                     sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
-                sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                // sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                sigma[i] = (b[0]*M_sigma[i][cpt]+b[1]*M_sigma_M[i][cpt]+b[2]*M_sigma_MM[i][cpt] + beta*dtime_step*sigma_dot_i)*multiplicator;
                 sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
                 M_sigma[i][cpt] = sigma[i];
@@ -6458,10 +6486,16 @@ FiniteElement::initModelVariables()
     }
 
     M_sigma.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
+    M_sigma_M.resize(3);//! \param M_sigma_M (double) M_sigma from the previous time step
+    M_sigma_MM.resize(3);//! \param M_sigma_MM (double) M_sigma from two time steps ago
     for(int k=0; k<M_sigma.size(); k++)
     {
         M_sigma[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
+        M_sigma_M[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
+        M_sigma_MM[k] = ModelVariable(ModelVariable::variableID::M_sigma, k);
         M_variables_elt.push_back(&(M_sigma[k]));
+        M_variables_elt.push_back(&(M_sigma_M[k]));
+        M_variables_elt.push_back(&(M_sigma_MM[k]));
     }
 
     M_sst = ModelVariable(ModelVariable::variableID::M_sst);//! \param M_sst (double) Sea surface temperature (slab ocean) [C]
@@ -9396,7 +9430,11 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_age);
     vars_to_zero.push_back(&M_conc_upd);
     for (int k=0; k<3; k++)
+    {
         vars_to_zero.push_back(&(M_sigma[k]));
+        vars_to_zero.push_back(&(M_sigma_M[k]));
+        vars_to_zero.push_back(&(M_sigma_MM[k]));
+    }
     for (auto ptr: vars_to_zero)
         std::fill(ptr->begin(), ptr->end(), 0.);
 

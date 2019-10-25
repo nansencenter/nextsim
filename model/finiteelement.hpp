@@ -716,7 +716,9 @@ private:
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
-    std::vector<ModelVariable> M_sigma;
+    std::vector<ModelVariable> M_sigma; // Internal stress tensor
+    std::vector<ModelVariable> M_sigma_M;  // M_sigma from the previous time step
+    std::vector<ModelVariable> M_sigma_MM; // M_sigma from two time-steps ago
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
     ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
