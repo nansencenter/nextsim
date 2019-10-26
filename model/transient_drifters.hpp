@@ -9,11 +9,14 @@
 #ifndef __TransientDrifters_H
 #define __TransientDrifters_H 1
 
+#include <drifters.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <date.hpp>
 #include <exporter.hpp>
+#include <environment.hpp>
+#include "debug.hpp"
 
 /**
  * @class GridOutput
@@ -29,9 +32,7 @@ namespace Nextsim
     {
 public:
 
-        typedef GmshMeshSeq mesh_type_root;
-
-        TransientDrifters();
+        TransientDrifters() {}
 
         //init from vectors (eg from restart)
         TransientDrifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
@@ -49,27 +50,31 @@ public:
         TransientDrifters(std::string const& infile,
                 std::string const& outfile,
                 GmshMeshSeq const& movedmesh,
-                std::vector<double> & conc, double const& climit,
+                std::vector<double> conc, double const& climit,
                 double const& current_time, double const& output_freq,
                 double const& input_freq);
 
         void initFiles();
-        void updateDrifters(mesh_type_root const& movedmesh_root, std::vector<double>& conc_root,
+        void updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
             double const& current_time);
         void outputDrifters(double const& current_time);
         void addToRestart(Exporter &exporter, std::fstream &outbin);
         bool isInputTime(double const& current_time);
+        void checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root,
+                double const& current_time);
 
-private:
-        bool M_is_initialised;
+protected:
+        std::vector<int> grabBuoysFromInputFile(double const& current_time);
+
+        bool M_is_initialised = false;
+        int M_num_drifters = 0;
         double M_time_init;
         double M_output_freq;
         double M_input_freq;
         double M_conc_lim;
-        int M_num_drifters;
 
         std::string M_filename; // The file we read the IABP buoy data from
-        std::fstream M_fstream;
+        int M_infile_position;
         std::string M_outfile; // The (text) file we output to
 
         std::vector<double> M_X;

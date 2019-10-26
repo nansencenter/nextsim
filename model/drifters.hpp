@@ -46,7 +46,18 @@ public:
             std::vector<double> gridY;
         } Grid;
 
-        Drifters();
+        Drifters() {}
+
+        //init from vectors (eg from restart)
+        Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
+                std::vector<double> const& y_in, std::vector<double> const& conc_in,
+                double const& init_time, double const& output_freq,
+                double const& conc_lim) :
+                M_i(buoy_id_in), M_X(x_in), M_Y(y_in),
+                M_conc(conc_in), M_is_initialised(true),
+                M_time_init(init_time), M_output_freq(output_freq),
+                M_conc_lim(conc_lim)
+        {}
 
         //! init equally-spaced drifters
         Drifters(double const& spacing, GmshMeshSeq const& movedmesh,
@@ -77,14 +88,17 @@ public:
 
         bool isInitialised();
         bool isOutputTime(double const& current_time);
+        void checkAndDoOutput(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+                double const& current_time);
 
 
-private:
-        bool M_is_initialised;
+protected://only derived classes have access to these
+        bool M_is_initialised = false;
+        int M_num_drifters = 0;
         double M_time_init;
         double M_output_freq;
+        double M_conc_lim;
 
-        int M_num_drifters;
 
         size_t M_nc_step;
 
@@ -95,10 +109,8 @@ private:
         std::vector<int> M_i;
         std::vector<double> M_conc;
 
-        void maskXY(GmshMeshSeq const& mesh,
-                std::vector<double> & X, std::vector<double> & Y,
-                std::vector<int> const& INDS,
-                std::vector<double> & conc, double const& clim);
+        void maskXY(std::vector<int> const& keepers); //check if buoy IDs are in a given list and remove if they are not
+        void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
     };
 } // Nextsim
 

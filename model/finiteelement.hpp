@@ -34,6 +34,7 @@
 #include <dataset.hpp>
 #include <model_variable.hpp>
 #include <drifters.hpp>
+#include <transient_drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
@@ -676,14 +677,15 @@ private:
     //! vector of pointers to the ordinary (non-IABP) drifters
     std::vector<Drifters*> M_ordinary_drifters;
     double M_drifters_time_init;
+    double M_drifters_conc_lim;
 
     // IABP drifters
     bool M_use_iabp_drifters;
     double M_iabp_drifters_input_time_step;
     double M_iabp_drifters_output_time_step;
-    IabpDrifter M_iabp_drifters;
-    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
-    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
+    TransientDrifters M_iabp_drifters;
+    std::string M_iabp_infile; // The file we read the IABP buoy data from
+    std::string M_iabp_outfile; // The file we write our simulated drifter positions into
 
     // Drifters on a grid
     bool M_use_equally_spaced_drifters;
@@ -868,12 +870,7 @@ private:
     void initRGPSDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
     void initSidfexDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
     void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void outputIabpDrifters();
     void initIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void initIabpDrifterFiles();
-    void updateIabpDrifterPosition(std::vector<double> & UT_root);
-    void updateIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void updateIabpDrifterConc(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

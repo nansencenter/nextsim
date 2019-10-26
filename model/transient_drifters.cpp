@@ -6,7 +6,6 @@
  * @date   Sun Feb 19 09:31:24 CET 2017
  */
 
-#include <drifters.hpp>
 #include <transient_drifters.hpp>
 
 /**
@@ -27,23 +26,13 @@ namespace Nextsim
 //! * There is also a default, constructor which initialises things to zero and false.
  
 
-TransientDrifters::TransientDrifters()
-{
-    M_is_initialised = false;
-    M_num_drifters   = 0;
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_i.resize(0);
-}
-
-
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 TransientDrifters::TransientDrifters(std::string const& infile,
         std::string const& outfile,
         GmshMeshSeq const& movedmesh,
-        std::vector<double> & conc, double const& climit,
+        std::vector<double> conc, double const& climit,
         double const& current_time, double const& output_freq,
         double const& input_freq)
 {
@@ -62,64 +51,19 @@ TransientDrifters::TransientDrifters(std::string const& infile,
     M_is_initialised = true;
     M_conc_lim = climit;
 
-    //! - 2) Load the current buoys from file
+    //! - 2) Prepare input and output files
     this->initFiles();
 
-#if 0
-    //! -3) Read the current buoys from file
-    double time = current_time;
-    std::vector<int> keepers;
+    //! - 3) Load the current buoys from file
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_i.resize(0);
+    this->grabBuoysFromInputFile(current_time);
 
-    int year, month, day, hour;
-    int number;
-    double lat, lon, x, y;
-
-    // Read the next line
-    // NB need to use eof() and old_number instead of commented code since that version stopped
-    // after the first line for one example of input file
-    int gridSize = 0;
-    int old_number = 0;
-
-    //while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
-    mapx_class *map;
-    std::string mppfile = Environment::nextsimMppfile();
-    map = init_mapx( const_cast<char *>(mppfile.c_str()) );
-    while (!M_fstream.eof())
-    {
-
-        if (gridSize>0)
-            old_number = number;
-
-        M_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = Nextsim::getDatenum(year, month, day, hour);
-
-        // may not be eof if \n at end of file
-        // - this can lead to repetition of the last line
-        if (gridSize>0)
-            if (number == old_number)
-                break;
-
-        if(time== current_time )
-        {
-            forward_mapx(map, lat, lon, &x, &y);
-            M_X.push_back(x);
-            M_Y.push_back(y);
-            M_i.push_back(number);
-            gridSize++;
-
-            //std::cout << year << ", "<< month << ", "<< day << ", "
-            //    << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
-        }
-        else if(time>current_time)
-            break;
-    }
-    close_mapx(map);
-#endif
-
-    //! - 3) Calculate conc for all the drifters
+    //! - 4) Calculate conc for all the drifters
     this->updateConc(movedmesh, conc);
 
-    //! - 4) Applies mask using conc and climit
+    //! - 5) Applies mask using conc and climit
     this->maskXY();
 }
 
@@ -145,92 +89,76 @@ TransientDrifters::initFiles()
 
     // INPUT:
     //new buoy file has a header
-    M_fstream.open(M_filename, std::fstream::in);
-    if ( !M_fstream.good() )
+    std::fstream fin(M_filename, std::fstream::in);
+    if ( !fin.good() )
         throw std::runtime_error("File not found: " + M_filename);
 
     //skip header
     std::string header;
-    std::getline(M_fstream, header);
-    LOG(DEBUG)<<"open transient drifter file: "<<M_filename<<"\n";
-    LOG(DEBUG)<<"header: "<<header<<"\n";
-
-    int pos;    // To be able to rewind one line
-    double time = getDatenum(1979, 1, 1);
-    int year, month, day, hour, number;
-    double lat, lon, x, y;
-    mapx_class *map;
-    std::string mppfile = Environment::nextsimMppfile();
-    map = init_mapx( const_cast<char *>(mppfile.c_str()) );
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_i.resize(0);
-    while ( time <= M_time_init )
-    {
-        // Remember where we were
-        pos = M_fstream.tellg();
-
-        // Read the next line
-        M_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = getDatenum(year, month, day, hour);
-
-        if(time=M_time_init)
-        {
-            //loads the current buoys
-            forward_mapx(map, lat, lon, &x, &y);
-            M_X.push_back(x);
-            M_Y.push_back(y);
-            M_i.push_back(number);
-        }
-    }
-    close_mapx(map);
-
-    // We must rewind one line so that updateIabpDrifters works correctly
-    M_fstream.seekg(pos);
+    std::getline(fin, header);
+    M_infile_position = fin.tellg();
+    fin.close();
+    //LOG(DEBUG)<<"open transient drifter file: "<<M_filename<<"\n";
+    //LOG(DEBUG)<<"header: "<<header<<"\n";
 }//initFiles
 
 
-void
-TransientDrifters::updateDrifters(mesh_type_root const& movedmesh_root, std::vector<double>& conc_root,
-        double const& current_time)
+std::vector<int>
+TransientDrifters::grabBuoysFromInputFile(double const& current_time)
 {
+    std::fstream fin(M_filename, std::fstream::in);
+    fin.seekg(M_infile_position);
 
-    // Initialize the map
+    int id_count;
+    int year, month, day, hour, number;
+    double lat, lon, x, y, time;
+    std::vector<int> current_buoys(0);
+
+    // NB need to use eof() and old_number instead of commented code since that version stopped
+    // after the first line for one example of input file
     mapx_class *map;
     std::string mppfile = Environment::nextsimMppfile();
     map = init_mapx( const_cast<char *>(mppfile.c_str()) );
-
-    // Read the current buoys from file
-    double time = current_time;
-    std::vector<int> keepers;
-    int id_count;
-    double x, y;
-    while ( time == current_time )
+    std::string line;
+    while ( std::getline(fin, line) )
     {
-        // Read the next line
-        int year, month, day, hour, number;
-        double lat, lon;
-        M_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = getDatenum(year, month, day, hour);
-
-        // Remember which buoys are in the ice according to IABP
-        keepers.push_back(number);
-
-        // Project and add the buoy to the map if it's missing
-        // - don't try to add the conc yet
-        id_count = std::count(M_i.begin(), M_i.end(), number);
-        if ( id_count == 0 )
+        std::istringstream iss(line);
+        iss >> year >> month >> day >> hour >> number >> lat >> lon;
+        time = Nextsim::getDatenum(year, month, day, hour);
+        if(time== current_time )
         {
-            forward_mapx(map, lat, lon, &x, &y);
-            M_i.push_back(number);
-            M_X.push_back(x);
-            M_Y.push_back(y);
-            LOG(DEBUG)<<"new transient buoy: time, index, lon, lat, x, y: "
-                <<datenumToString(time)<<", "<<number<<", "
-                <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
+            // Project and add the buoy to the map if it's missing
+            // - don't try to add the conc yet
+            id_count = std::count(M_i.begin(), M_i.end(), number);
+            if ( id_count == 0 )
+            {
+                forward_mapx(map, lat, lon, &x, &y);
+                M_i.push_back(number);
+                M_X.push_back(x);
+                M_Y.push_back(y);
+                //LOG(DEBUG)<<"new transient buoy: time, index, lon, lat, x, y: "
+                //    <<datenumToString(time)<<", "<<number<<", "
+                //    <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
+            }
+            current_buoys.push_back(number);
         }
+        else if(time>current_time)
+            break;
+        M_infile_position = fin.tellg();
     }
     close_mapx(map);
+    fin.close();
+    return current_buoys;
+}
+
+
+void
+TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
+        double const& current_time)
+{
+    //add current buoys if not already there
+    //(output is used for masking later)
+    auto current_buoys = this->grabBuoysFromInputFile(current_time);
 
     // update M_iabp_drifters.conc (get model conc at all drifters)
     this->updateConc(movedmesh_root, conc_root);
@@ -238,7 +166,7 @@ TransientDrifters::updateDrifters(mesh_type_root const& movedmesh_root, std::vec
     // Check the drifters map and throw out:
     // (i) the ones which IABP doesn't report as being in the ice anymore (not in keepers)
     // (ii) the ones which have a low conc according to the model
-    this->maskXY(keepers);
+    this->maskXY(current_buoys);
 }//updateDrifters
 
 
@@ -330,6 +258,32 @@ TransientDrifters::isInputTime(double const& current_time)
         // output is already done at init time
         do_input = std::fmod(current_time - M_time_init, M_input_freq) == 0;
     return do_input;
+}
+
+
+// --------------------------------------------------------------------------------------
+//! Determine if we need to input a drifter
+//! Called by outputtingDrifters()
+void
+TransientDrifters::checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+{
+    bool const inputting = this->isInputTime(current_time);
+    bool const outputting = this->isOutputTime(current_time);
+    if (inputting)
+        // check if we need to add new IABP drifters
+        // NB do this after moving
+        // NB this updates M_iabp_conc
+        this->updateDrifters(movedmesh_root, conc_root, current_time);
+
+    if (outputting)
+    {
+        // output IABP drifters
+        // NB do this after moving
+        if(!inputting)
+            //still need to update its conc
+            this->updateConc(movedmesh_root, conc_root);
+        this->outputDrifters(current_time);
+    }
 }
 
 

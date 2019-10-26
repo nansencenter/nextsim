@@ -8128,31 +8128,8 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_UM_root, "M_UM");
         exporter.writeField(outbin, M_UT_root, "M_UT");
 
-        if ( M_use_iabp_drifters && M_iabp_drifters.initialised)
-        {
-            // Sort the drifters so the restart files are identical
-            // (this is just to make testing of restart procedure easier)
-            std::vector<int> drifter_no = M_iabp_drifters.buoy_id;
-            int const n_iabp = drifter_no.size();
-            std::vector<double> drifter_x(n_iabp), drifter_y(n_iabp), drifter_conc(n_iabp);
-            std::vector<int> idx(n_iabp);
-            int j = 0;
-            std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., n_iabp-1}
-            sort(idx.begin(), idx.end(), [&](int i, int j){ return drifter_no[i]<drifter_no[j];} );
-            for ( int j=0; j<n_iabp; j++ )
-            {
-                drifter_no[j] = M_iabp_drifters.buoy_id[idx[j]];
-                drifter_x[j] = M_iabp_drifters.x[idx[j]];
-                drifter_y[j] = M_iabp_drifters.y[idx[j]];
-                drifter_conc[j] = M_iabp_drifters.conc[idx[j]];
-            }
-
-            // write the fields to file
-            exporter.writeField(outbin, drifter_no, "Drifter_no");
-            exporter.writeField(outbin, drifter_x, "Drifter_x");
-            exporter.writeField(outbin, drifter_y, "Drifter_y");
-            exporter.writeField(outbin, drifter_conc, "Drifter_conc");
-        }
+        if (M_iabp_drifters.isInitialised())
+            M_iabp_drifters.addToRestart(exporter, outbin);
 
         // Add the previous numbering to the restart file
         // - used in adaptMesh (updateNodeIds)
@@ -8439,12 +8416,13 @@ FiniteElement::restartIabpDrifters(
     }
     else
     {
-        // init the input/output files
-        this->initIabpDrifterFiles();
-
         // insert the drifter positions from the restart file
-        M_iabp_drifters = IabpDrifter(field_map_int["Drifter_no"], field_map_dbl["Drifter_x"],
-                field_map_dbl["Drifter_y"], field_map_dbl["Drifter_conc"]);
+        M_iabp_drifters = TransientDrifters(field_map_int["Drifter_no"], field_map_dbl["Drifter_x"],
+                field_map_dbl["Drifter_y"], field_map_dbl["Drifter_conc"],
+                M_iabp_infile, M_iabp_outfile,
+                field_map_dbl["Drifter_time_init"][0],
+                M_iabp_drifters_output_time_step,
+                M_iabp_drifters_input_time_step, M_drifters_conc_lim);
     }
 }//restartIabpDrifters
 
@@ -11267,11 +11245,14 @@ FiniteElement::initDrifterOpts()
     //to be run at start time
     std::vector<double> drifters_timesteps;
     std::vector<std::string> drifters_names;//for debugging
+    M_drifters_conc_lim = vm["drifters.concentration_limit"].as<double>();
 
     // use IABP drifters (12h check)
     M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
     M_iabp_drifters_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
     M_iabp_drifters_input_time_step = 0.5;
+    M_iabp_infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
+    M_iabp_outfile = M_export_path + "/IABP_drifters_simulated.txt";
     if (M_use_iabp_drifters)
     {
         // check the IABP in-/out-put time steps are consistent with each other
@@ -11419,7 +11400,7 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
         if(M_use_sidfex_drifters)
             this->initSidfexDrifters(movedmesh_root, conc_root);
 
-        if(M_use_iabp_drifters && !M_iabp_drifters.initialised)
+        if( M_use_iabp_drifters && !M_iabp_drifters.isInitialised() )
             this->initIabpDrifters(movedmesh_root, conc_root);
     }
 
@@ -11442,288 +11423,15 @@ FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
 void
 FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
 {
-    // init the input/output files
-    this->initIabpDrifterFiles();
-
-    // Get:
-    // - the 1st drifter positions (if any)
-    // - M_conc at these positions
-    this->updateIabpDrifters(movedmesh_root, conc_root);
+    double climit = vm["drifters.concentration_limit"].as<double>();
+    M_iabp_drifters = TransientDrifters(M_iabp_infile, M_iabp_outfile,
+                movedmesh_root, conc_root, M_drifters_conc_lim,
+                M_current_time, M_iabp_drifters_output_time_step,
+                M_iabp_drifters_input_time_step);
 
     // Save the initial positions to the output file
-    this->outputIabpDrifters();
+    M_iabp_drifters.outputDrifters(M_current_time);
 }//initIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initialise the IABP drifter input and output text files
-//! Called by the initIabpDrifters() and readRestart() functions.
-void
-FiniteElement::initIabpDrifterFiles()
-{
-    // OUTPUT:
-    std::stringstream filename_out;
-    filename_out << M_export_path << "/IABP_drifters_simulated.txt";
-    M_iabp_outfile = filename_out.str();
-
-    // if M_iabp_outfile exists, we just append to it when it is time;
-    // else we jsut add the header and close
-    fs::path path1(M_iabp_outfile);
-    if ( !fs::exists(path1) )
-    {
-        std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
-        if ( ! iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
-        iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
-        iabp_out.close();
-    }
-
-    // INPUT:
-    //new buoy file has a header
-    std::string filename_in = Environment::nextsimDataDir().string()
-        + "/IABP_drifters.txt";
-    M_iabp_infile_fstream.open(filename_in, std::fstream::in);
-    if ( ! M_iabp_infile_fstream.good() )
-        throw std::runtime_error("File not found: " + filename_in);
-
-    //skip header
-    std::string header;
-    std::getline(M_iabp_infile_fstream, header);
-    LOG(DEBUG)<<"open IABP drifter file: "<<filename_in<<"\n";
-    LOG(DEBUG)<<"header: "<<header<<"\n";
-
-    int pos;    // To be able to rewind one line
-    double time = getDatenum(1979, 1, 1);
-    while ( time < M_drifters_time_init )
-    {
-        // Remember where we were
-        pos = M_iabp_infile_fstream.tellg();
-
-        // Read the next line
-        int year, month, day, hour, number;
-        double lat, lon;
-        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = getDatenum(year, month, day, hour);
-    }
-
-    // We must rewind one line so that updateIabpDrifters works correctly
-    M_iabp_infile_fstream.seekg(pos);
-}//initIabpDrifterFiles
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Outputs the IABP drifter positions and conc
-//! Called by the readRestart(), initDrifters() and checkDrifters() functions.
-void
-FiniteElement::outputIabpDrifters()
-{
-    if (M_rank==0)
-    {
-        if (!M_iabp_drifters.initialised)
-            return;
-
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        //open output file for appending
-        std::fstream iabp_out(M_iabp_outfile, std::fstream::out | std::fstream::app );
-        if ( ! iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
-
-        // Loop over the map and output
-        auto ptime = datenumToPosixTime(M_current_time);
-        for ( int j=0; j<M_iabp_drifters.buoy_id.size(); j++)
-        {
-            double lat, lon;
-            inverse_mapx(map, M_iabp_drifters.x[j], M_iabp_drifters.y[j], &lat, &lon);
-            iabp_out
-                << std::setw(4) << posixTimeToString(ptime, "%Y")
-                << " " << std::setw( 2) << posixTimeToString(ptime, "%m")
-                << " " << std::setw( 2) << posixTimeToString(ptime, "%d")
-                << " " << std::setw( 2) << posixTimeToString(ptime, "%H")
-                << " " << std::setw(16) << M_iabp_drifters.buoy_id[j]
-                << std::fixed << std::setprecision(5)
-                << " " << std::setw( 8) << lat
-                << " " << std::setw(10) << lon
-                << " " << M_iabp_drifters.conc[j]
-                << "\n";
-        }
-
-        //close output file
-        iabp_out.close();
-
-        // close the map
-        close_mapx(map);
-    }
-}//outputIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the IABP buoy in time, by adding the buoys that have been put into the ice and removing the dead ones.
-//! * Also updates the conc at the IABP drifters
-//! Called by the updateDrifterPosition() function.
-void
-FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double>& conc_root)
-{
-
-    if(M_rank==0)
-    {
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        // Read the current buoys from file
-        double time = M_current_time;
-        std::vector<int> keepers;
-        int id_count;
-        double x, y;
-        while ( time == M_current_time )
-        {
-            // Read the next line
-            int year, month, day, hour, number;
-            double lat, lon;
-            M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-            time = getDatenum(year, month, day, hour);
-
-            // Remember which buoys are in the ice according to IABP
-            keepers.push_back(number);
-
-            // Project and add the buoy to the map if it's missing
-            // - don't try to add the conc yet
-            id_count = std::count(M_iabp_drifters.buoy_id.begin(),
-                    M_iabp_drifters.buoy_id.end(), number);
-            if ( id_count == 0 )
-            {
-                forward_mapx(map, lat, lon, &x, &y);
-                M_iabp_drifters.buoy_id.push_back(number);
-                M_iabp_drifters.x.push_back(x);
-                M_iabp_drifters.y.push_back(y);
-                LOG(DEBUG)<<"new IABP buoy: time, index, lon, lat, x, y: "
-                    <<datenumToString(time)<<", "<<number<<", "
-                    <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
-            }
-        }
-        close_mapx(map);
-
-        // update M_iabp_drifters.conc (get model conc at all drifters)
-        this->updateIabpDrifterConc(movedmesh_root, conc_root);
-
-        // Go through the M_iabp_drifters map and throw out:
-        // (i) the ones which IABP doesn't report as being in the ice anymore
-        // (ii) the ones which have a low conc according to the model
-        double clim = vm["drifters.concentration_limit"].as<double>();
-        int const n_iabp = M_iabp_drifters.buoy_id.size();
-        std::vector<int> drifter_no(0);
-        std::vector<double> drifter_x(0), drifter_y(0), drifter_conc(0);
-        int number;
-        bool keep;
-        for ( int j=0; j<n_iabp; j++ )
-        {
-            keep = (M_iabp_drifters.conc[j] > clim)             // in ice (model)
-                && ( std::count(keepers.begin(), keepers.end(),
-                            M_iabp_drifters.buoy_id[j]) >0 );   // in ice (IABP)
-            if ( keep )
-            {
-                drifter_no.push_back(M_iabp_drifters.buoy_id[j]);
-                drifter_x.push_back(M_iabp_drifters.x[j]);
-                drifter_y.push_back(M_iabp_drifters.y[j]);
-                drifter_conc.push_back(M_iabp_drifters.conc[j]);
-            }
-        }
-        M_iabp_drifters = IabpDrifter(drifter_no, drifter_x, drifter_y, drifter_conc);
-    }
-}//updateIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the concentration variable at the IABP buoys
-//! Called by the updateIabpDrifters() and readRestart() function.
-void
-FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root)
-{
-    if( M_rank ==0 )
-    {
-        // Assemble the coordinates from the unordered_map
-        int const n_iabp = M_iabp_drifters.buoy_id.size();
-
-        // Interpolate the concentration
-        double* interp_drifter_c_out;
-        InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                &movedmesh_root.indexTr()[0], &movedmesh_root.coordX()[0], &movedmesh_root.coordY()[0],
-                                movedmesh_root.numNodes(), movedmesh_root.numTriangles(),
-                                &conc_root[0],
-                                movedmesh_root.numTriangles(), 1,
-                                &(M_iabp_drifters.x)[0], &(M_iabp_drifters.y)[0],
-                                n_iabp,
-                                true, 0.);
-
-        // Finally retrieve M_iabp_conc and delete the pointer
-        M_iabp_drifters.conc.resize(n_iabp);
-        for( int j=0; j<n_iabp; j++ )
-            M_iabp_drifters.conc[j] = interp_drifter_c_out[j];
-        xDelete<double>(interp_drifter_c_out);
-    }
-
-}//updateIabpDrifterConc
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the positions of the IABP buoys
-//! Called by the updateIabpDrifters() function.
-void
-FiniteElement::updateIabpDrifterPosition(std::vector<double> & UT_root)
-{
-    if(M_rank==0)
-    {
-        chrono.restart();
-        LOG(DEBUG) <<"IABP Drifter moving starts\n";
-
-        int const n_iabp = M_iabp_drifters.buoy_id.size();
-
-        // Interpolate the total displacement onto the drifter positions
-        int nb_var=2;
-        std::vector<double> interp_drifter_in(nb_var*M_mesh_root.numNodes());
-        for (int i=0; i<M_mesh_root.numNodes(); ++i)
-        {
-            interp_drifter_in[nb_var*i]   = UT_root[i];
-            interp_drifter_in[nb_var*i+1] = UT_root[i+M_mesh_root.numNodes()];
-        }
-
-        double* interp_drifter_out;
-        InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                &M_mesh_root.indexTr()[0], &M_mesh_root.coordX()[0], &M_mesh_root.coordY()[0],
-                                M_mesh_root.numNodes(), M_mesh_root.numTriangles(),
-                                &interp_drifter_in[0],
-                                M_mesh_root.numNodes(), nb_var,
-                                &(M_iabp_drifters.x)[0], &(M_iabp_drifters.y)[0], n_iabp,
-                                true, 0.);
-
-        // Rebuild the M_iabp_drifters map
-        // (move the IABP drifters)
-        for ( int j=0; j<n_iabp; j++ )
-        {
-            M_iabp_drifters.x[j] += interp_drifter_out[nb_var*j];
-            M_iabp_drifters.y[j] += interp_drifter_out[nb_var*j+1];
-        }
-        xDelete<double>(interp_drifter_out);
-        LOG(DEBUG) <<"IABP Drifter move done in "<< chrono.elapsed() <<"s\n";
-    }
-}//updateIabpDrifterPosition
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -11784,30 +11492,9 @@ FiniteElement::outputtingDrifters(
         bool &io_any
         )
 {
-
-    input_iabp = false;
-    output_iabp = false;
-    io_any = false;
-    if(M_rank != 0)
-        return;
-
-    // we only output after init time (not at init time)
-    // - netcdf/text file outputs are already written at init time of drifters
-    if(M_current_time>M_drifters_time_init)
-    {
-        // inputting/outputting IABP drifters?
-        if ( M_use_iabp_drifters )
-        {
-            input_iabp = (std::fmod(
-                    M_current_time - M_drifters_time_init,
-                    M_iabp_drifters_input_time_step
-                    )==0);
-            output_iabp = (std::fmod(
-                    M_current_time - M_drifters_time_init,
-                    M_iabp_drifters_output_time_step
-                    )==0);
-        }
-    }
+    // IABP drifters
+    input_iabp = M_iabp_drifters.isInputTime(M_current_time);
+    output_iabp = M_iabp_drifters.isOutputTime(M_current_time);
 
     // Check the non-IABP drifters by looping over M_ordinary_drifters
     io_any = input_iabp || output_iabp;
@@ -11879,41 +11566,16 @@ FiniteElement::checkDrifters()
             //! - 4) Move the drifters
             // NB M_UT is relative to the fixed mesh, not the moved mesh
             // NB to update the conc we need to move the mesh
-            //! * IABP drifters
-            if ( M_use_iabp_drifters )
-                if(M_current_time>M_drifters_time_init)
-                    this->updateIabpDrifterPosition(UT_root);
-
-            //! * other drifters
+            M_iabp_drifters.move(M_mesh_root, UT_root);
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                if ((*it)->isInitialised())
-                    (*it)->move(M_mesh_root, UT_root);
-            auto movedmesh_root = M_mesh_root;
-            movedmesh_root.move(UM_root, 1.);
+                (*it)->move(M_mesh_root, UT_root);
 
             //! - 5) Do we need to input/output any drifters?
-            if (input_iabp)
-                // check if we need to add new IABP drifters
-                // NB do this after moving
-                // NB this updates M_iabp_conc
-                this->updateIabpDrifters(movedmesh_root, conc_root);
-
-            if (output_iabp)
-            {
-                // output IABP drifters
-                // NB do this after moving
-                if(!input_iabp)
-                    //still need to update M_iabp_conc
-                    this->updateIabpDrifterConc(movedmesh_root, conc_root);
-                this->outputIabpDrifters();
-            }
-
+            auto movedmesh_root = M_mesh_root;
+            movedmesh_root.move(UM_root, 1.);
+            M_iabp_drifters.checkAndDoIO(movedmesh_root, conc_root, M_current_time);
             for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                if ((*it)->isOutputTime(M_current_time))
-                {
-                    (*it)->updateConc(movedmesh_root, conc_root);
-                    (*it)->appendNetCDF(M_current_time);
-                }
+                (*it)->checkAndDoOutput(movedmesh_root, conc_root, M_current_time);
 
             //! - 6) Do we need to initialise any drifters?
             //  * Do initialisation after moving,
@@ -12678,12 +12340,8 @@ FiniteElement::checkFields()
 
             // get lon, lat at test position
             mapx_class *map;
-            std::string configfile = (boost::format( "%1%/%2%" )
-                % Environment::nextsimMeshDir().string()
-                % Environment::vm()["mesh.mppfile"].as<std::string>()
-                ).str();
-
-            std::vector<char> str(configfile.begin(), configfile.end());
+            std::string mppfile = Environment::nextsimMppfile();
+            std::vector<char> str(mppfile.begin(), mppfile.end());
             str.push_back('\0');
             map = init_mapx(&str[0]);
             inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
@@ -12732,12 +12390,6 @@ FiniteElement::finalise(std::string current_time_system)
     // Output timer ticks
     if (M_rank == 0)
         LOG(INFO) << M_timer.printAll();
-
-    // Don't forget to close the iabp file!
-    if (M_use_iabp_drifters)
-    {
-        M_iabp_infile_fstream.close();
-    }
 
     // Clear ponters etc
     M_comm.barrier();
