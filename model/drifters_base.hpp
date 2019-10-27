@@ -34,9 +34,15 @@ public:
         DriftersBase() {}
         void addToRestart(Exporter &exporter, std::fstream &outbin);
         bool isOutputTime(double const& current_time);
+        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void updateConc( GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc);
+        bool isInitialised() { return M_is_initialised; }
 
 protected:
         std::vector<int> grabBuoysFromInputFile(double const& current_time);
+        void maskXY(std::vector<int> const& current_buoys); //check if buoy IDs are in a given list and remove if they are not
+        void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
 
         bool M_is_initialised = false;
         int M_num_drifters = 0;
