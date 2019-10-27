@@ -2477,13 +2477,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-		        neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
-		        if (!std::isnan(neighbour_double) && neighbour_int>0)
+                if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/dtime_step/3.,-outer_fluxes_area[i]);
@@ -6071,7 +6071,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         else
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
+            LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
                 << ocn_evap_err*1e3 << " mm over the current time step\n";
             h2 = 0.;
             h1 = 0.;
@@ -6788,6 +6788,10 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
+    if (vm["debugging.check_velocity_fields"].as<bool>())
+        // check fields for nans and if thickness is too big
+        this->checkVelocityFields();
+
     M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
@@ -7118,7 +7122,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     // check if we are outputting results file
-    bool exporting = false; 
+    bool exporting = false;
     if(output_time_step>0)
         exporting = (pcpt*time_step % output_time_step == 0);
     if(exporting)
@@ -9145,7 +9149,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-    		break;
+            break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
             M_ocean=ExternalData(
@@ -9198,7 +9202,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
-    		break;
+            break;
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
@@ -9597,7 +9601,7 @@ FiniteElement::constantIce()
             M_hs_thin[i]   = hs_const*M_conc_thin[i];
         }
     }
-	LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
+    LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
 
     if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
@@ -12684,9 +12688,27 @@ FiniteElement::writeLogFile()
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
         }
     }
-    
+
 }//writeLogFile
 
+// -------------------------------------------------------------------------------------
+//! Checks velocity fields and identify outliers with too high velocity (above
+//! debug.check_velocity_fiels) or where relative deviation from neighbours is above N STDs
+//! Called by the step() function.
+void
+FiniteElement::checkVelocityFields()
+{
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        double u = M_VT[i];
+        double v = M_VT[i+M_num_nodes];
+        double spd = std::sqrt(u*u+v*v);
+        if ( spd > 0.5 )
+        {
+            LOG(INFO)<<spd<<"\n";
+        }
+    }
+}
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
