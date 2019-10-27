@@ -121,71 +121,29 @@ Drifters::Drifters(std::string const& filename,
     //! - 2) Load the nodes from file
 
     // Check file
+    M_infile = filename;
     std::fstream drifter_text_file;   // The file we read the buoy data from
-
-    drifter_text_file.open(filename, std::fstream::in);
+    drifter_text_file.open(M_infile, std::fstream::in);
     if ( ! drifter_text_file.good() )
         throw std::runtime_error("File not found: " + filename);
 
-    //! -3) Read the current buoys from file
-    double time = current_time;
-
-
-    // skip header line
+    //skip header, save position, and close
     std::string header;
     std::getline(drifter_text_file, header);
+    M_infile_position = drifter_text_file.tellg();
+    drifter_text_file.close();
 
-    int year, month, day, hour;//, number;
-    int number;
-    double lat, lon, x, y;
-
-    // Read the next line
-    // NB need to use eof() and old_number instead of commented code since that version stopped
-    // after the first line for one example of input file
-    int gridSize = 0;
-    int old_number = 0;
-    //project lat,lon to x,y as we go
-    mapx_class *map;
-    std::string mppfile = Environment::nextsimMppfile();
-    map = init_mapx( const_cast<char *>(mppfile.c_str()) );
-    //while ( M_rgps_file >> year >> month >> day >> hour >> number >> lat >> lon )
-    while (!drifter_text_file.eof())
-    {
-
-        if (gridSize>0)
-            old_number = number;
-
-        drifter_text_file >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = Nextsim::getDatenum(year, month, day, hour);
-
-        // may not be eof if \n at end of file
-        // - this can lead to repetition of the last line
-        if (gridSize>0)
-            if (number == old_number)
-                break;
-
-        if(time== current_time )
-        {
-            forward_mapx(map, lat, lon, &x, &y);
-            M_i.push_back(number);
-            M_X.push_back(x);
-            M_Y.push_back(y);
-
-            //std::cout << year << ", "<< month << ", "<< day << ", "
-            //    << hour << ", "  << number << ", "<< lat << ", "<< lon << "\n";
-        }
-        else if(time>current_time)
-            break;
-    }
-    close_mapx(map);
+    //get the buoys
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_i.resize(0);
+    this->grabBuoysFromInputFile(current_time);
 
     //! -3) Set M_conc at all the drifters
     this->updateConc(moved_mesh, conc);
 
     //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
     this->maskXY();
-
-    drifter_text_file.close();
 }
 
 
