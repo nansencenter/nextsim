@@ -9,7 +9,7 @@
 #ifndef __TransientDrifters_H
 #define __TransientDrifters_H 1
 
-#include <drifters.hpp>
+#include <drifters_base.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -28,7 +28,7 @@
 
 namespace Nextsim
 {
-    class TransientDrifters: public Drifters
+    class TransientDrifters: public DriftersBase
     {
 public:
 
@@ -39,12 +39,7 @@ public:
                 std::vector<double> const& y_in, std::vector<double> const& conc_in,
                 std::string const& infile, std::string const& outfile,
                 double const& init_time, double const& output_freq,
-                double const& input_freq, double const& conc_lim) :
-                M_i(buoy_id_in), M_X(x_in), M_Y(y_in),
-                M_conc(conc_in), M_is_initialised(true),
-                M_time_init(init_time), M_output_freq(output_freq),
-                M_input_freq(input_freq), M_conc_lim(conc_lim)
-        {}
+                double const& input_freq, double const& conc_lim);
 
         //! init drifters from text file
         TransientDrifters(std::string const& infile,
@@ -58,29 +53,12 @@ public:
         void updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
             double const& current_time);
         void outputDrifters(double const& current_time);
-        void addToRestart(Exporter &exporter, std::fstream &outbin);
         bool isInputTime(double const& current_time);
         void checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
 
-protected:
-        std::vector<int> grabBuoysFromInputFile(double const& current_time);
-
-        bool M_is_initialised = false;
-        int M_num_drifters = 0;
-        double M_time_init;
-        double M_output_freq;
-        double M_input_freq;
-        double M_conc_lim;
-
-        std::string M_filename; // The file we read the IABP buoy data from
-        int M_infile_position;
+private:
         std::string M_outfile; // The (text) file we output to
-
-        std::vector<double> M_X;
-        std::vector<double> M_Y;
-        std::vector<int> M_i;
-        std::vector<double> M_conc;
     };
 } // Nextsim
 
