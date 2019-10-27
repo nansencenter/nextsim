@@ -31,7 +31,6 @@ namespace Nextsim
     class TransientDrifters: public DriftersBase
     {
 public:
-
         TransientDrifters() {}
 
         //init from vectors (eg from restart)
@@ -56,9 +55,6 @@ public:
         bool isInputTime(double const& current_time);
         void checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
-
-private:
-        std::string M_outfile; // The (text) file we output to
     };
 } // Nextsim
 

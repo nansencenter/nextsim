@@ -9,6 +9,7 @@
 #ifndef __Drifters_H
 #define __Drifters_H 1
 
+#include <drifters_base.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -25,7 +26,7 @@
 
 namespace Nextsim
 {
-    class Drifters
+    class Drifters: public DriftersBase
     {
 public:
 
@@ -52,12 +53,7 @@ public:
         Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
                 std::vector<double> const& y_in, std::vector<double> const& conc_in,
                 double const& init_time, double const& output_freq,
-                double const& conc_lim) :
-                M_i(buoy_id_in), M_X(x_in), M_Y(y_in),
-                M_conc(conc_in), M_is_initialised(true),
-                M_time_init(init_time), M_output_freq(output_freq),
-                M_conc_lim(conc_lim)
-        {}
+                double const& conc_lim);
 
         //! init equally-spaced drifters
         Drifters(double const& spacing, GmshMeshSeq const& movedmesh,
@@ -78,39 +74,14 @@ public:
                 std::vector<double> & conc, double const& climit,
                 double const& current_time, double const& output_freq);
 
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void updateConc( GmshMeshSeq const& movedmesh,
-                std::vector<double> & conc);
-
         void initNetCDF(std::string file_prefix, double current_time);
-
         void appendNetCDF(double current_time);
-
-        bool isInitialised();
-        bool isOutputTime(double const& current_time);
         void checkAndDoOutput(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
 
 
-protected://only derived classes have access to these
-        bool M_is_initialised = false;
-        int M_num_drifters = 0;
-        double M_time_init;
-        double M_output_freq;
-        double M_conc_lim;
-
-
+private://only derived classes have access to these
         size_t M_nc_step;
-
-        std::string M_filename;
-
-        std::vector<double> M_X;
-        std::vector<double> M_Y;
-        std::vector<int> M_i;
-        std::vector<double> M_conc;
-
-        void maskXY(std::vector<int> const& keepers); //check if buoy IDs are in a given list and remove if they are not
-        void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
     };
 } // Nextsim
 

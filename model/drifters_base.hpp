@@ -51,7 +51,8 @@ protected:
         double M_input_freq;
         double M_conc_lim;
 
-        std::string M_filename; // The file we read the IABP buoy data from
+        std::string M_infile;
+        std::string M_outfile;
         int M_infile_position;
 
         std::vector<double> M_X;

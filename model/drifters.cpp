@@ -24,6 +24,23 @@ namespace Nextsim
 //!   function (maskXY), called only by the constructors, to mask out drifters
 //!   placed outside the ice cover.
 //! * There is also a default, constructor which initialises things to zero and false.
+
+
+//init from vectors (eg from restart)
+Drifters::Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
+        std::vector<double> const& y_in, std::vector<double> const& conc_in,
+        double const& init_time, double const& output_freq,
+        double const& conc_lim)
+{
+    M_i = buoy_id_in;
+    M_X = x_in;
+    M_Y = y_in;
+    M_conc = conc_in;
+    M_is_initialised = true;
+    M_time_init = init_time;
+    M_output_freq = output_freq;
+    M_conc_lim = conc_lim;
+}
  
 
 // ---------------------------------------------------------------------------------------
@@ -247,148 +264,7 @@ Drifters::Drifters(std::string const& gridFile,
 
     //! - 8) Applies mask using conc and climit, and save to M_X and M_Y
     this->maskXY();
-}
-
-
-// --------------------------------------------------------------------------------------
-//! Determine if we need to output a drifter
-//! Called by outputtingDrifters()
-//  TODO can now make a loop over all the drifters
-bool
-Drifters::isOutputTime(double const& current_time)
-{
-    // can only output if it's initialised
-    if(!M_is_initialised)
-        return false;
-
-    bool do_output = false;
-    if(current_time>M_time_init)
-        // output is already done at init time
-        do_output = std::fmod(current_time - M_time_init, M_output_freq) == 0;
-    return do_output;
-}
-
-
-// --------------------------------------------------------------------------------------
-//! Masks out X and Y values where there is no ice
-//! Also fills M_i with the indices that are kept
-void
-Drifters::maskXY(std::vector<int> const& keepers)
-{
-
-    auto X = M_X;
-    auto Y = M_Y;
-    auto INDS = M_i;
-    auto conc = M_conc;
-
-    //! - 2) Adds drifter positions where conc > conc_lim
-    M_X.resize(0); // this shouldn't be necessary!
-    M_Y.resize(0);
-    M_i.resize(0);
-    M_conc.resize(0);
-    int id_count;
-
-    for ( int i=0; i<INDS.size(); ++i )
-    {
-        id_count = std::count(keepers.begin(),
-                    keepers.end(), INDS[i]);
-        if ( conc[i] > M_conc_lim
-                && id_count>0 )
-        {
-            M_X.push_back(X[i]);
-            M_Y.push_back(Y[i]);
-            M_i.push_back(INDS[i]);
-            M_conc.push_back(conc[i]);
-        }
-    }
-
-    M_num_drifters = M_X.size();
-}//maskXY()
-
-
-// --------------------------------------------------------------------------------------
-//! Checks to see if the drifters are correctly initialized.
-bool
-Drifters::isInitialised()
-{
-    return M_is_initialised;
-}//isInitialised
-
-
-// --------------------------------------------------------------------------------------
-//! Move drifters and replace the old coordinates with the new ones
-//! called by FiniteElement::checkDrifters()
-void
-Drifters::move(GmshMeshSeq const& mesh,
-        std::vector<double> const& UT)
-{
-    // Do nothing if we don't have to
-    if ( !M_is_initialised )
-        return;
-    if ( M_num_drifters == 0 )
-        return;
-
-    // Interpolate the total displacement onto the drifter positions
-    int nb_var=2;
-    int numNodes = mesh.numNodes();
-    std::vector<double> interp_drifter_in(nb_var*numNodes);
-    for (int i=0; i<numNodes; ++i)
-    {
-        interp_drifter_in[nb_var*i]   = UT[i];
-        interp_drifter_in[nb_var*i+1] = UT[i+numNodes];
-    }
-
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
-                            numNodes,mesh.numTriangles(),
-                            &interp_drifter_in[0],
-                            numNodes,nb_var,
-                            &M_X[0],&M_Y[0],M_num_drifters,
-                            true, 0.);
-
-    // Add the displacement to the current position
-    for ( int i=0; i<M_num_drifters; ++i )
-    {
-        M_X[i] += interp_drifter_out[nb_var*i];
-        M_Y[i] += interp_drifter_out[nb_var*i+1];
-    }
-
-    xDelete<double>(interp_drifter_out);
-}
-
-
-// --------------------------------------------------------------------------------------
-//! interp conc onto drifter positions
-//! called by FiniteElement::checkDrifters()
-void
-Drifters::updateConc(GmshMeshSeq const& movedmesh,
-        std::vector<double> & conc)
-{
-    // Do nothing if we don't have to
-    if ( M_num_drifters == 0 )
-        return;
-
-    // move the mesh before interpolating
-    int numNodes = movedmesh.numNodes();
-    int numElements = movedmesh.numTriangles();
-
-    // Interpolate the concentration onto the drifter positions
-    int nb_var=1;
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
-                            numNodes, numElements,
-                            &conc[0],
-                            numElements, nb_var,
-                            &M_X[0], &M_Y[0], M_num_drifters,
-                            true, 0.);
-
-    for ( int i=0; i<M_num_drifters; ++i )
-        M_conc[i] = interp_drifter_out[i];
-
-    xDelete<double>(interp_drifter_out);
-}//updateConc
+}//init from text file
 
 
 // File operations
@@ -410,7 +286,7 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
     filename << file_prefix;
     filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << setw(2) << setfill('0') << now.day();
     filename << ".nc";
-    M_filename = filename.str();
+    M_outfile = filename.str();
 
     /* Not sure if I want to check if the file exists
     // Throw an error if the file exists
@@ -492,7 +368,7 @@ Drifters::appendNetCDF(double current_time)
     close_mapx(map);
 
     // Open the netCDF file
-    netCDF::NcFile dataFile(M_filename, netCDF::NcFile::write);
+    netCDF::NcFile dataFile(M_outfile, netCDF::NcFile::write);
 
     // Append to time
     std::vector<size_t> start;

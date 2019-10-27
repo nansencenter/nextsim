@@ -64,7 +64,7 @@ TransientDrifters::TransientDrifters(std::string const& infile,
     M_time_init = current_time;
     M_output_freq = output_freq;
     M_input_freq = input_freq;
-    M_filename = infile;
+    M_infile = infile;
     M_outfile = outfile;
     M_is_initialised = true;
     M_conc_lim = climit;
@@ -107,16 +107,16 @@ TransientDrifters::initFiles()
 
     // INPUT:
     //new buoy file has a header
-    std::fstream fin(M_filename, std::fstream::in);
+    std::fstream fin(M_infile, std::fstream::in);
     if ( !fin.good() )
-        throw std::runtime_error("File not found: " + M_filename);
+        throw std::runtime_error("File not found: " + M_infile);
 
     //skip header
     std::string header;
     std::getline(fin, header);
     M_infile_position = fin.tellg();
     fin.close();
-    //LOG(DEBUG)<<"open transient drifter file: "<<M_filename<<"\n";
+    //LOG(DEBUG)<<"open transient drifter file: "<<M_infile<<"\n";
     //LOG(DEBUG)<<"header: "<<header<<"\n";
 }//initFiles
 
