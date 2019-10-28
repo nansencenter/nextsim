@@ -6788,8 +6788,8 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
+    // check velocity fields if speed exceed a threshold
     if (vm["debugging.check_velocity_fields"].as<bool>())
-        // check fields for nans and if thickness is too big
         this->checkVelocityFields();
 
     M_timer.tick("remesh");
@@ -12698,14 +12698,45 @@ FiniteElement::writeLogFile()
 void
 FiniteElement::checkVelocityFields()
 {
+    // minimum speed to trigger error check
+    double spd_lim = 0.5;
+
+    int num_nodes = bamgmesh->NodalConnectivitySize[0];
+    int max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+
+    std::vector<double> uv(2), std(2), avg(2), rer(2);
     for (int i=0; i<M_num_nodes; ++i)
     {
-        double u = M_VT[i];
-        double v = M_VT[i+M_num_nodes];
-        double spd = std::sqrt(u*u+v*v);
-        if ( spd > 0.5 )
+        uv[0] = M_VT[i];
+        uv[1] = M_VT[i+M_num_nodes];
+        double spd = std::sqrt(uv[0]*uv[0]+uv[1]*uv[1]);
+        if ( spd > spd_lim )
         {
-            LOG(INFO)<<spd<<"\n";
+            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+            // for U and V
+            for (int k=0; k<2; ++k)
+            {
+                // one pass algorithm for standard deviation of velocities in neighbours
+                double avg_old = 0;
+                for (int j=0; j<num_neighbours; ++j)
+                {
+                    // neigbour node index for U (k=0) or V (k=1)
+                    int nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    avg_old = avg[k];
+                    avg[k] += (M_VT[nni] - avg[k]) / (j + 1.);
+                    std[k] += (M_VT[nni] - avg[k]) * (M_VT[nni] - avg_old);
+                }
+                // standard deviation of velocities
+                std[k] = std::sqrt(std[k] / (num_neighbours - 1.));
+                // relative error of velocities
+                rer[k] = (avg[k] - uv[k]) / std[k];
+            }
+            double rer1 = std::sqrt(rer[0]*rer[0]+rer[1]*rer[1]);
+            LOG(INFO) << " Rogue velocity on step:" << std::setw(5) << pcpt
+                       << " in node:" << std::setw(7) << i
+                       << " spd:" << std::setw(10) << spd
+                       << " rer:" << std::setw(10) << rer1
+                       << "\n";
         }
     }
 }
