@@ -50,18 +50,20 @@ public:
         Drifters() {}
 
         //init from vectors (eg from restart)
-        Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
-                std::vector<double> const& y_in, std::vector<double> const& conc_in,
-                double const& init_time, double const& output_freq,
-                double const& conc_lim);
+        Drifters(std::string const& tag, std::string const& outfile_prefix,
+                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
+                double const& output_freq, double const& conc_lim);
 
         //! init equally-spaced drifters
-        Drifters(double const& spacing, GmshMeshSeq const& movedmesh,
+        Drifters(std::string const& tag, std::string const& outfile_prefix,
+                double const& spacing, GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc, double const& climit,
                 double const& current_time, double const& output_freq);
 
         //! init drifters from netcdf file
-        Drifters(std::string const& gridFile,
+        Drifters(std::string const& tag, std::string const& outfile_prefix,
+                 std::string const& gridFile,
                  std::string const& dimNameX, std::string const& dimNameY,
                  std::string const& latName, std::string const& lonName,
                  GmshMeshSeq const& movedmesh,
@@ -69,18 +71,18 @@ public:
                  double const& current_time, double const& output_freq);
 
         //! init drifters from text file
-        Drifters(std::string const& filename,
+        Drifters(std::string const& tag, std::string const& outfile_prefix,
+                std::string const& filename,
                 GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc, double const& climit,
                 double const& current_time, double const& output_freq);
 
-        void initNetCDF(std::string file_prefix, double current_time);
-        void appendNetCDF(double current_time);
+        void appendNetCDF(double const& current_time);
         void checkAndDoOutput(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
 
-
-private://only derived classes have access to these
+private:
+        void initNetCDF(std::string const& outfile_prefix, bool const& overwrite);
         size_t M_nc_step;
     };
 } // Nextsim

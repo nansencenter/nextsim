@@ -27,19 +27,18 @@ namespace Nextsim
 
 
 //init from vectors (eg from restart)
-Drifters::Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
-        std::vector<double> const& y_in, std::vector<double> const& conc_in,
-        double const& init_time, double const& output_freq,
-        double const& conc_lim)
+Drifters::Drifters(
+        std::string const& tag, std::string const& outfile_prefix,
+        boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+        boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
+        double const& output_freq, double const& conc_lim)
 {
-    M_i = buoy_id_in;
-    M_X = x_in;
-    M_Y = y_in;
-    M_conc = conc_in;
+    M_tag = tag;
     M_is_initialised = true;
-    M_time_init = init_time;
     M_output_freq = output_freq;
     M_conc_lim = conc_lim;
+    this -> readFromRestart(field_map_int, field_map_dbl);
+    this->initNetCDF(outfile_prefix, false);
 }
  
 
@@ -47,12 +46,14 @@ Drifters::Drifters(std::vector<int> const& buoy_id_in, std::vector<double> const
 //! Initializes drifters : seeds and destroys drifters.
 //! * defines a uniform grid with resolution defined by spacing
 //! Called by FiniteElement::initEquallySpacedDrifters()
-Drifters::Drifters(double const& spacing,
-        GmshMeshSeq const& moved_mesh,
+Drifters::Drifters(
+        std::string const& tag, std::string const& outfile_prefix,
+        double const& spacing, GmshMeshSeq const& moved_mesh,
         std::vector<double> & conc, double const& climit,
         double const& current_time, double const& output_freq)
 {
     //! -1) Set the time and output freq
+    M_tag = tag;
     M_time_init = current_time;
     M_output_freq = output_freq;
     M_conc_lim = climit;
@@ -92,13 +93,18 @@ Drifters::Drifters(double const& spacing,
 
     //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
     this->maskXY();
+
+    //! -5) Init the netcdf output file
+    this->initNetCDF(outfile_prefix, true);
 }
 
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-Drifters::Drifters(std::string const& filename,
+Drifters::Drifters(
+        std::string const& tag, std::string const& outfile_prefix,
+        std::string const& infile,
         GmshMeshSeq const& moved_mesh,
         std::vector<double> & conc, double const& climit,
         double const& current_time, double const& output_freq)
@@ -110,6 +116,7 @@ Drifters::Drifters(std::string const& filename,
     //     (this is what is done in the forecast system)
 
     //! -1) Set the time and output freq
+    M_tag = tag;
     M_time_init = current_time;
     M_output_freq = output_freq;
     M_i.resize(0);
@@ -121,11 +128,11 @@ Drifters::Drifters(std::string const& filename,
     //! - 2) Load the nodes from file
 
     // Check file
-    M_infile = filename;
+    M_infile = infile;
     std::fstream drifter_text_file;   // The file we read the buoy data from
     drifter_text_file.open(M_infile, std::fstream::in);
-    if ( ! drifter_text_file.good() )
-        throw std::runtime_error("File not found: " + filename);
+    if ( !drifter_text_file.good() )
+        throw std::runtime_error("File not found: " + M_infile);
 
     //skip header, save position, and close
     std::string header;
@@ -144,6 +151,9 @@ Drifters::Drifters(std::string const& filename,
 
     //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
     this->maskXY();
+
+    //! -5) Init the netcdf output file
+    this->initNetCDF(outfile_prefix, true);
 }
 
 
@@ -151,7 +161,8 @@ Drifters::Drifters(std::string const& filename,
 //! Initializes drifters : seeds and destroys drifters.
 //! * reads a netcdf file
 //! Called by FiniteElement::initOsisafDrifters()
-Drifters::Drifters(std::string const& gridFile,
+Drifters::Drifters(std::string const& tag, std::string const& outfile_prefix,
+                   std::string const& gridFile,
                    std::string const& dimNameX, std::string const& dimNameY,
                    std::string const& latName, std::string const& lonName,
                    GmshMeshSeq const& moved_mesh,
@@ -160,6 +171,7 @@ Drifters::Drifters(std::string const& gridFile,
 {
 
     //! -1) Set the time and output freq
+    M_tag = tag;
     M_time_init = current_time;
     M_output_freq = output_freq;
     M_conc_lim = climit;
@@ -222,6 +234,9 @@ Drifters::Drifters(std::string const& gridFile,
 
     //! - 8) Applies mask using conc and climit, and save to M_X and M_Y
     this->maskXY();
+
+    //! -9) Init the netcdf output file
+    this->initNetCDF(outfile_prefix, true);
 }//init from text file
 
 
@@ -235,25 +250,15 @@ Drifters::Drifters(std::string const& gridFile,
 //! with the same prefix per day.
  
 void
-Drifters::initNetCDF(std::string file_prefix, double current_time)
+Drifters::initNetCDF(std::string const& outfile_prefix, bool const& overwrite)
 {
-    // Construct the filename
-    boost::gregorian::date now = Nextsim::parse_date(current_time);
-    std::stringstream filename;
-
-    filename << file_prefix;
-    filename << now.year() << setw(2) << setfill('0') << now.month().as_number() << setw(2) << setfill('0') << now.day();
-    filename << ".nc";
-    M_outfile = filename.str();
-
-    /* Not sure if I want to check if the file exists
-    // Throw an error if the file exists
-    if ( ! boost::filesystem::exists(filename) )
-    throw std::runtime_error("Drifters::initNetCDF: Trying to initialise a file that already exists: " + filename);
-    */
+    M_outfile = outfile_prefix + datenumToString(M_time_init, "%Y%m%d.nc");
+    if ( boost::filesystem::exists(M_outfile) && !overwrite )
+        //don't want to overwrite if starting from restart
+        return;
 
     // Create the netCDF file.
-    netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
+    netCDF::NcFile dataFile(M_outfile, netCDF::NcFile::replace);
 
     // Create the time dimension
     netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
@@ -310,7 +315,7 @@ Drifters::initNetCDF(std::string file_prefix, double current_time)
 // -------------------------------------------------------------------------------------
 //! Writes data to the netCDF file.
 void
-Drifters::appendNetCDF(double current_time)
+Drifters::appendNetCDF(double const& current_time)
 {
 
     // Calculate lat and lon
