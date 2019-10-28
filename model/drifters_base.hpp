@@ -33,13 +33,23 @@ public:
 
         DriftersBase() {}
         void addToRestart(Exporter &exporter, std::fstream &outbin);
-        bool isOutputTime(double const& current_time);
+        bool isOutputTime(double const& current_time)
+        {
+            if(!M_is_initialised)
+                return false;
+            else
+                return std::fmod(current_time - M_time_init, M_output_freq) == 0;
+        }
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void updateConc( GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc);
         bool isInitialised() { return M_is_initialised; }
+        bool setTag(std::string const& tag) { M_tag = tag; }
 
 protected:
+        void readFromRestart(
+                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
         std::vector<int> grabBuoysFromInputFile(double const& current_time);
         void maskXY(std::vector<int> const& current_buoys); //check if buoy IDs are in a given list and remove if they are not
         void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
@@ -53,6 +63,7 @@ protected:
 
         std::string M_infile;
         std::string M_outfile;
+        std::string M_tag;
         int M_infile_position;
 
         std::vector<double> M_X;

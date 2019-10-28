@@ -99,12 +99,27 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
     }
 
     // write the fields to file
-    std::vector<double> t = {M_time_init};
-    exporter.writeField(outbin, drifter_no, "Drifter_no");
-    exporter.writeField(outbin, drifter_x, "Drifter_x");
-    exporter.writeField(outbin, drifter_y, "Drifter_y");
-    exporter.writeField(outbin, drifter_conc, "Drifter_conc");
-    exporter.writeField(outbin, t, "Drifter_time_init");
+    std::vector<double> const t = {M_time_init};
+    exporter.writeField(outbin, drifter_no,   "Drifter_no_"        + M_tag);
+    exporter.writeField(outbin, drifter_x,    "Drifter_x_"         + M_tag);
+    exporter.writeField(outbin, drifter_y,    "Drifter_y_"         + M_tag);
+    exporter.writeField(outbin, drifter_conc, "Drifter_conc_"      + M_tag);
+    exporter.writeField(outbin, t,            "Drifter_time_init_" + M_tag);
+}
+
+
+void
+DriftersBase::readFromRestart(
+    boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+    boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
+    )
+{
+    M_i         = field_map_int["Drifter_no_"        + M_tag];
+    M_X         = field_map_dbl["Drifter_x_"         + M_tag];
+    M_Y         = field_map_dbl["Drifter_y_"         + M_tag];
+    M_conc      = field_map_dbl["Drifter_conc_"      + M_tag];
+    M_time_init = field_map_dbl["Drifter_time_init_" + M_tag][0];
+    M_num_drifters = M_i.size();
 }
 
 
@@ -182,25 +197,6 @@ DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
 
     xDelete<double>(interp_drifter_out);
 }//updateConc
-
-
-// --------------------------------------------------------------------------------------
-//! Determine if we need to output a drifter
-//! Called by outputtingDrifters()
-//  TODO can now make a loop over all the drifters
-bool
-DriftersBase::isOutputTime(double const& current_time)
-{
-    // can only output if it's initialised
-    if(!M_is_initialised)
-        return false;
-
-    bool do_output = false;
-    if(current_time>M_time_init)
-        // output is already done at init time
-        do_output = std::fmod(current_time - M_time_init, M_output_freq) == 0;
-    return do_output;
-}
 
 
 // --------------------------------------------------------------------------------------
