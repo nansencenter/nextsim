@@ -19,6 +19,17 @@
 
 namespace Nextsim
 {
+
+//------------------------------------------------------------------------------------------------------
+//! Clip damage. All values of input <damage> below a given <threshold> are turned into zero.
+//! Called by the assemble() and update() methods of FiniteElement.
+inline double
+clip_damage(double damage, double damage_min){
+    return damage > damage_min ? damage : 0;
+    //double damage_tanh_factor = 1000;
+    //return damage * (0.5 + 0.5 * std::tanh(damage_tanh_factor * (damage - damage_min)));
+}
+
 //------------------------------------------------------------------------------------------------------
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
 FiniteElement::FiniteElement(Communicator const& comm)
@@ -3973,6 +3984,8 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -4024,7 +4037,10 @@ FiniteElement::assemble(int pcpt)
         double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        // clip damage
+        double damage_tmp = clip_damage(M_damage[cpt], damage_min);
+
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
         double multiplicator = time_viscous/(time_viscous+dtime_step);
 
         // TODO: Do we need the _min values here?
@@ -4086,7 +4102,7 @@ FiniteElement::assemble(int pcpt)
 
             if(young>0.) // EB rheology
             {
-                coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+                coef = multiplicator*young*(1.-damage_tmp)*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             }
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
@@ -4501,6 +4517,7 @@ FiniteElement::update()
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4683,9 +4700,10 @@ FiniteElement::update()
             double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
             double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
+            double damage_tmp = clip_damage(old_damage, damage_min);
 
+            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+            double multiplicator=time_viscous/(time_viscous+dtime_step);
 
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
@@ -4693,7 +4711,7 @@ FiniteElement::update()
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-damage_tmp)*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
@@ -7782,8 +7800,6 @@ FiniteElement::initMoorings()
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
-        // Read the grid in from file
-
         if ( vm["moorings.use_conservative_remapping"].as<bool>() )
         {
             // and use the conservative remapping
@@ -7795,8 +7811,8 @@ FiniteElement::initMoorings()
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                    Environment::vm()["moorings.grid_latitute"].as<std::string>(),
-                    Environment::vm()["moorings.grid_longitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitude"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitude"].as<std::string>(),
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
