@@ -26,30 +26,33 @@ namespace Nextsim
 //! * There is also a default, constructor which initialises things to zero and false.
 
         //init from vectors (eg from restart)
-TransientDrifters::TransientDrifters(std::vector<int> const& buoy_id_in, std::vector<double> const& x_in,
-                std::vector<double> const& y_in, std::vector<double> const& conc_in,
-                std::string const& infile, std::string const& outfile,
-                double const& init_time, double const& output_freq,
+TransientDrifters::TransientDrifters(
+                std::string const& tag, std::string const& outfile,
+                std::string const& infile,
+                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
+                double const& output_freq,
                 double const& input_freq, double const& conc_lim)
 {
-                M_i = buoy_id_in;
-                M_X = x_in;
-                M_Y = y_in;
-                M_conc = conc_in;
-                M_is_initialised = true;
-                M_time_init = init_time;
-                M_output_freq = output_freq;
-                M_input_freq = input_freq;
-                M_conc_lim = conc_lim;
+    M_tag = tag;
+    M_outfile = outfile;
+    M_infile = infile;
+    M_is_initialised = true;
+    M_output_freq = output_freq;
+    M_input_freq = input_freq;
+    M_conc_lim = conc_lim;
+    this->readFromRestart(field_map_int, field_map_dbl);
+
+    //! - 2) Prepare input and output files
+    this->initFiles(false);
 }
  
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-TransientDrifters::TransientDrifters(std::string const& infile,
-        std::string const& outfile,
-        GmshMeshSeq const& movedmesh,
+TransientDrifters::TransientDrifters(std::string const& tag, std::string const& outfile,
+        std::string const& infile, GmshMeshSeq const& movedmesh,
         std::vector<double> conc, double const& climit,
         double const& current_time, double const& output_freq,
         double const& input_freq)
@@ -70,7 +73,7 @@ TransientDrifters::TransientDrifters(std::string const& infile,
     M_conc_lim = climit;
 
     //! - 2) Prepare input and output files
-    this->initFiles();
+    this->initFiles(true);
 
     //! - 3) Load the current buoys from file
     M_X.resize(0);
@@ -90,21 +93,8 @@ TransientDrifters::TransientDrifters(std::string const& infile,
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 void
-TransientDrifters::initFiles()
+TransientDrifters::initFiles(bool const& overwrite)
 {
-    // OUTPUT:
-    // if M_outfile exists, we just append to it when it is time;
-    // else we just add the header and close
-    fs::path path1(M_outfile);
-    if ( !fs::exists(path1) )
-    {
-        std::fstream fout(M_outfile, std::fstream::out);
-        if ( !fout.good() )
-            throw std::runtime_error("Cannot write to file: " + M_outfile);
-        fout << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
-        fout.close();
-    }
-
     // INPUT:
     //new buoy file has a header
     std::fstream fin(M_infile, std::fstream::in);
@@ -118,6 +108,19 @@ TransientDrifters::initFiles()
     fin.close();
     //LOG(DEBUG)<<"open transient drifter file: "<<M_infile<<"\n";
     //LOG(DEBUG)<<"header: "<<header<<"\n";
+
+    // OUTPUT:
+    fs::path path1(M_outfile);
+    if ( fs::exists(path1) && !overwrite )
+        // don't overwrite if starting from restart
+        // - just append to it
+        return;
+
+    std::fstream fout(M_outfile, std::fstream::out);
+    if ( !fout.good() )
+        throw std::runtime_error("Cannot write to file: " + M_outfile);
+    fout << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
+    fout.close();
 }//initFiles
 
 
