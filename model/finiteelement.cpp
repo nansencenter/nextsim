@@ -23,7 +23,7 @@ namespace Nextsim
 //------------------------------------------------------------------------------------------------------
 //! Clip damage. All values of input <damage> below a given <threshold> are turned into zero.
 //! Called by the assemble() and update() methods of FiniteElement.
-double
+inline double
 clip_damage(double damage, double damage_min){
     return damage > damage_min ? damage : 0;
     //double damage_tanh_factor = 1000;
@@ -3984,7 +3984,6 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
-    double damage_tmp; // temporary variable for clipped damage
     double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
     // ---------- Assembling starts -----------
@@ -4039,7 +4038,7 @@ FiniteElement::assemble(int pcpt)
         double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
         // clip damage
-        damage_tmp = clip_damage(M_damage[cpt], damage_min);
+        double damage_tmp = clip_damage(M_damage[cpt], damage_min);
 
         double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
         double multiplicator = time_viscous/(time_viscous+dtime_step);
@@ -4518,7 +4517,6 @@ FiniteElement::update()
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
-    double damage_tmp; // clipped damage
     double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
@@ -4702,11 +4700,10 @@ FiniteElement::update()
             double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
             double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-            damage_tmp = clip_damage(old_damage, damage_min);
+            double damage_tmp = clip_damage(old_damage, damage_min);
 
             double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
             double multiplicator=time_viscous/(time_viscous+dtime_step);
-
 
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
