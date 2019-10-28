@@ -318,8 +318,10 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
-    void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
+    void restartDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
             boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
+    bool drifterInRestart(std::string const& tag, boost::unordered_map<std::string, std::vector<int>> & field_map_int);
+    std::string getDrifterOutfilePrefix(std::string const& tag) const;
     void partitionMeshRestart();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
@@ -676,6 +678,7 @@ private:
 
     //! vector of pointers to the ordinary (non-IABP) drifters
     std::vector<Drifters*> M_ordinary_drifters;
+    boost::unordered_map<std::string, double> M_ordinary_drifters_output_time_steps;
     double M_drifters_time_init;
     double M_drifters_conc_lim;
 
@@ -856,13 +859,8 @@ private:
     void assimilate_topazForecastAmsr2OsisafIce();
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
-    void initialisingDrifters(
-        std::vector<std::string> & init_names,
-        bool &init_any);
-    void outputtingDrifters(
-        bool &input_iabp,
-        bool &output_iabp,
-        bool &io_any);
+    std::vector<std::string> initialisingDrifters();
+    bool outputtingDrifters();
     void checkDrifters();
     void initDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root,
         std::vector<std::string> const& init_names);
