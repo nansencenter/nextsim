@@ -19,6 +19,17 @@
 
 namespace Nextsim
 {
+
+//------------------------------------------------------------------------------------------------------
+//! Clip damage. All values of input <damage> below a given <threshold> are turned into zero.
+//! Called by the assemble() and update() methods of FiniteElement.
+inline double
+clip_damage(double damage, double damage_min){
+    return damage > damage_min ? damage : 0;
+    //double damage_tanh_factor = 1000;
+    //return damage * (0.5 + 0.5 * std::tanh(damage_tanh_factor * (damage - damage_min)));
+}
+
 //------------------------------------------------------------------------------------------------------
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
 FiniteElement::FiniteElement(Communicator const& comm)
@@ -2471,13 +2482,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-		        neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
-		        if (!std::isnan(neighbour_double) && neighbour_int>0)
+                if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/dtime_step/3.,-outer_fluxes_area[i]);
@@ -3967,6 +3978,8 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -4018,7 +4031,10 @@ FiniteElement::assemble(int pcpt)
         double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        // clip damage
+        double damage_tmp = clip_damage(M_damage[cpt], damage_min);
+
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
         double multiplicator = time_viscous/(time_viscous+dtime_step);
 
         // TODO: Do we need the _min values here?
@@ -4080,7 +4096,7 @@ FiniteElement::assemble(int pcpt)
 
             if(young>0.) // EB rheology
             {
-                coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+                coef = multiplicator*young*(1.-damage_tmp)*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
             }
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
@@ -4495,6 +4511,7 @@ FiniteElement::update()
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4677,9 +4694,10 @@ FiniteElement::update()
             double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
             double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
+            double damage_tmp = clip_damage(old_damage, damage_min);
 
+            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+            double multiplicator=time_viscous/(time_viscous+dtime_step);
 
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
@@ -4687,7 +4705,7 @@ FiniteElement::update()
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-damage_tmp)*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
@@ -6065,7 +6083,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         else
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
+            LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
                 << ocn_evap_err*1e3 << " mm over the current time step\n";
             h2 = 0.;
             h1 = 0.;
@@ -7112,7 +7130,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     // check if we are outputting results file
-    bool exporting = false; 
+    bool exporting = false;
     if(output_time_step>0)
         exporting = (pcpt*time_step % output_time_step == 0);
     if(exporting)
@@ -7772,8 +7790,6 @@ FiniteElement::initMoorings()
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
-        // Read the grid in from file
-
         if ( vm["moorings.use_conservative_remapping"].as<bool>() )
         {
             // and use the conservative remapping
@@ -7785,8 +7801,8 @@ FiniteElement::initMoorings()
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                    Environment::vm()["moorings.grid_latitute"].as<std::string>(),
-                    Environment::vm()["moorings.grid_longitute"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitude"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitude"].as<std::string>(),
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
@@ -9112,7 +9128,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-    		break;
+            break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
             M_ocean=ExternalData(
@@ -9165,7 +9181,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
-    		break;
+            break;
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
@@ -9564,7 +9580,7 @@ FiniteElement::constantIce()
             M_hs_thin[i]   = hs_const*M_conc_thin[i];
         }
     }
-	LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
+    LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
 
     if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
@@ -12270,7 +12286,7 @@ FiniteElement::writeLogFile()
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
         }
     }
-    
+
 }//writeLogFile
 
 
