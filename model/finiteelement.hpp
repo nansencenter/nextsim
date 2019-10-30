@@ -56,6 +56,8 @@ extern "C"
 namespace Nextsim
 {
 
+inline double clip_damage(double damage, double damage_min);
+
 class FiniteElement
 {
 public:
@@ -186,7 +188,7 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(const double Tsurf, const double hs,
@@ -258,7 +260,7 @@ public:
     void forcingAtmosphere();
     void forcingOcean();
     void forcingNesting();
-	void initBathymetry();
+    void initBathymetry();
 
     void assimilateIce();
     void assimilateSlabOcean();
