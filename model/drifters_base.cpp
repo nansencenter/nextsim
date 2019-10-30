@@ -216,14 +216,12 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
     M_Y.resize(0);
     M_i.resize(0);
     M_conc.resize(0);
-    int id_count;
 
     for ( int i=0; i<INDS.size(); ++i )
     {
-        id_count = std::count(keepers.begin(),
+        int const id_count = std::count(keepers.begin(),
                     keepers.end(), INDS[i]);
-        if ( conc[i] > M_conc_lim
-                && id_count>0 )
+        if ( conc[i] > M_conc_lim && id_count>0 )
         {
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
