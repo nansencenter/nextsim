@@ -12708,13 +12708,14 @@ FiniteElement::writeLogFile()
 }//writeLogFile
 
 // -------------------------------------------------------------------------------------
-//! Checks velocity fields and identify outliers with too high velocity (above
-//! debug.check_velocity_fiels) or where relative deviation from neighbours is above N STDs
+//! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
+//! the velocity, difference of velocty from neigbours relative to standard deviation,
+//! step and node number.
 //! Called by the step() function.
 void
 FiniteElement::checkVelocityFields()
 {
-    // minimum speed to trigger error check
+    // minimum speed to trigger velocity check
     double spd_lim = 0.5;
 
     int num_nodes = bamgmesh->NodalConnectivitySize[0];

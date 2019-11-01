@@ -68,7 +68,7 @@ namespace Nextsim
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
             ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
-                "If check_velocity_fields > 0 find outlier nodes with extreme velocities over the threshold given in check_velocity_fields")
+                "If check_velocity_fields is true: find outlier nodes with extreme velocities print to DEBUG")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
