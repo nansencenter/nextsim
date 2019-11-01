@@ -3981,6 +3981,35 @@ FiniteElement::assemble(int pcpt)
         beta2 = 0 ;
     }
 
+    // BDF for Sigma
+    double beta;
+    std::vector<double> b(3,0.);
+    // The order we can use depends on time step.
+    int bdf_order = std::min(pcpt+1, vm["numerics.bdf_order"].as<int>());
+    switch ( bdf_order )
+    {
+        case 3: // Third order
+            beta =   6./11.;
+            b[0] =  18./11.;
+            b[1] = - 9./11.;
+            b[2] =   2./11.;
+            break;
+        case 2: // Second order
+            beta =    2./3.;
+            b[0] =    4./3.;
+            b[1] =   -1./3.;
+            b[2] =       0.;
+            break;
+        case 1: // Euler implicit
+            beta =       1.;
+            b[0] =       1.;
+            b[1] =       0.;
+            b[2] =       0.;
+            break;
+        default:
+            throw std::logic_error("FiniteElement::update: Wrong bdf_order " + std::to_string(bdf_order) + ". Must be integer in [1 3]");
+    }
+
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
@@ -4041,7 +4070,8 @@ FiniteElement::assemble(int pcpt)
         double damage_tmp = clip_damage(M_damage[cpt], damage_min);
 
         double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-        double multiplicator = time_viscous/(time_viscous+dtime_step);
+        D_multiplicator[cpt] = time_viscous/(time_viscous+beta*dtime_step);
+        D_E_eff[cpt] = beta*young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
         // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
@@ -4102,7 +4132,7 @@ FiniteElement::assemble(int pcpt)
 
             if(young>0.) // EB rheology
             {
-                coef = multiplicator*young*(1.-damage_tmp)*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+                coef = M_thick[cpt]*D_multiplicator[cpt]*D_E_eff[cpt];
             }
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
@@ -4136,7 +4166,7 @@ FiniteElement::assemble(int pcpt)
             coef_V     = mass_e/dtime_step;               /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*multiplicator;      /* for the internal stress */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4239,8 +4269,9 @@ FiniteElement::assemble(int pcpt)
 
                     for(int k=0; k<3; k++)
                     {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        D_sigma_eff[k][cpt] = b[0]*M_sigma[k][cpt]+b[1]*M_sigma_M[k][cpt]+b[2]*M_sigma_MM[k][cpt];
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(D_sigma_eff[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(D_sigma_eff[k][cpt]*coef_sigma/*+sigma_P[k]*/);
                     }
 
                     /* ---------- UU component */
@@ -4522,33 +4553,6 @@ FiniteElement::update()
     // BDF for Sigma
     M_sigma_M  = M_sigma;
     M_sigma_MM = M_sigma_M;
-    double beta;
-    std::vector<double> b(3,0.);
-    // The order we can use depends on time step.
-    int bdf_order = std::min(pcpt+1, vm["numerics.bdf_order"].as<int>());
-    switch ( bdf_order )
-    {
-        case 3: // Third order
-            beta =   6./11.;
-            b[0] =  18./11.;
-            b[1] = - 9./11.;
-            b[2] =   2./11.;
-            break;
-        case 2: // Second order
-            beta =    2./3.;
-            b[0] =    4./3.;
-            b[1] =   -1./3.;
-            b[2] =       0.;
-            break;
-        case 1: // Euler implicit
-            beta =       1.;
-            b[0] =       1.;
-            b[1] =       0.;
-            b[2] =       0.;
-            break;
-        default:
-            throw std::logic_error("FiniteElement::update: Wrong bdf_order " + std::to_string(bdf_order) + ". Must be integer in [1 3]");
-    }
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4726,27 +4730,17 @@ FiniteElement::update()
 
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
-
-            double damaging_exponent = ridging_exponent;
-            double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-            double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-            double damage_tmp = clip_damage(old_damage, damage_min);
-
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+beta*dtime_step);
-
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-damage_tmp)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_dot_i += D_E_eff[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
                 // sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-                sigma[i] = (b[0]*M_sigma[i][cpt]+b[1]*M_sigma_M[i][cpt]+b[2]*M_sigma_MM[i][cpt] + beta*dtime_step*sigma_dot_i)*multiplicator;
+                sigma[i] = (D_sigma_eff[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
                 sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
                 M_sigma[i][cpt] = sigma[i];

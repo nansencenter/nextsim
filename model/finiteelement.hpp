@@ -757,8 +757,12 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
 
+    // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
+    std::vector<double> D_E_eff; // Effective elasticity (for BDF scheme)
+    std::vector<std::vector<double>> D_sigma_eff; // Effective sigma (for BDF scheme)
+    std::vector<double> D_multiplicator; // lambda/(lambda + beta*delta t)
 
 private:
     // Variables for the moorings
