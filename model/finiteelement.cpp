@@ -12720,7 +12720,7 @@ FiniteElement::checkVelocityFields()
     int num_nodes = bamgmesh->NodalConnectivitySize[0];
     int max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
 
-    std::vector<double> uv(2), std(2), avg(2), rer(2);
+    std::vector<double> uv(2), std(2), avg(2), rel_err(2);
     for (int i=0; i<M_num_nodes; ++i)
     {
         uv[0] = M_VT[i];
@@ -12745,13 +12745,13 @@ FiniteElement::checkVelocityFields()
                 // standard deviation of velocities
                 std[k] = std::sqrt(std[k] / (num_neighbours - 1.));
                 // relative error of velocities
-                rer[k] = (avg[k] - uv[k]) / std[k];
+                rel_err[k] = (avg[k] - uv[k]) / std[k];
             }
-            double rer1 = std::sqrt(rer[0]*rer[0]+rer[1]*rer[1]);
-            LOG(INFO) << " Rogue velocity on step:" << std::setw(5) << pcpt
-                       << " in node:" << std::setw(7) << i
-                       << " spd:" << std::setw(10) << spd
-                       << " rer:" << std::setw(10) << rer1
+            double rel_err1 = std::sqrt(rel_err[0]*rel_err[0]+rel_err[1]*rel_err[1]);
+            LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                       << " node=" << i
+                       << " speed=" << spd
+                       << " rel_error=" << rel_err1
                        << "\n";
         }
     }
