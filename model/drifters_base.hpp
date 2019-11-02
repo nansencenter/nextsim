@@ -33,6 +33,16 @@ public:
 
         DriftersBase() {}
         void addToRestart(Exporter &exporter, std::fstream &outbin);
+        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void reset();
+        void updateConc( GmshMeshSeq const& movedmesh,
+                std::vector<double> & conc);
+        bool initialising(double const &current_time)
+        {
+            if (M_is_initialised)
+                return false;
+            return current_time == M_time_init;
+        }
         bool isOutputTime(double const& current_time)
         {
             if(!M_is_initialised)
@@ -40,11 +50,18 @@ public:
             else
                 return std::fmod(current_time - M_time_init, M_output_freq) == 0;
         }
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void updateConc( GmshMeshSeq const& movedmesh,
-                std::vector<double> & conc);
+        void checkOutputTimeStep(int time_step);
+        double getInitTime() { return M_time_init; }
+        void setInitTime(double const& t) { M_time_init = t; }
         bool isInitialised() { return M_is_initialised; }
-        bool setTag(std::string const& tag) { M_tag = tag; }
+        bool resetting(double const& current_time)
+        {
+            if(!M_is_initialised)
+                return false;
+            if(!M_has_lifetime)
+                return false;
+            return (current_time == M_time_init + M_lifetime);
+        }
 
 protected:
         void readFromRestart(
@@ -60,7 +77,10 @@ protected:
         double M_output_freq;
         double M_input_freq;
         double M_conc_lim;
-
+        std::string M_export_path;
+        double M_lifetime;
+        bool M_has_lifetime;
+        
         std::string M_infile;
         std::string M_outfile;
         std::string M_tag;

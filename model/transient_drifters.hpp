@@ -33,29 +33,22 @@ namespace Nextsim
 public:
         TransientDrifters() {}
 
-        //init from vectors (eg from restart)
-        TransientDrifters(
-                std::string const& tag, std::string const& outfile,
-                std::string const& infile,
-                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
-                double const& output_freq,
-                double const& input_freq, double const& conc_lim);
-
         //! init drifters from text file
         TransientDrifters(std::string const& tag, std::string const& outfile,
-                std::string const& infile,
-                GmshMeshSeq const& movedmesh,
-                std::vector<double> conc, double const& climit,
+                std::string const& infile, double const& climit,
                 double const& current_time, double const& output_freq,
                 double const& input_freq);
 
+        void initFromRestart(
+                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
+        void initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc);
         void initFiles(bool const& overwrite);
         void updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
             double const& current_time);
         void outputDrifters(double const& current_time);
         bool isInputTime(double const& current_time);
-        void checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root,
+        void doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
     };
 } // Nextsim

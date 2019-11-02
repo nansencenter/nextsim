@@ -82,6 +82,8 @@ DriftersBase::grabBuoysFromInputFile(double const& current_time)
 void
 DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 {
+    if (!M_is_initialised)
+        return;
     // Sort the drifters so the restart files are identical
     // (this is just to make testing of restart procedure easier)
     std::vector<int> drifter_no = M_i;
@@ -100,7 +102,7 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 
     // write the fields to file
     std::vector<double> const t = {M_time_init};
-    exporter.writeField(outbin, drifter_no,   "Drifter_no_"        + M_tag);
+    exporter.writeField(outbin, drifter_no,   "Drifter_ID_"        + M_tag);
     exporter.writeField(outbin, drifter_x,    "Drifter_x_"         + M_tag);
     exporter.writeField(outbin, drifter_y,    "Drifter_y_"         + M_tag);
     exporter.writeField(outbin, drifter_conc, "Drifter_conc_"      + M_tag);
@@ -114,7 +116,14 @@ DriftersBase::readFromRestart(
     boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
     )
 {
-    M_i         = field_map_int["Drifter_no_"        + M_tag];
+    std::string const key = "Drifter_ID_" + M_tag;
+    if(field_map_int.count(key) == 0)
+    {
+        std::cout << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
+            << " Drifter positions will be initialised as if there was no restart.\n";
+        return;
+    }
+    M_i         = field_map_int[key];
     M_X         = field_map_dbl["Drifter_x_"         + M_tag];
     M_Y         = field_map_dbl["Drifter_y_"         + M_tag];
     M_conc      = field_map_dbl["Drifter_conc_"      + M_tag];
@@ -122,6 +131,18 @@ DriftersBase::readFromRestart(
     M_num_drifters = M_i.size();
 }
 
+
+void
+DriftersBase::reset()
+{
+    M_is_initialised = false;
+    M_num_drifters = 0;
+    M_i.resize(0);
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_conc.resize(0);
+    M_time_init += M_lifetime;//new init time
+}
 
 // --------------------------------------------------------------------------------------
 //! Move drifters and replace the old coordinates with the new ones
@@ -233,5 +254,14 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
     M_num_drifters = M_X.size();
 }//maskXY()
 
+void
+DriftersBase::checkOutputTimeStep(int time_step)
+{
+    if( fmod(M_output_freq*24*3600, time_step) != 0 )
+    {
+        std::string msg = M_tag +" drifters' timestep not a multiple of model time step";
+        throw std::runtime_error(msg);
+    }
+}
 
 } // Nextsim

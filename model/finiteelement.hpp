@@ -304,10 +304,6 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
-    void restartDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
-            boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
-    bool drifterInRestart(std::string const& tag, boost::unordered_map<std::string, std::vector<int>> & field_map_int);
-    std::string getDrifterOutfilePrefix(std::string const& tag) const;
     void partitionMeshRestart();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
@@ -660,43 +656,9 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    bool M_use_drifters;
-
-    //! vector of pointers to the ordinary (non-IABP) drifters
-    std::vector<Drifters*> M_ordinary_drifters;
-    boost::unordered_map<std::string, double> M_ordinary_drifters_output_time_steps;
-    double M_drifters_time_init;
-    double M_drifters_conc_lim;
-
-    // IABP drifters
-    bool M_use_iabp_drifters;
-    double M_iabp_drifters_input_time_step;
-    double M_iabp_drifters_output_time_step;
-    TransientDrifters M_iabp_drifters;
-    std::string M_iabp_infile; // The file we read the IABP buoy data from
-    std::string M_iabp_outfile; // The file we write our simulated drifter positions into
-
-    // Drifters on a grid
-    bool M_use_equally_spaced_drifters;
-    double M_equally_spaced_drifters_output_time_step;
-    Drifters M_equally_spaced_drifters;
-
-    // Drifters as in the RGPS data
-    bool M_use_rgps_drifters;
-    double M_rgps_time_init;
-    std::string M_rgps_file;
-    double M_rgps_drifters_output_time_step;
-    Drifters M_rgps_drifters;
-
-    // Drifters for SIDFEX forecast
-    double M_sidfex_drifters_output_time_step;
-    bool M_use_sidfex_drifters;
-    Drifters M_sidfex_drifters;
-
-    // drifters for the OSISAF emulation
-    bool M_use_osisaf_drifters;
-    double M_osisaf_drifters_output_time_step;
-    std::vector<Drifters> M_osisaf_drifters;
+    std::vector<TransientDrifters> M_transient_drifters;//eg IABP which import new drifters periodically
+    std::vector<Drifters> M_ordinary_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
+    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_ordinary_drifters (used at readRestart)
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -845,16 +807,18 @@ private:
     void assimilate_topazForecastAmsr2OsisafIce();
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
-    std::vector<std::string> initialisingDrifters();
-    bool outputtingDrifters();
-    void checkDrifters();
-    void initDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root,
-        std::vector<std::string> const& init_names);
-    void initOsisafDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void initRGPSDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void initSidfexDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
-    void initIabpDrifters(mesh_type_root const& movedmesh_root, std::vector<double> & conc_root);
+    //drifter functions
+    void instantiateDrifters();
+    template<typename drifter_tmpl>
+    bool checkDrifters(std::vector<drifter_tmpl> &drifters);
+    template<typename drifter_tmpl>
+    void updateDrifters(std::vector<drifter_tmpl> &drifters,
+            GmshMeshSeq const& movedmesh_root,
+            std::vector<double> & conc_root,
+            std::vector<double> const& UT_root);
+    void restartDrifters(
+            boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+            boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

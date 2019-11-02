@@ -27,18 +27,15 @@ namespace Nextsim
 
 
 //init from vectors (eg from restart)
-Drifters::Drifters(
-        std::string const& tag, std::string const& outfile_prefix,
+void
+Drifters::initFromRestart(
         boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-        boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
-        double const& output_freq, double const& conc_lim)
+        boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
+        )
 {
-    M_tag = tag;
     M_is_initialised = true;
-    M_output_freq = output_freq;
-    M_conc_lim = conc_lim;
-    this -> readFromRestart(field_map_int, field_map_dbl);
-    this->initNetCDF(outfile_prefix, false);
+    this->readFromRestart(field_map_int, field_map_dbl);
+    this->initNetCDF(false);
 }
  
 
@@ -47,26 +44,102 @@ Drifters::Drifters(
 //! * defines a uniform grid with resolution defined by spacing
 //! Called by FiniteElement::initEquallySpacedDrifters()
 Drifters::Drifters(
-        std::string const& tag, std::string const& outfile_prefix,
-        double const& spacing, GmshMeshSeq const& moved_mesh,
-        std::vector<double> & conc, double const& climit,
+        std::string const& tag, std::string const& export_path,
+        double const& spacing, double const& climit,
         double const& current_time, double const& output_freq)
 {
     //! -1) Set the time and output freq
     M_tag = tag;
     M_time_init = current_time;
+    M_export_path = export_path;
     M_output_freq = output_freq;
     M_conc_lim = climit;
+    M_spacing = spacing;
+    M_init_type = Drifters::initType::SPACING;
+}
+
+
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
+//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
+Drifters::Drifters(
+        std::string const& tag, std::string const& export_path,
+        std::string const& infile, double const& climit,
+        double const& current_time, double const& output_freq)
+{
+    // interface for RGPS, SIDFEX
+    // - reads a text file
+    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
+    //   - therefore use an index file to map the true IDs to smaller integers
+    //     (this is what is done in the forecast system)
+
+    //! -1) Set the time and output freq
+    M_tag = tag;
+    M_export_path = export_path;
+    M_infile = infile;
+    M_time_init = current_time;
+    M_output_freq = output_freq;
+    M_conc_lim = climit;
+    M_init_type = Drifters::initType::TEXT_FILE;
+}
+
+
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
+//! * reads a netcdf file
+//! Called by FiniteElement::initOsisafDrifters()
+Drifters::Drifters(std::string const& tag, std::string const& export_path,
+                   std::string const& infile,
+                   std::string const& dimNameX, std::string const& dimNameY,
+                   std::string const& latName, std::string const& lonName,
+                   double const& climit,
+                   double const& current_time, double const& output_freq)
+{
+    M_tag = tag;
+    M_export_path = export_path;
+    M_infile = infile;
+    M_time_init = current_time;
+    M_output_freq = output_freq;
+    M_conc_lim = climit;
+    M_init_type = Drifters::initType::NETCDF;
+    M_netcdf_input_info = Drifters::NetCDFInputInfo(dimNameX, dimNameY, latName, lonName);
+}//init from netcdf file
+
+
+void
+Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
+{
     M_is_initialised = true;
 
+    if (M_init_type == Drifters::initType::TEXT_FILE)
+        this->initFromTextFile();
+    else if (M_init_type == Drifters::initType::SPACING)
+        this->initFromSpacing(moved_mesh);
+    else if (M_init_type == Drifters::initType::NETCDF)
+        this->initFromNetCDF();
+
+    //! -3) Set M_conc at all the drifters
+    this->updateConc(moved_mesh, conc);
+
+    //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
+    this->maskXY();
+
+    //! -5) Init the netcdf output file
+    this->initNetCDF(true);
+}
+
+
+void
+Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
+{
     //! - 2) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
     std::vector<double> RY = moved_mesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
     auto ycoords = std::minmax_element( RY.begin(), RY.end() );
 
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/spacing );
+    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/M_spacing );
+    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/M_spacing );
 
     M_X.resize(ncols*nrows);
     M_Y.resize(ncols*nrows);
@@ -83,123 +156,32 @@ Drifters::Drifters(
             M_Y[i] = y;
             M_i[i] = i;
             ++i;
-            x += spacing;
+            x += M_spacing;
         }
-        y += spacing;
+        y += M_spacing;
     }
-
-    //! -3) Set M_conc at all the drifters
-    this->updateConc(moved_mesh, conc);
-
-    //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
-    this->maskXY();
-
-    //! -5) Init the netcdf output file
-    this->initNetCDF(outfile_prefix, true);
 }
 
 
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-Drifters::Drifters(
-        std::string const& tag, std::string const& outfile_prefix,
-        std::string const& infile,
-        GmshMeshSeq const& moved_mesh,
-        std::vector<double> & conc, double const& climit,
-        double const& current_time, double const& output_freq)
+void
+Drifters::initFromNetCDF()
 {
-    // interface for RGPS, SIDFEX
-    // - reads a text file
-    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
-    //   - therefore use an index file to map the true IDs to smaller integers
-    //     (this is what is done in the forecast system)
-
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_time_init = current_time;
-    M_output_freq = output_freq;
-    M_i.resize(0);
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_conc_lim = climit;
-    M_is_initialised = true;
-
-    //! - 2) Load the nodes from file
-
-    // Check file
-    M_infile = infile;
-    std::fstream drifter_text_file;   // The file we read the buoy data from
-    drifter_text_file.open(M_infile, std::fstream::in);
-    if ( !drifter_text_file.good() )
-        throw std::runtime_error("File not found: " + M_infile);
-
-    //skip header, save position, and close
-    std::string header;
-    std::getline(drifter_text_file, header);
-    M_infile_position = drifter_text_file.tellg();
-    drifter_text_file.close();
-
-    //get the buoys
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_i.resize(0);
-    this->grabBuoysFromInputFile(current_time);
-
-    //! -3) Set M_conc at all the drifters
-    this->updateConc(moved_mesh, conc);
-
-    //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
-    this->maskXY();
-
-    //! -5) Init the netcdf output file
-    this->initNetCDF(outfile_prefix, true);
-}
-
-
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! * reads a netcdf file
-//! Called by FiniteElement::initOsisafDrifters()
-Drifters::Drifters(std::string const& tag, std::string const& outfile_prefix,
-                   std::string const& gridFile,
-                   std::string const& dimNameX, std::string const& dimNameY,
-                   std::string const& latName, std::string const& lonName,
-                   GmshMeshSeq const& moved_mesh,
-                   std::vector<double> & conc, double const& climit,
-                   double const& current_time, double const& output_freq)
-{
-
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_time_init = current_time;
-    M_output_freq = output_freq;
-    M_conc_lim = climit;
-    M_is_initialised = true;
-
-    //! - 2) Loads the grid from file
-    // Check file
-    std::string filename = (boost::format( "%1%/%2%" )
-                            % Environment::nextsimDataDir().string()
-                            % gridFile
-                            ).str();
-
-    if ( ! boost::filesystem::exists(filename) )
-        throw std::runtime_error("Drifters::Drifters: File not found: " + filename);
+    if ( ! boost::filesystem::exists(M_infile) )
+        throw std::runtime_error("Drifters::Drifters: File not found: " + M_infile);
 
     // Open file
-    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+    netCDF::NcFile dataFile(M_infile, netCDF::NcFile::read);
 
     //! - 3) Reads the dimension of the grid
     netCDF::NcDim dim;
-    dim = dataFile.getDim(dimNameX);
+    dim = dataFile.getDim(M_netcdf_input_info.dimNameX);
     if ( dim.isNull() )
-        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + dimNameX + " in file: " + filename);
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameX + " in file: " + M_infile);
     int ncols = dim.getSize();
 
-    dim = dataFile.getDim(dimNameY);
+    dim = dataFile.getDim(M_netcdf_input_info.dimNameY);
     if ( dim.isNull() )
-        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + dimNameY + " in file: " + filename);
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameY + " in file: " + M_infile);
     int nrows = dim.getSize();
 
     int gridSize = ncols*nrows;
@@ -208,8 +190,8 @@ Drifters::Drifters(std::string const& tag, std::string const& outfile_prefix,
     M_i.resize(gridSize);
 
     //! - 4) Reads the latitude and longitude
-    netCDF::NcVar VLAT = dataFile.getVar(latName);
-    netCDF::NcVar VLON = dataFile.getVar(lonName);
+    netCDF::NcVar VLAT = dataFile.getVar(M_netcdf_input_info.latName);
+    netCDF::NcVar VLON = dataFile.getVar(M_netcdf_input_info.lonName);
 
     //! - 5) Reads the data in LON & LAT
     std::vector<double> LAT(gridSize);
@@ -228,16 +210,50 @@ Drifters::Drifters(std::string const& tag, std::string const& outfile_prefix,
         M_i[i] = i;
     }
     close_mapx(map);
+}//init from netcdf file
 
-    //! - 7) Set M_conc at all the drifters
-    this->updateConc(moved_mesh, conc);
 
-    //! - 8) Applies mask using conc and climit, and save to M_X and M_Y
-    this->maskXY();
+void
+Drifters::initFromTextFile()
+{
+    //! - 2) Load the nodes from file
 
-    //! -9) Init the netcdf output file
-    this->initNetCDF(outfile_prefix, true);
-}//init from text file
+    // Check file
+    std::fstream drifter_text_file;   // The file we read the buoy data from
+    drifter_text_file.open(M_infile, std::fstream::in);
+    if ( !drifter_text_file.good() )
+        throw std::runtime_error("File not found: " + M_infile);
+
+    //skip header, save position, and close
+    std::string header;
+    std::getline(drifter_text_file, header);
+    M_infile_position = drifter_text_file.tellg();
+    drifter_text_file.close();
+
+    //get the buoys
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_i.resize(0);
+    this->grabBuoysFromInputFile(M_time_init);
+}
+
+
+std::string
+Drifters::getDrifterOutfilePrefix() const
+{
+    std::string prefix = M_export_path + "/";
+    std::string osisaf_prefix = "OSISAF_";
+    boost::unordered_map<const std::string, std::string>
+        file_prefices = boost::assign::map_list_of
+        ("osisaf0", osisaf_prefix)
+        ("osisaf1", osisaf_prefix)
+        ("rgps", "RGPS_Drifters_")
+        ("sidfex", "SIDFEx_Drifters_")
+        ("equally_spaced", "EquallySpacedDrifters_")
+        ;
+    prefix += file_prefices[M_tag];
+    return prefix;
+}
 
 
 // File operations
@@ -250,9 +266,10 @@ Drifters::Drifters(std::string const& tag, std::string const& outfile_prefix,
 //! with the same prefix per day.
  
 void
-Drifters::initNetCDF(std::string const& outfile_prefix, bool const& overwrite)
+Drifters::initNetCDF(bool const& overwrite)
 {
-    M_outfile = outfile_prefix + datenumToString(M_time_init, "%Y%m%d.nc");
+    M_outfile = this->getDrifterOutfilePrefix()
+        + datenumToString(M_time_init, "%Y%m%d.nc");
     if ( boost::filesystem::exists(M_outfile) && !overwrite )
         //don't want to overwrite if starting from restart
         return;
@@ -372,13 +389,12 @@ Drifters::appendNetCDF(double const& current_time)
 //! Determine if we need to input a drifter
 //! Called by outputtingDrifters()
 void
-Drifters::checkAndDoOutput(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
 {
-    if ( this->isOutputTime(current_time) )
-    {
-        this->updateConc(movedmesh_root, conc_root);
-        this->appendNetCDF(current_time);
-    }
+    if ( !this->isOutputTime(current_time) )
+        return;
+    this->updateConc(movedmesh_root, conc_root);
+    this->appendNetCDF(current_time);
 }
 
 } // Nextsim

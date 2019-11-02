@@ -25,25 +25,13 @@ namespace Nextsim
 //!   placed outside the ice cover.
 //! * There is also a default, constructor which initialises things to zero and false.
 
-        //init from vectors (eg from restart)
-TransientDrifters::TransientDrifters(
-                std::string const& tag, std::string const& outfile,
-                std::string const& infile,
+//init from vectors (eg from restart)
+void
+TransientDrifters::initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
-                double const& output_freq,
-                double const& input_freq, double const& conc_lim)
+                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
 {
-    M_tag = tag;
-    M_outfile = outfile;
-    M_infile = infile;
-    M_is_initialised = true;
-    M_output_freq = output_freq;
-    M_input_freq = input_freq;
-    M_conc_lim = conc_lim;
     this->readFromRestart(field_map_int, field_map_dbl);
-
-    //! - 2) Prepare input and output files
     this->initFiles(false);
 }
  
@@ -52,10 +40,8 @@ TransientDrifters::TransientDrifters(
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 TransientDrifters::TransientDrifters(std::string const& tag, std::string const& outfile,
-        std::string const& infile, GmshMeshSeq const& movedmesh,
-        std::vector<double> conc, double const& climit,
-        double const& current_time, double const& output_freq,
-        double const& input_freq)
+        std::string const& infile, double const& climit, double const& current_time,
+        double const& output_freq, double const& input_freq)
 {
     // interface for RGPS, SIDFEX
     // - reads a text file
@@ -64,13 +50,33 @@ TransientDrifters::TransientDrifters(std::string const& tag, std::string const& 
     //     (this is what is done in the forecast system)
 
     //! -1) Set the time and output freq
+    M_tag = tag;
     M_time_init = current_time;
     M_output_freq = output_freq;
     M_input_freq = input_freq;
     M_infile = infile;
     M_outfile = outfile;
-    M_is_initialised = true;
     M_conc_lim = climit;
+
+    if( M_output_freq > M_input_freq )
+    {
+        std::string msg = M_tag + " drifters output timestep";
+        msg += " should be <= "+M_tag+" input timestep";
+        throw std::runtime_error(msg);
+    }
+    else if ( std::fmod(M_input_freq, M_output_freq) != 0 )
+    {
+        std::string const msg = M_tag + "IABP drifter input timestep should be a multiple of the "
+            + M_tag + " output timestep";
+        throw std::runtime_error(msg);
+    }
+}
+
+
+void
+TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc)
+{
+    M_is_initialised = true;
 
     //! - 2) Prepare input and output files
     this->initFiles(true);
@@ -79,7 +85,7 @@ TransientDrifters::TransientDrifters(std::string const& tag, std::string const& 
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
-    this->grabBuoysFromInputFile(current_time);
+    this->grabBuoysFromInputFile(M_time_init);
 
     //! - 4) Calculate conc for all the drifters
     this->updateConc(movedmesh, conc);
@@ -204,7 +210,7 @@ TransientDrifters::isInputTime(double const& current_time)
 //! Determine if we need to input a drifter
 //! Called by outputtingDrifters()
 void
-TransientDrifters::checkAndDoIO(GmshMeshSeq movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+TransientDrifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
 {
     bool const inputting = this->isInputTime(current_time);
     bool const outputting = this->isOutputTime(current_time);
