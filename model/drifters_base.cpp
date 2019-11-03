@@ -110,7 +110,7 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 }
 
 
-void
+bool
 DriftersBase::readFromRestart(
     boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
     boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
@@ -121,7 +121,7 @@ DriftersBase::readFromRestart(
     {
         std::cout << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
             << " Drifter positions will be initialised as if there was no restart.\n";
-        return;
+        return false;
     }
     M_i         = field_map_int[key];
     M_X         = field_map_dbl["Drifter_x_"         + M_tag];
@@ -129,6 +129,32 @@ DriftersBase::readFromRestart(
     M_conc      = field_map_dbl["Drifter_conc_"      + M_tag];
     M_time_init = field_map_dbl["Drifter_time_init_" + M_tag][0];
     M_num_drifters = M_i.size();
+    return true;
+}
+
+
+void
+DriftersBase::fixInitTimeAtRestart(double const& restart_time)
+{
+    // if we are restarting before sceduled init time, there is no problem
+    // - they will be initialised at that time
+    if(restart_time<=M_time_init)
+        return;
+
+    //otherwise, if we can only start on a particular date, we raise an error...
+    if(M_fixed_time_init)
+    {
+        std::stringstream msg;
+        msg << "Error: " << M_tag<< " drifters have been requested but they are not in restart file,\n"
+            << "and their initial time, which is fixed at " << datenumToString(M_time_init) << ",\n"
+            << "is before the restart time ("<< datenumToString(restart_time) << ").\n"
+            << "Either switch off the drifters or initialise at a later date.";
+        throw std::runtime_error(msg.str());
+    }
+    
+    //...but if init time is not fixed we can just start at the same time on the next day
+    double const shift = M_time_init - std::floor(M_time_init);//usually 0, but .5 for OSISAF
+    M_time_init = std::ceil(restart_time) + shift;
 }
 
 
@@ -254,10 +280,11 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
     M_num_drifters = M_X.size();
 }//maskXY()
 
+
 void
 DriftersBase::checkOutputTimeStep(int time_step)
 {
-    if( fmod(M_output_freq*24*3600, time_step) != 0 )
+    if( fmod(M_output_interval*24*3600, time_step) != 0 )
     {
         std::string msg = M_tag +" drifters' timestep not a multiple of model time step";
         throw std::runtime_error(msg);

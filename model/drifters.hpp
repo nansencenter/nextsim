@@ -40,41 +40,61 @@ public:
         typedef struct NetCDFInputInfo
         {
             NetCDFInputInfo() {}
-            NetCDFInputInfo(std::string xname, std::string yname,
-                    std::string lon_name, std::string lat_name) :
+            NetCDFInputInfo(std::string const& infile,
+                    std::string const& xname, std::string const& yname,
+                    std::string const& lat_name, std::string const& lon_name) :
+                gridFile(infile),
                 dimNameX(xname), dimNameY(yname),
                 latName(lat_name), lonName(lon_name)
             {}
+            std::string gridFile;
             std::string dimNameX;
             std::string dimNameY;
             std::string latName;
             std::string lonName;
         } NetCDFInputInfo;
 
+        typedef struct TimingInfo
+        {
+            TimingInfo() {}
+            TimingInfo(
+                    double const& ti,
+                    double const& oint,
+                    bool const& hlt,
+                    double const& lt,
+                    bool const& fti
+                    )
+            {
+                time_init = ti;
+                output_interval = oint;
+                has_lifetime = hlt;
+                lifetime = lt;
+                fixed_time_init = fti;
+            }
+            double time_init;
+            double output_interval;
+            double input_freq;
+            bool has_lifetime;
+            double lifetime;
+            bool fixed_time_init;
+        } TimingInfo;
+
         Drifters() {}
 
-        //init from vectors (eg from restart)
-        Drifters(std::string const& tag, std::string const& export_path,
-                boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-                boost::unordered_map<std::string, std::vector<double>> & field_map_dbl,
-                double const& output_freq, double const& conc_lim);
-
         //! init equally-spaced drifters
-        Drifters(std::string const& tag, std::string const& export_path,
+        Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
-                double const& current_time, double const& output_freq);
+                TimingInfo const& timing_info);
 
         //! init drifters from netcdf file
-        Drifters(std::string const& tag, std::string const& export_path,
-                 std::string const& gridFile,
-                 std::string const& dimNameX, std::string const& dimNameY,
-                 std::string const& latName, std::string const& lonName,
-                 double const& climit, double const& current_time, double const& output_freq);
+        Drifters(std::string const& tag, std::string const& output_prefix,
+                 NetCDFInputInfo const& netcdf_input_info,
+                 double const& climit, TimingInfo const& timing_info);
 
         //! init drifters from text file
-        Drifters(std::string const& tag, std::string const& export_path,
+        Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
-                double const& current_time, double const& output_freq);
+                TimingInfo const& timing_info);
 
         void initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -89,7 +109,8 @@ private:
         void initFromTextFile();
         void initFromNetCDF();
         void initNetCDF(bool const& overwrite);
-        std::string getDrifterOutfilePrefix() const;
+        void setTimingInfo(TimingInfo const& timing_info);
+
         size_t M_nc_step;
         initType M_init_type;
         NetCDFInputInfo M_netcdf_input_info;

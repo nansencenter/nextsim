@@ -8468,19 +8468,31 @@ FiniteElement::restartDrifters(
     if(M_osisaf_drifters.size()>0)
     {
         // make sure OSISAF drifters are consistent with each other
-        // - OK if 0 in restart (default init times), or if 2 in restart
-        // - if just 1 need to check them
-        if(M_osisaf_drifters[0]->isInitialised()
-                && !M_osisaf_drifters[1]->isInitialised())
+        // - OK if 2 in restart
+        // - otherwise need to check consistency (1 should be a day after the other 1)
+        bool i0 = M_osisaf_drifters[0]->isInitialised();
+        bool i1 = M_osisaf_drifters[1]->isInitialised();
+        if( i1 && !i0 )
         {
+            // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
+            double const t = M_osisaf_drifters[1]->getInitTime() + 1;
+            M_osisaf_drifters[0]->setInitTime(t);
+        }
+        else if( i0 && !i1 )
+        {
+            // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
             double const t = M_osisaf_drifters[0]->getInitTime() + 1;
             M_osisaf_drifters[1]->setInitTime(t);
         }
-        if(M_osisaf_drifters[1]->isInitialised()
-                && !M_osisaf_drifters[0]->isInitialised())
+        else if( !(i0 || i1) )
         {
-            double const t = M_osisaf_drifters[1]->getInitTime() + 1;
-            M_osisaf_drifters[0]->setInitTime(t);
+            // neither are initialised from restart => need to check the times
+            double const t0 = std::min(
+                    M_osisaf_drifters[0]->getInitTime(),
+                    M_osisaf_drifters[1]->getInitTime()
+                    );
+            M_osisaf_drifters[0]->setInitTime(t0);
+            M_osisaf_drifters[1]->setInitTime(t0 + 1);
         }
     }
 }//restartDrifters
@@ -11307,42 +11319,45 @@ FiniteElement::instantiateDrifters()
     // - output time step is an option
     if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
+        int i0 = M_ordinary_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-        if( output_time_step > 2.0 )
-        {
-            // currently OSISAF output time step has to fit into 2 days
-            throw std::runtime_error("OSISAF drifters output timestep should be <= 2.0");
-        }
-        else if( fmod(2.0, output_time_step) != 0 )
-        {
-            // output timestep should fit into .5
-            throw std::runtime_error("2.0 should be a multiple of the OSISAF drifters output timestep");
-        }
-
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
+        std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
+        {
             // use grid refined by a factor of 9
             // - can then compare averaged drift to the observations
             // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
             osi_grid_file += "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+            osi_outfile_prefix += "OSISAF_refined9_drifters_";
+        }
         else
+        {
             osi_grid_file += "ice_drift_nh_polstere-625_multi-oi.nc";
-
-        int i0 = M_ordinary_drifters.size();
-        M_ordinary_drifters.push_back(
-                Drifters("osisaf0", M_export_path, osi_grid_file,
-                    "xc", "yc", "lat", "lon",
-                    drifters_conc_lim,
-                    drifters_time_init + .5, output_time_step)
-                );
-        M_ordinary_drifters.push_back(
-                Drifters("osisaf1", M_export_path, osi_grid_file,
-                    "xc", "yc", "lat", "lon",
-                    drifters_conc_lim,
-                    drifters_time_init + 1.5, output_time_step)
+            osi_outfile_prefix += "OSISAF_drifters_";
+        }
+        Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
+        Drifters::TimingInfo timing_info(
+                drifters_time_init + .5, //init time
+                output_time_step,        //output interval
+                true,                    //has finite lifetime?
+                2.,                      //lifetime before re-initialising
+                false                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifters to the list of ordinary drifters
+        M_ordinary_drifters.push_back(
+                Drifters("OSISAF0", osi_outfile_prefix,
+                    netcdf_input_info, drifters_conc_lim, timing_info)
+                );
+        timing_info.time_init += 1.;
+        M_ordinary_drifters.push_back(
+                Drifters("OSISAF1", osi_outfile_prefix,
+                    netcdf_input_info, drifters_conc_lim, timing_info)
+                );
+
+        // add drifters to the list of OSISAF drifters
+        // - need to sync them sometimes (mainly thinking of restart time)
         M_osisaf_drifters = {
             &M_ordinary_drifters[i0],
             &M_ordinary_drifters[i0+1],
@@ -11352,12 +11367,21 @@ FiniteElement::instantiateDrifters()
     // equally spaced drifters
     if (vm["drifters.use_equally_spaced_drifters"].as<bool>())
     {
-        // add drifter to the list of ordinary drifters
         double const output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+        std::string const output_prefix = M_export_path + "/Equally_Spaced_Drifters_";
+        Drifters::TimingInfo const timing_info(
+                drifters_time_init, //init time
+                output_time_step,   //output interval
+                false,              //has finite lifetime?
+                0.,                 //lifetime before re-initialising
+                false               //fixed init time? (like RGPS, SIDFEX)
+                );
+
+        // add drifter to the list of ordinary drifters
         M_ordinary_drifters.push_back(
-                Drifters("equally_spaced", M_export_path,
+                Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
-                    drifters_conc_lim, drifters_time_init, output_time_step)
+                    drifters_conc_lim, timing_info)
                 );
     }
 
@@ -11369,12 +11393,20 @@ FiniteElement::instantiateDrifters()
         double const rgps_time_init = Nextsim::stringToDatenum(time_str);
         std::string const rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
+        std::string const output_prefix = M_export_path + "/RGPS_Drifters_";
+        Drifters::TimingInfo const timing_info(
+                rgps_time_init,   //init time
+                output_time_step, //output interval
+                false,            //has finite lifetime?
+                0.,               //lifetime before re-initialising
+                true              //fixed init time? (like RGPS, SIDFEX)
+                );
 
         // add drifter to the list of ordinary drifters
         M_ordinary_drifters.push_back(
-                Drifters("rgps", M_export_path,
+                Drifters("RGPS", output_prefix,
                     rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
-                    rgps_time_init, output_time_step)
+                    timing_info)
                 );
     }
 
@@ -11384,29 +11416,34 @@ FiniteElement::instantiateDrifters()
         double const output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
         std::string const infile = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
+        std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
+        Drifters::TimingInfo const timing_info(
+                drifters_time_init, //init time
+                output_time_step,   //output interval
+                false,              //has finite lifetime?
+                0.,                 //lifetime before re-initialising
+                true                //fixed init time? (like RGPS, SIDFEX)
+                );
+
         // add drifter to the list of ordinary drifters
         M_ordinary_drifters.push_back(
-                Drifters("sidfex", M_export_path, infile,
-                    -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
-                    drifters_time_init, output_time_step)
+                Drifters("SIDFEx", output_prefix,
+                    infile, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
+                    timing_info)
                 );
     }
 
-    // use IABP drifters (12h check)
     if (vm["drifters.use_iabp_drifters"].as<bool>())
     {
-        // check the IABP in-/out-put time steps are consistent with each other
-        // - IABP input time step should be greater than the output time step
-        //   (same frequency of outputs or more frequent outputs),
-        // - IABP input time step should be a multiple of the output time step
         double const output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
         double const input_time_step = 0.5;
         std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
         std::string const outfile = M_export_path + "/IABP_drifters_simulated.txt";
+
+        // add drifter to the list of transient drifters
         M_transient_drifters.push_back(
-                TransientDrifters("iabp", outfile, infile,
-                    drifters_conc_lim, drifters_time_init, output_time_step,
-                    input_time_step)
+                TransientDrifters("IABP", outfile, infile, drifters_conc_lim,
+                    drifters_time_init, output_time_step, input_time_step)
                 );
     }
 

@@ -33,9 +33,16 @@ Drifters::initFromRestart(
         boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
         )
 {
-    M_is_initialised = true;
-    this->readFromRestart(field_map_int, field_map_dbl);
-    this->initNetCDF(false);
+    if( this->readFromRestart(field_map_int, field_map_dbl) )
+    {
+        M_is_initialised = true;
+        this->initNetCDF(false);
+    }
+    else
+    {
+        double restart_time = field_map_dbl["Time"][0];
+        this->fixInitTimeAtRestart(restart_time);
+    }
 }
  
 
@@ -44,18 +51,17 @@ Drifters::initFromRestart(
 //! * defines a uniform grid with resolution defined by spacing
 //! Called by FiniteElement::initEquallySpacedDrifters()
 Drifters::Drifters(
-        std::string const& tag, std::string const& export_path,
+        std::string const& tag, std::string const& output_prefix,
         double const& spacing, double const& climit,
-        double const& current_time, double const& output_freq)
+        TimingInfo const& timing_info)
 {
     //! -1) Set the time and output freq
     M_tag = tag;
-    M_time_init = current_time;
-    M_export_path = export_path;
-    M_output_freq = output_freq;
+    M_output_prefix = output_prefix;
     M_conc_lim = climit;
     M_spacing = spacing;
     M_init_type = Drifters::initType::SPACING;
+    this->setTimingInfo(timing_info);
 }
 
 
@@ -63,9 +69,9 @@ Drifters::Drifters(
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 Drifters::Drifters(
-        std::string const& tag, std::string const& export_path,
+        std::string const& tag, std::string const& output_prefix,
         std::string const& infile, double const& climit,
-        double const& current_time, double const& output_freq)
+        TimingInfo const& timing_info)
 {
     // interface for RGPS, SIDFEX
     // - reads a text file
@@ -75,12 +81,11 @@ Drifters::Drifters(
 
     //! -1) Set the time and output freq
     M_tag = tag;
-    M_export_path = export_path;
+    M_output_prefix = output_prefix;
     M_infile = infile;
-    M_time_init = current_time;
-    M_output_freq = output_freq;
     M_conc_lim = climit;
     M_init_type = Drifters::initType::TEXT_FILE;
+    this->setTimingInfo(timing_info);
 }
 
 
@@ -88,21 +93,17 @@ Drifters::Drifters(
 //! Initializes drifters : seeds and destroys drifters.
 //! * reads a netcdf file
 //! Called by FiniteElement::initOsisafDrifters()
-Drifters::Drifters(std::string const& tag, std::string const& export_path,
-                   std::string const& infile,
-                   std::string const& dimNameX, std::string const& dimNameY,
-                   std::string const& latName, std::string const& lonName,
+Drifters::Drifters(std::string const& tag, std::string const& output_prefix,
+                   NetCDFInputInfo const& netcdf_input_info,
                    double const& climit,
-                   double const& current_time, double const& output_freq)
+                   TimingInfo const& timing_info)
 {
     M_tag = tag;
-    M_export_path = export_path;
-    M_infile = infile;
-    M_time_init = current_time;
-    M_output_freq = output_freq;
+    M_output_prefix = output_prefix;
     M_conc_lim = climit;
-    M_init_type = Drifters::initType::NETCDF;
-    M_netcdf_input_info = Drifters::NetCDFInputInfo(dimNameX, dimNameY, latName, lonName);
+    M_netcdf_input_info = netcdf_input_info;
+    M_init_type = initType::NETCDF;
+    this->setTimingInfo(timing_info);
 }//init from netcdf file
 
 
@@ -166,22 +167,23 @@ Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
 void
 Drifters::initFromNetCDF()
 {
-    if ( ! boost::filesystem::exists(M_infile) )
-        throw std::runtime_error("Drifters::Drifters: File not found: " + M_infile);
+    std::string const infile = (M_netcdf_input_info.gridFile);
+    if ( ! boost::filesystem::exists(M_netcdf_input_info.gridFile) )
+        throw std::runtime_error("Drifters::Drifters: File not found: " + infile);
 
     // Open file
-    netCDF::NcFile dataFile(M_infile, netCDF::NcFile::read);
+    netCDF::NcFile dataFile(infile, netCDF::NcFile::read);
 
     //! - 3) Reads the dimension of the grid
     netCDF::NcDim dim;
     dim = dataFile.getDim(M_netcdf_input_info.dimNameX);
     if ( dim.isNull() )
-        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameX + " in file: " + M_infile);
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameX + " in file: " + infile);
     int ncols = dim.getSize();
 
     dim = dataFile.getDim(M_netcdf_input_info.dimNameY);
     if ( dim.isNull() )
-        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameY + " in file: " + M_infile);
+        throw std::runtime_error("Drifters::Drifters: Empty dimension: " + M_netcdf_input_info.dimNameY + " in file: " + infile);
     int nrows = dim.getSize();
 
     int gridSize = ncols*nrows;
@@ -238,22 +240,35 @@ Drifters::initFromTextFile()
 }
 
 
-std::string
-Drifters::getDrifterOutfilePrefix() const
+void
+Drifters::setTimingInfo(TimingInfo const& timing_info)
 {
-    std::string prefix = M_export_path + "/";
-    std::string osisaf_prefix = "OSISAF_";
-    boost::unordered_map<const std::string, std::string>
-        file_prefices = boost::assign::map_list_of
-        ("osisaf0", osisaf_prefix)
-        ("osisaf1", osisaf_prefix)
-        ("rgps", "RGPS_Drifters_")
-        ("sidfex", "SIDFEx_Drifters_")
-        ("equally_spaced", "EquallySpacedDrifters_")
-        ;
-    prefix += file_prefices[M_tag];
-    return prefix;
+    M_time_init       = timing_info.time_init;
+    M_output_interval = timing_info.output_interval;
+    M_has_lifetime    = timing_info.has_lifetime;
+    M_lifetime        = timing_info.lifetime;
+    M_fixed_time_init = timing_info.fixed_time_init;
+    if(M_has_lifetime)
+    {
+        if( M_output_interval > M_lifetime )
+        {
+            // output timestep should be <= lifetime
+            std::stringstream msg;
+            msg << M_tag << " drifters output timestep (" << M_output_interval
+                << ") should be <= their lifetime (" << M_lifetime << ")";
+            throw std::runtime_error(msg.str());
+        }
+        else if( fmod(M_lifetime, M_output_interval) != 0 )
+        {
+            // output timestep should fit into lifetime
+            std::stringstream msg;
+            msg << M_tag << " drifters lifetime (" << M_lifetime
+                << ") should be a multiple of their output timestep (" << M_output_interval << ")";
+            throw std::runtime_error(msg.str());
+        }
+    }
 }
+
 
 
 // File operations
@@ -268,7 +283,7 @@ Drifters::getDrifterOutfilePrefix() const
 void
 Drifters::initNetCDF(bool const& overwrite)
 {
-    M_outfile = this->getDrifterOutfilePrefix()
+    M_outfile = M_output_prefix
         + datenumToString(M_time_init, "%Y%m%d.nc");
     if ( boost::filesystem::exists(M_outfile) && !overwrite )
         //don't want to overwrite if starting from restart

@@ -48,7 +48,7 @@ public:
             if(!M_is_initialised)
                 return false;
             else
-                return std::fmod(current_time - M_time_init, M_output_freq) == 0;
+                return std::fmod(current_time - M_time_init, M_output_interval) == 0;
         }
         void checkOutputTimeStep(int time_step);
         double getInitTime() { return M_time_init; }
@@ -64,9 +64,10 @@ public:
         }
 
 protected:
-        void readFromRestart(
+        bool readFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
+        void fixInitTimeAtRestart(double const& restart_time);
         std::vector<int> grabBuoysFromInputFile(double const& current_time);
         void maskXY(std::vector<int> const& current_buoys); //check if buoy IDs are in a given list and remove if they are not
         void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
@@ -74,12 +75,13 @@ protected:
         bool M_is_initialised = false;
         int M_num_drifters = 0;
         double M_time_init;
-        double M_output_freq;
-        double M_input_freq;
+        double M_output_interval;
+        double M_input_interval;
         double M_conc_lim;
-        std::string M_export_path;
+        std::string M_output_prefix;
         double M_lifetime;
-        bool M_has_lifetime;
+        bool M_has_lifetime = false;
+        bool M_fixed_time_init = false;
         
         std::string M_infile;
         std::string M_outfile;

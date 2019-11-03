@@ -31,8 +31,16 @@ TransientDrifters::initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
 {
-    this->readFromRestart(field_map_int, field_map_dbl);
-    this->initFiles(false);
+    if( this->readFromRestart(field_map_int, field_map_dbl) )
+    {
+        M_is_initialised = true;
+        this->initFiles(false);
+    }
+    else
+    {
+        double restart_time = field_map_dbl["Time"][0];
+        this->fixInitTimeAtRestart(restart_time);
+    }
 }
  
 
@@ -41,7 +49,7 @@ TransientDrifters::initFromRestart(
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 TransientDrifters::TransientDrifters(std::string const& tag, std::string const& outfile,
         std::string const& infile, double const& climit, double const& current_time,
-        double const& output_freq, double const& input_freq)
+        double const& output_interval, double const& input_interval)
 {
     // interface for RGPS, SIDFEX
     // - reads a text file
@@ -52,19 +60,19 @@ TransientDrifters::TransientDrifters(std::string const& tag, std::string const& 
     //! -1) Set the time and output freq
     M_tag = tag;
     M_time_init = current_time;
-    M_output_freq = output_freq;
-    M_input_freq = input_freq;
+    M_output_interval = output_interval;
+    M_input_interval = input_interval;
     M_infile = infile;
     M_outfile = outfile;
     M_conc_lim = climit;
 
-    if( M_output_freq > M_input_freq )
+    if( M_output_interval > M_input_interval )
     {
         std::string msg = M_tag + " drifters output timestep";
         msg += " should be <= "+M_tag+" input timestep";
         throw std::runtime_error(msg);
     }
-    else if ( std::fmod(M_input_freq, M_output_freq) != 0 )
+    else if ( std::fmod(M_input_interval, M_output_interval) != 0 )
     {
         std::string const msg = M_tag + "IABP drifter input timestep should be a multiple of the "
             + M_tag + " output timestep";
@@ -201,7 +209,7 @@ TransientDrifters::isInputTime(double const& current_time)
     bool do_input = false;
     if(current_time>M_time_init)
         // output is already done at init time
-        do_input = std::fmod(current_time - M_time_init, M_input_freq) == 0;
+        do_input = std::fmod(current_time - M_time_init, M_input_interval) == 0;
     return do_input;
 }
 

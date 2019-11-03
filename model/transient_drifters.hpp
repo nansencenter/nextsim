@@ -37,7 +37,7 @@ public:
         TransientDrifters(std::string const& tag, std::string const& outfile,
                 std::string const& infile, double const& climit,
                 double const& current_time, double const& output_freq,
-                double const& input_freq);
+                double const& input_interval);
 
         void initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
