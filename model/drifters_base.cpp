@@ -82,12 +82,16 @@ DriftersBase::grabBuoysFromInputFile(double const& current_time)
 void
 DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 {
+    // Do nothing if we don't have to
     if (!M_is_initialised)
         return;
+    if (M_num_drifters == 0)
+        return;
+
     // Sort the drifters so the restart files are identical
     // (this is just to make testing of restart procedure easier)
     std::vector<int> drifter_no = M_i;
-    std::vector<double> drifter_x(M_num_drifters), drifter_y(M_num_drifters), drifter_conc(M_num_drifters);
+    std::vector<double> drifter_x(M_num_drifters), drifter_y(M_num_drifters);
     std::vector<int> idx(M_num_drifters);
     int j = 0;
     std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., M_num_drifters-1}
@@ -97,7 +101,6 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
         drifter_no[j] = M_i[idx[j]];
         drifter_x[j] = M_X[idx[j]];
         drifter_y[j] = M_Y[idx[j]];
-        drifter_conc[j] = M_conc[idx[j]];
     }
 
     // write the fields to file
@@ -105,7 +108,6 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
     exporter.writeField(outbin, drifter_no,   "Drifter_ID_"        + M_tag);
     exporter.writeField(outbin, drifter_x,    "Drifter_x_"         + M_tag);
     exporter.writeField(outbin, drifter_y,    "Drifter_y_"         + M_tag);
-    exporter.writeField(outbin, drifter_conc, "Drifter_conc_"      + M_tag);
     exporter.writeField(outbin, t,            "Drifter_time_init_" + M_tag);
 }
 
@@ -126,7 +128,6 @@ DriftersBase::readFromRestart(
     M_i         = field_map_int[key];
     M_X         = field_map_dbl["Drifter_x_"         + M_tag];
     M_Y         = field_map_dbl["Drifter_y_"         + M_tag];
-    M_conc      = field_map_dbl["Drifter_conc_"      + M_tag];
     M_time_init = field_map_dbl["Drifter_time_init_" + M_tag][0];
     M_num_drifters = M_i.size();
     return true;
@@ -223,6 +224,7 @@ DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
     // Do nothing if we don't have to
     if ( M_num_drifters == 0 )
         return;
+    M_conc.resize(M_num_drifters);
 
     // move the mesh before interpolating
     int numNodes = movedmesh.numNodes();
@@ -253,9 +255,13 @@ void
 DriftersBase::maskXY(std::vector<int> const& keepers)
 {
 
+    // Do nothing if we don't have to
+    if ( M_num_drifters == 0 )
+        return;
+
     auto X = M_X;
     auto Y = M_Y;
-    auto INDS = M_i;
+    auto idx = M_i;
     auto conc = M_conc;
 
     //! - 2) Adds drifter positions where conc > conc_lim
@@ -264,15 +270,15 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
     M_i.resize(0);
     M_conc.resize(0);
 
-    for ( int i=0; i<INDS.size(); ++i )
+    for ( int i=0; i<idx.size(); ++i )
     {
         int const id_count = std::count(keepers.begin(),
-                    keepers.end(), INDS[i]);
+                    keepers.end(), idx[i]);
         if ( conc[i] > M_conc_lim && id_count>0 )
         {
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
-            M_i.push_back(INDS[i]);
+            M_i.push_back(idx[i]);
             M_conc.push_back(conc[i]);
         }
     }

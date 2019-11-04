@@ -118,6 +118,7 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
         this->initFromSpacing(moved_mesh);
     else if (M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
+    M_num_drifters = M_i.size();
 
     //! -3) Set M_conc at all the drifters
     this->updateConc(moved_mesh, conc);

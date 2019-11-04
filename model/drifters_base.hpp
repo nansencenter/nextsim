@@ -69,8 +69,16 @@ protected:
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
         void fixInitTimeAtRestart(double const& restart_time);
         std::vector<int> grabBuoysFromInputFile(double const& current_time);
-        void maskXY(std::vector<int> const& current_buoys); //check if buoy IDs are in a given list and remove if they are not
-        void maskXY() { this->maskXY(M_i); } //don't remove any buoys unless the conc is too low
+        void maskXY(std::vector<int> const& current_buoys);
+            // - check if buoy IDs are in a given list and remove if they are not
+            // - also check for if conc > a threshold
+        void maskXY()
+        {
+            auto keepers = M_i;
+            // - don't remove any buoys unless the conc is too low
+            // - take a copy as we resize M_i inside maskXY
+            this->maskXY(keepers);
+        } 
 
         bool M_is_initialised = false;
         int M_num_drifters = 0;
