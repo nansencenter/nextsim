@@ -221,7 +221,7 @@ namespace Nextsim
                 "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ), 
+            ("output.output_per_day", po::value<int>()->default_value( 4 ),
                "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
@@ -344,8 +344,11 @@ namespace Nextsim
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
+            //   clip : float
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+            ("damage.clip", po::value<double>()->default_value( 0 ),
+             "Threshold for clipping damage. All values below <damage.clip> will be turned zero before calculating how elastic modulus and stress relaxation time depend on damage.")
 
 
              //-----------------------------------------------------------------------------------
