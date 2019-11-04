@@ -34,10 +34,9 @@ public:
         TransientDrifters() {}
 
         //! init drifters from text file
-        TransientDrifters(std::string const& tag, std::string const& outfile,
+        TransientDrifters(std::string const& tag, std::string const& outfile_prefix,
                 std::string const& infile, double const& climit,
-                double const& current_time, double const& output_freq,
-                double const& input_interval);
+                DriftersBase::TimingInfo const& timing_info);
 
         void initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,

@@ -54,47 +54,22 @@ public:
             std::string lonName;
         } NetCDFInputInfo;
 
-        typedef struct TimingInfo
-        {
-            TimingInfo() {}
-            TimingInfo(
-                    double const& ti,
-                    double const& oint,
-                    bool const& hlt,
-                    double const& lt,
-                    bool const& fti
-                    )
-            {
-                time_init = ti;
-                output_interval = oint;
-                has_lifetime = hlt;
-                lifetime = lt;
-                fixed_time_init = fti;
-            }
-            double time_init;
-            double output_interval;
-            double input_freq;
-            bool has_lifetime;
-            double lifetime;
-            bool fixed_time_init;
-        } TimingInfo;
-
         Drifters() {}
 
         //! init equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
-                TimingInfo const& timing_info);
+                DriftersBase::TimingInfo const& timing_info);
 
         //! init drifters from netcdf file
         Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
-                 double const& climit, TimingInfo const& timing_info);
+                 double const& climit, DriftersBase::TimingInfo const& timing_info);
 
         //! init drifters from text file
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
-                TimingInfo const& timing_info);
+                DriftersBase::TimingInfo const& timing_info);
 
         void initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -109,7 +84,6 @@ private:
         void initFromTextFile();
         void initFromNetCDF();
         void initNetCDF(bool const& overwrite);
-        void setTimingInfo(TimingInfo const& timing_info);
 
         size_t M_nc_step;
         initType M_init_type;

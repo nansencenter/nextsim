@@ -30,6 +30,43 @@ namespace Nextsim
     class DriftersBase
     {
 public:
+        typedef struct TimingInfo
+        {
+            TimingInfo() {}
+
+            TimingInfo(
+                    double const& ti,
+                    double const& oint,
+                    bool const& hlt,
+                    double const& lt,
+                    bool const& fti
+                    )
+            {
+                time_init = ti;
+                output_interval = oint;
+                has_lifetime = hlt;
+                lifetime = lt;
+                fixed_time_init = fti;
+            }
+
+            TimingInfo(
+                    double const& ti,
+                    double const& oint,
+                    double const& iint,
+                    bool const& hlt,
+                    double const& lt,
+                    bool const& fti
+                    ) : TimingInfo(ti, oint, hlt, lt, fti)
+            { input_interval = iint; }
+
+            double time_init;
+            double output_interval;
+            double input_interval = -1;
+            bool has_lifetime;
+            double lifetime;
+            bool fixed_time_init;
+        } TimingInfo;
+
 
         DriftersBase() {}
         void addToRestart(Exporter &exporter, std::fstream &outbin);
@@ -78,7 +115,8 @@ protected:
             // - don't remove any buoys unless the conc is too low
             // - take a copy as we resize M_i inside maskXY
             this->maskXY(keepers);
-        } 
+        }
+        void setTimingInfo(TimingInfo const& timing_info);
 
         bool M_is_initialised = false;
         int M_num_drifters = 0;

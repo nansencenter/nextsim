@@ -241,37 +241,6 @@ Drifters::initFromTextFile()
 }
 
 
-void
-Drifters::setTimingInfo(TimingInfo const& timing_info)
-{
-    M_time_init       = timing_info.time_init;
-    M_output_interval = timing_info.output_interval;
-    M_has_lifetime    = timing_info.has_lifetime;
-    M_lifetime        = timing_info.lifetime;
-    M_fixed_time_init = timing_info.fixed_time_init;
-    if(M_has_lifetime)
-    {
-        if( M_output_interval > M_lifetime )
-        {
-            // output timestep should be <= lifetime
-            std::stringstream msg;
-            msg << M_tag << " drifters output timestep (" << M_output_interval
-                << ") should be <= their lifetime (" << M_lifetime << ")";
-            throw std::runtime_error(msg.str());
-        }
-        else if( fmod(M_lifetime, M_output_interval) != 0 )
-        {
-            // output timestep should fit into lifetime
-            std::stringstream msg;
-            msg << M_tag << " drifters lifetime (" << M_lifetime
-                << ") should be a multiple of their output timestep (" << M_output_interval << ")";
-            throw std::runtime_error(msg.str());
-        }
-    }
-}
-
-
-
 // File operations
 // ----------------------------------------------------------------------------------------------
 //! Initializes the netCDF file

@@ -25,7 +25,52 @@ namespace Nextsim
 //!   placed outside the ice cover.
 //! * There is also a default, constructor which initialises things to zero and false.
 
-//init from vectors (eg from restart)
+
+// ---------------------------------------------------------------------------------------
+//! Initializes drifters : seeds and destroys drifters.
+//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
+TransientDrifters::TransientDrifters(std::string const& tag, std::string const& output_prefix,
+        std::string const& infile, double const& climit,
+        TimingInfo const& timing_info)
+{
+    // interface for RGPS, SIDFEX
+    // - reads a text file
+    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
+    //   - therefore use an index file to map the true IDs to smaller integers
+    //     (this is what is done in the forecast system)
+
+    //! -1) Set the time and output freq
+    M_tag = tag;
+    M_infile = infile;
+    M_output_prefix = output_prefix;
+    M_conc_lim = climit;
+    this->setTimingInfo(timing_info);
+}
+
+
+void
+TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc)
+{
+    M_is_initialised = true;
+
+    //! - 2) Prepare input and output files
+    this->initFiles(true);
+
+    //! - 3) Load the current buoys from file
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_i.resize(0);
+    this->grabBuoysFromInputFile(M_time_init);
+    M_num_drifters = M_i.size();
+
+    //! - 4) Calculate conc for all the drifters
+    this->updateConc(movedmesh, conc);
+
+    //! - 5) Applies mask using conc and climit
+    this->maskXY();
+}
+
+
 void
 TransientDrifters::initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -44,63 +89,6 @@ TransientDrifters::initFromRestart(
 }
  
 
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-TransientDrifters::TransientDrifters(std::string const& tag, std::string const& outfile,
-        std::string const& infile, double const& climit, double const& current_time,
-        double const& output_interval, double const& input_interval)
-{
-    // interface for RGPS, SIDFEX
-    // - reads a text file
-    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
-    //   - therefore use an index file to map the true IDs to smaller integers
-    //     (this is what is done in the forecast system)
-
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_time_init = current_time;
-    M_output_interval = output_interval;
-    M_input_interval = input_interval;
-    M_infile = infile;
-    M_outfile = outfile;
-    M_conc_lim = climit;
-
-    if( M_output_interval > M_input_interval )
-    {
-        std::string msg = M_tag + " drifters output timestep";
-        msg += " should be <= "+M_tag+" input timestep";
-        throw std::runtime_error(msg);
-    }
-    else if ( std::fmod(M_input_interval, M_output_interval) != 0 )
-    {
-        std::string const msg = M_tag + "IABP drifter input timestep should be a multiple of the "
-            + M_tag + " output timestep";
-        throw std::runtime_error(msg);
-    }
-}
-
-
-void
-TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc)
-{
-    M_is_initialised = true;
-
-    //! - 2) Prepare input and output files
-    this->initFiles(true);
-
-    //! - 3) Load the current buoys from file
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_i.resize(0);
-    this->grabBuoysFromInputFile(M_time_init);
-
-    //! - 4) Calculate conc for all the drifters
-    this->updateConc(movedmesh, conc);
-
-    //! - 5) Applies mask using conc and climit
-    this->maskXY();
-}
 
 
 // ---------------------------------------------------------------------------------------
@@ -124,6 +112,7 @@ TransientDrifters::initFiles(bool const& overwrite)
     //LOG(DEBUG)<<"header: "<<header<<"\n";
 
     // OUTPUT:
+    M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d.txt");
     fs::path path1(M_outfile);
     if ( fs::exists(path1) && !overwrite )
         // don't overwrite if starting from restart

@@ -297,4 +297,53 @@ DriftersBase::checkOutputTimeStep(int time_step)
     }
 }
 
+
+void
+DriftersBase::setTimingInfo(TimingInfo const& timing_info)
+{
+    //for Drifters & TransientDrifters
+    M_time_init       = timing_info.time_init;
+    M_output_interval = timing_info.output_interval;
+    M_has_lifetime    = timing_info.has_lifetime;
+    M_lifetime        = timing_info.lifetime;
+    M_fixed_time_init = timing_info.fixed_time_init;
+    if(M_has_lifetime)
+    {
+        if( M_output_interval > M_lifetime )
+        {
+            // output timestep should be <= lifetime
+            std::stringstream msg;
+            msg << M_tag << " drifters output timestep (" << M_output_interval
+                << ") should be <= their lifetime (" << M_lifetime << ")";
+            throw std::runtime_error(msg.str());
+        }
+        else if( fmod(M_lifetime, M_output_interval) != 0 )
+        {
+            // output timestep should fit into lifetime
+            std::stringstream msg;
+            msg << M_tag << " drifters lifetime (" << M_lifetime
+                << ") should be a multiple of their output timestep (" << M_output_interval << ")";
+            throw std::runtime_error(msg.str());
+        }
+    }
+
+    //for TransientDrifters
+    if (timing_info.input_interval <0 )
+        return;
+
+    M_input_interval = timing_info.input_interval;
+    if( M_output_interval > M_input_interval )
+    {
+        std::string msg = M_tag + " drifters output timestep";
+        msg += " should be <= "+M_tag+" input timestep";
+        throw std::runtime_error(msg);
+    }
+    else if ( std::fmod(M_input_interval, M_output_interval) != 0 )
+    {
+        std::string const msg = M_tag + " drifter input timestep should be a multiple of the "
+            + M_tag + " output timestep";
+        throw std::runtime_error(msg);
+    }
+}
+
 } // Nextsim
