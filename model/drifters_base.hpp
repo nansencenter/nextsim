@@ -67,8 +67,15 @@ public:
             bool fixed_time_init;
         } TimingInfo;
 
-
         DriftersBase() {}
+        DriftersBase(std::string const& tag, std::string const& output_prefix,
+                double const& climit,
+                DriftersBase::TimingInfo const& timing_info,
+                bool const& no_start_from_restart) : 
+            M_tag(tag), M_output_prefix(output_prefix),
+            M_conc_lim(climit), M_no_start_from_restart(no_start_from_restart)
+        { this->setTimingInfo(timing_info); }
+
         void addToRestart(Exporter &exporter, std::fstream &outbin);
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void reset();
@@ -129,6 +136,7 @@ protected:
         double M_lifetime;
         bool M_has_lifetime = false;
         bool M_fixed_time_init = false;
+        bool M_no_start_from_restart = false;
         
         std::string M_infile;
         std::string M_outfile;

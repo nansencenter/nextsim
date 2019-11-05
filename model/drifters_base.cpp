@@ -307,6 +307,8 @@ DriftersBase::setTimingInfo(TimingInfo const& timing_info)
     M_has_lifetime    = timing_info.has_lifetime;
     M_lifetime        = timing_info.lifetime;
     M_fixed_time_init = timing_info.fixed_time_init;
+    M_outfile = M_output_prefix
+        + datenumToString(M_time_init, "%Y%m%d.nc");
     if(M_has_lifetime)
     {
         if( M_output_interval > M_lifetime )

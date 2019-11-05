@@ -59,17 +59,40 @@ public:
         //! init equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
-                DriftersBase::TimingInfo const& timing_info);
+                DriftersBase::TimingInfo const& timing_info,
+                bool const& no_start_from_restart):
+            DriftersBase(tag, output_prefix, climit, timing_info,
+                    no_start_from_restart)
+        {
+            M_init_type = Drifters::initType::SPACING;
+            M_spacing = spacing;
+        }
 
         //! init drifters from netcdf file
         Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
-                 double const& climit, DriftersBase::TimingInfo const& timing_info);
+                 double const& climit,
+                 DriftersBase::TimingInfo const& timing_info,
+                 bool const& no_start_from_restart):
+            DriftersBase(tag, output_prefix, climit, timing_info,
+                    no_start_from_restart)
+        {
+            M_init_type = Drifters::initType::NETCDF;
+            M_netcdf_input_info = netcdf_input_info;
+        }
 
         //! init drifters from text file
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
-                DriftersBase::TimingInfo const& timing_info);
+                DriftersBase::TimingInfo const& timing_info,
+                bool const& no_start_from_restart):
+            DriftersBase(tag, output_prefix, climit, timing_info,
+                    no_start_from_restart)
+        {
+            M_init_type = Drifters::initType::TEXT_FILE;
+            M_infile = filename;
+        }
+        
 
         void initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,

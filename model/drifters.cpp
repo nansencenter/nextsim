@@ -34,11 +34,12 @@ Drifters::initFromRestart(
         )
 {
     double const restart_time = field_map_dbl["Time"][0];
-    bool const in_restart = readFromRestart(field_map_int, field_map_dbl);
+    bool in_restart = false;
+    if(!M_no_start_from_restart)
+        in_restart = readFromRestart(field_map_int, field_map_dbl);
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
         this->fixInitTimeAtRestart(restart_time);
-
     M_outfile = M_output_prefix
         + datenumToString(M_time_init, "%Y%m%d.nc");
 
@@ -58,67 +59,6 @@ Drifters::initFromRestart(
     if (present)
         this->selectRecordsFromBackupNetCDF(backup, restart_time);
 }
- 
-
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! * defines a uniform grid with resolution defined by spacing
-//! Called by FiniteElement::initEquallySpacedDrifters()
-Drifters::Drifters(
-        std::string const& tag, std::string const& output_prefix,
-        double const& spacing, double const& climit,
-        TimingInfo const& timing_info)
-{
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_output_prefix = output_prefix;
-    M_conc_lim = climit;
-    M_spacing = spacing;
-    M_init_type = Drifters::initType::SPACING;
-    this->setTimingInfo(timing_info);
-}
-
-
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-Drifters::Drifters(
-        std::string const& tag, std::string const& output_prefix,
-        std::string const& infile, double const& climit,
-        TimingInfo const& timing_info)
-{
-    // interface for RGPS, SIDFEX
-    // - reads a text file
-    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
-    //   - therefore use an index file to map the true IDs to smaller integers
-    //     (this is what is done in the forecast system)
-
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_output_prefix = output_prefix;
-    M_infile = infile;
-    M_conc_lim = climit;
-    M_init_type = Drifters::initType::TEXT_FILE;
-    this->setTimingInfo(timing_info);
-}
-
-
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! * reads a netcdf file
-//! Called by FiniteElement::initOsisafDrifters()
-Drifters::Drifters(std::string const& tag, std::string const& output_prefix,
-                   NetCDFInputInfo const& netcdf_input_info,
-                   double const& climit,
-                   TimingInfo const& timing_info)
-{
-    M_tag = tag;
-    M_output_prefix = output_prefix;
-    M_conc_lim = climit;
-    M_netcdf_input_info = netcdf_input_info;
-    M_init_type = initType::NETCDF;
-    this->setTimingInfo(timing_info);
-}//init from netcdf file
 
 
 void

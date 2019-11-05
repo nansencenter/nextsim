@@ -183,10 +183,15 @@ namespace Nextsim
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
                 "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
-             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
+             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false),
+                "are we using SIDFEX drifters")
              ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
                   "interval between SIDFEX drifter outputs (days): integer multiple of timestep")
              ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
+             ("drifters.sidfex_time_init", po::value<std::string>()->default_value( "" ),
+                  "time to init SIDFEx drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
+             ("drifters.sidfex_no_start_from_restart", po::value<bool>()->default_value( false),
+                "do not load SIDFEx buoys from restart even if present")
 
             // - Restart
             // -- inputs

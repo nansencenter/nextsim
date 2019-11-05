@@ -11350,12 +11350,14 @@ FiniteElement::instantiateDrifters()
         // add drifters to the list of ordinary drifters
         M_ordinary_drifters.push_back(
                 Drifters("OSISAF0", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info)
+                    netcdf_input_info, drifters_conc_lim, timing_info,
+                    false)
                 );
         timing_info.time_init += 1.;
         M_ordinary_drifters.push_back(
                 Drifters("OSISAF1", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info)
+                    netcdf_input_info, drifters_conc_lim, timing_info,
+                    false)
                 );
 
         // add drifters to the list of OSISAF drifters
@@ -11383,7 +11385,7 @@ FiniteElement::instantiateDrifters()
         M_ordinary_drifters.push_back(
                 Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
-                    drifters_conc_lim, timing_info)
+                    drifters_conc_lim, timing_info, false)
                 );
     }
 
@@ -11408,7 +11410,7 @@ FiniteElement::instantiateDrifters()
         M_ordinary_drifters.push_back(
                 Drifters("RGPS", output_prefix,
                     rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
-                    timing_info)
+                    timing_info, false)
                 );
     }
 
@@ -11419,8 +11421,14 @@ FiniteElement::instantiateDrifters()
         std::string const infile = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
         std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
+        bool const no_start_from_restart = vm["drifters.sidfex_no_start_from_restart"].as<bool>();
+        std::string const timestr = vm["drifters.sidfex_time_init"].as<std::string>();
+        double sidfex_time_init = drifters_time_init;
+        if(timestr != "")
+            sidfex_time_init = Nextsim::stringToDatenum(timestr);
+
         DriftersBase::TimingInfo const timing_info(
-                drifters_time_init, //init time
+                sidfex_time_init, //init time
                 output_time_step,   //output interval
                 false,              //has finite lifetime?
                 0.,                 //lifetime before re-initialising
@@ -11430,8 +11438,8 @@ FiniteElement::instantiateDrifters()
         // add drifter to the list of ordinary drifters
         M_ordinary_drifters.push_back(
                 Drifters("SIDFEx", output_prefix,
-                    infile, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
-                    timing_info)
+                    infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
+                    timing_info, no_start_from_restart)
                 );
     }
 
@@ -11453,7 +11461,7 @@ FiniteElement::instantiateDrifters()
                 );
         M_transient_drifters.push_back(
                 TransientDrifters("IABP", outfile_prefix, infile,
-                    drifters_conc_lim, timing_info)
+                    drifters_conc_lim, timing_info, false)
                 );
     }
 

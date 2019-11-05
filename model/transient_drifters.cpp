@@ -26,28 +26,6 @@ namespace Nextsim
 //! * There is also a default, constructor which initialises things to zero and false.
 
 
-// ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
-TransientDrifters::TransientDrifters(std::string const& tag, std::string const& output_prefix,
-        std::string const& infile, double const& climit,
-        TimingInfo const& timing_info)
-{
-    // interface for RGPS, SIDFEX
-    // - reads a text file
-    // - NB usually doesn't work for true SIDFEX buoy IDs as they are too large
-    //   - therefore use an index file to map the true IDs to smaller integers
-    //     (this is what is done in the forecast system)
-
-    //! -1) Set the time and output freq
-    M_tag = tag;
-    M_infile = infile;
-    M_output_prefix = output_prefix;
-    M_conc_lim = climit;
-    this->setTimingInfo(timing_info);
-}
-
-
 void
 TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc)
 {
