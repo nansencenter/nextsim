@@ -33,16 +33,30 @@ Drifters::initFromRestart(
         boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
         )
 {
-    if( this->readFromRestart(field_map_int, field_map_dbl) )
-    {
-        M_is_initialised = true;
-        this->initNetCDF(false);
-    }
-    else
-    {
-        double restart_time = field_map_dbl["Time"][0];
+    double const restart_time = field_map_dbl["Time"][0];
+    bool const in_restart = readFromRestart(field_map_int, field_map_dbl);
+    if( !in_restart )
+        //drifters are not in restart file - check init time and init output file
         this->fixInitTimeAtRestart(restart_time);
+
+    M_outfile = M_output_prefix
+        + datenumToString(M_time_init, "%Y%m%d.nc");
+
+    if(!in_restart)
+    {
+        this->initNetCDF();
+        return;
     }
+    
+    //if drifters are in the restart file
+    M_is_initialised = true;
+    std::string const backup = M_outfile + ".bak"; 
+    bool const present = fs::exists(M_outfile);
+    if (present)
+        this->backupOutputFile(backup);
+    this->initNetCDF();
+    if (present)
+        this->selectRecordsFromBackupNetCDF(backup, restart_time);
 }
  
 
@@ -127,7 +141,7 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
     this->maskXY();
 
     //! -5) Init the netcdf output file
-    this->initNetCDF(true);
+    this->initNetCDF();
 }
 
 
@@ -163,6 +177,64 @@ Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
         y += M_spacing;
     }
 }
+
+
+void
+Drifters::selectRecordsFromBackupNetCDF(
+        std::string const& backup, double const& current_time)
+{
+    // Open file
+    netCDF::NcFile dataFile1(backup, netCDF::NcFile::read);
+    netCDF::NcFile dataFile2(backup, netCDF::NcFile::write);
+
+    //! Read x dimension of the grid
+    netCDF::NcDim dim = dataFile1.getDim("x");
+    if ( dim.isNull() )
+    {
+        std::stringstream msg;
+        msg << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension x in "
+            << backup;
+        throw std::runtime_error(msg.str());
+    }
+    M_num_drifters = dim.getSize();
+
+    // time dimension
+    dim = dataFile1.getDim("time");
+    if ( dim.isNull() )
+    {
+        M_nc_step = 0;
+        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
+        return;
+    }
+    size_t ntime = dim.getSize();
+    std::vector<double> time1(ntime), time2(0);
+    netCDF::NcVar vtime1 = dataFile1.getVar("time");
+    vtime1.getVar(&time1[0]);
+    for (auto t: time1)
+        while(t<current_time)
+            time2.push_back(t);
+    netCDF::NcVar vtime2 = dataFile2.getVar("time");
+    vtime2.putVar(&time2[0]);
+    M_nc_step = time2.size();
+
+    // Read the latitude and longitude and adds it to the new file
+    std::vector<std::string> vars = {
+        "latitude", "longitude", "index", "sic"};
+    std::vector<double> tmp(M_num_drifters);
+    std::vector<size_t> count = {1, (size_t) M_num_drifters, 1};//time, x, y
+    for(int n=0; n<M_nc_step; n++)
+    {
+        //copy 1 time record at a time to save memory
+        std::vector<size_t> start = {(size_t) n, 0, 0};//time, x, y
+        for (auto vname : vars)
+        {
+            netCDF::NcVar v1 = dataFile1.getVar(vname);
+            netCDF::NcVar v2 = dataFile2.getVar(vname);
+            v1.getVar(start, count, &tmp[0]);
+            v2.putVar(start, count, &tmp[0]);
+        }
+    }
+}//selectRecordsFromBackupNetCDF
 
 
 void
@@ -251,14 +323,8 @@ Drifters::initFromTextFile()
 //! with the same prefix per day.
  
 void
-Drifters::initNetCDF(bool const& overwrite)
+Drifters::initNetCDF()
 {
-    M_outfile = M_output_prefix
-        + datenumToString(M_time_init, "%Y%m%d.nc");
-    if ( boost::filesystem::exists(M_outfile) && !overwrite )
-        //don't want to overwrite if starting from restart
-        return;
-
     // Create the netCDF file.
     netCDF::NcFile dataFile(M_outfile, netCDF::NcFile::replace);
 

@@ -130,12 +130,8 @@ void
 TransientDrifters::backupOutputTextFile(double const& current_time)
 {
     std::string const backup = M_outfile + ".bak";
-    fs::path path1(M_outfile);
-    if ( fs::exists(path1) )
-    {
-        fs::path path2(backup);
-        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
-    }
+    this->backupOutputFile(backup);
+
     std::fstream fin(backup, std::fstream::in);
     std::fstream fout(M_outfile, std::fstream::out);
     if ( !fout.good() )

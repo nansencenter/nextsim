@@ -117,6 +117,7 @@ protected:
             this->maskXY(keepers);
         }
         void setTimingInfo(TimingInfo const& timing_info);
+        void backupOutputFile(std::string const& backup);
 
         bool M_is_initialised = false;
         int M_num_drifters = 0;

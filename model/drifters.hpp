@@ -83,7 +83,10 @@ private:
         void initFromSpacing(GmshMeshSeq const& moved_mesh);
         void initFromTextFile();
         void initFromNetCDF();
-        void initNetCDF(bool const& overwrite);
+        void initNetCDF();
+        void backupOutputNetCDF(std::string const& backup);
+        void selectRecordsFromBackupNetCDF(
+            std::string const& backup, double const& current_time);
 
         size_t M_nc_step;
         initType M_init_type;

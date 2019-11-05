@@ -346,4 +346,16 @@ DriftersBase::setTimingInfo(TimingInfo const& timing_info)
     }
 }
 
+
+void
+DriftersBase::backupOutputFile(std::string const& backup)
+{
+    fs::path path1(M_outfile);
+    if ( fs::exists(path1) )
+    {
+        fs::path path2(backup);
+        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+    }
+}
+
 } // Nextsim
