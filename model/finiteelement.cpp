@@ -7138,32 +7138,6 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         }
     }
 
-#if 0
-            //! - 4) Move the drifters
-            // NB M_UT is relative to the fixed mesh, not the moved mesh
-            M_iabp_drifters.move(M_mesh_root, UT_root);
-            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                (*it)->move(M_mesh_root, UT_root);
-
-            //! - 5) Do we need to initialise any drifters?
-            //  * Do initialisation after moving,
-            //    to avoid moving drifters that are only just initialised
-            //  * NB last OSISAF drifter does output in initOsisafDrifters before it is overwritten
-            //  * NB to update the conc we need to move the mesh
-            auto movedmesh_root = M_mesh_root;
-            movedmesh_root.move(UM_root, 1.);
-            if(init_any)
-                this->initDrifters(movedmesh_root, conc_root, init_names);
-
-            //! - 6) Do we need to input/output any drifters?
-            M_iabp_drifters.checkAndDoIO(movedmesh_root, conc_root, M_current_time);
-            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                (*it)->checkAndDoOutput(movedmesh_root, conc_root, M_current_time);
-
-        }//M_rank==0
-    }//if(move_drifters)
-#endif
-
     //! 4) check if we are outputting results file
     bool exporting = false;
     if(output_time_step>0)
@@ -8380,16 +8354,6 @@ FiniteElement::readRestart(std::string const& name_str)
     if(M_current_time > time_init + duration/days_in_sec )
         throw std::runtime_error("Restart time is after end time (time_init + duration)");
 
-#if 0
-    if(M_use_drifters)
-    {
-        // if current time is ahead of init-drifter time
-        // (as it could be in a restart situation),
-        // increase the init-drifter time
-        M_drifters_time_init = std::max(M_drifters_time_init,
-                std::ceil(M_current_time));
-    }
-#endif
 
     // set all variables to 0
     // - best to do this early on so M_tice has the right number of components
