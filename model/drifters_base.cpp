@@ -27,7 +27,7 @@ namespace Nextsim
  
 
 std::vector<int>
-DriftersBase::grabBuoysFromInputFile(double const& current_time)
+DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
 {
     std::fstream fin(M_infile, std::fstream::in);
     fin.seekg(M_infile_position);

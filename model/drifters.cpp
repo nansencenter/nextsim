@@ -237,7 +237,7 @@ Drifters::initFromTextFile()
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
-    this->grabBuoysFromInputFile(M_time_init);
+    this->grabBuoysFromInputTextFile(M_time_init);
 }
 
 

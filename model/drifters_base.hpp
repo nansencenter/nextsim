@@ -105,7 +105,7 @@ protected:
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
         void fixInitTimeAtRestart(double const& restart_time);
-        std::vector<int> grabBuoysFromInputFile(double const& current_time);
+        std::vector<int> grabBuoysFromInputTextFile(double const& current_time);
         void maskXY(std::vector<int> const& current_buoys);
             // - check if buoy IDs are in a given list and remove if they are not
             // - also check for if conc > a threshold

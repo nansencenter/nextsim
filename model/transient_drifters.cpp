@@ -54,13 +54,13 @@ TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> 
     M_is_initialised = true;
 
     //! - 2) Prepare input and output files
-    this->initFiles(true);
+    this->initTextFiles(true, M_time_init);
 
     //! - 3) Load the current buoys from file
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
-    this->grabBuoysFromInputFile(M_time_init);
+    this->grabBuoysFromInputTextFile(M_time_init);
     M_num_drifters = M_i.size();
 
     //! - 4) Calculate conc for all the drifters
@@ -76,26 +76,24 @@ TransientDrifters::initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
 {
+    double const restart_time = field_map_dbl["Time"][0];
     if( this->readFromRestart(field_map_int, field_map_dbl) )
     {
         M_is_initialised = true;
-        this->initFiles(false);
+        this->initTextFiles(false, restart_time);
     }
     else
     {
-        double restart_time = field_map_dbl["Time"][0];
         this->fixInitTimeAtRestart(restart_time);
     }
 }
- 
-
 
 
 // ---------------------------------------------------------------------------------------
 //! Initializes drifters : seeds and destroys drifters.
 //! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
 void
-TransientDrifters::initFiles(bool const& overwrite)
+TransientDrifters::initTextFiles(bool const& overwrite, double const& current_time)
 {
     // INPUT:
     //new buoy file has a header
@@ -115,8 +113,9 @@ TransientDrifters::initFiles(bool const& overwrite)
     M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d.txt");
     fs::path path1(M_outfile);
     if ( fs::exists(path1) && !overwrite )
+        this->backupOutputTextFile(current_time);
         // don't overwrite if starting from restart
-        // - just append to it
+        // - just overwrite any times>=current_time
         return;
 
     std::fstream fout(M_outfile, std::fstream::out);
@@ -124,8 +123,50 @@ TransientDrifters::initFiles(bool const& overwrite)
         throw std::runtime_error("Cannot write to file: " + M_outfile);
     fout << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
     fout.close();
-}//initFiles
+}//initTextFiles
 
+
+void
+TransientDrifters::backupOutputTextFile(double const& current_time)
+{
+    std::string const backup = M_outfile + ".bak";
+    fs::path path1(M_outfile);
+    if ( fs::exists(path1) )
+    {
+        fs::path path2(backup);
+        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+    }
+    std::fstream fin(backup, std::fstream::in);
+    std::fstream fout(M_outfile, std::fstream::out);
+    if ( !fout.good() )
+        throw std::runtime_error("Cannot write to file: " + M_outfile);
+
+    int year, month, day, hour, number;
+    double lat, lon, x, y, time;
+    std::string line;
+    int count = -1;
+    while ( std::getline(fin, line) )
+    {
+        count++;
+        if (count == 0)
+        {
+            //1st line is header - copy and continue
+            fout << line;
+            continue;
+        }
+
+        // check time
+        std::istringstream iss(line);
+        iss >> year >> month >> day >> hour >> number >> lat >> lon;
+        time = Nextsim::getDatenum(year, month, day, hour);
+        if(time < current_time )
+            fout << line;
+        else if(time>=current_time)
+            break;
+    }
+    fin.close();
+    fout.close();
+}
 
 void
 TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
@@ -133,7 +174,7 @@ TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector
 {
     //add current buoys if not already there
     //(output is used for masking later)
-    auto current_buoys = this->grabBuoysFromInputFile(current_time);
+    auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
 
     // update M_iabp_drifters.conc (get model conc at all drifters)
     this->updateConc(movedmesh_root, conc_root);
