@@ -169,6 +169,10 @@ DriftersBase::reset()
     M_Y.resize(0);
     M_conc.resize(0);
     M_time_init += M_lifetime;//new init time
+    std::string const ext = M_outfile.substr(
+            M_outfile.find_last_of("."));
+    M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d")
+        + ext;
 }
 
 // --------------------------------------------------------------------------------------
