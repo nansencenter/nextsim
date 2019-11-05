@@ -11421,7 +11421,7 @@ FiniteElement::instantiateDrifters()
                 input_time_step,    //input interval
                 false,              //has finite lifetime?
                 0.,                 //lifetime before re-initialising
-                true                //fixed init time? (like RGPS, SIDFEX)
+                false               //fixed init time? (like RGPS, SIDFEX)
                 );
         M_transient_drifters.push_back(
                 TransientDrifters("IABP", outfile_prefix, infile,
