@@ -26,6 +26,9 @@ namespace Nextsim
 //! * There is also a default, constructor which initialises things to zero and false.
  
 
+// --------------------------------------------------------------------------------------
+//! Add drifter info to restart
+//! Called by Drifters::initFromTextFile() and TransientDrifters::initialise()
 std::vector<int>
 DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
 {
@@ -78,7 +81,6 @@ DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
 // --------------------------------------------------------------------------------------
 //! Add drifter info to restart
 //! Called by FiniteElement::writeRestart()
-//  TODO give each object a suffix string so we can put all drifters in the restart file
 void
 DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 {
@@ -112,6 +114,9 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 }
 
 
+// --------------------------------------------------------------------------------------
+//! Read drifter info from restart
+//! Called by Drifters::initFromRestart() and TransientDrifters::initFromRestart()
 bool
 DriftersBase::readFromRestart(
     boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -134,6 +139,10 @@ DriftersBase::readFromRestart(
 }
 
 
+// --------------------------------------------------------------------------------------
+//! Check init time is consistent with restart time
+//! - try to fix; otherwise throw error
+//! Called by Drifters::initFromRestart() and TransientDrifters::initFromRestart()
 void
 DriftersBase::fixInitTimeAtRestart(double const& restart_time)
 {
@@ -159,6 +168,10 @@ DriftersBase::fixInitTimeAtRestart(double const& restart_time)
 }
 
 
+// -------------------------------------------------------------------------------------
+//! reset drifters
+//! - so far only used by OSISAF drifters (reset them after 2 days)
+//! Called by FiniteElement::updateDrifters()
 void
 DriftersBase::reset()
 {
@@ -175,9 +188,10 @@ DriftersBase::reset()
         + ext;
 }
 
+
 // --------------------------------------------------------------------------------------
 //! Move drifters and replace the old coordinates with the new ones
-//! called by FiniteElement::checkDrifters()
+//! called by FiniteElement::updateDrifters()
 void
 DriftersBase::move(GmshMeshSeq const& mesh,
         std::vector<double> const& UT)
@@ -291,6 +305,9 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
 }//maskXY()
 
 
+// --------------------------------------------------------------------------------------
+//! Check the drifter output time step is consistent with model time step
+//! Called by FiniteElement::instantiateDrifters()
 void
 DriftersBase::checkOutputTimeStep(int time_step)
 {
@@ -302,6 +319,11 @@ DriftersBase::checkOutputTimeStep(int time_step)
 }
 
 
+// --------------------------------------------------------------------------------------
+//! Set timing info: init time, output/input intervals, lifetime,
+//! output file name.
+//! Also set switches: M_has_lifetime, M_fixed_time_init
+//! Called by DriftersBase::DriftersBase()
 void
 DriftersBase::setTimingInfo(TimingInfo const& timing_info)
 {
@@ -353,6 +375,10 @@ DriftersBase::setTimingInfo(TimingInfo const& timing_info)
 }
 
 
+// --------------------------------------------------------------------------------------
+//! Backup outfile at restart time
+//! Called by Drifters::initFromRestart(),
+//!   TransientDrifters::backupOutputTextFile()
 void
 DriftersBase::backupOutputFile(std::string const& backup)
 {
