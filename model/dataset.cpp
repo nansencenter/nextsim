@@ -1607,7 +1607,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
             dirname: "coupler",
             prefix: "NEMO",
@@ -9513,11 +9513,32 @@ DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on
 
 #if defined OASIS
 void
-DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights)
+DataSet::setElementWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights)
 {
     M_gridP = gridP;
     M_triangles = triangles;
     M_weights = weights;
+}
+
+void
+DataSet::setNodalWeights(std::vector<double>& RX, std::vector<double>& RY)
+{
+    // One call to set the node weights
+    InterpFromMeshToMesh2dx_weights(
+          M_areacoord, M_vertex, M_it,
+          &grid.pfindex[0],&grid.gridX[0],&grid.gridY[0],
+          grid.gridX.size(),grid.pfnels,
+          grid.gridX.size(),
+          &RX[0], &RY[0], RX.size());
+
+    // And another one to set the element weights for a drop-in-the-bucket interpolation
+    /* This one's not currently used and hence commented out - this leaves M_it empty with length = 0
+     * InterpFromMeshToMesh2dx_weights(
+     *       M_areacoord, M_vertex, M_it,
+     *       &grid.pfindex[0],&grid.gridX[0],&grid.gridY[0],
+     *       grid.gridX.size(),grid.pfnels,
+     *       grid.pfnels,
+     *       &RX[0], &RY[0], RX.size()); */
 }
 #endif
 

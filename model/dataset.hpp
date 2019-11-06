@@ -44,7 +44,8 @@ namespace Nextsim
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
 #if defined OASIS
-        ConservativeRemapping = 3
+        ConservativeRemapping = 3,
+        FromMeshToMeshQuick = 4
 #endif
     };
 
@@ -170,8 +171,10 @@ public:
                 // and is now determined automatically in loadGrid)
         std::vector<int> reduced_nodes_ind;
 
+        // Storage for MeshToMesh interpolation
         std::vector<int> pfindex;
         int pfnels;
+
         std::vector<double> gridX;
         std::vector<double> gridY;
 
@@ -236,11 +239,15 @@ public:
     bool coupled;
     std::vector<int> M_cpl_id;
 
-    void setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
-
+    void setElementWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
+
+    void setNodalWeights(std::vector<double>& RX, std::vector<double>& RY);
+    std::vector<std::vector<double>>& M_areacoord;
+    std::vector<std::vector<int>>& M_vertex,
+    std::vector<int> M_it,
 #endif
 
 private:

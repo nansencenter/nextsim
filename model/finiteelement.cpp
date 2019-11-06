@@ -6649,7 +6649,8 @@ FiniteElement::initOASIS()
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
-    M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+    M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+    M_ocean_elements_dataset.setNodalWeights(M_mesh.coordX(), M_mesh.coordY());
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -6872,7 +6873,10 @@ FiniteElement::step()
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
-                M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+            {
+                M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+                M_ocean_elements_dataset.setNodalWeights(M_mesh.coordX(), M_mesh.coordY());
+            }
             M_timer.tock("resetMeshMean_cpl");
 #endif
 

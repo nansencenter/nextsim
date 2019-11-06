@@ -1529,6 +1529,14 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                  M_target_size,
                                  dataset->M_gridP, dataset->M_triangles, dataset->M_weights);
         break;
+        case InterpolationType::FromMeshToMeshQuick:
+            InterpFromMeshToMesh2dx_apply(&data_out,
+                                 dataset->M_areacoord, dataset->M_vertex, dataset->M_it,
+                                 dataset->grid.gridX.size(),dataset->grid.pfnels,
+                                 &data_in[0],
+                                 dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
+                                 &RX[0], &RY[0], M_target_size);
+        break;
 #endif
         default:
             LOG(DEBUG) << "invalid interpolation type:" <<"\n";
