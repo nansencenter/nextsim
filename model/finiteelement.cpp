@@ -4978,7 +4978,10 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
      //! \param alpha, beta (double const) Constants for the calculation of specific humidity
      //! \param aw, bw, cw, dw (double const) Constants for the calculation of specific humidity
      //! \param A, B, C (double const) Other set of constants for the calculation of specific humidity
-    double A, B, C, a, b, c, d, alpha, beta;
+     //We need the same constants for ATMOSPHERE and WATER
+    double A=7.2e-4,   B=3.20e-6, C=5.9e-10;
+    double a=6.1121e2, b=18.729,  c=257.87, d=227.3;
+    double alpha=0.62197, beta=0.37803;
     double salinity;
 
     switch (scheme)
@@ -4991,15 +4994,14 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We know temp = M_dair[i]
             temp     = M_dair[i];
             salinity = 0;
+            break;
         case schemes::specificHumidity::WATER:
-            A=7.2e-4,   B=3.20e-6, C=5.9e-10;
-            a=6.1121e2, b=18.729,  c=257.87, d=227.3;
-            alpha=0.62197, beta=0.37803;
             // We know temp = M_sst[i]
             temp     = M_sst[i];
             salinity = M_sss[i];
             break;
         case schemes::specificHumidity::ICE:
+            // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
             alpha=0.62197, beta=0.37803;
@@ -6837,6 +6839,10 @@ FiniteElement::step()
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
+
+    // check velocity fields if speed exceed a threshold
+    if (vm["debugging.check_velocity_fields"].as<bool>())
+        this->checkVelocityFields();
 
     M_timer.tick("remesh");
 
@@ -12739,6 +12745,56 @@ FiniteElement::writeLogFile()
 
 }//writeLogFile
 
+// -------------------------------------------------------------------------------------
+//! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
+//! the velocity, difference of velocty from neigbours relative to standard deviation,
+//! step and node number.
+//! Called by the step() function.
+void
+FiniteElement::checkVelocityFields()
+{
+    // minimum speed to trigger velocity check
+    double const spd_lim = 0.5;
+
+    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
+    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+
+    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        uv[0] = M_VT[i];
+        uv[1] = M_VT[i+M_num_nodes];
+        double const spd = std::hypot(uv[0], uv[1]);
+        if ( spd > spd_lim )
+        {
+            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+            // for U and V
+            for (int k=0; k<2; ++k)
+            {
+                // one pass algorithm for standard deviation of velocities in neighbours
+                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                double avg_old = 0;
+                for (int j=0; j<num_neighbours; ++j)
+                {
+                    // neigbour node index for U (k=0) or V (k=1)
+                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    avg_old = avg_spd[k];
+                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                }
+                // standard deviation of velocities
+                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+                // relative error of velocities
+                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+            }
+            LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                       << " node=" << i
+                       << " speed=" << spd
+                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                       << "\n";
+        }
+    }
+}
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
