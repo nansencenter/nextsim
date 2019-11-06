@@ -12716,17 +12716,17 @@ void
 FiniteElement::checkVelocityFields()
 {
     // minimum speed to trigger velocity check
-    double spd_lim = 0.5;
+    double const spd_lim = 0.5;
 
-    int num_nodes = bamgmesh->NodalConnectivitySize[0];
-    int max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
+    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
 
-    std::vector<double> uv(2), std(2), avg(2), rel_err(2);
+    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
     for (int i=0; i<M_num_nodes; ++i)
     {
         uv[0] = M_VT[i];
         uv[1] = M_VT[i+M_num_nodes];
-        double spd = std::sqrt(uv[0]*uv[0]+uv[1]*uv[1]);
+        double const spd = std::hypot(uv[0], uv[1]);
         if ( spd > spd_lim )
         {
             int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
@@ -12734,25 +12734,25 @@ FiniteElement::checkVelocityFields()
             for (int k=0; k<2; ++k)
             {
                 // one pass algorithm for standard deviation of velocities in neighbours
+                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
                 double avg_old = 0;
                 for (int j=0; j<num_neighbours; ++j)
                 {
                     // neigbour node index for U (k=0) or V (k=1)
-                    int nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                    avg_old = avg[k];
-                    avg[k] += (M_VT[nni] - avg[k]) / (j + 1.);
-                    std[k] += (M_VT[nni] - avg[k]) * (M_VT[nni] - avg_old);
+                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    avg_old = avg_spd[k];
+                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
                 }
                 // standard deviation of velocities
-                std[k] = std::sqrt(std[k] / (num_neighbours - 1.));
+                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
                 // relative error of velocities
-                rel_err[k] = (avg[k] - uv[k]) / std[k];
+                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
             }
-            double rel_err1 = std::sqrt(rel_err[0]*rel_err[0]+rel_err[1]*rel_err[1]);
             LOG(DEBUG) << "Rogue velocity step=" << pcpt
                        << " node=" << i
                        << " speed=" << spd
-                       << " rel_error=" << rel_err1
+                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
                        << "\n";
         }
     }
