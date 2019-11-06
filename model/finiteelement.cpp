@@ -3491,7 +3491,7 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
 
 //------------------------------------------------------------------------------------------------------
 //! Gather field values over elements.
-//! Called by the advect(), diffuse() and updateDrifterPosition() functions.
+//! Called by the advect(), diffuse() functions.
 void
 FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields)
 {

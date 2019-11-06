@@ -163,7 +163,7 @@ TransientDrifters::backupOutputTextFile(double const& current_time)
 //! - check if we should add any (some in the input file that are not in the drifters)
 //! Called by TransientDrifters::doIO()
 void
-TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
+TransientDrifters::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
         double const& current_time)
 {
     //add current buoys if not already there
@@ -177,7 +177,7 @@ TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector
     // (i) the ones which IABP doesn't report as being in the ice anymore (not in keepers)
     // (ii) the ones which have a low conc according to the model
     this->maskXY(current_buoys);
-}//updateDrifters
+}//addRemoveDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -244,22 +244,21 @@ TransientDrifters::isInputTime(double const& current_time)
 void
 TransientDrifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
 {
-    bool const inputting = this->isInputTime(current_time);
-    bool const outputting = this->isOutputTime(current_time);
-    if (inputting)
+    bool need_conc = true;
+    if (this->isInputTime(current_time))
+    {
         // check if we need to add new IABP drifters
         // NB do this after moving
-        // NB this updates M_iabp_conc
-        this->updateDrifters(movedmesh_root, conc_root, current_time);
+        // NB this updates M_conc
+        this->addRemoveDrifters(movedmesh_root, conc_root, current_time);
+        need_conc = false;
+    }
 
-    if (outputting)
+    if (this->isOutputTime(current_time))
     {
-        // output IABP drifters
-        // NB do this after moving
-        if(!inputting)
-            //still need to update its conc
+        if(need_conc)
             this->updateConc(movedmesh_root, conc_root);
-        this->outputDrifters(current_time);
+        this->outputDrifters(current_time, conc);
     }
 }
 

@@ -48,7 +48,7 @@ public:
         void initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc);
         void initTextFiles(bool const& overwrite, double const& current_time);
         void backupOutputTextFile(double const& current_time);
-        void updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
+        void addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
             double const& current_time);
         void outputDrifters(double const& current_time);
         bool isInputTime(double const& current_time);
