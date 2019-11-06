@@ -6808,6 +6808,10 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
+    // check velocity fields if speed exceed a threshold
+    if (vm["debugging.check_velocity_fields"].as<bool>())
+        this->checkVelocityFields();
+
     M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
@@ -12705,6 +12709,56 @@ FiniteElement::writeLogFile()
 
 }//writeLogFile
 
+// -------------------------------------------------------------------------------------
+//! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
+//! the velocity, difference of velocty from neigbours relative to standard deviation,
+//! step and node number.
+//! Called by the step() function.
+void
+FiniteElement::checkVelocityFields()
+{
+    // minimum speed to trigger velocity check
+    double const spd_lim = 0.5;
+
+    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
+    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+
+    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        uv[0] = M_VT[i];
+        uv[1] = M_VT[i+M_num_nodes];
+        double const spd = std::hypot(uv[0], uv[1]);
+        if ( spd > spd_lim )
+        {
+            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+            // for U and V
+            for (int k=0; k<2; ++k)
+            {
+                // one pass algorithm for standard deviation of velocities in neighbours
+                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                double avg_old = 0;
+                for (int j=0; j<num_neighbours; ++j)
+                {
+                    // neigbour node index for U (k=0) or V (k=1)
+                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    avg_old = avg_spd[k];
+                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                }
+                // standard deviation of velocities
+                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+                // relative error of velocities
+                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+            }
+            LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                       << " node=" << i
+                       << " speed=" << spd
+                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                       << "\n";
+        }
+    }
+}
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
