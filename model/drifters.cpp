@@ -61,6 +61,9 @@ Drifters::initFromRestart(
 }
 
 
+// ---------------------------------------------
+//! Initialise the drifter positions
+//! Called from FiniteElement::updateDrifters()
 void
 Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
 {
@@ -125,7 +128,7 @@ Drifters::selectRecordsFromBackupNetCDF(
 {
     // Open file
     netCDF::NcFile dataFile1(backup, netCDF::NcFile::read);
-    netCDF::NcFile dataFile2(backup, netCDF::NcFile::write);
+    netCDF::NcFile dataFile2(M_outfile, netCDF::NcFile::write);
 
     //! Read x dimension of the grid
     netCDF::NcDim dim = dataFile1.getDim("x");
@@ -151,8 +154,11 @@ Drifters::selectRecordsFromBackupNetCDF(
     netCDF::NcVar vtime1 = dataFile1.getVar("time");
     vtime1.getVar(&time1[0]);
     for (auto t: time1)
-        while(t<current_time)
-            time2.push_back(t);
+    {
+        if (t>=current_time)
+            break;
+        time2.push_back(t);
+    }
     netCDF::NcVar vtime2 = dataFile2.getVar("time");
     vtime2.putVar(&time2[0]);
     M_nc_step = time2.size();
