@@ -759,7 +759,7 @@ private:
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
-    std::vector<double> D_multiplicator; // lambda/(lambda + beta*delta t)
+    std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
 
 private:
     // Variables for the moorings
