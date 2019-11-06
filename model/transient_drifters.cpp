@@ -46,7 +46,7 @@ TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> 
 
     //! - 5) Applies mask using conc and climit
     this->maskXY();
-}
+}//initialise
 
 
 void
@@ -64,12 +64,14 @@ TransientDrifters::initFromRestart(
     {
         this->fixInitTimeAtRestart(restart_time);
     }
-}
+}//initFromRestart
 
 
 // ---------------------------------------------------------------------------------------
-//! Initializes drifters : seeds and destroys drifters.
-//! Called by FiniteElement::initSidfexDrifters() and FiniteElement::initRGPSDrifters()
+//! Initializes input/output text files
+//! \note if starting from restart, we backup the output file, and only include the records
+//! prior to the restart time in the new output file
+//! Called by TransientDrifters::initialise() and TransientDrifters::initFromRestart()
 void
 TransientDrifters::initTextFiles(bool const& overwrite, double const& current_time)
 {

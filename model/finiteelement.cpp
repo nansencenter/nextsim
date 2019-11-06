@@ -11388,15 +11388,19 @@ FiniteElement::instantiateDrifters()
         bool const no_start_from_restart = vm["drifters.sidfex_no_start_from_restart"].as<bool>();
         std::string const timestr = vm["drifters.sidfex_time_init"].as<std::string>();
         double sidfex_time_init = drifters_time_init;
+        bool fix_time_init = false;
         if(timestr != "")
+        {
             sidfex_time_init = Nextsim::stringToDatenum(timestr);
+            fix_time_init = true;
+        }
 
         DriftersBase::TimingInfo const timing_info(
                 sidfex_time_init, //init time
                 output_time_step,   //output interval
                 false,              //has finite lifetime?
                 0.,                 //lifetime before re-initialising
-                true                //fixed init time? (like RGPS, SIDFEX)
+                fix_time_init       //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of ordinary drifters

@@ -202,7 +202,7 @@ namespace Nextsim
             ("restart.basename", po::value<std::string>()->default_value( "" ),
                 "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
             ("restart.type", po::value<std::string>()->default_value( "extend" ),
-                "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
+                "Restart type: [extend|continue]. Extend (default): M_time_init is taken as the time inside the restart file and simul.duration is added to that. Continue: M_time_init is read from the configuration file (simul.time_init) and duration is added to that.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),

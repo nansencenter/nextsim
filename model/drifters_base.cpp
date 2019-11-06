@@ -74,7 +74,32 @@ DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
     }
     close_mapx(map);
     fin.close();
+
+    //sorting the drifter numbers helps with testing (both restarting and output)
+    this->sortDrifterNumbers();
     return current_buoys;
+}
+
+
+// ---------------------------------------------
+//! sort the drifters by ID number - helps testing of restart and output
+//! called by DriftersBase::grabBuoysFromInputTextFile()
+void
+DriftersBase::sortDrifterNumbers()
+{
+    auto drifter_num = M_i;
+    auto drifter_x = M_X;
+    auto drifter_y = M_Y;
+    std::vector<int> idx(M_num_drifters);
+    int j = 0;
+    std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., M_num_drifters-1}
+    sort(idx.begin(), idx.end(), [&](int i, int j){ return M_i[i]<M_i[j];} );
+    for ( int j=0; j<M_num_drifters; j++ )
+    {
+        M_i[j] = drifter_num[idx[j]];
+        M_X[j] = drifter_x[idx[j]];
+        M_Y[j] = drifter_y[idx[j]];
+    }
 }
 
 
@@ -90,27 +115,12 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
     if (M_num_drifters == 0)
         return;
 
-    // Sort the drifters so the restart files are identical
-    // (this is just to make testing of restart procedure easier)
-    std::vector<int> drifter_no = M_i;
-    std::vector<double> drifter_x(M_num_drifters), drifter_y(M_num_drifters);
-    std::vector<int> idx(M_num_drifters);
-    int j = 0;
-    std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., M_num_drifters-1}
-    sort(idx.begin(), idx.end(), [&](int i, int j){ return drifter_no[i]<drifter_no[j];} );
-    for ( int j=0; j<M_num_drifters; j++ )
-    {
-        drifter_no[j] = M_i[idx[j]];
-        drifter_x[j] = M_X[idx[j]];
-        drifter_y[j] = M_Y[idx[j]];
-    }
-
     // write the fields to file
     std::vector<double> const t = {M_time_init};
-    exporter.writeField(outbin, drifter_no,   "Drifter_ID_"        + M_tag);
-    exporter.writeField(outbin, drifter_x,    "Drifter_x_"         + M_tag);
-    exporter.writeField(outbin, drifter_y,    "Drifter_y_"         + M_tag);
-    exporter.writeField(outbin, t,            "Drifter_time_init_" + M_tag);
+    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag);
+    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag);
+    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag);
+    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag);
 }
 
 
@@ -158,7 +168,7 @@ DriftersBase::fixInitTimeAtRestart(double const& restart_time)
         msg << "Error: " << M_tag<< " drifters have been requested but they are not in restart file,\n"
             << "and their initial time, which is fixed at " << datenumToString(M_time_init) << ",\n"
             << "is before the restart time ("<< datenumToString(restart_time) << ").\n"
-            << "Either switch off the drifters or initialise at a later date.";
+            << "Either switch off the drifters or make their initialisation date later.";
         throw std::runtime_error(msg.str());
     }
     
