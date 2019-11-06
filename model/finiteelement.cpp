@@ -4104,7 +4104,7 @@ FiniteElement::assemble(int pcpt)
                 }
             }
 
-            if(young>0.) // EB rheology
+            if(young>0.) // MEB rheology
             {
                 coef = M_thick[cpt]*D_multiplicator[cpt]*D_elasticity[cpt];
             }
