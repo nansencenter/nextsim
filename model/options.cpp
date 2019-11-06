@@ -80,8 +80,6 @@ namespace Nextsim
                 "Options for regridding: No-regridding or bamg")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
-            ("numerics.bdf_order", po::value<int>()->default_value( 1 ),
-                "Order of the backward differentiation formula scheme for uupdating sigma [1 (default), 2, or 3].")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
