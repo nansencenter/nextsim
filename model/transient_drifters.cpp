@@ -100,10 +100,12 @@ TransientDrifters::initTextFiles(bool const& overwrite, double const& current_ti
     M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d.txt");
     fs::path path1(M_outfile);
     if ( fs::exists(path1) && !overwrite )
+    {
         this->backupOutputTextFile(current_time);
         // don't overwrite if starting from restart
         // - just overwrite any times>=current_time
         return;
+    }
 
     std::fstream fout(M_outfile, std::fstream::out);
     if ( !fout.good() )
