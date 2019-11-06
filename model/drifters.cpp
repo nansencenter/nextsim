@@ -159,19 +159,21 @@ Drifters::selectRecordsFromBackupNetCDF(
             break;
         time2.push_back(t);
     }
-    netCDF::NcVar vtime2 = dataFile2.getVar("time");
-    vtime2.putVar(&time2[0]);
     M_nc_step = time2.size();
+    netCDF::NcVar vtime2 = dataFile2.getVar("time");
+    std::vector<size_t> start = {0};
+    std::vector<size_t> count = {(size_t) M_nc_step};
+    vtime2.putVar(start, count, &time2[0]);
 
     // Read the latitude and longitude and adds it to the new file
     std::vector<std::string> vars = {
         "latitude", "longitude", "index", "sic"};
     std::vector<double> tmp(M_num_drifters);
-    std::vector<size_t> count = {1, (size_t) M_num_drifters, 1};//time, x, y
+    count = {1, (size_t) M_num_drifters, 1};//time, x, y
     for(int n=0; n<M_nc_step; n++)
     {
         //copy 1 time record at a time to save memory
-        std::vector<size_t> start = {(size_t) n, 0, 0};//time, x, y
+        start = {(size_t) n, 0, 0};//time, x, y
         for (auto vname : vars)
         {
             netCDF::NcVar v1 = dataFile1.getVar(vname);
