@@ -258,7 +258,7 @@ TransientDrifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> &
     {
         if(need_conc)
             this->updateConc(movedmesh_root, conc_root);
-        this->outputDrifters(current_time, conc);
+        this->outputDrifters(current_time);
     }
 }
 
