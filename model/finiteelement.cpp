@@ -688,6 +688,9 @@ FiniteElement::assignVariables()
             ++cpt;
         }
     }
+
+    D_multiplicator.resize(M_num_elements);
+    D_elasticity.resize(M_num_elements);
 }//assignVariables
 
 
@@ -4041,7 +4044,8 @@ FiniteElement::assemble(int pcpt)
         double damage_tmp = clip_damage(M_damage[cpt], damage_min);
 
         double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-        double multiplicator = time_viscous/(time_viscous+dtime_step);
+        D_multiplicator[cpt] = time_viscous/(time_viscous+dtime_step);
+        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
         // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
@@ -4100,9 +4104,9 @@ FiniteElement::assemble(int pcpt)
                 }
             }
 
-            if(young>0.) // EB rheology
+            if(young>0.) // MEB rheology
             {
-                coef = multiplicator*young*(1.-damage_tmp)*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+                coef = M_thick[cpt]*D_multiplicator[cpt]*D_elasticity[cpt];
             }
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
@@ -4136,7 +4140,7 @@ FiniteElement::assemble(int pcpt)
             coef_V     = mass_e/dtime_step;               /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*multiplicator;      /* for the internal stress */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4695,26 +4699,16 @@ FiniteElement::update()
 
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
-
-            double damaging_exponent = ridging_exponent;
-            double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-            double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-            double damage_tmp = clip_damage(old_damage, damage_min);
-
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
-
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
                 sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
                 {
-                    sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-damage_tmp)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
-                sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
+                sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
                 sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
 
                 M_sigma[i][cpt] = sigma[i];

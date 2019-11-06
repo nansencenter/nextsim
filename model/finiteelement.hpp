@@ -718,7 +718,7 @@ private:
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
-    std::vector<ModelVariable> M_sigma;
+    std::vector<ModelVariable> M_sigma; // Internal stress tensor
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
     ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
@@ -755,8 +755,11 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
 
+    // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
+    std::vector<double> D_elasticity; // Elasticity
+    std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
 
 private:
     // Variables for the moorings
