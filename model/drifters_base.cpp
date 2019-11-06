@@ -90,11 +90,11 @@ DriftersBase::sortDrifterNumbers()
     auto drifter_num = M_i;
     auto drifter_x = M_X;
     auto drifter_y = M_Y;
-    std::vector<int> idx(M_num_drifters);
+    std::vector<int> idx(M_i.size());
     int j = 0;
     std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., M_num_drifters-1}
     sort(idx.begin(), idx.end(), [&](int i, int j){ return M_i[i]<M_i[j];} );
-    for ( int j=0; j<M_num_drifters; j++ )
+    for ( int j=0; j<M_i.size(); j++ )
     {
         M_i[j] = drifter_num[idx[j]];
         M_X[j] = drifter_x[idx[j]];
