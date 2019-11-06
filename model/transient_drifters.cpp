@@ -49,6 +49,9 @@ TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> 
 }//initialise
 
 
+// ---------------------------------------------------------------------------------------
+//! Initialize transient drifters from restart
+//! Called by FiniteElement::restartDrifters()
 void
 TransientDrifters::initFromRestart(
                 boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
@@ -57,11 +60,15 @@ TransientDrifters::initFromRestart(
     double const restart_time = field_map_dbl["Time"][0];
     if( this->readFromRestart(field_map_int, field_map_dbl) )
     {
+        //drifters are in the restart file
         M_is_initialised = true;
         this->initTextFiles(false, restart_time);
     }
     else
     {
+        //drifters are not in the restart file
+        // - can initialise as usual, but need to check the init time
+        // which is sometimes fixed
         this->fixInitTimeAtRestart(restart_time);
     }
 }//initFromRestart
@@ -106,6 +113,10 @@ TransientDrifters::initTextFiles(bool const& overwrite, double const& current_ti
 }//initTextFiles
 
 
+// ---------------------------------------------------------------------------------------
+//! Backup output text file (if restarting), and only include the records
+//! prior to the restart time in the new output file
+//! Called by TransientDrifters::initTextFiles()
 void
 TransientDrifters::backupOutputTextFile(double const& current_time)
 {
@@ -127,7 +138,7 @@ TransientDrifters::backupOutputTextFile(double const& current_time)
         if (count == 0)
         {
             //1st line is header - copy and continue
-            fout << line;
+            fout << line << "\n";
             continue;
         }
 
@@ -135,15 +146,20 @@ TransientDrifters::backupOutputTextFile(double const& current_time)
         std::istringstream iss(line);
         iss >> year >> month >> day >> hour >> number >> lat >> lon;
         time = Nextsim::getDatenum(year, month, day, hour);
-        if(time < current_time )
-            fout << line;
-        else if(time>=current_time)
+        if(time>=current_time)
             break;
+        fout << line << "\n";
     }
     fin.close();
     fout.close();
 }
 
+
+// ---------------------------------------------------------------------------------------
+//! update the transient drifters
+//! - check if we should remove any (not in the input file anymore or too low SIC)
+//! - check if we should add any (some in the input file that are not in the drifters)
+//! Called by TransientDrifters::doIO()
 void
 TransientDrifters::updateDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
         double const& current_time)
