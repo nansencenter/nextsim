@@ -138,17 +138,17 @@ protected:
         bool M_fixed_time_init = false;// some drifters have a fixed init time (eg depend on a specific input file);
                                        // true: error is raised if we try to restart after the fixed init time
                                        // false: init time is flexible
-        bool M_ignore_restart = false;//
+        bool M_ignore_restart = false;//don't use restart file, even if drifter is present (eg for SIDFEx in forecast scenario)
         
-        std::string M_infile;
-        std::string M_outfile;
-        std::string M_tag;
-        int M_infile_position;
+        std::string M_infile;//input filename (if used)
+        std::string M_outfile;//output filename
+        std::string M_tag;//drifter tag, mainly for name in restart files and name of output files
+        int M_infile_position;//position in input text file (if used)
 
-        std::vector<double> M_X;
-        std::vector<double> M_Y;
-        std::vector<int> M_i;
-        std::vector<double> M_conc;
+        std::vector<double> M_X;//x coordinates of drifters
+        std::vector<double> M_Y;//y coordinates of drifters
+        std::vector<int> M_i;//buoy ID of drifters
+        std::vector<double> M_conc;//conc at drifter positions TODO needed?
     };
 } // Nextsim
 
