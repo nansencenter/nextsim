@@ -92,7 +92,7 @@ DriftersBase::sortDrifterNumbers()
     auto drifter_y = M_Y;
     std::vector<int> idx(M_i.size());
     int j = 0;
-    std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., M_num_drifters-1}
+    std::iota(idx.begin(), idx.end(), j++); // {0, 1, 2, ..., num_drifters-1}
     sort(idx.begin(), idx.end(), [&](int i, int j){ return M_i[i]<M_i[j];} );
     for ( int j=0; j<M_i.size(); j++ )
     {
@@ -112,7 +112,7 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
     // Do nothing if we don't have to
     if (!M_is_initialised)
         return;
-    if (M_num_drifters == 0)
+    if (M_i.size() == 0)
         return;
 
     // write the fields to file
@@ -144,7 +144,6 @@ DriftersBase::readFromRestart(
     M_X         = field_map_dbl["Drifter_x_"         + M_tag];
     M_Y         = field_map_dbl["Drifter_y_"         + M_tag];
     M_time_init = field_map_dbl["Drifter_time_init_" + M_tag][0];
-    M_num_drifters = M_i.size();
     return true;
 }
 
@@ -186,7 +185,6 @@ void
 DriftersBase::reset()
 {
     M_is_initialised = false;
-    M_num_drifters = 0;
     M_i.resize(0);
     M_X.resize(0);
     M_Y.resize(0);
@@ -194,9 +192,8 @@ DriftersBase::reset()
     M_time_init += M_lifetime;//new init time
     std::string const ext = M_outfile.substr(
             M_outfile.find_last_of("."));
-    M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d")
-        + ext;
-}
+    M_outfile = M_output_prefix + datenumToString(M_time_init, "%Y%m%d") + ext;
+}//reset()
 
 
 // --------------------------------------------------------------------------------------
@@ -209,7 +206,8 @@ DriftersBase::move(GmshMeshSeq const& mesh,
     // Do nothing if we don't have to
     if ( !M_is_initialised )
         return;
-    if ( M_num_drifters == 0 )
+    int num_drifters = M_i.size();
+    if ( num_drifters == 0 )
         return;
 
     // Interpolate the total displacement onto the drifter positions
@@ -224,15 +222,15 @@ DriftersBase::move(GmshMeshSeq const& mesh,
 
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &mesh.indexTr()[0],&mesh.coordX()[0],&mesh.coordY()[0],
-                            numNodes,mesh.numTriangles(),
+                            &mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0],
+                            numNodes, mesh.numTriangles(),
                             &interp_drifter_in[0],
-                            numNodes,nb_var,
-                            &M_X[0],&M_Y[0],M_num_drifters,
+                            numNodes, nb_var,
+                            &M_X[0], &M_Y[0], num_drifters,
                             true, 0.);
 
     // Add the displacement to the current position
-    for ( int i=0; i<M_num_drifters; ++i )
+    for ( int i=0; i<num_drifters; ++i )
     {
         M_X[i] += interp_drifter_out[nb_var*i];
         M_Y[i] += interp_drifter_out[nb_var*i+1];
@@ -250,9 +248,10 @@ DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
         std::vector<double> & conc)
 {
     // Do nothing if we don't have to
-    if ( M_num_drifters == 0 )
+    int num_drifters = M_i.size();
+    if ( num_drifters == 0 )
         return;
-    M_conc.resize(M_num_drifters);
+    M_conc.resize(num_drifters);
 
     // move the mesh before interpolating
     int numNodes = movedmesh.numNodes();
@@ -266,10 +265,10 @@ DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
                             numNodes, numElements,
                             &conc[0],
                             numElements, nb_var,
-                            &M_X[0], &M_Y[0], M_num_drifters,
+                            &M_X[0], &M_Y[0], num_drifters,
                             true, 0.);
 
-    for ( int i=0; i<M_num_drifters; ++i )
+    for ( int i=0; i<num_drifters; ++i )
         M_conc[i] = interp_drifter_out[i];
 
     xDelete<double>(interp_drifter_out);
@@ -284,7 +283,7 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
 {
 
     // Do nothing if we don't have to
-    if ( M_num_drifters == 0 )
+    if ( M_i.size() == 0 )
         return;
 
     auto X = M_X;
@@ -310,8 +309,6 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
             M_conc.push_back(conc[i]);
         }
     }
-
-    M_num_drifters = M_X.size();
 }//maskXY()
 
 

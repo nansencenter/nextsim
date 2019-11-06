@@ -71,9 +71,9 @@ public:
         DriftersBase(std::string const& tag, std::string const& output_prefix,
                 double const& climit,
                 DriftersBase::TimingInfo const& timing_info,
-                bool const& no_start_from_restart) : 
+                bool const& ignore_restart) : 
             M_tag(tag), M_output_prefix(output_prefix),
-            M_conc_lim(climit), M_no_start_from_restart(no_start_from_restart)
+            M_conc_lim(climit), M_ignore_restart(ignore_restart)
         { this->setTimingInfo(timing_info); }
 
         void addToRestart(Exporter &exporter, std::fstream &outbin);
@@ -128,16 +128,17 @@ protected:
         void backupOutputFile(std::string const& backup);
 
         bool M_is_initialised = false;
-        int M_num_drifters = 0;
-        double M_time_init;
-        double M_output_interval;
-        double M_input_interval;
-        double M_conc_lim;
-        std::string M_output_prefix;
-        double M_lifetime;
-        bool M_has_lifetime = false;
-        bool M_fixed_time_init = false;
-        bool M_no_start_from_restart = false;
+        double M_time_init;//init time
+        double M_output_interval;//time between outputs
+        double M_input_interval;//time between inputs (TransientDrifters)
+        double M_conc_lim;//threshold concentration for removing buoys
+        std::string M_output_prefix;//prefix of output file - init time and extension are added at instantiation/restart time
+        double M_lifetime;//lifetime of drifters in days - eg 2. for OSISAF drifters, after which they are reset
+        bool M_has_lifetime = false;//do they have a limited lifetime, like the OSISAF drifters
+        bool M_fixed_time_init = false;// some drifters have a fixed init time (eg depend on a specific input file);
+                                       // true: error is raised if we try to restart after the fixed init time
+                                       // false: init time is flexible
+        bool M_ignore_restart = false;//
         
         std::string M_infile;
         std::string M_outfile;

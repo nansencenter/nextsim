@@ -10,41 +10,39 @@
 
 /**
  * @class TransientDrifters
- * @brief Manage drifters (base class)
- *
+ * @brief Manage transient drifters (child class)
+ * 
  * @see
  *
 */
 
 namespace Nextsim
 {
-//! Constructors and destructors
-//! * We have one constructor for regularly spaced drifters and one for
-//!   drifter positions read in from file. In addition we have a private
-//!   function (maskXY), called only by the constructors, to mask out drifters
-//!   placed outside the ice cover.
-//! * There is also a default, constructor which initialises things to zero and false.
+//! This class handles "transient drifters"
+//! - buoys can be periodically added and removed
 
 
+// ----------------------------------------------------------------------------------
+//! initialise drifter positions, prepare input/output files
+//! called by FiniteElement::updateDrifters()
 void
 TransientDrifters::initialise(GmshMeshSeq const& movedmesh, std::vector<double> & conc)
 {
     M_is_initialised = true;
 
-    //! - 2) Prepare input and output files
+    //! - 1) Prepare input and output files
     this->initTextFiles(true, M_time_init);
 
-    //! - 3) Load the current buoys from file
+    //! - 2) Load the current buoys from file
     M_X.resize(0);
     M_Y.resize(0);
     M_i.resize(0);
     this->grabBuoysFromInputTextFile(M_time_init);
-    M_num_drifters = M_i.size();
 
-    //! - 4) Calculate conc for all the drifters
+    //! - 3) Calculate conc for all the drifters
     this->updateConc(movedmesh, conc);
 
-    //! - 5) Applies mask using conc and climit
+    //! - 4) Applies mask using M_conc and climit
     this->maskXY();
 }//initialise
 
@@ -154,7 +152,7 @@ TransientDrifters::backupOutputTextFile(double const& current_time)
     }
     fin.close();
     fout.close();
-}
+}//backupOutputTextFile()
 
 
 // ---------------------------------------------------------------------------------------
@@ -198,7 +196,7 @@ TransientDrifters::outputDrifters(double const& current_time)
 
     // Loop over the map and output
     auto ptime = datenumToPosixTime(current_time);
-    for ( int j=0; j<M_num_drifters; j++)
+    for ( int j=0; j<M_i.size(); j++)
     {
         double lat, lon;
         inverse_mapx(map, M_X[j], M_Y[j], &lat, &lon);
@@ -235,7 +233,7 @@ TransientDrifters::isInputTime(double const& current_time)
         // output is already done at init time
         do_input = std::fmod(current_time - M_time_init, M_input_interval) == 0;
     return do_input;
-}
+}//isInputTime()
 
 
 // --------------------------------------------------------------------------------------

@@ -35,7 +35,7 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
-    if(!M_no_start_from_restart)
+    if(!M_ignore_restart)
         in_restart = readFromRestart(field_map_int, field_map_dbl);
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
@@ -58,7 +58,7 @@ Drifters::initFromRestart(
     this->initNetCDF();
     if (present)
         this->selectRecordsFromBackupNetCDF(backup, restart_time);
-}
+}//initFromRestart()
 
 
 // ---------------------------------------------
@@ -75,7 +75,6 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
         this->initFromSpacing(moved_mesh);
     else if (M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
-    M_num_drifters = M_i.size();
 
     //! -3) Set M_conc at all the drifters
     this->updateConc(moved_mesh, conc);
@@ -85,13 +84,16 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
 
     //! -5) Init the netcdf output file
     this->initNetCDF();
-}
+}//initialise()
 
 
+// ---------------------------------------------
+//! Initialise the drifter positions on a regular grid
+//! Called from Drifters::initialise()
 void
 Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
 {
-    //! - 2) Calculates the grid spacing assuming a regular grid
+    //! - 1) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
     std::vector<double> RY = moved_mesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
@@ -119,72 +121,12 @@ Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
         }
         y += M_spacing;
     }
-}
+}//initFromSpacing()
 
 
-void
-Drifters::selectRecordsFromBackupNetCDF(
-        std::string const& backup, double const& current_time)
-{
-    // Open file
-    netCDF::NcFile dataFile1(backup, netCDF::NcFile::read);
-    netCDF::NcFile dataFile2(M_outfile, netCDF::NcFile::write);
-
-    //! Read x dimension of the grid
-    netCDF::NcDim dim = dataFile1.getDim("x");
-    if ( dim.isNull() )
-    {
-        std::stringstream msg;
-        msg << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension x in "
-            << backup;
-        throw std::runtime_error(msg.str());
-    }
-    M_num_drifters = dim.getSize();
-
-    // time dimension
-    dim = dataFile1.getDim("time");
-    if ( dim.isNull() )
-    {
-        M_nc_step = 0;
-        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
-        return;
-    }
-    size_t ntime = dim.getSize();
-    std::vector<double> time1(ntime), time2(0);
-    netCDF::NcVar vtime1 = dataFile1.getVar("time");
-    vtime1.getVar(&time1[0]);
-    for (auto t: time1)
-    {
-        if (t>=current_time)
-            break;
-        time2.push_back(t);
-    }
-    M_nc_step = time2.size();
-    netCDF::NcVar vtime2 = dataFile2.getVar("time");
-    std::vector<size_t> start = {0};
-    std::vector<size_t> count = {(size_t) M_nc_step};
-    vtime2.putVar(start, count, &time2[0]);
-
-    // Read the latitude and longitude and adds it to the new file
-    std::vector<std::string> vars = {
-        "latitude", "longitude", "index", "sic"};
-    std::vector<double> tmp(M_num_drifters);
-    count = {1, (size_t) M_num_drifters, 1};//time, x, y
-    for(int n=0; n<M_nc_step; n++)
-    {
-        //copy 1 time record at a time to save memory
-        start = {(size_t) n, 0, 0};//time, x, y
-        for (auto vname : vars)
-        {
-            netCDF::NcVar v1 = dataFile1.getVar(vname);
-            netCDF::NcVar v2 = dataFile2.getVar(vname);
-            v1.getVar(start, count, &tmp[0]);
-            v2.putVar(start, count, &tmp[0]);
-        }
-    }
-}//selectRecordsFromBackupNetCDF
-
-
+// ---------------------------------------------
+//! Initialise the drifter positions from the grid of an input netcdf file
+//! Called from Drifters::initialise()
 void
 Drifters::initFromNetCDF()
 {
@@ -236,6 +178,9 @@ Drifters::initFromNetCDF()
 }//init from netcdf file
 
 
+// ---------------------------------------------
+//! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
+//! Called from Drifters::initialise()
 void
 Drifters::initFromTextFile()
 {
@@ -258,7 +203,20 @@ Drifters::initFromTextFile()
     M_Y.resize(0);
     M_i.resize(0);
     this->grabBuoysFromInputTextFile(M_time_init);
-}
+}//initFromTextFile()
+
+
+// --------------------------------------------------------------------------------------
+//! Determine if we need to input a drifter
+//! Called by outputtingDrifters()
+void
+Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+{
+    if ( !this->isOutputTime(current_time) )
+        return;
+    this->updateConc(movedmesh_root, conc_root);
+    this->appendNetCDF(current_time);
+}//doIO()
 
 
 // File operations
@@ -289,7 +247,7 @@ Drifters::initNetCDF()
     M_nc_step=0;
 
     // Create the vector dimension
-    netCDF::NcDim vecDim = dataFile.addDim("x", M_num_drifters);
+    netCDF::NcDim vecDim = dataFile.addDim("x", M_i.size());
     netCDF::NcDim emptyDim = dataFile.addDim("y", 1);
     std::vector<netCDF::NcDim> dims2(3);
     dims2[0] = tDim;
@@ -339,9 +297,10 @@ Drifters::appendNetCDF(double const& current_time)
     std::string mppfile = Environment::nextsimMppfile();
     map = init_mapx( const_cast<char *>(mppfile.c_str()) );
 
-    std::vector<double> lat(M_num_drifters);
-    std::vector<double> lon(M_num_drifters);
-    for (int i=0; i<M_num_drifters; ++i)
+    int num_drifters = M_i.size();
+    std::vector<double> lat(num_drifters);
+    std::vector<double> lon(num_drifters);
+    for (int i=0; i<num_drifters; ++i)
         inverse_mapx(map, M_X[i], M_Y[i], &lat[i], &lon[i]);
 
     close_mapx(map);
@@ -363,7 +322,7 @@ Drifters::appendNetCDF(double const& current_time)
 
     // Append to the output variables
     start.push_back(0);
-    count.push_back(M_num_drifters);
+    count.push_back(num_drifters);
 
     start.push_back(0);
     count.push_back(1);
@@ -384,16 +343,71 @@ Drifters::appendNetCDF(double const& current_time)
 }//appendNetCDF
 
 
-// --------------------------------------------------------------------------------------
-//! Determine if we need to input a drifter
-//! Called by outputtingDrifters()
+// -----------------------------------------------------------------
+//! if outfile exists already, we only keep the records for times
+//! prior to the restart time
+//! this is to prevent duplication of time records inthe netcdf file
+//! Called by Drifters::initFromRestart()
 void
-Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+Drifters::selectRecordsFromBackupNetCDF(
+        std::string const& backup, double const& current_time)
 {
-    if ( !this->isOutputTime(current_time) )
+    // Open file
+    netCDF::NcFile dataFile1(backup, netCDF::NcFile::read);
+    netCDF::NcFile dataFile2(M_outfile, netCDF::NcFile::write);
+
+    //! Read x dimension of the grid
+    netCDF::NcDim dim = dataFile1.getDim("x");
+    if ( dim.isNull() )
+    {
+        std::stringstream msg;
+        msg << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension x in "
+            << backup;
+        throw std::runtime_error(msg.str());
+    }
+    int num_drifters = dim.getSize();
+
+    // time dimension
+    dim = dataFile1.getDim("time");
+    if ( dim.isNull() )
+    {
+        M_nc_step = 0;
+        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
         return;
-    this->updateConc(movedmesh_root, conc_root);
-    this->appendNetCDF(current_time);
-}
+    }
+    size_t ntime = dim.getSize();
+    std::vector<double> time1(ntime), time2(0);
+    netCDF::NcVar vtime1 = dataFile1.getVar("time");
+    vtime1.getVar(&time1[0]);
+    for (auto t: time1)
+    {
+        if (t>=current_time)
+            break;
+        time2.push_back(t);
+    }
+    M_nc_step = time2.size();
+    netCDF::NcVar vtime2 = dataFile2.getVar("time");
+    std::vector<size_t> start = {0};
+    std::vector<size_t> count = {(size_t) M_nc_step};
+    vtime2.putVar(start, count, &time2[0]);
+
+    // Read the latitude and longitude and adds it to the new file
+    std::vector<std::string> vars = {
+        "latitude", "longitude", "index", "sic"};
+    std::vector<double> tmp(num_drifters);
+    count = {1, (size_t) num_drifters, 1};//time, x, y
+    for(int n=0; n<M_nc_step; n++)
+    {
+        //copy 1 time record at a time to save memory
+        start = {(size_t) n, 0, 0};//time, x, y
+        for (auto vname : vars)
+        {
+            netCDF::NcVar v1 = dataFile1.getVar(vname);
+            netCDF::NcVar v2 = dataFile2.getVar(vname);
+            v1.getVar(start, count, &tmp[0]);
+            v2.putVar(start, count, &tmp[0]);
+        }
+    }
+}//selectRecordsFromBackupNetCDF
 
 } // Nextsim
