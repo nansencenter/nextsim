@@ -588,7 +588,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable v={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "x_wind_10m", // V10M
+            name: "y_wind_10m", // V10M
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1016,7 +1016,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable v={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "x_wind_10m", // V10M
+            name: "y_wind_10m", // V10M
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
