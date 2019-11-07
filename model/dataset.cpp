@@ -8648,7 +8648,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time)
     loadGrid(grid_ptr, init_time, current_time,
             std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
             std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
-}
+}//loadGrid
 
 std::string
 DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int jump)
@@ -8759,7 +8759,7 @@ DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int j
                     ).str();
 
     return filename;
-}
+}//getFilename
 
 
 //! get longitude range from the netcdf file
@@ -8863,12 +8863,12 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     if ( ! boost::filesystem::exists(filename) )
         throw std::runtime_error("File not found: " + filename);
 
-	netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+    netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
     // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-	grid_ptr->dimension_y_count_netcdf  =  tmpDim.getSize();
+    grid_ptr->dimension_y_count_netcdf  =  tmpDim.getSize();
     grid_ptr->dimension_y_count  = grid_ptr->dimension_y_count_netcdf;
     grid_ptr->dimension_y_start = 0;
 
@@ -8877,8 +8877,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
-	if(grid_ptr->interpolation_in_latlon)
-	{
+    if(grid_ptr->interpolation_in_latlon)
+    {
         ASSERT((grid_ptr->latitude.dimensions.size()==1)
                 && (grid_ptr->longitude.dimensions.size()==1),
                 "lon & lat should be dimensions if Dataset::grid.interpolation_in_latlon = true");
@@ -8901,7 +8901,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         // We load the full grid
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
-        getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 0
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -8947,21 +8947,21 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->gridLAT=LAT;
         grid_ptr->gridLON=LON;
 
-		LOG(DEBUG) <<"GRID : READ NETCDF done\n";
-	}//end regular lat=lon
+        LOG(DEBUG) <<"GRID : READ NETCDF done\n";
+    }//end regular lat=lon
     else if(grid_ptr->interpolation_method==InterpolationType::FromGridToMesh)
-	{
+    {
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+	netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+	netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
     	std::vector<double> X(grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count);
+	std::vector<double> Y(grid_ptr->dimension_y_count);
 
-        getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
+        this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
 #if 0
         // Then, we determine the reduced dimension
         int tmp_start=-1;
@@ -9008,23 +9008,23 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
         //std::cout <<"GRID : READ NETCDF done\n";
 
-	}//end interpolation_method==InterpolationType::FromGridToMesh
-	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
-	{
+    }//end interpolation_method==InterpolationType::FromGridToMesh
+    else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
+    {
         // interpolation_method==InterpolationType::FromMeshToMesh2dx
         // - most general method
         // - project to x,y plane with nextsim .mpp file and do interpolation in x,y space
-		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
 #if 0
         // Then, we determine the reduced dimension
@@ -9081,9 +9081,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         std::vector<int> tmp_tmp_x_id(0);
         std::vector<int> tmp_tmp_y_id(0);
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
-		{
-			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
-			{
+        {
+            for (int j=0; j<grid_ptr->dimension_y_count; ++j)
+            {
                 if(
                     (Y[grid_ptr->dimension_x_count*j+i]>=RY_min) &&
                     (Y[grid_ptr->dimension_x_count*j+i]<=RY_max) &&
@@ -9115,14 +9115,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
 
         // Resize and read
-		LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        LON.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-		X.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        X.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
-        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 #if defined OASIS
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -9181,8 +9181,9 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 #endif
 
         // Then we apply the masking if activated
-		if(grid_ptr->masking){
-			netCDF::NcVar VMASK;
+        if(grid_ptr->masking)
+        {
+	    netCDF::NcVar VMASK;
             netCDF::NcDim tmpDim;
 
             // Open the datafile
@@ -9194,18 +9195,18 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             if ( ! boost::filesystem::exists(filename) )
                 throw std::runtime_error("File not found: " + filename);
 
-        	netCDF::NcFile dataFile2(filename, netCDF::NcFile::read);
+            netCDF::NcFile dataFile2(filename, netCDF::NcFile::read);
 
             // load the data
             VMASK = dataFile2.getVar(grid_ptr->masking_variable.name);
 
-			std::vector<double> data_in;
+            std::vector<double> data_in;
 
-			std::vector<double> reduced_X;
-			std::vector<double> reduced_Y;
-			std::vector<double> reduced_LAT;
-			std::vector<double> reduced_LON;
-			std::vector<int> reduced_nodes_ind;
+            std::vector<double> reduced_X;
+            std::vector<double> reduced_Y;
+            std::vector<double> reduced_LAT;
+            std::vector<double> reduced_LON;
+            std::vector<int> reduced_nodes_ind;
 #if defined OASIS
             std::vector<double> reduced_Theta;
 #endif
@@ -9241,11 +9242,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
                 }
             }
 
-			data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-			VMASK.getVar(index_start, index_count, &data_in[0]);
+            data_in.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+            VMASK.getVar(index_start, index_count, &data_in[0]);
 
             // Read the attributes
-			netCDF::NcVarAtt att;
+            netCDF::NcVarAtt att;
 
             // Look for FillValue definition
             // TODO: Should this be double?
@@ -9319,76 +9320,77 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
             double tmp_data;
 
-			for (int i=0; i<grid_ptr->dimension_y_count; ++i)
-			{
-				for (int j=0; j<grid_ptr->dimension_x_count; ++j)
-				{
+            for (int i=0; i<grid_ptr->dimension_y_count; ++i)
+            {
+                for (int j=0; j<grid_ptr->dimension_x_count; ++j)
+                {
                     tmp_data=data_in[grid_ptr->dimension_x_count*i+j];
-					if (    (!find_FillValue        || (tmp_data != FillValue)          )&&
+                    if (    (!find_FillValue        || (tmp_data != FillValue)          )&&
                             (!find_missing_value    || (tmp_data != missing_value)      )&&
                             //(!find_valid_min        || (tmp_data >= valid_min)         )&&
                             //(!find_valid_max        || (tmp_data <= valid_max)         )&&
                             (!find_land_mask        || (tmp_data != land_mask_value)    )&&
                             (!find_NaN_mask         || (tmp_data != NaN_mask_value)     )&&
                             (!std::isnan(tmp_data)                                      )   )
-					{
-						reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
-						reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);
-						reduced_LAT.push_back(LAT[grid_ptr->dimension_x_count*i+j]);
-						reduced_LON.push_back(LON[grid_ptr->dimension_x_count*i+j]);
-						reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
+                    {
+                        reduced_X.push_back(X[grid_ptr->dimension_x_count*i+j]);
+                        reduced_Y.push_back(Y[grid_ptr->dimension_x_count*i+j]);
+                        reduced_LAT.push_back(LAT[grid_ptr->dimension_x_count*i+j]);
+                        reduced_LON.push_back(LON[grid_ptr->dimension_x_count*i+j]);
+                        reduced_nodes_ind.push_back(grid_ptr->dimension_x_count*i+j);
 #ifdef OASIS
                         if(grid_ptr->gridded_rotation_angle)
                             reduced_Theta.push_back(Theta[grid_ptr->dimension_x_count*i+j]);
 #endif
-					}
-				}
-			}
-			grid_ptr->gridX=reduced_X;
-			grid_ptr->gridY=reduced_Y;
-			grid_ptr->gridLAT=reduced_LAT;
-			grid_ptr->gridLON=reduced_LON;
+                    }
+                }
+            }
+            grid_ptr->gridX=reduced_X;
+            grid_ptr->gridY=reduced_Y;
+            grid_ptr->gridLAT=reduced_LAT;
+            grid_ptr->gridLON=reduced_LON;
 #ifdef OASIS
             grid_ptr->gridTheta=reduced_Theta;
 #endif
-			grid_ptr->reduced_nodes_ind=reduced_nodes_ind;
-		}
-		else // no masking of the Filled Value
-		{
-			grid_ptr->gridX=X;
-			grid_ptr->gridY=Y;
-			grid_ptr->gridLAT=LAT;
-			grid_ptr->gridLON=LON;
+            grid_ptr->reduced_nodes_ind=reduced_nodes_ind;
+        }
+        else // no masking of the Filled Value
+        {
+            grid_ptr->gridX=X;
+            grid_ptr->gridY=Y;
+            grid_ptr->gridLAT=LAT;
+            grid_ptr->gridLON=LON;
 #ifdef OASIS
             grid_ptr->gridTheta=Theta;
 #endif
-		}
+        }
 
-		LOG(DEBUG) <<"GRID : Triangulate starts\n";
+        LOG(DEBUG) <<"GRID : Triangulate starts\n";
         int* pfindex;
-        BamgTriangulatex(&pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],&grid_ptr->gridY[0],grid_ptr->gridX.size());
+        BamgTriangulatex(&pfindex,&grid_ptr->pfnels,&grid_ptr->gridX[0],
+                &grid_ptr->gridY[0],grid_ptr->gridX.size());
         grid_ptr->pfindex.resize(3*(grid_ptr->pfnels));
         for(int i=0;i<grid_ptr->pfindex.size();i++)
             grid_ptr->pfindex[i] = pfindex[i];
         xDelete<int>(pfindex);
-		LOG(DEBUG) <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
-		LOG(DEBUG) <<"GRID : Triangulate done\n";
+        LOG(DEBUG) <<"GRID : NUMTRIANGLES= "<< grid_ptr->pfnels <<"\n";
+        LOG(DEBUG) <<"GRID : Triangulate done\n";
 
-	}//interpolation_method==InterpolationType::FromMeshToMesh2dx
+    }//interpolation_method==InterpolationType::FromMeshToMesh2dx
 #ifdef OASIS
     else if (grid_ptr->interpolation_method==InterpolationType::ConservativeRemapping)
     {
-		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> LAT(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> LON(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-		std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
-		std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
+        std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -9441,7 +9443,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 #endif
 
     grid_ptr->loaded=true;
-}
+}//loadGrid
 
 void
 DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
@@ -9511,7 +9513,7 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
     for (int i=0; i<(index_x_count[0]); ++i)
         LON[i]=LON[i]*scale_factor + add_offset;
 
-}
+}//getLatLonRegularLatLon
 
 void
 DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
@@ -9521,40 +9523,40 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
     double scale_factor;
     double add_offset;
 
-	// read in coordinates
-	std::vector<size_t> index_px_count(2);
-	std::vector<size_t> index_py_count(2);
+    // read in coordinates
+    std::vector<size_t> index_px_count(2);
+    std::vector<size_t> index_py_count(2);
 
-	std::vector<size_t> index_px_start(2);
-	std::vector<size_t> index_py_start(2);
+    std::vector<size_t> index_px_start(2);
+    std::vector<size_t> index_py_start(2);
 
-	// We the initial grid is actually regular, we can still use FromGridToMesh
+    // Since the initial grid is actually regular, we can still use FromGridToMesh
     // by only taking the first line and column into account (only used for ASR so far)
-	index_py_start[0] = grid.dimension_y_start;
-	index_py_start[1] = 0;
-
-	index_py_count[0] = grid.dimension_y_count;
-	index_py_count[1] = 1;
-
-	index_px_start[0] = 0;
-	index_px_start[1] = grid.dimension_x_start;
-
-	index_px_count[0] = 1;
-	index_px_count[1] = grid.dimension_x_count;
-
-	std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
-	std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
-	std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
-	std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
-
-	//std::cout <<"GRID : READ NETCDF done\n";
+    index_py_start[0] = grid.dimension_y_start;
+    index_py_start[1] = 0;
+    
+    index_py_count[0] = grid.dimension_y_count;
+    index_py_count[1] = 1;
+    
+    index_px_start[0] = 0;
+    index_px_start[1] = grid.dimension_x_start;
+    
+    index_px_count[0] = 1;
+    index_px_count[1] = grid.dimension_x_count;
+    
+    std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
+    std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
+    std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
+    std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
+    
+    //std::cout <<"GRID : READ NETCDF done\n";
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
-	VLAT_ptr->getVar(index_px_start,index_px_count,&XLAT[0]);
-	VLON_ptr->getVar(index_px_start,index_px_count,&XLON[0]);
+    VLAT_ptr->getVar(index_px_start,index_px_count,&XLAT[0]);
+    VLON_ptr->getVar(index_px_start,index_px_count,&XLON[0]);
 
-	VLAT_ptr->getVar(index_py_start,index_py_count,&YLAT[0]);
-	VLON_ptr->getVar(index_py_start,index_py_count,&YLON[0]);
+    VLAT_ptr->getVar(index_py_start,index_py_count,&YLAT[0]);
+    VLON_ptr->getVar(index_py_start,index_py_count,&YLON[0]);
 
     // Apply the scale factor and offset if any
     scale_factor=1.;
@@ -9591,40 +9593,41 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
     }
 
     // projection
-	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % grid.mpp_file
-                              ).str();
-
-	std::vector<char> str(configfile.begin(), configfile.end());
-	str.push_back('\0');
-	map = init_mapx(&str[0]);
+    mapx_class *map;
+    std::string configfile = (boost::format( "%1%/%2%" )
+                          % Environment::nextsimMeshDir().string()
+                          % grid.mpp_file
+                          ).str();
+    
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
 
     double x;
     double y;
 
-	for (int i=0; i<index_px_count[0]; ++i)
-	{
-		for (int j=0; j<index_px_count[1]; ++j)
-		{
-		    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
-			X[index_px_count[1]*i+j]=x;
-		}
-	}
+    for (int i=0; i<index_px_count[0]; ++i)
+    {
+    	for (int j=0; j<index_px_count[1]; ++j)
+    	{
+    	    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+    	    X[index_px_count[1]*i+j]=x;
+    	}
+    }
+    
+    for (int i=0; i<index_py_count[0]; ++i)
+    {
+    	for (int j=0; j<index_py_count[1]; ++j)
+    	{
+    	    forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+    	    Y[index_py_count[1]*i+j]=y;
+    	}
+    }
+    
+    close_mapx(map);
 
-	for (int i=0; i<index_py_count[0]; ++i)
-	{
-		for (int j=0; j<index_py_count[1]; ++j)
-		{
-			forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
-			Y[index_py_count[1]*i+j]=y;
-		}
-	}
+}//getXYRegularXY
 
-	close_mapx(map);
-
-}
 
 void
 DataSet::getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
@@ -9685,7 +9688,8 @@ DataSet::getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
         X   = this->grid.gridX;
         Y   = this->grid.gridY;
     }
-}
+}//getLatLonXYVectors
+
 
 void
 DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
@@ -9695,8 +9699,8 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     double scale_factor;
     double add_offset;
 
-	// read in coordinates
-	std::vector<size_t> index_count(2);
+    // read in coordinates
+    std::vector<size_t> index_count(2);
     std::vector<size_t> index_start(2);
 
     index_start[0] = grid.dimension_y_start;
@@ -9706,8 +9710,8 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     index_count[1] = grid.dimension_x_count;
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
-	VLAT_ptr->getVar(index_start,index_count,&LAT[0]);
-	VLON_ptr->getVar(index_start,index_count,&LON[0]);
+    VLAT_ptr->getVar(index_start,index_count,&LAT[0]);
+    VLON_ptr->getVar(index_start,index_count,&LON[0]);
 
     // Apply the scale factor and offset if any
     scale_factor=1.;
@@ -9738,31 +9742,32 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     }
 
     // projection
-	mapx_class *map;
-	std::string configfile = (boost::format( "%1%/%2%" )
+    mapx_class *map;
+    std::string configfile = (boost::format( "%1%/%2%" )
                               % Environment::nextsimMeshDir().string()
                               % grid.mpp_file
                               ).str();
 
-	std::vector<char> str(configfile.begin(), configfile.end());
-	str.push_back('\0');
-	map = init_mapx(&str[0]);
+    std::vector<char> str(configfile.begin(), configfile.end());
+    str.push_back('\0');
+    map = init_mapx(&str[0]);
 
     double x;
     double y;
 
-	for (int i=0; i<index_count[0]; ++i)
-	{
-		for (int j=0; j<index_count[1]; ++j)
-		{
-		    forward_mapx(map,LAT[index_count[1]*i+j],LON[index_count[1]*i+j],&x,&y);
-			X[index_count[1]*i+j]=x;
+    for (int i=0; i<index_count[0]; ++i)
+    {
+        for (int j=0; j<index_count[1]; ++j)
+        {
+            forward_mapx(map,LAT[index_count[1]*i+j],LON[index_count[1]*i+j],&x,&y);
+            X[index_count[1]*i+j]=x;
             Y[index_count[1]*i+j]=y;
-		}
-	}
+        }
+    }
 
-	close_mapx(map);
-}
+    close_mapx(map);
+}//getXYLatLonFromLatLon
+
 
 double
 DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on_right)
