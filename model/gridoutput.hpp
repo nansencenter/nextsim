@@ -585,6 +585,7 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+                    break;
 
                 case (variableID::wind_x):
                     name     = "wndx";
@@ -600,7 +601,6 @@ public:
                     stdName  = "wind_y_velocity";
                     Units    = "m/s";
                     cell_methods = "area: mean";
-                    break;
                     break;
 
                 // Non-output variables
