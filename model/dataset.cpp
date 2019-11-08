@@ -9183,7 +9183,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         // Then we apply the masking if activated
         if(grid_ptr->masking)
         {
-	    netCDF::NcVar VMASK;
+            netCDF::NcVar VMASK;
             netCDF::NcDim tmpDim;
 
             // Open the datafile
