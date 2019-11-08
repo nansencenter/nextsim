@@ -927,7 +927,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 {
                     LOG(DEBUG)<<"Using ensemble member = "
                         << M_ensemble_member << "\n";
-                    index_start[k] = M_ensemble_member;
+                    index_start[k] = M_ensemble_member - 1;
                     index_count[k] = 1;
                 }
                 // other cases

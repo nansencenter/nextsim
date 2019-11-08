@@ -455,7 +455,7 @@ namespace Nextsim
 
             // for ensemble forcing
             ("statevector.ensemble_member", po::value<int>()->default_value(0),
-                "id of ensemble member")
+                "id of ensemble member (NB starts from 1)")
 
 #if defined(WAVES)
         ;
