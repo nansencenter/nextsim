@@ -80,6 +80,9 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     ExternalData(dataset, mesh, VariableId, is_vector,
             StartingTime, SpinUpDuration, bias_correction )
     {
+        if(ensemble_member<=0)
+            throw std::runtime_error(
+                    "option statevector.ensemble_member<=0; should be >= 1");
         M_ensemble_member = ensemble_member ;
     }
 
