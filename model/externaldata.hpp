@@ -75,7 +75,7 @@ public:
     void check_and_reload(std::vector<double> const& RX,
             std::vector<double> const& RY, const double current_time );
 
-	value_type operator[] (const size_type i);
+    value_type operator[] (const size_type i);
     value_type get(const size_type i);
     size_type size();
 
@@ -103,7 +103,7 @@ public:
     void recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
-	bool isInitialized() const { return M_initialized; }
+    bool isInitialized() const { return M_initialized; }
 
     std::string getDatasetName() const { return M_dataset->name; }
     std::string getVariableName() const { return M_dataset->variables[M_VariableId].name; }

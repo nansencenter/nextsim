@@ -812,7 +812,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             dataset->ftime_range = {f+.5};
         }
         else
-        f_timestr ="";
+            f_timestr ="";
 
         filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
@@ -880,10 +880,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
             index_start.resize(dataset->variables[j].dimensions.size());
-            index_count.resize(dataset->variables[j].dimensions.size());
+            index_count.resize(index_start.size());
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
+            for(int k=0; k<index_start.size(); ++k)
             {
                 std::string const dimension_name=dataset->variables[j].dimensions[k].name;
                 std::string const dn_lower=boost::algorithm::to_lower_copy(dimension_name);
