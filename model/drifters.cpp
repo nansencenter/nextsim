@@ -30,7 +30,8 @@ namespace Nextsim
 //! Initialise the drifter positions
 //! Called from FiniteElement::updateDrifters()
 void
-Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
+Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
+        std::vector<double> &conc_drifters)
 {
     M_is_initialised = true;
 
@@ -41,11 +42,11 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
     else if (M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
 
-    //! -3) Set M_conc at all the drifters
-    this->updateConc(moved_mesh, conc);
+    //! -3) Update conc_drifters
+    this->updateConc(moved_mesh, conc, conc_drifters);
 
-    //! -4) Applies the mask using M_conc and climit, and save to M_X and M_Y
-    this->maskXY();
+    //! -4) Applies the mask using conc_drifters and climit, and save to M_X and M_Y
+    this->maskXY(conc_drifters);
 
     //! -5) Init the netcdf output file
     this->setOutputFilename();
@@ -368,7 +369,6 @@ Drifters::reset()
     M_i.resize(0);
     M_X.resize(0);
     M_Y.resize(0);
-    M_conc.resize(0);
     M_time_init += M_lifetime;//new init time
     this->setOutputFilename();
 }//reset()
@@ -423,13 +423,13 @@ Drifters::move(GmshMeshSeq const& mesh,
 //! called by FiniteElement::checkDrifters()
 void
 Drifters::updateConc(GmshMeshSeq const& movedmesh,
-        std::vector<double> & conc)
+        std::vector<double> & conc, std::vector<double> &conc_drifters)
 {
     // Do nothing if we don't have to
-    int num_drifters = M_i.size();
+    int const num_drifters = M_i.size();
     if ( num_drifters == 0 )
         return;
-    M_conc.resize(num_drifters);
+    conc_drifters.resize(num_drifters);
 
     // move the mesh before interpolating
     int numNodes = movedmesh.numNodes();
@@ -447,7 +447,7 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
                             true, 0.);
 
     for ( int i=0; i<num_drifters; ++i )
-        M_conc[i] = interp_drifter_out[i];
+        conc_drifters[i] = interp_drifter_out[i];
 
     xDelete<double>(interp_drifter_out);
 }//updateConc
@@ -457,7 +457,7 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
 //! Masks out X and Y values where there is no ice
 //! Also fills M_i with the indices that are kept
 void
-Drifters::maskXY(std::vector<int> const& keepers)
+Drifters::maskXY(std::vector<double> const& conc_drifters, std::vector<int> const& keepers)
 {
 
     // Do nothing if we don't have to
@@ -467,24 +467,21 @@ Drifters::maskXY(std::vector<int> const& keepers)
     auto X = M_X;
     auto Y = M_Y;
     auto idx = M_i;
-    auto conc = M_conc;
 
     //! - 2) Adds drifter positions where conc > conc_lim
     M_X.resize(0); // this shouldn't be necessary!
     M_Y.resize(0);
     M_i.resize(0);
-    M_conc.resize(0);
 
     for ( int i=0; i<idx.size(); ++i )
     {
         int const id_count = std::count(keepers.begin(),
                     keepers.end(), idx[i]);
-        if ( conc[i] > M_conc_lim && id_count>0 )
+        if ( conc_drifters[i] > M_conc_lim && id_count>0 )
         {
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
             M_i.push_back(idx[i]);
-            M_conc.push_back(conc[i]);
         }
     }
 }//maskXY()
@@ -768,7 +765,8 @@ Drifters::selectRecordsFromBackupTextFile(
 // -------------------------------------------------------------------------------------
 //! Writes data to the netCDF file.
 void
-Drifters::appendNetCDF(double const& current_time)
+Drifters::appendNetCDF(double const& current_time,
+        std::vector<double> const& conc_drifters)
 {
 
     // Calculate lat and lon
@@ -818,7 +816,7 @@ Drifters::appendNetCDF(double const& current_time)
     data.putVar(start, count, &M_i[0]);
 
     data = dataFile.getVar("sic");
-    data.putVar(start, count, &M_conc[0]);
+    data.putVar(start, count, &conc_drifters[0]);
 }//appendNetCDF
 
 
@@ -826,7 +824,8 @@ Drifters::appendNetCDF(double const& current_time)
 //! Outputs the IABP drifter positions and conc
 //! Called by the readRestart(), initDrifters() and checkDrifters() functions.
 void
-Drifters::appendTextFile(double const& current_time)
+Drifters::appendTextFile(double const& current_time,
+        std::vector<double> const& conc_drifters)
 {
     // Initialize the map
     mapx_class *map;
@@ -852,7 +851,7 @@ Drifters::appendTextFile(double const& current_time)
              << std::fixed << std::setprecision(5)
              << " " << std::setw( 8) << lat
              << " " << std::setw(10) << lon
-             << " " << M_conc[j]
+             << " " << conc_drifters[j]
              << "\n";
     }
 
@@ -884,25 +883,23 @@ Drifters::isInputTime(double const& current_time)
 
 // --------------------------------------------------------------------------------------
 //! Determine if we need to input a drifter
-//! Called by outputtingDrifters()
+//! Called by updateDrifters()
 void
-Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+        double const& current_time, std::vector<double> & conc_drifters)
 {
-    bool need_conc = true;
     if (this->isInputTime(current_time))
-    {
-        // check if we need to add new IABP drifters
+        // check if we need to add new drifters
         // NB do this after moving
-        // NB this updates M_conc
-        this->addRemoveDrifters(movedmesh_root, conc_root, current_time);
-        need_conc = false;
-    }
+        // NB this updates conc_drifters
+        this->addRemoveDrifters(movedmesh_root, conc_root,
+                current_time, conc_drifters);
 
     if (this->isOutputTime(current_time))
     {
-        if(need_conc)
-            this->updateConc(movedmesh_root, conc_root);
-        this->outputDrifters(current_time);
+        if(conc_drifters.size()==0)
+            this->updateConc(movedmesh_root, conc_root, conc_drifters);
+        this->outputDrifters(current_time, conc_drifters);
     }
 }
 
@@ -914,19 +911,19 @@ Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_roo
 //! Called by Drifters::doIO()
 void
 Drifters::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
-        double const& current_time)
+        double const& current_time, std::vector<double>& conc_drifters)
 {
     //add current buoys if not already there
     //(output is used for masking later)
     auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
 
-    // update M_iabp_drifters.conc (get model conc at all drifters)
-    this->updateConc(movedmesh_root, conc_root);
+    // update conc_drifters
+    this->updateConc(movedmesh_root, conc_root, conc_drifters);
 
     // Check the drifters map and throw out:
     // (i) the ones which IABP doesn't report as being in the ice anymore (not in keepers)
     // (ii) the ones which have a low conc according to the model
-    this->maskXY(current_buoys);
+    this->maskXY(conc_drifters, current_buoys);
 }//addRemoveDrifters
 
 
@@ -938,6 +935,7 @@ Drifters::updateDrifters(
         std::vector<double> const& UT_root,
         double const& current_time)
 {
+    std::vector<double> conc_drifters(0);
     //! 1) Move the drifters (if needed)
     // NB M_UT is relative to the fixed mesh, not the moved mesh
     this->move(mesh_root, UT_root);
@@ -945,17 +943,22 @@ Drifters::updateDrifters(
     //! 2) Reset any temporary drifters if needed (eg OSISAF)
     if(this->resetting(current_time))
     {
-        this->doIO(movedmesh_root, conc_root, current_time);
+        this->doIO(movedmesh_root, conc_root, current_time,
+                conc_drifters);
         this->reset();
+        conc_drifters.resize(0);
     }
 
     //! 3) Initialize if needed
     //! - need conc on the moved mesh
+    //! - NB updates conc_drifters
     if(this->initialising(current_time))
-        this->initialise(movedmesh_root, conc_root);
+        this->initialise(movedmesh_root, conc_root,
+                conc_drifters);
 
     //! 4) Do output if needed (for transient drifters: also do input if needed)
-    this->doIO(movedmesh_root, conc_root, current_time);
+    this->doIO(movedmesh_root, conc_root, current_time,
+            conc_drifters);
 }//updateDrifters
 
 } // Nextsim
