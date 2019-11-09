@@ -33,8 +33,7 @@
 #include <gridoutput.hpp>
 #include <dataset.hpp>
 #include <model_variable.hpp>
-#include <drifters.hpp>
-#include <transient_drifters.hpp>
+#include <drifters_base.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
@@ -256,7 +255,6 @@ public:
     template<typename enum_type>
     void getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
         boost::unordered_map<const std::string, enum_type> map) const;
-    void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -268,7 +266,6 @@ public:
     void initIce();
     void checkConsistency();
     void initSlabOcean();
-    void updateDrifterPosition();
 
     void calcCoriolis();
     //void timeInterpolation(int step);
@@ -656,9 +653,8 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    std::vector<TransientDrifters> M_transient_drifters;//eg IABP which import new drifters periodically
-    std::vector<Drifters> M_ordinary_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
-    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_ordinary_drifters (used at readRestart)
+    std::vector<DriftersBase> M_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
+    std::vector<DriftersBase*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -811,17 +807,9 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
+    void checkUpdateDrifters();
     void instantiateDrifters();
-    template<typename drifter_tmpl>
-    bool checkDrifters(std::vector<drifter_tmpl> &drifters);
-    template<typename drifter_tmpl>
-    void updateDrifters(std::vector<drifter_tmpl> &drifters,
-            GmshMeshSeq const& movedmesh_root,
-            std::vector<double> & conc_root,
-            std::vector<double> const& UT_root);
-    void restartDrifters(
-            boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-            boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
+    void synchroniseOsisafDrifters();
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

@@ -7109,32 +7109,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     //! 3) update drifters if necessary
-    bool update_drifters;
-    if(M_rank == 0)
-    {
-        update_drifters = this->checkDrifters(M_ordinary_drifters)
-            || this->checkDrifters(M_transient_drifters);
-    }
-    // let all the processors know if we need to gather the three vectors
-    // or if we need to reset M_UT
-    boost::mpi::broadcast(M_comm, update_drifters, 0);
-    if(update_drifters)
-    {
-        // Gather the fields needed by the drifters
-        std::vector<double> UT_root, UM_root, conc_root;
-        this->gatherNodalField(M_UT, UT_root);
-        this->gatherNodalField(M_UM, UM_root);
-        this->gatherElementField(M_conc, conc_root);
-        std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
-
-        if(M_rank==0)
-        {
-            auto movedmesh_root = M_mesh_root;
-            movedmesh_root.move(UM_root, 1.);
-            this->updateDrifters(M_ordinary_drifters, movedmesh_root, conc_root, UT_root);
-            this->updateDrifters(M_transient_drifters, movedmesh_root, conc_root, UT_root);
-        }
-    }
+    this->checkUpdateDrifters();
 
     //! 4) check if we are outputting results file
     bool exporting = false;
@@ -7160,6 +7135,43 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
 }//checkOutputs
+
+
+// ---------------------------------------------
+//! check if we need to update/output any drifters (and do it if we need to)
+//! called by checkOutputs()
+void FiniteElement::checkUpdateDrifters()
+{
+    bool update_drifters = false;
+    if(M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            update_drifters = update_drifters
+                || it->initialising(M_current_time)
+                || it->isOutputTime(M_current_time);
+    }
+    // let all the processors know if we need to gather the three vectors
+    // or if we need to reset M_UT
+    boost::mpi::broadcast(M_comm, update_drifters, 0);
+    if(!update_drifters)
+        return;
+
+    // Gather the fields needed by the drifters
+    std::vector<double> UT_root, UM_root, conc_root;
+    this->gatherNodalField(M_UT, UT_root);
+    this->gatherNodalField(M_UM, UM_root);
+    this->gatherElementField(M_conc, conc_root);
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+
+    if(M_rank==0)
+    {
+        auto movedmesh_root = M_mesh_root;
+        movedmesh_root.move(UM_root, 1.);
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->updateDrifters(M_mesh_root, movedmesh_root,
+                    conc_root, UT_root, M_current_time);
+    }
+}//checkUpdateDrifters()
 
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -8152,9 +8164,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_UT_root, "M_UT");
 
         // Add the drifters if they are initialised
-        for (auto it=M_transient_drifters.begin(); it!=M_transient_drifters.end(); it++)
-            it->addToRestart(exporter, outbin);
-        for (auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
+        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
             it->addToRestart(exporter, outbin);
 
         // Add the previous numbering to the restart file
@@ -8403,7 +8413,11 @@ FiniteElement::readRestart(std::string const& name_str)
             }
         }
 
-        this->restartDrifters(field_map_int, field_map_dbl);
+        //! add drifters
+        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->initFromRestart(field_map_int, field_map_dbl);
+        if(M_osisaf_drifters.size()>0)
+            this->synchroniseOsisafDrifters();
     }//M_rank==0
 
     // Scatter elemental fields from root and put them in M_prognostic_variables_elt
@@ -8418,48 +8432,39 @@ FiniteElement::readRestart(std::string const& name_str)
 }//readRestart
 
 
-//! initialise any drifters from the restart fields (if possible)
+//! make sure OSISAF drifters are consistent with each other
 //! called by readRestart()
 void
-FiniteElement::restartDrifters(
-    boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-    boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
+FiniteElement::synchroniseOsisafDrifters()
 {
-    for (auto it=M_transient_drifters.begin(); it!=M_transient_drifters.end(); it++)
-        it->initFromRestart(field_map_int, field_map_dbl);
-    for (auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-        it->initFromRestart(field_map_int, field_map_dbl);
-    if(M_osisaf_drifters.size()>0)
+    // make sure OSISAF drifters are consistent with each other
+    // - OK if 2 in restart
+    // - otherwise need to check consistency (1 should be a day after the other 1)
+    bool i0 = M_osisaf_drifters[0]->isInitialised();
+    bool i1 = M_osisaf_drifters[1]->isInitialised();
+    if( i1 && !i0 )
     {
-        // make sure OSISAF drifters are consistent with each other
-        // - OK if 2 in restart
-        // - otherwise need to check consistency (1 should be a day after the other 1)
-        bool i0 = M_osisaf_drifters[0]->isInitialised();
-        bool i1 = M_osisaf_drifters[1]->isInitialised();
-        if( i1 && !i0 )
-        {
-            // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
-            double const t = M_osisaf_drifters[1]->getInitTime() + 1;
-            M_osisaf_drifters[0]->setInitTime(t);
-        }
-        else if( i0 && !i1 )
-        {
-            // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
-            double const t = M_osisaf_drifters[0]->getInitTime() + 1;
-            M_osisaf_drifters[1]->setInitTime(t);
-        }
-        else if( !(i0 || i1) )
-        {
-            // neither are initialised from restart => need to check the times
-            double const t0 = std::min(
-                    M_osisaf_drifters[0]->getInitTime(),
-                    M_osisaf_drifters[1]->getInitTime()
-                    );
-            M_osisaf_drifters[0]->setInitTime(t0);
-            M_osisaf_drifters[1]->setInitTime(t0 + 1);
-        }
+        // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
+        double const t = M_osisaf_drifters[1]->getInitTime() + 1;
+        M_osisaf_drifters[0]->setInitTime(t);
     }
-}//restartDrifters
+    else if( i0 && !i1 )
+    {
+        // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
+        double const t = M_osisaf_drifters[0]->getInitTime() + 1;
+        M_osisaf_drifters[1]->setInitTime(t);
+    }
+    else if( !(i0 || i1) )
+    {
+        // neither are initialised from restart => need to check the times
+        double const t0 = std::min(
+                M_osisaf_drifters[0]->getInitTime(),
+                M_osisaf_drifters[1]->getInitTime()
+                );
+        M_osisaf_drifters[0]->setInitTime(t0);
+        M_osisaf_drifters[1]->setInitTime(t0 + 1);
+    }
+}//synchroniseOsisafDrifters
 
 
 //------------------------------------------------------------------------------------------------------
@@ -11283,7 +11288,7 @@ FiniteElement::instantiateDrifters()
     // - output time step is an option
     if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
-        int i0 = M_ordinary_drifters.size();
+        int i0 = M_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
@@ -11300,7 +11305,7 @@ FiniteElement::instantiateDrifters()
             osi_grid_file += "ice_drift_nh_polstere-625_multi-oi.nc";
             osi_outfile_prefix += "OSISAF_drifters_";
         }
-        Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
+        DriftersBase::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
         DriftersBase::TimingInfo timing_info(
                 drifters_time_init + .5, //init time
                 output_time_step,        //output interval
@@ -11310,14 +11315,14 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifters to the list of ordinary drifters
-        M_ordinary_drifters.push_back(
-                Drifters("OSISAF0", osi_outfile_prefix,
+        M_drifters.push_back(
+                DriftersBase("OSISAF0", osi_outfile_prefix,
                     netcdf_input_info, drifters_conc_lim, timing_info,
                     false)
                 );
         timing_info.time_init += 1.;
-        M_ordinary_drifters.push_back(
-                Drifters("OSISAF1", osi_outfile_prefix,
+        M_drifters.push_back(
+                DriftersBase("OSISAF1", osi_outfile_prefix,
                     netcdf_input_info, drifters_conc_lim, timing_info,
                     false)
                 );
@@ -11325,8 +11330,8 @@ FiniteElement::instantiateDrifters()
         // add drifters to the list of OSISAF drifters
         // - need to sync them sometimes (mainly thinking of restart time)
         M_osisaf_drifters = {
-            &M_ordinary_drifters[i0],
-            &M_ordinary_drifters[i0+1],
+            &M_drifters[i0],
+            &M_drifters[i0+1],
         };
     }
 
@@ -11344,8 +11349,8 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(
-                Drifters("Equally_Spaced", output_prefix,
+        M_drifters.push_back(
+                DriftersBase("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
                     drifters_conc_lim, timing_info, false)
                 );
@@ -11369,8 +11374,8 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(
-                Drifters("RGPS", output_prefix,
+        M_drifters.push_back(
+                DriftersBase("RGPS", output_prefix,
                     rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
                     timing_info, false)
                 );
@@ -11402,8 +11407,8 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(
-                Drifters("SIDFEx", output_prefix,
+        M_drifters.push_back(
+                DriftersBase("SIDFEx", output_prefix,
                     infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
                     timing_info, no_start_from_restart)
                 );
@@ -11425,69 +11430,17 @@ FiniteElement::instantiateDrifters()
                 0.,                 //lifetime before re-initialising
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
-        M_transient_drifters.push_back(
-                TransientDrifters("IABP", outfile_prefix, infile,
+        M_drifters.push_back(
+                DriftersBase("IABP", outfile_prefix, infile,
                     drifters_conc_lim, timing_info, false)
                 );
     }
 
     // check consistency of drifter output time steps with model time step
-    for (auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-        it->checkOutputTimeStep(time_step);
-    for (auto it=M_transient_drifters.begin(); it!=M_transient_drifters.end(); it++)
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
         it->checkOutputTimeStep(time_step);
 }//instantiateDrifters
 
-
-// -----------------------------------------------------------------------------------------------------------
-//! Checks if we have to init, update, output or move any drifters
-//! Called by the <FiniteElement::checkOutputs>() function.
-template<typename drifter_tmpl>
-void
-FiniteElement::updateDrifters(std::vector<drifter_tmpl> &drifters,
-        GmshMeshSeq const& movedmesh_root,
-        std::vector<double> & conc_root,
-        std::vector<double> const& UT_root)
-{
-    for(auto it=drifters.begin(); it!=drifters.end(); it++)
-    {
-        //! 1) Move the drifters (if needed)
-        // NB M_UT is relative to the fixed mesh, not the moved mesh
-        it->move(M_mesh_root, UT_root);
-
-        //! 2) Reset any temporary drifters if needed (eg OSISAF)
-        if(it->resetting(M_current_time))
-        {
-            it->doIO(movedmesh_root, conc_root, M_current_time);
-            it->reset();
-        }
-
-        //! 3) Initialize if needed
-        //! - need conc on the moved mesh
-        if(it->initialising(M_current_time))
-            it->initialise(movedmesh_root, conc_root);
-
-        //! 4) Do output if needed (for transient drifters: also do input if needed)
-        it->doIO(movedmesh_root, conc_root, M_current_time);
-    }
-}//updateDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Checks if we have to init or output any drifters
-//! NB resetting and inputting is always at the same time as output
-//! Called by the <FiniteElement::checkOutputs>() function.
-template<typename drifter_tmpl>
-bool
-FiniteElement::checkDrifters(std::vector<drifter_tmpl> &drifters)
-{
-    bool update = false;
-    for(auto it=drifters.begin(); it!=drifters.end(); it++)
-        update = update
-            || it->initialising(M_current_time)
-            || it->isOutputTime(M_current_time);
-    return update;
-}//checkDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
