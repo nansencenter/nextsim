@@ -11305,8 +11305,8 @@ FiniteElement::instantiateDrifters()
             osi_grid_file += "ice_drift_nh_polstere-625_multi-oi.nc";
             osi_outfile_prefix += "OSISAF_drifters_";
         }
-        DriftersBase::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
-        DriftersBase::TimingInfo timing_info(
+        Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
+        Drifters::TimingInfo timing_info(
                 drifters_time_init + .5, //init time
                 output_time_step,        //output interval
                 true,                    //has finite lifetime?
@@ -11316,13 +11316,13 @@ FiniteElement::instantiateDrifters()
 
         // add drifters to the list of ordinary drifters
         M_drifters.push_back(
-                DriftersBase("OSISAF0", osi_outfile_prefix,
+                Drifters("OSISAF0", osi_outfile_prefix,
                     netcdf_input_info, drifters_conc_lim, timing_info,
                     false)
                 );
         timing_info.time_init += 1.;
         M_drifters.push_back(
-                DriftersBase("OSISAF1", osi_outfile_prefix,
+                Drifters("OSISAF1", osi_outfile_prefix,
                     netcdf_input_info, drifters_conc_lim, timing_info,
                     false)
                 );
@@ -11340,7 +11340,7 @@ FiniteElement::instantiateDrifters()
     {
         double const output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
         std::string const output_prefix = M_export_path + "/Equally_Spaced_Drifters_";
-        DriftersBase::TimingInfo const timing_info(
+        Drifters::TimingInfo const timing_info(
                 drifters_time_init, //init time
                 output_time_step,   //output interval
                 false,              //has finite lifetime?
@@ -11350,7 +11350,7 @@ FiniteElement::instantiateDrifters()
 
         // add drifter to the list of ordinary drifters
         M_drifters.push_back(
-                DriftersBase("Equally_Spaced", output_prefix,
+                Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
                     drifters_conc_lim, timing_info, false)
                 );
@@ -11365,7 +11365,7 @@ FiniteElement::instantiateDrifters()
         std::string const rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
         std::string const output_prefix = M_export_path + "/RGPS_Drifters_";
-        DriftersBase::TimingInfo const timing_info(
+        Drifters::TimingInfo const timing_info(
                 rgps_time_init,   //init time
                 output_time_step, //output interval
                 false,            //has finite lifetime?
@@ -11375,7 +11375,7 @@ FiniteElement::instantiateDrifters()
 
         // add drifter to the list of ordinary drifters
         M_drifters.push_back(
-                DriftersBase("RGPS", output_prefix,
+                Drifters("RGPS", output_prefix,
                     rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
                     timing_info, false)
                 );
@@ -11398,7 +11398,7 @@ FiniteElement::instantiateDrifters()
             fix_time_init = true;
         }
 
-        DriftersBase::TimingInfo const timing_info(
+        Drifters::TimingInfo const timing_info(
                 sidfex_time_init, //init time
                 output_time_step,   //output interval
                 false,              //has finite lifetime?
@@ -11408,7 +11408,7 @@ FiniteElement::instantiateDrifters()
 
         // add drifter to the list of ordinary drifters
         M_drifters.push_back(
-                DriftersBase("SIDFEx", output_prefix,
+                Drifters("SIDFEx", output_prefix,
                     infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
                     timing_info, no_start_from_restart)
                 );
@@ -11422,7 +11422,7 @@ FiniteElement::instantiateDrifters()
         std::string const outfile_prefix = M_export_path + "/IABP_drifters_";
 
         // add drifter to the list of transient drifters
-        DriftersBase::TimingInfo const timing_info(
+        Drifters::TimingInfo const timing_info(
                 drifters_time_init, //init time
                 output_time_step,   //output interval
                 input_time_step,    //input interval
@@ -11431,7 +11431,7 @@ FiniteElement::instantiateDrifters()
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
         M_drifters.push_back(
-                DriftersBase("IABP", outfile_prefix, infile,
+                Drifters("IABP", outfile_prefix, infile,
                     drifters_conc_lim, timing_info, false)
                 );
     }

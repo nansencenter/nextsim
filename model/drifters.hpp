@@ -6,8 +6,8 @@
  * @date   Sun Feb 19 09:49:20 CET 2017
  */
 
-#ifndef __DriftersBase_H
-#define __DriftersBase_H 1
+#ifndef __Drifters_H
+#define __Drifters_H 1
 
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
@@ -29,7 +29,7 @@
 
 namespace Nextsim
 {
-    class DriftersBase
+    class Drifters
     {
 public:
 
@@ -98,49 +98,49 @@ public:
             bool transient = false;
         } TimingInfo;
 
-        DriftersBase() {}
-        DriftersBase(std::string const& tag, std::string const& output_prefix,
+        Drifters() {}
+        Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& climit,
-                DriftersBase::TimingInfo const& timing_info,
+                Drifters::TimingInfo const& timing_info,
                 bool const& ignore_restart) : 
             M_tag(tag), M_output_prefix(output_prefix),
             M_conc_lim(climit), M_ignore_restart(ignore_restart)
         { this->setTimingInfo(timing_info); }
 
         //! init equally-spaced drifters
-        DriftersBase(std::string const& tag, std::string const& output_prefix,
+        Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
-                DriftersBase::TimingInfo const& timing_info,
+                Drifters::TimingInfo const& timing_info,
                 bool const& no_start_from_restart):
-            DriftersBase(tag, output_prefix, climit, timing_info,
+            Drifters(tag, output_prefix, climit, timing_info,
                     no_start_from_restart)
         {
-            M_init_type = DriftersBase::initType::SPACING;
+            M_init_type = Drifters::initType::SPACING;
             M_spacing = spacing;
         }
 
         //! init drifters from netcdf file
-        DriftersBase(std::string const& tag, std::string const& output_prefix,
+        Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
                  double const& climit,
-                 DriftersBase::TimingInfo const& timing_info,
+                 Drifters::TimingInfo const& timing_info,
                  bool const& no_start_from_restart):
-            DriftersBase(tag, output_prefix, climit, timing_info,
+            Drifters(tag, output_prefix, climit, timing_info,
                     no_start_from_restart)
         {
-            M_init_type = DriftersBase::initType::NETCDF;
+            M_init_type = Drifters::initType::NETCDF;
             M_netcdf_input_info = netcdf_input_info;
         }
 
         //! init drifters from text file
-        DriftersBase(std::string const& tag, std::string const& output_prefix,
+        Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
-                DriftersBase::TimingInfo const& timing_info,
+                Drifters::TimingInfo const& timing_info,
                 bool const& no_start_from_restart):
-            DriftersBase(tag, output_prefix, climit, timing_info,
+            Drifters(tag, output_prefix, climit, timing_info,
                     no_start_from_restart)
         {
-            M_init_type = DriftersBase::initType::TEXT_FILE;
+            M_init_type = Drifters::initType::TEXT_FILE;
             M_infile = filename;
         }
         bool initialising(double const &current_time)
@@ -287,4 +287,4 @@ private:
     };
 } // Nextsim
 
-#endif /* __DriftersBase_H */
+#endif /* __Drifters_H */

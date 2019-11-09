@@ -6,10 +6,10 @@
  * @date   Sun Feb 19 09:31:24 CET 2017
  */
 
-#include <drifters_base.hpp>
+#include <drifters.hpp>
 
 /**
- * @class DriftersBase
+ * @class Drifters
  * @brief Manage drifters (base class)
  *
  * @see
@@ -30,15 +30,15 @@ namespace Nextsim
 //! Initialise the drifter positions
 //! Called from FiniteElement::updateDrifters()
 void
-DriftersBase::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
+Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc)
 {
     M_is_initialised = true;
 
-    if (M_init_type == DriftersBase::initType::TEXT_FILE)
+    if (M_init_type == Drifters::initType::TEXT_FILE)
         this->initFromTextFile();
-    else if (M_init_type == DriftersBase::initType::SPACING)
+    else if (M_init_type == Drifters::initType::SPACING)
         this->initFromSpacing(moved_mesh);
-    else if (M_init_type == DriftersBase::initType::NETCDF)
+    else if (M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
 
     //! -3) Set M_conc at all the drifters
@@ -55,9 +55,9 @@ DriftersBase::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & co
 
 // ---------------------------------------------
 //! Initialise the drifter positions on a regular grid
-//! Called from DriftersBase::initialise()
+//! Called from Drifters::initialise()
 void
-DriftersBase::initFromSpacing(GmshMeshSeq const& moved_mesh)
+Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
 {
     //! - 1) Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
@@ -92,13 +92,13 @@ DriftersBase::initFromSpacing(GmshMeshSeq const& moved_mesh)
 
 // ---------------------------------------------
 //! Initialise the drifter positions from the grid of an input netcdf file
-//! Called from DriftersBase::initialise()
+//! Called from Drifters::initialise()
 void
-DriftersBase::initFromNetCDF()
+Drifters::initFromNetCDF()
 {
     std::string const infile = (M_netcdf_input_info.gridFile);
     if ( ! boost::filesystem::exists(M_netcdf_input_info.gridFile) )
-        throw std::runtime_error("DriftersBase::DriftersBase: File not found: " + infile);
+        throw std::runtime_error("Drifters::initFromNetCDF: File not found: " + infile);
 
     // Open file
     netCDF::NcFile dataFile(infile, netCDF::NcFile::read);
@@ -107,12 +107,12 @@ DriftersBase::initFromNetCDF()
     netCDF::NcDim dim;
     dim = dataFile.getDim(M_netcdf_input_info.dimNameX);
     if ( dim.isNull() )
-        throw std::runtime_error("DriftersBase::DriftersBase: Empty dimension: " + M_netcdf_input_info.dimNameX + " in file: " + infile);
+        throw std::runtime_error("Drifters::initFromNetCDF: Empty dimension: " + M_netcdf_input_info.dimNameX + " in file: " + infile);
     int ncols = dim.getSize();
 
     dim = dataFile.getDim(M_netcdf_input_info.dimNameY);
     if ( dim.isNull() )
-        throw std::runtime_error("DriftersBase::DriftersBase: Empty dimension: " + M_netcdf_input_info.dimNameY + " in file: " + infile);
+        throw std::runtime_error("Drifters::initFromNetCDF: Empty dimension: " + M_netcdf_input_info.dimNameY + " in file: " + infile);
     int nrows = dim.getSize();
 
     int gridSize = ncols*nrows;
@@ -146,9 +146,9 @@ DriftersBase::initFromNetCDF()
 
 // ---------------------------------------------
 //! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
-//! Called from DriftersBase::initialise()
+//! Called from Drifters::initialise()
 void
-DriftersBase::initFromTextFile()
+Drifters::initFromTextFile()
 {
     //! - 2) Load the nodes from file
 
@@ -174,9 +174,9 @@ DriftersBase::initFromTextFile()
 
 // --------------------------------------------------------------------------------------
 //! Add drifter info to restart
-//! Called by DriftersBase::initFromTextFile()
+//! Called by Drifters::initFromTextFile()
 std::vector<int>
-DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
+Drifters::grabBuoysFromInputTextFile(double const& current_time)
 {
     std::fstream fin(M_infile, std::fstream::in);
     fin.seekg(M_infile_position);
@@ -229,7 +229,7 @@ DriftersBase::grabBuoysFromInputTextFile(double const& current_time)
 
 //init from vectors (eg from restart)
 void
-DriftersBase::initFromRestart(
+Drifters::initFromRestart(
         boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
         boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
         )
@@ -263,9 +263,9 @@ DriftersBase::initFromRestart(
 
 // ---------------------------------------------
 //! sort the drifters by ID number - helps testing of restart and output
-//! called by DriftersBase::grabBuoysFromInputTextFile()
+//! called by Drifters::grabBuoysFromInputTextFile()
 void
-DriftersBase::sortDrifterNumbers()
+Drifters::sortDrifterNumbers()
 {
     auto drifter_num = M_i;
     auto drifter_x = M_X;
@@ -287,7 +287,7 @@ DriftersBase::sortDrifterNumbers()
 //! Add drifter info to restart
 //! Called by FiniteElement::writeRestart()
 void
-DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
+Drifters::addToRestart(Exporter &exporter, std::fstream &outbin)
 {
     // Do nothing if we don't have to
     if (!M_is_initialised)
@@ -306,9 +306,9 @@ DriftersBase::addToRestart(Exporter &exporter, std::fstream &outbin)
 
 // --------------------------------------------------------------------------------------
 //! Read drifter info from restart
-//! Called by DriftersBase::initFromRestart()
+//! Called by Drifters::initFromRestart()
 bool
-DriftersBase::readFromRestart(
+Drifters::readFromRestart(
     boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
     boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
     )
@@ -331,9 +331,9 @@ DriftersBase::readFromRestart(
 // --------------------------------------------------------------------------------------
 //! Check init time is consistent with restart time
 //! - try to fix; otherwise throw error
-//! Called by DriftersBase::initFromRestart()
+//! Called by Drifters::initFromRestart()
 void
-DriftersBase::fixInitTimeAtRestart(double const& restart_time)
+Drifters::fixInitTimeAtRestart(double const& restart_time)
 {
     // if we are restarting before sceduled init time, there is no problem
     // - they will be initialised at that time
@@ -362,7 +362,7 @@ DriftersBase::fixInitTimeAtRestart(double const& restart_time)
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::updateDrifters()
 void
-DriftersBase::reset()
+Drifters::reset()
 {
     M_is_initialised = false;
     M_i.resize(0);
@@ -378,7 +378,7 @@ DriftersBase::reset()
 //! Move drifters and replace the old coordinates with the new ones
 //! called by FiniteElement::updateDrifters()
 void
-DriftersBase::move(GmshMeshSeq const& mesh,
+Drifters::move(GmshMeshSeq const& mesh,
         std::vector<double> const& UT)
 {
     // Do nothing if we don't have to
@@ -422,7 +422,7 @@ DriftersBase::move(GmshMeshSeq const& mesh,
 //! interp conc onto drifter positions
 //! called by FiniteElement::checkDrifters()
 void
-DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
+Drifters::updateConc(GmshMeshSeq const& movedmesh,
         std::vector<double> & conc)
 {
     // Do nothing if we don't have to
@@ -457,7 +457,7 @@ DriftersBase::updateConc(GmshMeshSeq const& movedmesh,
 //! Masks out X and Y values where there is no ice
 //! Also fills M_i with the indices that are kept
 void
-DriftersBase::maskXY(std::vector<int> const& keepers)
+Drifters::maskXY(std::vector<int> const& keepers)
 {
 
     // Do nothing if we don't have to
@@ -494,7 +494,7 @@ DriftersBase::maskXY(std::vector<int> const& keepers)
 //! Check the drifter output time step is consistent with model time step
 //! Called by FiniteElement::instantiateDrifters()
 void
-DriftersBase::checkOutputTimeStep(int time_step)
+Drifters::checkOutputTimeStep(int time_step)
 {
     if( fmod(M_output_interval*24*3600, time_step) != 0 )
     {
@@ -508,11 +508,11 @@ DriftersBase::checkOutputTimeStep(int time_step)
 //! Set timing info: init time, output/input intervals, lifetime,
 //! output file name.
 //! Also set switches: M_has_lifetime, M_fixed_time_init
-//! Called by DriftersBase::DriftersBase()
+//! Called by Drifters::Drifters()
 void
-DriftersBase::setTimingInfo(TimingInfo const& timing_info)
+Drifters::setTimingInfo(TimingInfo const& timing_info)
 {
-    //for DriftersBase
+    //for Drifters
     M_time_init       = timing_info.time_init;
     M_output_interval = timing_info.output_interval;
     M_has_lifetime    = timing_info.has_lifetime;
@@ -563,9 +563,9 @@ DriftersBase::setTimingInfo(TimingInfo const& timing_info)
 
 // --------------------------------------------------------------------------------------
 //! Backup outfile at restart time
-//! Called by DriftersBase::initFromRestart(),
+//! Called by Drifters::initFromRestart(),
 void
-DriftersBase::backupOutputFile(std::string const& backup)
+Drifters::backupOutputFile(std::string const& backup)
 {
     fs::path path1(M_outfile);
     if ( fs::exists(path1) )
@@ -584,7 +584,7 @@ DriftersBase::backupOutputFile(std::string const& backup)
 //! date (format: yyyymmdd, we assume we won't be creating multiple files
 //! with the same prefix per day.
 void
-DriftersBase::initOutputNetCDF()
+Drifters::initOutputNetCDF()
 {
     // Create the netCDF file.
     netCDF::NcFile dataFile(M_outfile, netCDF::NcFile::replace);
@@ -645,9 +645,9 @@ DriftersBase::initOutputNetCDF()
 //! Initializes input/output text files
 //! \note if starting from restart, we backup the output file, and only include the records
 //! prior to the restart time in the new output file
-//! Called by DriftersBase::initialise() and DriftersBase::initFromRestart()
+//! Called by Drifters::initialise() and Drifters::initFromRestart()
 void
-DriftersBase::initOutputTextFile()
+Drifters::initOutputTextFile()
 {
     std::fstream fout(M_outfile, std::fstream::out);
     if ( !fout.good() )
@@ -661,9 +661,9 @@ DriftersBase::initOutputTextFile()
 //! if outfile exists already, we only keep the records for times
 //! prior to the restart time
 //! this is to prevent duplication of time records inthe netcdf file
-//! Called by DriftersBase::initFromRestart()
+//! Called by Drifters::initFromRestart()
 void
-DriftersBase::selectRecordsFromBackupNetCDF(
+Drifters::selectRecordsFromBackupNetCDF(
         std::string const& backup, double const& current_time)
 {
     // Open file
@@ -675,7 +675,7 @@ DriftersBase::selectRecordsFromBackupNetCDF(
     if ( dim.isNull() )
     {
         std::stringstream msg;
-        msg << "DriftersBase::selectRecordsFromBackupNetCDF: Empty dimension x in "
+        msg << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension x in "
             << backup;
         throw std::runtime_error(msg.str());
     }
@@ -686,7 +686,7 @@ DriftersBase::selectRecordsFromBackupNetCDF(
     if ( dim.isNull() )
     {
         M_nc_step = 0;
-        std::cout << "DriftersBase::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
+        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
         return;
     }
     size_t ntime = dim.getSize();
@@ -728,9 +728,9 @@ DriftersBase::selectRecordsFromBackupNetCDF(
 // ---------------------------------------------------------------------------------------
 //! Backup output text file (if restarting), and only include the records
 //! prior to the restart time in the new output file
-//! Called by DriftersBase::selectRecordsFromBackup()
+//! Called by Drifters::selectRecordsFromBackup()
 void
-DriftersBase::selectRecordsFromBackupTextFile(
+Drifters::selectRecordsFromBackupTextFile(
         std::string const& backup, double const& current_time)
 {
     std::fstream fin(backup, std::fstream::in);
@@ -768,7 +768,7 @@ DriftersBase::selectRecordsFromBackupTextFile(
 // -------------------------------------------------------------------------------------
 //! Writes data to the netCDF file.
 void
-DriftersBase::appendNetCDF(double const& current_time)
+Drifters::appendNetCDF(double const& current_time)
 {
 
     // Calculate lat and lon
@@ -826,7 +826,7 @@ DriftersBase::appendNetCDF(double const& current_time)
 //! Outputs the IABP drifter positions and conc
 //! Called by the readRestart(), initDrifters() and checkDrifters() functions.
 void
-DriftersBase::appendTextFile(double const& current_time)
+Drifters::appendTextFile(double const& current_time)
 {
     // Initialize the map
     mapx_class *map;
@@ -866,7 +866,7 @@ DriftersBase::appendTextFile(double const& current_time)
 //! Determine if we need to input a drifter
 //! Called by outputtingDrifters()
 bool
-DriftersBase::isInputTime(double const& current_time)
+Drifters::isInputTime(double const& current_time)
 {
     // can only output if it's initialised
     if(!M_is_initialised)
@@ -886,7 +886,7 @@ DriftersBase::isInputTime(double const& current_time)
 //! Determine if we need to input a drifter
 //! Called by outputtingDrifters()
 void
-DriftersBase::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
+Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root, double const& current_time)
 {
     bool need_conc = true;
     if (this->isInputTime(current_time))
@@ -911,9 +911,9 @@ DriftersBase::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc
 //! update the transient drifters
 //! - check if we should remove any (not in the input file anymore or too low SIC)
 //! - check if we should add any (some in the input file that are not in the drifters)
-//! Called by DriftersBase::doIO()
+//! Called by Drifters::doIO()
 void
-DriftersBase::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
+Drifters::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
         double const& current_time)
 {
     //add current buoys if not already there
@@ -931,7 +931,7 @@ DriftersBase::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<d
 
 
 void
-DriftersBase::updateDrifters(
+Drifters::updateDrifters(
         GmshMeshSeq const& mesh_root,
         GmshMeshSeq const& movedmesh_root,
         std::vector<double> & conc_root,

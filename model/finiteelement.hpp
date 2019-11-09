@@ -33,7 +33,7 @@
 #include <gridoutput.hpp>
 #include <dataset.hpp>
 #include <model_variable.hpp>
-#include <drifters_base.hpp>
+#include <drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
@@ -653,8 +653,8 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    std::vector<DriftersBase> M_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
-    std::vector<DriftersBase*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
+    std::vector<Drifters> M_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
+    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
