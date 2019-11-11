@@ -72,10 +72,13 @@ else
 endif
 
 LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
+LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi -ldl -lstdc++
+ifeq ( findstring("fram.sigma2.no", $(HOSTNAME)), "" )
+	# not on fram
+	LDFLAGS += -lmpi_cxx
 else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
+	# on fram (with intel compiler we need to use a differently-named mpi cxx library)
+	LDFLAGS += -lmpicxx
 endif
 
 #boost
