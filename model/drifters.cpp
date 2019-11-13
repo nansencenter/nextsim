@@ -146,13 +146,12 @@ Drifters::initFromNetCDF()
 
 
 // ---------------------------------------------
-//! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
-//! Called from Drifters::initialise()
+//! Initialise the input text file (M_infile)
+//! - check it exists and set M_infile_position
+//! Called from Drifters::initFromTextFile and Drifters::initFromRestart()
 void
-Drifters::initFromTextFile()
+Drifters::initInputTextFile()
 {
-    //! - 2) Load the nodes from file
-
     // Check file
     std::fstream drifter_text_file;   // The file we read the buoy data from
     drifter_text_file.open(M_infile, std::fstream::in);
@@ -164,6 +163,19 @@ Drifters::initFromTextFile()
     std::getline(drifter_text_file, header);
     M_infile_position = drifter_text_file.tellg();
     drifter_text_file.close();
+}
+
+
+// ---------------------------------------------
+//! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
+//! Called from Drifters::initialise()
+void
+Drifters::initFromTextFile()
+{
+    //! - 2) Load the nodes from file
+
+    // Check M_infile, set M_infile_position
+    this->initInputTextFile();
 
     //get the buoys
     M_X.resize(0);
@@ -252,6 +264,12 @@ Drifters::initFromRestart(
     
     //if drifters are in the restart file
     M_is_initialised = true;
+
+    //init input file if needed
+    if (M_init_type == Drifters::initType::TEXT_FILE)
+        this->initInputTextFile();
+    
+    //init output file if needed
     std::string const backup = M_outfile + ".bak"; 
     bool const present = fs::exists(M_outfile);
     if (present)

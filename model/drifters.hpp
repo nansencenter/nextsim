@@ -230,6 +230,7 @@ private:
             else
                 this->initOutputNetCDF();
         }
+        void initInputTextFile();
         void initOutputTextFile();
         void initOutputNetCDF();
         bool isInputTime(double const& current_time);
