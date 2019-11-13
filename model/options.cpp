@@ -192,7 +192,7 @@ namespace Nextsim
              ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
              ("drifters.sidfex_time_init", po::value<std::string>()->default_value( "" ),
                   "time to init SIDFEx drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
-             ("drifters.sidfex_no_start_from_restart", po::value<bool>()->default_value( false),
+             ("drifters.sidfex_ignore_restart", po::value<bool>()->default_value( false),
                 "do not load SIDFEx buoys from restart even if present")
 
             // - Restart

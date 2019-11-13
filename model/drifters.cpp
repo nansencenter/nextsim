@@ -364,6 +364,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
     {
         std::stringstream msg;
         msg << "Error: " << M_tag<< " drifters have been requested but they are not in restart file,\n"
+            << "or M_ignore_restart has been set to true,\n"
             << "and their initial time, which is fixed at " << datenumToString(M_time_init) << ",\n"
             << "is before the restart time ("<< datenumToString(restart_time) << ").\n"
             << "Either switch off the drifters or make their initialisation date later.";
