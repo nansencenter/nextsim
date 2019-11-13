@@ -11388,7 +11388,7 @@ FiniteElement::instantiateDrifters()
         std::string const infile = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
         std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
-        bool const no_start_from_restart = vm["drifters.sidfex_no_start_from_restart"].as<bool>();
+        bool const ignore_restart = vm["drifters.sidfex_ignore_restart"].as<bool>();
         std::string const timestr = vm["drifters.sidfex_time_init"].as<std::string>();
         double sidfex_time_init = drifters_time_init;
         bool fix_time_init = false;
@@ -11410,7 +11410,7 @@ FiniteElement::instantiateDrifters()
         M_drifters.push_back(
                 Drifters("SIDFEx", output_prefix,
                     infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
-                    timing_info, no_start_from_restart)
+                    timing_info, ignore_restart)
                 );
     }
 

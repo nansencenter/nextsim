@@ -249,8 +249,11 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
-    if(!M_ignore_restart)
+    if(M_ignore_restart)
+        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    else
         in_restart = readFromRestart(field_map_int, field_map_dbl);
+
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
         this->fixInitTimeAtRestart(restart_time);
