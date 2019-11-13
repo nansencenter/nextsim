@@ -25,7 +25,8 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-CXX = mpic++
+#CXX = mpic++
+CXX = mpicxx # not tested with this
 #CXXFLAGS += -std=c++0x -std=c++11
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
