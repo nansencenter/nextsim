@@ -70,11 +70,17 @@ CXXFLAGS += -isystem $(PETSC_DIR)/include
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
+ifeq ($(NETCDF_CXX_DIR),)
+	#sep dirs on datarmor
+	NETCDF_CXX_DIR=NETCDF_DIR
+endif
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I $(NETCDF_DIR)/include
+	CXXFLAGS += -I $(NETCDF_CXX_DIR)/include
 else
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
 # gmsh
@@ -104,7 +110,9 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf -lnetcdff
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
