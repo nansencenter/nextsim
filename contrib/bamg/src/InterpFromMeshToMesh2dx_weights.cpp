@@ -19,7 +19,7 @@ int InterpFromMeshToMesh2dx_weights(
       int* index_data,double* x_data,double* y_data,
       int nods_data,int nels_data,
       int M_data,
-      double* x_interp,double* y_interp,int N_interp)
+      const double* x_interp, const double* y_interp,int N_interp)
 {
     /*Output*/
     if (M_data==nods_data)
@@ -93,7 +93,29 @@ int InterpFromMeshToMesh2dx_weights(
         }
         //external point
         else{
-            throw std::runtime_error("InterpFrmoMeshToMesh2dx_weights: Point outside of mesh (and convex)\n");
+            //Get closest adjacent triangle (inside the mesh)
+            double aa,bb;
+            AdjacentTriangle ta=CloseBoundaryEdge(I,&tb,aa,bb).Adj();
+            int k=ta;
+            Triangle &tc=*(Triangle*)ta;
+            if (M_data==nods_data)
+            {
+                //Area coordinate
+                areacoord[i].resize(3);
+                areacoord[i][VerticesOfTriangularEdge[k][1]] = aa;
+                areacoord[i][VerticesOfTriangularEdge[k][0]] = bb;
+                areacoord[i][OppositeVertex[k]] = 1 - aa -bb;
+                //3 vertices of the triangle
+                vertex[i].resize(3);
+                vertex[i][0]=Th->GetId(tc[0]);
+                vertex[i][1]=Th->GetId(tc[1]);
+                vertex[i][2]=Th->GetId(tc[2]);
+            }
+            else
+            {
+                //triangle number
+                it[i]=Th->GetId(tc);
+            }
         }
     }
 

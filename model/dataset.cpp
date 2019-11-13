@@ -35,6 +35,13 @@ DataSet::DataSet(char const *DatasetName)
     name = std::string(DatasetName);
     projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
+    ftime_range.resize(2,0.);
+#ifdef OASIS
+    itime_range.resize(2,0.);
+    calc_nodal_weights = false;
+#endif
+
+
     std::vector<std::vector<double>> loaded_data_tmp;
     loaded_data_tmp.resize(2);
 
@@ -8343,12 +8350,6 @@ DataSet::DataSet(char const *DatasetName)
 
         //close_Dataset (this);
     }
-
-    ftime_range.resize(2,0.);
-#ifdef OASIS
-    itime_range.resize(2,0.);
-#endif
-
 }
 
 void
@@ -8718,7 +8719,8 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         //std::cout <<"GRID : READ NETCDF done\n";
 
 	}//end interpolation_method==InterpolationType::FromGridToMesh
-	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
+	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx
+	     || grid_ptr->interpolation_method==InterpolationType::FromMeshToMeshQuick)
 	{
         // interpolation_method==InterpolationType::FromMeshToMesh2dx
         // - most general method
@@ -9521,7 +9523,7 @@ DataSet::setElementWeights(std::vector<int> const &gridP, std::vector<std::vecto
 }
 
 void
-DataSet::setNodalWeights(std::vector<double>& RX, std::vector<double>& RY)
+DataSet::setNodalWeights(const std::vector<double>& RX, const std::vector<double>& RY)
 {
     // One call to set the node weights
     InterpFromMeshToMesh2dx_weights(

@@ -742,6 +742,12 @@ FiniteElement::initExternalData()
             throw std::logic_error(msg);
     }
 
+    //! - 5) Initialise coupler interface (this can be considered "external data" too)
+#ifdef OASIS
+    LOG(DEBUG) <<"Initialize OASIS coupler\n";
+    this->initOASIS();
+#endif
+
 }//initExternalData
 
 
@@ -6362,15 +6368,11 @@ FiniteElement::init()
     //!      * nesting (if needed)
     this->initExternalData();
 
-#ifdef OASIS
-    LOG(DEBUG) <<"Initialize OASIS coupler\n";
-    this->initOASIS();
-#endif
-
     //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
+
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
     //! - 7) If not using a restart, initializes the model from the datasets
@@ -6650,7 +6652,7 @@ FiniteElement::initOASIS()
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
     M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-    M_ocean_elements_dataset.setNodalWeights(M_mesh.coordX(), M_mesh.coordY());
+    M_ocean_nodes_dataset.calc_nodal_weights = true;
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -6875,7 +6877,7 @@ FiniteElement::step()
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
                 M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                M_ocean_elements_dataset.setNodalWeights(M_mesh.coordX(), M_mesh.coordY());
+                M_ocean_nodes_dataset.calc_nodal_weights = true;
             }
             M_timer.tock("resetMeshMean_cpl");
 #endif

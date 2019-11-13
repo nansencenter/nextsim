@@ -26,6 +26,10 @@
 #include "ensemble.hpp"
 #endif
 
+#ifdef OASIS
+#include <InterpFromMeshToMesh2dx_apply.hpp>
+#endif
+
 /**
  * @class ExternalData
  * @brief Manage the external data

@@ -24,6 +24,9 @@ extern "C"
 {
 #include <mapx.h>
 }
+#ifdef OASIS
+#include <InterpFromMeshToMesh2dx_weights.hpp>
+#endif
 
 
 /**
@@ -244,10 +247,12 @@ public:
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
 
-    void setNodalWeights(std::vector<double>& RX, std::vector<double>& RY);
-    std::vector<std::vector<double>>& M_areacoord;
-    std::vector<std::vector<int>>& M_vertex,
-    std::vector<int> M_it,
+    bool calc_nodal_weights;
+
+    void setNodalWeights(const std::vector<double>& RX, const std::vector<double>& RY);
+    std::vector<std::vector<double>> M_areacoord;
+    std::vector<std::vector<int>> M_vertex;
+    std::vector<int> M_it;
 #endif
 
 private:
