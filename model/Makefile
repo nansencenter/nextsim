@@ -2,7 +2,7 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
-CXX = g++
+CXX = mpic++
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -92,10 +92,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -isystem /usr/local/include #-I /opt/local/include/openmpi-mp
-
-	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
-	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	CXXFLAGS += -isystem /usr/local/include
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
@@ -105,14 +102,7 @@ endif
 
 LDFLAGS += -L /usr/local/lib
 
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
-else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
-        LDFLAGS += -Wl,-rpath,$(BLAS_LAPACK_DIR)/lib
-        LDFLAGS += -L $(BLAS_LAPACK_DIR)/lib -lsci_gnu_mp
-endif
+LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
