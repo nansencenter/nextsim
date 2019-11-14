@@ -1418,10 +1418,8 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
         ("constant_size", setup::FSDType::CONSTANT_SIZE) 
         ("constant_area", setup::FSDType::CONSTANT_AREA);
-    option_str = vm["wave_coupling.fsd_type"].as<std::string>();
-    if ( str2fsd.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.fsd_type: " + option_str);
-    M_fsd_type = str2fsd.find(option_str)->second; //! 
+    this->getOptionFromMap(
+            M_fsd_type, "wave_coupling.fsd_type", str2fsd);
     //
     M_fsd_bin_cst_width= vm["wave_coupling.fsd_bin_cst_width"].as<double>();
     M_fsd_min_floe_size= vm["wave_coupling.fsd_min_floe_size"].as<double>();
@@ -1434,10 +1432,8 @@ FiniteElement::initOptAndParam()
         ("none", setup::WeldingType::NONE) 
         ("roach", setup::WeldingType::ROACH)
         ("williams", setup::WeldingType::WILLIAMS);
-    option_str = vm["wave_coupling.welding_type"].as<std::string>();
-    if ( str2welding.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.welding_type: " + option_str);
-    M_welding_type = str2welding.find(option_str)->second; //! 
+    this->getOptionFromMap(
+            M_welding_type, "wave_coupling.welding_type", str2welding);
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
 
@@ -1447,10 +1443,8 @@ FiniteElement::initOptAndParam()
         ("zhang", setup::BreakupType::ZHANG)
         ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
         ("dumont", setup::BreakupType::DUMONT);
-    option_str = vm["wave_coupling.breakup_type"].as<std::string>();
-    if ( str2breakup.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for wave_coupling.breakup_type: " + option_str);
-    M_breakup_type = str2breakup.find(option_str)->second; //! 
+    this->getOptionFromMap(
+            M_breakup_type, "wave_coupling.breakup_type", str2breakup);
     M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
     M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
     //! FSD : Misc. parameters
