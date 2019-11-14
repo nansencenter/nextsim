@@ -75,7 +75,7 @@ ifeq ($(NETCDF_CXX_DIR),)
 else
 	# separate dirs on datarmor
 	# - also datarmor needs this lib too
-	LIBNETCDFF=-lnetcdff
+	LDFLAGS += -lnetcdff
 endif
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
@@ -113,7 +113,7 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf $(LIBNETCDFF)
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
 LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
 
 
