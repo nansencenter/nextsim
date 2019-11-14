@@ -243,7 +243,11 @@ Drifters::initFromRestart(
         this->backupOutputFile(backup);
     this->initOutputFile();
     if (present)
+    {
         this->selectRecordsFromBackup(backup, restart_time);
+        std::remove(backup.c_str());
+    }
+        
 }//initFromRestart()
 
 
