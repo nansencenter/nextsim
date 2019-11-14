@@ -469,7 +469,8 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
                             true, 0.);
 
     for ( int i=0; i<num_drifters; ++i )
-        conc_drifters[i] = interp_drifter_out[i];
+        conc_drifters[i] = std::max(0.,
+                std::min(1., interp_drifter_out[i]));
 
     xDelete<double>(interp_drifter_out);
 }//updateConc
