@@ -7145,11 +7145,16 @@ void FiniteElement::checkUpdateDrifters()
     bool update_drifters = false;
     if(M_rank == 0)
     {
+        //need to move if initialising, outputting, inputting or resetting
+        //(eg OSISAF drifters reset after 2 days) any drifters
+        //NB inputting and resetting always happen at output time
+        //so don't need to check
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
             update_drifters = update_drifters
                 || it->initialising(M_current_time)
                 || it->isOutputTime(M_current_time);
     }
+
     // let all the processors know if we need to gather the three vectors
     // or if we need to reset M_UT
     boost::mpi::broadcast(M_comm, update_drifters, 0);
@@ -7165,6 +7170,8 @@ void FiniteElement::checkUpdateDrifters()
 
     if(M_rank==0)
     {
+        //updateDrifters does moving, initialising, resetting, inputting,
+        //outputting (if needed)
         auto movedmesh_root = M_mesh_root;
         movedmesh_root.move(UM_root, 1.);
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -11314,7 +11321,7 @@ FiniteElement::instantiateDrifters()
                 false                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifters to the list of ordinary drifters
+        // add drifters to the list of drifters
         M_drifters.push_back(
                 Drifters("OSISAF0", osi_outfile_prefix,
                     netcdf_input_info, drifters_conc_lim, timing_info,
@@ -11348,7 +11355,7 @@ FiniteElement::instantiateDrifters()
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifter to the list of ordinary drifters
+        // add drifter to the list of drifters
         M_drifters.push_back(
                 Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
@@ -11373,7 +11380,7 @@ FiniteElement::instantiateDrifters()
                 true              //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifter to the list of ordinary drifters
+        // add drifter to the list of drifters
         M_drifters.push_back(
                 Drifters("RGPS", output_prefix,
                     rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
@@ -11406,7 +11413,7 @@ FiniteElement::instantiateDrifters()
                 fix_time_init       //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifter to the list of ordinary drifters
+        // add drifter to the list of drifters
         M_drifters.push_back(
                 Drifters("SIDFEx", output_prefix,
                     infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
@@ -11421,7 +11428,7 @@ FiniteElement::instantiateDrifters()
         std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
         std::string const outfile_prefix = M_export_path + "/IABP_drifters_";
 
-        // add drifter to the list of transient drifters
+        // add drifter to the list of drifters
         Drifters::TimingInfo const timing_info(
                 drifters_time_init, //init time
                 output_time_step,   //output interval
@@ -12192,7 +12199,7 @@ FiniteElement::finalise(std::string current_time_system)
     if (M_rank == 0)
         LOG(INFO) << M_timer.printAll();
 
-    // Clear ponters etc
+    // Clear pointers etc
     M_comm.barrier();
 
     delete bamgmesh;

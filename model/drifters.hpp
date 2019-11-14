@@ -61,6 +61,9 @@ public:
         {
             TimingInfo() {}
 
+            //constructor for "ordinary" drifters
+            // - drifters are only added at initialisation
+            // (unlike eg IABP)
             TimingInfo(
                     double const& ti,
                     double const& oint,
@@ -76,6 +79,9 @@ public:
                 fixed_time_init = fti;
             }
 
+            //constructor for "transient" drifters
+            // - drifters can be added and removed periodically
+            //  (eg IABP)
             TimingInfo(
                     double const& ti,
                     double const& oint,
@@ -89,13 +95,13 @@ public:
                 transient = true;
             }
 
-            double time_init;
-            double output_interval;
-            double input_interval = -1;
-            bool has_lifetime;
-            double lifetime;
-            bool fixed_time_init;
-            bool transient = false;
+            double time_init;//init time
+            double output_interval;//time between outputs
+            double input_interval = -1;//time between inputs (transient drifters)
+            bool has_lifetime;//do they have a limited lifetime, like the OSISAF drifters
+            double lifetime;//lifetime of drifters in days - eg 2. for OSISAF drifters, after which they are reset
+            bool fixed_time_init;// some drifters have a fixed init time (eg depend on a specific input file);
+            bool transient = false;// can drifters be added/removed after init?
         } TimingInfo;
 
         Drifters() {}

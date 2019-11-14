@@ -26,9 +26,47 @@ namespace Nextsim
 //! * There is also a default, constructor which initialises things to zero and false.
 
 
+// ------------------------------------------
+//! Main drifter interface to FiniteElement
+//! Called from FiniteElement::checkUpdateDrifters()
+void
+Drifters::updateDrifters(
+        GmshMeshSeq const& mesh_root,
+        GmshMeshSeq const& movedmesh_root,
+        std::vector<double> & conc_root,
+        std::vector<double> const& UT_root,
+        double const& current_time)
+{
+    std::vector<double> conc_drifters(0);
+    //! 1) Move the drifters (if needed)
+    // NB M_UT is relative to the fixed mesh, not the moved mesh
+    this->move(mesh_root, UT_root);
+
+    //! 2) Reset any temporary drifters if needed (eg OSISAF)
+    if(this->resetting(current_time))
+    {
+        this->doIO(movedmesh_root, conc_root, current_time,
+                conc_drifters);
+        this->reset();
+        conc_drifters.resize(0);
+    }
+
+    //! 3) Initialize if needed
+    //! - need conc on the moved mesh
+    //! - NB updates conc_drifters
+    if(this->initialising(current_time))
+        this->initialise(movedmesh_root, conc_root,
+                conc_drifters);
+
+    //! 4) Do output if needed (for transient drifters: also do input if needed)
+    this->doIO(movedmesh_root, conc_root, current_time,
+            conc_drifters);
+}//updateDrifters
+
+
 // ---------------------------------------------
 //! Initialise the drifter positions
-//! Called from FiniteElement::updateDrifters()
+//! Called from Drifters::updateDrifters()
 void
 Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
         std::vector<double> &conc_drifters)
@@ -146,6 +184,70 @@ Drifters::initFromNetCDF()
 
 
 // ---------------------------------------------
+//! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
+//! Called from Drifters::initialise()
+void
+Drifters::initFromTextFile()
+{
+    //! - 2) Load the nodes from file
+
+    // Check M_infile, set M_infile_position
+    this->initInputTextFile();
+
+    //get the buoys
+    M_X.resize(0);
+    M_Y.resize(0);
+    M_i.resize(0);
+    this->grabBuoysFromInputTextFile(M_time_init);
+}//initFromTextFile()
+
+
+// ---------------------------------------------
+//!init drifters from fields in restart files
+//! Called from FiniteElement::readRestart()
+void
+Drifters::initFromRestart(
+        boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
+        boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
+        )
+{
+    double const restart_time = field_map_dbl["Time"][0];
+    bool in_restart = false;
+    if(M_ignore_restart)
+        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    else
+        in_restart = readFromRestart(field_map_int, field_map_dbl);
+
+    if( !in_restart )
+        //drifters are not in restart file - check init time and init output file
+        this->fixInitTimeAtRestart(restart_time);
+    this->setOutputFilename();
+
+    if(!in_restart)
+    {
+        this->initOutputFile();
+        return;
+    }
+    
+    //if drifters are in the restart file
+    M_is_initialised = true;
+
+    //init input file if needed
+    if (M_init_type == Drifters::initType::TEXT_FILE)
+        this->initInputTextFile();
+    
+    //init output file if needed
+    std::string const backup = M_outfile + ".bak"; 
+    bool const present = fs::exists(M_outfile);
+    if (present)
+        this->backupOutputFile(backup);
+    this->initOutputFile();
+    if (present)
+        this->selectRecordsFromBackup(backup, restart_time);
+}//initFromRestart()
+
+
+// ---------------------------------------------
 //! Initialise the input text file (M_infile)
 //! - check it exists and set M_infile_position
 //! Called from Drifters::initFromTextFile and Drifters::initFromRestart()
@@ -164,25 +266,6 @@ Drifters::initInputTextFile()
     M_infile_position = drifter_text_file.tellg();
     drifter_text_file.close();
 }
-
-
-// ---------------------------------------------
-//! Initialise the drifter positions from a text file like the IABP, RGPS and SIDFEx drifters
-//! Called from Drifters::initialise()
-void
-Drifters::initFromTextFile()
-{
-    //! - 2) Load the nodes from file
-
-    // Check M_infile, set M_infile_position
-    this->initInputTextFile();
-
-    //get the buoys
-    M_X.resize(0);
-    M_Y.resize(0);
-    M_i.resize(0);
-    this->grabBuoysFromInputTextFile(M_time_init);
-}//initFromTextFile()
  
 
 // --------------------------------------------------------------------------------------
@@ -237,50 +320,7 @@ Drifters::grabBuoysFromInputTextFile(double const& current_time)
     //sorting the drifter numbers helps with testing (both restarting and output)
     this->sortDrifterNumbers();
     return current_buoys;
-}
-
-
-//init from vectors (eg from restart)
-void
-Drifters::initFromRestart(
-        boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-        boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
-        )
-{
-    double const restart_time = field_map_dbl["Time"][0];
-    bool in_restart = false;
-    if(M_ignore_restart)
-        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
-    else
-        in_restart = readFromRestart(field_map_int, field_map_dbl);
-
-    if( !in_restart )
-        //drifters are not in restart file - check init time and init output file
-        this->fixInitTimeAtRestart(restart_time);
-    this->setOutputFilename();
-
-    if(!in_restart)
-    {
-        this->initOutputFile();
-        return;
-    }
-    
-    //if drifters are in the restart file
-    M_is_initialised = true;
-
-    //init input file if needed
-    if (M_init_type == Drifters::initType::TEXT_FILE)
-        this->initInputTextFile();
-    
-    //init output file if needed
-    std::string const backup = M_outfile + ".bak"; 
-    bool const present = fs::exists(M_outfile);
-    if (present)
-        this->backupOutputFile(backup);
-    this->initOutputFile();
-    if (present)
-        this->selectRecordsFromBackup(backup, restart_time);
-}//initFromRestart()
+}//grabBuoysFromInputTextFile()
 
 
 // ---------------------------------------------
@@ -302,7 +342,7 @@ Drifters::sortDrifterNumbers()
         M_X[j] = drifter_x[idx[j]];
         M_Y[j] = drifter_y[idx[j]];
     }
-}
+}//sortDrifterNumbers()
 
 
 // --------------------------------------------------------------------------------------
@@ -323,7 +363,7 @@ Drifters::addToRestart(Exporter &exporter, std::fstream &outbin)
     exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag);
     exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag);
     exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag);
-}
+}//addToRestart()
 
 
 // --------------------------------------------------------------------------------------
@@ -347,7 +387,7 @@ Drifters::readFromRestart(
     M_Y         = field_map_dbl["Drifter_y_"         + M_tag];
     M_time_init = field_map_dbl["Drifter_time_init_" + M_tag][0];
     return true;
-}
+}//readFromRestart()
 
 
 // --------------------------------------------------------------------------------------
@@ -377,7 +417,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
     //...but if init time is not fixed we can just start at the same time on the next day
     double const shift = M_time_init - std::floor(M_time_init);//usually 0, but .5 for OSISAF
     M_time_init = std::ceil(restart_time) + shift;
-}
+}//fixInitTimeAtRestart()
 
 
 // -------------------------------------------------------------------------------------
@@ -437,7 +477,7 @@ Drifters::move(GmshMeshSeq const& mesh,
     }
 
     xDelete<double>(interp_drifter_out);
-}
+}//move()
 
 
 // --------------------------------------------------------------------------------------
@@ -524,7 +564,7 @@ Drifters::checkOutputTimeStep(int time_step)
         std::string msg = M_tag +" drifters' timestep not a multiple of model time step";
         throw std::runtime_error(msg);
     }
-}
+}//checkOutputTimeStep()
 
 
 // --------------------------------------------------------------------------------------
@@ -581,7 +621,7 @@ Drifters::setTimingInfo(TimingInfo const& timing_info)
             + M_tag + " output timestep";
         throw std::runtime_error(msg);
     }
-}
+}//setTimingInfo()
 
 
 // --------------------------------------------------------------------------------------
@@ -596,7 +636,7 @@ Drifters::backupOutputFile(std::string const& backup)
         fs::path path2(backup);
         fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
     }
-}
+}//backupOutputFile()
 
 
 // ----------------------------------------------------------------------------------------------
@@ -677,7 +717,7 @@ Drifters::initOutputTextFile()
         throw std::runtime_error("Cannot write to file: " + M_outfile);
     fout << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
     fout.close();
-}//initTextFiles
+}//initOutputTextFile
 
 
 // -----------------------------------------------------------------
@@ -927,7 +967,7 @@ Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_roo
             this->updateConc(movedmesh_root, conc_root, conc_drifters);
         this->outputDrifters(current_time, conc_drifters);
     }
-}
+}//doIO()
 
 
 // ---------------------------------------------------------------------------------------
@@ -951,40 +991,5 @@ Drifters::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<doubl
     // (ii) the ones which have a low conc according to the model
     this->maskXY(conc_drifters, current_buoys);
 }//addRemoveDrifters
-
-
-void
-Drifters::updateDrifters(
-        GmshMeshSeq const& mesh_root,
-        GmshMeshSeq const& movedmesh_root,
-        std::vector<double> & conc_root,
-        std::vector<double> const& UT_root,
-        double const& current_time)
-{
-    std::vector<double> conc_drifters(0);
-    //! 1) Move the drifters (if needed)
-    // NB M_UT is relative to the fixed mesh, not the moved mesh
-    this->move(mesh_root, UT_root);
-
-    //! 2) Reset any temporary drifters if needed (eg OSISAF)
-    if(this->resetting(current_time))
-    {
-        this->doIO(movedmesh_root, conc_root, current_time,
-                conc_drifters);
-        this->reset();
-        conc_drifters.resize(0);
-    }
-
-    //! 3) Initialize if needed
-    //! - need conc on the moved mesh
-    //! - NB updates conc_drifters
-    if(this->initialising(current_time))
-        this->initialise(movedmesh_root, conc_root,
-                conc_drifters);
-
-    //! 4) Do output if needed (for transient drifters: also do input if needed)
-    this->doIO(movedmesh_root, conc_root, current_time,
-            conc_drifters);
-}//updateDrifters
 
 } // Nextsim
