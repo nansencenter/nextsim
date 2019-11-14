@@ -2054,6 +2054,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Variables received through OASIS
         //Variable str_var ={
+        //    filename_prefix: "", // All variables are in the same (grid) file
         //    name: "I_str_var",
         //    dimensions: dimensions,
         //    land_mask_defined: false,
@@ -2088,6 +2089,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         //Variable Tm02 ={
+        //    filename_preissue_241_oasis_ww3_rcv_dmaxfix: "", // All variables are in the same (grid) file
         //    name: "I_tm02",
         //    dimensions: dimensions,
         //    land_mask_defined: false,
