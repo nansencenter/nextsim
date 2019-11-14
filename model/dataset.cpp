@@ -1869,6 +1869,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // Variables received through OASIS
         Variable tau_wi_x={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "I_tauwix",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1886,6 +1887,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable tau_wi_y={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "I_tauwiy",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1904,6 +1906,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // These are lat, lon, masking, and vector rotation variables in NEMO.nc
         Variable mask={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "mask",
             dimensions: dimensions,
             land_mask_defined: true,
@@ -1921,6 +1924,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable theta={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "ptheta",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1938,6 +1942,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plat",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1954,6 +1959,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plon",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -1969,7 +1975,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        time = {
+        Variable time_tmp = {
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2028,6 +2035,7 @@ DataSet::DataSet(char const *DatasetName)
         interpolated=false;
 
         averaging_period=0.; // days
+        time= time_tmp;
         coupled = true;
     }
     else if (strcmp (DatasetName, "wave_cpl_elements") == 0)
@@ -2063,6 +2071,7 @@ DataSet::DataSet(char const *DatasetName)
         //};
 
         Variable wlbk ={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "I_wlbk",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2097,6 +2106,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // These are lat, lon, masking, and vector rotation variables in NEMO.nc
         Variable mask={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "mask",
             dimensions: dimensions,
             land_mask_defined: true,
@@ -2114,6 +2124,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable theta={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "ptheta",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2131,6 +2142,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plat",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2147,6 +2159,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plon",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2162,7 +2175,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        time = {
+        Variable time_tmp = {
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -2215,6 +2229,7 @@ DataSet::DataSet(char const *DatasetName)
         interpolated=false;
 
         averaging_period=0.; // days
+        time = time_tmp;
         coupled = true;
     }
 #endif
