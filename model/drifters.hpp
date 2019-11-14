@@ -201,11 +201,11 @@ private:
                 return false;
             return (current_time == M_time_init + M_lifetime);
         }
-        void maskXY(std::vector<double> const& conc_drifters,
+        void maskXY(std::vector<double> & conc_drifters,
                 std::vector<int> const& current_buoys);
             // - check if buoy IDs are in a given list and remove if they are not
             // - also check for if conc > a threshold
-        void maskXY(std::vector<double> const& conc_drifters)
+        void maskXY(std::vector<double> & conc_drifters)
         {
             auto keepers = M_i;
             // - don't remove any buoys unless the conc is too low

@@ -479,7 +479,7 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
 //! Masks out X and Y values where there is no ice
 //! Also fills M_i with the indices that are kept
 void
-Drifters::maskXY(std::vector<double> const& conc_drifters, std::vector<int> const& keepers)
+Drifters::maskXY(std::vector<double> & conc_drifters, std::vector<int> const& keepers)
 {
 
     // Do nothing if we don't have to
@@ -489,21 +489,24 @@ Drifters::maskXY(std::vector<double> const& conc_drifters, std::vector<int> cons
     auto X = M_X;
     auto Y = M_Y;
     auto idx = M_i;
+    auto conc = conc_drifters;
 
     //! - 2) Adds drifter positions where conc > conc_lim
     M_X.resize(0); // this shouldn't be necessary!
     M_Y.resize(0);
     M_i.resize(0);
+    conc_drifters.resize(0);
 
     for ( int i=0; i<idx.size(); ++i )
     {
         int const id_count = std::count(keepers.begin(),
                     keepers.end(), idx[i]);
-        if ( conc_drifters[i] > M_conc_lim && id_count>0 )
+        if ( conc[i] > M_conc_lim && id_count>0 )
         {
             M_X.push_back(X[i]);
             M_Y.push_back(Y[i]);
             M_i.push_back(idx[i]);
+            conc_drifters.push_back(conc[i]);
         }
     }
 }//maskXY()
