@@ -532,6 +532,16 @@ ModelVariable::initElemental()
             M_exporting = false;
             M_diffusivity = 0;
             break;
+
+        case (variableID::D_dcrit):
+            // diagnostic variable to tell use how far outside the
+            // Mohr-Coulomb envelope we are
+            M_name = "D_dcrit";
+            M_export_name = "d_crit";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
         default:
             elemental = false;
     }

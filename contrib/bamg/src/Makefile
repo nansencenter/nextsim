@@ -33,7 +33,7 @@ else
 	CXXFLAGS += -O3 -pthread
 endif
 
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 

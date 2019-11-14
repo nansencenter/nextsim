@@ -15,7 +15,7 @@ CC = mpicc
 
 # add gcc option flags
 CCFLAGS += -pedantic -Wno-inline -fPIC
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifdef NEXTSIM_COMPILE_VERBOSE
    	CXXFLAGS += -v
 endif
 

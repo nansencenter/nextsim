@@ -46,7 +46,6 @@ namespace Nextsim
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-
              //-----------------------------------------------------------------------------------
              //! - Debugging options
              // -----------------------------------------------------------------------------------
@@ -68,6 +67,8 @@ namespace Nextsim
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
+            ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
+                "If check_velocity_fields is true: find outlier nodes with extreme velocities print to DEBUG")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -137,6 +138,8 @@ namespace Nextsim
 #else
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+            ("moorings.use_conservative_remapping", po::value<bool>()->default_value( false ),
+                 "Use the conservative remapping scheme to interpolate onto the moorings grid. Requires mooring.grid_type=from_file, mesh.type=from_split and .msh and .nc files from the mkCplMesh.m script in nextsim-env (default: false)")
 #endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
@@ -153,9 +156,9 @@ namespace Nextsim
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
             ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
             ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
-            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is y and the second x.")
+            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If false we assume the first dimension is y and the second x.")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
-                "true: we output vectors relative to the output grid; false: we give their north-south components")
+                "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
 
 
@@ -220,8 +223,8 @@ namespace Nextsim
                 "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
-            ("output.logfile", po::value<std::string>()->default_value( "" ), "")
+            ("output.output_per_day", po::value<int>()->default_value( 4 ),
+               "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
             ("output.export_before_regrid", po::value<bool>()->default_value( false ),
@@ -299,6 +302,8 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -341,8 +346,11 @@ namespace Nextsim
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
+            //   clip : float
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+            ("damage.clip", po::value<double>()->default_value( 0 ),
+             "Threshold for clipping damage. All values below <damage.clip> will be turned zero before calculating how elastic modulus and stress relaxation time depend on damage.")
 
 
              //-----------------------------------------------------------------------------------

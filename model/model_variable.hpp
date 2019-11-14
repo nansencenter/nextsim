@@ -106,6 +106,7 @@ public:
         D_dmean      = 120,
         D_Qassim     = 121,
         D_fwflux_ice = 122,
+        D_dcrit      = 123,
     };
 
 

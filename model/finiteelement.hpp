@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include "version.hpp"
 #include <solverpetsc.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
@@ -54,6 +55,8 @@ extern "C"
 
 namespace Nextsim
 {
+
+inline double clip_damage(double damage, double damage_min);
 
 class FiniteElement
 {
@@ -185,7 +188,7 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc, 
+    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
                  std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
     inline double albedo(const double Tsurf, const double hs,
@@ -197,8 +200,9 @@ public:
     inline double windSpeedElement(const int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadMainDatasets(double const CRtime);
+                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+                    const bool use_timer=false);
+    void checkReloadMainDatasets(double const CRtime, const bool use_timer=false);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -252,6 +256,9 @@ public:
 
     void initBamg();
     void initOptAndParam();
+    template<typename enum_type>
+    void getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map) const;
     void initDrifterOpts();
     void forcing();
     void forcingAtmosphere();
@@ -260,7 +267,7 @@ public:
     void forcingWaves();
 #endif
     void forcingNesting();
-	void initBathymetry();
+    void initBathymetry();
 
     void assimilateIce();
     void assimilateSlabOcean();
@@ -743,7 +750,7 @@ private:
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
-    std::vector<ModelVariable> M_sigma;
+    std::vector<ModelVariable> M_sigma; // Internal stress tensor
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
     ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
@@ -824,9 +831,13 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
+    ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
 
+    // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
+    std::vector<double> D_elasticity; // Elasticity
+    std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
 
 private:
     // Variables for the moorings
@@ -927,6 +938,7 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
+    void checkVelocityFields();
 
 };
 } // Nextsim
