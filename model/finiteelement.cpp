@@ -11305,12 +11305,12 @@ FiniteElement::instantiateDrifters()
             // - can then compare averaged drift to the observations
             // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
             osi_grid_file += "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
-            osi_outfile_prefix += "OSISAF_refined9_drifters_";
+            osi_outfile_prefix += "OSISAF_Drifters_Refined9_";
         }
         else
         {
             osi_grid_file += "ice_drift_nh_polstere-625_multi-oi.nc";
-            osi_outfile_prefix += "OSISAF_drifters_";
+            osi_outfile_prefix += "OSISAF_Drifters_";
         }
         Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
         Drifters::TimingInfo timing_info(
@@ -11426,7 +11426,7 @@ FiniteElement::instantiateDrifters()
         double const output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
         double const input_time_step = 0.5;
         std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
-        std::string const outfile_prefix = M_export_path + "/IABP_drifters_";
+        std::string const outfile_prefix = M_export_path + "/IABP_Drifters_";
 
         // add drifter to the list of drifters
         Drifters::TimingInfo const timing_info(
