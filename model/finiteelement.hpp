@@ -653,7 +653,7 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    std::vector<Drifters> M_drifters;// eg RGPS, OSISAF, SIDFEX, which don't update any more after initialisation
+    std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
 
     // Element variable

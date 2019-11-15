@@ -3336,7 +3336,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
-//! Called by the regrid() function.
+//! Called by the regrid(), checkUpdateDrifters() function.
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
@@ -3494,7 +3494,7 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
 
 //------------------------------------------------------------------------------------------------------
 //! Gather field values over elements.
-//! Called by the advect(), diffuse() functions.
+//! Called by the advect(), diffuse(), checkUpdateDrifters() functions.
 void
 FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields)
 {
@@ -8446,7 +8446,7 @@ FiniteElement::synchroniseOsisafDrifters()
 {
     // make sure OSISAF drifters are consistent with each other
     // - OK if 2 in restart
-    // - otherwise need to check consistency (1 should be a day after the other 1)
+    // - otherwise need to check consistency (one should be a day after the other)
     bool i0 = M_osisaf_drifters[0]->isInitialised();
     bool i1 = M_osisaf_drifters[1]->isInitialised();
     if( i1 && !i0 )

@@ -935,7 +935,7 @@ Drifters::appendTextFile(double const& current_time,
 bool
 Drifters::isInputTime(double const& current_time)
 {
-    // can only output if it's initialised
+    // can only input if it's initialised
     if(!M_is_initialised)
         return false;
     if(!M_transient)
