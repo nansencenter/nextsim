@@ -31,7 +31,6 @@ namespace Nextsim
 //! Called from FiniteElement::checkUpdateDrifters()
 void
 Drifters::updateDrifters(
-        GmshMeshSeq const& mesh_root,
         GmshMeshSeq const& movedmesh_root,
         std::vector<double> & conc_root,
         std::vector<double> const& UT_root,
@@ -39,8 +38,7 @@ Drifters::updateDrifters(
 {
     std::vector<double> conc_drifters(0);
     //! 1) Move the drifters (if needed)
-    // NB M_UT is relative to the fixed mesh, not the moved mesh
-    this->move(mesh_root, UT_root);
+    this->move(movedmesh_root, UT_root);
 
     //! 2) Reset any temporary drifters if needed (eg OSISAF)
     if(this->resetting(current_time))

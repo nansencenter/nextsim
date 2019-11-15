@@ -167,8 +167,7 @@ public:
         bool isInitialised() { return M_is_initialised; }
 
         //main interface to FiniteElement
-        void updateDrifters(GmshMeshSeq const& mesh_root,
-                GmshMeshSeq const& movedmesh_root,
+        void updateDrifters(GmshMeshSeq const& movedmesh_root,
                 std::vector<double> & conc_root,
                 std::vector<double> const& UT_root,
                 double const& current_time);

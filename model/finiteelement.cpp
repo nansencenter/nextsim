@@ -7175,8 +7175,8 @@ void FiniteElement::checkUpdateDrifters()
         auto movedmesh_root = M_mesh_root;
         movedmesh_root.move(UM_root, 1.);
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->updateDrifters(M_mesh_root, movedmesh_root,
-                    conc_root, UT_root, M_current_time);
+            it->updateDrifters(movedmesh_root, conc_root,
+                    UT_root, M_current_time);
     }
 }//checkUpdateDrifters()
 
