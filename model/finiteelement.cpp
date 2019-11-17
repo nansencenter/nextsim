@@ -575,7 +575,7 @@ FiniteElement::assignVariables()
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
     M_UM.assign(2*M_num_nodes,0.);
-    //M_UT.assign(2*M_num_nodes,0.);
+    M_UT.assign(2*M_num_nodes,0.);
 
     M_fcor.assign(M_num_elements, 0.);
 
@@ -681,6 +681,8 @@ FiniteElement::assignVariables()
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
+
+        M_drifters_mesh_info = Drifters::MeshInfo(M_mesh_root);
     }
 
     D_multiplicator.resize(M_num_elements);
@@ -3653,9 +3655,16 @@ FiniteElement::regrid(bool step)
     int substep = 0;
 
     std::vector<double> um_root;
+    std::vector<double> ut_root;
+    bool using_drifters;
+    if(M_rank==0)
+        using_drifters = this->usingDrifters();
+    boost::mpi::broadcast(M_comm, using_drifters, 0);
 
     M_timer.tick("gatherNodalField");
-    this->gatherNodalField(M_UM,um_root);
+    this->gatherNodalField(M_UM, um_root);
+    if(using_drifters)
+        this->gatherNodalField(M_UT, ut_root);
     M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
@@ -3782,6 +3791,8 @@ FiniteElement::regrid(bool step)
 
     LOG(DEBUG) <<"TIMER REGRIDDING= "<< chrono.elapsed() <<"s\n";
 
+    if(M_rank==0 && using_drifters)
+        this->moveDrifters(ut_root);
     this->assignVariables();
 }//regrid
 
@@ -7143,6 +7154,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 void FiniteElement::checkUpdateDrifters()
 {
     bool update_drifters = false;
+    bool using_drifters = false;
     if(M_rank == 0)
     {
         //need to move if initialising, outputting, inputting or resetting
@@ -7150,23 +7162,36 @@ void FiniteElement::checkUpdateDrifters()
         //NB inputting and resetting always happen at output time
         //so don't need to check
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        {
             update_drifters = update_drifters
                 || it->initialising(M_current_time)
                 || it->isOutputTime(M_current_time);
+            using_drifters = using_drifters
+                || it->isInitialised();
+        }
     }
 
     // let all the processors know if we need to gather the three vectors
     // or if we need to reset M_UT
     boost::mpi::broadcast(M_comm, update_drifters, 0);
+    boost::mpi::broadcast(M_comm, using_drifters, 0);
     if(!update_drifters)
         return;
 
+    // Move any active drifters
+    std::vector<double> UT_root;
+    if(using_drifters)
+    {
+        this->gatherNodalField(M_UT, UT_root);
+        if(M_rank==0)
+            this->moveDrifters(UT_root);
+    }
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+
     // Gather the fields needed by the drifters
-    std::vector<double> UT_root, UM_root, conc_root;
-    this->gatherNodalField(M_UT, UT_root);
+    std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
     this->gatherElementField(M_conc, conc_root);
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
 
     if(M_rank==0)
     {
@@ -7174,9 +7199,10 @@ void FiniteElement::checkUpdateDrifters()
         //outputting (if needed)
         auto movedmesh_root = M_mesh_root;
         movedmesh_root.move(UM_root, 1.);
+        M_drifters_mesh_info = Drifters::MeshInfo(movedmesh_root);
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->updateDrifters(M_mesh_root, movedmesh_root,
-                    conc_root, UT_root, M_current_time);
+            it->updateDrifters(M_drifters_mesh_info,
+                    conc_root, M_current_time);
     }
 }//checkUpdateDrifters()
 
@@ -8168,7 +8194,14 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
         exporter.writeField(outbin, M_UM_root, "M_UM");
+
         exporter.writeField(outbin, M_UT_root, "M_UT");
+        exporter.writeField(outbin,
+                M_drifters_mesh_info.x_nodes, "Drifters_mesh_x");
+        exporter.writeField(outbin,
+                M_drifters_mesh_info.y_nodes, "Drifters_mesh_y");
+        exporter.writeField(outbin,
+                M_drifters_mesh_info.elements, "Drifters_mesh_elements");
 
         // Add the drifters if they are initialised
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -8421,10 +8454,28 @@ FiniteElement::readRestart(std::string const& name_str)
         }
 
         //! add drifters
+        bool using_drifters;
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        {
             it->initFromRestart(field_map_int, field_map_dbl);
+            using_drifters = using_drifters || it->isInitialised();
+        }
         if(M_osisaf_drifters.size()>0)
             this->synchroniseOsisafDrifters();
+        if(using_drifters)
+        {
+            if(field_map_dbl.count("Drifters_mesh_x")==0)
+                throw std::runtime_error("Restart file does not contain Drifters_mesh_x");
+            if(field_map_dbl.count("Drifters_mesh_y")==0)
+                throw std::runtime_error("Restart file does not contain Drifters_mesh_y");
+            if(field_map_int.count("Drifters_mesh_elements")==0)
+                throw std::runtime_error("Restart file does not contain Drifters_mesh_elements");
+            M_drifters_mesh_info = Drifters::MeshInfo(
+                    field_map_dbl["Drifters_mesh_x"],
+                    field_map_dbl["Drifters_mesh_y"],
+                    field_map_int["Drifters_mesh_elements"]
+                    );
+        }
     }//M_rank==0
 
     // Scatter elemental fields from root and put them in M_prognostic_variables_elt

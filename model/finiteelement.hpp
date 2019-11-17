@@ -655,6 +655,7 @@ private:
     // Drifters
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
+    Drifters::MeshInfo M_drifters_mesh_info;//stores mesh nodes and element indices at time when M_UT was reset to 0
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -807,6 +808,19 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
+    int usingDrifters()
+    {
+        int nd = 0;
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            if(it->isInitialised())
+                nd++;
+        return nd>0;
+    }
+    void moveDrifters(std::vector<double> & ut_root)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->move(M_drifters_mesh_info, ut_root);
+    }
     void checkUpdateDrifters();
     void instantiateDrifters();
     void synchroniseOsisafDrifters();

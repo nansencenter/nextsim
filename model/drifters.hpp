@@ -104,6 +104,33 @@ public:
             bool transient = false;// can drifters be added/removed after init?
         } TimingInfo;
 
+        typedef struct MeshInfo
+        {
+            MeshInfo() {}
+
+            MeshInfo(GmshMeshSeq const& mesh)
+            {
+                x_nodes = mesh.coordX();
+                y_nodes = mesh.coordX();
+                elements = mesh.indexTr();
+            }
+
+            MeshInfo(
+                    std::vector<double> const& xn,
+                    std::vector<double> const& yn,
+                    std::vector<int> const& el
+                    )
+            {
+                x_nodes = xn;
+                y_nodes = yn;
+                elements = el;
+            }
+
+            std::vector<double> x_nodes;
+            std::vector<double> y_nodes;
+            std::vector<int> elements;
+        } MeshInfo;
+
         Drifters() {}
 
         //! init equally-spaced drifters
@@ -167,11 +194,10 @@ public:
         bool isInitialised() { return M_is_initialised; }
 
         //main interface to FiniteElement
-        void updateDrifters(GmshMeshSeq const& mesh_root,
-                GmshMeshSeq const& movedmesh_root,
+        void updateDrifters( MeshInfo & mesh_info,
                 std::vector<double> & conc_root,
-                std::vector<double> const& UT_root,
                 double const& current_time);
+        void move(MeshInfo & mesh_info, std::vector<double> const& UT);
 
 private:
         //initialising
@@ -182,9 +208,9 @@ private:
             M_tag(tag), M_output_prefix(output_prefix),
             M_conc_lim(climit), M_ignore_restart(ignore_restart)
         { this->setTimingInfo(timing_info); }
-        void initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
+        void initialise(MeshInfo & moved_mesh, std::vector<double> & conc,
                 std::vector<double> & conc_drifters);
-        void initFromSpacing(GmshMeshSeq const& moved_mesh);
+        void initFromSpacing(MeshInfo const& moved_mesh);
         void initFromTextFile();
         void initFromNetCDF();
         bool readFromRestart(
@@ -195,9 +221,8 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void reset();
-        void updateConc( GmshMeshSeq const& movedmesh,
+        void updateConc( MeshInfo & mesh_info,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
         {
@@ -240,10 +265,10 @@ private:
         void initOutputTextFile();
         void initOutputNetCDF();
         bool isInputTime(double const& current_time);
-        void doIO(GmshMeshSeq const& movedmesh_root,
+        void doIO(MeshInfo & mesh_info,
                 std::vector<double> & conc_root, double const& current_time,
                 std::vector<double> & conc_drifters);
-        void addRemoveDrifters(GmshMeshSeq const& movedmesh_root,
+        void addRemoveDrifters(MeshInfo & mesh_info,
                 std::vector<double>& conc_root, double const& current_time,
                 std::vector<double> & conc_drifters);
         void outputDrifters(double const& current_time, std::vector<double> const& conc_drifters)
