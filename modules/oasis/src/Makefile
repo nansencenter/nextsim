@@ -139,9 +139,12 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
-	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
+	# I'm aving problems with the shared library code, so using a static library in the meantime
+	# Compiler asks to recompile with -fPIC, but doing so doesn't help
+	# $(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
+	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
+	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
+	ar rcs $(LIBRARYDIR)/liboasis.a $^
 else
 lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)
