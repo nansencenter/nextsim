@@ -7491,12 +7491,29 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
+            case (GridOutput::variableID::tauy):
+            case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
+                    double tau_i, wind2;
 
-                    double tau_i = D_tau_w[index_u];
+                    // Select between taux, tauy, and taumod
+                    switch (it->varID)
+                    {
+                        case (GridOutput::variableID::taux):
+                        tau_i = D_tau_w[i];
+                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        break;
+
+                        case (GridOutput::variableID::tauy):
+                        tau_i = D_tau_w[i+M_num_nodes];
+                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        break;
+
+                        case (GridOutput::variableID::taumod):
+                        tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
+                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                    }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7516,66 +7533,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_u]*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::tauy):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = D_tau_w[index_v];
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_v]*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::taumod):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
-                    double wind = std::hypot(M_wind[index_v], M_wind[index_v]);
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
