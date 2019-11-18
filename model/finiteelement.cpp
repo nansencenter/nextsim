@@ -5060,7 +5060,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlh[i] *= -1;
             Qsh[i] *= -1;
             tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
-            evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
+            evap[i] = Qlh[i]/Lv[i];
         }
     } else {
 #endif
@@ -5091,7 +5091,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
             /* Evaporation */
-            evap[i] = Qlh[i]/(physical::rhofw*Lv);
+            evap[i] = Qlh[i]/Lv;
 
             /* Drag the ocean experiences from the wind - still only used in the coupled case */
             // Drag coefficient from Gill(1982) / Smith (1980)
