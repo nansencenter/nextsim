@@ -808,19 +808,7 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
-    int usingDrifters()
-    {
-        int nd = 0;
-        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            if(it->isInitialised())
-                nd++;
-        return nd>0;
-    }
-    void moveDrifters(std::vector<double> & ut_root)
-    {
-        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->move(M_drifters_mesh_info, ut_root);
-    }
+    void checkMoveDrifters();
     void checkUpdateDrifters();
     void instantiateDrifters();
     void synchroniseOsisafDrifters();
