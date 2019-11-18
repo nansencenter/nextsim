@@ -7164,7 +7164,6 @@ void FiniteElement::checkMoveDrifters()
     //! - gather M_UT to root processor
     std::vector<double> UT_root;
     this->gatherNodalField(M_UT, UT_root);
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
     if(M_rank!=0)
         return;
 
@@ -7197,6 +7196,7 @@ void FiniteElement::checkUpdateDrifters()
 
     // Move any active drifters
     this->checkMoveDrifters();
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
 
     // Gather the fields needed by the drifters
     LOG(DEBUG) << "Updating " << n_update << " drifters...\n";
