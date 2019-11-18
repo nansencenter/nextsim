@@ -5679,12 +5679,11 @@ FiniteElement::thermo(int dt)
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
-        // Freshwater balance at the surface - kg/m^2/s
-        D_fwflux[i] = -1./ddt * ( emp
-                 + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
-
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
-        D_fwflux_ice[i] = D_fwflux[i] + 1./ddt * emp;
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+
+        // Freshwater balance at the surface - kg/m^2/s
+        D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
         D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
