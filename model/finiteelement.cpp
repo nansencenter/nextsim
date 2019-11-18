@@ -5832,15 +5832,15 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 inline double
 FiniteElement::windSpeedElement(const int i)
 {
-    double sum_u=0.;
-    double sum_v=0.;
+    double wspd=0.;
     for (int j=0; j<3; ++j)
     {
-        // calculate wind per element
-        sum_u += M_wind[M_elements[i].indices[j]-1];
-        sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        // calculate wind per node
+        double u = M_wind[M_elements[i].indices[j]-1];
+        double v = M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        wspd += std::hypot(u, v);
     }
-    return std::hypot(sum_u, sum_v)/3.;
+    return wspd/3.;
 }
 
 //------------------------------------------------------------------------------------------------------
