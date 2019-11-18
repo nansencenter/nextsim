@@ -423,7 +423,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 // -------------------------------------------------------------------------------------
 //! reset drifters
 //! - so far only used by OSISAF drifters (reset them after 2 days)
-//! Called by FiniteElement::updateDrifters()
+//! Called by FiniteElement::checkUpdateDrifters()
 void
 Drifters::reset()
 {
@@ -438,7 +438,7 @@ Drifters::reset()
 
 // --------------------------------------------------------------------------------------
 //! Move drifters and replace the old coordinates with the new ones
-//! called by FiniteElement::updateDrifters()
+//! called by FiniteElement::checkUpdateDrifters()
 void
 Drifters::move(MeshInfo & mesh_info,
         std::vector<double> const& UT)
