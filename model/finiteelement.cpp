@@ -5020,6 +5020,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 #ifdef AEROBULK
     if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
+        std::vector<double> zeros(M_num_elements, 0.);
+        std::vector<double> dummy(M_num_elements, 0.);
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
         std::vector<double> sphuma(M_num_elements);
@@ -5048,8 +5050,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         /* aerobulk expects u and v components of wind and returns u and v
          * components of stress ... but we just give it the speed and recieve
          * the modulus of the stress */
-        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, wspeed, mslp,
-                Qlh, Qsh, tau, tau, Qsw_in_c, Qlw_in_c, T_s);
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+                Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
         const std::vector<double> Lv = aerobulk::lvap(sst);
 
         // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
@@ -5057,7 +5059,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         {
             Qlh[i] *= -1;
             Qsh[i] *= -1;
-            tau[i] /= wspeed[i];
+            tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
             evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
         }
     } else {
@@ -5094,7 +5096,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             /* Drag the ocean experiences from the wind - still only used in the coupled case */
             // Drag coefficient from Gill(1982) / Smith (1980)
             double drag_ocean_m = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-            tau[i] = rhoair*drag_ocean_m*wspeed;
+            tau[i] = rhoair*drag_ocean_m;
         }
 #ifdef AEROBULK
     }
