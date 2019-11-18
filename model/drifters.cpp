@@ -29,7 +29,7 @@ namespace Nextsim
 // ------------------------------------------
 //! Main drifter interface to FiniteElement
 //! Called from FiniteElement::checkUpdateDrifters()
-//! \note call after moving any active drifters
+//! \note call after moving
 void
 Drifters::updateDrifters(
         MeshInfo & mesh_info,
