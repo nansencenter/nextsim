@@ -111,7 +111,7 @@ public:
             MeshInfo(GmshMeshSeq const& mesh)
             {
                 x_nodes = mesh.coordX();
-                y_nodes = mesh.coordX();
+                y_nodes = mesh.coordY();
                 elements = mesh.indexTr();
             }
 

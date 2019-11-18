@@ -7151,13 +7151,15 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 //! Called by regrid() and checkUpdateDrifters()
 void FiniteElement::checkMoveDrifters()
 {
+    LOG(DEBUG) << "in checkMoveDrifters\n";
     //! - check if we have any active drifters
-    int any_drifters = false;
+    int n_drifters = 0;
     for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        any_drifters += it->isInitialised();
-    boost::mpi::broadcast(M_comm, any_drifters, 0);
-    if(!any_drifters)
+        n_drifters += it->isInitialised();
+    boost::mpi::broadcast(M_comm, n_drifters, 0);
+    if(n_drifters==0)
         return;
+    LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
 
     //! - gather M_UT to root processor
     std::vector<double> UT_root;
@@ -7177,7 +7179,8 @@ void FiniteElement::checkMoveDrifters()
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
-    bool update_drifters = false;
+    LOG(DEBUG) << "in checkUpdateDrifters\n";
+    int n_update = 0;
     if(M_rank == 0)
     {
         //need to move if initialising, outputting, inputting or resetting
@@ -7185,18 +7188,18 @@ void FiniteElement::checkUpdateDrifters()
         //NB inputting and resetting always happen at output time
         //so don't need to check
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            update_drifters = update_drifters
-                || it->initialising(M_current_time)
-                || it->isOutputTime(M_current_time);
+            n_update += (it->initialising(M_current_time)
+                || it->isOutputTime(M_current_time));
     }
-    boost::mpi::broadcast(M_comm, update_drifters, 0);
-    if(!update_drifters)
+    boost::mpi::broadcast(M_comm, n_update, 0);
+    if(n_update==0)
         return;
 
     // Move any active drifters
     this->checkMoveDrifters();
 
     // Gather the fields needed by the drifters
+    LOG(DEBUG) << "Updating " << n_update << " drifters...\n";
     std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
     this->gatherElementField(M_conc, conc_root);
