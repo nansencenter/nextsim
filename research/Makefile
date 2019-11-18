@@ -4,7 +4,7 @@ PROGNAME=laplacian.exec
 
 #NEXTSIMDIR=..
 
-CXX = g++
+CXX = mpic++
 CXXFLAGS += -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
@@ -20,10 +20,9 @@ ifeq ($(KERNEL),Linux)
 
 	CXXFLAGS += -I $(BOOST_INCDIR)
 	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR) -L $(BOOST_LIBDIR)
-	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lmpi_cxx -lmpi -lm -ldl -lhwloc
+	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lm -ldl -lhwloc
 
-	CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
+	LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
 else
 
@@ -32,12 +31,12 @@ else
 	endif
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
-	CXXFLAGS += -I /usr/local/include -I /opt/local/include/openmpi-mp
+	CXXFLAGS += -I /usr/local/include
 	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I .
 	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
 
-	LDFLAGS += -Wl,-rpath,/usr/local/lib -Wl,-rpath,/opt/local/lib/openmpi-mp
-	LDFLAGS += -L /usr/local/lib -L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++
+	LDFLAGS += -Wl,-rpath,/usr/local/lib
+	LDFLAGS += -L /usr/local/lib -ldl -lstdc++
 	LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
 
 	ifeq ($(CXX),clang)
