@@ -56,8 +56,8 @@ endif
 # include with -isystem instead of -I to suppress warnings and to not
 # add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
-		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
-		CXXFLAGS += -DAEROBULK
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/aerobulk/include
+	CXXFLAGS += -DAEROBULK
 endif
 
 # openmpi
@@ -135,7 +135,8 @@ ifdef USE_ENSEMBLE
 endif
 
 ifdef USE_AEROBULK
-		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
+		LDFLAGS += -L $(NEXTSIMDIR)/lib -laerobulk_nextsim
+		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk
 		LDFLAGS += -lgfortran
 endif
 
