@@ -33,6 +33,7 @@ namespace Nextsim
     {
 public:
 
+        //how are we initialising?
         enum initType
         {
             TEXT_FILE = 1,
@@ -40,6 +41,8 @@ public:
             NETCDF    = 3
         };
 
+        //info for netcdf file needed when
+        //initialising from restart
         typedef struct NetCDFInputInfo
         {
             NetCDFInputInfo() {}
@@ -57,6 +60,8 @@ public:
             std::string lonName;
         } NetCDFInputInfo;
 
+        // info for drifters about "timing"
+        // - input/output intervals, lifetime, init time...
         typedef struct TimingInfo
         {
             TimingInfo() {}
@@ -104,10 +109,14 @@ public:
             bool transient = false;// can drifters be added/removed after init?
         } TimingInfo;
 
+        //info about mesh needed for interpolation
         typedef struct MeshInfo
         {
             MeshInfo() {}
 
+            //construct from GmshMeshSeq object eg M_mesh_root 
+            //- used in FiniteElement::assignVariables(),
+            //  FiniteElement::checkUpdateDrifters()
             MeshInfo(GmshMeshSeq const& mesh)
             {
                 x_nodes = mesh.coordX();
@@ -115,6 +124,8 @@ public:
                 elements = mesh.indexTr();
             }
 
+            //contruct from vectors
+            //- used in FiniteElement::readRestart()
             MeshInfo(
                     std::vector<double> const& xn,
                     std::vector<double> const& yn,
