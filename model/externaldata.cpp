@@ -510,23 +510,23 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 {
     // ---------------------------------
     // Define the mapping and rotation_angle
-	mapx_class *mapNextsim;
-	std::string configfileNextsim = Environment::nextsimMppfile();
-	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-	strNextsim.push_back('\0');
-	mapNextsim = init_mapx(&strNextsim[0]);
+    mapx_class *mapNextsim;
+    std::string configfileNextsim = Environment::nextsimMppfile();
+    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+    strNextsim.push_back('\0');
+    mapNextsim = init_mapx(&strNextsim[0]);
 
     if(dataset->grid.mpp_file!="")
     {
         mapx_class *map;
-	    std::string configfile = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % dataset->grid.mpp_file
-                              ).str();
+        std::string configfile = (boost::format( "%1%/%2%" )
+                          % Environment::nextsimMeshDir().string()
+                          % dataset->grid.mpp_file
+                          ).str();
 
-	    std::vector<char> str(configfile.begin(), configfile.end());
-	    str.push_back('\0');
-	    map = init_mapx(&str[0]);
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
         dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
 
         close_mapx(map);
@@ -609,9 +609,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
 
     // ---------------------------------
-	std::vector<double> XTIME(1);
-	std::vector<size_t> index_start(1);
-	std::vector<size_t> index_count(1);
+    std::vector<double> XTIME(1);
+    std::vector<size_t> index_start(1);
+    std::vector<size_t> index_count(1);
 
     // size of the data
     int M        = dataset->grid.dimension_y_count;
@@ -619,7 +619,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     int MN       = M*N;
     int final_MN = MN;
 
-	if(dataset->grid.reduced_nodes_ind.size()!=0)
+    if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
         if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
             throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
@@ -648,7 +648,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::string filename_next="";
     std::vector<int> file_jump;
 
-	int index = 0;
+    int index = 0;
     int index_prev=-1;
     int index_next=-1;
 
@@ -663,9 +663,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // - for forecasts, filename depends on start time
 
     // Filename depends on the date for time varying data
-	if(dataset->grid.dataset_frequency!="constant"
-            && dataset->grid.dataset_frequency!="nearest_daily")
-	{
+    if(dataset->grid.dataset_frequency!="constant"
+        && dataset->grid.dataset_frequency!="nearest_daily")
+    {
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
 
@@ -798,8 +798,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         else
             throw std::runtime_error("Not found a file for after current_date!");
 
-		dataset->ftime_range = {time_prev,time_next};
-	}//not nearest_daily or constant
+        dataset->ftime_range = {time_prev,time_next};
+    }//not nearest_daily or constant
     else
     {
         if(dataset->grid.dataset_frequency=="nearest_daily")
@@ -810,7 +810,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             dataset->ftime_range = {f+.5};
         }
         else
-            f_timestr ="";
+        f_timestr ="";
 
         filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
@@ -824,7 +824,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
 
     // Initialise counters etc.
-	int nb_forcing_step =filename_fstep.size();
+    int nb_forcing_step =filename_fstep.size();
 
     LOG(DEBUG)<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
@@ -954,11 +954,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             double tmp_data_i;
             int reduced_i;
-			for (int i=0; i<(final_MN); ++i)
+            for (int i=0; i<(final_MN); ++i)
             {
                 reduced_i=i;
-    			if(dataset->grid.reduced_nodes_ind.size()!=0)
-    			    reduced_i=dataset->grid.reduced_nodes_ind[i];
+                if(dataset->grid.reduced_nodes_ind.size()!=0)
+                    reduced_i=dataset->grid.reduced_nodes_ind[i];
 
                 tmp_data_i=data_in_tmp[reduced_i];
                 if ((!dataset->variables[j].wavDirOptions.isWavDir)
@@ -975,7 +975,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     dataset->nb_forcing_step=nb_forcing_step;
     dataset->loaded=true;
-}
+}//loadDataset
 
 
 // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
@@ -984,22 +984,22 @@ void
 ExternalData::transformData(Dataset *dataset)
 {
 
-        double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
-        double tmp_data0_deg, tmp_data1_deg;
-        double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
-        double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
-        double speed, new_speed;
-        int j0, j1;
+    double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
+    double tmp_data0_deg, tmp_data1_deg;
+    double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
+    double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
+    double speed, new_speed;
+    int j0, j1;
 
-        double R=mapx_Re_km*1000.; // Earth radius (m)
-        double delta_t=1.; // 1 sec. This value needs to be small.
-        double delta_r=10.; // 10m. This value needs to be small.
-        double delta_x,delta_y,delta_lon,delta_lat;
+    double R=mapx_Re_km*1000.; // Earth radius (m)
+    double delta_t=1.; // 1 sec. This value needs to be small.
+    double delta_r=10.; // 10m. This value needs to be small.
+    double delta_x,delta_y,delta_lon,delta_lat;
 
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
-	std::string configfileNextsim = Environment::nextsimMppfile();
+    std::string configfileNextsim = Environment::nextsimMppfile();
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
@@ -1327,7 +1327,7 @@ ExternalData::transformData(Dataset *dataset)
 
     // closing maps
     close_mapx(mapNextsim);
-}
+}//transformData
 
 
 void
@@ -1366,7 +1366,7 @@ ExternalData::convertTargetXY(Dataset *dataset,
 			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
         }
     }
-}
+}//convertTargetXY
 
 void
 ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
@@ -1568,11 +1568,10 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         }
     }
 
-	xDelete<double>(data_out);
-
+    xDelete<double>(data_out);
     dataset->interpolated=true;
 
-}
+}//interpolateDataset
 
 void
 ExternalData::clear()

@@ -11,7 +11,7 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-CC = gcc
+CC = mpicc
 
 # add gcc option flags
 CCFLAGS += -pedantic -Wno-inline -fPIC
