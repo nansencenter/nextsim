@@ -8983,7 +8983,7 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
                     time_init, 0, 0, M_ensemble_member);
             M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
-                    time_init, 0, M_ensemble_member);
+                    time_init, 0, 0, M_ensemble_member);
         break;
 
         default:
