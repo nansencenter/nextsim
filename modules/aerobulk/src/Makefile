@@ -74,7 +74,7 @@ clean:
 	$(RM) $(OBJS) $(FCOBJS) $(DEPS) $(FCDEPS)
 
 # Delete the object and dependancy files, and the executable
-vclean: clean
+mrproper: clean
 	$(RM) $(LIBRARYDIR)/libaerobulk_nextsim.*
 
 # ================================================================

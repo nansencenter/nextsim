@@ -15,8 +15,8 @@ modules:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
 endif
-ifdef USE_ENSEMBLE
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE)
 endif
 
 model: core modules
@@ -31,8 +31,8 @@ clean: cleanmodel
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
 endif
-ifdef USE_ENSEMBLE
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE) clean
 endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
 
@@ -45,8 +45,8 @@ mrproper: clean
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
 endif
-ifdef USE_ENSEMBLE
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+ifdef USE_AEROBULK
+	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE) mrproper
 endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
