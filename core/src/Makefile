@@ -12,7 +12,7 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -44,7 +44,7 @@ else
 	CXXFLAGS += -O3 -pthread
 endif
 
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
@@ -63,23 +63,12 @@ else
 
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 
-	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,$(OPENMPI_LIB_DIR)/
-	#LDFLAGS += -L /usr/local/lib #-L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
-
 	ifeq ($(CXX),clang)
 		LDFLAGS += -stdlib=libc++
 	endif
 endif
 
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi -ldl -lstdc++
-ifeq ( findstring("fram.sigma2.no", $(HOSTNAME)), "" )
-	# not on fram
-	LDFLAGS += -lmpi_cxx
-else
-	# on fram (with intel compiler we need to use a differently-named mpi cxx library)
-	LDFLAGS += -lmpicxx
-endif
+LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
 
 #boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
