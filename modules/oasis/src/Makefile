@@ -63,6 +63,7 @@ FFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
 # ========================================================
 # Libraries
 LDFLAGS += -fopenmp
+LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 LDFLAGS += -ldl -lstdc++ -lpthread
 LDFLAGS += -L $(OASIS_DIR)/lib
 #LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
@@ -139,12 +140,9 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	# I'm having problems with the shared library code, so using a static library in the meantime
-	# Compiler asks to recompile with -fPIC, but doing so doesn't help
-	# $(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
-	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
-	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
-	ar rcs $(LIBRARYDIR)/liboasis.a $^
+	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
+	@ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
 else
 lib: $(OBJS) $(FCOBJS)
 	@mkdir -p $(LIBRARYDIR)
