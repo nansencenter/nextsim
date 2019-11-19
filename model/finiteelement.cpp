@@ -12335,12 +12335,15 @@ FiniteElement::writeLogFile()
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git description "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git branch "  << NEXTSIM_BRANCH_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
+        
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
-        logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C "  << CC_PATH << " (version "<< CC_VERSION << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C++ "  << CXX_PATH << " (version "<< CXX_VERSION << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";

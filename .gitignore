@@ -2,6 +2,7 @@
 mesh/mesh_links
 data/data_links
 nextsim-doc
+version.hpp
 *.m
 *.msh
 *.geo
