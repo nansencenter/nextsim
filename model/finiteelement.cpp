@@ -12252,19 +12252,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 
 // -------------------------------------------------------------------------------------
-//! Gets GitHub revision version of the model code.
-//! Called by the writeLogFile() function.
-std::string
-FiniteElement::gitRevision()
-{
-    //std::string command = "git rev-parse HEAD";
-    return this->system("git rev-parse HEAD");
-}//gitRevision
-
-
-// -------------------------------------------------------------------------------------
 //! Run a system command
-//! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
+//! Called by the createGMSHMesh() functions.
 std::string
 FiniteElement::system(std::string const& command)
 {
