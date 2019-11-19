@@ -24,7 +24,7 @@ CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -49,7 +49,7 @@ FCSRC=$(wildcard $(FCSRCDIR)/*.f90)
 FCOBJS=$(FCSRC:%.f90=$(OBJECTDIR)%.o)
 FCDEPS=$(FCSRC:%.f90=$(DEPENDDIR)%.d)
 
-FC = gfortran
+FC = mpif90
 FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I $(AEROBULK_DIR)
 FFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
