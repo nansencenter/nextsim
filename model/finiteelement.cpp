@@ -13977,7 +13977,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
             }
 
-            std::cout<<"PB here 4 ? \n";
             outbin.close();
 
             fileout = filenames[1]+".dat";
