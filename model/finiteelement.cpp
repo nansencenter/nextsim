@@ -6213,7 +6213,7 @@ FiniteElement::thermo(int dt)
         // FSD variables ------------------------------------------------
         /* In case there is an FSD initialize a lateral rate melt for 
         ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
-      	double lat_melt_rate = 0.;
+        double lat_melt_rate = 0.;
         // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
         double thin_ice_growth =0.;
         //double lead_fraction = this-> computeLeadFractionFSD(i); // Not used so far 
@@ -6479,7 +6479,7 @@ FiniteElement::thermo(int dt)
         }
         else
         {
-	        /* In case there is an FSD: */
+            /* In case there is an FSD: */
             if(M_num_fsd_bins>0)
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
         }
@@ -8176,7 +8176,6 @@ FiniteElement::step()
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
-            M_timer.tock("resetMeshMean_cpl");
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
@@ -8184,6 +8183,8 @@ FiniteElement::step()
             if ( vm["coupler.with_waves"].as<bool>() )
                 M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
                         M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            M_timer.tock("resetMeshMean_cpl");
 #endif
 
             if ( M_use_moorings )
