@@ -12,7 +12,7 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -63,20 +63,12 @@ else
 
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 
-	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,$(OPENMPI_LIB_DIR)/
-	#LDFLAGS += -L /usr/local/lib #-L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
-
 	ifeq ($(CXX),clang)
 		LDFLAGS += -stdlib=libc++
 	endif
 endif
 
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
-	#LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
-else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lm -lrt
-endif
+LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
 
 #boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
