@@ -805,7 +805,7 @@ private:
     bool   M_breakup_in_dt                    ;
     bool   M_breakup_cell_average_thickness   ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
-    double M_lead_width    ;
+    // double M_lead_width    ;
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
