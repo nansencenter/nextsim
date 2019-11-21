@@ -6388,10 +6388,10 @@ FiniteElement::thermo(int dt)
                             if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
                             {
                                 /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                                del_c_melt += PhiM*(1.-ctot)*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs ); //No lat melt if no divergence
+                                del_c_melt += PhiM*(1.-ctot)*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs ); //No lat melt if no divergence
                                 del_c_melt = std::max(del_c_melt,-ctot);
                                 /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                                Qow_mean *= (1.-PhiM);
+                                Qow[i] *= (1.-PhiM);
                             }   
                             else 
                             {    
@@ -6403,7 +6403,7 @@ FiniteElement::thermo(int dt)
                                 del_c_melt += cat0_del_c ;
                                 for (int j=0;j<M_num_fsd_bins-1;++j) 
                                     del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
-                                Qow_mean -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
+                                Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
                             }
                             del_c +=  (M_conc[i]/ctot)*del_c_melt ;
                             M_conc_thin[i] += del_c_melt * (M_conc_thin[i]/ctot) ;
