@@ -5020,6 +5020,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 #ifdef AEROBULK
     if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
+        std::vector<double> zeros(M_num_elements, 0.);
+        std::vector<double> dummy(M_num_elements, 0.);
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
         std::vector<double> sphuma(M_num_elements);
@@ -5048,8 +5050,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         /* aerobulk expects u and v components of wind and returns u and v
          * components of stress ... but we just give it the speed and recieve
          * the modulus of the stress */
-        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, wspeed, mslp,
-                Qlh, Qsh, tau, tau, Qsw_in_c, Qlw_in_c, T_s);
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+                Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
         const std::vector<double> Lv = aerobulk::lvap(sst);
 
         // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
@@ -5057,8 +5059,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         {
             Qlh[i] *= -1;
             Qsh[i] *= -1;
-            tau[i] /= wspeed[i];
-            evap[i] = Qlh[i]/(physical::rhofw*Lv[i]);
+            tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
+            evap[i] = Qlh[i]/Lv[i];
         }
     } else {
 #endif
@@ -5089,12 +5091,12 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
             /* Evaporation */
-            evap[i] = Qlh[i]/(physical::rhofw*Lv);
+            evap[i] = Qlh[i]/Lv;
 
             /* Drag the ocean experiences from the wind - still only used in the coupled case */
             // Drag coefficient from Gill(1982) / Smith (1980)
             double drag_ocean_m = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-            tau[i] = rhoair*drag_ocean_m*wspeed;
+            tau[i] = rhoair*drag_ocean_m;
         }
 #ifdef AEROBULK
     }
@@ -5677,12 +5679,11 @@ FiniteElement::thermo(int dt)
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
-        // Freshwater balance at the surface - kg/m^2/s
-        D_fwflux[i] = -1./ddt * ( emp
-                 + (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
-
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
-        D_fwflux_ice[i] = D_fwflux[i] + 1./ddt * emp;
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+
+        // Freshwater balance at the surface - kg/m^2/s
+        D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
         D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
@@ -5797,15 +5798,18 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
         double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
+        /* Latent heat of sublimation */
+        double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
+
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
         /* Sublimation */
-        subl[i] = Qlh[i]/(physical::Lf+physical::Lv0);
+        subl[i] = Qlh[i]/Lsub;
 
         // Shortwave is modulated by the albedo
         double hs;
@@ -5828,15 +5832,15 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 inline double
 FiniteElement::windSpeedElement(const int i)
 {
-    double sum_u=0.;
-    double sum_v=0.;
+    double wspd=0.;
     for (int j=0; j<3; ++j)
     {
-        // calculate wind per element
-        sum_u += M_wind[M_elements[i].indices[j]-1];
-        sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        // calculate wind per node
+        double u = M_wind[M_elements[i].indices[j]-1];
+        double v = M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        wspd += std::hypot(u, v);
     }
-    return std::hypot(sum_u, sum_v)/3.;
+    return wspd/3.;
 }
 
 //------------------------------------------------------------------------------------------------------
@@ -7487,12 +7491,29 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
+            case (GridOutput::variableID::tauy):
+            case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
+                    double tau_i, wind2;
 
-                    double tau_i = D_tau_w[index_u];
+                    // Select between taux, tauy, and taumod
+                    switch (it->varID)
+                    {
+                        case (GridOutput::variableID::taux):
+                        tau_i = D_tau_w[i];
+                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        break;
+
+                        case (GridOutput::variableID::tauy):
+                        tau_i = D_tau_w[i+M_num_nodes];
+                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        break;
+
+                        case (GridOutput::variableID::taumod):
+                        tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
+                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                    }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7512,66 +7533,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_u]*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::tauy):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = D_tau_w[index_v];
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*M_wind[index_v]*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::taumod):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
-                    double wind = std::hypot(M_wind[index_v], M_wind[index_v]);
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
