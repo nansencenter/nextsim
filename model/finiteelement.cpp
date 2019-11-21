@@ -1257,8 +1257,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    this->getOptionFromMap(
-            M_thermo_type, "setup.thermo-type", str2thermo);
+    M_thermo_type = this->getOptionFromMap("setup.thermo-type", str2thermo);
         //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
@@ -1266,8 +1265,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
         ("basic", setup::OceanHeatfluxScheme::BASIC)
         ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
-    this->getOptionFromMap(
-            M_Qio_type, "thermo.Qio-type", str2qiot);
+    M_Qio_type = this->getOptionFromMap("thermo.Qio-type", str2qiot);
         //! \param M_Qio_type (enum) Option on the ocean heat flux scheme (basic or exchange)
     LOG(DEBUG)<< "M_Qio_type: "<< (int)M_Qio_type <<"\n";
 
@@ -1275,8 +1273,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    this->getOptionFromMap(
-            M_freezingpoint_type, "thermo.freezingpoint-type", str2fpt);
+    M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
 
     //! Turn on snow-to-ice formation when flooding
@@ -1298,8 +1295,7 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    this->getOptionFromMap(
-            M_ocean_bulk_formula, "thermo.ocean_bulk_formula", str2oblk);
+    M_ocean_bulk_formula = this->getOptionFromMap("thermo.ocean_bulk_formula", str2oblk);
         //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes
         //! (only when compiled together with aerobulk)
     LOG(DEBUG)<< "M_ocean_bulk_formula: "<< (int)M_ocean_bulk_formula <<"\n";
@@ -1317,8 +1313,7 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME);
-    this->getOptionFromMap(
-            M_atmosphere_type, "setup.atmosphere-type", str2atmosphere);
+    M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
@@ -1359,8 +1354,7 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED);
-    this->getOptionFromMap(
-            M_ocean_type, "setup.ocean-type", str2ocean);
+    M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
         //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
@@ -1382,8 +1376,7 @@ FiniteElement::initOptAndParam()
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
-    this->getOptionFromMap(
-            M_ice_type, "setup.ice-type", str2conc);
+    M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
@@ -1391,8 +1384,7 @@ FiniteElement::initOptAndParam()
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
-    this->getOptionFromMap(
-            M_dynamics_type, "setup.dynamics-type", str2dynamics);
+    M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
     LOG(DEBUG) <<"DynamicsType= "<< (int)M_dynamics_type <<"\n";
 
@@ -1400,16 +1392,14 @@ FiniteElement::initOptAndParam()
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
         //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
-    this->getOptionFromMap(
-            M_bathymetry_type, "setup.bathymetry-type", str2bathymetry);
+    M_bathymetry_type = this->getOptionFromMap("setup.bathymetry-type", str2bathymetry);
     LOG(DEBUG) <<"BathymetryType= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    this->getOptionFromMap(
-            M_basal_stress_type, "setup.basal_stress-type", str2basal_stress);
+    M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
@@ -1418,8 +1408,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
         ("constant_size", setup::FSDType::CONSTANT_SIZE) 
         ("constant_area", setup::FSDType::CONSTANT_AREA);
-    this->getOptionFromMap(
-            M_fsd_type, "wave_coupling.fsd_type", str2fsd);
+    M_fsd_type = this->getOptionFromMap("wave_coupling.fsd_type", str2fsd);
     //
     M_fsd_bin_cst_width= vm["wave_coupling.fsd_bin_cst_width"].as<double>();
     M_fsd_min_floe_size= vm["wave_coupling.fsd_min_floe_size"].as<double>();
@@ -1432,8 +1421,7 @@ FiniteElement::initOptAndParam()
         ("none", setup::WeldingType::NONE) 
         ("roach", setup::WeldingType::ROACH)
         ("williams", setup::WeldingType::WILLIAMS);
-    this->getOptionFromMap(
-            M_welding_type, "wave_coupling.welding_type", str2welding);
+    M_welding_type = this->getOptionFromMap("wave_coupling.welding_type", str2welding);
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
 
@@ -1443,8 +1431,7 @@ FiniteElement::initOptAndParam()
         ("zhang", setup::BreakupType::ZHANG)
         ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
         ("dumont", setup::BreakupType::DUMONT);
-    this->getOptionFromMap(
-            M_breakup_type, "wave_coupling.breakup_type", str2breakup);
+    M_breakup_type = this->getOptionFromMap("wave_coupling.breakup_type", str2breakup);
     M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
     M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
     //! FSD : Misc. parameters
@@ -1458,8 +1445,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
         ("from_split", setup::MeshType::FROM_SPLIT);
-    this->getOptionFromMap(
-            M_mesh_type, "mesh.type", str2mesh);
+    M_mesh_type = this->getOptionFromMap("mesh.type", str2mesh);
         //! \param M_mesh_type (enum) Mesh type (unref or split)
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
@@ -1487,8 +1473,7 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    this->getOptionFromMap(
-            M_moorings_file_length, "moorings.file_length", str2mooringsfl);
+    M_moorings_file_length = this->getOptionFromMap("moorings.file_length", str2mooringsfl);
         //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
     LOG(DEBUG) << "M_moorings_file_length: " << (int)M_moorings_file_length<<"\n";
@@ -1503,8 +1488,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
-    this->getOptionFromMap(
-            M_partitioner, "mesh.partitioner", str2partitioner);
+    M_partitioner = this->getOptionFromMap("mesh.partitioner", str2partitioner);
         //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
     LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
 
@@ -1512,8 +1496,7 @@ FiniteElement::initOptAndParam()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
 
-    this->getOptionFromMap(
-            M_partition_space, "mesh.partitioner-space", str2partitionspace);
+    M_partition_space = this->getOptionFromMap("mesh.partitioner-space", str2partitionspace);
         //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
     LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
 
@@ -1530,9 +1513,9 @@ FiniteElement::initOptAndParam()
 //! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
 //! Called by initOptAndParam()
 template<typename enum_type>
-void
-FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
-        boost::unordered_map<const std::string, enum_type> map) const
+enum_type
+FiniteElement::getOptionFromMap(std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map)
 {
 
     if(vm.count(opt_name)==0)
@@ -1551,7 +1534,7 @@ FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
         throw std::runtime_error("Invalid option for "
                 +opt_name + ": " + option_str+"\n");
     }
-    opt_val = map[option_str];
+    return map[option_str];
 }
 
 
