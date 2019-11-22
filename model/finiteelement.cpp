@@ -530,15 +530,6 @@ FiniteElement::initVariables()
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
         }
-        int nb_var_element=3; 
-        M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            for (int j=0; j<nb_var_element; ++j)
-            {
-                M_elements_to_nodes_root[3*i+j]=(M_mesh_root.triangles()[i]).indices[j];
-            }
-        }
     }
 
     if ((M_rank == 0) && (M_use_drifters))
@@ -697,13 +688,6 @@ FiniteElement::assignVariables()
         {
             M_surface_root[cpt] = this->measure(*it,M_mesh_root);
             ++cpt;
-        }
-        int nb_var_element=3; 
-        M_elements_to_nodes_root.resize(nb_var_element*M_mesh_root.numTriangles());
-        for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-        {
-            for (int j=0; j<nb_var_element; ++j)
-                M_elements_to_nodes_root[3*i+j]=(M_mesh_root.triangles()[i]).indices[j];
         }
     }
 
@@ -1419,8 +1403,7 @@ FiniteElement::initOptAndParam()
     //! If FSD : Welding
     const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
         ("none", setup::WeldingType::NONE) 
-        ("roach", setup::WeldingType::ROACH)
-        ("williams", setup::WeldingType::WILLIAMS);
+        ("roach", setup::WeldingType::ROACH);
     M_welding_type = this->getOptionFromMap("wave_coupling.welding_type", str2welding);
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
@@ -2896,30 +2879,6 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     // scatter back verctor from root to all processes
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
-
-// TEST GUILLAUME
-//void
-// FiniteElement::outputElementConnectivity()
-// {
-//     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-//     for (int j=0; j<num_elements; j++)
-//      {
-//          int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
-//          // Negative elt_num means there are no more elements belonging to this node
-//         if ( elt_num < 0 ) continue;
-//         if ( ! visited(elt_num, triangles) )
-//            checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
-//      }
-// }//scatterElementConnectivity
-// // Check if we've already visited this triangle
-// inline bool visited(int current_triangle, std::vector<int> const &triangles)
-// {
-//     for (auto it=triangles.begin(); it!=triangles.end(); ++it)
-//         if ( current_triangle == *it )
-//             return true;
-// 
-//     return false;
-// }
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -6358,8 +6317,6 @@ FiniteElement::thermo(int dt)
                     break;
                 case (setup::WeldingType::ROACH):
                     this->weldingRoach(i,ddt);
-                    break;
-                case (setup::WeldingType::WILLIAMS):
                     break;
                 default:
                     std::cout << "welding_type= " << (int)M_welding_type << "\n";
@@ -13816,7 +13773,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
 //          exporter.writeField(outbin, M_connectivity_root, "Element_connectivity");
-            exporter.writeField(outbin, M_elements_to_nodes_root, "Elements_to_nodes");
 #if defined (OASIS)
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");

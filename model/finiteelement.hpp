@@ -621,7 +621,6 @@ private: // only on root process (rank 0)
     //std::vector<double> M_UM_root;
     std::vector<double> M_surface_root;
     std::vector<int> M_connectivity_root;
-    std::vector<int> M_elements_to_nodes_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
 

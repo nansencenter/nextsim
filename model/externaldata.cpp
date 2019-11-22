@@ -1216,7 +1216,7 @@ ExternalData::transformData(Dataset *dataset)
                     lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
   
                     // initial position x, y in meter
-    		    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
+    		        forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
   
                     // position x, y after delta_t in meter
                     forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);

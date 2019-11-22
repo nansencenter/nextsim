@@ -95,8 +95,7 @@ namespace setup
     enum class WeldingType
     {
         NONE     = 0,
-        ROACH    = 1,
-        WILLIAMS = 2
+        ROACH    = 1
     };
 
     enum class FSDType
