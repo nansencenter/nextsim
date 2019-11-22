@@ -284,6 +284,10 @@ public:
     void initModelState();
     void DataAssimilation();
     void FETensors();
+    void compute_B0T_Dunit_B0T(std::vector<double>& Dunit,
+                               std::vector<double>& B0T,
+                               std::vector<double>& B0T_Dunit_B0T);
+
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -487,13 +491,13 @@ private:
     std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
-    //std::vector<double> M_Dunit_comp;
+    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -521,7 +525,7 @@ private:
     double young;
     double rhoi;
     double rhos;
-    double days_in_sec;
+    double const days_in_sec  = 86400.;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -729,7 +733,8 @@ private:
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
-    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
+    ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_divergence;        // recoverable divergence for the pressure term
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
@@ -760,6 +765,7 @@ private:
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
     std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
+
 
 private:
     // Variables for the moorings

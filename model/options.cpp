@@ -343,6 +343,13 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
+            // - Pressure term parameters
+            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 12000. ), "")
+            ("dynamics.p_coef_type", po::value<int>()->default_value( -1 ),
+             "Type of Dunit matrix for Pressure coefficient. Allowed values: -1  => 1,1,0 on diagonal; 0 ==> 1,1,0.5 on diagonal; 1 matrix equal to Dunit")
+
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent

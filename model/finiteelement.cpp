@@ -691,6 +691,7 @@ FiniteElement::assignVariables()
 
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
+
 }//assignVariables
 
 
@@ -1057,6 +1058,8 @@ FiniteElement::initBamg()
 void
 FiniteElement::initOptAndParam()
 {
+    //days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
+
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     M_log_level = Environment::logLevel();
 
@@ -1081,9 +1084,12 @@ FiniteElement::initOptAndParam()
     rhoi = physical::rhoi; //! \param rhoi (double) Ice density [kg/m3]
     rhos = physical::rhos; //! \param rhos (double) Snow density [kg/m3]
 
+    //! Sets parameters for the pressure term coefficient
+    compression_factor = vm["dynamics.compression_factor"].as<double>(); //! \param Max pressure for damaged converging ice
+    exponent_compression_factor = vm["dynamics.exponent_compression_factor"].as<double>(); //! \param power of ice thickness
+    divergence_min = vm["dynamics.divergence_min"].as<double>() / days_in_sec; //! \param Minimum allowed divergence
 
     //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
-    days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
     if (vm["simul.time_init"].as<std::string>() == "")
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
@@ -4178,6 +4184,13 @@ FiniteElement::assemble(int pcpt)
         std::vector<double> data(36);
         std::vector<double> fvdata(6,0.);
 
+        double coef_P = 0;
+        if(M_divergence[cpt] < 0.)
+        {
+            coef_P = compression_factor*std::pow(M_thick[cpt],exponent_compression_factor)*std::exp(ridging_exponent*(1-M_conc[cpt]));
+            coef_P = coef_P/(std::abs(M_divergence[cpt])+divergence_min);
+        }
+
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
@@ -4251,18 +4264,22 @@ FiniteElement::assemble(int pcpt)
 
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step );
+                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
+                                      +M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
 
                     /* ---------- VU component */
-                    dvu = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step );
+                    dvu = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
+                                      +M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
 
                     /* ---------- UV component */
-                    duv = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step );
+                    duv = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
+                                      +M_B0T_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
 
                     /* ---------- VV component */
                     dvv = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step );
+                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
+                                      +M_B0T_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
 
                     data[(2*l_j  )*6+2*i  ] = duu;
                     data[(2*l_j+1)*6+2*i  ] = dvu;
@@ -4321,6 +4338,77 @@ FiniteElement::assemble(int pcpt)
 
 }//assemble
 
+//------------------------------------------------------------------------------------------------------
+//! Computes the B0T_Dunit_B0T matrix.
+//! Called by the FETensors() function.
+void
+FiniteElement::compute_B0T_Dunit_B0T(std::vector<double>& Dunit, std::vector<double>& B0T, std::vector<double>& B0T_Dunit_B0T)
+{
+    double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
+    double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    std::vector<double> B0Tj_Dunit(6,0);
+
+    for(int j=0; j<3; j++)
+    {
+
+        /* The rigidity matrix that will be multiplied by E and by the surface
+         * is given by the product B0'*matrix.Dunit*B0
+         * This product is computed for the indices:
+         * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
+         * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
+         * 2*i+1,2*j   -> B0Tj_Dunit_B0Ti[2]
+         * 2*i+1,2*j+1 -> B0Tj_Dunit_B0Ti[3] */
+
+        /* new version without assembling zero */
+        for(int i=0; i<3; i++)
+        {
+            /* product of the first line of B0T' and the matrix Dunit */
+            B0Tj_Dunit_tmp0 = 0.;
+            B0Tj_Dunit_tmp1 = 0.;
+
+            for(int kk=0; kk<3; kk++)
+            {
+                B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*Dunit[3*i+kk];
+                B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*Dunit[3*i+kk];
+            }
+
+            B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
+            B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
+        }
+
+        for(int i=0; i<3; i++)
+        {
+            /* The rigidity matrix */
+            /* scalar product of B0Ti_Dunit and the first column of B0T */
+            B0Tj_Dunit_B0Ti_tmp0 = 0.;
+            B0Tj_Dunit_B0Ti_tmp1 = 0.;
+            B0Tj_Dunit_B0Ti_tmp2 = 0.;
+            B0Tj_Dunit_B0Ti_tmp3 = 0.;
+
+            for(int kk=0; kk<3; kk++)
+            {
+                B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
+                B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
+                B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
+                B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
+            }
+
+            B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
+            B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
+            B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
+            B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
+        }
+    }
+    /*
+     * B0T_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
+     * because the sequence of operation is not the same for the component i,j and j,i.
+     * We force the matrix to be symmetric by copying the upper part onto the lower part
+     */
+    for(int i=1; i<6; i++)
+        for(int j=0; j<i; j++)
+            B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
+}//compute_B0T_Dunit_B0T
+
 
 //------------------------------------------------------------------------------------------------------
 //! Assembles the mass matrix.
@@ -4329,17 +4417,48 @@ void
 FiniteElement::FETensors()
 {
     M_Dunit.assign(9,0);
+    M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
     M_Diag.assign(9,0);
 
-    for (int k=0; k<6; k+=3)
+    double const Dunit_factor=1./(1.-std::pow(nu0,2.));
+    /* first line of Dunit */
+    M_Dunit[0]= Dunit_factor * 1.;
+    M_Dunit[1]= Dunit_factor * nu0;
+    M_Dunit[2]= 0.;
+    /* second line of Dunit */
+    M_Dunit[3]= Dunit_factor * nu0;
+    M_Dunit[4]= Dunit_factor * 1.;
+    M_Dunit[5]= 0.;
+    /* third line of Dunit */
+    M_Dunit[6]= 0.;
+    M_Dunit[7]= 0.;
+    M_Dunit[8]= Dunit_factor * (1.-nu0)/2.0;
+
+    // Dunit for the pressure term
+    M_Dunit_comp[0]= 1.;
+    M_Dunit_comp[1]= 0.;
+    M_Dunit_comp[2]= 0.;
+    M_Dunit_comp[3]= 0.;
+    M_Dunit_comp[4]= 1.;
+    M_Dunit_comp[5]= 0.;
+    M_Dunit_comp[6]= 0.;
+    M_Dunit_comp[7]= 0.;
+    M_Dunit_comp[8]= 0.;
+
+    double p_coef_type = vm["dynamics.p_coef_type"].as<int>();
+    if (p_coef_type == 0)
     {
-        for (int kk=0; kk<2; ++kk )
-        {
-            M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
-        }
+        M_Dunit_comp[8]= 0.5;
     }
-    M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
+    else if (p_coef_type == 1)
+    {
+        M_Dunit_comp[0]= Dunit_factor * 1.;
+        M_Dunit_comp[1]= Dunit_factor * nu0;
+        M_Dunit_comp[3]= Dunit_factor * nu0;
+        M_Dunit_comp[4]= Dunit_factor * 1.;
+        M_Dunit_comp[8]= Dunit_factor * (1.-nu0)/2.0;
+    }
 
     for (int i=0; i<3; ++i)
     {
@@ -4347,20 +4466,17 @@ FiniteElement::FETensors()
         {
             M_Mass[3*i+j] = ((i == j) ? 2.0 : 1.0)/12.0;
             M_Diag[3*i+j] = ((i == j) ? 1.0 : 0.0)/3.0;
-            //std::cout<< std::left << std::setw(12) << Mass[3*i+j] <<"  ";
         }
     }
 
     M_B0T.resize(M_num_elements);
     M_B0T_Dunit_B0T.resize(M_num_elements);
+    M_B0T_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
-    std::vector<double> B0Tj_Dunit(6,0);
     std::vector<double> B0T_Dunit_B0T(36,0);
-
-    double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
-    double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    std::vector<double> B0T_Dunit_comp_B0T(36,0);
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
@@ -4381,81 +4497,13 @@ FiniteElement::FETensors()
             }
         }
 
-        //std::cout<<"\n";
-        // if (cpt == 0)
-        //     for (int i=0; i<3; ++i)
-        //     {
-        //         for (int j=0; j<6; ++j)
-        //         {
-        //             std::cout<< std::left << std::setw(12) << B0T[6*i+j] <<"  ";
-        //         }
-        //         std::cout<<"\n";
-        //     }
-
-        for(int j=0; j<3; j++)
-        {
-
-            /* The rigidity matrix that will be multiplied by E and by the surface
-             * is given by the product B0'*matrix.Dunit*B0
-             * This product is computed for the indices:
-             * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
-             * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
-             * 2*i+1,2*j   -> B0Tj_Dunit_B0Ti[2]
-             * 2*i+1,2*j+1 -> B0Tj_Dunit_B0Ti[3] */
-
-            /* new version without assembling zero */
-            for(int i=0; i<3; i++)
-            {
-                /* product of the first line of B0T' and the matrix Dunit */
-                B0Tj_Dunit_tmp0 = 0.;
-                B0Tj_Dunit_tmp1 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
-                    B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
-                }
-
-                B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
-                B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-            }
-
-            for(int i=0; i<3; i++)
-            {
-                /* The rigidity matrix */
-                /* scalar product of B0Ti_Dunit and the first column of B0T */
-                B0Tj_Dunit_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_B0Ti_tmp3 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
-                }
-
-                B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
-                B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-            }
-        }
-
-        /*
-         * B0T_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
-         * because the sequence of operation is not the same for the component i,j and j,i.
-         * We force the matrix to be symmetric by copying the upper part onto the lower part
-         */
-        for(int i=1; i<6; i++)
-            for(int j=0; j<i; j++)
-                B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
+        this->compute_B0T_Dunit_B0T(M_Dunit, B0T, B0T_Dunit_B0T);
+        this->compute_B0T_Dunit_B0T(M_Dunit_comp, B0T, B0T_Dunit_comp_B0T);
 
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
         M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
+        M_B0T_Dunit_comp_B0T[cpt] = B0T_Dunit_comp_B0T;
 
         ++cpt;
     }
@@ -4562,6 +4610,15 @@ FiniteElement::update()
 
             epsilon_veloc[i] = epsilon_veloc_i;
         }
+
+        double const max_recoverable_convergence = 0.01;
+        M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
+        //M_divergence[cpt] = (M_divergence[cpt]>0.) ? 0. : M_divergence[cpt];
+        //M_divergence[cpt] = (M_divergence[cpt]<-max_recoverable_convergence) ? -max_recoverable_convergence : M_divergence[cpt];
+
+        //recoverable_divergence= recoverable_divergence[e]+(epsilon_veloc[0]+epsilon_veloc[1])*timestep;
+        //recoverable_divergence_new[e]=(recoverable_divergence_new[e]>0.)?(0.):(recoverable_divergence_new[e]);
+        //recoverable_divergence_new[e]=(recoverable_divergence_new[e]<-max_recoverable_convergence)?(-max_recoverable_convergence):(recoverable_divergence_new[e]);
 
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
@@ -6456,6 +6513,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_ridge_ratio);
     M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
     M_variables_elt.push_back(&M_conc_upd);
+    M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
+    M_variables_elt.push_back(&M_divergence);
 
     switch (M_thermo_type)
     {
@@ -9667,6 +9726,7 @@ FiniteElement::topazIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazIce
 
@@ -9794,6 +9854,7 @@ FiniteElement::topazIceOsisafIcesat()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazIceOsisafIcesat
 
@@ -10396,6 +10457,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
             M_damage[i]=0.;
+            M_divergence[i]=0.;
         }
         else
         {
@@ -10404,6 +10466,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i] = M_conc[i]*hs;
             M_thick[i] = M_conc[i]*hi;
             M_damage[i]=0.;
+            M_divergence[i]=0.;
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -10616,6 +10679,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         }//use NIC
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
@@ -10659,6 +10723,7 @@ FiniteElement::piomasIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//piomasIce
 
@@ -10702,6 +10767,7 @@ FiniteElement::cregIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//cregIce
 
@@ -10770,6 +10836,7 @@ FiniteElement::topazAmsreIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazAmsreIce TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -10847,6 +10914,7 @@ FiniteElement::topazAmsr2Ice()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -10949,6 +11017,7 @@ FiniteElement::cs2SmosIce()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -11059,6 +11128,7 @@ FiniteElement::cs2SmosAmsr2Ice()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -11127,6 +11197,7 @@ FiniteElement::smosIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//smosIce
 

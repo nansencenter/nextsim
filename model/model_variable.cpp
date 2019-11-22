@@ -272,13 +272,26 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
 
+        case (variableID::M_divergence):
+            // update of concentration by assimilation
+            M_name = "M_divergence";
+            M_export_name = "Recoverable_divergence";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_max = true;
+            M_max_val = 0.;
+            break;
+
         case (variableID::M_conc_upd):
             // update of concentration by assimilation
             M_name = "M_conc_upd";
             M_export_name = "Concentration_update";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;

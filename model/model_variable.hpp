@@ -77,6 +77,7 @@ public:
         M_age_det       = 16,
         M_age           = 17,
         M_conc_upd      = 18,
+        M_divergence   = 19,
 
         // Diagnostic variables
         D_conc       = 100,
