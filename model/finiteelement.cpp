@@ -11963,7 +11963,7 @@ FiniteElement::cregIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSRE data.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::topazAmsreIce()
 {
     double real_thickness, init_conc_tmp;
