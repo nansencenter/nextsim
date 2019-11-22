@@ -11877,7 +11877,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from PIOMAS outputs.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
