@@ -11410,7 +11410,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecast, Amsr2 and Osisaf ice data.
 //! Called by the assimilateIce() function.
-    void
+void
 FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
