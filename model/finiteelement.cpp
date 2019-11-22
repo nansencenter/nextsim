@@ -5272,7 +5272,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
             throw std::runtime_error(crash_msg.str())                            ;
         }
     }
-}       
+}//redistributeThermoFSD       
 void
 FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
 //! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
@@ -5332,7 +5332,7 @@ FiniteElement::updateFSD()//----------------------------------------------------
             }
         }
     }
-}
+}//updateFSD
 //------------------------------------------------------------------------------------------------------
 void
 FiniteElement::weldingRoach(const int cpt, double ddt)
@@ -5468,7 +5468,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
              throw std::runtime_error(crash_msg.str());
          }
     }
-}
+}//weldingRoach
 //------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
 void
@@ -6152,7 +6152,7 @@ FiniteElement::thermo(int dt)
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                         Qow[i] *= (1.-PhiM);
                     }
-                   else
+                    else
                     {
                         del_c = -M_conc[i];
                     }
@@ -7551,7 +7551,7 @@ FiniteElement::initFsd()
                       << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n" 
                       << "FSD binwidth area scaled     : (" << m << ") "<< M_fsd_area_scaled_binwidth[m] << " \n" ;
         }
-            LOG(INFO) << "-------- alpha merge ------- \n" ;
+        LOG(INFO) << "-------- alpha merge ------- \n" ;
         for(int m=0; m<M_num_fsd_bins; m++)   
         { 
             LOG(INFO) << "["<< m <<"]   ";
@@ -10576,7 +10576,7 @@ FiniteElement::initIce()
             this->topazAmsr2Ice();
             break;
         case setup::IceType::AMSR2CSTTHICK:
-            this->Amsr2CstThickIce();
+            this->amsr2ConstThickIce();
             break;
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
@@ -11406,7 +11406,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 // -----------------------------------------------------------------------------------------------------------
 //! Assimilates Topaz forecast, Amsr2 and Osisaf ice data.
 //! Called by the assimilateIce() function.
-void
+    void
 FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
@@ -11478,7 +11478,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
         //tmp_var=M_topaz_snow_thick[i];
         //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
         //if(M_conc[i]<M_topaz_conc[i])
-         //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
+        //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
 
 
         if(c_model>0.01)
@@ -11524,7 +11524,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2 and Osisaf data.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
@@ -11669,7 +11669,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2, Osisaf and NIC ice charts data.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 {
     //observations
@@ -11722,8 +11722,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         tmp_var=std::min(1.,M_topaz_conc[i]);
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         if(     (M_conc[i]>0.)
-             && (M_amsr2_conc[i]>.15)
-             && (M_amsr2_conc[i]<=1.))
+                && (M_amsr2_conc[i]>.15)
+                && (M_amsr2_conc[i]<=1.))
             // use amsr2 only where
             // - topaz says there is ice to avoid near land issues and fake concentration over the ocean
             // - it is large enough to be trusted
@@ -11873,7 +11873,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from PIOMAS outputs.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::piomasIce()
 {
     external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
@@ -11915,7 +11915,7 @@ FiniteElement::piomasIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CREG outputs.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::cregIce()
 {
     Dataset creg = DataSet("ice_creg_elements");
@@ -11959,7 +11959,7 @@ FiniteElement::cregIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSRE data.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::topazAmsreIce()
 {
     double real_thickness, init_conc_tmp;
@@ -12027,7 +12027,7 @@ FiniteElement::topazAmsreIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSR2 data.
 //! Called by the initIce() function.
-void
+    void
 FiniteElement::topazAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
@@ -12102,8 +12102,8 @@ FiniteElement::topazAmsr2Ice()
 
 //! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
 //! Called by the initIce() function.
-void
-FiniteElement::Amsr2CstThickIce()
+    void
+FiniteElement::amsr2ConstThickIce()
 {
     double real_thickness, init_conc_tmp;
 

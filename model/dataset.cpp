@@ -8722,6 +8722,7 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "ice_smos_elements\n");
         fprintf (stderr, "ocean_currents_nodes\n");
         fprintf (stderr, "wave_cpl_nodes\n");
+        fprintf (stderr, "wave_cpl_elements\n");
         throw std::runtime_error(std::string("Unknown dataset: ")+DatasetName);
 
         //close_Dataset (this);
