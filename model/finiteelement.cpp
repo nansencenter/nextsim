@@ -12106,7 +12106,7 @@ FiniteElement::topazAmsr2Ice()
 
 //! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::amsr2ConstThickIce()
 {
     double real_thickness, init_conc_tmp;
