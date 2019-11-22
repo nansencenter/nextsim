@@ -39,7 +39,6 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(MPI_ROOT)/include
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 
 # ========================================================
