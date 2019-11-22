@@ -12104,6 +12104,7 @@ FiniteElement::topazAmsr2Ice()
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
+
 //! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
 //! Called by the initIce() function.
 void
