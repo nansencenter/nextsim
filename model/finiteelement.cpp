@@ -11528,7 +11528,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2 and Osisaf data.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::topazForecastAmsr2OsisafIce()
 {
     double real_thickness, init_conc_tmp;
