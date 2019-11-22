@@ -5270,7 +5270,9 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
             throw std::runtime_error(crash_msg.str())                            ;
         }
     }
-}//redistributeThermoFSD       
+}//redistributeThermoFSD
+
+
 void
 FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
 //! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
