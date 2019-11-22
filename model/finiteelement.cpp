@@ -2910,7 +2910,6 @@ FiniteElement::scatterElementConnectivity()
                 if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
                 {
                     connectivity_root[nb_var_element*i+j] = neighbour_id_db;
-
                 }
                 else
                 {
@@ -14256,5 +14255,4 @@ FiniteElement::finalise(std::string current_time_system)
 }//finalise
 
 } // Nextsim
-
 
