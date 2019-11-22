@@ -11919,7 +11919,7 @@ FiniteElement::piomasIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CREG outputs.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::cregIce()
 {
     Dataset creg = DataSet("ice_creg_elements");
