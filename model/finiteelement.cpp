@@ -1114,7 +1114,7 @@ FiniteElement::initOptAndParam()
         throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
     }
     // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
-    // thermo_timestep = time_step;
+     thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
     // for now thermo_timestep must be equal to cpl_time_step
@@ -14255,4 +14255,3 @@ FiniteElement::finalise(std::string current_time_system)
 }//finalise
 
 } // Nextsim
-
