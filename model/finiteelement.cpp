@@ -12031,7 +12031,7 @@ FiniteElement::topazAmsreIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSR2 data.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::topazAmsr2Ice()
 {
     double real_thickness, init_conc_tmp;
