@@ -682,7 +682,6 @@ FiniteElement::assignVariables()
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-       
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
@@ -14257,6 +14256,5 @@ FiniteElement::finalise(std::string current_time_system)
 }//finalise
 
 } // Nextsim
-
 
 
