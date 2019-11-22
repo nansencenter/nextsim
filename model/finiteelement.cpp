@@ -11673,7 +11673,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2, Osisaf and NIC ice charts data.
 //! Called by the initIce() function.
-    void
+void
 FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 {
     //observations
