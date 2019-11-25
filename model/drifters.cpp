@@ -116,7 +116,7 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
 void
 Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
 {
-    //! - 1) Calculates the grid spacing assuming a regular grid
+    //! Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
     std::vector<double> RY = moved_mesh.coordY();
     auto xcoords = std::minmax_element( RX.begin(), RX.end() );
