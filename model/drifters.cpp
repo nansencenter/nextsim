@@ -40,13 +40,12 @@ Drifters::updateDrifters(
     {
         this->doIO(movedmesh_root, conc_root, current_time,
                 conc_drifters);
-        this->reset();
-        conc_drifters.resize(0);
+        this->reset(conc_drifters);
     }
 
     //! 3) Initialize if needed
     //! - need conc on the moved mesh
-    //! - NB updates conc_drifters
+    //! - \note updates conc_drifters
     if(this->initialising(current_time))
         this->initialise(movedmesh_root, conc_root,
                 conc_drifters);
@@ -422,7 +421,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::updateDrifters()
 void
-Drifters::reset()
+Drifters::reset(std:vector<double> & conc_drifters)
 {
     M_is_initialised = false;
     M_i.resize(0);
@@ -430,6 +429,7 @@ Drifters::reset()
     M_Y.resize(0);
     M_time_init += M_lifetime;//new init time
     this->setOutputFilename();
+    conc_drifters.resize(0);
 }//reset()
 
 

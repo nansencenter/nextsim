@@ -201,7 +201,7 @@ private:
 
         //main ops
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void reset();
+        void reset(std::vector<double> & conc_drifters);
         void updateConc( GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
