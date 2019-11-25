@@ -61,7 +61,7 @@ public:
         {
             TimingInfo() {}
 
-            //constructor for "ordinary" drifters
+            //constructor for "persistent" drifters
             // - drifters are only added at initialisation
             // (unlike eg IABP)
             TimingInfo(
