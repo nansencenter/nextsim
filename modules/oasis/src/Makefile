@@ -56,7 +56,6 @@ FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
 FFLAGS += -I $(NETCDF_FOR_DIR)/include
-FFLAGS += -I $(MPI_ROOT)/include
 # ========================================================
 
 # ========================================================
