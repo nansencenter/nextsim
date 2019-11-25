@@ -86,7 +86,7 @@ void
 Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
         std::vector<double> &conc_drifters)
 {
-    M_is_initialised = true;
+    //! -1) Initialise drifter positions
 
     if (M_init_type == Drifters::initType::TEXT_FILE)
         this->initFromTextFile();
