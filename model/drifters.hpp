@@ -118,7 +118,7 @@ public:
             M_spacing = spacing;
         }
 
-        //! init drifters from netcdf file
+         //! Construct a Drifters object with drifter positions read from a netcdf file
         Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
                  double const& climit,
