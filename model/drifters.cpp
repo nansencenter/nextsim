@@ -95,7 +95,7 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
     else if (M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
 
-    //! -3) Update conc_drifters
+    //! -2) Update conc_drifters
     this->updateConc(moved_mesh, conc, conc_drifters);
 
     //! -4) Applies the mask using conc_drifters and climit, and save to M_X and M_Y
