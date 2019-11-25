@@ -248,9 +248,6 @@ private:
         void doIO(GmshMeshSeq const& movedmesh_root,
                 std::vector<double> & conc_root, double const& current_time,
                 std::vector<double> & conc_drifters);
-        void addRemoveDrifters(GmshMeshSeq const& movedmesh_root,
-                std::vector<double>& conc_root, double const& current_time,
-                std::vector<double> & conc_drifters);
         void outputDrifters(double const& current_time, std::vector<double> const& conc_drifters)
         {
             if(M_transient)

@@ -479,7 +479,7 @@ Drifters::move(GmshMeshSeq const& mesh,
 
 // --------------------------------------------------------------------------------------
 //! interp conc onto drifter positions
-//! called by FiniteElement::checkDrifters()
+//! called by doIO() and initialise()
 void
 Drifters::updateConc(GmshMeshSeq const& movedmesh,
         std::vector<double> & conc, std::vector<double> &conc_drifters)
@@ -945,48 +945,39 @@ Drifters::isInputTime(double const& current_time)
 
 
 // --------------------------------------------------------------------------------------
-//! Determine if we need to input a drifter
+//! Determine if we need to input or output drifters, and do these if we need to.
 //! Called by updateDrifters()
 void
 Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
         double const& current_time, std::vector<double> & conc_drifters)
 {
     if (this->isInputTime(current_time))
-        // check if we need to add new drifters
-        // NB do this after moving
-        // NB this updates conc_drifters
-        this->addRemoveDrifters(movedmesh_root, conc_root,
-                current_time, conc_drifters);
+    {
+        //! 1) check if we need to add new drifters
+        //! \note do this after moving
+
+        //! - add current buoys if not already there
+        //!   (output is used for masking later)
+        auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
+
+        //! - update conc at drifter positions (conc_drifters)
+        this->updateConc(movedmesh_root, conc_root, conc_drifters);
+
+        //! - Check the drifters map and throw out:
+        //!   i) the ones which IABP doesn't report as being in the ice anymore
+        //!   (not in current_buoys)
+        //!   ii) the ones which have a low conc according to the model
+        this->maskXY(conc_drifters, current_buoys);
+    }
 
     if (this->isOutputTime(current_time))
     {
+        //! 2) check if we need to output drifters
         if(conc_drifters.size()==0)
             this->updateConc(movedmesh_root, conc_root, conc_drifters);
         this->outputDrifters(current_time, conc_drifters);
     }
 }//doIO()
 
-
-// ---------------------------------------------------------------------------------------
-//! update the transient drifters
-//! - check if we should remove any (not in the input file anymore or too low SIC)
-//! - check if we should add any (some in the input file that are not in the drifters)
-//! Called by Drifters::doIO()
-void
-Drifters::addRemoveDrifters(GmshMeshSeq const& movedmesh_root, std::vector<double>& conc_root,
-        double const& current_time, std::vector<double>& conc_drifters)
-{
-    //add current buoys if not already there
-    //(output is used for masking later)
-    auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
-
-    // update conc_drifters
-    this->updateConc(movedmesh_root, conc_root, conc_drifters);
-
-    // Check the drifters map and throw out:
-    // (i) the ones which IABP doesn't report as being in the ice anymore (not in keepers)
-    // (ii) the ones which have a low conc according to the model
-    this->maskXY(conc_drifters, current_buoys);
-}//addRemoveDrifters
 
 } // Nextsim
