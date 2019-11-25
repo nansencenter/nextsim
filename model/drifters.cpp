@@ -104,6 +104,9 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
     //! -5) Init the netcdf output file
     this->setOutputFilename();
     this->initOutputFile();
+
+    //! -5) Success 
+    M_is_initialised = true;
 }//initialise()
 
 
