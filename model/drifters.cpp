@@ -42,7 +42,7 @@ Drifters::updateDrifters(
     // NB M_UT is relative to the fixed mesh, not the moved mesh
     this->move(mesh_root, UT_root);
 
-    //! 2) Reset any temporary drifters if needed (eg OSISAF)
+    //! 2) Reset temporary (i.e. OSISAF) drifters if needed
     if(this->resetting(current_time))
     {
         this->doIO(movedmesh_root, conc_root, current_time,
