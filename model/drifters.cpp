@@ -421,7 +421,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::updateDrifters()
 void
-Drifters::reset(std:vector<double> & conc_drifters)
+Drifters::reset(std::vector<double> & conc_drifters)
 {
     M_is_initialised = false;
     M_i.resize(0);
