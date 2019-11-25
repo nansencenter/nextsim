@@ -31,17 +31,16 @@ Drifters::updateDrifters(
         double const& current_time)
 {
     std::vector<double> conc_drifters(0);
+
     //! 1) Move the drifters (if needed)
-    // NB M_UT is relative to the fixed mesh, not the moved mesh
+    // TODO M_UT is relative to the fixed mesh - should be relative to mesh at time
+    // of last update to drfiters (moving, initialising, regridding)
     this->move(mesh_root, UT_root);
 
     //! 2) Reset temporary (i.e. OSISAF) drifters if needed
+    //! \note this does outputting so needs conc_root
     if(this->resetting(current_time))
-    {
-        this->doIO(movedmesh_root, conc_root, current_time,
-                conc_drifters);
-        this->reset(conc_drifters);
-    }
+        this->reset(movedmesh_root, conc_root, current_time);
 
     //! 3) Initialize if needed
     //! - need conc on the moved mesh
@@ -50,9 +49,33 @@ Drifters::updateDrifters(
         this->initialise(movedmesh_root, conc_root,
                 conc_drifters);
 
-    //! 4) Do output if needed (for transient drifters: also do input if needed)
-    this->doIO(movedmesh_root, conc_root, current_time,
-            conc_drifters);
+    //! 4) Add/remove drifters if needed
+    //!    \note do this after moving
+    if (this->isInputTime(current_time))
+    {
+        //! - add current buoys if not already there
+        //!   (output is used for masking later)
+        auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
+
+        //! - update conc at drifter positions (conc_drifters)
+        this->updateConc(movedmesh_root, conc_root, conc_drifters);
+
+        //! - Check the drifters map and throw out:
+        //!   i) the ones which IABP doesn't report as being in the ice anymore
+        //!   (not in current_buoys)
+        //!   ii) the ones which have a low conc according to the model
+        this->maskXY(conc_drifters, current_buoys);
+    }
+
+    //! 5) Add/remove drifters if needed
+    if (this->isOutputTime(current_time))
+    {
+        if(conc_drifters.size()==0)
+            // get conc if needed
+            // (haven't added new buoys or initialised this timestep)
+            this->updateConc(movedmesh_root, conc_root, conc_drifters);
+        this->outputDrifters(current_time, conc_drifters);
+    }
 }//updateDrifters
 
 
@@ -421,15 +444,21 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::updateDrifters()
 void
-Drifters::reset(std::vector<double> & conc_drifters)
+Drifters::reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+        double const& current_time)
 {
+    //! 1) Output final positions
+    std::vector<double> conc_drifters;
+    this->updateConc(movedmesh_root, conc_root, conc_drifters);
+    this->outputDrifters(current_time, conc_drifters);
+
+    //! 2) Set back to being uninitialised
     M_is_initialised = false;
     M_i.resize(0);
     M_X.resize(0);
     M_Y.resize(0);
     M_time_init += M_lifetime;//new init time
     this->setOutputFilename();
-    conc_drifters.resize(0);
 }//reset()
 
 
@@ -479,7 +508,7 @@ Drifters::move(GmshMeshSeq const& mesh,
 
 // --------------------------------------------------------------------------------------
 //! interp conc onto drifter positions
-//! called by doIO() and initialise()
+//! called by updateDrifters(), reset() and initialise()
 void
 Drifters::updateConc(GmshMeshSeq const& movedmesh,
         std::vector<double> & conc, std::vector<double> &conc_drifters)
@@ -942,42 +971,6 @@ Drifters::isInputTime(double const& current_time)
         do_input = std::fmod(current_time - M_time_init, M_input_interval) == 0;
     return do_input;
 }//isInputTime()
-
-
-// --------------------------------------------------------------------------------------
-//! Determine if we need to input or output drifters, and do these if we need to.
-//! Called by updateDrifters()
-void
-Drifters::doIO(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
-        double const& current_time, std::vector<double> & conc_drifters)
-{
-    if (this->isInputTime(current_time))
-    {
-        //! 1) check if we need to add new drifters
-        //! \note do this after moving
-
-        //! - add current buoys if not already there
-        //!   (output is used for masking later)
-        auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
-
-        //! - update conc at drifter positions (conc_drifters)
-        this->updateConc(movedmesh_root, conc_root, conc_drifters);
-
-        //! - Check the drifters map and throw out:
-        //!   i) the ones which IABP doesn't report as being in the ice anymore
-        //!   (not in current_buoys)
-        //!   ii) the ones which have a low conc according to the model
-        this->maskXY(conc_drifters, current_buoys);
-    }
-
-    if (this->isOutputTime(current_time))
-    {
-        //! 2) check if we need to output drifters
-        if(conc_drifters.size()==0)
-            this->updateConc(movedmesh_root, conc_root, conc_drifters);
-        this->outputDrifters(current_time, conc_drifters);
-    }
-}//doIO()
 
 
 } // Nextsim

@@ -201,7 +201,8 @@ private:
 
         //main ops
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void reset(std::vector<double> & conc_drifters);
+        void reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+                double const& current_time);
         void updateConc( GmshMeshSeq const& movedmesh,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
@@ -245,9 +246,6 @@ private:
         void initOutputTextFile();
         void initOutputNetCDF();
         bool isInputTime(double const& current_time);
-        void doIO(GmshMeshSeq const& movedmesh_root,
-                std::vector<double> & conc_root, double const& current_time,
-                std::vector<double> & conc_drifters);
         void outputDrifters(double const& current_time, std::vector<double> const& conc_drifters)
         {
             if(M_transient)
