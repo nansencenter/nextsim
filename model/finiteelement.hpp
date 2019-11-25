@@ -19,6 +19,8 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
@@ -290,6 +292,10 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
+
+    void updateGhosts(std::vector<double>& mesh_nodal_vec);
+    void initUpdateGhosts();
+    int globalNumToprocId(int global_num);
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -577,6 +583,12 @@ private:
     double M_spinup_duration;
 
     std::string M_export_path;
+
+private: // update solution from explicit solver
+    std::vector<std::vector<int>> M_extract_local_index;
+    std::vector<int> M_recipients_proc_id;
+    std::vector<int> M_local_ghosts_proc_id;
+    std::vector<std::vector<int>> M_local_ghosts_local_index;
 
 private:
 
