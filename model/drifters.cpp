@@ -101,7 +101,7 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
     //! -3) Applies the mask using conc_drifters and climit, and save to M_X and M_Y
     this->maskXY(conc_drifters);
 
-    //! -5) Init the netcdf output file
+    //! -4) Init the netcdf output file
     this->setOutputFilename();
     this->initOutputFile();
 
