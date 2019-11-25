@@ -106,7 +106,7 @@ public:
 
         Drifters() {}
 
-        //! init equally-spaced drifters
+         //! Construct a Drifters object with equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
                 Drifters::TimingInfo const& timing_info,
