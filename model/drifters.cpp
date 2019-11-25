@@ -561,7 +561,7 @@ Drifters::maskXY(std::vector<double> & conc_drifters, std::vector<int> const& ke
     auto idx = M_i;
     auto conc = conc_drifters;
 
-    //! - 2) Adds drifter positions where conc > conc_lim
+    //! Adds drifter positions where conc > conc_lim
     M_X.resize(0); // this shouldn't be necessary!
     M_Y.resize(0);
     M_i.resize(0);
