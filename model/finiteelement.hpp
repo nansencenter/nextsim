@@ -291,6 +291,10 @@ public:
     void scalingVelocity();
     void update();
 
+    void updateGhosts(std::vector<double>& mesh_nodal_vec);
+    void initUpdateGhosts();
+    int globalNumToprocId(int global_num);
+
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
             bool const& export_fields, bool const& apply_displacement);
