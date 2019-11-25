@@ -131,7 +131,7 @@ public:
             M_netcdf_input_info = netcdf_input_info;
         }
 
-        //! init drifters from text file
+         //! Construct a Drifters object with drifter positions from a text file
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
                 Drifters::TimingInfo const& timing_info,
