@@ -7406,6 +7406,7 @@ FiniteElement::initModelVariables()
     this->sortPrognosticVars();
 }//initModelVariables
 
+
 // -----------------------------------------------------------------
 //! simple function to init the floe size
 void
