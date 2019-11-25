@@ -207,7 +207,7 @@ Drifters::initFromNetCDF()
 void
 Drifters::initFromTextFile()
 {
-    //! - 2) Load the nodes from file
+    //! Load the nodes from file
 
     // Check M_infile, set M_infile_position
     this->initInputTextFile();
