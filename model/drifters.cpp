@@ -18,13 +18,6 @@
 
 namespace Nextsim
 {
-//! Constructors and destructors
-//! * We have one constructor for regularly spaced drifters and one for
-//!   drifter positions read in from file. In addition we have a private
-//!   function (maskXY), called only by the constructors, to mask out drifters
-//!   placed outside the ice cover.
-//! * There is also a default, constructor which initialises things to zero and false.
-
 
 // ------------------------------------------
 //! Main drifter interface to FiniteElement

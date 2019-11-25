@@ -104,15 +104,20 @@ public:
             bool transient = false;// can drifters be added/removed after init?
         } TimingInfo;
 
+        //! Constructors and destructors
+        //! * We have one constructor for regularly spaced drifters and two for
+        //!   drifter positions read in from file
+        //!   (one uses a text file and one uses a netcdf file).
+        //! * There is also an empty constructor which has M_is_initialised=false (default value).
         Drifters() {}
 
          //! Construct a Drifters object with equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
                 Drifters::TimingInfo const& timing_info,
-                bool const& no_start_from_restart):
+                bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::SPACING;
             M_spacing = spacing;
@@ -123,9 +128,9 @@ public:
                  NetCDFInputInfo const& netcdf_input_info,
                  double const& climit,
                  Drifters::TimingInfo const& timing_info,
-                 bool const& no_start_from_restart):
+                 bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::NETCDF;
             M_netcdf_input_info = netcdf_input_info;
@@ -135,9 +140,9 @@ public:
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
                 Drifters::TimingInfo const& timing_info,
-                bool const& no_start_from_restart):
+                bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::TEXT_FILE;
             M_infile = filename;
