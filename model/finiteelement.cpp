@@ -4025,6 +4025,10 @@ FiniteElement::assemble(int pcpt)
 
     double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
+#ifdef OASIS
+    bool coupler_with_waves = vm["coupler.with_waves"].as<bool>();
+#endif
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -4329,7 +4333,7 @@ FiniteElement::assemble(int pcpt)
                                                         )
                                                  - b0tj_sigma_hv/3);
 #ifdef OASIS
-                    if( vm["coupler.with_waves"].as<bool>() )
+                    if( coupler_with_waves )
                     {
                         fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
                         fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
