@@ -66,7 +66,7 @@ public:
         {
             TimingInfo() {}
 
-            //constructor for "ordinary" drifters
+            //constructor for "persistent" drifters
             // - drifters are only added at initialisation
             // (unlike eg IABP)
             TimingInfo(
@@ -142,40 +142,45 @@ public:
             std::vector<int> elements;
         } MeshInfo;
 
+        //! Constructors and destructors
+        //! * We have one constructor for regularly spaced drifters and two for
+        //!   drifter positions read in from file
+        //!   (one uses a text file and one uses a netcdf file).
+        //! * There is also an empty constructor which has M_is_initialised=false (default value).
         Drifters() {}
 
-        //! init equally-spaced drifters
+        //! Construct a Drifters object with equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
                 Drifters::TimingInfo const& timing_info,
-                bool const& no_start_from_restart):
+                bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::SPACING;
             M_spacing = spacing;
         }
 
-        //! init drifters from netcdf file
+        //! Construct a Drifters object with drifter positions read from a netcdf file
         Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
                  double const& climit,
                  Drifters::TimingInfo const& timing_info,
-                 bool const& no_start_from_restart):
+                 bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::NETCDF;
             M_netcdf_input_info = netcdf_input_info;
         }
 
-        //! init drifters from text file
+        //! Construct a Drifters object with drifter positions from a text file
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
                 Drifters::TimingInfo const& timing_info,
-                bool const& no_start_from_restart):
+                bool const& ignore_restart):
             Drifters(tag, output_prefix, climit, timing_info,
-                    no_start_from_restart)
+                    ignore_restart)
         {
             M_init_type = Drifters::initType::TEXT_FILE;
             M_infile = filename;
@@ -232,7 +237,9 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void reset();
+        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void reset(MeshInfo & mesh_info, std::vector<double> & conc_root,
+                double const& current_time);
         void updateConc( MeshInfo & mesh_info,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
@@ -276,12 +283,6 @@ private:
         void initOutputTextFile();
         void initOutputNetCDF();
         bool isInputTime(double const& current_time);
-        void doIO(MeshInfo & mesh_info,
-                std::vector<double> & conc_root, double const& current_time,
-                std::vector<double> & conc_drifters);
-        void addRemoveDrifters(MeshInfo & mesh_info,
-                std::vector<double>& conc_root, double const& current_time,
-                std::vector<double> & conc_drifters);
         void outputDrifters(double const& current_time, std::vector<double> const& conc_drifters)
         {
             if(M_transient)

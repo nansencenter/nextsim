@@ -44,7 +44,7 @@ namespace physical
     const double ks = 0.3096;
 
     //! Latent heat of fusion [J/Kg]
-    const double Lf = 334e3;
+    const double Lf = 333.55e3;
 
     //! Latent heat of evaporation at 0degC [J/Kg]
     const double Lv0 = 2500.79e3;
