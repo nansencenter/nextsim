@@ -31,24 +31,19 @@ Drifters::updateDrifters(
 {
     std::vector<double> conc_drifters(0);
 
-    //! 1) Move the drifters (if needed)
-    // TODO M_UT is relative to the fixed mesh - should be relative to mesh at time
-    // of last update to drfiters (moving, initialising, regridding)
-    this->move(mesh_root, UT_root);
-
-    //! 2) Reset temporary (i.e. OSISAF) drifters if needed
+    //! 1) Reset temporary (i.e. OSISAF) drifters if needed
     //! \note this does outputting so needs conc_root
     if(this->resetting(current_time))
         this->reset(mesh_info, conc_root, current_time);
 
-    //! 3) Initialize if needed
+    //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
     if(this->initialising(current_time))
         this->initialise(mesh_info, conc_root,
                 conc_drifters);
 
-    //! 4) Add/remove drifters if needed
+    //! 3) Add/remove drifters if needed
     //!    \note do this after moving
     if (this->isInputTime(current_time))
     {
@@ -66,7 +61,7 @@ Drifters::updateDrifters(
         this->maskXY(conc_drifters, current_buoys);
     }
 
-    //! 5) Add/remove drifters if needed
+    //! 4) Add/remove drifters if needed
     if (this->isOutputTime(current_time))
     {
         if(conc_drifters.size()==0)
