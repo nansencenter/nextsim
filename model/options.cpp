@@ -344,11 +344,11 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             // - Pressure term parameters
-            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "")
-            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "")
-            ("dynamics.compression_factor", po::value<double>()->default_value( 12000. ), "")
+            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which pressure term is activated")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure coefficient")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 12000. ), "Max pressure for damaged converging ice")
             ("dynamics.p_coef_type", po::value<int>()->default_value( -1 ),
-             "Type of Dunit matrix for Pressure coefficient. Allowed values: -1  => 1,1,0 on diagonal; 0 ==> 1,1,0.5 on diagonal; 1 matrix equal to Dunit")
+             "Type of Dunit matrix for Pressure coefficient. Allowed values: -1  => 1,1,0 on diagonal; 0 ==> 1,1,0.5 on diagonal; 1 ==> matrix equal to Dunit")
 
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive

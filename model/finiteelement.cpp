@@ -1086,8 +1086,8 @@ FiniteElement::initOptAndParam()
 
     //! Sets parameters for the pressure term coefficient
     compression_factor = vm["dynamics.compression_factor"].as<double>(); //! \param Max pressure for damaged converging ice
-    exponent_compression_factor = vm["dynamics.exponent_compression_factor"].as<double>(); //! \param power of ice thickness
-    divergence_min = vm["dynamics.divergence_min"].as<double>() / days_in_sec; //! \param Minimum allowed divergence
+    exponent_compression_factor = vm["dynamics.exponent_compression_factor"].as<double>(); //! \param Power of ice thickness in the pressure coefficient
+    divergence_min = vm["dynamics.divergence_min"].as<double>() / days_in_sec; //! \param Minimum divergence at which pressure term is activated
 
     //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
     if (vm["simul.time_init"].as<std::string>() == "")
@@ -4190,6 +4190,7 @@ FiniteElement::assemble(int pcpt)
             coef_P = compression_factor*std::pow(M_thick[cpt],exponent_compression_factor)*std::exp(ridging_exponent*(1-M_conc[cpt]));
             coef_P = coef_P/(std::abs(M_divergence[cpt])+divergence_min);
         }
+        D_pressure[cpt] = coef_P * M_divergence[cpt];
 
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
@@ -4610,15 +4611,7 @@ FiniteElement::update()
 
             epsilon_veloc[i] = epsilon_veloc_i;
         }
-
-        double const max_recoverable_convergence = 0.01;
         M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
-        //M_divergence[cpt] = (M_divergence[cpt]>0.) ? 0. : M_divergence[cpt];
-        //M_divergence[cpt] = (M_divergence[cpt]<-max_recoverable_convergence) ? -max_recoverable_convergence : M_divergence[cpt];
-
-        //recoverable_divergence= recoverable_divergence[e]+(epsilon_veloc[0]+epsilon_veloc[1])*timestep;
-        //recoverable_divergence_new[e]=(recoverable_divergence_new[e]>0.)?(0.):(recoverable_divergence_new[e]);
-        //recoverable_divergence_new[e]=(recoverable_divergence_new[e]<-max_recoverable_convergence)?(-max_recoverable_convergence):(recoverable_divergence_new[e]);
 
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
@@ -6614,6 +6607,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
+    D_pressure = ModelVariable(ModelVariable::variableID::D_pressure);//! \param D_dcrit (double) How far outside the M-C envelope are we?
+    M_variables_elt.push_back(&D_pressure);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -9560,6 +9555,7 @@ FiniteElement::checkConsistency()
 
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
+        D_pressure[i] = 0;
     }
 }//checkConsistency
 

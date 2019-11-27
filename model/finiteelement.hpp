@@ -734,7 +734,7 @@ private:
     ModelVariable M_age_det;
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
-    ModelVariable M_divergence;        // recoverable divergence for the pressure term
+    ModelVariable M_divergence;         // Divergence for the pressure term
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
@@ -759,6 +759,7 @@ private:
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
+    ModelVariable D_pressure; // How far outside the Mohr-Coulomb criterion are we?
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
