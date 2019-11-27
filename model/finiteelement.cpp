@@ -730,7 +730,8 @@ FiniteElement::initExternalData()
 
 #ifdef OASIS
     LOG(DEBUG) <<"Initialize forcingWaves\n";
-    this->forcingWaves();
+    if (vm["coupler.with_waves"].as<bool>())
+        this->forcingWaves();
 #endif
 
     //! - 3) Initializes the bathymetry using the initBathymetry() function,
