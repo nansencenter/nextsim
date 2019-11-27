@@ -185,10 +185,15 @@ namespace Nextsim
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
                 "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
-             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
+             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false),
+                "are we using SIDFEX drifters")
              ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
                   "interval between SIDFEX drifter outputs (days): integer multiple of timestep")
              ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
+             ("drifters.sidfex_time_init", po::value<std::string>()->default_value( "" ),
+                  "time to init SIDFEx drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
+             ("drifters.sidfex_ignore_restart", po::value<bool>()->default_value( false),
+                "do not load SIDFEx buoys from restart even if present")
 
             // - Restart
             // -- inputs
@@ -199,7 +204,7 @@ namespace Nextsim
             ("restart.basename", po::value<std::string>()->default_value( "" ),
                 "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
             ("restart.type", po::value<std::string>()->default_value( "extend" ),
-                "Restart type: [extend|continue]. Extend (default): simul.time_init is taken as the time of restart and simul.duration is added to that. Continue: simul.time_init is read from the configuration file and duration is added to that.")
+                "Restart type: [extend|continue]. Extend (default): M_time_init is taken as the time inside the restart file and simul.duration is added to that. Continue: M_time_init is read from the configuration file (simul.time_init) and duration is added to that.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),
