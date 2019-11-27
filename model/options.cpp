@@ -451,7 +451,7 @@ namespace Nextsim
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
-#endif
+
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
@@ -483,6 +483,8 @@ namespace Nextsim
 
             ("wave_coupling.distinguish_mech_fsd", po::value<bool>()->default_value( true ), "Do we distinguish a mech. FSD from the real FSD ?")
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
+#endif
+
 
 #if defined(WAVES)
         ;

@@ -1387,6 +1387,7 @@ FiniteElement::initOptAndParam()
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
+#ifdef OASIS
     //! FSD Initialization
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
     const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
@@ -1423,6 +1424,7 @@ FiniteElement::initOptAndParam()
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
     M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
+#endif
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
