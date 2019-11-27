@@ -747,8 +747,10 @@ private:
     ModelVariable M_conc;               // Ice concentration
     ModelVariable M_thick;              // Effective ice thickness [m]
     ModelVariable M_damage;             // Ice damage
+#ifdef OASIS
     ModelVariable M_cum_damage;         // Ice cumulated damage
     ModelVariable M_cum_wave_damage;    // Ice cumulated damage due to wave
+#endif
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice

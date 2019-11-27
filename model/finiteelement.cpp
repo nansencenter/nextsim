@@ -4835,7 +4835,9 @@ FiniteElement::update()
 
                 if(tmp>M_damage[cpt])
                 {
+#ifdef OASIS
                     M_cum_damage[cpt]+=tmp-M_damage[cpt] ; 
+#endif
                     M_damage[cpt] = min(tmp, 1.0);
                 }
             }
@@ -10784,9 +10786,11 @@ FiniteElement::checkConsistency()
             }//Winton
         }
 
+#ifdef OASIS
         // Init cumulated damage
         M_cum_damage[i]=M_damage[i];
         M_cum_wave_damage[i]=M_damage[i];
+#endif
 
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
