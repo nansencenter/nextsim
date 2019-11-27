@@ -287,7 +287,6 @@ public:
     void initVariables();
     void calcAuxiliaryVariables();
     void initModelVariables();
-    void initFsd();
     void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
@@ -298,7 +297,10 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update();
+
+#ifdef OASIS
     // FSD related functions
+    void initFsd();
     void redistributeFSD();
     void updateFSD();
     std::vector<double> computeWaveBreakingProb();
@@ -307,6 +309,7 @@ public:
     void weldingRoach(const int cpt, double ddt);
     void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
     double lateralMeltFSD(const int i,double ddt) ;
+#endif
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -762,6 +765,7 @@ private:
     ModelVariable M_age;
     ModelVariable M_conc_upd;               // Ice concentration update by assimilation
 
+#ifdef OASIS
     // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     //std::vector<ModelVariable> M_conc_fsd_thick;
@@ -805,6 +809,7 @@ private:
     bool   M_breakup_cell_average_thickness   ;
     // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
     // double M_lead_width    ;
+#endif
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration

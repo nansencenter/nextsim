@@ -4643,10 +4643,10 @@ FiniteElement::update()
                 M_conc_thin[cpt] *= surf_ratio;
                 M_hs_thin[cpt] *= surf_ratio;
             }
-
+#ifdef OASIS
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
-
+#endif
         }
 
         /*======================================================================
@@ -4870,13 +4870,15 @@ FiniteElement::update()
     }//loop over elements
 }//update
 
-void
-FiniteElement::redistributeFSD()//------------------------------------------------------------------------------------------------------
+
+#ifdef OASIS
+//------------------------------------------------------------------------------------------------------
 //! Redistribute the floes in the FSD after break_up if prob[i]>0
 //! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
 //------------------------------------------------------------------------------------------------------
+void
+FiniteElement::redistributeFSD()
 {
-#ifdef OASIS
     
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
@@ -5090,8 +5092,8 @@ FiniteElement::redistributeFSD()//----------------------------------------------
             }
         }
     }// loop over all elements
-#endif
 }//redistributeFSD
+
 
 void
 FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
@@ -5478,6 +5480,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
          }
     }
 }//weldingRoach
+#endif
 
 
 //------------------------------------------------------------------------------------------------------
@@ -6149,10 +6152,10 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
+#ifdef OASIS
                     if (M_num_fsd_bins>1)
-                    {
                         throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
-                    }
+#endif
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -6172,11 +6175,12 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+#ifdef OASIS
                     if (M_num_fsd_bins>1)
-                    {
                         throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
-                    }
+#endif
                     break;
+#ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
                     if (M_num_fsd_bins<1)
@@ -6226,6 +6230,7 @@ FiniteElement::thermo(int dt)
                         }
                     }
                     break;
+#endif
 
                 default:
                     std::cout << "melt_type = " << melt_type << "\n";
@@ -6276,6 +6281,7 @@ FiniteElement::thermo(int dt)
             hi     = 0.;
             hs     = 0.;
 
+#ifdef OASIS
             // If FSD : Don't change its shape. Remove all ice if no thin ice
             if(M_num_fsd_bins>0)
             {
@@ -6309,14 +6315,18 @@ FiniteElement::thermo(int dt)
                     }
                 }
             } 
+#endif
         }
         else
         {
+#ifdef OASIS
             /* In case there is an FSD: */
             if(M_num_fsd_bins>0)
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
+#endif
         }
-       
+
+#ifdef OASIS
         // -------------------------------------------------
         //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
         // -------------------------------------------------
@@ -6334,6 +6344,8 @@ FiniteElement::thermo(int dt)
                     throw std::logic_error("Wrong welding_type");
             }
         } 
+#endif
+
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
         M_snow_thick[i] = hs*M_conc[i];
@@ -6430,6 +6442,8 @@ FiniteElement::thermo(int dt)
                 M_time_relaxation_damage[i] = 1e36;
             }
         }
+
+#ifdef OASIS
         // -------------------------------------------------
         //! 9.b) Mechanical FSD healing 
         // -------------------------------------------------
@@ -6444,6 +6458,7 @@ FiniteElement::thermo(int dt)
             }
         }
         // -------------------------------------------------
+#endif
 
         //! 10) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
 
@@ -7295,6 +7310,8 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
+
+#ifdef OASIS
     // FSD
     M_conc_fsd.resize(M_num_fsd_bins);
     for(int k=0; k<M_num_fsd_bins; k++)
@@ -7313,6 +7330,7 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_cum_damage);
     M_cum_wave_damage = ModelVariable(ModelVariable::variableID::M_cum_wave_damage);//! \param M_cum_wave_damage (double) Level of accumulated damage (no healing accounted)
     M_variables_elt.push_back(&M_cum_wave_damage);
+#endif
 
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
@@ -7414,6 +7432,7 @@ FiniteElement::initModelVariables()
 }//initModelVariables
 
 
+#ifdef OASIS
 // -----------------------------------------------------------------
 //! simple function to init the floe size
 void
@@ -7598,6 +7617,7 @@ FiniteElement::initFsd()
     
  
 }//init FSD
+#endif
 
 
 #ifdef OASIS
@@ -8059,9 +8079,12 @@ FiniteElement::step()
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
+
+#ifdef OASIS
         // Update FSD in case conc. has been modified during regrid.
         if (M_num_fsd_bins>0)
             this ->updateFSD();
+#endif
         this->updateIceDiagnostics();
 
         // save outputs after regrid
@@ -8077,7 +8100,11 @@ FiniteElement::step()
         }
 
         // check the fields for nans etc after regrid
-        if( (vm["debugging.check_fields"].as<bool>())&& M_debug_fsd) 
+        if( (vm["debugging.check_fields"].as<bool>())
+#ifdef OASIS
+                && M_debug_fsd
+#endif
+                )
             this->checkFields();
             LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
     }
@@ -8183,9 +8210,11 @@ FiniteElement::step()
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
-    
+
+#ifdef OASIS
     if(M_num_fsd_bins>0)
         this -> updateFSD();
+#endif
 
     M_timer.tock("dynamics");
 
@@ -10762,8 +10791,11 @@ FiniteElement::checkConsistency()
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
     }
+
+#ifdef OASIS
     //FSD
     this->initFsd();
+#endif
 }//checkConsistency
 
 
@@ -14137,6 +14169,7 @@ FiniteElement::checkFields()
             }
         }
 
+#ifdef OASIS
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[i];
@@ -14156,6 +14189,7 @@ FiniteElement::checkFields()
                     crash_msg << " M_conc_thin ="<< M_conc_thin[i]<< " \n";
             }
         }
+#endif
 
         if((printout && i==itest) || crash)
         {
