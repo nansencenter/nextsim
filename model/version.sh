@@ -17,6 +17,7 @@ cat << EOF > version.hpp
 #define NEXTSIM_BRANCH_GIT  "$branch"
 #define NEXTSIM_COMMIT_GIT  "$commit"
 #define NEXTSIM_BUILD_TIME  "$date"
+#define NEXTSIMDIR          "$NEXTSIMDIR"
 #define CC_PATH             "$cc_path"
 #define CC_VERSION          "$cc_version"
 #define CXX_PATH            "$cxx_path"

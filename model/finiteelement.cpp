@@ -11897,6 +11897,7 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "C++ "  << CXX_PATH << " (version "<< CXX_VERSION << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << NEXTSIMDIR <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
