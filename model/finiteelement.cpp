@@ -4422,44 +4422,26 @@ FiniteElement::FETensors()
     M_Mass.assign(9,0);
     M_Diag.assign(9,0);
 
-    double const Dunit_factor=1./(1.-std::pow(nu0,2.));
-    /* first line of Dunit */
+    double Dunit_factor=1./(1.-std::pow(nu0,2.));
+    /* Stifness matrix
+     * 1  nu 0
+     * nu 1  0
+     * 0  0  (1-nu)/2
+     */
     M_Dunit[0]= Dunit_factor * 1.;
     M_Dunit[1]= Dunit_factor * nu0;
-    M_Dunit[2]= 0.;
-    /* second line of Dunit */
     M_Dunit[3]= Dunit_factor * nu0;
     M_Dunit[4]= Dunit_factor * 1.;
-    M_Dunit[5]= 0.;
-    /* third line of Dunit */
-    M_Dunit[6]= 0.;
-    M_Dunit[7]= 0.;
-    M_Dunit[8]= Dunit_factor * (1.-nu0)/2.0;
+    M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // Dunit for the pressure term
-    M_Dunit_comp[0]= 1.;
-    M_Dunit_comp[1]= 0.;
-    M_Dunit_comp[2]= 0.;
-    M_Dunit_comp[3]= 0.;
-    M_Dunit_comp[4]= 1.;
-    M_Dunit_comp[5]= 0.;
-    M_Dunit_comp[6]= 0.;
-    M_Dunit_comp[7]= 0.;
-    M_Dunit_comp[8]= 0.;
-
-    double p_coef_type = vm["dynamics.p_coef_type"].as<int>();
-    if (p_coef_type == 0)
-    {
-        M_Dunit_comp[8]= 0.5;
-    }
-    else if (p_coef_type == 1)
-    {
-        M_Dunit_comp[0]= Dunit_factor * 1.;
-        M_Dunit_comp[1]= Dunit_factor * nu0;
-        M_Dunit_comp[3]= Dunit_factor * nu0;
-        M_Dunit_comp[4]= Dunit_factor * 1.;
-        M_Dunit_comp[8]= Dunit_factor * (1.-nu0)/2.0;
-    }
+    // 'Stifness' for the pressure term
+    double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
+    Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
+    M_Dunit_comp[0]= Dunit_factor * 1.;
+    M_Dunit_comp[1]= Dunit_factor * pressure_nu;
+    M_Dunit_comp[3]= Dunit_factor * pressure_nu;
+    M_Dunit_comp[4]= Dunit_factor * 1.;
+    M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
 
     for (int i=0; i<3; ++i)
     {
