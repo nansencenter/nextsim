@@ -691,7 +691,6 @@ FiniteElement::assignVariables()
 
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
-
 }//assignVariables
 
 
@@ -1058,8 +1057,6 @@ FiniteElement::initBamg()
 void
 FiniteElement::initOptAndParam()
 {
-    //days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
-
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     M_log_level = Environment::logLevel();
 
