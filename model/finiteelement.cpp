@@ -1951,11 +1951,6 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
-//! - 3 shape functions N_0, N_1, N_2 satisfy
-//!     N_k(x_j,y_j)=\delta_{kj}
-//! - this function calculates their gradients
-//!   ie [[N0_x, N1_x, N2_x],
-//!       [N0_y, N1_y, N2_y]]
 //! Called by the FETensors() function.
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
@@ -1971,12 +1966,20 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
-    for (int k=0; k<3; ++k)
+
+    for (int k=0; k<6; ++k)
     {
-        int const kp1 = (k+1)%3;
-        int const kp2 = (k+2)%3;
-        coeff[k]   = (y[kp1]-y[kp2])/jac;
-        coeff[k+3] = (x[kp2]-x[kp1])/jac;
+        int kp1 = (k+1)%3;
+        int kp2 = (k+2)%3;
+
+        if (k<3)
+        {
+            coeff[k] = (y[kp1]-y[kp2])/jac;
+        }
+        else
+        {
+            coeff[k] = (x[kp2]-x[kp1])/jac;
+        }
     }
 
     return coeff;
@@ -2000,12 +2003,20 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mes
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
-    for (int k=0; k<3; ++k)
+
+    for (int k=0; k<6; ++k)
     {
-        int const kp1 = (k+1)%3;
-        int const kp2 = (k+2)%3;
-        coeff[k]   = (y[kp1]-y[kp2])/jac;
-        coeff[k+3] = (x[kp2]-x[kp1])/jac;
+        int kp1 = (k+1)%3;
+        int kp2 = (k+2)%3;
+
+        if (k<3)
+        {
+            coeff[k] = (y[kp1]-y[kp2])/jac;
+        }
+        else
+        {
+            coeff[k] = (x[kp2]-x[kp1])/jac;
+        }
     }
 
     return coeff;
@@ -3984,32 +3995,29 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Identical values for all the elements -----------
     // coriolis term
-    double beta0 = 0.;
-    double beta1 = 0.;
-    double beta2 = 0.;
-    if (vm["dynamics.use_coriolis"].as<bool>())
+    double beta0;
+    double beta1;
+    double beta2;
+    if (pcpt > 1)
     {
-        if (pcpt > 1)
-        {
-            // Adams-Bashfort 3 (AB3)
-            beta0 = 23./12;
-            beta1 =-16./12;
-            beta2 =  5./12;
-        }
-        else if (pcpt == 1)
-        {
-            // Adams-Bashfort 2 (AB2)
-            beta0 = 3/2;
-            beta1 =-1/2;
-            beta2 = 0  ;
-        }
-        else if (pcpt == 0)
-        {
-            // Euler explicit (Fe)
-            beta0 = 1 ;
-            beta1 = 0 ;
-            beta2 = 0 ;
-        }
+        // Adams-Bashfort 3 (AB3)
+        beta0 = 23./12;
+        beta1 =-16./12;
+        beta2 =  5./12;
+    }
+    else if (pcpt == 1)
+    {
+        // Adams-Bashfort 2 (AB2)
+        beta0 = 3/2;
+        beta1 =-1/2;
+        beta2 = 0  ;
+    }
+    else if (pcpt == 0)
+    {
+        // Euler explicit (Fe)
+        beta0 = 1 ;
+        beta1 = 0 ;
+        beta2 = 0 ;
     }
 
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
@@ -4150,10 +4158,10 @@ FiniteElement::assemble(int pcpt)
 
             coef = (coef<coef_min) ? coef_min : coef ;
 
-            // Mass of the element is the mass of the thin+thick ice,
-            // the snow and the water in the leads.
-            // This works out to the following (Rampal et al, 2016)
-            mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
+            if (vm["dynamics.use_coriolis"].as<bool>())
+                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
+            else
+                mass_e = 0.;
 
             /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
@@ -4168,12 +4176,12 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
-        }//ice present
+            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;               /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
+            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+        }
 
         std::vector<int> rindices(6); //new
         std::vector<int> cindices(6);
@@ -4228,7 +4236,7 @@ FiniteElement::assemble(int pcpt)
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1)
-             * col = (mwIndex)it[2*j]-1; -1 to use the indice convention of C
+             * col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
@@ -4260,7 +4268,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multiply with rho and mask out no-ice points
+            // Multply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4272,93 +4280,86 @@ FiniteElement::assemble(int pcpt)
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
 
             /* Skip ghost nodes */
-            if ((M_elements[cpt]).ghostNodes[j])
-                continue;
-
-            l_j = l_j + 1;
-            for(int i=0; i<3; i++)
+            if (!((M_elements[cpt]).ghostNodes[j]))
             {
-                /* Row corresponding to indice i (we also assemble terms in row+1) */
+                l_j = l_j + 1;
 
-                /* Select the nodal weight values from M_loc */
-                mloc = M_Mass[3*j+i];
-                dloc = M_Diag[3*j+i];
-
-                b0tj_sigma_hu = 0.;
-                b0tj_sigma_hv = 0.;
-
-                for(int k=0; k<3; k++)
+                for(int i=0; i<3; i++)
                 {
-                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
-                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
-                }
+                    /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                /* ---------- UU component */
+                    /* Select the nodal weight values from M_loc */
+                    mloc = M_Mass[3*j+i];
+                    dloc = M_Diag[3*j+i];
 
-                duu = surface_e*( mloc*(coef_V)
-                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                  +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
+                    b0tj_sigma_hu = 0.;
+                    b0tj_sigma_hv = 0.;
 
-                /* ---------- VU component */
-                dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
+                    for(int k=0; k<3; k++)
+                    {
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                    }
 
-                /* ---------- UV component */
-                duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
+                    /* ---------- UU component */
 
-                /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_V)
-                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                  +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
+                    duu = surface_e*( mloc*(coef_V)
+                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                      +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
 
-                data[(2*l_j  )*6+2*i  ] = duu;
-                data[(2*l_j+1)*6+2*i  ] = dvu;
-                data[(2*l_j  )*6+2*i+1] = duv;
-                data[(2*l_j+1)*6+2*i+1] = dvv;
+                    /* ---------- VU component */
+                    dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
 
-                fvdata[2*i] += surface_e*( mloc*(
-                                                 +coef_X
-                                                 +coef_V*vt_u
-                                                 +coef_C*Vcor_index_v
-                                                 )
-                                           +dloc*(
-                                                  +coef_Vair*wind_u
-                                                  +coef_Voce*cos_ocean_turning_angle*ocean_u
-                                                  -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
-                                                  )
-                                           - b0tj_sigma_hu/3
-                                           // NB we are inside a j loop and b0tj_sigma_hu
-                                           // is independent of j, so we do this step 3 times,
-                                           // which is why we have to divide by 3
-                                           );
+                    /* ---------- UV component */
+                    duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
 
-                fvdata[2*i+1] += surface_e*( mloc*(
-                                                   +coef_Y
-                                                   +coef_V*vt_v
-                                                   -coef_C*Vcor_index_u
-                                                   )
-                                             +dloc*(
-                                                    +coef_Vair*wind_v
-                                                    +coef_Voce*cos_ocean_turning_angle*ocean_v
-                                                    +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
-                                                    )
-                                             - b0tj_sigma_hv/3
-                                             // NB we are inside a j loop and b0tj_sigma_hv
-                                             // is independent of j, so we do this step 3 times,
-                                             // which is why we have to divide by 3
-                                             );
+                    /* ---------- VV component */
+                    dvv = surface_e*( mloc*(coef_V)
+                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                      +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
+
+                    data[(2*l_j  )*6+2*i  ] = duu;
+                    data[(2*l_j+1)*6+2*i  ] = dvu;
+                    data[(2*l_j  )*6+2*i+1] = duv;
+                    data[(2*l_j+1)*6+2*i+1] = dvv;
+
+                    fvdata[2*i] += surface_e*( mloc*(
+                                                     +coef_X
+                                                     +coef_V*vt_u
+                                                     +coef_C*Vcor_index_v
+                                                     )
+                                               +dloc*(
+                                                      +coef_Vair*wind_u
+                                                      +coef_Voce*cos_ocean_turning_angle*ocean_u
+                                                      -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
+                                                      )
+                                               - b0tj_sigma_hu/3);
+
+                    fvdata[2*i+1] += surface_e*( mloc*(
+                                                       +coef_Y
+                                                       +coef_V*vt_v
+                                                       -coef_C*Vcor_index_u
+                                                       )
+                                                 +dloc*(
+                                                        +coef_Vair*wind_v
+                                                        +coef_Voce*cos_ocean_turning_angle*ocean_v
+                                                        +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
+                                                        )
+                                                 - b0tj_sigma_hv/3);
 #ifdef OASIS
-                if( coupler_with_waves )
-                {
-                    fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
-                    fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
-                }
+                    if( coupler_with_waves )
+                    {
+                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                    }
 #endif
-            }//loop over i
-        }//loop over j
+                }
+            }
+        }
 
         // update matrix
         M_matrix->addMatrix(&rindices[0], rindices.size(), &cindices[0], cindices.size(), &data[0]);
@@ -4366,7 +4367,8 @@ FiniteElement::assemble(int pcpt)
         // update vector
         M_vector->addVector(&cindices[0], cindices.size(), &fvdata[0]);
 
-    }//loop over elements
+
+    }
 
     // close petsc matrix
     LOG(DEBUG) <<"Closing matrix starts\n";
@@ -4446,7 +4448,7 @@ FiniteElement::compute_B0_Dunit_B0T(std::vector<double>& Dunit, std::vector<doub
         }
     }
     /*
-     * B0_Dunit_B0T should be symmetric but is not exactly after the calculation here above
+     * B0_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
      * because the sequence of operation is not the same for the component i,j and j,i.
      * We force the matrix to be symmetric by copying the upper part onto the lower part
      */
@@ -4479,7 +4481,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stiffness' for the pressure term
+    // 'Stifness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4501,18 +4503,6 @@ FiniteElement::FETensors()
     M_B0_Dunit_B0T.resize(M_num_elements);
     M_B0_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
-    //! B0T is a 3x6 matrix
-    //! - rows correspond to the 3 strain rate components,
-    //!   [u_x, v_y, u_y+v_x];
-    //! - columns correspond to the velocity components at the 3 nodes
-    //!   [u0, v0, u1, v1, u2, v2]
-    //! - shape_coeff contains the x,y derivatives of the 3 basis functions
-    //!   [[N0_x, N1_x, N2_x],
-    //!    [N0_y, N1_y, N2_y]]
-    //! - B0T has elements:
-    //!   [ [N0_x, 0   , N1_x, 0   , N2_x, 0   ],
-    //!     [0   , N0_y, 0   , N1_y, 0   , N2_y],
-    //!     [N0_y, N0_x, N1_y, N1_x, N2_y, N2_x] ]
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0_Dunit_B0T(36,0);
@@ -4523,12 +4513,18 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
-        for (int i=0; i<3; ++i)
+        for (int i=0; i<18; ++i)
         {
-            B0T[2*i]    = shapecoeff[i];
-            B0T[7+2*i]  = shapecoeff[i+3];
-            B0T[12+2*i] = shapecoeff[i+3];
-            B0T[13+2*i] = shapecoeff[i];
+            if (i < 3)
+            {
+                B0T[2*i] = shapecoeff[i];
+                B0T[12+2*i] = shapecoeff[i+3];
+                B0T[13+2*i] = shapecoeff[i];
+            }
+            else if (i < 6)
+            {
+                B0T[2*i+1] = shapecoeff[i];
+            }
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
