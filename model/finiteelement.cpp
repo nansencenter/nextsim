@@ -4222,6 +4222,7 @@ FiniteElement::assemble(int pcpt)
         if(M_divergence[cpt] < 0.)
         {
             coef_P = compression_factor*std::pow(M_thick[cpt],exponent_compression_factor)*std::exp(ridging_exponent*(1-M_conc[cpt]));
+            % We should consider using the norm of Dunit * epsilon_veloc
             coef_P = coef_P/(std::abs(M_divergence[cpt])+divergence_min);
         }
         D_pressure[cpt] = coef_P * M_divergence[cpt];
