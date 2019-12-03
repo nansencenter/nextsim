@@ -4239,7 +4239,7 @@ FiniteElement::assemble(int pcpt)
         for(int j=0; j<3; j++)
         {
             /* Column corresponding to indice j (we also assemble terms in col+1)
-             * col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C
+             * col = (mwIndex)it[2*j]-1; -1 to use the indice convention of C
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
@@ -4271,7 +4271,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multply with rho and mask out no-ice points
+            // Multiply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4340,7 +4340,11 @@ FiniteElement::assemble(int pcpt)
                                                       +coef_Voce*cos_ocean_turning_angle*ocean_u
                                                       -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
                                                       )
-                                               - b0tj_sigma_hu/3);
+                                               - b0tj_sigma_hu/3
+                                               // NB we are inside a j loop and b0tj_sigma_hu
+                                               // is independent of j, so we do this step 3 times,
+                                               // which is why we have to divide by 3
+                                               );
 
                     fvdata[2*i+1] += surface_e*( mloc*(
                                                        +coef_Y
@@ -4352,7 +4356,11 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*cos_ocean_turning_angle*ocean_v
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
-                                                 - b0tj_sigma_hv/3);
+                                                 - b0tj_sigma_hv/3
+                                                 // NB we are inside a j loop and b0tj_sigma_hv
+                                                 // is independent of j, so we do this step 3 times,
+                                                 // which is why we have to divide by 3
+                                                 );
 #ifdef OASIS
                     if( coupler_with_waves )
                     {
@@ -4360,9 +4368,9 @@ FiniteElement::assemble(int pcpt)
                         fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
                     }
 #endif
-                }
-            }
-        }
+                }//loop over i
+            }//node j is not a ghost
+        }//loop over j
 
         // update matrix
         M_matrix->addMatrix(&rindices[0], rindices.size(), &cindices[0], cindices.size(), &data[0]);
