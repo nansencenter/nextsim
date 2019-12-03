@@ -4302,7 +4302,6 @@ FiniteElement::assemble(int pcpt)
                     }
 
                     /* ---------- UU component */
-
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
                                       +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
