@@ -727,7 +727,7 @@ private:
     ModelVariable M_age_det;
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
-    ModelVariable M_divergence;         // Divergence for the pressure term
+    ModelVariable M_divergence;         // Divergence (used by the pressure term)
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
