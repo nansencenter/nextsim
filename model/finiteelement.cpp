@@ -4159,6 +4159,9 @@ FiniteElement::assemble(int pcpt)
             coef = (coef<coef_min) ? coef_min : coef ;
 
             if (vm["dynamics.use_coriolis"].as<bool>())
+                // Mass of the element is the mass of the thin+thick ice,
+                // the snow and the water in the leads.
+                // This works out to the following (Rampal et al, 2016)
                 mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
             else
                 mass_e = 0.;
