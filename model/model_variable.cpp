@@ -347,7 +347,7 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_update";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
