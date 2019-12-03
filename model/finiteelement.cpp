@@ -1951,6 +1951,11 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
+//! - 3 shape functions N_0, N_1, N_2 satisfy
+//!     N_k(x_j,y_j)=\delta_{kj}
+//! - this function calculates their gradients
+//!   ie [[N0_x, N1_x, N2_x],
+//!       [N0_y, N1_y, N2_y]]
 //! Called by the FETensors() function.
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
