@@ -4463,7 +4463,7 @@ FiniteElement::FETensors()
     M_Mass.assign(9,0);
     M_Diag.assign(9,0);
 
-    double Dunit_factor=1./(1.-std::pow(nu0,2.));
+    double Dunit_factor=1./(1.-nu0*nu0);
     /* Stiffness matrix
      * 1  nu 0
      * nu 1  0
