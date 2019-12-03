@@ -4495,7 +4495,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stifness' for the pressure term
+    // 'Stiffness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4517,6 +4517,18 @@ FiniteElement::FETensors()
     M_B0_Dunit_B0T.resize(M_num_elements);
     M_B0_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
+    //! B0T is a 3x6 matrix
+    //! - rows correspond to the 3 strain rate components,
+    //!   [u_x, v_y, u_y+v_x];
+    //! - columns correspond to the velocity components at the 3 nodes
+    //!   [u0, v0, u1, v1, u2, v2]
+    //! - shape_coeff contains the x,y derivatives of the 3 basis functions
+    //!   [[N0_x, N1_x, N2_x],
+    //!    [N0_y, N1_y, N2_y]]
+    //! - B0T has elements:
+    //!   [ [N0_x, 0   , N1_x, 0   , N2_x, 0   ],
+    //!     [0   , N0_y, 0   , N1_y, 0   , N2_y],
+    //!     [N0_y, N0_x, N1_y, N1_x, N2_y, N2_x] ]
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0_Dunit_B0T(36,0);
