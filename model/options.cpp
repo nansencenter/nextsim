@@ -353,7 +353,7 @@ namespace Nextsim
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
             ("dynamics.compression_factor", po::value<double>()->default_value( 12000. ), "Max pressure for damaged converging ice")
             ("dynamics.pressure_nu", po::value<int>()->default_value( 0. ),
-             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stifness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
+             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
 
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
@@ -508,4 +508,3 @@ namespace Nextsim
     }
 
 } // Nextsim
-
