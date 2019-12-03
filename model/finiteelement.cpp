@@ -4283,93 +4283,92 @@ FiniteElement::assemble(int pcpt)
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
 
             /* Skip ghost nodes */
-            if (!((M_elements[cpt]).ghostNodes[j]))
+            if ((M_elements[cpt]).ghostNodes[j])
+                continue;
+
+            l_j = l_j + 1;
+            for(int i=0; i<3; i++)
             {
-                l_j = l_j + 1;
+                /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                for(int i=0; i<3; i++)
+                /* Select the nodal weight values from M_loc */
+                mloc = M_Mass[3*j+i];
+                dloc = M_Diag[3*j+i];
+
+                b0tj_sigma_hu = 0.;
+                b0tj_sigma_hv = 0.;
+
+                for(int k=0; k<3; k++)
                 {
-                    /* Row corresponding to indice i (we also assemble terms in row+1) */
+                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
+                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
+                }
 
-                    /* Select the nodal weight values from M_loc */
-                    mloc = M_Mass[3*j+i];
-                    dloc = M_Diag[3*j+i];
+                /* ---------- UU component */
 
-                    b0tj_sigma_hu = 0.;
-                    b0tj_sigma_hv = 0.;
+                duu = surface_e*( mloc*(coef_V)
+                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                  +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
+                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
 
-                    for(int k=0; k<3; k++)
-                    {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                    }
+                /* ---------- VU component */
+                dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
+                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
 
-                    /* ---------- UU component */
+                /* ---------- UV component */
+                duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
+                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
 
-                    duu = surface_e*( mloc*(coef_V)
-                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
-                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
+                /* ---------- VV component */
+                dvv = surface_e*( mloc*(coef_V)
+                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                  +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
+                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
 
-                    /* ---------- VU component */
-                    dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
-                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
+                data[(2*l_j  )*6+2*i  ] = duu;
+                data[(2*l_j+1)*6+2*i  ] = dvu;
+                data[(2*l_j  )*6+2*i+1] = duv;
+                data[(2*l_j+1)*6+2*i+1] = dvv;
 
-                    /* ---------- UV component */
-                    duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
-                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
+                fvdata[2*i] += surface_e*( mloc*(
+                                                 +coef_X
+                                                 +coef_V*vt_u
+                                                 +coef_C*Vcor_index_v
+                                                 )
+                                           +dloc*(
+                                                  +coef_Vair*wind_u
+                                                  +coef_Voce*cos_ocean_turning_angle*ocean_u
+                                                  -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
+                                                  )
+                                           - b0tj_sigma_hu/3
+                                           // NB we are inside a j loop and b0tj_sigma_hu
+                                           // is independent of j, so we do this step 3 times,
+                                           // which is why we have to divide by 3
+                                           );
 
-                    /* ---------- VV component */
-                    dvv = surface_e*( mloc*(coef_V)
-                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
-                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
-
-                    data[(2*l_j  )*6+2*i  ] = duu;
-                    data[(2*l_j+1)*6+2*i  ] = dvu;
-                    data[(2*l_j  )*6+2*i+1] = duv;
-                    data[(2*l_j+1)*6+2*i+1] = dvv;
-
-                    fvdata[2*i] += surface_e*( mloc*(
-                                                     +coef_X
-                                                     +coef_V*vt_u
-                                                     +coef_C*Vcor_index_v
-                                                     )
-                                               +dloc*(
-                                                      +coef_Vair*wind_u
-                                                      +coef_Voce*cos_ocean_turning_angle*ocean_u
-                                                      -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
-                                                      )
-                                               - b0tj_sigma_hu/3
-                                               // NB we are inside a j loop and b0tj_sigma_hu
-                                               // is independent of j, so we do this step 3 times,
-                                               // which is why we have to divide by 3
-                                               );
-
-                    fvdata[2*i+1] += surface_e*( mloc*(
-                                                       +coef_Y
-                                                       +coef_V*vt_v
-                                                       -coef_C*Vcor_index_u
-                                                       )
-                                                 +dloc*(
-                                                        +coef_Vair*wind_v
-                                                        +coef_Voce*cos_ocean_turning_angle*ocean_v
-                                                        +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
-                                                        )
-                                                 - b0tj_sigma_hv/3
-                                                 // NB we are inside a j loop and b0tj_sigma_hv
-                                                 // is independent of j, so we do this step 3 times,
-                                                 // which is why we have to divide by 3
-                                                 );
+                fvdata[2*i+1] += surface_e*( mloc*(
+                                                   +coef_Y
+                                                   +coef_V*vt_v
+                                                   -coef_C*Vcor_index_u
+                                                   )
+                                             +dloc*(
+                                                    +coef_Vair*wind_v
+                                                    +coef_Voce*cos_ocean_turning_angle*ocean_v
+                                                    +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
+                                                    )
+                                             - b0tj_sigma_hv/3
+                                             // NB we are inside a j loop and b0tj_sigma_hv
+                                             // is independent of j, so we do this step 3 times,
+                                             // which is why we have to divide by 3
+                                             );
 #ifdef OASIS
-                    if( coupler_with_waves )
-                    {
-                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
-                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
-                    }
+                if( coupler_with_waves )
+                {
+                    fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                    fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                }
 #endif
-                }//loop over i
-            }//node j is not a ghost
+            }//loop over i
         }//loop over j
 
         // update matrix
@@ -4378,8 +4377,7 @@ FiniteElement::assemble(int pcpt)
         // update vector
         M_vector->addVector(&cindices[0], cindices.size(), &fvdata[0]);
 
-
-    }
+    }//loop over elements
 
     // close petsc matrix
     LOG(DEBUG) <<"Closing matrix starts\n";
