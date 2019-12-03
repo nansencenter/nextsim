@@ -591,7 +591,6 @@ FiniteElement::assignVariables()
         M_ocean_elements_dataset.grid.loaded=false;
     }
 
-#if 1
 /* This shouldn't be needed - and it messes up the coupling
  * But let's keep it commented for now, just in case.
  *    // reload the dataset
@@ -637,7 +636,10 @@ FiniteElement::assignVariables()
     M_atmosphere_bis_elements_dataset.interpolated=false;
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
-
+#ifdef OASIS 
+    M_wave_nodes_dataset.interpolated = false;
+    M_wave_elements_dataset.interpolated = false;
+#endif
     M_ice_topaz_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
@@ -648,9 +650,8 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
-#endif
 
-    // //loop over vector of pointers to datasets defined in initForcings()
+    // //loop over vector of pointers to datasets defined in initExternalData()
     // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
     // {
     //     if (M_rank == 0)
@@ -668,13 +669,13 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
+
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
@@ -720,6 +721,12 @@ FiniteElement::initExternalData()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
+#ifdef OASIS
+    LOG(DEBUG) <<"Initialize forcingWaves\n";
+    if (vm["coupler.with_waves"].as<bool>())
+        this->forcingWaves();
+#endif
 
     //! - 3) Initializes the bathymetry using the initBathymetry() function,
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -842,6 +849,16 @@ FiniteElement::initDatasets()
         M_nesting_distance_elements_dataset=DataSet("nesting_distance_elements");
         M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
+
+#ifdef OASIS
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
+        M_datasets_regrid.push_back(&M_wave_nodes_dataset);
+        M_wave_elements_dataset = DataSet("wave_cpl_elements");
+        M_datasets_regrid.push_back(&M_wave_elements_dataset);
+    }
+#endif
 
     //! - 4) Initializes the ice-init datasets
     //       TODO these probably don't need to be global variables
@@ -1218,8 +1235,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    this->getOptionFromMap(
-            M_thermo_type, "setup.thermo-type", str2thermo);
+    M_thermo_type = this->getOptionFromMap("setup.thermo-type", str2thermo);
         //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
@@ -1227,8 +1243,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
         ("basic", setup::OceanHeatfluxScheme::BASIC)
         ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
-    this->getOptionFromMap(
-            M_Qio_type, "thermo.Qio-type", str2qiot);
+    M_Qio_type = this->getOptionFromMap("thermo.Qio-type", str2qiot);
         //! \param M_Qio_type (enum) Option on the ocean heat flux scheme (basic or exchange)
     LOG(DEBUG)<< "M_Qio_type: "<< (int)M_Qio_type <<"\n";
 
@@ -1236,8 +1251,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    this->getOptionFromMap(
-            M_freezingpoint_type, "thermo.freezingpoint-type", str2fpt);
+    M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
 
     //! Turn on snow-to-ice formation when flooding
@@ -1259,8 +1273,7 @@ FiniteElement::initOptAndParam()
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    this->getOptionFromMap(
-            M_ocean_bulk_formula, "thermo.ocean_bulk_formula", str2oblk);
+    M_ocean_bulk_formula = this->getOptionFromMap("thermo.ocean_bulk_formula", str2oblk);
         //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes
         //! (only when compiled together with aerobulk)
     LOG(DEBUG)<< "M_ocean_bulk_formula: "<< (int)M_ocean_bulk_formula <<"\n";
@@ -1278,8 +1291,7 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME);
-    this->getOptionFromMap(
-            M_atmosphere_type, "setup.atmosphere-type", str2atmosphere);
+    M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
@@ -1320,8 +1332,7 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED);
-    this->getOptionFromMap(
-            M_ocean_type, "setup.ocean-type", str2ocean);
+    M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
         //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
@@ -1336,14 +1347,14 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
+        ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
         ("creg", setup::IceType::CREG)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
-    this->getOptionFromMap(
-            M_ice_type, "setup.ice-type", str2conc);
+    M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
@@ -1351,8 +1362,7 @@ FiniteElement::initOptAndParam()
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
-    this->getOptionFromMap(
-            M_dynamics_type, "setup.dynamics-type", str2dynamics);
+    M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
     LOG(DEBUG) <<"DynamicsType= "<< (int)M_dynamics_type <<"\n";
 
@@ -1360,27 +1370,61 @@ FiniteElement::initOptAndParam()
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
         //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
-    this->getOptionFromMap(
-            M_bathymetry_type, "setup.bathymetry-type", str2bathymetry);
+    M_bathymetry_type = this->getOptionFromMap("setup.bathymetry-type", str2bathymetry);
     LOG(DEBUG) <<"BathymetryType= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    this->getOptionFromMap(
-            M_basal_stress_type, "setup.basal_stress-type", str2basal_stress);
+    M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
+#ifdef OASIS
+    //! FSD Initialization
+    M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
+    const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
+        ("constant_size", setup::FSDType::CONSTANT_SIZE) 
+        ("constant_area", setup::FSDType::CONSTANT_AREA);
+    M_fsd_type = this->getOptionFromMap("wave_coupling.fsd_type", str2fsd);
+    //
+    M_fsd_bin_cst_width= vm["wave_coupling.fsd_bin_cst_width"].as<double>();
+    M_fsd_min_floe_size= vm["wave_coupling.fsd_min_floe_size"].as<double>();
 
+    M_floes_flex_strength = vm["wave_coupling.floes_flex_strength"].as<double>();
+    M_floes_flex_young    = vm["wave_coupling.floes_flex_young"].as<double>();
+
+    //! If FSD : Welding
+    const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
+        ("none", setup::WeldingType::NONE) 
+        ("roach", setup::WeldingType::ROACH);
+    M_welding_type = this->getOptionFromMap("wave_coupling.welding_type", str2welding);
+    M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
+    M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
+
+    //! If FSD : Break-up (redistribution) 
+    const boost::unordered_map<const std::string, setup::BreakupType> str2breakup= boost::assign::map_list_of
+        ("none", setup::BreakupType::NONE) 
+        ("zhang", setup::BreakupType::ZHANG)
+        ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
+        ("dumont", setup::BreakupType::DUMONT);
+    M_breakup_type = this->getOptionFromMap("wave_coupling.breakup_type", str2breakup);
+    M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
+    M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
+    //! FSD : Misc. parameters
+    M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
+    M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
+    M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
+    M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
+    M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
+#endif
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
         ("from_split", setup::MeshType::FROM_SPLIT);
-    this->getOptionFromMap(
-            M_mesh_type, "mesh.type", str2mesh);
+    M_mesh_type = this->getOptionFromMap("mesh.type", str2mesh);
         //! \param M_mesh_type (enum) Mesh type (unref or split)
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
@@ -1408,8 +1452,7 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    this->getOptionFromMap(
-            M_moorings_file_length, "moorings.file_length", str2mooringsfl);
+    M_moorings_file_length = this->getOptionFromMap("moorings.file_length", str2mooringsfl);
         //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
     LOG(DEBUG) << "M_moorings_file_length: " << (int)M_moorings_file_length<<"\n";
@@ -1424,8 +1467,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
-    this->getOptionFromMap(
-            M_partitioner, "mesh.partitioner", str2partitioner);
+    M_partitioner = this->getOptionFromMap("mesh.partitioner", str2partitioner);
         //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
     LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
 
@@ -1433,8 +1475,7 @@ FiniteElement::initOptAndParam()
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
 
-    this->getOptionFromMap(
-            M_partition_space, "mesh.partitioner-space", str2partitionspace);
+    M_partition_space = this->getOptionFromMap("mesh.partitioner-space", str2partitionspace);
         //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
     LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
 
@@ -1451,9 +1492,9 @@ FiniteElement::initOptAndParam()
 //! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
 //! Called by initOptAndParam()
 template<typename enum_type>
-void
-FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
-        boost::unordered_map<const std::string, enum_type> map) const
+enum_type
+FiniteElement::getOptionFromMap(std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map)
 {
 
     if(vm.count(opt_name)==0)
@@ -1472,7 +1513,7 @@ FiniteElement::getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
         throw std::runtime_error("Invalid option for "
                 +opt_name + ": " + option_str+"\n");
     }
-    opt_val = map[option_str];
+    return map[option_str];
 }
 
 
@@ -2834,8 +2875,6 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     // scatter back verctor from root to all processes
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
-
-
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -3983,6 +4022,10 @@ FiniteElement::assemble(int pcpt)
 
     double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
+#ifdef OASIS
+    bool coupler_with_waves = vm["coupler.with_waves"].as<bool>();
+#endif
+
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
@@ -4010,7 +4053,7 @@ FiniteElement::assemble(int pcpt)
         double coef_min = 100.;
 
         // values used when no ice or when ice too thin
-        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
+        double forcing_switch    = 0.;  // forcing_switch is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
         double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
@@ -4129,7 +4172,7 @@ FiniteElement::assemble(int pcpt)
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
 
-            coef_drag  = 1.;
+            forcing_switch  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
             coef_V     = mass_e/dtime_step;               /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
@@ -4209,9 +4252,9 @@ FiniteElement::assemble(int pcpt)
             coef_basal = basal_k2/norm_Vice;
 
             // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+            coef_Voce  *= forcing_switch*physical::rhow;
+            coef_Vair  *= forcing_switch*physical::rhoa;
+            coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
             D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
@@ -4264,7 +4307,6 @@ FiniteElement::assemble(int pcpt)
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
-                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4277,7 +4319,6 @@ FiniteElement::assemble(int pcpt)
                                                - b0tj_sigma_hu/3);
 
                     fvdata[2*i+1] += surface_e*( mloc*(
-                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -4288,6 +4329,13 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
                                                  - b0tj_sigma_hv/3);
+#ifdef OASIS
+                    if( coupler_with_waves )
+                    {
+                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                    }
+#endif
                 }
             }
         }
@@ -4589,6 +4637,10 @@ FiniteElement::update()
                 M_conc_thin[cpt] *= surf_ratio;
                 M_hs_thin[cpt] *= surf_ratio;
             }
+#ifdef OASIS
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_fsd[k][cpt] *= surf_ratio;
+#endif
         }
 
         /*======================================================================
@@ -4666,6 +4718,7 @@ FiniteElement::update()
 
         if(new_conc<M_conc[cpt])
         {
+            //need to do ridging
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
         M_conc[cpt]=new_conc;
@@ -4683,7 +4736,6 @@ FiniteElement::update()
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
-
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
@@ -4776,7 +4828,12 @@ FiniteElement::update()
                     tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
 
                 if(tmp>M_damage[cpt])
+                {
+#ifdef OASIS
+                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ; 
+#endif
                     M_damage[cpt] = min(tmp, 1.0);
+                }
             }
         }
         else // if M_conc or M_thick too low, set sigma to 0.
@@ -4795,7 +4852,6 @@ FiniteElement::update()
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
         /* Ice damage
          * We use now a constant healing rate defined as 1/time_recovery_damage
          * so that we are now able to reset the damage to 0.
@@ -4809,6 +4865,618 @@ FiniteElement::update()
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }//loop over elements
 }//update
+
+
+#ifdef OASIS
+//------------------------------------------------------------------------------------------------------
+//! Redistribute the floes in the FSD after break_up if prob[i]>0
+//! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
+//------------------------------------------------------------------------------------------------------
+void
+FiniteElement::redistributeFSD()
+{
+    
+    std::vector<double> P(M_num_fsd_bins) ;
+    //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
+    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+    const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef3 = vm["wave_coupling.breakup_coef3"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double prob_cutoff= vm["wave_coupling.breakup_prob_cutoff"].as<double>(); ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
+    std::stringstream crash_msg;
+    bool crash = false;
+    M_breakup_in_dt = false ;
+    for (int i=0; i<M_num_elements; i++)
+    {
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+           ctot += M_conc_thin[i];
+        if (ctot>0)
+        {
+            // don't try to break if there are no waves
+            double P_inf =0. ;
+            if (M_wlbk[i]<500.-1.)
+                P_inf=1. ;
+            if( P_inf <= prob_cutoff)
+                continue ;
+            M_breakup_in_dt=true ;
+            if (M_distinguish_mech_fsd)
+            {    
+            //! As break-up indeed occurs reset "real" FSD to mechanical FSD
+               for(int j=0;j<M_num_fsd_bins;j++)
+               { 
+                   M_conc_fsd[j][i]= M_conc_mech_fsd[j][i] ;
+               } 
+            }
+            // Sea ice properties
+            double  sea_ice_thickness = 0;
+            if (M_breakup_cell_average_thickness)
+                sea_ice_thickness = M_thick[i] ;
+            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
+               
+            sea_ice_thickness = std::max(M_breakup_thick_min,sea_ice_thickness) ;
+
+            double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
+                                            (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
+                                          , 0.25 ) ;
+            //! Compute the wavelength associated with Tm02
+            double  lambda= M_wlbk[i] ;
+            // Now useless
+            double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
+            //int     N_waves = cpl_time_step /(M_tm02[i]) ;
+
+            double  tau_w =0.;
+             //! Compute wave induced break-up probability for the different floe size categories
+            for (int j=0; j<M_num_fsd_bins; j++)
+            {
+                //! 1. Compute the broken area in each category
+                P[j] = P_inf ;
+                //! 1.a Probability that the wave-induced strain is over the flex. failure
+                int const breakup_prob_type =  vm["wave_coupling.breakup_prob_type"].as<int>();
+                double breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
+                double  broken_area =0.;
+                switch (breakup_prob_type)
+                {
+                    case 0:
+                        tau_w = breakup_timescale_tuning   ;
+                        P[j] =  P[j]* (1.-std::exp(-P[j]*cpl_time_step/tau_w) )    ;
+                  //      P[j] = P[j]*cpl_time_step/tau_w     ;
+                        break;
+                    default:
+                        std::cout << "breakup_prob_type= " << breakup_prob_type << "\n";
+                        throw std::logic_error("Wrong breakup_prob_type");
+                }
+                //! 1.b Probability that the ice floe actually breaks (depends on lambda wave, floe size and sea ice thickness )
+                // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
+                double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-coef1*lambda) / (coef2*lambda) ) ) ;
+                double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / (coef3*d_flex) ) ) ;
+                switch (M_breakup_type)
+                {
+                    //! 2. Redistribute the broken sea ice area 
+                    //! So far, redistribution also occurs within the broken category
+                    case (setup::BreakupType::ZHANG):
+                    {
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                            M_conc_fsd[j][i] -= broken_area ;
+                            //! Define a redistributor beta (Zhang et al,.2015)
+                            //! whith uniform redistribution in term of area, favorises small floes
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
+                                M_conc_fsd[k][i] +=  broken_area *beta   ;
+                            }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::UNIFORM_SIZE):
+                    {
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
+                        {
+                             broken_area= M_conc_fsd[j][i] * P[j] ;
+                             M_conc_fsd[j][i] -= broken_area ;
+                            
+                             //!Define a redistributor beta 
+                             //! with uniform redistribution of floes for sizes below the broken categories
+                             //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                             for (int k=0; k<=j ; k++)
+                             {
+                                 double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                             /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
+                                 M_conc_fsd[k][i] +=  broken_area *beta   ;
+                             }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::DUMONT):
+                    {
+                        //! Defining fragility as the probability that floes of a given size will break...
+                        double fragility =  lim_dflex * lim_lambda ;
+                        if (fragility>0)
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] *fragility;
+                            M_conc_fsd[j][i] -= broken_area ;
+                            //! Assuming a broken floe create ksi^2 new floes
+                            int ksi=2 ;
+                            //! ...then the exponent of the redistribution is (Toyota et al. 2011, Dumont et al. 2011)
+                            double exponent = std::max(2. - (2. + std::log(fragility)/std::log(ksi)),1e-6) ;
+                            //! with uniform redistribution of floes for sizes below the broken categories
+                            //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
+                                            /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                M_conc_fsd[k][i] += broken_area * beta   ;
+                            }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::NONE):
+                        break;
+                    default:
+                        std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
+                        throw std::logic_error("Wrong breakup_type");
+                }
+            
+            }
+            /* Ensure that mech FSD and "real" FSD are the same after break-up */
+            if (M_distinguish_mech_fsd)
+            {    
+                for(int j=0;j<M_num_fsd_bins;j++)
+                    M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
+            }
+
+            // Mini Checkfields 
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if( (std::abs(ctot-ctot2)>2e-7) && M_debug_fsd )
+            {  
+               std::cout<<"Crash message coming !\n";
+               std::cout<<"Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+               crash =  true;
+            }
+            
+            if(crash)
+                throw std::runtime_error(crash_msg.str());
+            
+            /* Choice of relationship between break-up and damage */
+            /* By default, M_fsd_damage_type=0, no change in damage  */
+            /* So far, only thick ice can be damaged  */
+            if (M_thick[i]>0.)
+            {
+                double damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
+                double tmp=M_damage[i];
+                switch (M_fsd_damage_type)
+                {
+                    case 0:
+                        break;
+                    /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
+                    case 1:
+                        tmp = std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot);
+                    /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
+                    case 2:
+                    {
+                        double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
+                        for(int j=1;j<M_num_fsd_bins;j++)
+                            tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
+                        tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*damage_max ;
+                        break;
+                    }
+                    default:
+                         std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
+                         throw std::logic_error("Wrong M_fsd_damage_type");
+                }
+                // Update damage
+                M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
+                M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
+                M_damage[i]          = std::max(M_damage[i],std::min(tmp,damage_max) );
+            }
+        }// if there is ice
+        else
+        {
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                M_conc_fsd[j][i]=0. ;
+                M_conc_mech_fsd[j][i]=0. ;
+            }
+        }
+    }// loop over all elements
+}//redistributeFSD
+
+
+void
+FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
+//------------------------------------------------------------------------------------------------------
+//! Takes care of changes induced by lateral growth and melt in the FSD
+//Input : 
+// -- const int i -> Element Index
+// -- lat_melt_rate -> lateral melt rate in m/s. Computed in thermo()
+// -- thin_ice_growth -> the delta concentration due to thin ice reduction by bottom melt
+//------------------------------------------------------------------------------------------------------
+{
+    // Used for debug
+    std::stringstream crash_msg;
+    bool crash = false;
+    // 
+    double del_c_thin = 0.;
+    double del_c_fsd = M_conc[i] - old_conc;
+    double cat0_del_c =0. ;
+
+    double ctot_init=0.;
+    for(int m=0;m<M_num_fsd_bins;m++)
+        ctot_init+=M_conc_fsd[m][i] ;
+    std::vector<double> fsd_init(M_num_fsd_bins,0.);
+    for(int m=0; m<M_num_fsd_bins;m++)
+        fsd_init[m]=M_conc_fsd[m][i] ;
+
+    // THIN ICE CASE
+    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+             del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
+    del_c_fsd += del_c_thin ; 
+    
+    /*FSD : initialize a vector for ulterior redistribution  */
+    std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
+
+    if ( ( abs(lat_melt_rate)>0.) && (ctot_init>1e-12) )// So far, it is only the case for lat. melt, but same equation applies to lat. growth 
+    {
+        /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
+        std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
+        std::vector<double> dfsd_dr(M_num_fsd_bins,0.)  ;
+        
+        // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
+        for(int m=1; m<M_num_fsd_bins-1;m++)
+            fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
+        for(int m=0; m<M_num_fsd_bins;m++)
+            dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
+       
+        if  ( (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11) && M_debug_fsd)
+        {
+            crash=true ;
+            crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
+            for(int j=0;j<M_num_fsd_bins+1;j++)
+            {
+                crash_msg << "fsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
+            }
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
+            }
+        }
+        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
+        for (int m=0; m<M_num_fsd_bins-1;m++)
+        {
+            del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
+            M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
+        }
+        if (lat_melt_rate<0.) // if ice is melting
+        {
+            cat0_del_c =  lat_melt_rate * fsd_init[0] / M_fsd_bin_widths[0] * ddt ; //<0
+            M_conc_fsd[0][i] += cat0_del_c ;
+        }
+        else                  // if there is freezing, flux of growing floes that become "unbroken"
+            M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]*ddt * lat_melt_rate;
+        
+        double ctot=0.;
+        for(int m=0;m<M_num_fsd_bins;m++)
+            ctot+=M_conc_fsd[m][i] ;
+        // If bottom melt reduces the thin ice fraction
+        if (thin_ice_growth<0)
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                 M_conc_fsd[m][i]+=(thin_ice_growth)*M_conc_fsd[m][i]/ctot ;
+        }
+        // Debug
+        if ((M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)&& M_debug_fsd)
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+        // If lateral melt, the mechanical FSD is updated
+    }
+    else //if lat_melt_rate==0 (or lower, but not possible yet)
+    {   // REFREEZING
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        { // Complete refreezing if thin ice fills the lead
+            if (M_conc[i] + M_conc_thin[i]==1.)
+            {
+                M_conc_fsd[M_num_fsd_bins-1][i] =1.; // 
+                for(int m=0;m<M_num_fsd_bins-1;m++)
+                   M_conc_fsd[m][i]=0.;
+            }
+            else if (del_c_fsd>=0)
+            {
+                M_conc_fsd[M_num_fsd_bins-1][i]+=del_c_fsd  ;
+            }
+            else
+            {
+                for(int m=0;m<M_num_fsd_bins;m++)
+                {
+                    M_conc_fsd[m][i]+=del_c_fsd*M_conc_fsd[m][i]/ctot_init ;
+                }
+            }
+        }    
+        else // Refreezing without FSD recombination
+            M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1 
+    } 
+
+    if (M_distinguish_mech_fsd)
+    {
+        double ctot_mech = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot_mech += M_conc_mech_fsd[j][i] ;
+        if (del_c_fsd>=0)
+            M_conc_mech_fsd[M_num_fsd_bins-1][i]+= del_c_fsd ;
+        else
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                M_conc_mech_fsd[m][i]+= del_c_fsd*M_conc_mech_fsd[m][i]/ctot_mech ;
+        }
+    }
+    // Debug FSD
+    if (M_debug_fsd)
+    {
+        if  (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            ctot += M_conc_thin[i];
+
+        double ctot2 = M_conc_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot2 += M_conc_fsd[j][i] ;
+
+        double ctot3 = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot3 += M_conc_mech_fsd[j][i] ;
+
+        if (std::abs(ctot-ctot2)>1e-7)
+        {
+            crash =  true;
+            crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
+        }
+        if (std::abs(ctot-ctot3)>1e-7)
+        {
+            crash =  true;
+            crash_msg << "-> sum M_conc_MECH_fsd (="<<ctot3 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot3 << " \n"                        ;
+        }
+        if(crash)
+        {
+            crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
+            crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
+            crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
+            crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
+            double sum_del_fsd=0. ;
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
+                crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
+                sum_del_fsd += del_c_bin_melt[j] ;
+            }
+            crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            {
+               crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
+               crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+            }
+            crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
+            throw std::runtime_error(crash_msg.str())                            ;
+        }
+    }
+}//redistributeThermoFSD
+
+
+void
+FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
+//! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
+//! It conserves the distribution shape.
+//------------------------------------------------------------------------------------------------------
+{
+    for (int cpt=0; cpt<M_num_elements; cpt++)
+    {
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[cpt];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[cpt];
+
+            double ctot2 = M_conc_fsd[0][cpt];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][cpt] ;
+
+            if (ctot>=1.) // Before ridge creation
+            {
+                for(int k=0;k<M_num_fsd_bins;k++)
+                    M_conc_fsd[k][cpt]*=ctot/ctot2;
+            }
+
+            else if (std::abs(ctot-ctot2)>1e-11)        
+            {  
+                if ( (ctot2==0.)and(ctot>0.) )
+                   M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot ;
+                else
+                {
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_fsd[k][cpt]*= ctot/ctot2;
+                }
+            }
+          
+            if (M_distinguish_mech_fsd)
+            {
+                double  ctot3= M_conc_mech_fsd[0][cpt];
+                for(int j=1;j<M_num_fsd_bins;j++)
+                    ctot3 += M_conc_mech_fsd[j][cpt] ;
+
+                if (ctot>=1.) // Before ridge creation
+                {
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_mech_fsd[k][cpt]*=ctot/ctot3;
+                }
+                else if (std::abs(ctot-ctot3)>1e-11)         
+                {  
+                    if  ( (ctot3==0.)and(ctot>0.) )
+                       M_conc_mech_fsd[M_num_fsd_bins-1][cpt]=ctot ;
+                    else
+                    {
+                        for(int k=0;k<M_num_fsd_bins;k++)
+                            M_conc_mech_fsd[k][cpt]*= ctot/ctot3;
+                    }
+                }
+            }
+        }
+    }
+}//updateFSD
+
+
+//------------------------------------------------------------------------------------------------------
+void
+FiniteElement::weldingRoach(const int cpt, double ddt)
+//! welding following Roach et al. 2018, called in thermo() 
+//------------------------------------------------------------------------------------------------------
+{
+    double c_fsd_broken = M_conc_fsd[0][cpt];
+    bool crash = false ;
+    std::stringstream crash_msg;
+
+    std::vector<double>  old_conc_fsd(M_num_fsd_bins,0.) ; // vector  keeping in memory old fsd
+    for(int j=0;j<M_num_fsd_bins;j++)
+        old_conc_fsd[j]=M_conc_fsd[j][cpt] ;
+    double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.); 
+
+    for(int j=1;j<M_num_fsd_bins-1;j++) 
+        c_fsd_broken += M_conc_fsd[j][cpt] ;
+    if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
+    {
+         double unbroken_area_loss=0.; 
+         // time step limitations for merging
+         double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
+         int ndt_mrg = std::round(stability+0.5) ; // round up                        
+         double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
+         std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
+         std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
+         std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
+
+         for(int t=0;t<ndt_mrg;t++)
+         {
+             for(int kx=0; kx<M_num_fsd_bins;kx++)
+             {
+                 coag_pos[kx]=0. ;
+                 for(int ky=0; ky<=kx;ky++)
+                 {
+                     int a = M_alpha_fsd_merge[kx][ky] ;
+                     double sum_mergers = 0.           ;
+                     if (a<M_num_fsd_bins)
+                     { 
+                        for(int p=a; p<M_num_fsd_bins; p++)
+                            sum_mergers += tmp_conc_fsd[p] ;
+                     }
+                     coag_pos[kx] = coag_pos[kx] +
+                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * ( 
+                                    sum_mergers +  
+                                    (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
+                                    ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
+                 }
+             } 
+             coag_neg[0]=0. ; // no gain of area for the smallest bin
+             tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
+             for (int m=1; m<M_num_fsd_bins;m++)
+             {
+                 coag_neg[m]     = coag_pos[m-1] ;
+                 tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
+             }
+             unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
+             // Sanity check
+             if (M_debug_fsd)
+             {
+                 for (int m=0; m<M_num_fsd_bins;m++)
+                 {
+                     if (tmp_conc_fsd[m] < -1e-11)
+                     {
+                         crash = true ;
+                         crash_msg << "Negative FSD merge" <<" \n" ;
+                     }
+                     if (tmp_conc_fsd[m] > 1.)
+                     {
+                         crash = true ;
+                         crash_msg << "FSD cat conc > 1. " <<" \n" ;
+                     }
+                     if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
+                     {
+                         crash = true ;
+                         crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                     }
+                     if(crash)
+                     {
+                         crash_msg <<"Diagnostic tools: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
+                                    <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                         crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
+                         for (int n=0; n<M_num_fsd_bins;n++)
+                         {
+                             crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
+                             crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
+                         }
+                         throw std::runtime_error(crash_msg.str());
+                     }
+                 }
+             }    // end sanity check
+         } // end welding sub-timestep
+         tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
+         
+         // following lines are additional check and correction for potential numeric errors
+         double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
+         if (abs(conc_loss)>1.e-6)
+         {
+             crash = true ;
+             crash_msg << "Change in sea ice conc superior to 1e-6 (new-old)  : "<< conc_loss <<" \n";
+         }
+         for(int m=0; m<M_num_fsd_bins;m++)
+         {
+             M_conc_fsd[m][cpt] = tmp_conc_fsd[m] *  old_conc_tot / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
+                                                 ; // correction for small numeric errors 
+             if (M_conc_fsd[m][cpt]<0.)
+             {    
+             // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
+             // (it should not impact much sea ice conservation)
+                 if (M_conc_fsd[m][cpt]<-1e-12)
+                 {
+                     crash = true ;
+                     crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][cpt]) <<" \n";
+                 }
+                 else
+                 {
+                     M_conc_fsd[m][cpt]=0.;
+                 }
+             }    
+         }
+         if(crash)
+         {
+             crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
+             crash_msg << "conc :" << M_conc[cpt]  << " \n";
+             crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
+             crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
+             for(int m=0; m<M_num_fsd_bins;m++) 
+             {
+                 crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
+                 crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
+                 crash_msg << "Coag_pos ("<< m<<") :" << coag_pos[m]  << " \n";
+             }
+             throw std::runtime_error(crash_msg.str());
+         }
+    }
+}//weldingRoach
+#endif
 
 
 //------------------------------------------------------------------------------------------------------
@@ -5118,7 +5786,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 #endif
             Qow[i] += Qsw[i];
     }
-}
+}//OWBulkFluxes
 
 
 //------------------------------------------------------------------------------------------------------
@@ -5150,7 +5818,7 @@ FiniteElement::thermo(int dt)
     double const qs = physical::Lf * physical::rhos; //! \param qi (double const) Latent heat of fusion * snow density [J m^{-3}]
 
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
-    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
+    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
@@ -5378,6 +6046,13 @@ FiniteElement::thermo(int dt)
         /* Initialise to be safe */
         double del_c = 0.;
         double newsnow = 0.;
+        // FSD variables ------------------------------------------------
+        /* In case there is an FSD initialize a lateral rate melt for 
+        ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
+        double lat_melt_rate = 0.;
+        // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
+        double thin_ice_growth =0.;
+
 
         /* Freezing conditions */
         switch ( newice_type )
@@ -5421,6 +6096,7 @@ FiniteElement::thermo(int dt)
                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
                     {
                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;       
                     }
                     else
                     {
@@ -5450,7 +6126,6 @@ FiniteElement::thermo(int dt)
 
                     newice  = M_h_thin[i];
                     newsnow = M_hs_thin[i];
-
                     M_h_thin[i] = 0.;
                     M_hs_thin[i]= 0.;
                 }
@@ -5459,8 +6134,9 @@ FiniteElement::thermo(int dt)
                 std::cout << "newice_type = " << newice_type << "\n";
                 throw std::logic_error("Wrong newice_type");
             }
-            /* Check bounds on del_c */
-            del_c = std::min( 1.-M_conc[i], del_c );
+
+        /* Check bounds on del_c */
+        del_c = std::min( 1.-M_conc[i], del_c );
 
         if ( del_hi < 0. )
         {
@@ -5474,6 +6150,10 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
+#ifdef OASIS
+                    if (M_num_fsd_bins>1)
+                        throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
+#endif
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -5493,21 +6173,76 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+#ifdef OASIS
+                    if (M_num_fsd_bins>1)
+                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
+#endif
                     break;
-                default :
-                    std::cout << "newice_type = " << newice_type << "\n";
-                    throw std::logic_error("Wrong newice_type");
+#ifdef OASIS
+                case 3:
+                    /* Only if FSD, Roach et al. (2018) */
+                    if (M_num_fsd_bins<1)
+                        throw std::logic_error("melt_type =3 && num_fsd_bins <1 are not compatible");
+                    else if (tw_new>tfrw)  
+                    { 
+                        /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
+                        // *--- originally from Josberger 1979 ---
+                        (Tw - Tf) = elevation of water temp above freezing
+                        m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
+                        m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
+                        double m1=3.e-6 ; double m2=1.36  ;
+                        double del_c_melt=0. ; 
+                        double cat0_del_c=0. ;
+                        if (hi>0)  //case hi==0 is treated in thermo 
+                        {
+                            // It would be worthy checking that lat. melt is indeed lower for unbroken ice than for broken ice
+                            double ctot = M_conc[i] + M_conc_thin[i];
+                            if (ctot<1e-11)
+                                break;
+                            double h0 = 0. ;
+                            if (M_conc_thin[i]>0.)
+                                h0=h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        
+                            if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
+                            {
+                                /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                                del_c_melt += PhiM*(1.-ctot)*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs ); //No lat melt if no divergence
+                                del_c_melt = std::max(del_c_melt,-ctot);
+                                /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                                Qow[i] *= (1.-PhiM);
+                            }   
+                            else 
+                            {    
+                                // Melt speed rate [m/s]
+                                lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
+                                /* Following code is from Horvat & Tzipermann (2015) */
+                                lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
+                                cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
+                                del_c_melt += cat0_del_c ;
+                                for (int j=0;j<M_num_fsd_bins-1;++j) 
+                                    del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
+                                Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
+                            }
+                            del_c +=  (M_conc[i]/ctot)*del_c_melt ;
+                            M_conc_thin[i] += del_c_melt * (M_conc_thin[i]/ctot) ;
+                        }
+                    }
+                    break;
+#endif
+
+                default:
+                    std::cout << "melt_type = " << melt_type << "\n";
+                    throw std::logic_error("Wrong melt_type");
             }
         }
 
         /* New concentration */
         M_conc[i] += del_c;
-
         /* New thickness */
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*old_conc + newice )/M_conc[i];
+            hi = ( hi*old_conc + newice )/M_conc[i]; // TODO: Is it still valid with thin ice ?
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
@@ -5543,9 +6278,72 @@ FiniteElement::thermo(int dt)
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
+
+#ifdef OASIS
+            // If FSD : Don't change its shape. Remove all ice if no thin ice
+            if(M_num_fsd_bins>0)
+            {
+                double ctot=0;
+                double ctot_mech=0;
+
+                for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot+=M_conc_fsd[m][i] ;
+                if ( (ctot>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                {
+                    for(int m=0 ; m<M_num_fsd_bins;m++)
+                        M_conc_fsd[m][i]+= (-old_conc)*M_conc_fsd[m][i]/ctot ;
+                }
+                if (M_distinguish_mech_fsd)
+                {   
+                    for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot_mech+=M_conc_mech_fsd[m][i] ;
+                    if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                    {
+                        for(int m=0;m<M_num_fsd_bins;m++)
+                            M_conc_mech_fsd[m][i]+= (-old_conc)*M_conc_mech_fsd[m][i]/ctot_mech ;
+                    }
+                } 
+                else
+                {
+                    for(int k=0; k<M_num_fsd_bins; k++)
+                    {
+                        M_conc_fsd[k][i] = 0.;
+                        if (M_distinguish_mech_fsd)
+                            M_conc_mech_fsd[k][i] = 0. ;
+                    }
+                }
+            } 
+#endif
+        }
+        else
+        {
+#ifdef OASIS
+            /* In case there is an FSD: */
+            if(M_num_fsd_bins>0)
+                this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
+#endif
         }
 
+#ifdef OASIS
         // -------------------------------------------------
+        //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
+        // -------------------------------------------------
+        if ( (M_num_fsd_bins>0) && (del_hi>0.))   // If FSD && freezing condition
+        {  
+            switch (M_welding_type)
+            {
+                case (setup::WeldingType::NONE):
+                    break;
+                case (setup::WeldingType::ROACH):
+                    this->weldingRoach(i,ddt);
+                    break;
+                default:
+                    std::cout << "welding_type= " << (int)M_welding_type << "\n";
+                    throw std::logic_error("Wrong welding_type");
+            }
+        } 
+#endif
+
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
         M_snow_thick[i] = hs*M_conc[i];
@@ -5605,6 +6403,9 @@ FiniteElement::thermo(int dt)
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
 
         //! * Newly formed ice is undamaged and unridged: Hence calculates damage and ridge ratio as a weighted average of the old damage - ridge ratio and 0, weighted with volume.
+        //(Guillaume -> it can happen that old_vol=-1e-20, so little patch)
+        //if (old_vol<0.)
+        //    old_vol=0.;
         if ( M_thick[i] > old_vol )
         {
             M_damage[i] = M_damage[i]*old_vol/M_thick[i];
@@ -5639,7 +6440,23 @@ FiniteElement::thermo(int dt)
                 M_time_relaxation_damage[i] = 1e36;
             }
         }
+
+#ifdef OASIS
         // -------------------------------------------------
+        //! 9.b) Mechanical FSD healing 
+        // -------------------------------------------------
+        // // If FSD && Mech FSD && freezing condition
+        if ( M_distinguish_mech_fsd && (M_num_fsd_bins>0) && (del_hi>0.) )          
+        {
+            double fsd_mech_healing_weight = std::min(1.,ddt/M_time_relaxation_damage[i]) ;
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_conc_mech_fsd[m][i]=M_conc_mech_fsd[m][i]*(1.-fsd_mech_healing_weight) 
+                                     + fsd_mech_healing_weight* M_conc_fsd[m][i]       ;
+            }
+        }
+        // -------------------------------------------------
+#endif
 
         //! 10) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
 
@@ -6493,6 +7310,28 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
+
+#ifdef OASIS
+    // FSD
+    M_conc_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_fsd, k);
+        M_variables_elt.push_back(&(M_conc_fsd[k]));
+    }
+    M_conc_mech_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_mech_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_mech_fsd, k);
+        M_variables_elt.push_back(&(M_conc_mech_fsd[k]));
+    }
+
+    M_cum_damage = ModelVariable(ModelVariable::variableID::M_cum_damage);//! \param M_cum_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_damage);
+    M_cum_wave_damage = ModelVariable(ModelVariable::variableID::M_cum_wave_damage);//! \param M_cum_wave_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_wave_damage);
+#endif
+
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
     M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);//! \param M_age_det (double) Sea ice age observable/detectable from space [s]
@@ -6550,6 +7389,11 @@ FiniteElement::initModelVariables()
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
 
+    D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
+    M_variables_elt.push_back(&D_dmax);
+    D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
+    M_variables_elt.push_back(&D_dmean);
+
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
@@ -6589,6 +7433,194 @@ FiniteElement::initModelVariables()
 
 
 #ifdef OASIS
+// -----------------------------------------------------------------
+//! simple function to init the floe size
+void
+FiniteElement::initFsd()
+{   
+    //! Initialize the FSD bins and FSD related variables used in:
+    //! - floe size redistribution
+    //! - lateral growth / melt / welding
+    //! N.B : If M_num_fsd_bins not defined in the conf. file, then no FSD in the model.
+    if (M_num_fsd_bins==0)
+        return ;
+    
+    // Floe size variables
+    M_fsd_bin_widths.assign(M_num_fsd_bins, 0.)                  ;
+    M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.)                  ;
+    M_fsd_bin_up_limits.assign(M_num_fsd_bins,0.) ;
+    M_fsd_bin_centres.resize(M_num_fsd_bins)                            ;
+    // Parameters:
+    M_floe_shape = 0.66;
+
+    // Lettie's variables
+    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ; 
+    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ; 
+    M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
+    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ; 
+    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;        
+    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;   
+    M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
+    M_fsd_area_lims_scaled.assign(M_num_fsd_bins+1, 0.)   ;
+
+    switch (M_fsd_type)
+    {
+        case (setup::FSDType::CONSTANT_SIZE):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+            M_fsd_bin_widths[0]      = M_fsd_bin_cst_width      ;
+            M_fsd_bin_up_limits[0]  = M_fsd_min_floe_size+M_fsd_bin_cst_width  ;
+            M_fsd_bin_centres[0]    = (M_fsd_bin_up_limits[0]
+                                +  M_fsd_bin_low_limits[0]) / 2 ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_bin_widths[m]      = M_fsd_bin_cst_width          ;
+                M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
+                                        + M_fsd_bin_cst_width  ; 
+                M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
+                                        + M_fsd_bin_cst_width  ;  
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
+                                        +  M_fsd_bin_low_limits[m]) / 2 ; 
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_up[m] = M_floe_shape*std::pow(M_fsd_bin_up_limits[m],2)      ;
+                M_floe_area_low[m] = M_floe_shape*std::pow(M_fsd_bin_low_limits[m],2)    ;
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+                M_fsd_area_lims[m]=M_floe_area_low[m]                                    ;
+                M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]         ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        case (setup::FSDType::CONSTANT_AREA):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+//            M_floe_area_binwidth[0] = M_floe_shape*std::pow(M_fsd_bin_cst_width,2)  ;
+            M_floe_area_binwidth[0] = M_floe_shape*(std::pow(M_fsd_bin_cst_width,2)+2*M_fsd_min_floe_size*M_fsd_bin_cst_width)  ;
+            M_floe_area_low[0] = M_floe_shape*std::pow(M_fsd_bin_low_limits[0],2)    ;
+            M_floe_area_up[0] =  M_floe_area_low[0] + M_floe_area_binwidth[0]        ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_binwidth[m]  = M_floe_area_binwidth[0]   ;
+                M_floe_area_low[m]       = M_floe_area_up[m-1]                             ;
+                M_floe_area_up[m]        = M_floe_area_up[m-1]+M_floe_area_binwidth[m]     ;
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_area_lims[m]      = M_floe_area_low[m]                         ;
+                M_fsd_bin_low_limits[m] = std::sqrt(M_floe_area_low[m]/M_floe_shape)  ; 
+                M_fsd_bin_up_limits[m]  = std::sqrt(M_floe_area_up[m] /M_floe_shape)  ; 
+                M_fsd_bin_widths[m]      = M_fsd_bin_up_limits[m] - M_fsd_bin_low_limits[m]     ;
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]+ M_fsd_bin_low_limits[m])/ 2 ; 
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        M_breakup_in_dt=false ;
+        default:
+            std::cout << "fsd_type= " << (int)M_fsd_type << "\n";
+            throw std::logic_error("Wrong fsd_type");
+    }
+   // LOGS
+    if (M_rank==0) 
+    {
+        LOG(INFO)  << "--------- FSD BINS INFO ---------\n";
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "\n" 
+                      << "FSD bin centres  : (" << m << ") "<< M_fsd_bin_centres[m] << " \n"     
+                      << "FSD bin low lim. : (" << m << ") "<< M_fsd_bin_low_limits[m] << " \n"  
+                      << "FSD bin up lim.  : (" << m << ") "<< M_fsd_bin_up_limits[m] << " \n"   ;
+        }
+    }
+
+    if (M_fsd_welding_use_scaled_area) 
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
+                     / *std::max_element(M_floe_area_binwidth.begin(),M_floe_area_binwidth.end() ) ;
+    }
+    else
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0]);
+    }
+    for(int m=0; m<M_num_fsd_bins; m++)
+    {
+        M_fsd_area_scaled_up[m]  = M_fsd_area_lims_scaled[m+1] ;
+        M_fsd_area_scaled_low[m] = M_fsd_area_lims_scaled[m]   ;
+        M_fsd_area_scaled_centered[m] = (M_fsd_area_scaled_up[m]+M_fsd_area_scaled_low[m])/2. ;
+        M_fsd_area_scaled_binwidth[m] = M_fsd_area_scaled_up[m] - M_fsd_area_scaled_low[m]    ;
+    }
+    // Definition of alpha -> which floe sizes can combine during merging
+    M_alpha_fsd_merge.resize(M_num_fsd_bins);
+    for(int m=0; m<M_num_fsd_bins; m++)
+    {
+        M_alpha_fsd_merge[m].assign(M_num_fsd_bins,-999);
+        for(int n=0; n<M_num_fsd_bins; n++)
+        {  
+            double test =  M_fsd_area_scaled_up[m] -  M_fsd_area_scaled_centered[n];
+            for(int p=0; p<M_num_fsd_bins; p++)
+            {
+                if ( (test>=M_fsd_area_scaled_low[p])&&(test<M_fsd_area_scaled_up[p] ) )
+                    M_alpha_fsd_merge[m][n]=p+1;
+            }
+        }
+    }  
+    if (M_rank==0) 
+    {
+        LOG(INFO)  << "--------- FSD BINS INFO (WIELDING VARIABLES)---------\n";
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "\n" 
+                      << "FSD bin area scaled centre   : (" << m << ") "<< M_fsd_area_scaled_centered[m] << " \n"     
+                      << "FSD bin area scaled low lim. : (" << m << ") "<< M_fsd_area_scaled_low[m] << " \n"  
+                      << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n" 
+                      << "FSD binwidth area scaled     : (" << m << ") "<< M_fsd_area_scaled_binwidth[m] << " \n" ;
+        }
+        LOG(INFO) << "-------- alpha merge ------- \n" ;
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "["<< m <<"]   ";
+            for(int n=0; n<M_num_fsd_bins; n++)
+                LOG(INFO) << M_alpha_fsd_merge[m][n] << " ; " ;
+            LOG(INFO) << "\n";
+         }
+              
+       
+    }
+    // End of Lettie's code
+  
+
+
+ 
+    //! Distribute the ice into the categories
+    for(int i=0; i<M_num_elements; i++)
+    {
+        // all the thick ice in the highest bin
+        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i]; 
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
+
+        //nothing in the other bins
+        for(int k=0; k<M_num_fsd_bins-1; k++)
+            M_conc_fsd[k][i] = 0.; 
+        // If we want to distinguish between mechanical and thermodynamical properties
+        if (M_distinguish_mech_fsd)
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
+    }
+    
+ 
+}//init FSD
+#endif
+
+
+#ifdef OASIS
 void
 FiniteElement::initOASIS()
 {
@@ -6601,7 +7633,10 @@ FiniteElement::initOASIS()
     std::vector<GridOutput::Variable> nodal_variables;
     std::vector<GridOutput::Variable> elemental_variables;
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+
     GridOutput::Grid grid;
+
+    // TODO: should we use M_ocean_type == setup::OceanType::COUPLED or vm["coupler.with_ocean"]???
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         // Output variables - nodes
@@ -6612,6 +7647,11 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(taux);
         nodal_variables.push_back(tauy);
         nodal_variables.push_back(taumod);
+
+        // same as in namcouple: 8 characters field sent by neXtSIM to ocean
+        var_snd.push_back(std::string("I_"+taux.name));
+        var_snd.push_back(std::string("I_"+tauy.name));
+        var_snd.push_back(std::string("I_"+taumod.name));
 
         // Output variables - elements
         GridOutput::Variable fwflux(GridOutput::variableID::fwflux);
@@ -6626,6 +7666,12 @@ FiniteElement::initOASIS()
         elemental_variables.push_back(Sflx);
         elemental_variables.push_back(conc);
 
+        var_snd.push_back(std::string("I_"+fwflux.name));
+        var_snd.push_back(std::string("I_"+QNoSw.name));
+        var_snd.push_back(std::string("I_"+QSwOcean.name));
+        var_snd.push_back(std::string("I_"+Sflx.name));
+        var_snd.push_back(std::string("I_"+conc.name));
+
         // The vectorial variables are ...
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
         vectorial_variables.push_back(tau);
@@ -6633,15 +7679,40 @@ FiniteElement::initOASIS()
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
-    } else {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
+
+    // Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        // Output variables - elements
+        std::vector<GridOutput::variableID> grid_ids = {
+            GridOutput::variableID::conc,
+            GridOutput::variableID::thick,
+            GridOutput::variableID::dmax,
+            GridOutput::variableID::dmean
+        };
+        for(auto var_id : grid_ids)
+        {
+            GridOutput::Variable var(var_id);
+            elemental_variables.push_back(var);
+            var_snd.push_back(std::string("I_"+var.name));
+        }
+
+        // Define a grid
+        grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
+    }
+
+    // Error handling if nothing was done
+    if ( !grid.defined )
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
+                + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
-    M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -6712,7 +7783,31 @@ FiniteElement::initOASIS()
     this->setCplId_snd(M_cpl_out.M_nodal_variables);
     this->setCplId_snd(M_cpl_out.M_elemental_variables);
 
-    // TODO: This is not flexible enough - it'll only work for coupling with the ocean.
+    // Prepare var_rcv
+    // Ocean
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        // same as in namcouple: 8 characters field recived by neXtSIM from ocean
+        var_rcv.push_back(std::string("I_SST"));
+        var_rcv.push_back(std::string("I_SSS"));
+        var_rcv.push_back(std::string("I_Uocn"));
+        var_rcv.push_back(std::string("I_Vocn"));
+        var_rcv.push_back(std::string("I_SSH"));
+        var_rcv.push_back(std::string("I_MLD"));
+        var_rcv.push_back(std::string("I_FrcQsr"));
+    }
+
+    //Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        var_rcv.push_back(std::string("I_tauwix"));
+        var_rcv.push_back(std::string("I_tauwiy"));
+        var_rcv.push_back(std::string("I_wlbk"));
+        //var_rcv.push_back(std::string("I_tm02"));
+        //var_rcv.push_back(std::string("I_str_var"));
+    }
+
+    // Ask OASIS to link var_rcv and var_id_rcv
     var_id_rcv.resize(var_rcv.size());
     for (int i=0; i<var_rcv.size(); ++i)
     {
@@ -6720,20 +7815,42 @@ FiniteElement::initOASIS()
                 var_actual_shape, var_type);
         if (ierror)
             throw std::runtime_error("FinitElement::initOASIS: OASIS3::def_var failed with exit code "
-                    +std::to_string(ierror)+" on "+var_snd[i]);
+                    +std::to_string(ierror)+" on "+var_rcv[i]);
     }
 
     // Associate OASIS variable ids with neXtSIM DataSet variables
+    int n_cpl_id = 0;
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         this->setCplId_rcv(M_ocean_nodes_dataset);
         this->setCplId_rcv(M_ocean_elements_dataset);
+        n_cpl_id += M_ocean_nodes_dataset.M_cpl_id.size();
+        n_cpl_id += M_ocean_elements_dataset.M_cpl_id.size();
+    }
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        this->setCplId_rcv(M_wave_nodes_dataset);
+        this->setCplId_rcv(M_wave_elements_dataset);
+        n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
+        n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
+    }
 
-        if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
-            throw std::logic_error("Not all coupling variables assigned - exiting");
-    } else {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
+    if ( n_cpl_id != var_rcv.size() )
+    {
+        std::stringstream msg;
+        msg << "\nNumber of variables in var_rcv = "<<var_rcv.size()<<"\n";
+        msg << "Number of variables in coupled datasets = "<< n_cpl_id <<"\n";
+        msg << "Not all coupling variables assigned - exiting\n";
+        throw std::logic_error(msg.str());
+    }
+
+    if( n_cpl_id == 0 )
+    {
+        //TODO make it possible to run the model without coupling, even if we have compiled with OASIS
+        throw std::runtime_error(
+                std::string("FiniteElement::initOASIS: No coupling option selected. ")
+              + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.")
+              );
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //         TERMINATION OF DEFINITION PHASE
@@ -6783,6 +7900,51 @@ FiniteElement::updateIceDiagnostics()
         sigma_n =          - (sigma[0]+sigma[1])/2.;
         D_sigma[0][i] = sigma_n+sigma_s;
         D_sigma[1][i] = sigma_n-sigma_s;
+        // FSD relative parameters
+        D_dmean[i] = 0. ;
+        D_dmax[i]  = 0. ;
+#if defined (OASIS)  
+        if (M_num_fsd_bins>0)
+        {   
+            if (D_conc[i]>0)
+            {
+                D_dmax[i]=1000. ;
+                D_dmean[i]=1000.;
+                if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
+                {
+                    double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
+                    for(int j=M_num_fsd_bins-2;j>-1;j--)
+                    {
+                        ctot_fsd += M_conc_mech_fsd[j][i] ;
+                        if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
+                        {   
+                            D_dmax[i]=M_fsd_bin_up_limits[j]   ;
+                            break ;
+                        }
+                    }
+                    D_dmean[i]=0.;
+                    for(int j=0;j<M_num_fsd_bins;j++)
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i];
+                }
+                else
+                {
+                    D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
+                           * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+                    D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+                    
+                    D_dmean[i]=0.;
+                    for(int j=0;j<M_num_fsd_bins-1;j++)
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
+                    D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
+                }
+            }
+            else
+            {
+                D_dmax[i]  = 0. ;
+                D_dmean[i] = 0. ;
+            }
+        }
+#endif
     }
 }
 
@@ -6869,6 +8031,11 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            if ( vm["coupler.with_waves"].as<bool>() )
+                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
+                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
             M_timer.tock("resetMeshMean_cpl");
 #endif
 
@@ -6912,6 +8079,12 @@ FiniteElement::step()
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
+
+#ifdef OASIS
+        // Update FSD in case conc. has been modified during regrid.
+        if (M_num_fsd_bins>0)
+            this ->updateFSD();
+#endif
         this->updateIceDiagnostics();
 
         // save outputs after regrid
@@ -6927,8 +8100,13 @@ FiniteElement::step()
         }
 
         // check the fields for nans etc after regrid
-        if(vm["debugging.check_fields"].as<bool>())
+        if( (vm["debugging.check_fields"].as<bool>())
+#ifdef OASIS
+                && M_debug_fsd
+#endif
+                )
             this->checkFields();
+            LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
     }
     else if(pcpt==0)
     {
@@ -6948,8 +8126,30 @@ FiniteElement::step()
         this->thermo(thermo_timestep);
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
+        
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
+        // this->checkFields();
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
-
+#ifdef OASIS
+    //======================================================================
+    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
+    //======================================================================
+    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
+    {        
+        chrono.restart();
+        LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
+        this->updateFSD();
+        this->redistributeFSD();   
+        if (M_debug_fsd)
+        {
+            LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
+            this->checkFields();
+            //std:cout <<"["<<M_rank<<"], Post-FSD checkfields is a success \n";
+        }
+    }
+    //======================================================================
+#endif
 
     if( M_use_nesting )
     {
@@ -7010,6 +8210,11 @@ FiniteElement::step()
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
+
+#ifdef OASIS
+    if(M_num_fsd_bins>0)
+        this -> updateFSD();
+#endif
 
     M_timer.tock("dynamics");
 
@@ -7454,6 +8659,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
 
+            // WIM variables
+            case (GridOutput::variableID::dmax):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmax[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dmean):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmean[i]*time_factor;
+                break;
+
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
             case (GridOutput::variableID::fwflux):
@@ -7604,6 +8819,7 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
@@ -7620,6 +8836,8 @@ FiniteElement::initMoorings()
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
             ("saltflux", GridOutput::variableID::saltflux)
+            ("dmax",GridOutput::variableID::dmax)
+            ("dmean",GridOutput::variableID::dmean)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
@@ -8752,7 +9970,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERAi, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingAtmosphere()
 {
@@ -9043,7 +10261,7 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the ocean according to the chosen ocean state and data (CONSTANT, TOPAZR, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
@@ -9180,6 +10398,34 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
 
 
 //------------------------------------------------------------------------------------------------------
+//! Sets the physical variables relevant to the couple wave model
+//! Called by the initExternalData() function.
+#ifdef OASIS
+void
+FiniteElement::forcingWaves()//(double const& u, double const& v)
+{
+
+    M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
+                time_init, vm["simul.spinup_duration"].as<double>());
+    M_external_data_nodes.push_back(&M_tau_wi);
+    //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_str_var);
+    //M_external_data_elements_names.push_back("M_str_var");
+    //M_tm02 = ExternalData(&M_wave_elements_dataset, M_mesh, 1, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_tm02);
+    //M_external_data_elements_names.push_back("M_tm02");
+
+    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+    M_external_data_elements.push_back(&M_wlbk);
+    M_external_data_elements_names.push_back("M_wlbk");
+}
+#endif
+
+
+//------------------------------------------------------------------------------------------------------
 //! Initializes variables relevant to a slab ocean (sss and sst).
 //! Called by the initModelState() function.
 void
@@ -9307,6 +10553,9 @@ FiniteElement::initIce()
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
             break;
+        case setup::IceType::AMSR2CSTTHICK:
+            this->amsr2ConstThickIce();
+            break;
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
             break;
@@ -9362,6 +10611,7 @@ FiniteElement::initIce()
 
     // check consistency of fields after initialisation
     // - init ice temp everywhere
+    // - init FSD
     this->checkConsistency();
 }//initIce
 
@@ -9471,9 +10721,20 @@ FiniteElement::checkConsistency()
             }//Winton
         }
 
+#ifdef OASIS
+        // Init cumulated damage
+        M_cum_damage[i]=M_damage[i];
+        M_cum_wave_damage[i]=M_damage[i];
+#endif
+
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
     }
+
+#ifdef OASIS
+    //FSD
+    this->initFsd();
+#endif
 }//checkConsistency
 
 
@@ -10200,7 +11461,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
         //tmp_var=M_topaz_snow_thick[i];
         //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
         //if(M_conc[i]<M_topaz_conc[i])
-         //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
+        //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
 
 
         if(c_model>0.01)
@@ -10444,8 +11705,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         tmp_var=std::min(1.,M_topaz_conc[i]);
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         if(     (M_conc[i]>0.)
-             && (M_amsr2_conc[i]>.15)
-             && (M_amsr2_conc[i]<=1.))
+                && (M_amsr2_conc[i]>.15)
+                && (M_amsr2_conc[i]<=1.))
             // use amsr2 only where
             // - topaz says there is ice to avoid near land issues and fake concentration over the ocean
             // - it is large enough to be trusted
@@ -10822,6 +12083,65 @@ FiniteElement::topazAmsr2Ice()
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
+
+//! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
+//! Called by the initIce() function.
+void
+FiniteElement::amsr2ConstThickIce()
+{
+    double real_thickness, init_conc_tmp;
+
+    double h_const = vm["ideal_simul.init_thickness"].as<double>();
+    double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
+
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_conc_amsr2);
+    external_data_tmp.push_back(&M_init_conc);
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        double uncertainty;
+        if(M_conc_amsr2[i]<0.1)
+            uncertainty=0.1;
+        else
+            uncertainty=0.05;
+        // TEST : take AMSR2 Raw value
+        M_conc[i] = std::min(1., M_conc_amsr2[i] ) ;
+//        double diff_mod_obs = M_conc_amsr2[i]-M_init_conc[i];
+//        if(std::abs(diff_mod_obs)>=uncertainty && M_conc_amsr2[i]<=1.)
+//            // NB missing value for AMSR2 when not over land is 1.15
+//            // move towards AMSR2 value by the amount uncertainty/2
+//            M_conc[i] = std::min(1., M_conc_amsr2[i]-(diff_mod_obs/std::abs(diff_mod_obs))*uncertainty/2.);
+//        else
+//            M_conc[i] = std::min(1., M_init_conc[i]);
+
+        // TOPAZ puts very small values instead of 0.
+        tmp_var=M_init_conc[i];
+        init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+    
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        else
+        {
+            M_thick[i]=h_const*M_conc[i];
+            M_snow_thick[i]=hs_const*M_conc[i];
+        }
+        M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
+    }
+}//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
@@ -11698,7 +13018,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 {
 
     std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT,M_VT_root);
+    this->gatherNodalField(M_VT, M_VT_root);
+#if defined (OASIS)
+    std::vector<double> M_tau_wi_root;
+    if (vm["coupler.with_waves"].as<bool>())
+        this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
+#endif
 
     std::vector<double> M_wind_root;
     this->gatherNodalField(M_wind.getVector(),M_wind_root);
@@ -11791,6 +13116,11 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
+//          exporter.writeField(outbin, M_connectivity_root, "Element_connectivity");
+#if defined (OASIS)
+            if (vm["coupler.with_waves"].as<bool>())
+                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+#endif
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
             exporter.writeField(outbin, M_wind_root, "M_wind");
 
@@ -12048,27 +13378,32 @@ FiniteElement::checkFields()
     int itest = vm["debugging.test_element_number"].as<int>();
     int rank_test = vm["debugging.test_proc_number"].as<int>();
     bool printout = (M_rank == rank_test && itest>0);
+    std::stringstream crash_msg;
+    bool crash = false;
 
     for(int i=0; i<M_num_elements; i++)
     {
         std::vector<double> values;
         auto names = M_external_data_elements_names;
-        std::vector<std::string> nan_names;
-        bool out_of_usual_range = false;
-        if( M_thick[i]>35.)
-        {
-            std::cout<<"ice is too thick: "<<M_thick[i]<<"m\n";
-            out_of_usual_range = true;
-        }
+
+        // common sense maxima (not absolute maxima)
+        boost::unordered_map<std::string, double>
+            too_high_values = boost::assign::map_list_of
+                ("M_thick", 35.)
+                ;
 
         // check the forcings 1st
         for (int j=0; j<M_external_data_elements.size(); j++)
         {
             auto ptr = M_external_data_elements[j];
+            auto name = names[j];
             double val = ptr->get(i);
             values.push_back(val);
             if(std::isnan(val))
-                nan_names.push_back(names[j]);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            }
         }
 
         // check the variables 2nd
@@ -12078,15 +13413,77 @@ FiniteElement::checkFields()
             std::string name = ptr->name();
             values.push_back(val);
             names.push_back(name);
+
+            // is it nan?
             if(std::isnan(val))
-                nan_names.push_back(name);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            }
+
+            // is it < min allowed value?
+            if(ptr->hasMinVal())
+            {
+                double thresh = ptr->minVal() - 1.e-8;
+                if(val<thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                        << val << " < " << thresh << "\n";
+                }
+            }
+
+            // is it > max allowed value?
+            if(ptr->hasMaxVal())
+            {
+                double thresh = ptr->maxVal() + 1.e-8;
+                if(val>thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
+
+            // check if it is too high for common sense
+            if(too_high_values.count(name)>0)
+            {
+                double thresh = too_high_values[name];
+                if(val > thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
         }
 
-        bool crash = out_of_usual_range || nan_names.size()>0;
-        bool printout_now = (printout && i==itest) || crash;
-
-        if(printout_now)
+#ifdef OASIS
+        if(M_num_fsd_bins>0)
         {
+            double ctot = M_conc[i];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];
+
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if ((std::abs(ctot-ctot2)>1e-7)&&(ctot>1e-4))
+            {
+                crash =  true;
+                crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n"   ;
+                if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                    crash_msg << " M_conc_thin ="<< M_conc_thin[i]<< " \n";
+            }
+        }
+#endif
+
+        if((printout && i==itest) || crash)
+        {
+            // printout all the variables' values
+
             // get x,y and lon, lat at current position
             double xtest = 0.;
             double ytest = 0.;
@@ -12125,18 +13522,7 @@ FiniteElement::checkFields()
         }
 
         if(crash)
-        {
-            std::stringstream msg;
-            if(out_of_usual_range)
-                msg << "Some variables are out of the usual range\n";
-            if (nan_names.size()>0)
-            {
-                msg << "["<< M_rank<<"] Found nans in variables:\n";
-                for (auto name: nan_names)
-                    msg << "["<< M_rank<<"]"<< name<<"\n";
-            }
-            throw std::runtime_error(msg.str());
-        }
+            throw std::runtime_error(crash_msg.str());
     }
 }//checkFields
 
