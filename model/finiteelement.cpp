@@ -4447,7 +4447,7 @@ FiniteElement::compute_B0_Dunit_B0T(std::vector<double>& Dunit, std::vector<doub
         }
     }
     /*
-     * B0_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
+     * B0_Dunit_B0T should be symmetric but is not exactly after the calculation here above
      * because the sequence of operation is not the same for the component i,j and j,i.
      * We force the matrix to be symmetric by copying the upper part onto the lower part
      */
