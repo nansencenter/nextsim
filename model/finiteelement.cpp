@@ -1971,20 +1971,12 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
+    for (int k=0; k<3; ++k)
     {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
+        int const kp1 = (k+1)%3;
+        int const kp2 = (k+2)%3;
+        coeff[k]   = (y[kp1]-y[kp2])/jac;
+        coeff[k+3] = (x[kp2]-x[kp1])/jac;
     }
 
     return coeff;
@@ -2008,20 +2000,12 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mes
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
+    for (int k=0; k<3; ++k)
     {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
+        int const kp1 = (k+1)%3;
+        int const kp2 = (k+2)%3;
+        coeff[k]   = (y[kp1]-y[kp2])/jac;
+        coeff[k+3] = (x[kp2]-x[kp1])/jac;
     }
 
     return coeff;
