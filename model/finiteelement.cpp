@@ -4403,7 +4403,7 @@ FiniteElement::compute_B0T_Dunit_B0T(std::vector<double>& Dunit, std::vector<dou
         /* new version without assembling zero */
         for(int i=0; i<3; i++)
         {
-            /* product of the first line of B0T' and the matrix Dunit */
+            /* product of the i-th line of B0T' and the matrix Dunit */
             B0Tj_Dunit_tmp0 = 0.;
             B0Tj_Dunit_tmp1 = 0.;
 
