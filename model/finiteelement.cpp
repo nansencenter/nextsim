@@ -3995,29 +3995,32 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Identical values for all the elements -----------
     // coriolis term
-    double beta0;
-    double beta1;
-    double beta2;
-    if (pcpt > 1)
+    double beta0 = 0.;
+    double beta1 = 0.;
+    double beta2 = 0.;
+    if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        // Adams-Bashfort 3 (AB3)
-        beta0 = 23./12;
-        beta1 =-16./12;
-        beta2 =  5./12;
-    }
-    else if (pcpt == 1)
-    {
-        // Adams-Bashfort 2 (AB2)
-        beta0 = 3/2;
-        beta1 =-1/2;
-        beta2 = 0  ;
-    }
-    else if (pcpt == 0)
-    {
-        // Euler explicit (Fe)
-        beta0 = 1 ;
-        beta1 = 0 ;
-        beta2 = 0 ;
+        if (pcpt > 1)
+        {
+            // Adams-Bashfort 3 (AB3)
+            beta0 = 23./12;
+            beta1 =-16./12;
+            beta2 =  5./12;
+        }
+        else if (pcpt == 1)
+        {
+            // Adams-Bashfort 2 (AB2)
+            beta0 = 3/2;
+            beta1 =-1/2;
+            beta2 = 0  ;
+        }
+        else if (pcpt == 0)
+        {
+            // Euler explicit (Fe)
+            beta0 = 1 ;
+            beta1 = 0 ;
+            beta2 = 0 ;
+        }
     }
 
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
@@ -4158,13 +4161,10 @@ FiniteElement::assemble(int pcpt)
 
             coef = (coef<coef_min) ? coef_min : coef ;
 
-            if (vm["dynamics.use_coriolis"].as<bool>())
-                // Mass of the element is the mass of the thin+thick ice,
-                // the snow and the water in the leads.
-                // This works out to the following (Rampal et al, 2016)
-                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
-            else
-                mass_e = 0.;
+            // Mass of the element is the mass of the thin+thick ice,
+            // the snow and the water in the leads.
+            // This works out to the following (Rampal et al, 2016)
+            mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
 
             /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
@@ -4179,12 +4179,12 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;               /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
-        }
+            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
+        }//ice present
 
         std::vector<int> rindices(6); //new
         std::vector<int> cindices(6);
