@@ -4393,7 +4393,8 @@ FiniteElement::compute_B0T_Dunit_B0T(std::vector<double>& Dunit, std::vector<dou
     {
 
         /* The 6x6 rigidity matrix that will be multiplied by E and by the surface
-         * is given by the product B0'*matrix.Dunit*B0
+         * is given by the product B0*matrix.Dunit*B0T
+         * (B0T=B0' is 3x6)
          * This product is computed for the indices:
          * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
          * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
