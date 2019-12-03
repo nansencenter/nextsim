@@ -220,7 +220,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
                 }
 
-                this->recieveCouplingData(M_dataset, cpl_time, comm);
+                this->receiveCouplingData(M_dataset, cpl_time, comm);
                 transformData(M_dataset);
                 M_dataset->interpolated = false;
                 M_dataset->itime_range[0] = cpl_time;
@@ -445,7 +445,7 @@ ExternalData::getVector()
 
 #ifdef OASIS
 void
-ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
+ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         LOG(DEBUG) << "recieveCouplingData at cpl_time " << cpl_time << "\n";
@@ -479,7 +479,6 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
 
             dataset->variables[j].loaded_data.resize(1);
             dataset->variables[j].loaded_data[0].resize(final_MN);
-            double tmp_data_i;
             int reduced_i;
             for (int i=0; i<(final_MN); ++i)
             {
@@ -488,7 +487,10 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
                     reduced_i=dataset->grid.reduced_nodes_ind[i];
 
                 //now add to loaded_data
-                dataset->variables[j].loaded_data[0][i] = tmp_data_i=data_in_tmp[reduced_i];
+                double tmp_data_i = data_in_tmp[reduced_i];
+                tmp_data_i *= dataset->variables[j].a;
+                tmp_data_i += dataset->variables[j].b;
+                dataset->variables[j].loaded_data[0][i] = tmp_data_i;
             }
         }
 
@@ -1176,67 +1178,64 @@ ExternalData::transformData(Dataset *dataset)
                 LATtmp.resize(0);
             }//mwd option
 
-            else if(dataset->vectorial_variables[j].east_west_oriented
-                    && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
+            else if(dataset->vectorial_variables[j].east_west_oriented)
+            // Method generalized for regular and irregular grids
             {
-                int M=dataset->grid.gridLAT.size();
-                int N=dataset->grid.gridLON.size();
+                //int M=dataset->grid.gridLAT.size();
+                //int N=dataset->grid.gridLON.size();
+                std::vector<double> LATtmp,LONtmp,Xtmp,Ytmp;
+                dataset->getLatLonXYVectors(
+                        LATtmp,LONtmp,Xtmp,Ytmp,mapNextsim);
 
-                for (int y_ind=0; y_ind<M; ++y_ind)
+                for (int i=0; i<LATtmp.size(); ++i)
                 {
-                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    lat_tmp=LATtmp[i];
+                    lon_tmp=LONtmp[i];
+
+                    // velocity in the east (component 0) and north direction (component 1) in m/s
+                    tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                    tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
+  
+                    // velocity in the east (component 0) and north direction (component 1) in degree/s
+                    if(lat_tmp<90.)
                     {
-                        int i=y_ind*N+x_ind;
-
-                        // lat lon of the data
-                        lat_tmp=dataset->grid.gridLAT[y_ind];
-                        lon_tmp=dataset->grid.gridLON[x_ind];
-
-                        // velocity in the east (component 0) and north direction (component 1) in m/s
-                        tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
-                        tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
-
-                        // velocity in the east (component 0) and north direction (component 1) in degree/s
-                        if(lat_tmp<90.)
-                        {
-                            tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
-                            tmp_data1_deg=tmp_data1/R*180./PI;
-                        }
-                        else
-                        {
-                            tmp_data0_deg=0.;
-                            tmp_data1_deg=0.;
-                        }
-
-                        // position in lat, lon after delta_t
-                        lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
-                        lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
-
-                        lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
-
-                        // initial position x, y in meter
-                        forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
-
-                        // position x, y after delta_t in meter
-                        forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
-
-                        // velocity in m/s
-                        new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
-                        new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
-
-                        // normalisation
-                        speed=std::hypot(tmp_data0,tmp_data1);
-                        new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
-
-                        if(new_speed>0.)
-                        {
-                            new_tmp_data0=new_tmp_data0/new_speed*speed;
-                            new_tmp_data1=new_tmp_data1/new_speed*speed;
-                        }
-
-                        dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
-                        dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
+                        tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
+                        tmp_data1_deg=tmp_data1/R*180./PI;
                     }
+                    else
+                    {
+                        tmp_data0_deg=0.;
+                        tmp_data1_deg=0.;
+                    }
+  
+                    // position in lat, lon after delta_t
+                    lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
+                    lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
+  
+                    lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
+  
+                    // initial position x, y in meter
+    		        forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
+  
+                    // position x, y after delta_t in meter
+                    forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
+  
+                    // velocity in m/s
+                    new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
+                    new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
+  
+                    // normalisation
+                    speed=std::hypot(tmp_data0,tmp_data1);
+                    new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
+  
+                    if(new_speed>0.)
+                    {
+                        new_tmp_data0=new_tmp_data0/new_speed*speed;
+                        new_tmp_data1=new_tmp_data1/new_speed*speed;
+                    }
+  
+                    dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
                 }
 
                 // Treat the case of the North Pole where east-north components are ill-defined

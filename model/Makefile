@@ -116,7 +116,6 @@ LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
 LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
 
-
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
