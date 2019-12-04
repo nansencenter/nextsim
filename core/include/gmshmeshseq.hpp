@@ -123,7 +123,7 @@ public:
     std::vector<int> id() const;
 
     std::vector<std::vector<double>>
-        elementVertices(element_type const& element) const;
+        vertices(std::vector<int> const& indices) const;
 
     void initGModel();
     void writeToGModel();

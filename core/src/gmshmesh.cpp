@@ -1916,12 +1916,12 @@ GmshMesh::id() const
 //! return the vertices for a given element
 //! called by FiniteElement::shapeCoeff() and FiniteElement::jacobian()
 std::vector<std::vector<double>>
-GmshMesh::elementVertices(element_type const& element) const
+GmshMesh::vertices(std::vector<int> const& indices) const
 {
-    int const nv = element.indices.size();
+    int const nv = indices.size();
     std::vector<std::vector<double>> vertices(nv);
     for(int i=0; i<nv; i++)
-        vertices[i] = M_nodes.find(element.indices[i])->second.coords;
+        vertices[i] = M_nodes.find(indices[i])->second.coords;
     return vertices;
 }
 
