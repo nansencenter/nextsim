@@ -25,7 +25,8 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-CXX = g++
+#CXX = mpic++
+CXX = mpicxx # not tested with this
 #CXXFLAGS += -std=c++0x -std=c++11
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
@@ -85,8 +86,7 @@ CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 # ========================================================
 # Libraries
 LDFLAGS += -fopenmp
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+LDFLAGS += -ldl -lstdc++ -lpthread
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim

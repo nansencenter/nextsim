@@ -64,23 +64,25 @@ public:
 
     typedef struct Grid
     {
-        Grid() {}
+        Grid()
+            : loaded(false), defined(false)
+        {}
 
         Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         interpMethod interp_method;
@@ -91,6 +93,7 @@ public:
         std::string thetaName;
 
         bool loaded;
+        bool defined;
         bool transpose;
 
         std::string dimNameX;
@@ -173,7 +176,8 @@ public:
         wind_y   = 212,
 
         // WIM variables
-        dfloe = 300,
+        dmax        = 300,
+        dmean       = 301,
 
         // Coupling variables not already covered elsewhere
         taux       = 901,
@@ -489,11 +493,20 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+
                 //WIM variables
-                case (variableID::dfloe):
-                    name     = "dfloe";
+                case (variableID::dmax):
+                    name     = "dmax";
                     longName = "Maximum floe size";
                     stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dmean):
+                    name     = "dmean";
+                    longName = "Mean floe size";
+                    stdName  = "mean_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
@@ -585,6 +598,7 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+                    break;
 
                 case (variableID::wind_x):
                     name     = "wndx";
@@ -600,7 +614,6 @@ public:
                     stdName  = "wind_y_velocity";
                     Units    = "m/s";
                     cell_methods = "area: mean";
-                    break;
                     break;
 
                 // Non-output variables
@@ -687,7 +700,7 @@ public:
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
