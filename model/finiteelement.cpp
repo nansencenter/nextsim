@@ -4156,8 +4156,13 @@ FiniteElement::assemble(int pcpt)
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
-            /* Column corresponding to indice j (we also assemble terms in col+1)
-             * col = (mwIndex)it[2*j]-1; -1 to use the indice convention of C
+            /*
+             * Index j is used in 2 ways:
+             * - in the matrix (data) to be inverted it corresponds to the columns
+             *   (2*l_j, 2*l_j+1) in the matrix
+             * - in the forcing vector (fvdata), it is used in the numerical quadrature
+             *   of some integrals over the element
+             * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
