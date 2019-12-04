@@ -1928,7 +1928,7 @@ FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) c
         int const kp1 = (k+1)%3;
         int const kp2 = (k+2)%3;
         coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
-        coeff[k+3] = (vertices[kp1][0]-vertices[kp2][0])/jac;//y derivatives depend on x
+        coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
     }
 
     return coeff;
