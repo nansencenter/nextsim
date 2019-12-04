@@ -60,7 +60,8 @@ namespace setup
         TOPAZ4OSISAFICESAT  = 18,
         TOPAZ4FAMSR2OSISAFNIC= 19,
         TOPAZ4FAMSR2OSISAFNICWEEKLY= 20,
-        CREG                = 21
+        CREG                = 21,
+        AMSR2CSTTHICK     =22
 	};
 
     enum class WaveType
@@ -92,6 +93,24 @@ namespace setup
         MULTI       = 2
     };
 
+    enum class WeldingType
+    {
+        NONE     = 0,
+        ROACH    = 1
+    };
+
+    enum class FSDType
+    {
+        CONSTANT_SIZE   = 0,
+        CONSTANT_AREA   = 1
+    };
+    enum class BreakupType
+    {
+        NONE  = 0,
+        UNIFORM_SIZE = 1,
+        ZHANG   =2,
+        DUMONT  =3
+    };
     enum class MeshType
     {
         FROM_UNREF     = 0,
