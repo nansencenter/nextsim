@@ -151,6 +151,9 @@ public:
     void setId(std::vector<int> const& newid);
     std::vector<int> id() const;
 
+    std::vector<std::vector<double>>
+        elementVertices(element_type const& element) const;
+
 private:
 
     Communicator M_comm;

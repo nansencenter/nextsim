@@ -1911,4 +1911,18 @@ GmshMesh::id() const
     return mesh_id;
 }
 
+
+// ------------------------------------------------
+//! return the vertices for a given element
+//! called by FiniteElement::shapeCoeff() and FiniteElement::jacobian()
+std::vector<std::vector<double>>
+GmshMesh::elementVertices(element_type const& element) const
+{
+    int const nv = element.indices.size();
+    std::vector<std::vector<double>> vertices(nv);
+    for(int i=0; i<nv; i++)
+        vertices[i] = M_nodes.find(element.indices[i])->second.coords;
+    return vertices;
+}
+
 } // Nextsim
