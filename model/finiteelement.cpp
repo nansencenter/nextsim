@@ -1574,7 +1574,7 @@ template<typename FEMeshType>
 double
 FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh) const
 {
-    auto const vertices = mesh.elementVertices(element);
+    auto const vertices = mesh.vertices(element.indices);
     return this->jacobian(vertices);
 }//jacobian
 
@@ -1584,7 +1584,7 @@ double
 FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh,
                         std::vector<double> const& um, double factor) const
 {
-    auto vertices = mesh.elementVertices(element);
+    auto vertices = mesh.vertices(element.indices);
     for(int k=0; k<3; k++)
         for (int i=0; i<2; ++i)
             vertices[k][i] += factor*um[element.indices[k]-1+i*(M_num_nodes)];
@@ -1914,12 +1914,18 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 //! - this function calculates their gradients
 //!   ie [[N0_x, N1_x, N2_x],
 //!       [N0_y, N1_y, N2_y]]
+//! - gradients are calculated from:
+//!   J^{-T}*[[-1,1,0], [-1,0,1]]
+//!   - inverse of the Jacobian matrix transposed times
+//!     the gradients on the reference triangle with vertices (0,0), (1,0) and (0,1).
+//!   - the Jacobian is for the transformation from the reference triangle to
+//!     the actual triangle (see the comment on FiniteElement::jacobian)
 //! Called by the FETensors() function.
 template<typename FEMeshType>
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) const
 {
-    auto vertices = mesh.elementVertices(element);
+    auto vertices = mesh.vertices(element.indices);
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
