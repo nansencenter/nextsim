@@ -802,8 +802,12 @@ FiniteElement::initDatasets()
 
         case setup::AtmosphereType::EC2_AROME:
             M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements_instaneous");//instantaneous fields at %H:00
-            M_atmosphere_bis_elements_dataset=DataSet("ec2_arome_elements_integrated");//integrated fields at %H:30
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements");
+            break;
+
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_atmosphere_nodes_dataset=DataSet("ec2_arome_ensemble_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
         default:
@@ -1295,9 +1299,10 @@ FiniteElement::initOptAndParam()
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
+        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
-        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     // set the drag coefficient for air
@@ -1312,9 +1317,11 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
@@ -10209,10 +10216,27 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
+                time_init, M_spinup_duration, 0, M_ensemble_member);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 4, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
+                    time_init, 0, 0, M_ensemble_member);
         break;
 
         default:

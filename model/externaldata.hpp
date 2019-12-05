@@ -47,6 +47,7 @@ public:
     typedef DataSet Dataset;
     typedef void (* vFunctionCall)(value_type args);
 
+    //constructor for empty object
     ExternalData();
 
     //normal constructors
@@ -57,6 +58,9 @@ public:
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
             bool is_vector, double StartingTime, double SpinUpDuration,
             double bias_correction );// 7 args
+    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
+            bool is_vector, double StartingTime, double SpinUpDuration,
+            double bias_correction, int const& ensemble_member );// 8 args
 
     //constructors for constant forcing
     ExternalData(double ConstantValue );
@@ -71,7 +75,7 @@ public:
     void check_and_reload(std::vector<double> const& RX,
             std::vector<double> const& RY, const double current_time );
 
-	value_type operator[] (const size_type i);
+    value_type operator[] (const size_type i);
     value_type get(const size_type i);
     size_type size();
 
@@ -82,7 +86,8 @@ public:
 
 #if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt);
+            std::vector<double> const& RY_in, const double current_time,
+            Communicator comm, const int cpl_time, const int cpl_dt);
 #endif
 
     void transformData(Dataset *dataset);
@@ -98,7 +103,7 @@ public:
     void receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif
 
-	bool isInitialized() const { return M_initialized; }
+    bool isInitialized() const { return M_initialized; }
 
     std::string getDatasetName() const { return M_dataset->name; }
     std::string getVariableName() const { return M_dataset->variables[M_VariableId].name; }
@@ -122,6 +127,7 @@ private:
     double M_StartingTime;
     double M_SpinUpDuration;
     double M_factor;
+    int M_ensemble_member;
 
     LogLevel M_log_level;
     bool M_log_all;
