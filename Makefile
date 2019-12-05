@@ -5,7 +5,7 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: contrib modules model core
+all: contrib modules core model
 
 contrib:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
@@ -15,21 +15,25 @@ modules:
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
 endif
-ifdef USE_AEROBULK
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE)
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
 
-model: core
+model: core modules
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
-core:
+core: contrib
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
+ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE) clean
+endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
+endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
 
 cleanmodel:
@@ -38,12 +42,18 @@ cleanmodel:
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
+ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
-	@cd $(NEXTSIMDIR)/modules/aerobulk/src; $(MAKE) mrproper
+endif
+ifdef USE_ENSEMBLE
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
-	rm -r objs  || true
-	rm -r lib   || true
-	rm -r .deps || true
+	rm -rf objs
+	rm -rf lib
+	rm -rf .deps
 
-fresh: mrproper all
+fresh:
+	$(MAKE) mrproper
+	$(MAKE) all

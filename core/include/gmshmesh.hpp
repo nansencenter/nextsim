@@ -158,6 +158,7 @@ private:
     std::string M_ordering;
     std::string M_mppfile;
     LogLevel M_log_level;
+    bool M_log_all;
 
     std::vector<point_type> M_nodes_vec;
     std::map<int, point_type > M_nodes;

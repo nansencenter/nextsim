@@ -46,29 +46,29 @@ namespace Nextsim
             ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
-
              //-----------------------------------------------------------------------------------
              //! - Debugging options
              // -----------------------------------------------------------------------------------
 
-            ("debugging.bamg_verbose", po::value<int>()->default_value( 6 ),
+            ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
+            ("debugging.gmsh_verbose", po::value<int>()->default_value( 0 ),
+                 "Gmsh verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
-            ("debugging.ptime_per_day", po::value<int>()->default_value( 12 ), "frequency of info printouts.")
+            ("debugging.log-all", po::value<bool>()->default_value( false ),
+                "Whether printouts from debugging.log-level are to be done on all processors [true|false(default)].")
+            ("debugging.ptime_percent", po::value<int>()->default_value( 5 ), "frequency of info printouts in % of runtime.")
             ("debugging.maxiteration", po::value<int>()->default_value( -1 ),
                 "Stop simulation after this number of model time steps (overrides simul.duration)")
             ("debugging.check_fields", po::value<bool>()->default_value( false ),
                 "call checkFields")
-            ("debugging.write_restart_before_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results before regrid")
-            ("debugging.write_restart_after_regrid", po::value<bool>()->default_value( false ),
-                "if true, export results after regrid")
             ("debugging.test_proc_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() if on this processor number (M_rank) (do nothing if <0)")
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
-
+            ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
+                "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -123,7 +123,7 @@ namespace Nextsim
                 "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "disk" ),
+            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
@@ -138,6 +138,8 @@ namespace Nextsim
 #else
             ("moorings.grid_type", po::value<std::string>()->default_value( "regular" ),
                 "[regular|from_file] for regular spaced grid or grid read in from the file moorings.grid_file (default: regular)")
+            ("moorings.use_conservative_remapping", po::value<bool>()->default_value( false ),
+                 "Use the conservative remapping scheme to interpolate onto the moorings grid. Requires mooring.grid_type=from_file, mesh.type=from_split and .msh and .nc files from the mkCplMesh.m script in nextsim-env (default: false)")
 #endif
             ("moorings.snapshot", po::value<bool>()->default_value( false ), "do we output snapshots in time or do we use time-averaging?")
             ("moorings.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly mooring files; or inf (single file)")
@@ -183,10 +185,15 @@ namespace Nextsim
             ("drifters.RGPS_time_init", po::value<std::string>()->default_value( "2007-12-01" ),
                 "time to init RGPS drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
 
-             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false), "are we using SIDFEX drifters")
+             ("drifters.use_sidfex_drifters", po::value<bool>()->default_value( false),
+                "are we using SIDFEX drifters")
              ("drifters.sidfex_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),
                   "interval between SIDFEX drifter outputs (days): integer multiple of timestep")
              ("drifters.sidfex_filename", po::value<std::string>()->default_value( "" ), "text file with initial buoy positions")
+             ("drifters.sidfex_time_init", po::value<std::string>()->default_value( "" ),
+                  "time to init SIDFEx drifters: date format yyyy-mm-dd or yyyy-mmm-dd (eg 2008-Mar-05); can also add time with HH:MM:SS (eg 2008-Mar-05 00:00:00)")
+             ("drifters.sidfex_ignore_restart", po::value<bool>()->default_value( false),
+                "do not load SIDFEx buoys from restart even if present")
 
             // - Restart
             // -- inputs
@@ -194,24 +201,41 @@ namespace Nextsim
                 "are we starting from a restart file?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
-            ("restart.filename", po::value<std::string>()->default_value( "" ),
-                "if we are starting from a restart file, the field files' names will be [restart.input_path]/[restart.filename].[bin,dat]")
-            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
-                "reset ice velocity to zero if starting from restart")
-            ("restart.reset_time_counter", po::value<bool>()->default_value( false ),
-                "true: simulation starts at simul.time_init eg for forecast; false: simulation starts at simul.time_init+pcpt*simul.timestep eg to restart interrupted simulation")
+            ("restart.basename", po::value<std::string>()->default_value( "" ),
+                "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
+            ("restart.type", po::value<std::string>()->default_value( "extend" ),
+                "Restart type: [extend|continue]. Extend (default): M_time_init is taken as the time inside the restart file and simul.duration is added to that. Continue: M_time_init is read from the configuration file (simul.time_init) and duration is added to that.")
 
             // -- outputs
-            ("restart.write_restart", po::value<bool>()->default_value( false ), "")
-            ("restart.output_time_step", po::value<double>()->default_value( 15 ), "days")
-            ("restart.output_time_step_units", po::value<std::string>()->default_value("days"),
-                "units of restart.output_time_step: days or time_steps")
+            ("restart.write_final_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at the end of the run")
+            ("restart.write_interval_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at an interval given by restart.restart_output_interval")
+            ("restart.write_initial_restart", po::value<bool>()->default_value( false ),
+                "To write a out a restart file at the start of the run")
+            ("restart.output_interval", po::value<double>()->default_value( 15 ), "How often to write restarts (with restart.write_interval_restart), in days or time_steps, according to restart.output_interval_units")
+            ("restart.datetime_in_filename", po::value<bool>()->default_value( true ),
+                "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
+
+            // -- restart debugging
+            ("restart.output_interval_units", po::value<std::string>()->default_value("days"),
+                "Units of restart.output_interval: days or time_steps")
+            ("restart.restart_at_rest", po::value<bool>()->default_value( false ),
+                "reset ice velocity to zero if starting from restart")
+            ("restart.write_restart_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart before regrid")
+            ("restart.write_restart_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ), "")
-            ("output.logfile", po::value<std::string>()->default_value( "" ), "")
+            ("output.output_per_day", po::value<int>()->default_value( 4 ),
+               "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
+            ("output.export_before_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results before regrid")
+            ("output.export_after_regrid", po::value<bool>()->default_value( false ),
+                "if true, export results after regrid")
 #if 0
             //TODO issue193 uncomment these lines to set export variables using config file (finish another time)
             ("output.variables", po::value<std::vector<std::string>>()->multitoken()
@@ -220,7 +244,7 @@ namespace Nextsim
 #endif
 
             // --exporter
-            ("output.datetime_in_filename", po::value<bool>()->default_value( false ),
+            ("output.datetime_in_filename", po::value<bool>()->default_value( true ),
                 "filename outputs are eg [mesh,field]_20180101T000000Z.[bin,dat]")
             ("output.exporter_path", po::value<std::string>()->default_value( "nextsim_outputs" ),
                 "Path where results should be exported")
@@ -283,6 +307,8 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -302,6 +328,7 @@ namespace Nextsim
 
             // - Water and air drag parameterizations
             ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("dynamics.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
@@ -324,8 +351,11 @@ namespace Nextsim
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
+            //   clip : float
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+            ("damage.clip", po::value<double>()->default_value( 0 ),
+             "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
 
              //-----------------------------------------------------------------------------------
@@ -375,7 +405,7 @@ namespace Nextsim
              "Exponent of factor for heat flux that compensates assimilation of concentration")
 
 #ifdef AEROBULK
-            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "nextsim" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim (default) | coare | coare3.5 | ncar | ecmwf ]")
+            ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
 
              //-----------------------------------------------------------------------------------
@@ -424,9 +454,42 @@ namespace Nextsim
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
             ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ), "File containing neccesary grid information for coupling.")
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
-            // ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
+            ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+
+            //-----------------------------------------------------------------------------------
+            //!wave_coupling
+            //-----------------------------------------------------------------------------------
+            // FSD related
+            ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
+            ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
+            ("wave_coupling.fsd_bin_cst_width", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            ("wave_coupling.fsd_min_floe_size", po::value<double>()->default_value( 10 ), "Select a number of constant width for FSD bins")
+            // Rheology related (careful to agree with WW3 !!)
+            ("wave_coupling.floes_flex_strength", po::value<double>()->default_value( 0.27e6 ), "Value used in Williams et al. 2013")
+            ("wave_coupling.floes_flex_young", po::value<double>()->default_value( 5.49e9 ), "Value used in Williams et al. 2013")
+            ("wave_coupling.welding_type", po::value<std::string>()->default_value( "none" ), "none -> no welding, roach -> welding following Roach et al. 2018")
+            ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
+            ("wave_coupling.fsd_welding_use_scaled_area", po::value<bool>()->default_value( false ), "Roach et al., 2018-> True")
+            ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to determine dmax value.             By default, dmax is the size associated with the 9th decile of sea ice")
+            ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
+            ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship between damage and FSD: 0 none, 1 related to unbroken floes concentration, 2 : related to break-up prob.")
+            ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
+            // Break-up parameters 
+            ("wave_coupling.breakup_thick_min", po::value<double>()->default_value( 0.), "Minimum sea ice thickness assumed in breakup determination")
+            ("wave_coupling.breakup_prob_type", po::value<int>()->default_value(0), "0: Default, use tau_w as a time scale for breakup ")
+            ("wave_coupling.breakup_cell_average_thickness", po::value<bool>()->default_value(false), "Are we using M_thick (volume, if false) or sea ice thickness averaged on sea ice cover only (if true) in break-up determination ?")
+            ("wave_coupling.breakup_timescale_tuning", po::value<double>()->default_value( 1.), "Time scale tuning for breakup_prob_type=0 (tau_w)")
+            ("wave_coupling.breakup_type", po::value<std::string>()->default_value( "uniform_size" ), "Type of break-up redistribution : none, uniform in size,(uniform_size) or followin Zhang et al. 2015 (zhang)")
+            ("wave_coupling.breakup_coef1", po::value<double>()->default_value( 0.5), "Coef1 is used to tune the size D of fsd regime transition : D=lambda_wave*coef1")
+            ("wave_coupling.breakup_coef2", po::value<double>()->default_value( 1.), "Coef2 is used to tune the size range on which the fsd transition is seen : range=lambda_wave*coef2")
+            ("wave_coupling.breakup_coef3", po::value<double>()->default_value( 1.), "Coef3 is used to tune the size range on which the fsd transition is seen : range=dflex*coef3")
+            ("wave_coupling.breakup_prob_cutoff", po::value<double>()->default_value( 0.0015), "Minimum value of break-up probability for which break-up occurs (if prob<prob_cut_off -> prob=0.)")
+
+            ("wave_coupling.distinguish_mech_fsd", po::value<bool>()->default_value( true ), "Do we distinguish a mech. FSD from the real FSD ?")
+            ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
+
 
 #if defined(WAVES)
         ;
@@ -438,3 +501,4 @@ namespace Nextsim
     }
 
 } // Nextsim
+

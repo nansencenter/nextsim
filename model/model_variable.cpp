@@ -97,6 +97,32 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
+        case (variableID::M_cum_damage):
+            // damage
+            M_name = "M_cum_damage";
+            M_export_name = "Cumulated_damage";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
+        case (variableID::M_cum_wave_damage):
+            // damage
+            M_name = "M_cum_wave_damage";
+            M_export_name = "Cumulated_wave_damage";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::nearest_neighbour;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
         case (variableID::M_ridge_ratio):
             // volume ratio of ridged ice
             M_name = "M_ridge_ratio";
@@ -232,6 +258,36 @@ ModelVariable::initElemental()
             M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
+            break;
+
+        case (variableID::M_conc_fsd):
+            // concentration of thin ice
+            M_name = "M_conc_fsd";
+            M_export_name = "Concentration_fsd";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
+        case (variableID::M_conc_mech_fsd):
+            // concentration of thin ice
+            M_name = "M_conc_mech_fsd";
+            M_export_name = "Concentration_mech_fsd";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
             break;
 
         case (variableID::M_fyi_fraction):
@@ -412,10 +468,18 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_emp):
+        case (variableID::D_fwflux):
             // Freshwater balance at the surface [kg/m^2/s]
-            M_name = "D_emp";
-            M_export_name = "D_emp";
+            M_name = "D_fwflux";
+            M_export_name = "D_fwflux";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_fwflux_ice):
+            // Freshwater flux at the surface due to ice processes [kg/m^2/s]
+            M_name = "D_fwflux_ice";
+            M_export_name = "D_fwflux_ice";
             M_prognostic = false;
             M_exporting = false;
             break;
@@ -426,6 +490,56 @@ ModelVariable::initElemental()
             M_export_name = "D_brine";
             M_prognostic = false;
             M_exporting = false;
+            break;
+
+        case (variableID::D_dmax):
+            // mean floe diameter
+            M_name = "D_dmax";
+            M_export_name = "Dmax";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
+        case (variableID::D_dmean):
+            // mean floe diameter
+            M_name = "D_dmean";
+            M_export_name = "Dmean";
+            M_prognostic = false;
+            M_exporting = true;
+
+        case (variableID::D_tau_ow):
+            // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m]
+            M_name = "D_tau_ow";
+            M_export_name = "D_tau_ow";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_evap):
+            // Evaporation - kg/m^2/s
+            M_name = "D_evap";
+            M_export_name = "D_evap";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_rain):
+            // Rain - kg/m^2/s
+            M_name = "D_rain";
+            M_export_name = "D_rain";
+            M_prognostic = false;
+            M_exporting = false;
+            M_diffusivity = 0;
+            break;
+
+        case (variableID::D_dcrit):
+            // diagnostic variable to tell use how far outside the
+            // Mohr-Coulomb envelope we are
+            M_name = "D_dcrit";
+            M_export_name = "d_crit";
+            M_prognostic = false;
+            M_exporting = true;
             break;
 
         default:

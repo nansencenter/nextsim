@@ -1,0 +1,100 @@
+##############################################################################
+#
+#      Input file for WW3
+# 
+#
+###############################################################################
+#  
+#      Input delimiters have to occupy position 1 to 9 !
+#      No blank lines allowed !
+#      Length of input lines <= 80 !
+#
+###############################################################################
+#
+# NFIELDS : total number of fields being exchanged.
+#
+ $NFIELDS
+         4
+ $END
+#
+###############################################################################
+# 
+# RUNTIME (<I8)
+#         total simulated time for the actual run in seconds
+#         the value will be set before the actual integration
+#
+ $RUNTIME
+           1036800
+ $END
+#
+###############################################################################
+#
+ $NLOGPRT
+   2  2
+ $END
+#
+###############################################################################
+#
+ $STRINGS
+#
+#
+############################################################################
+#                      ICE  --->>>  WAVES
+############################################################################
+#
+# --- start Field 1 --- ice concentration
+#
+I_sic WW3__ICE   20  2400  1  ice_nextsim.nc  EXPORTED
+118 149  118 149 tor2 ww3t  LAG=2400
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 1 ---
+#
+#
+# --- start Field 2 --- ice thickness
+#
+I_sit WW3__IC1   21  2400  1  ice_nextsim.nc  EXPORTED
+118 149  118 149 tor2 ww3t  LAG=2400
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 2 ---
+#
+############################################################################
+#                      WAVES  --->>>  ICE
+############################################################################
+#
+# --- start Field 3 --- wave stress on ice (x)
+#
+WW3_TWIX I_tauwix 22  2400  1  r-ww3.nc  EXPORTED
+118 149  118 149  ww3t tor2  LAG=2400
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 3 ---
+#
+#
+# --- start Field 4 --- wave stress on ice (y)
+#
+WW3_TWIY I_tauwiy  23  2400  1  r-ww3.nc  EXPORTED
+118 149  118 149  ww3t tor2  LAG=2400
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 4 ---
+#
+#
+ $END

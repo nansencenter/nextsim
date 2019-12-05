@@ -19,6 +19,17 @@
 
 namespace Nextsim
 {
+
+//------------------------------------------------------------------------------------------------------
+//! Clip damage. All values of input <damage> below a given <threshold> are turned into zero.
+//! Called by the assemble() and update() methods of FiniteElement.
+inline double
+clip_damage(double damage, double damage_min){
+    return damage > damage_min ? damage : 0;
+    //double damage_tanh_factor = 1000;
+    //return damage * (0.5 + 0.5 * std::tanh(damage_tanh_factor * (damage - damage_min)));
+}
+
 //------------------------------------------------------------------------------------------------------
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
 FiniteElement::FiniteElement(Communicator const& comm)
@@ -28,8 +39,7 @@ FiniteElement::FiniteElement(Communicator const& comm)
     M_mesh(mesh_type(comm)),
     M_solver(solver_ptrtype(new solver_type(comm))),
     M_matrix(matrix_ptrtype(new matrix_type(comm))),
-    M_vector(vector_ptrtype(new vector_type(comm))),
-    timer()
+    M_vector(vector_ptrtype(new vector_type(comm)))
 {}
 
 
@@ -64,13 +74,11 @@ FiniteElement::distributedMeshProcessing(bool start)
 
     M_mesh.setOrdering("gmsh");
 
-    if (M_rank == 0)
-        LOG(INFO) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+    LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
-    timer["meshread"].first.restart();
+    chrono.restart();
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------MESHREAD done in "<< timer["meshread"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
 
     if (!start)
     {
@@ -81,14 +89,13 @@ FiniteElement::distributedMeshProcessing(bool start)
         bamgmesh = new BamgMesh();
     }
 
-    timer["createbamg"].first.restart();
+    chrono.restart();
     BamgConvertMeshx(
                      bamgmesh,bamggeom,
                      &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
                      M_mesh.numNodes(), M_mesh.numTriangles());
 
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< timer["createbamg"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -102,31 +109,25 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
     M_num_nodes = M_local_ndof_ghost;
 
-    timer["bcmarker"].first.restart();
+    chrono.restart();
     this->bcMarkedNodes();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------BCMARKER done in "<< timer["bcmarker"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
 
-    timer["creategraph"].first.restart();
+    chrono.restart();
     this->createGraph();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< timer["creategraph"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
 
-    timer["gathersize"].first.restart();
+    chrono.restart();
     this->gatherSizes();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< timer["gathersize"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
 
-#if 1
-    timer["scattercvt"].first.restart();
+    chrono.restart();
     this->scatterElementConnectivity();
-    //if (M_rank == 0)
-    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< timer["gathersize"].first.elapsed() <<"s\n";
-#endif
+    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
-    // LOG(INFO) <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
-    // LOG(INFO) <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+    // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    // LOG(DEBUG) << ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
 
     std::cout << "[INFO]: " <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
     std::cout << "[INFO]: " <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
@@ -262,8 +263,8 @@ FiniteElement::bcMarkedNodes()
     std::sort(M_neumann_flags.begin(), M_neumann_flags.end());
     M_neumann_flags.erase(std::unique(M_neumann_flags.begin(), M_neumann_flags.end() ), M_neumann_flags.end());
 
-    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
-    LOG(DEBUG) <<"["<< M_comm.rank() <<"] " << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+    LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
 
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
@@ -415,7 +416,7 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
-            LOG(DEBUG) <<"["<< M_rank <<"] " <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+            LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
@@ -531,12 +532,6 @@ FiniteElement::initVariables()
         }
     }
 
-    if ((M_rank == 0) && (M_use_drifters))
-    {
-        M_UT_root.assign(2*M_ndof, 0.);
-        M_conc_root.resize(M_mesh_root.numTriangles());
-    }
-
     this->assignVariables();
 
 }//initVariables
@@ -596,7 +591,6 @@ FiniteElement::assignVariables()
         M_ocean_elements_dataset.grid.loaded=false;
     }
 
-#if 1
 /* This shouldn't be needed - and it messes up the coupling
  * But let's keep it commented for now, just in case.
  *    // reload the dataset
@@ -642,7 +636,10 @@ FiniteElement::assignVariables()
     M_atmosphere_bis_elements_dataset.interpolated=false;
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
-
+#ifdef OASIS 
+    M_wave_nodes_dataset.interpolated = false;
+    M_wave_elements_dataset.interpolated = false;
+#endif
     M_ice_topaz_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
@@ -653,9 +650,8 @@ FiniteElement::assignVariables()
     M_ice_smos_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
-#endif
 
-    // //loop over vector of pointers to datasets defined in initForcings()
+    // //loop over vector of pointers to datasets defined in initExternalData()
     // for (auto it=M_datasets_regrid.begin(), end=M_datasets_regrid.end(); it!=end; ++it)
     // {
     //     if (M_rank == 0)
@@ -670,7 +666,9 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
+    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
+
 
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
@@ -678,7 +676,6 @@ FiniteElement::assignVariables()
     if (M_rank == 0)
     {
         M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-
         cpt = 0;
         for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
         {
@@ -686,6 +683,9 @@ FiniteElement::assignVariables()
             ++cpt;
         }
     }
+
+    D_multiplicator.resize(M_num_elements);
+    D_elasticity.resize(M_num_elements);
 }//assignVariables
 
 
@@ -721,6 +721,12 @@ FiniteElement::initExternalData()
 
     LOG(DEBUG) <<"Initialize forcingOcean\n";
     this->forcingOcean();
+
+#ifdef OASIS
+    LOG(DEBUG) <<"Initialize forcingWaves\n";
+    if (vm["coupler.with_waves"].as<bool>())
+        this->forcingWaves();
+#endif
 
     //! - 3) Initializes the bathymetry using the initBathymetry() function,
     LOG(DEBUG) <<"Initialize bathymetry\n";
@@ -766,9 +772,9 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ERAi_elements");
             break;
 
-        case setup::AtmosphereType::EC:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
+        case setup::AtmosphereType::ERA5:
+            M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
+            M_atmosphere_elements_dataset=DataSet("ERA5_elements");
             break;
 
         case setup::AtmosphereType::EC2:
@@ -843,6 +849,16 @@ FiniteElement::initDatasets()
         M_nesting_distance_elements_dataset=DataSet("nesting_distance_elements");
         M_nesting_distance_nodes_dataset=DataSet("nesting_distance_nodes");
     }
+
+#ifdef OASIS
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
+        M_datasets_regrid.push_back(&M_wave_nodes_dataset);
+        M_wave_elements_dataset = DataSet("wave_cpl_elements");
+        M_datasets_regrid.push_back(&M_wave_elements_dataset);
+    }
+#endif
 
     //! - 4) Initializes the ice-init datasets
     //       TODO these probably don't need to be global variables
@@ -930,8 +946,10 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 //! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
+        double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
+        const bool use_timer)
 {
+    M_timer.tick("checkReloadDatasets");
     if ( ext_data_vec.size()==0 )
     {
         LOG(DEBUG) <<"checkReloadDatasets - nothing to do\n";
@@ -942,8 +960,12 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
+        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+            << " of dataset " << (*it)->getDatasetName() << "\n";
+
+        M_timer.tick((*it)->getDatasetName());
         std::string msg = "checkReloadDatasets: ExternalData object "
-                +std::to_string(i) + " is not initialised yet";
+                + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
             throw std::runtime_error(msg);
 #ifdef OASIS
@@ -951,7 +973,9 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #else
         (*it)->check_and_reload(RX, RY, CRtime);
 #endif
+        M_timer.tock((*it)->getDatasetName());
     }
+    M_timer.tock("checkReloadDatasets");
 }//checkReloadDatasets
 
 
@@ -962,22 +986,24 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 //!   needs to be reloaded and/or reinterpolated
 //! Called by init() and step()
 void
-FiniteElement::checkReloadMainDatasets(double const CRtime)
+FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
+    M_timer.tick("bCoord");
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
+    M_timer.tock("bCoord");
+    LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 
     // - mesh nodes
+    M_timer.tick("Coord");
     RX = M_mesh.coordX();
     RY = M_mesh.coordY();
-    if(M_rank==0)
-        LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
+    M_timer.tock("Coord");
+    LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
 
 
@@ -1045,6 +1071,9 @@ FiniteElement::initOptAndParam()
     //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
     M_log_level = Environment::logLevel();
 
+    //! Do we output the log on all processors?
+    M_log_all = Environment::logAll();
+
     //! Defines the export (output) path.
     M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
     // Changes directory for outputs if the option "output.exporter_path" is not empty
@@ -1074,11 +1103,6 @@ FiniteElement::initOptAndParam()
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
-    ptime_step =  days_in_sec/vm["debugging.ptime_per_day"].as<int>(); //! \param ptime_step (int) Debugging time step?
-    // Round ptime_step to the nearest multple of time_step
-    ptime_step += time_step/2;
-    ptime_step -= ptime_step% time_step;
-
     thermo_timestep = vm["simul.thermo_timestep"].as<int>(); //! \param thermo_timestep (int) Thermodynamic time step [s]
     if ( thermo_timestep % time_step != 0)
     {
@@ -1099,7 +1123,56 @@ FiniteElement::initOptAndParam()
     }
 #endif
 
-    output_time_step =  (vm["output.output_per_day"].as<int>()<0) ? time_step : time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step); //! \param output_time_step (int) Time step of model outputs
+    if ( vm["output.output_per_day"].as<int>() > 0 )
+    {
+       output_time_step = time_step * floor(days_in_sec/vm["output.output_per_day"].as<int>()/time_step);
+    }
+    else if ( vm["output.output_per_day"].as<int>() == 0 )
+    {
+       output_time_step = 0;
+    }
+    else
+    {
+       output_time_step = time_step;
+    }
+
+    duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
+    if(duration<0)
+        throw std::runtime_error("Set simul.duration >= 0\n");
+
+    ptime_step =  vm["debugging.ptime_percent"].as<int>()*duration/100; //! \param ptime_step (int) Info ouput time interval
+    // Round ptime_step to the nearest multple of time_step
+    ptime_step += time_step/2;
+    ptime_step -= ptime_step% time_step;
+
+    M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
+
+    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+
+    M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
+    LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
+    M_write_restart_end      = vm["restart.write_final_restart"].as<bool>(); //! param M_write_restart_end (boolan) Option to write restart at the end of the simulation
+    LOG(DEBUG) << "Write restart at end " << M_write_restart_end << "\n";
+    M_write_restart_interval = vm["restart.write_interval_restart"].as<bool>(); //! param M_write_restart_end (boolan) Option to write restart at the end of the simulation
+    LOG(DEBUG) << "Write restart at an interval " << M_write_restart_interval << "\n";
+
+    if(vm["restart.output_interval_units"].as<std::string>() == "days")
+        restart_time_step = days_in_sec*vm["restart.output_interval"].as<double>(); //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else if (vm["restart.output_interval_units"].as<std::string>() == "time_steps")
+        restart_time_step = time_step*vm["restart.output_interval"].as<double>(); //! \param restart_time_step (double) Time step for outputting restart files [s]
+    else
+        throw std::runtime_error("FiniteElement::initOptAndParam: Option restart.output_interval_units should be days or time_steps");
+
+    LOG(DEBUG) << "Restart output interval: " << restart_time_step << vm["restart.output_interval_units"].as<std::string>() << "\n";
+
+    if ( restart_time_step % time_step != 0)
+    {
+        throw std::runtime_error("FinteElement::initOptAndParam: Option restart.output_interval not an integer multiple of simul.timestep (taking restart.output_interval_units into account)");
+    }
+
+    M_spinup_duration = vm["simul.spinup_duration"].as<double>(); //! \param M_spinup_duration (double) duration of spinup of atmosphere/ocean forcing.
+
+    //! Moorings output time step - for restarts this needs to fit inside the restart period
     if(vm["moorings.output_time_step_units"].as<std::string>() == "days")
         mooring_output_time_step =  vm["moorings.output_timestep"].as<double>()*days_in_sec; //! \param mooring_output_time_step (double) Time step for mooring outputs [s]
     else if (vm["moorings.output_time_step_units"].as<std::string>() == "time_steps")
@@ -1107,28 +1180,16 @@ FiniteElement::initOptAndParam()
     else
         throw std::runtime_error("moorings.output_time_step_units should be days or time_steps");
     mooring_time_factor = dtime_step/double(mooring_output_time_step);
-    if ( mooring_output_time_step % time_step != 0)
-    {
-        throw std::runtime_error("mooring_output_time_step is not an integer multiple of time_step");
-    }
 
-    duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
-    if(duration<0)
-        throw std::runtime_error("Set simul.duration >= 0\n");
-    if(vm["restart.output_time_step_units"].as<std::string>() == "days")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*days_in_sec; //! \param restart_time_step (double) Time step for outputting restart files [s]
-    else if (vm["restart.output_time_step_units"].as<std::string>() == "time_steps")
-        restart_time_step =  vm["restart.output_time_step"].as<double>()*time_step;
-    else
-        throw std::runtime_error("restart.output_time_step_units should be days or time_steps");
-    M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
-    M_write_restart = vm["restart.write_restart"].as<bool>(); //! \param M_write_restart (double) Option on writing restart files
-    if ( restart_time_step % time_step != 0)
-    {
-        throw std::runtime_error("restart_time_step not an integer multiple of time_step");
-    }
+    // Checks
+    if ( mooring_output_time_step % time_step != 0 )
+        throw std::runtime_error("FiniteElement::initOptAndParam: mooring_output_time_step is not an integer multiple of time_step");
 
+    if ( M_write_restart_end && ( int(duration) % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: duration not an integer multiple of mooring_output_time_step");
+
+    if ( M_write_restart_interval && ( restart_time_step % mooring_output_time_step != 0 ) )
+        throw std::runtime_error("FiniteElement::initOptAndParam: restart_time_step not an integer multiple of mooring_output_time_step");
 
     //! Sets the value of some parameters relevant for ocean forcing (turning angle, surface drag coef, basal drag )
     ocean_turning_angle_rad = 0.; //! \param ocean_turning_angle_rad (double) Ocean turning angle [rad]
@@ -1157,6 +1218,8 @@ FiniteElement::initOptAndParam()
 
 
     //! Sets mechanical parameter values
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
+    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strength as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
@@ -1172,39 +1235,48 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::ThermoType> str2thermo = boost::assign::map_list_of
         ("zero-layer", setup::ThermoType::ZERO_LAYER)
         ("winton", setup::ThermoType::WINTON);
-    M_thermo_type = str2thermo.find(vm["setup.thermo-type"].as<std::string>())->second; //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
+    M_thermo_type = this->getOptionFromMap("setup.thermo-type", str2thermo);
+        //! \param M_thermo_type (string) Option on the thermodynamic scheme (Winton or zero-layer model)
     LOG(DEBUG)<<"ThermoType= "<< (int)M_thermo_type <<"\n";
 
+    //! Sets options on the oceanic heat-flux scheme
+    const boost::unordered_map<const std::string, setup::OceanHeatfluxScheme> str2qiot= boost::assign::map_list_of
+        ("basic", setup::OceanHeatfluxScheme::BASIC)
+        ("exchange", setup::OceanHeatfluxScheme::EXCHANGE);
+    M_Qio_type = this->getOptionFromMap("thermo.Qio-type", str2qiot);
+        //! \param M_Qio_type (enum) Option on the ocean heat flux scheme (basic or exchange)
+    LOG(DEBUG)<< "M_Qio_type: "<< (int)M_Qio_type <<"\n";
 
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
         ("non-linear", setup::FreezingPointType::NON_LINEAR);
-    std::string option_str = vm["thermo.freezingpoint-type"].as<std::string>();
-    if ( str2fpt.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.freezingpoint-type: " + option_str);
-    M_freezingpoint_type = str2fpt.find(option_str)->second; //! \param M_thermo_type (enum) Option on the thermodynamic scheme (Winton or zero-layer model)
+    M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
+        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
+
+    //! Turn on snow-to-ice formation when flooding
+    M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
 
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
         M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
 #endif
-    LOG(DEBUG)<<"FreezingPointType= "<< (int)M_freezingpoint_type <<"\n";
+    LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
 
 #ifdef AEROBULK
     //! Sets options on the ocean-atmosphere bulk formula
     const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
-        ("nextsim", aerobulk::algorithm::neXtSIM)
+        ("nextsim", aerobulk::algorithm::OTHER)
         ("coare", aerobulk::algorithm::COARE)
         ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
-    option_str = vm["thermo.ocean_bulk_formula"].as<std::string>();
-    if ( str2oblk.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for thermo.ocean_bulk_formula: " + option_str);
-    M_ocean_bulk_formula = str2oblk.find(option_str)->second; //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes (only when compiled together with aerobulk)
+    M_ocean_bulk_formula = this->getOptionFromMap("thermo.ocean_bulk_formula", str2oblk);
+        //! \param M_ocean_bulk_formula (enum) Option on the bulk formula for ocean-atmosphere fluxes
+        //! (only when compiled together with aerobulk)
+    LOG(DEBUG)<< "M_ocean_bulk_formula: "<< (int)M_ocean_bulk_formula <<"\n";
 #endif
 
 
@@ -1213,17 +1285,15 @@ FiniteElement::initOptAndParam()
         ("constant", setup::AtmosphereType::CONSTANT)
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
-        ("ec", setup::AtmosphereType::EC)
+        ("era5", setup::AtmosphereType::ERA5)
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME);
-
-    option_str = vm["setup.atmosphere-type"].as<std::string>();
-    if ( str2atmosphere.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.atmosphere-type: " + option_str);
-    M_atmosphere_type = str2atmosphere.find(option_str)->second; //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+    M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
+        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     // set the drag coefficient for air
     switch(M_atmosphere_type)
@@ -1233,7 +1303,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR_HI:
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::EC:
+        case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
@@ -1241,7 +1311,6 @@ FiniteElement::initOptAndParam()
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
-    LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
     if (M_use_nesting)
@@ -1263,7 +1332,8 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED);
-    M_ocean_type = str2ocean.find(vm["setup.ocean-type"].as<std::string>())->second; //! \param M_ocean_type (string) Option on the type of ocean forcing (constant or Topaz options)
+    M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
+        //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
@@ -1277,44 +1347,85 @@ FiniteElement::initOptAndParam()
         ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
+        ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
+        ("creg", setup::IceType::CREG)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
-    option_str = vm["setup.ice-type"].as<std::string>();
-    if ( str2conc.count(option_str) == 0 )
-        throw std::runtime_error("FiniteElement::initOptAndParam: Unknown option for setup.ice-type: " + option_str);
-    M_ice_type = str2conc.find(option_str)->second;
-    LOG(DEBUG) <<"ICETYPE= "<< (int)M_ice_type <<"\n";
+    M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
+        //! \param M_ice_type (enum) Option on the type of ice initialisation
+    LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
-    M_dynamics_type = str2dynamics.find(vm["setup.dynamics-type"].as<std::string>())->second; //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
-    LOG(DEBUG) <<"DYNAMICSTYPE= "<< (int)M_dynamics_type <<"\n";
+    M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
+        //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
+    LOG(DEBUG) <<"DynamicsType= "<< (int)M_dynamics_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BathymetryType> str2bathymetry = boost::assign::map_list_of
         ("constant", setup::BathymetryType::CONSTANT)
         ("etopo", setup::BathymetryType::ETOPO);
-    M_bathymetry_type = str2bathymetry.find(vm["setup.bathymetry-type"].as<std::string>())->second; //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
-    LOG(DEBUG) <<"BATHYMETRYTYPE= "<< (int) M_bathymetry_type <<"\n";
+        //! \param M_bathymetry_type (string) Option on the type of bathymetry (constant or ETOPO)
+    M_bathymetry_type = this->getOptionFromMap("setup.bathymetry-type", str2bathymetry);
+    LOG(DEBUG) <<"BathymetryType= "<< (int) M_bathymetry_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
         ("bouillon", setup::BasalStressType::BOUILLON);
-    M_basal_stress_type = str2basal_stress.find(vm["setup.basal_stress-type"].as<std::string>())->second; //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
+    M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
+        //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
+#ifdef OASIS
+    //! FSD Initialization
+    M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
+    const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
+        ("constant_size", setup::FSDType::CONSTANT_SIZE) 
+        ("constant_area", setup::FSDType::CONSTANT_AREA);
+    M_fsd_type = this->getOptionFromMap("wave_coupling.fsd_type", str2fsd);
+    //
+    M_fsd_bin_cst_width= vm["wave_coupling.fsd_bin_cst_width"].as<double>();
+    M_fsd_min_floe_size= vm["wave_coupling.fsd_min_floe_size"].as<double>();
 
+    M_floes_flex_strength = vm["wave_coupling.floes_flex_strength"].as<double>();
+    M_floes_flex_young    = vm["wave_coupling.floes_flex_young"].as<double>();
+
+    //! If FSD : Welding
+    const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
+        ("none", setup::WeldingType::NONE) 
+        ("roach", setup::WeldingType::ROACH);
+    M_welding_type = this->getOptionFromMap("wave_coupling.welding_type", str2welding);
+    M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
+    M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
+
+    //! If FSD : Break-up (redistribution) 
+    const boost::unordered_map<const std::string, setup::BreakupType> str2breakup= boost::assign::map_list_of
+        ("none", setup::BreakupType::NONE) 
+        ("zhang", setup::BreakupType::ZHANG)
+        ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
+        ("dumont", setup::BreakupType::DUMONT);
+    M_breakup_type = this->getOptionFromMap("wave_coupling.breakup_type", str2breakup);
+    M_breakup_thick_min     = vm["wave_coupling.breakup_thick_min"].as<double>();
+    M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
+    //! FSD : Misc. parameters
+    M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
+    M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
+    M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
+    M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
+    M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
+#endif
 
     //! Sets the type and format of the mesh and the mesh filename
     const boost::unordered_map<const std::string, setup::MeshType> str2mesh = boost::assign::map_list_of
         ("from_unref", setup::MeshType::FROM_UNREF)
         ("from_split", setup::MeshType::FROM_SPLIT);
-    M_mesh_type = str2mesh.find(vm["mesh.type"].as<std::string>())->second; //! \param M_mesh_type (string) Mesh type (unref or split)
+    M_mesh_type = this->getOptionFromMap("mesh.type", str2mesh);
+        //! \param M_mesh_type (enum) Mesh type (unref or split)
     LOG(DEBUG) <<"MESHTYPE= "<< (int) M_mesh_type <<"\n";
 
     M_mesh_basename = vm["mesh.filename"].as<std::string>(); //! \param M_mesh_basename (string) Mesh filename
@@ -1341,9 +1452,11 @@ FiniteElement::initOptAndParam()
         ("weekly", GridOutput::fileLength::weekly)
         ("monthly", GridOutput::fileLength::monthly)
         ("yearly", GridOutput::fileLength::yearly);
-    M_moorings_file_length = str2mooringsfl.find(vm["moorings.file_length"].as<std::string>())->second;
+    M_moorings_file_length = this->getOptionFromMap("moorings.file_length", str2mooringsfl);
         //! \param M_moorings_file_length (string) Length (in time) of the mooring output file
         //! (set according to daily, weekly, monthly or yearly outputs or to the "unlimited" option.)
+    LOG(DEBUG) << "M_moorings_file_length: " << (int)M_moorings_file_length<<"\n";
+
     M_moorings_false_easting = vm["moorings.false_easting"].as<bool>();
         //! \param M_moorings_false_easting (boolean) Orientation of output vectors (true: components relative to output grid; false: or north/east components)
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
@@ -1354,18 +1467,54 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
         ("chaco", mesh::Partitioner::CHACO)
         ("metis", mesh::Partitioner::METIS);
-    M_partitioner = str2partitioner.find(vm["mesh.partitioner"].as<std::string>())->second; //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    M_partitioner = this->getOptionFromMap("mesh.partitioner", str2partitioner);
+        //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
+    LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
 
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
 
-    M_partition_space = str2partitionspace.find(vm["mesh.partitioner-space"].as<std::string>())->second; //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
-    //! - Set the drifter options
+    M_partition_space = this->getOptionFromMap("mesh.partitioner-space", str2partitionspace);
+        //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
+    LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
+
+    //! - instantiate the drifter classes
     //  NB needs to be done before readRestart()
-    this->initDrifterOpts();
+    this->instantiateDrifters();
 
 }//initOptAndParam
+
+
+//------------------------------------------------------------------------------------------------------
+//! given a map eg [("ec2", setup::AtmosphereType::EC2), ...]
+//! and an option name opt_name eg "setup.atmosphere-type" with
+//! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
+//! Called by initOptAndParam()
+template<typename enum_type>
+enum_type
+FiniteElement::getOptionFromMap(std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map)
+{
+
+    if(vm.count(opt_name)==0)
+        throw std::runtime_error(
+                "FiniteElement::getOptionFromMap: Unknown option name: "
+                + opt_name+"\n");
+
+    std::string const option_str = vm[opt_name].as<std::string>();
+    if ( map.count(option_str) == 0 )
+    {
+        LOG(ERROR)<< "FiniteElement::checkOptions: Unknown option for "
+                << opt_name << ": " << option_str<< "\n";
+        LOG(ERROR)<<"Valid options are:\n";
+        for (auto ptr=map.begin(); ptr!=map.end(); ptr++)
+            LOG(ERROR)<<"  "<< ptr->first <<"\n";
+        throw std::runtime_error("Invalid option for "
+                +opt_name + ": " + option_str+"\n");
+    }
+    return map[option_str];
+}
 
 
 //------------------------------------------------------------------------------------------------------
@@ -2377,13 +2526,13 @@ FiniteElement::advect(std::vector<double> const& interp_elt_in, std::vector<doub
             }
             else
             {
-		        neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
+                neighbour_double = bamgmesh->ElementConnectivity[cpt*3+i];
                 neighbour_int = (int)bamgmesh->ElementConnectivity[cpt*3+i];
 
                 // neighbour_double = M_element_connectivity[cpt*3+i];
                 // neighbour_int = (int)M_element_connectivity[cpt*3+i];
 
-		        if (!std::isnan(neighbour_double) && neighbour_int>0)
+                if (!std::isnan(neighbour_double) && neighbour_int>0)
                 {
                     surface = this->measure(M_elements[neighbour_int-1],M_mesh, UM_P);
                     outer_fluxes_area[i] = -std::min(surface/dtime_step/3.,-outer_fluxes_area[i]);
@@ -2726,8 +2875,6 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     // scatter back verctor from root to all processes
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
-
-
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -2817,8 +2964,8 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
 {
     int nb_var_element = M_prognostic_variables_elt.size();
 
-    timer["gather"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT starts\n";
+    chrono.restart();
+    LOG(DEBUG) <<"----------GATHER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements;
     std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
@@ -2846,7 +2993,7 @@ FiniteElement::gatherFieldsElement(std::vector<double>& interp_in_elements)
         }
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsElement
 
 
@@ -2859,8 +3006,8 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
         std::vector<ExternalData*> const& ext_data_elements)
 {
 
-    timer["gather"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT starts\n";
+    chrono.restart();
+    LOG(DEBUG) <<"----------IO: GATHER ELEMENT starts\n";
 
     int const nb_var_element = vars_elements.size() + ext_data_elements.size();
     std::vector<double> elt_values_local;
@@ -2881,7 +3028,7 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
         boost::mpi::gatherv(M_comm, elt_values_local, 0);
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------IO: GATHER ELEMENT done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsElementsIO
 
 
@@ -2891,8 +3038,8 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 void
 FiniteElement::scatterFieldsElement(double* interp_elt_out)
 {
-    timer["scatter"].first.restart();
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+    chrono.restart();
+    LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
     int nb_var_element = M_prognostic_variables_elt.size();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
@@ -2931,7 +3078,7 @@ FiniteElement::scatterFieldsElement(double* interp_elt_out)
     }
     this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsElement
 
 
@@ -2951,9 +3098,9 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     //! * data is a vector of pointers to the variables to be assigned
     //!   values from elt_values_local
     //!   - passed to redistributeVariablesIO
-    timer["scatter"].first.restart();
+    chrono.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT starts\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT starts\n";
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
     int const nb_var_element = vars_elements.size();
@@ -2975,7 +3122,7 @@ FiniteElement::scatterFieldsElementIO(std::vector<double> const& elt_values_root
     // transfer data from elt_values_local to vars_elements
     this->redistributeVariablesIO(elt_values_local, vars_elements);
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER ELEMENT done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER ELEMENT done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsElementIO
 
 
@@ -2988,12 +3135,11 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     std::vector<double> interp_in_elements;
     std::vector<double> interp_in_nodes;
 
-    timer["gather"].first.restart();
+    chrono.restart();
     int nb_var_element = M_prognostic_variables_elt.size();
     this->gatherFieldsElement(interp_in_elements);
     this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------GATHER done in "<< timer["gather"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------GATHER done in "<< chrono.elapsed() <<"s\n";
 
     double* interp_elt_out;
     double* interp_nd_out;
@@ -3023,13 +3169,12 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         //! The interpolation with the cavities still needs to be tested on a long run.
         //! By default, we then use the non-conservative MeshToMesh interpolation
 
-        timer["cavities"].first.restart();
+        chrono.restart();
         InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
                                        &M_interp_methods[0], nb_var_element,
                                        &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
 
-        if (M_rank == 0)
-            LOG(DEBUG)<<"-------------------CAVITIES done in "<< timer["cavities"].first.elapsed() <<"s\n";
+        LOG(DEBUG)<<"-------------------CAVITIES done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();
@@ -3060,16 +3205,14 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
                                 false);
     } // rank 0
 
-    timer["distributed"].first.restart();
+    chrono.restart();
     this->distributedMeshProcessing();
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< timer["distributed"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------DISTRIBUTED done in "<< chrono.elapsed() <<"s\n";
 
-    timer["scatter"].first.restart();
+    chrono.restart();
     this->scatterFieldsElement(interp_elt_out);
     this->scatterFieldsNode(interp_nd_out);
-    if (M_rank == 0)
-        LOG(DEBUG)<<"-------------------SCATTER done in "<< timer["scatter"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------SCATTER done in "<< chrono.elapsed() <<"s\n";
 
     if (M_rank == 0)
     {
@@ -3085,9 +3228,9 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 void
 FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
 {
-    timer["gather.node"].first.restart();
+    chrono.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE starts\n";
+    LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 10;
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
@@ -3146,7 +3289,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
         }
     }
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------GATHER NODE done in "<< timer["gather.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------GATHER NODE done in "<< chrono.elapsed() <<"s\n";
 }//gatherFieldsNode
 
 
@@ -3156,9 +3299,9 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 void
 FiniteElement::scatterFieldsNode(double* interp_nd_out)
 {
-    timer["scatter.node"].first.restart();
+    chrono.restart();
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE starts\n";
+    LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
     std::vector<double> in_nd_values;
 
@@ -3226,13 +3369,13 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     }
 
 
-    LOG(DEBUG) <<"["<< M_rank <<"]: " <<"----------SCATTER NODE done in "<< timer["scatter.node"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"----------SCATTER NODE done in "<< chrono.elapsed() <<"s\n";
 }//scatterFieldsNode
 
 
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
-//! Called by the regrid() function.
+//! Called by the regrid(), checkUpdateDrifters() function.
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
@@ -3390,7 +3533,7 @@ FiniteElement::scatterNodalField(std::vector<double> const& field_root, std::vec
 
 //------------------------------------------------------------------------------------------------------
 //! Gather field values over elements.
-//! Called by the advect(), diffuse() and updateDrifterPosition() functions.
+//! Called by the advect(), diffuse(), checkUpdateDrifters() functions.
 void
 FiniteElement::gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields)
 {
@@ -3540,7 +3683,7 @@ FiniteElement::regrid(bool step)
 {
     M_comm.barrier();
 
-    timer["regrid"].first.restart();
+    chrono.restart();
 
     double displacement_factor = 2.;
     int substep_nb=1;
@@ -3550,7 +3693,9 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
+    M_timer.tick("gatherNodalField");
     this->gatherNodalField(M_UM,um_root);
+    M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
     {
@@ -3575,7 +3720,7 @@ FiniteElement::regrid(bool step)
         // boost::mpi::reduce(M_comm, step_order, step_order_max, boost::mpi::maximum<int>(), 0);
         // step_order = step_order_max;
 
-        LOG(DEBUG) <<"["<< M_rank <<"] " << "STEP ORDER= "<< step_order <<"\n";
+        LOG(DEBUG) << "STEP ORDER= "<< step_order <<"\n";
 
         substep_nb = std::pow(2,step_order);
 
@@ -3593,12 +3738,12 @@ FiniteElement::regrid(bool step)
         {
             //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
 
-            timer["movemesh"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Move starts\n";
             M_mesh_root.move(um_root,displacement_factor);
-            LOG(DEBUG) <<"Move done in "<< timer["movemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
-            timer["movevertices"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
             auto RX = M_mesh_root.coordX();
             auto RY = M_mesh_root.coordY();
@@ -3609,20 +3754,21 @@ FiniteElement::regrid(bool step)
                 bamgmesh_root->Vertices[3*id+1] = RY[id] ;
             }
 
-            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< timer["movevertices"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
 
             if(M_mesh_type==setup::MeshType::FROM_SPLIT)
             {
-                timer["interpvertices"].first.restart();
+                chrono.restart();
                 LOG(DEBUG) <<"Interp vertices starts\n";
                 this->interpVertices();
-                LOG(DEBUG) <<"Interp vertices done in "<< timer["interpvertices"].first.elapsed() <<"\n";
+                LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
             }
 
-            timer["adaptmesh"].first.restart();
+            M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
             this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< timer["adaptmesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 
 
             // save mesh (only root process)
@@ -3633,21 +3779,23 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
             LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
+            M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");
-            timer["savemesh"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
             if (M_partition_space == mesh::PartitionSpace::MEMORY)
                 M_mesh_root.writeToGModel();
             else if (M_partition_space == mesh::PartitionSpace::DISK)
                 M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
-            timer["meshpartition"].first.restart();
+            chrono.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_partitioned_mesh_filename,
                     M_partitioner, M_partition_space, M_mesh_fileformat);
-            LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
 
             // Environment::logMemoryUsage("after partitioning...");
         }
@@ -3664,15 +3812,14 @@ FiniteElement::regrid(bool step)
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    timer["interpFields"].first.restart();
+    M_timer.tick("interpFields");
     this->interpFields(prv_rmap_nodes, sizes_nodes);
-    if (M_rank == 0)
-        LOG(DEBUG) <<"interpFields done in "<< timer["interpFields"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+    M_timer.tock("interpFields");
 
     // --------------------------------END-------------------------------
 
-    if (M_rank == 0)
-        LOG(DEBUG) <<"TIMER REGRIDDING= "<< timer["regrid"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"TIMER REGRIDDING= "<< chrono.elapsed() <<"s\n";
 
     this->assignVariables();
 }//regrid
@@ -3713,9 +3860,9 @@ FiniteElement::adaptMesh()
         }
     }
 
-    timer["bamgmesh"].first.restart();
+    chrono.restart();
     Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    LOG(DEBUG) <<"---BAMGMESH done in "<< timer["bamgmesh"].first.elapsed() <<"s\n";
+    LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
     this->importBamg(bamgmesh_root);
@@ -3835,12 +3982,10 @@ void
 FiniteElement::assemble(int pcpt)
 {
     M_comm.barrier();
-    if(M_rank==0)
-        LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero starts\n";
     M_matrix->zero();
     M_vector->zero();
-    if(M_rank==0)
-        LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
+    LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
@@ -3875,10 +4020,15 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+
+#ifdef OASIS
+    bool coupler_with_waves = vm["coupler.with_waves"].as<bool>();
+#endif
+
     // ---------- Assembling starts -----------
-    if(M_rank==0)
-        LOG(DEBUG) <<"Assembling starts\n";
-    timer["assembly"].first.restart();
+    LOG(DEBUG) <<"Assembling starts\n";
+    chrono.restart();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -3903,7 +4053,7 @@ FiniteElement::assemble(int pcpt)
         double coef_min = 100.;
 
         // values used when no ice or when ice too thin
-        double coef_drag    = 0.;  // coef_drag is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
+        double forcing_switch    = 0.;  // forcing_switch is a switch that set the external forcings to 0 (wind, ocean, bottom drag, waves stress) where there is too little ice
         double coef         = coef_min;
         double mass_e       = 0.;
         double coef_C       = 0.;
@@ -3927,8 +4077,12 @@ FiniteElement::assemble(int pcpt)
         double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
         double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
-        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-        double multiplicator = time_viscous/(time_viscous+dtime_step);
+        // clip damage
+        double damage_tmp = clip_damage(M_damage[cpt], damage_min);
+
+        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+        D_multiplicator[cpt] = time_viscous/(time_viscous+dtime_step);
+        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
         // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
@@ -3987,9 +4141,9 @@ FiniteElement::assemble(int pcpt)
                 }
             }
 
-            if(young>0.) // EB rheology
+            if(young>0.) // MEB rheology
             {
-                coef = multiplicator*young*(1.-M_damage[cpt])*M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+                coef = M_thick[cpt]*D_multiplicator[cpt]*D_elasticity[cpt];
             }
             else // Linear viscous rheology where nominal viscosity is defined as -young*time_step
             {
@@ -4018,12 +4172,12 @@ FiniteElement::assemble(int pcpt)
                 g_ssh_e_y += M_shape_coeff[cpt][i+3]*g_ssh_e; /* y derivative of g*ssh */
             }
 
-            coef_drag  = 1.;
+            forcing_switch  = 1.;
             coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
             coef_V     = mass_e/dtime_step;               /* for the inertial term */
             coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
             coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*multiplicator;      /* for the internal stress */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4097,16 +4251,16 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
+            // Multply with rho and mask out no-ice points
+            coef_Voce  *= forcing_switch*physical::rhow;
+            coef_Vair  *= forcing_switch*physical::rhoa;
+            coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
+
             // Diagnostic/coupling: Ice-ocean and ice-atmosphere drag
             D_tau_w[index_u] = coef_Voce * (vt_u-ocean_u);
             D_tau_w[index_v] = coef_Voce * (vt_v-ocean_v);
             D_tau_a[index_u] = coef_Vair * (vt_u-wind_u);
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
-
-            // Multply with rho and mask out no-ice points
-            coef_Voce  *= coef_drag*physical::rhow;
-            coef_Vair  *= coef_drag*physical::rhoa;
-            coef_basal *= coef_drag*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
 
             /* Skip ghost nodes */
             if (!((M_elements[cpt]).ghostNodes[j]))
@@ -4153,7 +4307,6 @@ FiniteElement::assemble(int pcpt)
                     data[(2*l_j+1)*6+2*i+1] = dvv;
 
                     fvdata[2*i] += surface_e*( mloc*(
-                                                     // TODO: +coef_drag*M_tau[index_u] <- waves are not here yet!!
                                                      +coef_X
                                                      +coef_V*vt_u
                                                      +coef_C*Vcor_index_v
@@ -4166,7 +4319,6 @@ FiniteElement::assemble(int pcpt)
                                                - b0tj_sigma_hu/3);
 
                     fvdata[2*i+1] += surface_e*( mloc*(
-                                                       // TODO: +coef_drag*M_tau[index_v] <- waves are not here yet!!
                                                        +coef_Y
                                                        +coef_V*vt_v
                                                        -coef_C*Vcor_index_u
@@ -4177,6 +4329,13 @@ FiniteElement::assemble(int pcpt)
                                                         +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
                                                         )
                                                  - b0tj_sigma_hv/3);
+#ifdef OASIS
+                    if( coupler_with_waves )
+                    {
+                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                    }
+#endif
                 }
             }
         }
@@ -4191,18 +4350,14 @@ FiniteElement::assemble(int pcpt)
     }
 
     // close petsc matrix
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing matrix starts\n";
+    LOG(DEBUG) <<"Closing matrix starts\n";
     M_matrix->close();
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing matrix done\n";
+    LOG(DEBUG) <<"Closing matrix done\n";
 
     // close petsc vector
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing vector starts\n";
+    LOG(DEBUG) <<"Closing vector starts\n";
     M_vector->close();
-    if(M_rank==0)
-        LOG(DEBUG) <<"Closing vector done\n";
+    LOG(DEBUG) <<"Closing vector done\n";
 
     M_matrix->on(M_dirichlet_nodes,*M_vector);
 
@@ -4355,11 +4510,13 @@ FiniteElement::FETensors()
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_Cohesion.size(); ++i)
+    for (int i=0; i<M_num_elements; ++i)
+    {
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-}
-//calcCohesion
+        M_Compressive_strength[i] = compr_strength*scale_coef;
+    }
 
+}//calcCohesion
 
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
@@ -4406,6 +4563,7 @@ FiniteElement::update()
     // Slope of the MC enveloppe
     double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4415,14 +4573,13 @@ FiniteElement::update()
         double epsilon_veloc_i;
         std::vector<double> epsilon_veloc(3);
 
-
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
         double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
-        double sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor;
+        double tract_max, sigma_t, sigma_c;
+        double tmp, sigma_target, tmp_factor, dcrit;
 
 
         // Temporary memory
@@ -4448,19 +4605,15 @@ FiniteElement::update()
             epsilon_veloc[i] = epsilon_veloc_i;
         }
 
-
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
          *======================================================================
          */
 
-        // Before, we updated only elements which had deformed. It did not improve performance. We update them all now.
-        bool to_be_updated=true;
-
-
-	/* Important: We don't update elements on the open boundary. This means
+        /* Important: We don't update elements on the open boundary. This means
          * that ice will flow out as if there was no resistance and in as if the ice
          * state outside the boundary was the same as that inside it. */
+        bool to_be_updated=true;
         if(std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[0]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[1]-1) ||
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
@@ -4484,6 +4637,10 @@ FiniteElement::update()
                 M_conc_thin[cpt] *= surf_ratio;
                 M_hs_thin[cpt] *= surf_ratio;
             }
+#ifdef OASIS
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_fsd[k][cpt] *= surf_ratio;
+#endif
         }
 
         /*======================================================================
@@ -4494,16 +4651,13 @@ FiniteElement::update()
 
         /* Thin ice category */
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
             open_water_concentration -= M_conc_thin[cpt];
-        }
 
         // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
 
         // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
-
 
         /* Thin ice category */
         double new_conc_thin=0.;
@@ -4564,6 +4718,7 @@ FiniteElement::update()
 
         if(new_conc<M_conc[cpt])
         {
+            //need to do ridging
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
         M_conc[cpt]=new_conc;
@@ -4581,7 +4736,6 @@ FiniteElement::update()
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
-
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
@@ -4591,88 +4745,102 @@ FiniteElement::update()
 
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
         {
-
-            double damaging_exponent = ridging_exponent;
-            double undamaged_time_relaxation_sigma=vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-            double exponent_relaxation_sigma=vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-            double time_viscous=undamaged_time_relaxation_sigma*std::pow(1.-old_damage,exponent_relaxation_sigma-1.);
-            double multiplicator=time_viscous/(time_viscous+dtime_step);
-
-
-        //Calculating the new state of stress
-        for(int i=0;i<3;i++)
-        {
-            sigma_dot_i = 0.0;
-            for(int j=0;j<3;j++)
+            //Calculating the new state of stress
+            for(int i=0;i<3;i++)
             {
-                sigma_dot_i += std::exp(damaging_exponent*(1.-M_conc[cpt]))*young*(1.-old_damage)*M_Dunit[3*i + j]*epsilon_veloc[j];
+                sigma_dot_i = 0.0;
+                for(int j=0;j<3;j++)
+                {
+                    sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+                }
+
+                sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
+                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+
+                M_sigma[i][cpt] = sigma[i];
+
             }
 
-            sigma[i] = (M_sigma[i][cpt]+time_step*sigma_dot_i)*multiplicator;
-            sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
+            /*======================================================================
+             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
+             *======================================================================
+             */
 
-            M_sigma[i][cpt] = sigma[i];
+            /* Calculate the characteristic time for damage */
+            if (td_type == "damage_dependent")
+                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
 
-        }
+            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
+            sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+            sigma_n =-          (sigma[0]+sigma[1])/2.;
 
-        /*======================================================================
-         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-         *======================================================================
-         */
+            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        sigma_n =-          (sigma[0]+sigma[1])/2.;
+            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+            sigma_t=-sigma_c/q;
+            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-        sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+            // to test for compressive failure
+            // - slope of line between origin and the intersection of the
+            // compressive failure line and the upper Coulomb branch
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            // to test for tensile failure
+            // - slope of line between origin and the intersection of the
+            // tensile failure line and the upper Coulomb branch
+            double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
 
-
-        double hi=0.;
-        if(M_conc[cpt]>0.1)
-            hi = M_thick[cpt]/M_conc[cpt];
-        else
-            hi = M_thick[cpt]/0.1;
-
-        sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        sigma_t=-sigma_c/q;
-
-
-        /* Calculate the characteristic time for damage */
-        if (td_type == "damage_dependent")
-            td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
-
-        /* Calculate the adjusted level of damage */
-        if((sigma_1-q*sigma_2)>sigma_c)
-        {
-            sigma_target = sigma_c;
-            tmp_factor=1.0/((1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + 1.0);
-
-            if (disc_scheme == "explicit") {
-                tmp=(1.0-old_damage)*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "implicit") {
-                tmp=tmp_factor*(1.0-sigma_target/(sigma_1-q*sigma_2))*dtime_step/td + old_damage;
-            }
-            if (disc_scheme == "recursive") {
-                tmp=1.0-(1.0-old_damage)*pow(sigma_target/(sigma_1-q*sigma_2),dtime_step/td);
-            }
-
-            if(tmp>M_damage[cpt])
+            if( sigma_1 > 0 && sigma_2 > 0
+                && sigma_2 < slope_compr_upper*sigma_1
+                && sigma_1 < slope_compr_upper*sigma_2 )
             {
-                M_damage[cpt] = min(tmp, 1.0);
+                // compressive failure region
+                sigma_target = compr_strength;
+                dcrit = sigma_target/sigma_n;
             }
-        }
+            else if( sigma_1 < 0 && sigma_2 < 0
+                && sigma_2 < slope_tens_upper*sigma_1
+                && sigma_1 < slope_tens_upper*sigma_2 )
+            {
+                // tensile failure region
+                sigma_target = tract_max;
+                dcrit = sigma_target/sigma_n;
+            }
+            else
+            {
+                // Mohr-Coulomb failure region
+                sigma_target = sigma_c;
+                dcrit = sigma_target/(sigma_1-q*sigma_2);
+            }
+            D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
 
+            /* Calculate the adjusted level of damage */
+            if (dcrit < 1)
+            {
+                if (disc_scheme == "explicit")
+                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
+                else if (disc_scheme == "implicit")
+                {
+                    tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
+                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
+                }
+                else if (disc_scheme == "recursive")
+                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
 
+                if(tmp>M_damage[cpt])
+                {
+#ifdef OASIS
+                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ; 
+#endif
+                    M_damage[cpt] = min(tmp, 1.0);
+                }
+            }
         }
         else // if M_conc or M_thick too low, set sigma to 0.
         {
             for(int i=0;i<3;i++)
-            {
                 M_sigma[i][cpt] = 0.;
-            }
+            D_dcrit[cpt] = 0.;
         }
 
         /*======================================================================
@@ -4684,7 +4852,6 @@ FiniteElement::update()
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
         /* Ice damage
          * We use now a constant healing rate defined as 1/time_recovery_damage
          * so that we are now able to reset the damage to 0.
@@ -4700,6 +4867,618 @@ FiniteElement::update()
 }//update
 
 
+#ifdef OASIS
+//------------------------------------------------------------------------------------------------------
+//! Redistribute the floes in the FSD after break_up if prob[i]>0
+//! v 0.1 of the function, should be done properly with adjustable parameters in a namelist
+//------------------------------------------------------------------------------------------------------
+void
+FiniteElement::redistributeFSD()
+{
+    
+    std::vector<double> P(M_num_fsd_bins) ;
+    //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
+    const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
+    const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double coef3 = vm["wave_coupling.breakup_coef3"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
+    const double prob_cutoff= vm["wave_coupling.breakup_prob_cutoff"].as<double>(); ; // If prob. is less than threshold value, then set it to 0, to avoid defining a FSD everywhere
+    std::stringstream crash_msg;
+    bool crash = false;
+    M_breakup_in_dt = false ;
+    for (int i=0; i<M_num_elements; i++)
+    {
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+           ctot += M_conc_thin[i];
+        if (ctot>0)
+        {
+            // don't try to break if there are no waves
+            double P_inf =0. ;
+            if (M_wlbk[i]<500.-1.)
+                P_inf=1. ;
+            if( P_inf <= prob_cutoff)
+                continue ;
+            M_breakup_in_dt=true ;
+            if (M_distinguish_mech_fsd)
+            {    
+            //! As break-up indeed occurs reset "real" FSD to mechanical FSD
+               for(int j=0;j<M_num_fsd_bins;j++)
+               { 
+                   M_conc_fsd[j][i]= M_conc_mech_fsd[j][i] ;
+               } 
+            }
+            // Sea ice properties
+            double  sea_ice_thickness = 0;
+            if (M_breakup_cell_average_thickness)
+                sea_ice_thickness = M_thick[i] ;
+            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
+               
+            sea_ice_thickness = std::max(M_breakup_thick_min,sea_ice_thickness) ;
+
+            double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
+                                            (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
+                                          , 0.25 ) ;
+            //! Compute the wavelength associated with Tm02
+            double  lambda= M_wlbk[i] ;
+            // Now useless
+            double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
+            //int     N_waves = cpl_time_step /(M_tm02[i]) ;
+
+            double  tau_w =0.;
+             //! Compute wave induced break-up probability for the different floe size categories
+            for (int j=0; j<M_num_fsd_bins; j++)
+            {
+                //! 1. Compute the broken area in each category
+                P[j] = P_inf ;
+                //! 1.a Probability that the wave-induced strain is over the flex. failure
+                int const breakup_prob_type =  vm["wave_coupling.breakup_prob_type"].as<int>();
+                double breakup_timescale_tuning = vm["wave_coupling.breakup_timescale_tuning"].as<double>();
+                double  broken_area =0.;
+                switch (breakup_prob_type)
+                {
+                    case 0:
+                        tau_w = breakup_timescale_tuning   ;
+                        P[j] =  P[j]* (1.-std::exp(-P[j]*cpl_time_step/tau_w) )    ;
+                  //      P[j] = P[j]*cpl_time_step/tau_w     ;
+                        break;
+                    default:
+                        std::cout << "breakup_prob_type= " << breakup_prob_type << "\n";
+                        throw std::logic_error("Wrong breakup_prob_type");
+                }
+                //! 1.b Probability that the ice floe actually breaks (depends on lambda wave, floe size and sea ice thickness )
+                // d_flex is the floe size under which no flexural failure should happen. -> Mellor et al.(1984),corrected in Boutin et al. (2018)
+                double  lim_lambda = std::max(0.,std::tanh((M_fsd_bin_centres[j]-coef1*lambda) / (coef2*lambda) ) ) ;
+                double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / (coef3*d_flex) ) ) ;
+                switch (M_breakup_type)
+                {
+                    //! 2. Redistribute the broken sea ice area 
+                    //! So far, redistribution also occurs within the broken category
+                    case (setup::BreakupType::ZHANG):
+                    {
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] ;
+                            M_conc_fsd[j][i] -= broken_area ;
+                            //! Define a redistributor beta (Zhang et al,.2015)
+                            //! whith uniform redistribution in term of area, favorises small floes
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta= M_fsd_bin_widths[k] / (M_fsd_bin_up_limits[j]-M_fsd_bin_low_limits[0]) ;
+                                M_conc_fsd[k][i] +=  broken_area *beta   ;
+                            }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::UNIFORM_SIZE):
+                    {
+                        P[j] = P[j] * lim_dflex * lim_lambda ;
+                        if (P[j]>0.)
+                        {
+                             broken_area= M_conc_fsd[j][i] * P[j] ;
+                             M_conc_fsd[j][i] -= broken_area ;
+                            
+                             //!Define a redistributor beta 
+                             //! with uniform redistribution of floes for sizes below the broken categories
+                             //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                             for (int k=0; k<=j ; k++)
+                             {
+                                 double beta = (std::pow(M_fsd_bin_up_limits[k],3)- std::pow(M_fsd_bin_low_limits[k],3))
+                                             /(std::pow(M_fsd_bin_up_limits[j],3)- std::pow(M_fsd_bin_low_limits[0],3)) ;
+                                 M_conc_fsd[k][i] +=  broken_area *beta   ;
+                             }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::DUMONT):
+                    {
+                        //! Defining fragility as the probability that floes of a given size will break...
+                        double fragility =  lim_dflex * lim_lambda ;
+                        if (fragility>0)
+                        {
+                            broken_area= M_conc_fsd[j][i] * P[j] *fragility;
+                            M_conc_fsd[j][i] -= broken_area ;
+                            //! Assuming a broken floe create ksi^2 new floes
+                            int ksi=2 ;
+                            //! ...then the exponent of the redistribution is (Toyota et al. 2011, Dumont et al. 2011)
+                            double exponent = std::max(2. - (2. + std::log(fragility)/std::log(ksi)),1e-6) ;
+                            //! with uniform redistribution of floes for sizes below the broken categories
+                            //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
+                            for (int k=0; k<=j ; k++)
+                            {
+                                double beta = (std::pow(M_fsd_bin_up_limits[k],exponent)- std::pow(M_fsd_bin_low_limits[k],exponent))
+                                            /(std::pow(M_fsd_bin_up_limits[j],exponent)- std::pow(M_fsd_bin_low_limits[0],exponent)) ;
+                                M_conc_fsd[k][i] += broken_area * beta   ;
+                            }
+                        }
+                        break;
+                    }
+                    case (setup::BreakupType::NONE):
+                        break;
+                    default:
+                        std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
+                        throw std::logic_error("Wrong breakup_type");
+                }
+            
+            }
+            /* Ensure that mech FSD and "real" FSD are the same after break-up */
+            if (M_distinguish_mech_fsd)
+            {    
+                for(int j=0;j<M_num_fsd_bins;j++)
+                    M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
+            }
+
+            // Mini Checkfields 
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if( (std::abs(ctot-ctot2)>2e-7) && M_debug_fsd )
+            {  
+               std::cout<<"Crash message coming !\n";
+               std::cout<<"Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n";
+               crash =  true;
+            }
+            
+            if(crash)
+                throw std::runtime_error(crash_msg.str());
+            
+            /* Choice of relationship between break-up and damage */
+            /* By default, M_fsd_damage_type=0, no change in damage  */
+            /* So far, only thick ice can be damaged  */
+            if (M_thick[i]>0.)
+            {
+                double damage_max= vm["wave_coupling.fsd_damage_max"].as<double>();
+                double tmp=M_damage[i];
+                switch (M_fsd_damage_type)
+                {
+                    case 0:
+                        break;
+                    /* M_fsd_damage_type=1: damage is set equal to the fraction of broken sea ice   */
+                    case 1:
+                        tmp = std::max(M_damage[i],1.-M_conc_mech_fsd[M_num_fsd_bins-1][i]/ctot);
+                    /* M_fsd_damage_type=2: damage increases each time large floes are broken   */
+                    case 2:
+                    {
+                        double tot_broken_area = M_conc_mech_fsd[0][i] *P[0] ; // area of broken floes in each category to be redistributed
+                        for(int j=1;j<M_num_fsd_bins;j++)
+                            tot_broken_area += M_conc_mech_fsd[j][i] *P[j] ;
+                        tmp = M_damage[i]*(1.-tot_broken_area/ctot)+tot_broken_area/ctot*damage_max ;
+                        break;
+                    }
+                    default:
+                         std::cout << " M_fsd_damage_type = " <<  M_fsd_damage_type << "\n";
+                         throw std::logic_error("Wrong M_fsd_damage_type");
+                }
+                // Update damage
+                M_cum_wave_damage[i] +=std::max(tmp-M_damage[i],0.);
+                M_cum_damage[i]      +=std::max(tmp-M_damage[i],0.);
+                M_damage[i]          = std::max(M_damage[i],std::min(tmp,damage_max) );
+            }
+        }// if there is ice
+        else
+        {
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                M_conc_fsd[j][i]=0. ;
+                M_conc_mech_fsd[j][i]=0. ;
+            }
+        }
+    }// loop over all elements
+}//redistributeFSD
+
+
+void
+FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
+//------------------------------------------------------------------------------------------------------
+//! Takes care of changes induced by lateral growth and melt in the FSD
+//Input : 
+// -- const int i -> Element Index
+// -- lat_melt_rate -> lateral melt rate in m/s. Computed in thermo()
+// -- thin_ice_growth -> the delta concentration due to thin ice reduction by bottom melt
+//------------------------------------------------------------------------------------------------------
+{
+    // Used for debug
+    std::stringstream crash_msg;
+    bool crash = false;
+    // 
+    double del_c_thin = 0.;
+    double del_c_fsd = M_conc[i] - old_conc;
+    double cat0_del_c =0. ;
+
+    double ctot_init=0.;
+    for(int m=0;m<M_num_fsd_bins;m++)
+        ctot_init+=M_conc_fsd[m][i] ;
+    std::vector<double> fsd_init(M_num_fsd_bins,0.);
+    for(int m=0; m<M_num_fsd_bins;m++)
+        fsd_init[m]=M_conc_fsd[m][i] ;
+
+    // THIN ICE CASE
+    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+             del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
+    del_c_fsd += del_c_thin ; 
+    
+    /*FSD : initialize a vector for ulterior redistribution  */
+    std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
+
+    if ( ( abs(lat_melt_rate)>0.) && (ctot_init>1e-12) )// So far, it is only the case for lat. melt, but same equation applies to lat. growth 
+    {
+        /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
+        std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
+        std::vector<double> dfsd_dr(M_num_fsd_bins,0.)  ;
+        
+        // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
+        for(int m=1; m<M_num_fsd_bins-1;m++)
+            fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
+        for(int m=0; m<M_num_fsd_bins;m++)
+            dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
+       
+        if  ( (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11) && M_debug_fsd)
+        {
+            crash=true ;
+            crash_msg << "sum of Delta FSD does not add up to 0. : "<< std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.)<<" \n";
+            for(int j=0;j<M_num_fsd_bins+1;j++)
+            {
+                crash_msg << "fsd_dr  ("<< j <<") :" << fsd_dr[j] <<" \n";
+            }
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
+            }
+        }
+        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
+        for (int m=0; m<M_num_fsd_bins-1;m++)
+        {
+            del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
+            M_conc_fsd[m][i]  = M_conc_fsd[m][i] + del_c_bin_melt[m];
+        }
+        if (lat_melt_rate<0.) // if ice is melting
+        {
+            cat0_del_c =  lat_melt_rate * fsd_init[0] / M_fsd_bin_widths[0] * ddt ; //<0
+            M_conc_fsd[0][i] += cat0_del_c ;
+        }
+        else                  // if there is freezing, flux of growing floes that become "unbroken"
+            M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]*ddt * lat_melt_rate;
+        
+        double ctot=0.;
+        for(int m=0;m<M_num_fsd_bins;m++)
+            ctot+=M_conc_fsd[m][i] ;
+        // If bottom melt reduces the thin ice fraction
+        if (thin_ice_growth<0)
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                 M_conc_fsd[m][i]+=(thin_ice_growth)*M_conc_fsd[m][i]/ctot ;
+        }
+        // Debug
+        if ((M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)&& M_debug_fsd)
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after lat. melt recomb. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+        // If lateral melt, the mechanical FSD is updated
+    }
+    else //if lat_melt_rate==0 (or lower, but not possible yet)
+    {   // REFREEZING
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        { // Complete refreezing if thin ice fills the lead
+            if (M_conc[i] + M_conc_thin[i]==1.)
+            {
+                M_conc_fsd[M_num_fsd_bins-1][i] =1.; // 
+                for(int m=0;m<M_num_fsd_bins-1;m++)
+                   M_conc_fsd[m][i]=0.;
+            }
+            else if (del_c_fsd>=0)
+            {
+                M_conc_fsd[M_num_fsd_bins-1][i]+=del_c_fsd  ;
+            }
+            else
+            {
+                for(int m=0;m<M_num_fsd_bins;m++)
+                {
+                    M_conc_fsd[m][i]+=del_c_fsd*M_conc_fsd[m][i]/ctot_init ;
+                }
+            }
+        }    
+        else // Refreezing without FSD recombination
+            M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1 
+    } 
+
+    if (M_distinguish_mech_fsd)
+    {
+        double ctot_mech = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot_mech += M_conc_mech_fsd[j][i] ;
+        if (del_c_fsd>=0)
+            M_conc_mech_fsd[M_num_fsd_bins-1][i]+= del_c_fsd ;
+        else
+        {
+            for(int m=0;m<M_num_fsd_bins;m++)
+                M_conc_mech_fsd[m][i]+= del_c_fsd*M_conc_mech_fsd[m][i]/ctot_mech ;
+        }
+    }
+    // Debug FSD
+    if (M_debug_fsd)
+    {
+        if  (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
+        {
+            crash =  true;
+            crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+        }
+
+        double ctot = M_conc[i];
+        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            ctot += M_conc_thin[i];
+
+        double ctot2 = M_conc_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot2 += M_conc_fsd[j][i] ;
+
+        double ctot3 = M_conc_mech_fsd[0][i];
+        for(int j=1;j<M_num_fsd_bins;j++)
+            ctot3 += M_conc_mech_fsd[j][i] ;
+
+        if (std::abs(ctot-ctot2)>1e-7)
+        {
+            crash =  true;
+            crash_msg << "-> sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot2 << " \n"                        ;
+        }
+        if (std::abs(ctot-ctot3)>1e-7)
+        {
+            crash =  true;
+            crash_msg << "-> sum M_conc_MECH_fsd (="<<ctot3 <<") different to total conc (="
+                      << ctot<< "), diff =" << ctot-ctot3 << " \n"                        ;
+        }
+        if(crash)
+        {
+            crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
+            crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
+            crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
+            crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
+            double sum_del_fsd=0. ;
+            for(int j=0;j<M_num_fsd_bins;j++)
+            {
+                crash_msg << "vecteur del_fsd ("<< j <<") :" << del_c_bin_melt[j] <<" \n";
+                crash_msg << "vecteur M_conc_fsd ("<< j <<") :" << M_conc_fsd[j][i] <<" \n";
+                sum_del_fsd += del_c_bin_melt[j] ;
+            }
+            crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            {
+               crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
+               crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+            }
+            crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
+            throw std::runtime_error(crash_msg.str())                            ;
+        }
+    }
+}//redistributeThermoFSD
+
+
+void
+FiniteElement::updateFSD()//------------------------------------------------------------------------------------------------------
+//! Update the FSD when sea ice conc. has been modified, in order to ensure ice conservation.
+//! It conserves the distribution shape.
+//------------------------------------------------------------------------------------------------------
+{
+    for (int cpt=0; cpt<M_num_elements; cpt++)
+    {
+        if(M_num_fsd_bins>0)
+        {
+            double ctot = M_conc[cpt];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[cpt];
+
+            double ctot2 = M_conc_fsd[0][cpt];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][cpt] ;
+
+            if (ctot>=1.) // Before ridge creation
+            {
+                for(int k=0;k<M_num_fsd_bins;k++)
+                    M_conc_fsd[k][cpt]*=ctot/ctot2;
+            }
+
+            else if (std::abs(ctot-ctot2)>1e-11)        
+            {  
+                if ( (ctot2==0.)and(ctot>0.) )
+                   M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot ;
+                else
+                {
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_fsd[k][cpt]*= ctot/ctot2;
+                }
+            }
+          
+            if (M_distinguish_mech_fsd)
+            {
+                double  ctot3= M_conc_mech_fsd[0][cpt];
+                for(int j=1;j<M_num_fsd_bins;j++)
+                    ctot3 += M_conc_mech_fsd[j][cpt] ;
+
+                if (ctot>=1.) // Before ridge creation
+                {
+                    for(int k=0;k<M_num_fsd_bins;k++)
+                        M_conc_mech_fsd[k][cpt]*=ctot/ctot3;
+                }
+                else if (std::abs(ctot-ctot3)>1e-11)         
+                {  
+                    if  ( (ctot3==0.)and(ctot>0.) )
+                       M_conc_mech_fsd[M_num_fsd_bins-1][cpt]=ctot ;
+                    else
+                    {
+                        for(int k=0;k<M_num_fsd_bins;k++)
+                            M_conc_mech_fsd[k][cpt]*= ctot/ctot3;
+                    }
+                }
+            }
+        }
+    }
+}//updateFSD
+
+
+//------------------------------------------------------------------------------------------------------
+void
+FiniteElement::weldingRoach(const int cpt, double ddt)
+//! welding following Roach et al. 2018, called in thermo() 
+//------------------------------------------------------------------------------------------------------
+{
+    double c_fsd_broken = M_conc_fsd[0][cpt];
+    bool crash = false ;
+    std::stringstream crash_msg;
+
+    std::vector<double>  old_conc_fsd(M_num_fsd_bins,0.) ; // vector  keeping in memory old fsd
+    for(int j=0;j<M_num_fsd_bins;j++)
+        old_conc_fsd[j]=M_conc_fsd[j][cpt] ;
+    double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.); 
+
+    for(int j=1;j<M_num_fsd_bins-1;j++) 
+        c_fsd_broken += M_conc_fsd[j][cpt] ;
+    if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
+    {
+         double unbroken_area_loss=0.; 
+         // time step limitations for merging
+         double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
+         int ndt_mrg = std::round(stability+0.5) ; // round up                        
+         double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
+         std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
+         std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
+         std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
+
+         for(int t=0;t<ndt_mrg;t++)
+         {
+             for(int kx=0; kx<M_num_fsd_bins;kx++)
+             {
+                 coag_pos[kx]=0. ;
+                 for(int ky=0; ky<=kx;ky++)
+                 {
+                     int a = M_alpha_fsd_merge[kx][ky] ;
+                     double sum_mergers = 0.           ;
+                     if (a<M_num_fsd_bins)
+                     { 
+                        for(int p=a; p<M_num_fsd_bins; p++)
+                            sum_mergers += tmp_conc_fsd[p] ;
+                     }
+                     coag_pos[kx] = coag_pos[kx] +
+                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * ( 
+                                    sum_mergers +  
+                                    (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
+                                    ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
+                 }
+             } 
+             coag_neg[0]=0. ; // no gain of area for the smallest bin
+             tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
+             for (int m=1; m<M_num_fsd_bins;m++)
+             {
+                 coag_neg[m]     = coag_pos[m-1] ;
+                 tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
+             }
+             unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
+             // Sanity check
+             if (M_debug_fsd)
+             {
+                 for (int m=0; m<M_num_fsd_bins;m++)
+                 {
+                     if (tmp_conc_fsd[m] < -1e-11)
+                     {
+                         crash = true ;
+                         crash_msg << "Negative FSD merge" <<" \n" ;
+                     }
+                     if (tmp_conc_fsd[m] > 1.)
+                     {
+                         crash = true ;
+                         crash_msg << "FSD cat conc > 1. " <<" \n" ;
+                     }
+                     if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
+                     {
+                         crash = true ;
+                         crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                     }
+                     if(crash)
+                     {
+                         crash_msg <<"Diagnostic tools: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
+                                    <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                         crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
+                         for (int n=0; n<M_num_fsd_bins;n++)
+                         {
+                             crash_msg << "Conc_fsd_tmp cat ("<< n<<") :" << tmp_conc_fsd[n]  << " \n";
+                             crash_msg << "Old conc_fsd_tmp cat ("<<n <<") :" << old_conc_fsd[n]  << " \n";
+                         }
+                         throw std::runtime_error(crash_msg.str());
+                     }
+                 }
+             }    // end sanity check
+         } // end welding sub-timestep
+         tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
+         
+         // following lines are additional check and correction for potential numeric errors
+         double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
+         if (abs(conc_loss)>1.e-6)
+         {
+             crash = true ;
+             crash_msg << "Change in sea ice conc superior to 1e-6 (new-old)  : "<< conc_loss <<" \n";
+         }
+         for(int m=0; m<M_num_fsd_bins;m++)
+         {
+             M_conc_fsd[m][cpt] = tmp_conc_fsd[m] *  old_conc_tot / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
+                                                 ; // correction for small numeric errors 
+             if (M_conc_fsd[m][cpt]<0.)
+             {    
+             // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
+             // (it should not impact much sea ice conservation)
+                 if (M_conc_fsd[m][cpt]<-1e-12)
+                 {
+                     crash = true ;
+                     crash_msg << "Negative FSD conc cat "<< m<<" : "<< (M_conc_fsd[m][cpt]) <<" \n";
+                 }
+                 else
+                 {
+                     M_conc_fsd[m][cpt]=0.;
+                 }
+             }    
+         }
+         if(crash)
+         {
+             crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
+             crash_msg << "conc :" << M_conc[cpt]  << " \n";
+             crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
+             crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
+             for(int m=0; m<M_num_fsd_bins;m++) 
+             {
+                 crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
+                 crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
+                 crash_msg << "Coag_pos ("<< m<<") :" << coag_pos[m]  << " \n";
+             }
+             throw std::runtime_error(crash_msg.str());
+         }
+    }
+}//weldingRoach
+#endif
+
+
 //------------------------------------------------------------------------------------------------------
 //! Solves the momentum equation for the sea ice velocity. Called by step(), after the assemble() function.
 void
@@ -4709,7 +5488,7 @@ FiniteElement::solve()
     //SolverPetsc ksp;
     //ksp.solve(M_matrix, M_solution, M_vector);
 
-    //timer["solution"].first.restart();
+    //chrono.restart();
 
     M_solver->solve(_matrix=M_matrix,
                     _solution=M_solution,
@@ -4726,7 +5505,7 @@ FiniteElement::solve()
     M_solution->close();
 
     // if (M_rank==0)
-    //     std::cout<<"TIMER SOLUTION= " << timer["solution"].first.elapsed() <<"s\n";
+    //     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
 
     //M_solution->printMatlab("solution.m");
 }//solve
@@ -4839,7 +5618,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     {
         case schemes::specificHumidity::ATMOSPHERE:
             if ( M_sphuma.isInitialized() )
-                return std::make_pair(M_sphuma[i], 0.);
+                return std::make_pair(std::max(0., M_sphuma[i]), 0.);
             else if ( M_mixrat.isInitialized() )
                 return std::make_pair(M_mixrat[i]/(1.+M_mixrat[i]), 0.);
             // We know temp = M_dair[i]
@@ -4892,7 +5671,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
 //! \param tau (double) Bulk drag coefficient (need to multiply with u or v wind to get drag) [N s/m^3]
 void
 FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
-        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, std::vector<double>& tau)
+        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau)
 {
     // Constants
     double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
@@ -4901,8 +5680,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
-    if ( vm["thermo.ocean_bulk_formula"].as<std::string>() != "neXtSIM" )
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER )
     {
+        std::vector<double> zeros(M_num_elements, 0.);
+        std::vector<double> dummy(M_num_elements, 0.);
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
         std::vector<double> sphuma(M_num_elements);
@@ -4910,9 +5691,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> mslp(M_num_elements);
         std::vector<double> Qsw_in(M_num_elements);
         std::vector<double> Qlw_in(M_num_elements);
+        std::vector<double> T_s(M_num_elements);
         for ( int i=0; i<M_num_elements; ++i )
         {
-            sst[i] = M_sst[i];
+            sst[i] = M_sst[i] + physical::tfrwK;
             t2m[i] = M_tair[i] + physical::tfrwK;
             mslp[i] = M_mslp[i];
             Qsw_in[i] = M_Qsw_in[i];
@@ -4920,16 +5702,28 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             sphuma[i] = tmp.first;
             wspeed[i] = this->windSpeedElement(i);
-            Qsw_in[i] = M_Qsw_in[i];
-            Qlw_in[i] = this->incomingLongwave(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
         // We implicitly assume that the temperature is taken at 2 m and the wind at 10 - hence 2.
         // and 10. in the function call.
         const std::vector<double>& Qsw_in_c = Qsw_in;
         const std::vector<double>& Qlw_in_c = Qlw_in;
-        aerobulk::model(M_ocean_bulk_formula, 2., 10.,
-                sst, t2m, sphuma, wspeed, mslp, Qlh, Qsh, tau, Qsw_in_c, Qlw_in_c);
+
+        /* aerobulk expects u and v components of wind and returns u and v
+         * components of stress ... but we just give it the speed and recieve
+         * the modulus of the stress */
+        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+                Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
+        const std::vector<double> Lv = aerobulk::lvap(sst);
+
+        // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
+        for ( int i=0; i<M_num_elements; ++i )
+        {
+            Qlh[i] *= -1;
+            Qsh[i] *= -1;
+            tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
+            evap[i] = Qlh[i]/Lv[i];
+        }
     } else {
 #endif
         for ( int i=0; i<M_num_elements; ++i )
@@ -4959,12 +5753,12 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
             /* Evaporation */
-            evap[i] = Qlh[i]/(physical::rhofw*Lv);
+            evap[i] = Qlh[i]/Lv;
 
             /* Drag the ocean experiences from the wind - still only used in the coupled case */
             // Drag coefficient from Gill(1982) / Smith (1980)
             double drag_ocean_m = 1e-3 * std::max(1., std::min(2., 0.61 + 0.063*wspeed) );
-            tau[i] = rhoair*drag_ocean_m*wspeed;
+            tau[i] = rhoair*drag_ocean_m;
         }
 #ifdef AEROBULK
     }
@@ -4975,20 +5769,24 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     {
 
         Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
-#ifdef OASIS
-        // The ocean model tells us how much SW is absorbed in the top layer
-        if ( M_ocean_type == setup::OceanType::COUPLED )
-            Qsw[i] *= M_qsrml[i];
-#endif
+
         /* Out-going long-wave flux */
         double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
 
         // Sum them up:
         // Qow>0 => flux out of ocean:
-        Qow[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+        Qow[i] = Qlw[i] + Qsh[i] + Qlh[i];
+#ifdef OASIS
+        // The ocean model tells us how much SW is absorbed in the top layer
+        // NB: Qsw should still be the total SW delivered to the ocean
+        if ( M_ocean_type == setup::OceanType::COUPLED )
+            Qow[i] += Qsw[i]*M_qsrml[i];
+        else
+#endif
+            Qow[i] += Qsw[i];
     }
-}
+}//OWBulkFluxes
 
 
 //------------------------------------------------------------------------------------------------------
@@ -5020,11 +5818,21 @@ FiniteElement::thermo(int dt)
     double const qs = physical::Lf * physical::rhos; //! \param qi (double const) Latent heat of fusion * snow density [J m^{-3}]
 
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
-    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (2 diff. cases : Hibler 1979, Mellor and Kantha 1989)
+    int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
 
+    double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
+
+    bool const temp_dep_healing = vm["dynamics.use_temperature_dependent_healing"].as<bool>(); //! \param temp_dep_healing (bool const) whether or not to use the temperature dependent healing
+
+    double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
+
+    const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
+
+    M_timer.tick("fluxes");
+    M_timer.tick("ow_fluxes");
     // -------------------------------------------------
     //! 2) Calculate atmospheric fluxes
 
@@ -5037,8 +5845,11 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qlh_ow(M_num_elements);
     std::vector<double> Qsh_ow(M_num_elements);
     std::vector<double> evap(M_num_elements);
-    M_tau_ow.resize(M_num_elements);
-    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, M_tau_ow);
+    this->OWBulkFluxes(Qow, Qlw_ow, Qsw_ow, Qlh_ow, Qsh_ow, evap, D_tau_ow);
+
+    M_timer.tock("ow_fluxes");
+
+    M_timer.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
     std::vector<double> Qia(M_num_elements);
@@ -5070,6 +5881,12 @@ FiniteElement::thermo(int dt)
         subl_thin.assign(M_num_elements, 0.);
         dQiadT_thin.assign(M_num_elements, 0.);
     }
+
+    M_timer.tock("ia_fluxes");
+
+    M_timer.tock("fluxes");
+
+    M_timer.tick("slab");
 
     for (int i=0; i < M_num_elements; ++i)
     {
@@ -5120,11 +5937,9 @@ FiniteElement::thermo(int dt)
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
 
-        double mld;
+        // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-        else
-            mld = vm["ideal_simul.constant_mld"].as<double>();
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5180,7 +5995,7 @@ FiniteElement::thermo(int dt)
                         Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
@@ -5196,11 +6011,6 @@ FiniteElement::thermo(int dt)
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
 
-        // Element mean ice-ocean heat flux
-        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
-        // Element mean open water heat flux
-        double Qow_mean = Qow[i]*old_ow_fraction;
-
         // Compensation of heatflux for concentration reduced by assimilation
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
@@ -5211,7 +6021,7 @@ FiniteElement::thermo(int dt)
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow_mean + Qio_mean) *
+            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                     (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
         }
 
@@ -5222,20 +6032,27 @@ FiniteElement::thermo(int dt)
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow_mean + Qio_mean + Qassm)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qassm)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
         if ( tw_new < tfrw )
         {
-            newice    = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
-            Qow_mean -= newice*qi/ddt;
+            newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
+            Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
 
         /* Decide the change in ice fraction (del_c) */
         /* Initialise to be safe */
         double del_c = 0.;
         double newsnow = 0.;
+        // FSD variables ------------------------------------------------
+        /* In case there is an FSD initialize a lateral rate melt for 
+        ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
+        double lat_melt_rate = 0.;
+        // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
+        double thin_ice_growth =0.;
+
 
         /* Freezing conditions */
         switch ( newice_type )
@@ -5279,6 +6096,7 @@ FiniteElement::thermo(int dt)
                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
                     {
                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
+                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;       
                     }
                     else
                     {
@@ -5308,7 +6126,6 @@ FiniteElement::thermo(int dt)
 
                     newice  = M_h_thin[i];
                     newsnow = M_hs_thin[i];
-
                     M_h_thin[i] = 0.;
                     M_hs_thin[i]= 0.;
                 }
@@ -5317,8 +6134,9 @@ FiniteElement::thermo(int dt)
                 std::cout << "newice_type = " << newice_type << "\n";
                 throw std::logic_error("Wrong newice_type");
             }
-            /* Check bounds on del_c */
-            del_c = std::min( 1.-M_conc[i], del_c );
+
+        /* Check bounds on del_c */
+        del_c = std::min( 1.-M_conc[i], del_c );
 
         if ( del_hi < 0. )
         {
@@ -5332,15 +6150,19 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
+#ifdef OASIS
+                    if (M_num_fsd_bins>1)
+                        throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
+#endif
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
                     if ( hi > 0. )
                     {
                         /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
-                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow_mean)*ddt/( hi*qi+hs*qs );
+                        del_c += PhiM*(1.-M_conc[i])*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs );
                         /* Deliver the fraction (1-PhiM) of Qow to the ocean */
-                        Qow_mean *= (1.-PhiM);
+                        Qow[i] *= (1.-PhiM);
                     }
                     else
                     {
@@ -5351,25 +6173,80 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+#ifdef OASIS
+                    if (M_num_fsd_bins>1)
+                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
+#endif
                     break;
-                default :
-                    std::cout << "newice_type = " << newice_type << "\n";
-                    throw std::logic_error("Wrong newice_type");
+#ifdef OASIS
+                case 3:
+                    /* Only if FSD, Roach et al. (2018) */
+                    if (M_num_fsd_bins<1)
+                        throw std::logic_error("melt_type =3 && num_fsd_bins <1 are not compatible");
+                    else if (tw_new>tfrw)  
+                    { 
+                        /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
+                        // *--- originally from Josberger 1979 ---
+                        (Tw - Tf) = elevation of water temp above freezing
+                        m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
+                        m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
+                        double m1=3.e-6 ; double m2=1.36  ;
+                        double del_c_melt=0. ; 
+                        double cat0_del_c=0. ;
+                        if (hi>0)  //case hi==0 is treated in thermo 
+                        {
+                            // It would be worthy checking that lat. melt is indeed lower for unbroken ice than for broken ice
+                            double ctot = M_conc[i] + M_conc_thin[i];
+                            if (ctot<1e-11)
+                                break;
+                            double h0 = 0. ;
+                            if (M_conc_thin[i]>0.)
+                                h0=h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        
+                            if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
+                            {
+                                /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
+                                del_c_melt += PhiM*(1.-ctot)*std::min(0.,Qow[i])*ddt/( hi*qi+hs*qs ); //No lat melt if no divergence
+                                del_c_melt = std::max(del_c_melt,-ctot);
+                                /* Deliver the fraction (1-PhiM) of Qow to the ocean */
+                                Qow[i] *= (1.-PhiM);
+                            }   
+                            else 
+                            {    
+                                // Melt speed rate [m/s]
+                                lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
+                                /* Following code is from Horvat & Tzipermann (2015) */
+                                lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
+                                cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
+                                del_c_melt += cat0_del_c ;
+                                for (int j=0;j<M_num_fsd_bins-1;++j) 
+                                    del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
+                                Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
+                            }
+                            del_c +=  (M_conc[i]/ctot)*del_c_melt ;
+                            M_conc_thin[i] += del_c_melt * (M_conc_thin[i]/ctot) ;
+                        }
+                    }
+                    break;
+#endif
+
+                default:
+                    std::cout << "melt_type = " << melt_type << "\n";
+                    throw std::logic_error("Wrong melt_type");
             }
         }
 
         /* New concentration */
         M_conc[i] += del_c;
-
         /* New thickness */
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*old_conc + newice )/M_conc[i];
+            hi = ( hi*old_conc + newice )/M_conc[i]; // TODO: Is it still valid with thin ice ?
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
-                Qow_mean -= del_c*hs*qs/ddt;
+                Qow[i] -= del_c*hs*qs/ddt;
             }
             else
             {
@@ -5392,7 +6269,7 @@ FiniteElement::thermo(int dt)
         {
             // Extract heat from the ocean corresponding to the heat in the
             // remaining ice and snow
-            Qow_mean  += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
+            Qow[i]    += M_conc[i]*hi*qi/ddt + M_conc[i]*hs*qs/ddt;
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
@@ -5401,9 +6278,72 @@ FiniteElement::thermo(int dt)
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
+
+#ifdef OASIS
+            // If FSD : Don't change its shape. Remove all ice if no thin ice
+            if(M_num_fsd_bins>0)
+            {
+                double ctot=0;
+                double ctot_mech=0;
+
+                for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot+=M_conc_fsd[m][i] ;
+                if ( (ctot>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                {
+                    for(int m=0 ; m<M_num_fsd_bins;m++)
+                        M_conc_fsd[m][i]+= (-old_conc)*M_conc_fsd[m][i]/ctot ;
+                }
+                if (M_distinguish_mech_fsd)
+                {   
+                    for(int m=0;m<M_num_fsd_bins;m++)
+                        ctot_mech+=M_conc_mech_fsd[m][i] ;
+                    if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                    {
+                        for(int m=0;m<M_num_fsd_bins;m++)
+                            M_conc_mech_fsd[m][i]+= (-old_conc)*M_conc_mech_fsd[m][i]/ctot_mech ;
+                    }
+                } 
+                else
+                {
+                    for(int k=0; k<M_num_fsd_bins; k++)
+                    {
+                        M_conc_fsd[k][i] = 0.;
+                        if (M_distinguish_mech_fsd)
+                            M_conc_mech_fsd[k][i] = 0. ;
+                    }
+                }
+            } 
+#endif
+        }
+        else
+        {
+#ifdef OASIS
+            /* In case there is an FSD: */
+            if(M_num_fsd_bins>0)
+                this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
+#endif
         }
 
+#ifdef OASIS
         // -------------------------------------------------
+        //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
+        // -------------------------------------------------
+        if ( (M_num_fsd_bins>0) && (del_hi>0.))   // If FSD && freezing condition
+        {  
+            switch (M_welding_type)
+            {
+                case (setup::WeldingType::NONE):
+                    break;
+                case (setup::WeldingType::ROACH):
+                    this->weldingRoach(i,ddt);
+                    break;
+                default:
+                    std::cout << "welding_type= " << (int)M_welding_type << "\n";
+                    throw std::logic_error("Wrong welding_type");
+            }
+        } 
+#endif
+
         //! 7) Calculates effective ice and snow thickness
         M_thick[i] = hi*M_conc[i];
         M_snow_thick[i] = hs*M_conc[i];
@@ -5435,6 +6375,11 @@ FiniteElement::thermo(int dt)
         rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
         emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
 
+        // Element mean ice-ocean heat flux
+        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        // Element mean open water heat flux
+        double Qow_mean = Qow[i]*old_ow_fraction;
+
         /* Heat-flux */
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
@@ -5458,13 +6403,16 @@ FiniteElement::thermo(int dt)
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
 
         //! * Newly formed ice is undamaged and unridged: Hence calculates damage and ridge ratio as a weighted average of the old damage - ridge ratio and 0, weighted with volume.
+        //(Guillaume -> it can happen that old_vol=-1e-20, so little patch)
+        //if (old_vol<0.)
+        //    old_vol=0.;
         if ( M_thick[i] > old_vol )
         {
             M_damage[i] = M_damage[i]*old_vol/M_thick[i];
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
-        if ( vm["dynamics.use_temperature_dependent_healing"].as<bool>() )
+        if ( temp_dep_healing )
         {
             //! * Sets time_relaxation_damage to be inversely proportional to the temperature difference between bottom and snow-ice interface
             if ( M_thick[i] > 0. )
@@ -5492,7 +6440,23 @@ FiniteElement::thermo(int dt)
                 M_time_relaxation_damage[i] = 1e36;
             }
         }
+
+#ifdef OASIS
         // -------------------------------------------------
+        //! 9.b) Mechanical FSD healing 
+        // -------------------------------------------------
+        // // If FSD && Mech FSD && freezing condition
+        if ( M_distinguish_mech_fsd && (M_num_fsd_bins>0) && (del_hi>0.) )          
+        {
+            double fsd_mech_healing_weight = std::min(1.,ddt/M_time_relaxation_damage[i]) ;
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_conc_mech_fsd[m][i]=M_conc_mech_fsd[m][i]*(1.-fsd_mech_healing_weight) 
+                                     + fsd_mech_healing_weight* M_conc_fsd[m][i]       ;
+            }
+        }
+        // -------------------------------------------------
+#endif
 
         //! 10) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
 
@@ -5514,8 +6478,8 @@ FiniteElement::thermo(int dt)
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
 
-        // Non-solar fluxes to ocean
-        D_Qnosun[i] = Qio_mean + Qow_mean - old_ow_fraction*Qsw_ow[i];
+        // Non-solar fluxes to ocean - TODO: Account for penetrating SW
+        D_Qnosun[i] = Qio_mean + old_ow_fraction*(Qlw_ow[i]+Qlh_ow[i]+Qsh_ow[i]);
 
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
@@ -5523,15 +6487,23 @@ FiniteElement::thermo(int dt)
         // flux from assim
         D_Qassim[i] = Qassm;
 
-        // Salt balance of the ocean (all sources) - kg/day
-        D_delS[i] = physical::si*(delsss)*physical::rhow*mld/ddt;
+        // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
+        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
+
+        // Freshwater flux at the surface due to ice processes - kg/m^2/s
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Freshwater balance at the surface - kg/m^2/s
-        D_emp[i] = 1./ddt * ( emp
-                - (1.-1e-3*physical::si)*physical::rhoi*del_vi - physical::rhos*del_vs_mlt );
+        D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
-        D_brine[i] = 1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+
+        // Evaporation
+        D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
+
+        // Rain
+        D_rain[i] = rain;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -5545,8 +6517,6 @@ FiniteElement::thermo(int dt)
         {
 
             // FYI fraction (in the cell/triangle).
-            const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
-
             // Reset the FYI tracer to 0 every end of the melt season (15 September)
             if (date_string_md == "0915" && std::fmod(M_current_time, 1.) == 0.)
             {
@@ -5582,6 +6552,9 @@ FiniteElement::thermo(int dt)
         }
 
     }// end for loop
+
+    M_timer.tock("slab");
+
 }//thermo
 
 
@@ -5601,6 +6574,11 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
     // Constants
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
+
+    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -5631,15 +6609,18 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
         double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
+        /* Latent heat of sublimation */
+        double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
+
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*(physical::Lf+physical::Lv0)*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t*(physical::Lf+physical::Lv0)*rhoair*wspeed*dsphumidT;
+        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
         /* Sublimation */
-        subl[i] = Qlh[i]/(physical::Lf+physical::Lv0);
+        subl[i] = Qlh[i]/Lsub;
 
         // Shortwave is modulated by the albedo
         double hs;
@@ -5648,7 +6629,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         else
             hs = 0;
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs));
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0));
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -5662,15 +6643,15 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 inline double
 FiniteElement::windSpeedElement(const int i)
 {
-    double sum_u=0.;
-    double sum_v=0.;
+    double wspd=0.;
     for (int j=0; j<3; ++j)
     {
-        // calculate wind per element
-        sum_u += M_wind[M_elements[i].indices[j]-1];
-        sum_v += M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        // calculate wind per node
+        double u = M_wind[M_elements[i].indices[j]-1];
+        double v = M_wind[M_elements[i].indices[j]-1+M_num_nodes];
+        wspd += std::hypot(u, v);
     }
-    return std::hypot(sum_u, sum_v)/3.;
+    return wspd/3.;
 }
 
 //------------------------------------------------------------------------------------------------------
@@ -5704,55 +6685,62 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
     //! We have two schemes to transfer heat between ice and ocean
     // * basic:    Use all of the excess heat to melt or grow ice. This is not accurate, but sometimes useful
     // * exchange: Use an exchange coefficient and velocity difference to calculate heat transfer
+    //
     double const Tbot = this->freezingPoint(sss); // Temperature at ice base (bottom), also freezing point of sea-water
-    if ( vm["thermo.Qio-type"].as<std::string>() == "basic" )
+    double return_value;
+
+    switch ( M_Qio_type )
     {
-        return (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
-    } else if ( vm["thermo.Qio-type"].as<std::string>() == "exchange" ) {
-        double welt_oce_ice = 0.;
-        for (int i=0; i<3; ++i)
+        case ( setup::OceanHeatfluxScheme::BASIC ):
+            return_value = (sst-Tbot)*physical::rhow*physical::cpw*mld/dt;
+            break;
+        case ( setup::OceanHeatfluxScheme::EXCHANGE ):
         {
-            int nind = (M_elements[cpt]).indices[i]-1;
-            welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            double welt_oce_ice = 0.;
+            for (int i=0; i<3; ++i)
+            {
+                int nind = (M_elements[cpt]).indices[i]-1;
+                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+            }
+            double norm_Voce_ice = welt_oce_ice/3.;
+            double Csens_io = 1e-3;
+            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            break;
         }
-        double norm_Voce_ice = welt_oce_ice/3.;
-        double Csens_io = 1e-3;
-        return (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
-    } else {
-        std::cout << "Qio-type = " << vm["thermo.Qio-type"].as<std::string>() << "\n";
-        throw std::logic_error("Wrong Qio-type");
     }
+
+    return return_value;
+
 }//iceOceanHeatflux
 
 //! Freezing point of sea water
 inline double
 FiniteElement::freezingPoint(const double sss)
 {
+    double return_value;
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return -physical::mu*sss;
+            return_value = -physical::mu*sss;
 
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return ptf*sss;
+            return_value = ptf*sss;
     }
+
+    return return_value;
+
 }//freezingPoint
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline double
-FiniteElement::albedo(const double Tsurf, const double hs)
+FiniteElement::albedo(const double Tsurf, const double hs,
+        int alb_scheme, double alb_ice, double alb_sn, double I_0)
 {
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const I_0     = vm["thermo.I_0"].as<double>();
-
     double albedo;
 
     /* Calculate albedo - we can impliment different schemes if we want */
@@ -5813,15 +6801,11 @@ FiniteElement::albedo(const double Tsurf, const double hs)
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
         double &Tsurf, double &T1, double &T2)
 {
-    // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-    double const I_0    = vm["thermo.I_0"].as<double>();
-
     // Useful volumetric quantities
     double const qi   = physical::Lf * physical::rhoi;
     double const qs   = physical::Lf * physical::rhos;
@@ -5916,7 +6900,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
         else
         {
             double ocn_evap_err = ( subl*dt - (h1+h2)*physical::rhoi - hs*physical::rhos )/physical::rhow;
-			LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
+            LOG(WARNING) << "All the ice has sublimated. This shouldn't happen and will result in lack of evaporation from the ocean of "
                 << ocn_evap_err*1e3 << " mm over the current time step\n";
             h2 = 0.;
             h1 = 0.;
@@ -5966,7 +6950,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-        if ( flooding && freeboard < 0)
+        if ( M_flooding && freeboard < 0)
         {
             // double delhs = -std::max( ( hs - (physical::rhow-physical::rhoi)*hi/physical::rhos )*physical::rhoi/physical::rhow, 0.); // (35)
             hs += std::min( freeboard*physical::rhoi/physical::rhos, 0. );
@@ -6034,8 +7018,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
 {
     // Constants
-    bool const flooding = vm["thermo.flooding"].as<bool>();
-
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
@@ -6056,11 +7038,6 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Local variables */
         double Qic, del_hs, del_ht, del_hb, draft;
-
-        /* ---------------------------------------------------------------
-        * Calculate the surface temperature within a while-loop
-        * --------------------------------------------------------------- */
-        double albedo = this->albedo(Tsurf, hs);
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6098,7 +7075,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
-        if ( flooding && draft > hi )
+        if ( M_flooding && draft > hi )
         {
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
@@ -6142,12 +7119,9 @@ FiniteElement::init()
     //! - 2) Initializes the mesh using the initMesh() function,
     this->initMesh();
 
-    if (M_rank==0)
-    {
-        LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
-        LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
-        LOG(INFO) <<"DURATION= "<< duration <<"\n";
-    }
+    LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
+    LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
+    LOG(INFO) <<"DURATION= "<< duration <<"\n";
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
@@ -6163,13 +7137,10 @@ FiniteElement::init()
 
     if ( M_use_restart )
     {
-        std::string resfil = vm["restart.filename"].as<std::string>();
-        LOG(DEBUG) <<"Reading restart file: "<< resfil <<"\n";
-        if ( resfil.empty() )
-            throw std::runtime_error("Please provide restart.filename");
-        else if ( resfil.length()<=6 )
-            throw std::runtime_error("Please provide valid option for restart.filename (currently too short)");
-        std::string res_str = resfil.substr(6, resfil.length());
+        std::string res_str = vm["restart.basename"].as<std::string>();
+        LOG(DEBUG) <<"Reading restart file: [field,mesh]_"<< res_str <<".[bin,dat]\n";
+        if ( res_str.empty() )
+            throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
     }
     else
@@ -6188,7 +7159,7 @@ FiniteElement::init()
     double minang = this->minAngle(M_mesh);
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
-        LOG(INFO) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     this->calcAuxiliaryVariables();
@@ -6206,36 +7177,24 @@ FiniteElement::init()
 #endif
 
     //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
-#ifdef OASIS
-    // OASIS needs the external data to be read in for the previous coupling time step
-    pcpt -= cpl_time_step/time_step;
-#endif
-
-    if(M_rank==0)
-        LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
-    timer["reload"].first.restart();
+    LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
+    chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
-    if (M_rank == 0)
-        LOG(DEBUG) <<"check_and_reload in "<< timer["reload"].first.elapsed() <<"s\n";
-
-#ifdef OASIS
-    pcpt += cpl_time_step/time_step;
-#endif
+    LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
     //! - 7) If not using a restart, initializes the model from the datasets
     //       or can do assimilation (optional) if using a restart
     if ( !M_use_restart )
     {
-        timer["state"].first.restart();
+        chrono.restart();
         this->initModelState();
-        if (M_rank == 0)
-            LOG(DEBUG) <<"initModelState done in "<< timer["state"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
     else if ( M_use_assimilation )
     {
-        timer["assimilation"].first.restart();
+        chrono.restart();
         this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< timer["assimilation"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
@@ -6250,8 +7209,10 @@ FiniteElement::init()
     // 3. check if writing outputs, and do it if it's time
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
-}//init
 
+    //! - 10) Initialise timers
+    M_timer = Timer();
+}//init
 
 // ==============================================================================
 //! calculate the FETensors, cohesion, and Coriolis force
@@ -6260,22 +7221,19 @@ FiniteElement::init()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    timer["FETensors"].first.restart();
+    chrono.restart();
     this->FETensors();
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer FETensors:              "<< timer["FETensors"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
 
-    timer["calcCohesion"].first.restart();
+    chrono.restart();
     this->calcCohesion();
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer calcCohesion:             "<< timer["calcCohesion"].first.elapsed() <<"\n";
+    LOG(VERBOSE) <<"---timer calcCohesion:             "<< chrono.elapsed() <<"\n";
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        timer["calcCoriolis"].first.restart();
+        chrono.restart();
         this->calcCoriolis();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer calcCoriolis:             "<< timer["calcCoriolis"].first.elapsed() <<"\n";
+        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< chrono.elapsed() <<"\n";
     }
 }//calcAuxiliaryVariables
 
@@ -6352,6 +7310,28 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
+
+#ifdef OASIS
+    // FSD
+    M_conc_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_fsd, k);
+        M_variables_elt.push_back(&(M_conc_fsd[k]));
+    }
+    M_conc_mech_fsd.resize(M_num_fsd_bins);
+    for(int k=0; k<M_num_fsd_bins; k++)
+    {
+        M_conc_mech_fsd[k] = ModelVariable(ModelVariable::variableID::M_conc_mech_fsd, k);
+        M_variables_elt.push_back(&(M_conc_mech_fsd[k]));
+    }
+
+    M_cum_damage = ModelVariable(ModelVariable::variableID::M_cum_damage);//! \param M_cum_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_damage);
+    M_cum_wave_damage = ModelVariable(ModelVariable::variableID::M_cum_wave_damage);//! \param M_cum_wave_damage (double) Level of accumulated damage (no healing accounted)
+    M_variables_elt.push_back(&M_cum_wave_damage);
+#endif
+
     M_fyi_fraction = ModelVariable(ModelVariable::variableID::M_fyi_fraction);//! \param M_fyi_fraction (double) Fraction of FYI
     M_variables_elt.push_back(&M_fyi_fraction);
     M_age_det = ModelVariable(ModelVariable::variableID::M_age_det);//! \param M_age_det (double) Sea ice age observable/detectable from space [s]
@@ -6386,18 +7366,33 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qlh);
     D_Qo = ModelVariable(ModelVariable::variableID::D_Qo);//! \param D_Qo (double) Total heat lost by the ocean
     M_variables_elt.push_back(&D_Qo);
-    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Salt release to the ocean [kg/day]
+    D_delS = ModelVariable(ModelVariable::variableID::D_delS);//! \param D_delS (double) Virtual salt flux to the ocean [kg/m^2/s]
     M_variables_elt.push_back(&D_delS);
     D_Qnosun = ModelVariable(ModelVariable::variableID::D_Qnosun);//! \param D_Qnosun (double) Non-solar heat loss from ocean [W/m2]
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
+    M_variables_elt.push_back(&D_fwflux);
+    D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
+    M_variables_elt.push_back(&D_fwflux_ice);
     D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
     M_variables_elt.push_back(&D_Qassim);
-    D_emp = ModelVariable(ModelVariable::variableID::D_emp);//! \param D_emp (double) Evaporation minus Precipitation [kg/m2/s]
-    M_variables_elt.push_back(&D_emp);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
+    D_tau_ow = ModelVariable(ModelVariable::variableID::D_tau_ow);//! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
+    M_variables_elt.push_back(&D_tau_ow);
+    D_evap = ModelVariable(ModelVariable::variableID::D_evap);//! \param D_evap (double) Evaporation from the ocean
+    M_variables_elt.push_back(&D_evap);
+    D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
+    M_variables_elt.push_back(&D_rain);
+    D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
+    M_variables_elt.push_back(&D_dcrit);
+
+    D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
+    M_variables_elt.push_back(&D_dmax);
+    D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
+    M_variables_elt.push_back(&D_dmean);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -6438,6 +7433,194 @@ FiniteElement::initModelVariables()
 
 
 #ifdef OASIS
+// -----------------------------------------------------------------
+//! simple function to init the floe size
+void
+FiniteElement::initFsd()
+{   
+    //! Initialize the FSD bins and FSD related variables used in:
+    //! - floe size redistribution
+    //! - lateral growth / melt / welding
+    //! N.B : If M_num_fsd_bins not defined in the conf. file, then no FSD in the model.
+    if (M_num_fsd_bins==0)
+        return ;
+    
+    // Floe size variables
+    M_fsd_bin_widths.assign(M_num_fsd_bins, 0.)                  ;
+    M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.)                  ;
+    M_fsd_bin_up_limits.assign(M_num_fsd_bins,0.) ;
+    M_fsd_bin_centres.resize(M_num_fsd_bins)                            ;
+    // Parameters:
+    M_floe_shape = 0.66;
+
+    // Lettie's variables
+    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ; 
+    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ; 
+    M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
+    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ; 
+    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;        
+    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;   
+    M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
+    M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
+    M_fsd_area_lims_scaled.assign(M_num_fsd_bins+1, 0.)   ;
+
+    switch (M_fsd_type)
+    {
+        case (setup::FSDType::CONSTANT_SIZE):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+            M_fsd_bin_widths[0]      = M_fsd_bin_cst_width      ;
+            M_fsd_bin_up_limits[0]  = M_fsd_min_floe_size+M_fsd_bin_cst_width  ;
+            M_fsd_bin_centres[0]    = (M_fsd_bin_up_limits[0]
+                                +  M_fsd_bin_low_limits[0]) / 2 ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_bin_widths[m]      = M_fsd_bin_cst_width          ;
+                M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
+                                        + M_fsd_bin_cst_width  ; 
+                M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
+                                        + M_fsd_bin_cst_width  ;  
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
+                                        +  M_fsd_bin_low_limits[m]) / 2 ; 
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_up[m] = M_floe_shape*std::pow(M_fsd_bin_up_limits[m],2)      ;
+                M_floe_area_low[m] = M_floe_shape*std::pow(M_fsd_bin_low_limits[m],2)    ;
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+                M_fsd_area_lims[m]=M_floe_area_low[m]                                    ;
+                M_floe_area_binwidth[m] = M_floe_area_up[m] - M_floe_area_low[m]         ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        case (setup::FSDType::CONSTANT_AREA):
+        {
+            M_fsd_bin_low_limits[0] = M_fsd_min_floe_size                      ;
+//            M_floe_area_binwidth[0] = M_floe_shape*std::pow(M_fsd_bin_cst_width,2)  ;
+            M_floe_area_binwidth[0] = M_floe_shape*(std::pow(M_fsd_bin_cst_width,2)+2*M_fsd_min_floe_size*M_fsd_bin_cst_width)  ;
+            M_floe_area_low[0] = M_floe_shape*std::pow(M_fsd_bin_low_limits[0],2)    ;
+            M_floe_area_up[0] =  M_floe_area_low[0] + M_floe_area_binwidth[0]        ;
+            for(int m=1; m<M_num_fsd_bins; m++)
+            {
+                M_floe_area_binwidth[m]  = M_floe_area_binwidth[0]   ;
+                M_floe_area_low[m]       = M_floe_area_up[m-1]                             ;
+                M_floe_area_up[m]        = M_floe_area_up[m-1]+M_floe_area_binwidth[m]     ;
+            }
+            for(int m=0; m<M_num_fsd_bins; m++)
+            {
+                M_fsd_area_lims[m]      = M_floe_area_low[m]                         ;
+                M_fsd_bin_low_limits[m] = std::sqrt(M_floe_area_low[m]/M_floe_shape)  ; 
+                M_fsd_bin_up_limits[m]  = std::sqrt(M_floe_area_up[m] /M_floe_shape)  ; 
+                M_fsd_bin_widths[m]      = M_fsd_bin_up_limits[m] - M_fsd_bin_low_limits[m]     ;
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]+ M_fsd_bin_low_limits[m])/ 2 ; 
+                M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
+            }
+            M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
+            break;
+        }
+        M_breakup_in_dt=false ;
+        default:
+            std::cout << "fsd_type= " << (int)M_fsd_type << "\n";
+            throw std::logic_error("Wrong fsd_type");
+    }
+   // LOGS
+    if (M_rank==0) 
+    {
+        LOG(INFO)  << "--------- FSD BINS INFO ---------\n";
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "\n" 
+                      << "FSD bin centres  : (" << m << ") "<< M_fsd_bin_centres[m] << " \n"     
+                      << "FSD bin low lim. : (" << m << ") "<< M_fsd_bin_low_limits[m] << " \n"  
+                      << "FSD bin up lim.  : (" << m << ") "<< M_fsd_bin_up_limits[m] << " \n"   ;
+        }
+    }
+
+    if (M_fsd_welding_use_scaled_area) 
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
+                     / *std::max_element(M_floe_area_binwidth.begin(),M_floe_area_binwidth.end() ) ;
+    }
+    else
+    {
+        for(int m=0; m<M_num_fsd_bins+1; m++)
+            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0]);
+    }
+    for(int m=0; m<M_num_fsd_bins; m++)
+    {
+        M_fsd_area_scaled_up[m]  = M_fsd_area_lims_scaled[m+1] ;
+        M_fsd_area_scaled_low[m] = M_fsd_area_lims_scaled[m]   ;
+        M_fsd_area_scaled_centered[m] = (M_fsd_area_scaled_up[m]+M_fsd_area_scaled_low[m])/2. ;
+        M_fsd_area_scaled_binwidth[m] = M_fsd_area_scaled_up[m] - M_fsd_area_scaled_low[m]    ;
+    }
+    // Definition of alpha -> which floe sizes can combine during merging
+    M_alpha_fsd_merge.resize(M_num_fsd_bins);
+    for(int m=0; m<M_num_fsd_bins; m++)
+    {
+        M_alpha_fsd_merge[m].assign(M_num_fsd_bins,-999);
+        for(int n=0; n<M_num_fsd_bins; n++)
+        {  
+            double test =  M_fsd_area_scaled_up[m] -  M_fsd_area_scaled_centered[n];
+            for(int p=0; p<M_num_fsd_bins; p++)
+            {
+                if ( (test>=M_fsd_area_scaled_low[p])&&(test<M_fsd_area_scaled_up[p] ) )
+                    M_alpha_fsd_merge[m][n]=p+1;
+            }
+        }
+    }  
+    if (M_rank==0) 
+    {
+        LOG(INFO)  << "--------- FSD BINS INFO (WIELDING VARIABLES)---------\n";
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "\n" 
+                      << "FSD bin area scaled centre   : (" << m << ") "<< M_fsd_area_scaled_centered[m] << " \n"     
+                      << "FSD bin area scaled low lim. : (" << m << ") "<< M_fsd_area_scaled_low[m] << " \n"  
+                      << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n" 
+                      << "FSD binwidth area scaled     : (" << m << ") "<< M_fsd_area_scaled_binwidth[m] << " \n" ;
+        }
+        LOG(INFO) << "-------- alpha merge ------- \n" ;
+        for(int m=0; m<M_num_fsd_bins; m++)   
+        { 
+            LOG(INFO) << "["<< m <<"]   ";
+            for(int n=0; n<M_num_fsd_bins; n++)
+                LOG(INFO) << M_alpha_fsd_merge[m][n] << " ; " ;
+            LOG(INFO) << "\n";
+         }
+              
+       
+    }
+    // End of Lettie's code
+  
+
+
+ 
+    //! Distribute the ice into the categories
+    for(int i=0; i<M_num_elements; i++)
+    {
+        // all the thick ice in the highest bin
+        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i]; 
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
+
+        //nothing in the other bins
+        for(int k=0; k<M_num_fsd_bins-1; k++)
+            M_conc_fsd[k][i] = 0.; 
+        // If we want to distinguish between mechanical and thermodynamical properties
+        if (M_distinguish_mech_fsd)
+            for(int k=0; k<M_num_fsd_bins; k++)
+                M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
+    }
+    
+ 
+}//init FSD
+#endif
+
+
+#ifdef OASIS
 void
 FiniteElement::initOASIS()
 {
@@ -6450,7 +7633,10 @@ FiniteElement::initOASIS()
     std::vector<GridOutput::Variable> nodal_variables;
     std::vector<GridOutput::Variable> elemental_variables;
     std::vector<GridOutput::Vectorial_Variable> vectorial_variables;
+
     GridOutput::Grid grid;
+
+    // TODO: should we use M_ocean_type == setup::OceanType::COUPLED or vm["coupler.with_ocean"]???
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         // Output variables - nodes
@@ -6462,18 +7648,29 @@ FiniteElement::initOASIS()
         nodal_variables.push_back(tauy);
         nodal_variables.push_back(taumod);
 
+        // same as in namcouple: 8 characters field sent by neXtSIM to ocean
+        var_snd.push_back(std::string("I_"+taux.name));
+        var_snd.push_back(std::string("I_"+tauy.name));
+        var_snd.push_back(std::string("I_"+taumod.name));
+
         // Output variables - elements
-        GridOutput::Variable emp(GridOutput::variableID::emp);
+        GridOutput::Variable fwflux(GridOutput::variableID::fwflux);
         GridOutput::Variable QNoSw(GridOutput::variableID::QNoSw);
         GridOutput::Variable QSwOcean(GridOutput::variableID::QSwOcean);
-        GridOutput::Variable Sflx(GridOutput::variableID::Fsalt);
+        GridOutput::Variable Sflx(GridOutput::variableID::saltflux);
         GridOutput::Variable conc(GridOutput::variableID::conc);
 
-        elemental_variables.push_back(emp);
+        elemental_variables.push_back(fwflux);
         elemental_variables.push_back(QNoSw);
         elemental_variables.push_back(QSwOcean);
         elemental_variables.push_back(Sflx);
         elemental_variables.push_back(conc);
+
+        var_snd.push_back(std::string("I_"+fwflux.name));
+        var_snd.push_back(std::string("I_"+QNoSw.name));
+        var_snd.push_back(std::string("I_"+QSwOcean.name));
+        var_snd.push_back(std::string("I_"+Sflx.name));
+        var_snd.push_back(std::string("I_"+conc.name));
 
         // The vectorial variables are ...
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
@@ -6482,15 +7679,40 @@ FiniteElement::initOASIS()
         // Define a grid
         grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
-    } else {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
     }
+
+    // Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        // Output variables - elements
+        std::vector<GridOutput::variableID> grid_ids = {
+            GridOutput::variableID::conc,
+            GridOutput::variableID::thick,
+            GridOutput::variableID::dmax,
+            GridOutput::variableID::dmean
+        };
+        for(auto var_id : grid_ids)
+        {
+            GridOutput::Variable var(var_id);
+            elemental_variables.push_back(var);
+            var_snd.push_back(std::string("I_"+var.name));
+        }
+
+        // Define a grid
+        grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
+                "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, true);
+    }
+
+    // Error handling if nothing was done
+    if ( !grid.defined )
+        throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
+                + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
         cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
-    M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -6561,7 +7783,31 @@ FiniteElement::initOASIS()
     this->setCplId_snd(M_cpl_out.M_nodal_variables);
     this->setCplId_snd(M_cpl_out.M_elemental_variables);
 
-    // TODO: This is not flexible enough - it'll only work for coupling with the ocean.
+    // Prepare var_rcv
+    // Ocean
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        // same as in namcouple: 8 characters field recived by neXtSIM from ocean
+        var_rcv.push_back(std::string("I_SST"));
+        var_rcv.push_back(std::string("I_SSS"));
+        var_rcv.push_back(std::string("I_Uocn"));
+        var_rcv.push_back(std::string("I_Vocn"));
+        var_rcv.push_back(std::string("I_SSH"));
+        var_rcv.push_back(std::string("I_MLD"));
+        var_rcv.push_back(std::string("I_FrcQsr"));
+    }
+
+    //Waves
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        var_rcv.push_back(std::string("I_tauwix"));
+        var_rcv.push_back(std::string("I_tauwiy"));
+        var_rcv.push_back(std::string("I_wlbk"));
+        //var_rcv.push_back(std::string("I_tm02"));
+        //var_rcv.push_back(std::string("I_str_var"));
+    }
+
+    // Ask OASIS to link var_rcv and var_id_rcv
     var_id_rcv.resize(var_rcv.size());
     for (int i=0; i<var_rcv.size(); ++i)
     {
@@ -6569,20 +7815,42 @@ FiniteElement::initOASIS()
                 var_actual_shape, var_type);
         if (ierror)
             throw std::runtime_error("FinitElement::initOASIS: OASIS3::def_var failed with exit code "
-                    +std::to_string(ierror)+" on "+var_snd[i]);
+                    +std::to_string(ierror)+" on "+var_rcv[i]);
     }
 
     // Associate OASIS variable ids with neXtSIM DataSet variables
+    int n_cpl_id = 0;
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
         this->setCplId_rcv(M_ocean_nodes_dataset);
         this->setCplId_rcv(M_ocean_elements_dataset);
+        n_cpl_id += M_ocean_nodes_dataset.M_cpl_id.size();
+        n_cpl_id += M_ocean_elements_dataset.M_cpl_id.size();
+    }
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        this->setCplId_rcv(M_wave_nodes_dataset);
+        this->setCplId_rcv(M_wave_elements_dataset);
+        n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
+        n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
+    }
 
-        if ( M_ocean_nodes_dataset.M_cpl_id.size() + M_ocean_elements_dataset.M_cpl_id.size() != var_rcv.size() )
-            throw std::logic_error("Not all coupling variables assigned - exiting");
-    } else {
-        throw std::runtime_error(std::string("FiniteElement::initOASIS: Only ocean coupling is implimented, but")
-                + std::string(" you still need to set setup.ocean-type to coupled to activate the coupling.") );
+    if ( n_cpl_id != var_rcv.size() )
+    {
+        std::stringstream msg;
+        msg << "\nNumber of variables in var_rcv = "<<var_rcv.size()<<"\n";
+        msg << "Number of variables in coupled datasets = "<< n_cpl_id <<"\n";
+        msg << "Not all coupling variables assigned - exiting\n";
+        throw std::logic_error(msg.str());
+    }
+
+    if( n_cpl_id == 0 )
+    {
+        //TODO make it possible to run the model without coupling, even if we have compiled with OASIS
+        throw std::runtime_error(
+                std::string("FiniteElement::initOASIS: No coupling option selected. ")
+              + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.")
+              );
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     //         TERMINATION OF DEFINITION PHASE
@@ -6632,6 +7900,51 @@ FiniteElement::updateIceDiagnostics()
         sigma_n =          - (sigma[0]+sigma[1])/2.;
         D_sigma[0][i] = sigma_n+sigma_s;
         D_sigma[1][i] = sigma_n-sigma_s;
+        // FSD relative parameters
+        D_dmean[i] = 0. ;
+        D_dmax[i]  = 0. ;
+#if defined (OASIS)  
+        if (M_num_fsd_bins>0)
+        {   
+            if (D_conc[i]>0)
+            {
+                D_dmax[i]=1000. ;
+                D_dmean[i]=1000.;
+                if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
+                {
+                    double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
+                    for(int j=M_num_fsd_bins-2;j>-1;j--)
+                    {
+                        ctot_fsd += M_conc_mech_fsd[j][i] ;
+                        if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
+                        {   
+                            D_dmax[i]=M_fsd_bin_up_limits[j]   ;
+                            break ;
+                        }
+                    }
+                    D_dmean[i]=0.;
+                    for(int j=0;j<M_num_fsd_bins;j++)
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i];
+                }
+                else
+                {
+                    D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
+                           * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+                    D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+                    
+                    D_dmean[i]=0.;
+                    for(int j=0;j<M_num_fsd_bins-1;j++)
+                        D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
+                    D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
+                }
+            }
+            else
+            {
+                D_dmax[i]  = 0. ;
+                D_dmean[i] = 0. ;
+            }
+        }
+#endif
     }
 }
 
@@ -6649,66 +7962,68 @@ FiniteElement::step()
         // check fields for nans and if thickness is too big
         this->checkFields();
 
+    // check velocity fields if speed exceed a threshold
+    if (vm["debugging.check_velocity_fields"].as<bool>())
+        this->checkVelocityFields();
+
+    M_timer.tick("remesh");
+
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
+        M_timer.tick("angle_check");
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
-        if (M_rank == 0)
-        {
-            if( pcpt*time_step % ptime_step == 0)
-                LOG(INFO) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
 
-            LOG(INFO) <<"REGRID ANGLE= "<< minang <<"\n";
-        }
+        M_timer.tock("angle_check");
 
         if ( minang < vm["numerics.regrid_angle"].as<double>() )
         {
             M_regrid = true;
 
-            if(vm["debugging.write_restart_before_regrid"].as<bool>())
+            if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
-                this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
                 this->writeRestart(str);
             }
+            if(vm["output.export_before_regrid"].as<bool>())
+            {
+                this->updateIceDiagnostics();
+                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+                this->exportResults(str, true, true, true);
+            }
 
             if ( M_use_moorings && !M_moorings_snapshot )
+            {
+                M_timer.tick("updateGridMean");
                 M_moorings.updateGridMean(bamgmesh);
+                M_timer.tock("updateGridMean");
+            }
 
 #ifdef OASIS
+            M_timer.tick("updateGridMean_cpl");
             M_cpl_out.updateGridMean(bamgmesh);
+            M_timer.tock("updateGridMean_cpl");
 #endif
-            if(M_rank==0)
-                LOG(DEBUG) <<"Regridding starts\n";
-            chrono.restart();
+            LOG(DEBUG) <<"Regridding starts\n";
+            M_timer.tick("regrid");
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
                 this->regrid(pcpt);
 
-            if(M_rank==0)
-                LOG(DEBUG) <<"Regridding done in "<< chrono.elapsed() <<"s\n";
-            if ( M_use_moorings )
-            {
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>() == "coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#else
-                M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-#endif
-            }
+            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+            M_timer.tock("regrid");
 
 #ifdef OASIS
             /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
+            M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
@@ -6716,51 +8031,82 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
                 M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            if ( vm["coupler.with_waves"].as<bool>() )
+                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
+                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+            M_timer.tock("resetMeshMean_cpl");
 #endif
 
             if ( M_use_moorings )
             {
+                M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
+                if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                else
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+
+                M_timer.tock("resetMeshMean");
             }
 
             ++M_nb_regrid;
 
+            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
 
     M_comm.barrier();
+    M_timer.tock("remesh");
 
+    M_timer.tick("checkReload");
 
-    if(M_rank==0)
-        LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    timer["reload"].first.restart();
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    if (M_rank == 0)
-        LOG(INFO) <<"---timer check_and_reload:     "<< timer["reload"].first.elapsed() <<"s\n";
+    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
 
+    M_timer.tock("checkReload");
+
+    M_timer.tick("auxiliary");
 
     if (M_regrid)
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
 
-        // check the fields for nans etc after regrid
-        if(vm["debugging.check_fields"].as<bool>())
-            this->checkFields();
+#ifdef OASIS
+        // Update FSD in case conc. has been modified during regrid.
+        if (M_num_fsd_bins>0)
+            this ->updateFSD();
+#endif
+        this->updateIceDiagnostics();
 
         // save outputs after regrid
-        if(vm["debugging.write_restart_after_regrid"].as<bool>())
+        if(vm["restart.write_restart_after_regrid"].as<bool>())
         {
-            this->updateIceDiagnostics();
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
             this->writeRestart(str);
         }
+        if(vm["output.export_after_regrid"].as<bool>())
+        {
+            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+            this->exportResults(str, true, true, true);
+        }
+
+        // check the fields for nans etc after regrid
+        if( (vm["debugging.check_fields"].as<bool>())
+#ifdef OASIS
+                && M_debug_fsd
+#endif
+                )
+            this->checkFields();
+            LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
     }
     else if(pcpt==0)
     {
@@ -6769,18 +8115,41 @@ FiniteElement::step()
         M_regrid = true;
     }
 
+    M_timer.tock("auxiliary");
 
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
     if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
     {
-        timer["thermo"].first.restart();
+        M_timer.tick("thermo");
         this->thermo(thermo_timestep);
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer thermo:               "<< timer["thermo"].first.elapsed() <<"s\n";
+        M_timer.tock("thermo");
+        LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
+        
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
+        // this->checkFields();
+        //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
-
+#ifdef OASIS
+    //======================================================================
+    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
+    //======================================================================
+    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
+    {        
+        chrono.restart();
+        LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
+        this->updateFSD();
+        this->redistributeFSD();   
+        if (M_debug_fsd)
+        {
+            LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
+            this->checkFields();
+            //std:cout <<"["<<M_rank<<"], Post-FSD checkfields is a success \n";
+        }
+    }
+    //======================================================================
+#endif
 
     if( M_use_nesting )
     {
@@ -6807,15 +8176,16 @@ FiniteElement::step()
     //======================================================================
     //! 5) Performs the dynamics
     //======================================================================
+    M_timer.tick("dynamics");
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
         //! - 5.1) Assembles the rigidity matrix by calling the assemble() function,
         //======================================================================
-        timer["assemble"].first.restart();
+        M_timer.tick("assemble");
         this->assemble(pcpt);
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer assemble:             "<< timer["assemble"].first.elapsed() <<"s\n";
+        M_timer.tock("assemble");
+        LOG(VERBOSE) <<"---timer assemble:             "<< M_timer.lap("assemble") <<"s\n";
 
 
         //======================================================================
@@ -6823,29 +8193,36 @@ FiniteElement::step()
         //! - 5.3) Updates the velocities by calling the updateVelocity() function
         //! - 5.4) Uptates relevant variables by calling the update() function
         //======================================================================
-        timer["solve"].first.restart();
+        M_timer.tick("solve");
         this->solve();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer solve:                "<< timer["solve"].first.elapsed() <<"s\n";
+        M_timer.tock("solve");
+        LOG(VERBOSE) <<"---timer solve:                "<< M_timer.lap("solve") <<"s\n";
 
-        timer["updatevelocity"].first.restart();
+        M_timer.tick("updatevelocity");
         this->updateVelocity();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer updateVelocity:       "<< timer["updatevelocity"].first.elapsed() <<"s\n";
+        M_timer.tock("updatevelocity");
+        LOG(VERBOSE) <<"---timer updateVelocity:       "<< M_timer.lap("updatevelocity") <<"s\n";
 
-        timer["update"].first.restart();
+        M_timer.tick("update");
         this->update();
-        if (M_rank == 0)
-            LOG(INFO) <<"---timer update:               "<< timer["update"].first.elapsed() <<"s\n";
+        M_timer.tock("update");
+        LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
 
+#ifdef OASIS
+    if(M_num_fsd_bins>0)
+        this -> updateFSD();
+#endif
+
+    M_timer.tock("dynamics");
 
     //======================================================================
     //! 6) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
+    M_timer.tick("coupler put");
     // Calling updateIceDiagnostics here is a temporary fix to issue 254.
     this->updateIceDiagnostics();
     double cpl_time_factor = (pcpt==0) ? 1 : dtime_step/(double)cpl_time_step;
@@ -6883,6 +8260,7 @@ FiniteElement::step()
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
     }
+    M_timer.tock("coupler put");
 #endif
 
     //======================================================================
@@ -6904,7 +8282,9 @@ FiniteElement::step()
     // TODO also add drifter check here
     // - if we move at restart output time we can remove M_UT from
     //   restart files (then it would always be 0)
+    M_timer.tick("output");
     this->checkOutputs(false);
+    M_timer.tock("output");
  }//step
 
 
@@ -6914,26 +8294,19 @@ FiniteElement::step()
 void
 FiniteElement::checkOutputs(bool const& at_init_time)
 {
-    //! 1) moorings:
-    //! - update fields on grid if outputting mean fields
-    //! - check if we are adding records to netcdf file
-    //! 2) call checkDrifters
-    //!    - do we need to init any, move any, input IABP, output any ... ?
-    //! 3) check if writing outputs, and do it if it's time
-    //! 4) check if writing restart, and do it if it's time
-    // TODO also add drifter check here
-    // - if we move at restart output time we can remove M_UT from
-    //   restart files (then it would always be 0)
-
-    // update the diagnostic variables before output
+    //! 1) update the diagnostic variables before output
     this->updateIceDiagnostics();
 
+    //! 2) moorings:
+    //! - update fields on grid if outputting mean fields
+    //! - check if we are adding records to netcdf file
     if(M_use_moorings)
     {
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
-                && pcpt*time_step % mooring_output_time_step == 0 )
+                && pcpt*time_step % mooring_output_time_step == 0
+                && !M_use_restart )
         {
             // write initial conditions to moorings file if using snapshot option
             // (only if at the right time though)
@@ -6943,22 +8316,15 @@ FiniteElement::checkOutputs(bool const& at_init_time)
             this->mooringsAppendNetcdf(M_current_time);
         }
     }
-    if(M_use_drifters)
-    {
-        // 1. Gather the fields needed by the drifters
-        // 2. Check if we need to:
-        //  i.   move any drifters
-        //  ii.  input &/or output drifters
-        //  iii. init any drifters
-        // NB do all this before we output or write restart to make sure
-        //  IABP drifters written to restart file are correct
-        // TODO also move the drifters if we are writing a restart
-        // - then M_UT will always be zero at restart time and can be removed from restart files
-        this->checkDrifters();
-    }
 
-    // check if we are outputting results file
-    if( pcpt*time_step % output_time_step == 0)
+    //! 3) update drifters if necessary
+    this->checkUpdateDrifters();
+
+    //! 4) check if we are outputting results file
+    bool exporting = false;
+    if(output_time_step>0)
+        exporting = (pcpt*time_step % output_time_step == 0);
+    if(exporting)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
@@ -6966,10 +8332,62 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
-    // check if writing restart
-    if(this->writingRestart())
+    //! 5) check if writing restart
+    if(at_init_time)
+    {
+        if (M_write_restart_start)
+            this->writeRestart();
+    }
+    else if ( M_write_restart_interval && ( pcpt*time_step % restart_time_step == 0) )
+    {
         this->writeRestart();
+    }
+
 }//checkOutputs
+
+
+// ---------------------------------------------
+//! check if we need to update/output any drifters (and do it if we need to)
+//! called by checkOutputs()
+void FiniteElement::checkUpdateDrifters()
+{
+    bool update_drifters = false;
+    if(M_rank == 0)
+    {
+        //need to move if initialising, outputting, inputting or resetting
+        //(eg OSISAF drifters reset after 2 days) any drifters
+        //NB inputting and resetting always happen at output time
+        //so don't need to check
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            update_drifters = update_drifters
+                || it->initialising(M_current_time)
+                || it->isOutputTime(M_current_time);
+    }
+
+    // let all the processors know if we need to gather the three vectors
+    // or if we need to reset M_UT
+    boost::mpi::broadcast(M_comm, update_drifters, 0);
+    if(!update_drifters)
+        return;
+
+    // Gather the fields needed by the drifters
+    std::vector<double> UT_root, UM_root, conc_root;
+    this->gatherNodalField(M_UT, UT_root);
+    this->gatherNodalField(M_UM, UM_root);
+    this->gatherElementField(M_conc, conc_root);
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+
+    if(M_rank==0)
+    {
+        //updateDrifters does moving, initialising, resetting, inputting,
+        //outputting (if needed)
+        auto movedmesh_root = M_mesh_root;
+        movedmesh_root.move(UM_root, 1.);
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->updateDrifters(M_mesh_root, movedmesh_root,
+                    conc_root, UT_root, M_current_time);
+    }
+}//checkUpdateDrifters()
 
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -6999,8 +8417,7 @@ FiniteElement::run()
     }
 
     double time_remaining = time_init + duration/days_in_sec - M_current_time;// should be >= 0 after error-checking in init()
-    if(M_rank==0)
-        LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
+    LOG(DEBUG)<< "Simulation time remaining = " <<time_remaining<<"\n";
     bool is_running = (time_remaining>0);// don't start stepping if at end time (time_remaining==0)
 
     // main loop for nextsim program
@@ -7008,16 +8425,13 @@ FiniteElement::run()
     {
          M_comm.barrier();
 
-        if (M_rank == 0)
-        {
-            LOG(INFO) <<"---------------------- TIME STEP "<< pcpt << " : "
-                      << Nextsim::datenumToString(M_current_time) << "\n";
+        LOG(VERBOSE) <<"---------------------- TIME STEP "<< pcpt << " : "
+                  << Nextsim::datenumToString(M_current_time) << "\n";
 
-            if( pcpt*time_step % ptime_step == 0)
-            {
-                std::string time_spent_str = time_spent(current_time_system);
-                LOG(INFO) <<" ---------- progression: ("<< 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
-            }
+        if( pcpt*time_step % ptime_step == 0)
+        {
+            std::string time_spent_str = time_spent(current_time_system);
+            LOG(INFO) <<" ---------- progression: ("<< std::fixed << std::setw(2)<< std::setprecision(0) << 100.0*(pcpt*dtime_step/duration) <<"%) ---------- time spent: "<< time_spent_str <<"\n";
         }
 
         is_running = ((pcpt+1)*dtime_step) < duration;
@@ -7038,6 +8452,8 @@ FiniteElement::run()
     // **********************************************************************
     this->updateIceDiagnostics();
     this->exportResults("final", true, true, true);
+    if (M_write_restart_end)
+        this->writeRestart("final");
 
     // **********************************************************************
     // Finalizing
@@ -7074,6 +8490,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::damage):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_damage[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::ridge_ratio):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::snow):
@@ -7146,7 +8567,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
-
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7174,7 +8594,19 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::delS):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_delS[i]*time_factor;
+                    it->data_mesh[i] += D_delS[i]*time_factor;
+                break;
+            case (GridOutput::variableID::evap):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_evap[i]*time_factor;
+                break;
+            case (GridOutput::variableID::rain):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_rain[i]*time_factor;
+                break;
+            case (GridOutput::variableID::d_crit):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dcrit[i]*time_factor;
                 break;
 
             // forcing variables
@@ -7222,12 +8654,26 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_precip[i]*time_factor;
                 break;
+            case (GridOutput::variableID::fwflux_ice):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
+                break;
+
+            // WIM variables
+            case (GridOutput::variableID::dmax):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmax[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dmean):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dmean[i]*time_factor;
+                break;
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
-            case (GridOutput::variableID::emp):
+            case (GridOutput::variableID::fwflux):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] -= D_emp[i]*time_factor;
+                    it->data_mesh[i] -= D_fwflux[i]*time_factor;
                 break;
             case (GridOutput::variableID::QNoSw):
                 for (int i=0; i<M_local_nelements; i++)
@@ -7237,7 +8683,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_Qsw_ocean[i]*time_factor;
                 break;
-            case (GridOutput::variableID::Fsalt):
+            case (GridOutput::variableID::saltflux):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_brine[i]*time_factor;
                 break;
@@ -7267,15 +8713,42 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_VT[i+M_num_nodes]*time_factor;
                 break;
 
+            case (GridOutput::variableID::wind_x):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::wind_y):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
+                break;
+
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
+            case (GridOutput::variableID::tauy):
+            case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
+                    double tau_i, wind2;
 
-                    double tau_i = D_tau_w[index_u];
+                    // Select between taux, tauy, and taumod
+                    switch (it->varID)
+                    {
+                        case (GridOutput::variableID::taux):
+                        tau_i = D_tau_w[i];
+                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        break;
+
+                        case (GridOutput::variableID::tauy):
+                        tau_i = D_tau_w[i+M_num_nodes];
+                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        break;
+
+                        case (GridOutput::variableID::taumod):
+                        tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
+                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                    }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
                     double tau_a = 0;
@@ -7288,72 +8761,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         // Skip negative elt_num
                         if ( elt_num < 0 ) continue;
 
-                        tau_a   += M_tau_ow[elt_num];
+                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
                         conc    += M_conc[elt_num] * M_surface[elt_num];
                         surface += M_surface[elt_num];
                     }
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::tauy):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = D_tau_w[index_v];
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += M_tau_ow[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
-                }
-                break;
-            case (GridOutput::variableID::taumod):
-                for (int i=0; i<M_num_nodes; i++)
-                {
-                    int index_u = i;
-                    int index_v = i + M_num_nodes;
-
-                    double tau_i = std::hypot(D_tau_w[index_u], D_tau_w[index_v]);
-
-                    // Concentration is the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip Negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += M_tau_ow[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
@@ -7365,6 +8780,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 //------------------------------------------------------------------------------------------------------
 //! Initializes the moorings datasets and variables recorded by the moorings.
 //! Called by the init() function.
+//! \note to add a new moorings variable
+//! - 1) Add an id to gridoutput.hpp
+//! - 2) Define netcdf attributes in gridoutput.hpp
+//! - 3) Add mapping from config file to id in mooring_name_map_elements
+//!      in initMoorings below
+//! - 4) add calculation of mean value to updateMeans
 void
 FiniteElement::initMoorings()
 {
@@ -7396,7 +8817,9 @@ FiniteElement::initMoorings()
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
@@ -7409,9 +8832,12 @@ FiniteElement::initMoorings()
             ("hs_thin", GridOutput::variableID::hs_thin)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
-            ("emp", GridOutput::variableID::emp)
+            ("fwflux", GridOutput::variableID::fwflux)
+            ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
-            ("Fsalt", GridOutput::variableID::Fsalt)
+            ("saltflux", GridOutput::variableID::saltflux)
+            ("dmax",GridOutput::variableID::dmax)
+            ("dmean",GridOutput::variableID::dmean)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
@@ -7424,12 +8850,13 @@ FiniteElement::initMoorings()
             ("snowfall", GridOutput::variableID::snowfall)
             ("snowfr", GridOutput::variableID::snowfr)
             ("precip", GridOutput::variableID::precip)
+            ("rain", GridOutput::variableID::rain)
+            ("evap", GridOutput::variableID::evap)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
-
-
+            ("d_crit", GridOutput::variableID::d_crit)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -7491,6 +8918,20 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(siuv);
         }
 
+        else if (*it == "wind")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable wndu(GridOutput::variableID::wind_x);
+            GridOutput::Variable wndv(GridOutput::variableID::wind_y);
+            nodal_variables.push_back(wndu);
+            nodal_variables.push_back(wndv);
+
+            GridOutput::Vectorial_Variable wnd(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(wnd);
+        }
+
         // Primarily coupling variables, but perhaps useful for debugging
         else if ( *it == "tau" )
         {
@@ -7512,6 +8953,7 @@ FiniteElement::initMoorings()
             LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  tau\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
                 LOG(ERROR)<<"  "<< ptr->first <<"\n";
@@ -7554,15 +8996,25 @@ FiniteElement::initMoorings()
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
     {
-        // Read the grid in from file
-        GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
-                Environment::vm()["moorings.grid_latitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_longitude"].as<std::string>(),
-                Environment::vm()["moorings.grid_transpose"].as<bool>() );
+        if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+        {
+            // and use the conservative remapping
+            GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
+                    "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-        // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, M_moorings_false_easting);
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        } else {
+            // don't use conservative remapping
+            GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
+                    Environment::vm()["moorings.grid_latitude"].as<std::string>(),
+                    Environment::vm()["moorings.grid_longitude"].as<std::string>(),
+                    Environment::vm()["moorings.grid_transpose"].as<bool>() );
+
+            // Define the mooring dataset
+            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting);
+        }
     }
 #ifdef OASIS
     else if(vm["moorings.grid_type"].as<std::string>()=="coupled")
@@ -7601,7 +9053,7 @@ FiniteElement::initMoorings()
         else
             filename_root = M_export_path + "/Moorings";
 
-        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time, M_use_restart);
     }
 }//initMoorings
 
@@ -7705,22 +9157,6 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
 
-
-//------------------------------------------------------------------------------------------------------
-//! do we write a restart file this time step?
-//! called by checkOutputs()
-bool
-FiniteElement::writingRestart()
-{
-    //check if it's time to write a restart
-    if(!vm["restart.write_restart"].as<bool>())
-        return false;
-    else if ( pcpt*time_step % restart_time_step == 0)
-        return true;
-    else
-        return false;
-}//writingRestart
-
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.
 //! Called by the checkOutputs() function.
@@ -7729,7 +9165,7 @@ FiniteElement::writeRestart()
 {
     //Determines the name to be passed to writeRestart
     std::string name_str;
-    if (vm["output.datetime_in_filename"].as<bool>())
+    if (vm["restart.datetime_in_filename"].as<bool>())
         name_str = datenumToFilenameString(M_current_time);
     else
     {
@@ -7749,12 +9185,12 @@ FiniteElement::writeRestart(std::string const& name_str)
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<< "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
-    LOG(DEBUG) << "["<< M_rank << "] "<<"M_ndof                    = "<< M_ndof <<"\n";
+    LOG(DEBUG) <<"M_prv_local_ndof          = "<< M_prv_local_ndof <<"\n";
+    LOG(DEBUG) <<"M_prv_num_nodes           = "<< M_prv_num_nodes <<"\n";
+    LOG(DEBUG) << "M_prv_num_elements       = "<< M_prv_num_elements <<"\n";
+    LOG(DEBUG) <<"M_prv_global_num_nodes    = "<< M_prv_global_num_nodes <<"\n";
+    LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
+    LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
     // get names of the variables in the restart file,
     // and set pointers to the data (pointers to the corresponding vectors)
@@ -7914,39 +9350,12 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_UM_root, "M_UM");
         exporter.writeField(outbin, M_UT_root, "M_UT");
 
-        if (       M_use_iabp_drifters
-                && M_iabp_drifters.size()>0)
-        {
-            // if drifters not initialised yet, don't try to write them
-            std::vector<int> drifter_no(M_iabp_drifters.size());
-            std::vector<double> drifter_x(M_iabp_drifters.size());
-            std::vector<double> drifter_y(M_iabp_drifters.size());
-
-            // Sort the drifters so the restart files are identical (this is just to make testing easier)
-            int j=0;
-            for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-            {
-                drifter_no[j] = it->first;
-                ++j;
-            }
-            std::sort(drifter_no.begin(), drifter_no.end());
-
-            j=0;
-            for ( auto it = drifter_no.begin(); it != drifter_no.end(); it++ )
-            {
-                drifter_x[j] = M_iabp_drifters[drifter_no[j]][0];
-                drifter_y[j] = M_iabp_drifters[drifter_no[j]][1];
-                j++;
-            }
-
-            exporter.writeField(outbin, drifter_no, "Drifter_no");
-            exporter.writeField(outbin, drifter_x, "Drifter_x");
-            exporter.writeField(outbin, drifter_y, "Drifter_y");
-        }
+        // Add the drifters if they are initialised
+        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->addToRestart(exporter, outbin);
 
         // Add the previous numbering to the restart file
-
-        // used in adaptMesh (updateNodeIds)
+        // - used in adaptMesh (updateNodeIds)
         std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
@@ -8097,7 +9506,7 @@ FiniteElement::readRestart(std::string const& name_str)
     if(M_rank==0)
     {
         // Set and check time
-        if (!vm["restart.reset_time_counter"].as<bool>())
+        if ( vm["restart.type"].as<std::string>() == "continue" )
         {
             pcpt = misc_int[0];
             double tmp = time_init + pcpt*time_step/(24*3600.0);
@@ -8112,17 +9521,19 @@ FiniteElement::readRestart(std::string const& name_str)
             //set other counters from the restart file
             mesh_adapt_step = misc_int[2];
             M_nb_regrid     = misc_int[3];
-	    }
-	    else
-	    {
-            if ( time_vec[0] != time_init )
-            {
-                std::cout << "FiniteElement::readRestart: Restart Time and time_init are inconsistent. \n";
-                std::cout << "Time = " << time_vec[0] << " = " << datenumToString(time_vec[0])<<"\n";
-                std::cout << "time_init = " << time_init << " = " << datenumToString(time_init) <<"\n";
-                throw std::runtime_error("Inconsistent time information in restart file");
-            }
-	    }
+        }
+        else if ( vm["restart.type"].as<std::string>() == "extend" )
+        {
+            pcpt = 0; // This should already be the case
+            time_init = time_vec[0];
+            M_spinup_duration = 0.; // No spinup after an "extend" restart
+        }
+        else
+        {
+            throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
+                    + vm["restart.type"].as<std::string>()
+                    + ". It should be either extend or continue");
+        }
     }
 
     //transfer scalars from "Misc_int" from root to all processors
@@ -8130,20 +9541,14 @@ FiniteElement::readRestart(std::string const& name_str)
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
     boost::mpi::broadcast(M_comm, mesh_adapt_step, 0);
     boost::mpi::broadcast(M_comm, M_nb_regrid, 0);
+    boost::mpi::broadcast(M_comm, M_spinup_duration, 0);
+    boost::mpi::broadcast(M_comm, time_init, 0);
 
     // set time and check it (NB now on all processors)
     M_current_time = time_init + pcpt*time_step/(24*3600.0);
     if(M_current_time > time_init + duration/days_in_sec )
         throw std::runtime_error("Restart time is after end time (time_init + duration)");
 
-    if(M_use_drifters)
-    {
-        // if current time is ahead of init-drifter time
-        // (as it could be in a restart situation),
-        // increase the init-drifter time
-        M_drifters_time_init = std::max(M_drifters_time_init,
-                std::ceil(M_current_time));
-    }
 
     // set all variables to 0
     // - best to do this early on so M_tice has the right number of components
@@ -8195,8 +9600,11 @@ FiniteElement::readRestart(std::string const& name_str)
             }
         }
 
-        if (M_use_iabp_drifters)
-            this->restartIabpDrifters(field_map_int, field_map_dbl);
+        //! add drifters
+        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->initFromRestart(field_map_int, field_map_dbl);
+        if(M_osisaf_drifters.size()>0)
+            this->synchroniseOsisafDrifters();
     }//M_rank==0
 
     // Scatter elemental fields from root and put them in M_prognostic_variables_elt
@@ -8211,58 +9619,39 @@ FiniteElement::readRestart(std::string const& name_str)
 }//readRestart
 
 
-//! initialise the IABP drifters from the restart fields (if possible)
+//! make sure OSISAF drifters are consistent with each other
 //! called by readRestart()
 void
-FiniteElement::restartIabpDrifters(
-    boost::unordered_map<std::string, std::vector<int>>    & field_map_int,
-    boost::unordered_map<std::string, std::vector<double>> & field_map_dbl)
+FiniteElement::synchroniseOsisafDrifters()
 {
-    std::vector<int>    drifter_no = field_map_int["Drifter_no"];
-    std::vector<double> drifter_x  = field_map_dbl["Drifter_x"];
-    std::vector<double> drifter_y  = field_map_dbl["Drifter_y"];
-
-    if (drifter_no.size() == 0)
+    // make sure OSISAF drifters are consistent with each other
+    // - OK if 2 in restart
+    // - otherwise need to check consistency (one should be a day after the other)
+    bool i0 = M_osisaf_drifters[0]->isInitialised();
+    bool i1 = M_osisaf_drifters[1]->isInitialised();
+    if( i1 && !i0 )
     {
-        // Do nothing now - wait till checkDrifters() to init the IABP drifters in the normal way
-        if(M_rank==0)
-        {
-            LOG(WARNING) << "Warning: Couldn't read drifter positions from restart file."
-                << " Drifter positions initialised as if there was no restart.\n";
-        }
+        // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
+        double const t = M_osisaf_drifters[1]->getInitTime() + 1;
+        M_osisaf_drifters[0]->setInitTime(t);
     }
-    else
+    else if( i0 && !i1 )
     {
-        // init the input/output files
-        this->initIabpDrifterFiles();
-
-        // insert the drifter positions from the restart file
-        for ( int i=0; i<drifter_no.size(); ++i )
-            M_iabp_drifters.emplace(
-                    drifter_no[i], std::array<double,2>{drifter_x[i], drifter_y[i]});
-
-        // move the drifters
-        // NB updateIabpDrifterPosition uses M_UT_root
-        // (don't need to gather since we have it already from
-        // restart file)
-        M_UT_root = field_map_dbl["M_UT"];
-        this->updateIabpDrifterPosition();
-
-        // M_UT, M_UT_root can be set to zero now we have moved the drifters
-        std::fill(M_UT.begin(), M_UT.end(), 0.);
-        std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-
-        // still need to get M_conc at these positions
-        M_conc_root = field_map_dbl["M_conc"];
-        M_UM_root = field_map_dbl["M_UM"];
-        auto movedmesh = M_mesh_root;
-        movedmesh.move(M_UM_root, 1.);
-        this->updateIabpDrifterConc(movedmesh);
-
-        // Save the initial positions to the output file
-        this->outputIabpDrifters();
+        // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
+        double const t = M_osisaf_drifters[0]->getInitTime() + 1;
+        M_osisaf_drifters[1]->setInitTime(t);
     }
-}//restartIabpDrifters
+    else if( !(i0 || i1) )
+    {
+        // neither are initialised from restart => need to check the times
+        double const t0 = std::min(
+                M_osisaf_drifters[0]->getInitTime(),
+                M_osisaf_drifters[1]->getInitTime()
+                );
+        M_osisaf_drifters[0]->setInitTime(t0);
+        M_osisaf_drifters[1]->setInitTime(t0 + 1);
+    }
+}//synchroniseOsisafDrifters
 
 
 //------------------------------------------------------------------------------------------------------
@@ -8282,7 +9671,7 @@ FiniteElement::partitionMeshRestart()
         LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
         // Environment::logMemoryUsage("before partitioning...");
-        timer["savemesh"].first.restart();
+        chrono.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
         {
@@ -8294,14 +9683,14 @@ FiniteElement::partitionMeshRestart()
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
 
-        LOG(DEBUG) <<"Saving mesh done in "<< timer["savemesh"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
-        timer["meshpartition"].first.restart();
+        chrono.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
         M_mesh_root.partition(M_partitioned_mesh_filename,
                 M_partitioner, M_partition_space, M_mesh_fileformat);
-        LOG(DEBUG) <<"Partitioning mesh done in "<< timer["meshpartition"].first.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
 
     M_prv_local_ndof = M_local_ndof;
@@ -8319,7 +9708,7 @@ FiniteElement::partitionMeshRestart()
 
 //! collect the restart elemental variables (already on the root)
 //! and put them into 1 long vector to be scattered
-//! called by restartScatterElementVariables()
+//! called by readRestart()
 void
 FiniteElement::collectElementsRestart(std::vector<double>& interp_elt_out,
         std::vector<std::vector<double>*> &data_elements_root)
@@ -8581,7 +9970,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERAi, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingAtmosphere()
 {
@@ -8593,7 +9982,7 @@ FiniteElement::forcingAtmosphere()
             M_wind=ExternalData(
                 vm["ideal_simul.constant_wind_u"].as<double>(),
                 vm["ideal_simul.constant_wind_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(vm["ideal_simul.constant_tair"].as<double>());
             M_mixrat=ExternalData(vm["ideal_simul.constant_mixrat"].as<double>());
@@ -8611,7 +10000,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::ASR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_mixrat=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8628,7 +10017,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8642,31 +10031,32 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC:
+        case setup::AtmosphereType::ERA5:
             M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
+                time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec. Use thermo.use_parameterised_long_wave_radiation=true");
-
-            // Syl: The following two lines should be removed when approxSW will be implemented in Thermo()
-            M_Qsw_in=ExternalData(vm["ideal_simul.constant_Qsw_in"].as<double>());
-            M_precip=ExternalData(0.);
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=asr. Use thermo.use_parameterised_long_wave_radiation=false");
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,air_temperature_correction,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,air_temperature_correction,false,time_init);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, air_temperature_correction);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
@@ -8679,7 +10069,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC_ERAi:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8696,7 +10086,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::CFSR:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8713,7 +10103,7 @@ FiniteElement::forcingAtmosphere()
         case setup::AtmosphereType::EC2_AROME:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
@@ -8871,7 +10261,7 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the physical variables relevant to the ocean according to the chosen ocean state and data (CONSTANT, TOPAZR, ...)
-//! Called by the initForcings() function.
+//! Called by the initExternalData() function.
 void
 FiniteElement::forcingOcean()//(double const& u, double const& v)
 {
@@ -8893,10 +10283,10 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(vm["ideal_simul.constant_ssh"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8910,11 +10300,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
         case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8923,31 +10313,30 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             }
 
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-    		break;
+            break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
-            time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-            time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8962,11 +10351,11 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             M_ssh=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 2, false,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
 
             if (!use_ocean_nesting)
             {
@@ -8977,7 +10366,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             // SYL: there was a capping of the mld at minimum vm["ideal_simul.constant_mld"].as<double>()
             // but Einar said it is not necessary, so it is not implemented
-    		break;
+            break;
 
         default:
             std::cout << "invalid ocean forcing"<<"\n";
@@ -8995,14 +10384,45 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     M_external_data_elements.push_back(&M_ocean_temp);
     M_external_data_elements_names.push_back("M_ocean_salt");
     M_external_data_elements.push_back(&M_ocean_salt);
-    M_external_data_elements_names.push_back("M_mld");
-    M_external_data_elements.push_back(&M_mld);
+    if (M_mld.isInitialized())
+    {
+        M_external_data_elements_names.push_back("M_mld");
+        M_external_data_elements.push_back(&M_mld);
+    }
     if ( M_qsrml.isInitialized() )
     {
         M_external_data_elements.push_back(&M_qsrml);
         M_external_data_elements_names.push_back("M_qsrml");
     }
 }//forcingOcean
+
+
+//------------------------------------------------------------------------------------------------------
+//! Sets the physical variables relevant to the couple wave model
+//! Called by the initExternalData() function.
+#ifdef OASIS
+void
+FiniteElement::forcingWaves()//(double const& u, double const& v)
+{
+
+    M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
+                time_init, vm["simul.spinup_duration"].as<double>());
+    M_external_data_nodes.push_back(&M_tau_wi);
+    //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_str_var);
+    //M_external_data_elements_names.push_back("M_str_var");
+    //M_tm02 = ExternalData(&M_wave_elements_dataset, M_mesh, 1, false,
+    //            time_init, 0);
+    //M_external_data_elements.push_back(&M_tm02);
+    //M_external_data_elements_names.push_back("M_tm02");
+
+    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+    M_external_data_elements.push_back(&M_wlbk);
+    M_external_data_elements_names.push_back("M_wlbk");
+}
+#endif
 
 
 //------------------------------------------------------------------------------------------------------
@@ -9022,9 +10442,6 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
-#if OASIS
-        case setup::OceanType::COUPLED:
-#endif
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -9034,6 +10451,15 @@ FiniteElement::initSlabOcean()
             }
 
             break;
+#if OASIS
+        case setup::OceanType::COUPLED:
+            for ( int i=0; i<M_num_elements; ++i)
+            {
+                M_sss[i] = M_ocean_salt[i];
+                M_sst[i] = M_ocean_temp[i];
+            }
+            break;
+#endif
         default:
             std::cout << "invalid ocean initialisation"<<"\n";
             throw std::logic_error("invalid ocean forcing");
@@ -9118,11 +10544,17 @@ FiniteElement::initIce()
         case setup::IceType::PIOMAS:
             this->piomasIce();
             break;
+        case setup::IceType::CREG:
+            this->cregIce();
+            break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
             break;
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
+            break;
+        case setup::IceType::AMSR2CSTTHICK:
+            this->amsr2ConstThickIce();
             break;
         case setup::IceType::CS2_SMOS:
             this->cs2SmosIce();
@@ -9179,6 +10611,7 @@ FiniteElement::initIce()
 
     // check consistency of fields after initialisation
     // - init ice temp everywhere
+    // - init FSD
     this->checkConsistency();
 }//initIce
 
@@ -9287,7 +10720,21 @@ FiniteElement::checkConsistency()
                 M_tice[2][i] = Tfr_wtr + .25*(Ti - Tfr_wtr);
             }//Winton
         }
+
+#ifdef OASIS
+        // Init cumulated damage
+        M_cum_damage[i]=M_damage[i];
+        M_cum_wave_damage[i]=M_damage[i];
+#endif
+
+        //initialise this to 0 (water value)
+        D_dcrit[i] = 0;
     }
+
+#ifdef OASIS
+    //FSD
+    this->initFsd();
+#endif
 }//checkConsistency
 
 
@@ -9361,7 +10808,7 @@ FiniteElement::constantIce()
             M_hs_thin[i]   = hs_const*M_conc_thin[i];
         }
     }
-	LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
+    LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
 
     if (M_ice_type==setup::IceType::CONSTANT_PARTIAL)
     {
@@ -9423,8 +10870,7 @@ FiniteElement::topazIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
 
@@ -9486,8 +10932,7 @@ FiniteElement::topazIceOsisafIcesat()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/OSISAF/Icesat ice ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/OSISAF/Icesat ice ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -9605,8 +11050,7 @@ FiniteElement::topazForecastIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9657,8 +11101,7 @@ FiniteElement::topazForecastAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9802,8 +11245,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -9974,16 +11416,14 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10021,7 +11461,7 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
         //tmp_var=M_topaz_snow_thick[i];
         //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
         //if(M_conc[i]<M_topaz_conc[i])
-         //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
+        //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
 
 
         if(c_model>0.01)
@@ -10089,16 +11529,14 @@ FiniteElement::topazForecastAmsr2OsisafIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - OSISAF/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - OSISAF/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10243,16 +11681,14 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - OSISAF/AMSR2/NIC ExternalData objects\n";
+    LOG(DEBUG)<<"init - OSISAF/AMSR2/NIC ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
 
     external_data_tmp.resize(0);
     external_data_tmp.push_back(&M_topaz_conc);
     external_data_tmp.push_back(&M_topaz_thick);
     external_data_tmp.push_back(&M_topaz_snow_thick);
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ ice forecast ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10269,8 +11705,8 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         tmp_var=std::min(1.,M_topaz_conc[i]);
         M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         if(     (M_conc[i]>0.)
-             && (M_amsr2_conc[i]>.15)
-             && (M_amsr2_conc[i]<=1.))
+                && (M_amsr2_conc[i]>.15)
+                && (M_amsr2_conc[i]<=1.))
             // use amsr2 only where
             // - topaz says there is ice to avoid near land issues and fake concentration over the ocean
             // - it is large enough to be trusted
@@ -10434,8 +11870,7 @@ FiniteElement::piomasIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - PIOMAS ExternalData objects\n";
+    LOG(DEBUG)<<"init - PIOMAS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     for (int i=0; i<M_num_elements; ++i)
@@ -10462,6 +11897,50 @@ FiniteElement::piomasIce()
 
 
 // -----------------------------------------------------------------------------------------------------------
+//! Initializes the ice state from CREG outputs.
+//! Called by the initIce() function.
+void
+FiniteElement::cregIce()
+{
+    Dataset creg = DataSet("ice_creg_elements");
+    external_data init_conc=ExternalData(&creg,M_mesh,0,false,time_init);
+    external_data init_thick=ExternalData(&creg,M_mesh,1,false,time_init);
+    external_data init_snow_thick=ExternalData(&creg,M_mesh,2,false,time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - CREG ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1.,init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        M_damage[i]=0.;
+    }
+}//cregIce
+
+
+// -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz, AMSRE data.
 //! Called by the initIce() function.
 void
@@ -10485,8 +11964,7 @@ FiniteElement::topazAmsreIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/AMSR-E ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/AMSR-E ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10551,8 +12029,7 @@ FiniteElement::topazAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -10608,6 +12085,66 @@ FiniteElement::topazAmsr2Ice()
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
 
+//! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
+//! Called by the initIce() function.
+void
+FiniteElement::amsr2ConstThickIce()
+{
+    double real_thickness, init_conc_tmp;
+
+    double h_const = vm["ideal_simul.init_thickness"].as<double>();
+    double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
+
+    external_data M_conc_amsr2=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init);
+    external_data M_init_conc=ExternalData(&M_ice_topaz_elements_dataset,M_mesh,0,false,time_init);
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_conc_amsr2);
+    external_data_tmp.push_back(&M_init_conc);
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - TOPAZ/AMSR2 ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        double uncertainty;
+        if(M_conc_amsr2[i]<0.1)
+            uncertainty=0.1;
+        else
+            uncertainty=0.05;
+        // TEST : take AMSR2 Raw value
+        M_conc[i] = std::min(1., M_conc_amsr2[i] ) ;
+//        double diff_mod_obs = M_conc_amsr2[i]-M_init_conc[i];
+//        if(std::abs(diff_mod_obs)>=uncertainty && M_conc_amsr2[i]<=1.)
+//            // NB missing value for AMSR2 when not over land is 1.15
+//            // move towards AMSR2 value by the amount uncertainty/2
+//            M_conc[i] = std::min(1., M_conc_amsr2[i]-(diff_mod_obs/std::abs(diff_mod_obs))*uncertainty/2.);
+//        else
+//            M_conc[i] = std::min(1., M_init_conc[i]);
+
+        // TOPAZ puts very small values instead of 0.
+        tmp_var=M_init_conc[i];
+        init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+    
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        else
+        {
+            M_thick[i]=h_const*M_conc[i];
+            M_snow_thick[i]=hs_const*M_conc[i];
+        }
+        M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
+    }
+}//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
+
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
 //! Called by the initIce() function.
@@ -10625,8 +12162,7 @@ FiniteElement::cs2SmosIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - CS2/SMOS ExternalData objects\n";
+    LOG(DEBUG)<<"init - CS2/SMOS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     this->warrenClimatology();
@@ -10755,8 +12291,7 @@ FiniteElement::cs2SmosAmsr2Ice()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - CS2/SMOS/AMSR2 ExternalData objects\n";
+    LOG(DEBUG)<<"init - CS2/SMOS/AMSR2 ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     this->warrenClimatology();
@@ -10859,8 +12394,7 @@ FiniteElement::smosIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    if(M_rank==0)
-        LOG(DEBUG)<<"init - SMOS ExternalData objects\n";
+    LOG(DEBUG)<<"init - SMOS ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 
     double tmp_var;
@@ -11033,711 +12567,171 @@ FiniteElement::warrenClimatology()
 //  NB needs to be done before readRestart()
 //! Called by the init() function.
 void
-FiniteElement::initDrifterOpts()
+FiniteElement::instantiateDrifters()
 {
     // init drifters after spinup
     // NB use ceil to make sure the init time is 0:00
-    M_drifters_time_init = std::ceil(time_init
-        + vm["simul.spinup_duration"].as<double>());
-
-    //to be run at start time
-    std::vector<double> drifters_timesteps;
-    std::vector<std::string> drifters_names;//for debugging
-
-    // use IABP drifters (12h check)
-    M_use_iabp_drifters = vm["drifters.use_iabp_drifters"].as<bool>();
-    M_iabp_drifters_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
-    M_iabp_drifters_input_time_step = 0.5;
-    if (M_use_iabp_drifters)
-    {
-        // check the IABP in-/out-put time steps are consistent with each other
-        // - IABP input time step should be greater than the output time step
-        //   (same frequency of outputs or more frequent outputs),
-        // - IABP input time step should be a multiple of the output time step
-        if( M_iabp_drifters_output_time_step > M_iabp_drifters_input_time_step )
-        {
-            std::string msg = "IABP drifters output timestep";
-            msg += " should be <= IABP input timestep";
-            throw std::runtime_error(msg);
-        }
-        else if ( std::fmod(M_iabp_drifters_input_time_step,
-                    M_iabp_drifters_output_time_step) != 0 )
-        {
-            throw std::runtime_error(
-                    "IABP drifter input timestep should be a multiple of the IABP output timestep");
-        }
-
-        // to check all the drifter timesteps later
-        drifters_timesteps.push_back(M_iabp_drifters_input_time_step);
-        drifters_names.push_back("IABP (input)");
-        drifters_timesteps.push_back(M_iabp_drifters_output_time_step);
-        drifters_names.push_back("IABP (output)");
-    }
+    double const drifters_time_init = std::ceil(time_init + M_spinup_duration);
+    double const drifters_conc_lim = vm["drifters.concentration_limit"].as<double>();
 
     // use OSISAF drifters
     // - every day at 12:00 start a new set of drifters which run for 48h
     // - output time step is an option
-    M_use_osisaf_drifters = vm["drifters.use_osisaf_drifters"].as<bool>();
-    M_osisaf_drifters_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-    if(M_use_osisaf_drifters)
+    if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
-        M_osisaf_drifters.resize(2);
-
-        if( M_osisaf_drifters_output_time_step > 2.0 )
+        int i0 = M_drifters.size();
+        double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+        std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
+        std::string osi_outfile_prefix = M_export_path + "/";
+        if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
         {
-            // currently OSISAF output time step has to fit into 2 days
-            throw std::runtime_error("OSISAF drifters output timestep should be <= 2.0");
+            // use grid refined by a factor of 9
+            // - can then compare averaged drift to the observations
+            // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
+            osi_grid_file += "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
+            osi_outfile_prefix += "OSISAF_Drifters_Refined9_";
         }
-        else if( fmod(2.0, M_osisaf_drifters_output_time_step) != 0 )
+        else
         {
-            // output timestep should fit into .5
-            throw std::runtime_error("2.0 should be a multiple of the OSISAF drifters output timestep");
+            osi_grid_file += "ice_drift_nh_polstere-625_multi-oi.nc";
+            osi_outfile_prefix += "OSISAF_Drifters_";
         }
+        Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
+        Drifters::TimingInfo timing_info(
+                drifters_time_init + .5, //init time
+                output_time_step,        //output interval
+                true,                    //has finite lifetime?
+                2.,                      //lifetime before re-initialising
+                false                    //fixed init time? (like RGPS, SIDFEX)
+                );
 
-        // to check all the drifter timesteps later
-        drifters_timesteps.push_back(M_osisaf_drifters_output_time_step);
-        drifters_names.push_back("OSISAF");
+        // add drifters to the list of drifters
+        M_drifters.push_back(
+                Drifters("OSISAF0", osi_outfile_prefix,
+                    netcdf_input_info, drifters_conc_lim, timing_info,
+                    false)
+                );
+        timing_info.time_init += 1.;
+        M_drifters.push_back(
+                Drifters("OSISAF1", osi_outfile_prefix,
+                    netcdf_input_info, drifters_conc_lim, timing_info,
+                    false)
+                );
 
-        // add drifters to the list of ordinary drifters
-        M_ordinary_drifters.push_back(&M_osisaf_drifters[0]);
-        M_ordinary_drifters.push_back(&M_osisaf_drifters[1]);
+        // add drifters to the list of OSISAF drifters
+        // - need to sync them sometimes (mainly thinking of restart time)
+        M_osisaf_drifters = {
+            &M_drifters[i0],
+            &M_drifters[i0+1],
+        };
     }
 
     // equally spaced drifters
-    M_use_equally_spaced_drifters = vm["drifters.use_equally_spaced_drifters"].as<bool>();
-    M_equally_spaced_drifters_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
-    if (M_use_equally_spaced_drifters)
+    if (vm["drifters.use_equally_spaced_drifters"].as<bool>())
     {
-        // to check all the drifter timesteps later
-        drifters_timesteps.push_back(M_equally_spaced_drifters_output_time_step);
-        drifters_names.push_back("Equally-spaced");
+        double const output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+        std::string const output_prefix = M_export_path + "/Equally_Spaced_Drifters_";
+        Drifters::TimingInfo const timing_info(
+                drifters_time_init, //init time
+                output_time_step,   //output interval
+                false,              //has finite lifetime?
+                0.,                 //lifetime before re-initialising
+                false               //fixed init time? (like RGPS, SIDFEX)
+                );
 
-        // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(&M_equally_spaced_drifters);
+        // add drifter to the list of drifters
+        M_drifters.push_back(
+                Drifters("Equally_Spaced", output_prefix,
+                    1e3*vm["drifters.spacing"].as<double>(),
+                    drifters_conc_lim, timing_info, false)
+                );
     }
 
     // RGPS drifters
-    M_use_rgps_drifters = vm["drifters.use_rgps_drifters"].as<bool>();
-    M_rgps_drifters_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
-    if (M_use_rgps_drifters)
+    if (vm["drifters.use_rgps_drifters"].as<bool>())
     {
-        std::string time_str = vm["drifters.RGPS_time_init"].as<std::string>();
-        M_rgps_time_init = Nextsim::stringToDatenum(time_str);
-        M_rgps_file = Environment::nextsimDataDir().string()
+        double const output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+        std::string const time_str = vm["drifters.RGPS_time_init"].as<std::string>();
+        double const rgps_time_init = Nextsim::stringToDatenum(time_str);
+        std::string const rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
+        std::string const output_prefix = M_export_path + "/RGPS_Drifters_";
+        Drifters::TimingInfo const timing_info(
+                rgps_time_init,   //init time
+                output_time_step, //output interval
+                false,            //has finite lifetime?
+                0.,               //lifetime before re-initialising
+                true              //fixed init time? (like RGPS, SIDFEX)
+                );
 
-        // make sure RGPS init time is not too early
-        if(M_rgps_time_init<M_drifters_time_init)
-        {
-            std::string msg = "";
-            msg += "M_rgps_time_init should be >= M_drifters_time_init\n";
-            msg += "(ie after simulation time_init";
-            msg += "(rounded up to the nearest day) and spinup period)";
-            throw std::runtime_error(msg);
-        }
-
-        // to check all the drifter timesteps later
-        drifters_timesteps.push_back(M_rgps_drifters_output_time_step);
-        drifters_names.push_back("RGPS");
-
-        // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(&M_rgps_drifters);
+        // add drifter to the list of drifters
+        M_drifters.push_back(
+                Drifters("RGPS", output_prefix,
+                    rgps_file, -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
+                    timing_info, false)
+                );
     }
 
     // SIDFEX drifters
-    M_use_sidfex_drifters = vm["drifters.use_sidfex_drifters"].as<bool>();
-    M_sidfex_drifters_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
-    if (M_use_sidfex_drifters)
+    if (vm["drifters.use_sidfex_drifters"].as<bool>())
     {
-        drifters_timesteps.push_back(M_sidfex_drifters_output_time_step);
-        drifters_names.push_back("SIDFEX");
-
-        // add drifter to the list of ordinary drifters
-        M_ordinary_drifters.push_back(&M_sidfex_drifters);
-    }
-
-    // can now tell if we are using any drifters and set the init time
-    // (after spinup)
-    M_use_drifters = ( M_use_iabp_drifters || M_ordinary_drifters.size()>0 );
-
-    if(M_use_drifters)
-    {
-        // check consistency of drifter output time steps with model time step
-        for(int i=0; i<drifters_timesteps.size(); i++)
+        double const output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+        std::string const infile = Environment::nextsimDataDir().string() +"/"
+            + vm["drifters.sidfex_filename"].as<std::string>();
+        std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
+        bool const ignore_restart = vm["drifters.sidfex_ignore_restart"].as<bool>();
+        std::string const timestr = vm["drifters.sidfex_time_init"].as<std::string>();
+        double sidfex_time_init = drifters_time_init;
+        bool fix_time_init = false;
+        if(timestr != "")
         {
-            if( fmod(drifters_timesteps[i]*24*3600, time_step) != 0 )
-            {
-                std::string msg = drifters_names[i]+" drifters' timestep not a multiple of model time step";
-                throw std::runtime_error(msg);
-            }
-        }
-    }
-}//initDrifterOpts
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initialise the drifters if it's the right time
-//! * Input init_names  is set by initialisingDrifters()
-//!   - determines which (if any) need to be initialised this time step
-//! Called by the checkDrifters() function.
-void
-FiniteElement::initDrifters(mesh_type_root const& movedmesh_root,
-        std::vector<std::string> const& init_names)
-{
-    //! -1) do we initialise all the drifters that start at the usual time?
-    //! * Equally-spaced, SIDFEX, IABP
-    if(std::count(init_names.begin(), init_names.end(), "main")>0)
-    {
-        if(M_use_equally_spaced_drifters)
-            this->initEquallySpacedDrifters(movedmesh_root);
-
-        if(M_use_sidfex_drifters)
-            this->initSidfexDrifters(movedmesh_root);
-
-        if(M_use_iabp_drifters)
-        {
-            if(M_iabp_drifters.size()==0)
-                //only init if not already initialised (eg from restart)
-                this->initIabpDrifters(movedmesh_root);
-        }
-    }
-
-    //! -2) initialise the RGPS drifters that start at their own time?
-    if(std::count(init_names.begin(), init_names.end(), "rgps")>0)
-        this->initRGPSDrifters(movedmesh_root);
-
-    if(std::count(init_names.begin(), init_names.end(), "osisaf")>0)
-        //! start a new set of OSISAF drifters?
-        // NB do this after outputting netcdf,
-        // to make sure the last time record is present
-        // for the drifters that will be terminated
-        this->initOsisafDrifters(movedmesh_root);
-
-}//initDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initialise the IABP drifters
-//! Called by the initDrifters() function.
-void
-FiniteElement::initIabpDrifters(mesh_type_root const& movedmesh_root)
-{
-    // init the input/output files
-    this->initIabpDrifterFiles();
-
-    // Get:
-    // - the 1st drifter positions (if any)
-    // - M_conc at these positions
-    this->updateIabpDrifters(movedmesh_root);
-
-    // Save the initial positions to the output file
-    this->outputIabpDrifters();
-}//initIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initialise the IABP drifter input and output text files
-//! Called by the initIabpDrifters() and readRestart() functions.
-void
-FiniteElement::initIabpDrifterFiles()
-{
-    // OUTPUT:
-    // We should tag the file name with the init time in case of a re-start.
-    std::stringstream filename_out;
-    filename_out << M_export_path << "/IABP_drifters_simulated_"
-        << datenumToFilenameString(M_current_time) << ".txt";
-    M_iabp_outfile = filename_out.str();
-    std::fstream iabp_out(M_iabp_outfile, std::fstream::out );
-    if ( ! iabp_out.good() )
-        throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
-
-    //write the header and close
-    iabp_out << "Year Month Day Hour BuoyID Lat Lon Concentration\n";
-    iabp_out.close();
-
-    // INPUT:
-    //new buoy file has a header
-    std::string filename_in = Environment::nextsimDataDir().string()
-        + "/IABP_drifters.txt";
-    M_iabp_infile_fstream.open(filename_in, std::fstream::in);
-    if ( ! M_iabp_infile_fstream.good() )
-        throw std::runtime_error("File not found: " + filename_in);
-
-    //skip header
-    std::string header;
-    std::getline(M_iabp_infile_fstream, header);
-    LOG(DEBUG)<<"open IABP drifter file: "<<filename_in<<"\n";
-    LOG(DEBUG)<<"header: "<<header<<"\n";
-
-    int pos;    // To be able to rewind one line
-    double time = getDatenum(1979, 1, 1);
-    while ( time < M_drifters_time_init )
-    {
-        // Remember where we were
-        pos = M_iabp_infile_fstream.tellg();
-
-        // Read the next line
-        int year, month, day, hour, number;
-        double lat, lon;
-        M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-        time = getDatenum(year, month, day, hour);
-    }
-
-    // We must rewind one line so that updateIabpDrifters works correctly
-    M_iabp_infile_fstream.seekg(pos);
-}//initIabpDrifterFiles
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Outputs the IABP drifter positions and conc
-//! Called by the readRestart(), initDrifters() and checkDrifters() functions.
-void
-FiniteElement::outputIabpDrifters()
-{
-    if (M_rank==0)
-    {
-        if (M_iabp_drifters.size()==0)
-            //do nothing if drifters are empty
-            return;
-
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        //open output file for appending
-        std::fstream iabp_out(M_iabp_outfile, std::fstream::out | std::fstream::app );
-        if ( ! iabp_out.good() )
-            throw std::runtime_error("Cannot write to file: " + M_iabp_outfile);
-
-        // Loop over the map and output
-        int j=0;
-        boost::gregorian::date           date = Nextsim::parse_date( M_current_time );
-        boost::posix_time::time_duration time = Nextsim::parse_time( M_current_time );
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            double lat, lon;
-            double conc = M_iabp_conc[j];
-            inverse_mapx(map, it->second[0], it->second[1], &lat, &lon);
-            j++;
-
-            iabp_out
-                << std::setw(4) << date.year()
-                << " " << std::setw( 2) << date.month().as_number()
-                << " " << std::setw( 2) << date.day().as_number()
-                << " " << std::setw( 2) << time.hours()
-                << " " << std::setw(16) << it->first
-                << std::fixed << std::setprecision(5)
-                << " " << std::setw( 8) << lat
-                << " " << std::setw(10) << lon
-                << " " << conc
-                << "\n";
+            sidfex_time_init = Nextsim::stringToDatenum(timestr);
+            fix_time_init = true;
         }
 
-        //close output file
-        iabp_out.close();
+        Drifters::TimingInfo const timing_info(
+                sidfex_time_init, //init time
+                output_time_step,   //output interval
+                false,              //has finite lifetime?
+                0.,                 //lifetime before re-initialising
+                fix_time_init       //fixed init time? (like RGPS, SIDFEX)
+                );
 
-        // close the map
-        close_mapx(map);
-    }
-}//outputIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the IABP buoy in time, by adding the buoys that have been put into the ice and removing the dead ones.
-//! * Also updates the conc at the IABP drifters
-//! Called by the updateDrifterPosition() function.
-void
-FiniteElement::updateIabpDrifters(mesh_type_root const& movedmesh_root)
-{
-
-    if(M_rank==0)
-    {
-        // Initialize the map
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                                  % Environment::nextsimMeshDir().string()
-                                  % vm["mesh.mppfile"].as<std::string>()
-                                  ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-
-        // Read the current buoys from file
-        double time = M_current_time;
-        std::vector<int> keepers;
-        while ( time == M_current_time )
-        {
-            // Read the next line
-            int year, month, day, hour, number;
-            double lat, lon;
-            M_iabp_infile_fstream >> year >> month >> day >> hour >> number >> lat >> lon;
-            time = getDatenum(year, month, day, hour);
-
-            // Remember which buoys are in the ice according to IABP
-            keepers.push_back(number);
-
-            // Project and add the buoy to the map if it's missing
-            if ( M_iabp_drifters.count(number) == 0 )
-            {
-                double x, y;
-                forward_mapx(map,lat,lon,&x,&y);
-                M_iabp_drifters.emplace(number, std::array<double,2>{x, y});
-                LOG(DEBUG)<<"new IABP buoy: time, index, lon, lat, x, y: "
-                    <<datenumToString(time)<<", "<<number<<", "
-                    <<lon<<", "<<lat<<", "<<x<<", "<<y<<"\n";
-            }
-        }
-        close_mapx(map);
-
-        // update M_iabp_conc (get model conc at all drifters)
-        this->updateIabpDrifterConc(movedmesh_root);
-
-        // Rebuild the M_iabp_drifters map
-        double clim = vm["drifters.concentration_limit"].as<double>();
-
-        // Go through the M_iabp_drifters map and throw out:
-        // (i) the ones which IABP doesn't report as being in the ice anymore
-        // (ii) the ones which have a low conc according to the model
-        int j =0;
-        auto model_conc = M_iabp_conc;
-        M_iabp_conc.resize(0);
-        for ( auto model = M_iabp_drifters.begin(); model != M_iabp_drifters.end(); j++)// NB ++model is not allowed here, because we use 'erase'
-        {
-            double conc = model_conc[j];
-            bool keep = (conc > clim)                                               // in ice (model)
-                && ( std::count(keepers.begin(), keepers.end(), model->first) >0 ); // in ice (IABP)
-
-            // Delete or advance the iterator
-            if ( ! keep )
-                model = M_iabp_drifters.erase(model);
-            else
-            {
-                ++model;
-                M_iabp_conc.push_back(conc);
-            }
-        }//remove drifters not in ice according to IABP or model
-    }
-}//updateIabpDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the concentration variable at the IABP buoys
-//! Called by the updateIabpDrifters() and readRestart() function.
-void
-FiniteElement::updateIabpDrifterConc(mesh_type_root const& movedmesh_root)
-{
-    if( M_rank ==0 )
-    {
-        // Assemble the coordinates from the unordered_map
-        int Ndrifters = M_iabp_drifters.size();
-        std::vector<double> drifter_X(Ndrifters);
-        std::vector<double> drifter_Y(Ndrifters);
-        int j=0;
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            drifter_X[j] = it->second[0];
-            drifter_Y[j] = it->second[1];
-            ++j;
-        }
-
-        // Interpolate the concentration
-        double* interp_drifter_c_out;
-        InterpFromMeshToMesh2dx(&interp_drifter_c_out,
-                                &movedmesh_root.indexTr()[0], &movedmesh_root.coordX()[0], &movedmesh_root.coordY()[0],
-                                movedmesh_root.numNodes(), movedmesh_root.numTriangles(),
-                                &M_conc_root[0],
-                                movedmesh_root.numTriangles(), 1,
-                                &drifter_X[0], &drifter_Y[0],
-                                Ndrifters,
-                                true, 0.);
-
-        // Finally retrieve M_iabp_conc and delete the pointer
-        M_iabp_conc.resize(M_iabp_drifters.size());
-        for( int j=0; j<M_iabp_drifters.size(); j++ )
-            M_iabp_conc[j] = interp_drifter_c_out[j];
-        xDelete<double>(interp_drifter_c_out);
+        // add drifter to the list of drifters
+        M_drifters.push_back(
+                Drifters("SIDFEx", output_prefix,
+                    infile, -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
+                    timing_info, ignore_restart)
+                );
     }
 
-}//updateIabpDrifterConc
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Updates the positions of the IABP buoys
-//! Called by the updateIabpDrifters() function.
-void
-FiniteElement::updateIabpDrifterPosition()
-{
-    if(M_rank==0)
+    if (vm["drifters.use_iabp_drifters"].as<bool>())
     {
-        chrono.restart();
-        LOG(DEBUG) <<"IABP Drifter moving starts\n";
+        double const output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+        double const input_time_step = 0.5;
+        std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
+        std::string const outfile_prefix = M_export_path + "/IABP_Drifters_";
 
-        // Assemble the coordinates from the unordered_map
-        std::vector<double> drifter_X(M_iabp_drifters.size());
-        std::vector<double> drifter_Y(M_iabp_drifters.size());
-        int j=0;
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it )
-        {
-            drifter_X[j] = it->second[0];
-            drifter_Y[j] = it->second[1];
-            ++j;
-        }
-
-        // Interpolate the total displacement onto the drifter positions
-        int nb_var=2;
-        std::vector<double> interp_drifter_in(nb_var*M_mesh_root.numNodes());
-        for (int i=0; i<M_mesh_root.numNodes(); ++i)
-        {
-            interp_drifter_in[nb_var*i]   = M_UT_root[i];
-            interp_drifter_in[nb_var*i+1] = M_UT_root[i+M_mesh_root.numNodes()];
-        }
-
-        double* interp_drifter_out;
-        InterpFromMeshToMesh2dx(&interp_drifter_out,
-                                &M_mesh_root.indexTr()[0], &M_mesh_root.coordX()[0], &M_mesh_root.coordY()[0],
-                                M_mesh_root.numNodes(), M_mesh_root.numTriangles(),
-                                &interp_drifter_in[0],
-                                M_mesh_root.numNodes(), nb_var,
-                                &drifter_X[0], &drifter_Y[0], M_iabp_drifters.size(),
-                                true, 0.);
-
-        // Rebuild the M_iabp_drifters map
-        // (move the IABP drifters)
-        j = 0;
-        for ( auto it = M_iabp_drifters.begin(); it != M_iabp_drifters.end(); ++it)
-        {
-            M_iabp_drifters[it->first] = std::array<double,2> {
-                it->second[0]+interp_drifter_out[nb_var*j],
-                it->second[1]+interp_drifter_out[nb_var*j+1]
-            };
-            ++j;
-        }
-
-        xDelete<double>(interp_drifter_out);
-
-        LOG(DEBUG) <<"IABP Drifter move done in "<< chrono.elapsed() <<"s\n";
-    }
-}//updateIabpDrifterPosition
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! This function tests which (if any) drifters we are initialising
-//! at the current time step
-//! It also calculates if we are doing any initialising at this timestep
-//! Called by checkDrifters()
-void
-FiniteElement::initialisingDrifters(
-        std::vector<std::string> &init_names,
-        bool &init_any
-        )
-{
-    init_names.resize(0);
-    init_any = false;
-    if(M_rank != 0)
-        return;
-
-    // inputting/outputting main drifters?
-    // - those that start at the usual time
-    //   - IABP
-    //   - equally-spaced
-    //   - SIDFEX
-    if (       M_use_iabp_drifters
-            || M_use_equally_spaced_drifters
-            || M_use_sidfex_drifters
-            )
-        if( M_current_time == M_drifters_time_init)
-            init_names.push_back("main");
-
-    // initialising RGPS drifters?
-    if(M_use_rgps_drifters)
-        if( M_current_time == M_rgps_time_init )
-            init_names.push_back("rgps");
-
-    // initialising OSISAF drifters?
-    // - is it 12:00 and past the spinup duration?
-    if ( M_use_osisaf_drifters )
-        if(M_current_time > M_drifters_time_init
-                && std::fmod( M_current_time + 0.5, 1.0) == 0)
-            init_names.push_back("osisaf");
-
-    // calculate if we need to initialise ANY,
-    // since then we need to ensure M_UT = 0
-    init_any = (init_names.size()>0);
-}//initialisingDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! This function tests which (if any) drifters we are outputting (or inputting for IABP)
-//! at the current time step
-//! It also calculates if we are doing any outputting or inputting
-//! Called by checkDrifters()
-void
-FiniteElement::outputtingDrifters(
-        bool &input_iabp,
-        bool &output_iabp,
-        bool &io_any
-        )
-{
-
-    input_iabp = false;
-    output_iabp = false;
-    io_any = false;
-    if(M_rank != 0)
-        return;
-
-    // we only output after init time (not at init time)
-    // - netcdf/text file outputs are already written at init time of drifters
-    if(M_current_time>M_drifters_time_init)
-    {
-        // inputting/outputting IABP drifters?
-        if ( M_use_iabp_drifters )
-        {
-            input_iabp = (std::fmod(
-                    M_current_time - M_drifters_time_init,
-                    M_iabp_drifters_input_time_step
-                    )==0);
-            output_iabp = (std::fmod(
-                    M_current_time - M_drifters_time_init,
-                    M_iabp_drifters_output_time_step
-                    )==0);
-        }
+        // add drifter to the list of drifters
+        Drifters::TimingInfo const timing_info(
+                drifters_time_init, //init time
+                output_time_step,   //output interval
+                input_time_step,    //input interval
+                false,              //has finite lifetime?
+                0.,                 //lifetime before re-initialising
+                false               //fixed init time? (like RGPS, SIDFEX)
+                );
+        M_drifters.push_back(
+                Drifters("IABP", outfile_prefix, infile,
+                    drifters_conc_lim, timing_info, false)
+                );
     }
 
-    // Check the non-IABP drifters by looping over M_ordinary_drifters
-    io_any = input_iabp || output_iabp;
-    for(auto it = M_ordinary_drifters.begin(); it!= M_ordinary_drifters.end(); it++)
-        io_any = io_any || (*it)->isOutputTime(M_current_time);
+    // check consistency of drifter output time steps with model time step
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->checkOutputTimeStep(time_step);
+}//instantiateDrifters
 
-}//outputtingDrifters()
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Checks if we have to init, update, output or move any drifters
-//! Called by the <FiniteElement::checkOutputs>() function.
-void
-FiniteElement::checkDrifters()
-{
-    // although these are only needed on the root processor,
-    // we need these in several scopes, so declare them here
-    bool io_any = false;                    // input/output any drifters (then we need to move)?
-    bool input_iabp = false;                // need to update IABP?
-    bool output_iabp = false;               // need to output IABP?
-    bool init_any = false;                  //init any drifters (then we need to move)?
-    std::vector<std::string> init_names;    // names of the drifters to init this time step
-    bool move_drifters = false;             //needed on all processors (broadcast later)
-
-    if(M_rank==0)
-    {
-        //! - 1) check if need to:
-        //! * move the drifters (if needed)
-        //! * get new inputs (IABP, OSISAF) (if needed)
-        //! * output to text file or netcdf (if needed)
-
-        // do we need to init any drifters?
-        this->initialisingDrifters(
-                init_names,
-                init_any);
-
-        // do we need to output any drifters?
-        this->outputtingDrifters(
-                input_iabp,
-                output_iabp,
-                io_any);
-
-        //! - 2) Do we need to move any drifters?
-        //! * If we are outputting ANY, we move ALL the drifters, since they all use the same
-        //!   total displcement (M_UT)
-        //! * Also if we are initialising any, we also need to move the drifters
-        //!   - this is because we need M_UT=0 at init time,
-        //!     so the next move is relative to their initial position
-        move_drifters = (init_any || io_any);
-    }
-
-    // let all the processors know if we need to gather the three vectors
-    // or if we need to reset M_UT
-    boost::mpi::broadcast(M_comm, move_drifters, 0);
-
-    if(move_drifters)
-    {
-        //! - 3) Gather the fields needed by the drifters if we are moving
-        this->gatherNodalField(M_UT, M_UT_root);
-        this->gatherNodalField(M_UM, M_UM_root);
-        this->gatherElementField(M_conc, M_conc_root);
-
-        // can now reset M_UT to 0
-        std::fill(M_UT.begin(), M_UT.end(), 0.);
-
-        if(M_rank==0)
-        {
-            //! - 4) Move the drifters
-            // NB M_UT is relative to the fixed mesh, not the moved mesh
-            // NB to update the conc we need to move the mesh
-            //! * IABP drifters
-            if ( M_use_iabp_drifters )
-                if(M_current_time>M_drifters_time_init)
-                    this->updateIabpDrifterPosition();
-
-            //! * other drifters
-            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                if ((*it)->isInitialised())
-                    (*it)->move(M_mesh_root, M_UT_root);
-
-            // reset M_UT_root
-            // TODO do we need to do this?
-            // - it isn't used and seems to be gathered each time it's needed
-            // (eg in writeRestart)
-            // - needs checking though
-            LOG(DEBUG)<<"Reset M_UT_root: "
-                <<datenumToString(M_current_time)<<"\n";
-            std::fill(M_UT_root.begin(), M_UT_root.end(), 0.);
-
-            auto movedmesh_root = M_mesh_root;
-            movedmesh_root.move(M_UM_root, 1.);
-
-            //! - 5) Do we need to input/output any drifters?
-            if (input_iabp)
-                // check if we need to add new IABP drifters
-                // NB do this after moving
-                // NB this updates M_iabp_conc
-                this->updateIabpDrifters(movedmesh_root);
-
-            if (output_iabp)
-            {
-                // output IABP drifters
-                // NB do this after moving
-                if(!input_iabp)
-                    //still need to update M_iabp_conc
-                    this->updateIabpDrifterConc(movedmesh_root);
-                this->outputIabpDrifters();
-            }
-
-            for(auto it=M_ordinary_drifters.begin(); it!=M_ordinary_drifters.end(); it++)
-                if ((*it)->isOutputTime(M_current_time))
-                {
-                    (*it)->updateConc(movedmesh_root, M_conc_root);
-                    (*it)->appendNetCDF(M_current_time);
-                }
-
-            //! - 6) Do we need to initialise any drifters?
-            //  * Do initialisation after moving,
-            //    to avoid moving drifters that are only just initialised
-            //  * Also do it after output - this is mainly for the OSISAF drifters
-            //    (to output the last record of M_osisaf_drifters[1], before it is overwritten)
-            if(init_any)
-                this->initDrifters(movedmesh_root, init_names);
-
-        }//M_rank==0
-    }//if(move_drifters)
-
-}//checkDrifters
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -11801,107 +12795,6 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
         ++cpt;
     }
 }//nodesToElements
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initializes the equally-spaced drifters, and saves the first netcdf time record
-//! Called by the initDrifters() function.
-void
-FiniteElement::initEquallySpacedDrifters(mesh_type_root const& movedmesh_root)
-{
-    if (M_rank == 0)
-    {
-        M_equally_spaced_drifters = Drifters(1e3*vm["drifters.spacing"].as<double>(),
-                movedmesh_root, M_conc_root, vm["drifters.concentration_limit"].as<double>(),
-                M_current_time, M_equally_spaced_drifters_output_time_step);
-        M_equally_spaced_drifters.initNetCDF(M_export_path+"/Drifters_", M_current_time);
-        M_equally_spaced_drifters.appendNetCDF(M_current_time);
-    }
-}//initEquallySpacedDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initializes the RGPS drifters, and saves the first netcdf time record
-//! Called by the initDrifters() function.
-void
-FiniteElement::initRGPSDrifters(mesh_type_root const& movedmesh_root)
-{
-    if (M_rank == 0)
-    {
-        //called once when M_current_time == M_rgps_time_init
-        M_rgps_drifters = Drifters(M_rgps_file, movedmesh_root, M_conc_root,
-                -1, //assume that RGPS drifters' initial positions are OK and don't need masking due to low concentrations
-                M_rgps_time_init, M_rgps_drifters_output_time_step);
-
-        //save first outputs
-        M_rgps_drifters.initNetCDF(M_export_path+"/RGPS_Drifters_", M_current_time);
-        M_rgps_drifters.appendNetCDF(M_current_time);
-    }
-}//initRGPSDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initializes the SIDFEX drifters, and saves the first netcdf time record
-//! Called by the checkDrifters() function.
-void
-FiniteElement::initSidfexDrifters(mesh_type_root const& movedmesh_root)
-{
-    if (M_rank == 0)
-    {
-        std::string filename = Environment::nextsimDataDir().string() +"/"
-            + vm["drifters.sidfex_filename"].as<std::string>();
-
-        M_sidfex_drifters = Drifters(filename, movedmesh_root, M_conc_root,
-                -1, //assume that SIDFEX drifters' initial positions are OK and don't need masking due to low concentrations
-                M_current_time, M_sidfex_drifters_output_time_step);
-
-        M_sidfex_drifters.initNetCDF(M_export_path+"/SIDFEx_Drifters_", M_current_time);
-        M_sidfex_drifters.appendNetCDF(M_current_time);
-    }
-}//initSidfexDrifters
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Initializes a new set of OSISAF drifters, and saves the first netcdf time record
-//! Called by the checkDrifters() function.
-void
-FiniteElement::initOsisafDrifters(mesh_type_root const& movedmesh_root)
-{
-    // OSISAF drift is calculated as a drifter displacement over 48 hours
-    // - start a new one each day at 12:00
-    // We have two sets of drifters in the field at all times
-    // - [0] is the newest
-    // Here we start a new set of drifters.
-
-    if(M_rank != 0)
-        return;
-
-    LOG(DEBUG)<<"Initialize a new set of OSISAF drifters\n";
-
-    // Flip the vector so we move [0] to be [1]
-    std::reverse(M_osisaf_drifters.begin(), M_osisaf_drifters.end());
-
-    // Create a new M_drifters instance in [0], with a properly initialised netCDF file
-    std::string osi_grid_file = "ice_drift_nh_polstere-625_multi-oi.nc";
-    std::string osi_output_path = M_export_path+"/OSISAF_";
-    if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
-    {
-        // use grid refined by a factor of 9
-        // - can then compare averaged drift to the observations
-        // - using an odd number in the refinement means the original grid points are a sub-sample of the refined grid
-        osi_grid_file = "ice_drift_nh_polstere-625_multi-grid_refined_9.nc";
-        osi_output_path = M_export_path+"/OSISAF_refined9_";
-    }
-
-    M_osisaf_drifters[0] = Drifters(osi_grid_file,
-            "xc", "yc",
-            "lat", "lon", movedmesh_root,
-            M_conc_root, vm["drifters.concentration_limit"].as<double>(),
-            M_current_time, M_osisaf_drifters_output_time_step);
-
-    M_osisaf_drifters[0].initNetCDF(osi_output_path, M_current_time);
-    M_osisaf_drifters[0].appendNetCDF(M_current_time);
-}//initOsisafDrifters()
 
 
 // -------------------------------------------------------------------------------------
@@ -12127,7 +13020,15 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 {
 
     std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT,M_VT_root);
+    this->gatherNodalField(M_VT, M_VT_root);
+#if defined (OASIS)
+    std::vector<double> M_tau_wi_root;
+    if (vm["coupler.with_waves"].as<bool>())
+        this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
+#endif
+
+    std::vector<double> M_wind_root;
+    this->gatherNodalField(M_wind.getVector(),M_wind_root);
 
     std::vector<double> M_UM_root;
     if (apply_displacement)
@@ -12168,7 +13069,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         if (export_mesh)
         {
             fileout = filenames[0]+".bin";
-            LOG(INFO) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
             if(apply_displacement)
             {
@@ -12191,7 +13092,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
             fileout = filenames[0]+".dat";
 
-            LOG(INFO) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
             if ( !outrecord.good() )
@@ -12204,7 +13105,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         if (export_fields)
         {
             fileout = filenames[1]+".bin";
-            LOG(INFO) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
             if ( !outbin.good() )
@@ -12217,7 +13118,13 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
+#if defined (OASIS)
+            if (vm["coupler.with_waves"].as<bool>())
+                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+#endif
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            exporter.writeField(outbin, M_wind_root, "M_wind");
+
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root
@@ -12237,7 +13144,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             outbin.close();
 
             fileout = filenames[1]+".dat";
-            LOG(INFO) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
             std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
             if ( !outrecord.good() )
@@ -12314,29 +13221,18 @@ FiniteElement::getEnv(std::string const& envname)
 void
 FiniteElement::writeLogFile()
 {
-    std::string logfilename = "";
-    if ((vm["output.logfile"].as<std::string>()).empty())
-    {
-        logfilename = "nextsim.log";
-    }
-    else
-    {
-        logfilename = vm["output.logfile"].as<std::string>();
-    }
-
-    std::string fileout = (boost::format( "%1%/%2%" )
-               % M_export_path
-               % logfilename ).str();
-
-    std::fstream logfile(fileout, std::ios::out | std::ios::trunc);
-    LOG(INFO) << "Writing log file " << fileout << "...\n";
+    std::string logfile_name = M_export_path + "/nextsim.log";
+    std::fstream logfile(logfile_name, std::ios::out | std::ios::trunc);
+    LOG(VERBOSE) << "Writing log file " << logfile_name << "...\n";
 
     int log_width = 55;
     if (logfile.is_open())
     {
         logfile << "#----------Info\n";
-        logfile << std::setw(log_width) << std::left << "Build date "  << Nextsim::current_time_local() <<"\n";
-        logfile << std::setw(log_width) << std::left << "Git revision "  << gitRevision() <<"\n";
+        logfile << std::setw(log_width) << std::left << "Build date "  << NEXTSIM_BUILD_TIME <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git description "  << NEXTSIM_VERSION_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git branch "  << NEXTSIM_BRANCH_GIT  <<"\n";
+        logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
         logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
@@ -12347,28 +13243,17 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
         logfile << "#----------Program options\n";
-
         for (po::variables_map::iterator it = vm.begin(); it != vm.end(); it++)
         {
+
             // ignore wim options if no coupling
 #if !defined (WAVES)
-            if ((it->first.find("nextwim.") != std::string::npos) || (it->first.find("wim.") != std::string::npos))
-            {
+            if ((it->first.find("nextwim.") != std::string::npos)
+                    || (it->first.find("wim.") != std::string::npos))
                 continue;
-            }
 #endif
 
             logfile << std::setw(log_width) << std::left << it->first;
-
-#if 0
-            if (((boost::any)it->second.value()).empty())
-            {
-                std::cout << "(empty)";
-            }
-            if (vm[it->first].defaulted() || it->second.defaulted()) {
-                std::cout << "(default)";
-            }
-#endif
 
             bool is_char;
             try
@@ -12393,37 +13278,15 @@ FiniteElement::writeLogFile()
             }
 
             if (((boost::any)it->second.value()).type() == typeid(int))
-            {
                 logfile << vm[it->first].as<int>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(bool))
-            {
                 logfile << vm[it->first].as<bool>() <<"\n";
-            }
             else if (((boost::any)it->second.value()).type() == typeid(double))
-            {
                 logfile << vm[it->first].as<double>() <<"\n";
-            }
             else if (is_char)
-            {
                 logfile << vm[it->first].as<const char * >() <<"\n";
-            }
             else if (is_str)
-            {
-                std::string temp = vm[it->first].as<std::string>();
-
-                logfile << temp <<"\n";
-#if 0
-                if (temp.size())
-                {
-                    logfile << temp <<"\n";
-                }
-                else
-                {
-                    logfile << "true" <<"\n";
-                }
-#endif
-            }
+                logfile << vm[it->first].as<std::string>() <<"\n";
             else
             { // Assumes that the only remainder is vector<string>
                 try
@@ -12445,30 +13308,76 @@ FiniteElement::writeLogFile()
                 }
                 catch (const boost::bad_any_cast &)
                 {
-                    LOG(WARNING) << "UnknownType(" << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
+                    LOG(WARNING) << "UnknownType("
+                        << ((boost::any)it->second.value()).type().name() << ")" <<"\n";
                 }
             }
-        }
-    }
+        }//iteration over vm
+    }//write log file
 
-    //move git_changes.txt from current dir to output dir
-    fs::path path1("git_changes.txt");
-    if ( fs::exists(path1) )
+    // copy the config files to the output directory
+    for (auto cfg_file: Environment::nextsimConfigFiles())
     {
-        // try to rename, otherwise copy and remove
-        fs::path path2(M_export_path+"/git_changes.txt");
-        try
+        fs::path path1(cfg_file);
+        if ( fs::exists(path1) )
         {
-            fs::rename(path1,path2);
-        }
-        catch (const boost::filesystem::filesystem_error &)
-        {
+            fs::path path2(M_export_path+ "/" + path1.filename().string());
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
-            fs::remove(path1);
         }
     }
 }//writeLogFile
 
+
+// -------------------------------------------------------------------------------------
+//! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
+//! the velocity, difference of velocty from neigbours relative to standard deviation,
+//! step and node number.
+//! Called by the step() function.
+void
+FiniteElement::checkVelocityFields()
+{
+    // minimum speed to trigger velocity check
+    double const spd_lim = 0.5;
+
+    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
+    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+
+    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        uv[0] = M_VT[i];
+        uv[1] = M_VT[i+M_num_nodes];
+        double const spd = std::hypot(uv[0], uv[1]);
+        if ( spd > spd_lim )
+        {
+            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+            // for U and V
+            for (int k=0; k<2; ++k)
+            {
+                // one pass algorithm for standard deviation of velocities in neighbours
+                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                double avg_old = 0;
+                for (int j=0; j<num_neighbours; ++j)
+                {
+                    // neigbour node index for U (k=0) or V (k=1)
+                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    avg_old = avg_spd[k];
+                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                }
+                // standard deviation of velocities
+                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+                // relative error of velocities
+                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+            }
+            LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                       << " node=" << i
+                       << " speed=" << spd
+                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                       << "\n";
+        }
+    }
+}
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
@@ -12480,27 +13389,32 @@ FiniteElement::checkFields()
     int itest = vm["debugging.test_element_number"].as<int>();
     int rank_test = vm["debugging.test_proc_number"].as<int>();
     bool printout = (M_rank == rank_test && itest>0);
+    std::stringstream crash_msg;
+    bool crash = false;
 
     for(int i=0; i<M_num_elements; i++)
     {
         std::vector<double> values;
         auto names = M_external_data_elements_names;
-        std::vector<std::string> nan_names;
-        bool out_of_usual_range = false;
-        if( M_thick[i]>35.)
-        {
-            std::cout<<"ice is too thick: "<<M_thick[i]<<"m\n";
-            out_of_usual_range = true;
-        }
+
+        // common sense maxima (not absolute maxima)
+        boost::unordered_map<std::string, double>
+            too_high_values = boost::assign::map_list_of
+                ("M_thick", 35.)
+                ;
 
         // check the forcings 1st
         for (int j=0; j<M_external_data_elements.size(); j++)
         {
             auto ptr = M_external_data_elements[j];
+            auto name = names[j];
             double val = ptr->get(i);
             values.push_back(val);
             if(std::isnan(val))
-                nan_names.push_back(names[j]);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            }
         }
 
         // check the variables 2nd
@@ -12510,15 +13424,77 @@ FiniteElement::checkFields()
             std::string name = ptr->name();
             values.push_back(val);
             names.push_back(name);
+
+            // is it nan?
             if(std::isnan(val))
-                nan_names.push_back(name);
+            {
+                crash = true;
+                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            }
+
+            // is it < min allowed value?
+            if(ptr->hasMinVal())
+            {
+                double thresh = ptr->minVal() - 1.e-8;
+                if(val<thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                        << val << " < " << thresh << "\n";
+                }
+            }
+
+            // is it > max allowed value?
+            if(ptr->hasMaxVal())
+            {
+                double thresh = ptr->maxVal() + 1.e-8;
+                if(val>thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
+
+            // check if it is too high for common sense
+            if(too_high_values.count(name)>0)
+            {
+                double thresh = too_high_values[name];
+                if(val > thresh)
+                {
+                    crash = true;
+                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                        << val << " > " << thresh << "\n";
+                }
+            }
         }
 
-        bool crash = out_of_usual_range || nan_names.size()>0;
-        bool printout_now = (printout && i==itest) || crash;
-
-        if(printout_now)
+#ifdef OASIS
+        if(M_num_fsd_bins>0)
         {
+            double ctot = M_conc[i];
+            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                ctot += M_conc_thin[i];
+
+            double ctot2 = M_conc_fsd[0][i];
+            for(int j=1;j<M_num_fsd_bins;j++)
+                ctot2 += M_conc_fsd[j][i] ;
+            
+            if ((std::abs(ctot-ctot2)>1e-7)&&(ctot>1e-4))
+            {
+                crash =  true;
+                crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
+                          <<ctot<< "), diff =" << ctot-ctot2 << " \n"   ;
+                if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+                    crash_msg << " M_conc_thin ="<< M_conc_thin[i]<< " \n";
+            }
+        }
+#endif
+
+        if((printout && i==itest) || crash)
+        {
+            // printout all the variables' values
+
             // get x,y and lon, lat at current position
             double xtest = 0.;
             double ytest = 0.;
@@ -12532,48 +13508,32 @@ FiniteElement::checkFields()
 
             // get lon, lat at test position
             mapx_class *map;
-            std::string configfile = (boost::format( "%1%/%2%" )
-                % Environment::nextsimMeshDir().string()
-                % Environment::vm()["mesh.mppfile"].as<std::string>()
-                ).str();
-
-            std::vector<char> str(configfile.begin(), configfile.end());
+            std::string mppfile = Environment::nextsimMppfile();
+            std::vector<char> str(mppfile.begin(), mppfile.end());
             str.push_back('\0');
             map = init_mapx(&str[0]);
             inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
             close_mapx(map);
 
-            LOG(INFO)<<"["<< M_rank<<"] In checkFields\n";
-            LOG(INFO)<<"["<< M_rank<<"] pcpt =  "<<pcpt<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] date =  "<<datenumToString(M_current_time)<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] M_nb_regrid = "<<M_nb_regrid<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] element number = "<<i<<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] x,y = " <<xtest <<"," <<ytest <<"\n";
-            LOG(INFO)<<"["<< M_rank<<"] lon,lat = " <<lon_test <<"," <<lat_test <<"\n";
+            LOG(INFO)<<pcpt<<"\n";
+            LOG(INFO)<<datenumToString(M_current_time)<<"\n";
+            LOG(INFO)<<M_nb_regrid<<"\n";
+            LOG(INFO)<<i<<"\n";
+            LOG(INFO)<<xtest <<"," <<ytest <<"\n";
+            LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
 
             for(int j=0; j<names.size(); j++)
             {
                 if(j<M_external_data_elements_names.size())
-                    LOG(INFO)<<"["<< M_rank<<"] Forcing: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
                 else
-                    LOG(INFO)<<"["<< M_rank<<"] Model variable: "<<names[j] <<" = "<< values[j] <<"\n";
+                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
             }
             std::cout<<"\n";
         }
 
         if(crash)
-        {
-            std::stringstream msg;
-            if(out_of_usual_range)
-                msg << "Some variables are out of the usual range\n";
-            if (nan_names.size()>0)
-            {
-                msg << "["<< M_rank<<"] Found nans in variables:\n";
-                for (auto name: nan_names)
-                    msg << "["<< M_rank<<"]"<< name<<"\n";
-            }
-            throw std::runtime_error(msg.str());
-        }
+            throw std::runtime_error(crash_msg.str());
     }
 }//checkFields
 
@@ -12584,13 +13544,11 @@ FiniteElement::checkFields()
 void
 FiniteElement::finalise(std::string current_time_system)
 {
-    // Don't forget to close the iabp file!
-    if (M_use_iabp_drifters)
-    {
-        M_iabp_infile_fstream.close();
-    }
+    // Output timer ticks
+    if (M_rank == 0)
+        LOG(INFO) << M_timer.printAll();
 
-    // Clear ponters etc
+    // Clear pointers etc
     M_comm.barrier();
 
     delete bamgmesh;
@@ -12625,13 +13583,10 @@ FiniteElement::finalise(std::string current_time_system)
 
     M_comm.barrier();
 
-    if (M_rank==0)
-    {
-        LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
+    LOG(INFO) <<"nb regrid total = " << M_nb_regrid <<"\n";
 
-        LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
-        LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
-    }
+    LOG(INFO) << "-----------------------Simulation done on "<< current_time_local() <<"\n";
+    LOG(INFO) << "-----------------------Total time spent:  "<< time_spent(current_time_system) <<"\n";
 
 #ifdef OASIS
     int ierror = OASIS3::terminate();

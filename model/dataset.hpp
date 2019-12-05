@@ -79,6 +79,8 @@ public:
     typedef struct Variable
     {
         // Information on the input data
+        std::string filename_prefix; // In case the dataset is composed of one file per variable - leave empty "" if everything is in the same (grid) file
+
         std::string name;   //! name of the variable in the input file
         std::vector<Dimension> dimensions; //! dimensions in the input file
 
@@ -203,6 +205,9 @@ public:
     Variable time;
 
     std::vector<double> ftime_range;
+#ifdef OASIS
+    std::vector<double> itime_range;
+#endif
             
     std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
 
@@ -241,6 +246,8 @@ public:
 private:
 
     LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 };
 
 } // Nextsim

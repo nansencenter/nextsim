@@ -32,7 +32,8 @@ ExternalData::ExternalData( ):
 M_initialized(false)
 {}
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId,
+        bool is_vector, double StartingTime )//5 args
 	:
     M_is_constant( false ),
     M_dataset( dataset ),
@@ -43,7 +44,9 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
     M_initialized(true),
-    M_log_level(Environment::logLevel())
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
+    M_comm(Environment::comm())
 {
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
@@ -54,21 +57,17 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
 }
 
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration )//6 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
     {
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime )
-	:
-    ExternalData(dataset, mesh, VariableId, is_vector, StartingTime )
-    {
-        M_bias_correction= bias_correction ;
-    }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, double bias_correction, bool is_vector, double StartingTime, double SpinUpDuration )
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration, double bias_correction )//7 args
 	:
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
     {
@@ -85,7 +84,9 @@ ExternalData::ExternalData( double ConstantValue )
     M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
     M_initialized(true),
-    M_log_level(Environment::logLevel())
+    M_log_level(Environment::logLevel()),
+    M_log_all(Environment::logAll()),
+    M_comm(Environment::comm())
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
@@ -152,7 +153,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     || !M_dataset->loaded);
 #ifdef OASIS
         else if(M_dataset->grid.dataset_frequency=="coupled")
-            to_be_reloaded=((cpl_time < M_dataset->ftime_range[0] ) || (M_dataset->ftime_range[1] <= cpl_time) || !M_dataset->loaded );
+            to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
 #endif
         else
             to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
@@ -160,8 +161,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         if (to_be_reloaded)
         {
 #ifdef OASIS
-        // We call oasis_get every time step, but only actually recieve data at coupling times
-        if (M_dataset->coupled)
+            // We call oasis_get every time step, but only actually recieve data at coupling times
+            if (M_dataset->coupled)
             {
                 if(!M_dataset->grid.loaded)
                 {
@@ -219,16 +220,57 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
                 }
 
-                this->recieveCouplingData(M_dataset, cpl_time, comm);
+                this->receiveCouplingData(M_dataset, cpl_time, comm);
                 transformData(M_dataset);
                 M_dataset->interpolated = false;
-                M_dataset->ftime_range[0] = cpl_time;
-                M_dataset->ftime_range[1] = cpl_time + cpl_dt;
+                M_dataset->itime_range[0] = cpl_time;
+                M_dataset->itime_range[1] = cpl_time + cpl_dt;
+                M_dataset->ftime_range[0] = M_current_time;
+                M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
             }
             else {
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
+
+            // add synoptic perturbations on the wind field here
+            // can be done as M_dataset.perturb()
+#ifdef ENSEMBLE
+            int M_full  = M_dataset->grid.dimension_y_count_netcdf;
+            int N_full  = M_dataset->grid.dimension_x_count_netcdf;
+            int MN_full = M_full*N_full;
+
+            LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
+            if ( M_comm.rank() == 0 )
+            LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
+
+            ensemble perturbation;
+            std::string forcing_name="asr_nodes";
+            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0) //remove this when generalized to ECMWF
+            {
+                M_comm.barrier();
+                LOG(DEBUG) << "### Rank: " << M_comm.rank() << " of " << M_comm.size() << ".\n";
+                if (M_comm.rank() == 0) {
+                    for(int ranstep=0; ranstep<2; ranstep++) {
+                        if (ranstep == 0 ) {
+                           perturbation.synopticPerturbation(ranstep);
+                        }
+                        perturbation.addPerturbation(
+                                M_dataset->variables[0].loaded_data[ranstep], M_dataset->variables[1].loaded_data[ranstep], MN_full, ranstep);
+                    }
+                }
+                M_comm.barrier();
+                for(int ii=0; ii<2; ii++) {
+                    for(int jj=0; jj<2; jj++) {
+                        boost::mpi::broadcast(M_comm, & M_dataset->variables[ii].loaded_data[jj][0], MN_full, 0);
+                    }
+                }
+                double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
+            }
+#endif
+
             this->transformData(M_dataset);
             LOG(DEBUG) << "Done\n";
 
@@ -403,10 +445,10 @@ ExternalData::getVector()
 
 #ifdef OASIS
 void
-ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
+ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-        LOG(DEBUG) << "reciveCouplingData at cpl_time " << cpl_time << "\n";
+        LOG(DEBUG) << "receiveCouplingData at cpl_time " << cpl_time << "\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             int M_full  = dataset->grid.dimension_y_count_netcdf;
@@ -437,7 +479,6 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
 
             dataset->variables[j].loaded_data.resize(1);
             dataset->variables[j].loaded_data[0].resize(final_MN);
-            double tmp_data_i;
             int reduced_i;
             for (int i=0; i<(final_MN); ++i)
             {
@@ -446,7 +487,10 @@ ExternalData::recieveCouplingData(Dataset *dataset, int cpl_time, Communicator c
                     reduced_i=dataset->grid.reduced_nodes_ind[i];
 
                 //now add to loaded_data
-                dataset->variables[j].loaded_data[0][i] = tmp_data_i=data_in_tmp[reduced_i];
+                double tmp_data_i = data_in_tmp[reduced_i];
+                tmp_data_i *= dataset->variables[j].a;
+                tmp_data_i += dataset->variables[j].b;
+                dataset->variables[j].loaded_data[0][i] = tmp_data_i;
             }
         }
 
@@ -462,23 +506,23 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 {
     // ---------------------------------
     // Define the mapping and rotation_angle
-	mapx_class *mapNextsim;
-	std::string configfileNextsim = Environment::nextsimMppfile();
-	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-	strNextsim.push_back('\0');
-	mapNextsim = init_mapx(&strNextsim[0]);
+    mapx_class *mapNextsim;
+    std::string configfileNextsim = Environment::nextsimMppfile();
+    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+    strNextsim.push_back('\0');
+    mapNextsim = init_mapx(&strNextsim[0]);
 
     if(dataset->grid.mpp_file!="")
     {
         mapx_class *map;
-	    std::string configfile = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % dataset->grid.mpp_file
-                              ).str();
+        std::string configfile = (boost::format( "%1%/%2%" )
+                          % Environment::nextsimMeshDir().string()
+                          % dataset->grid.mpp_file
+                          ).str();
 
-	    std::vector<char> str(configfile.begin(), configfile.end());
-	    str.push_back('\0');
-	    map = init_mapx(&str[0]);
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
         dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
 
         close_mapx(map);
@@ -561,9 +605,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
 
     // ---------------------------------
-	std::vector<double> XTIME(1);
-	std::vector<size_t> index_start(1);
-	std::vector<size_t> index_count(1);
+    std::vector<double> XTIME(1);
+    std::vector<size_t> index_start(1);
+    std::vector<size_t> index_count(1);
 
     // size of the data
     int M        = dataset->grid.dimension_y_count;
@@ -571,7 +615,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     int MN       = M*N;
     int final_MN = MN;
 
-	if(dataset->grid.reduced_nodes_ind.size()!=0)
+    if(dataset->grid.reduced_nodes_ind.size()!=0)
     {
         if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
             throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
@@ -600,7 +644,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::string filename_next="";
     std::vector<int> file_jump;
 
-	int index = 0;
+    int index = 0;
     int index_prev=-1;
     int index_next=-1;
 
@@ -615,9 +659,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // - for forecasts, filename depends on start time
 
     // Filename depends on the date for time varying data
-	if(dataset->grid.dataset_frequency!="constant"
-            && dataset->grid.dataset_frequency!="nearest_daily")
-	{
+    if(dataset->grid.dataset_frequency!="constant"
+        && dataset->grid.dataset_frequency!="nearest_daily")
+    {
         ftime = M_current_time-dataset->averaging_period/2.;
         file_jump ={-1,0,1};
 
@@ -662,7 +706,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             else
                 filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
 
-            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename <<"\n";
+            LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
+                << ". Exists? " << boost::filesystem::exists(filename)
+                <<"\n";
             if ( ! boost::filesystem::exists(filename) )
                 continue;
 
@@ -700,7 +746,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             double f;
             int nt = XTIME.size();
             if(is_ec_fc && (!true_forecast))
-                nt = 4;// just use the first day of each file (1st 4 records, each 6 hours apart)
+            {
+                int ftime_res = dataset->time.a*(XTIME[1] - XTIME[0]);//forcing resolution in hours
+                nt = 24/ftime_res;// just use the first day of each file
+            }
 
             for (int it=0; it < nt; ++it) // always need one step before and one after the target time
             {
@@ -745,8 +794,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         else
             throw std::runtime_error("Not found a file for after current_date!");
 
-		dataset->ftime_range = {time_prev,time_next};
-	}//not nearest_daily or constant
+        dataset->ftime_range = {time_prev,time_next};
+    }//not nearest_daily or constant
     else
     {
         if(dataset->grid.dataset_frequency=="nearest_daily")
@@ -771,24 +820,45 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
 
     // Initialise counters etc.
-	int nb_forcing_step =filename_fstep.size();
+    int nb_forcing_step =filename_fstep.size();
 
     LOG(DEBUG)<<"Start loading data\n";
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
-        filename=filename_fstep[fstep];
-        index=index_fstep[fstep];
-
-        LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
-        if ( ! boost::filesystem::exists(filename) )
-            throw std::runtime_error("File not found: " + filename);
-
-        // Open the netcdf file
-        netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
+            filename=filename_fstep[fstep];
+            index=index_fstep[fstep];
+
+            // Replace the "prefix" if we have one variable per file
+            if ( dataset->variables[j].filename_prefix != "" )
+            {
+                // extract the f_timestr for this fstep ( +1 for the directory / )
+                std::string::size_type start = Environment::nextsimDataDir().string().size() + 1
+                    + dataset->grid.dirname.size() + 1
+                    + dataset->grid.prefix.size();
+
+                std::string::size_type end = filename.find(dataset->grid.postfix, start);
+                f_timestr = filename.substr(start, end-start);
+
+                // Re-build filename with grid.prefix replaced with variables[j].filename_prefix
+                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+                            % Environment::nextsimDataDir().string()
+                            % dataset->grid.dirname
+                            % dataset->variables[j].filename_prefix
+                            % f_timestr
+                            % dataset->grid.postfix
+                            ).str();
+            }
+
+            LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
+            if ( ! boost::filesystem::exists(filename) )
+                throw std::runtime_error("File not found: " + filename);
+
+            // Open the netcdf file
+            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
             LOG(DEBUG)<<"variables number:" << j  << "\n";
             if ((dataset->variables[j].wavDirOptions.isWavDir)
                     &&(!dataset->variables[j].wavDirOptions.xComponent))
@@ -880,11 +950,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             double tmp_data_i;
             int reduced_i;
-			for (int i=0; i<(final_MN); ++i)
+            for (int i=0; i<(final_MN); ++i)
             {
                 reduced_i=i;
-    			if(dataset->grid.reduced_nodes_ind.size()!=0)
-    			    reduced_i=dataset->grid.reduced_nodes_ind[i];
+                if(dataset->grid.reduced_nodes_ind.size()!=0)
+                    reduced_i=dataset->grid.reduced_nodes_ind[i];
 
                 tmp_data_i=data_in_tmp[reduced_i];
                 if ((!dataset->variables[j].wavDirOptions.isWavDir)
@@ -901,7 +971,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     dataset->nb_forcing_step=nb_forcing_step;
     dataset->loaded=true;
-}
+}//loadDataset
 
 
 // Transformation of the vectorial variables from the coordinate system of the data to the polar stereographic projection used in the model
@@ -910,22 +980,22 @@ void
 ExternalData::transformData(Dataset *dataset)
 {
 
-        double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
-        double tmp_data0_deg, tmp_data1_deg;
-        double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
-        double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
-        double speed, new_speed;
-        int j0, j1;
+    double tmp_data0, tmp_data1, new_tmp_data0, new_tmp_data1;
+    double tmp_data0_deg, tmp_data1_deg;
+    double lat_tmp, lon_tmp, lat_tmp_bis, lon_tmp_bis;
+    double x_tmp, y_tmp, x_tmp_bis, y_tmp_bis;
+    double speed, new_speed;
+    int j0, j1;
 
-        double R=mapx_Re_km*1000.; // Earth radius (m)
-        double delta_t=1.; // 1 sec. This value needs to be small.
-        double delta_r=10.; // 10m. This value needs to be small.
-        double delta_x,delta_y,delta_lon,delta_lat;
+    double R=mapx_Re_km*1000.; // Earth radius (m)
+    double delta_t=1.; // 1 sec. This value needs to be small.
+    double delta_r=10.; // 10m. This value needs to be small.
+    double delta_x,delta_y,delta_lon,delta_lat;
 
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
-	std::string configfileNextsim = Environment::nextsimMppfile();
+    std::string configfileNextsim = Environment::nextsimMppfile();
     std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
@@ -1108,67 +1178,64 @@ ExternalData::transformData(Dataset *dataset)
                 LATtmp.resize(0);
             }//mwd option
 
-            else if(dataset->vectorial_variables[j].east_west_oriented
-                    && dataset->grid.interpolation_method==InterpolationType::FromGridToMesh)
+            else if(dataset->vectorial_variables[j].east_west_oriented)
+            // Method generalized for regular and irregular grids
             {
-                int M=dataset->grid.gridLAT.size();
-                int N=dataset->grid.gridLON.size();
+                //int M=dataset->grid.gridLAT.size();
+                //int N=dataset->grid.gridLON.size();
+                std::vector<double> LATtmp,LONtmp,Xtmp,Ytmp;
+                dataset->getLatLonXYVectors(
+                        LATtmp,LONtmp,Xtmp,Ytmp,mapNextsim);
 
-                for (int y_ind=0; y_ind<M; ++y_ind)
+                for (int i=0; i<LATtmp.size(); ++i)
                 {
-                    for (int x_ind=0; x_ind<N; ++x_ind)
+                    lat_tmp=LATtmp[i];
+                    lon_tmp=LONtmp[i];
+
+                    // velocity in the east (component 0) and north direction (component 1) in m/s
+                    tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
+                    tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
+  
+                    // velocity in the east (component 0) and north direction (component 1) in degree/s
+                    if(lat_tmp<90.)
                     {
-                        int i=y_ind*N+x_ind;
-
-                        // lat lon of the data
-                        lat_tmp=dataset->grid.gridLAT[y_ind];
-                        lon_tmp=dataset->grid.gridLON[x_ind];
-
-                        // velocity in the east (component 0) and north direction (component 1) in m/s
-                        tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
-                        tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
-
-                        // velocity in the east (component 0) and north direction (component 1) in degree/s
-                        if(lat_tmp<90.)
-                        {
-                            tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
-                            tmp_data1_deg=tmp_data1/R*180./PI;
-                        }
-                        else
-                        {
-                            tmp_data0_deg=0.;
-                            tmp_data1_deg=0.;
-                        }
-
-                        // position in lat, lon after delta_t
-                        lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
-                        lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
-
-                        lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
-
-                        // initial position x, y in meter
-        			    forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
-
-                        // position x, y after delta_t in meter
-                        forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
-
-                        // velocity in m/s
-                        new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
-                        new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
-
-                        // normalisation
-                        speed=std::hypot(tmp_data0,tmp_data1);
-                        new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
-
-                        if(new_speed>0.)
-                        {
-                            new_tmp_data0=new_tmp_data0/new_speed*speed;
-                            new_tmp_data1=new_tmp_data1/new_speed*speed;
-                        }
-
-                        dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
-                        dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
+                        tmp_data0_deg=tmp_data0/(R*std::cos(lat_tmp*PI/180.))*180./PI;
+                        tmp_data1_deg=tmp_data1/R*180./PI;
                     }
+                    else
+                    {
+                        tmp_data0_deg=0.;
+                        tmp_data1_deg=0.;
+                    }
+  
+                    // position in lat, lon after delta_t
+                    lat_tmp_bis=lat_tmp+tmp_data1_deg*delta_t;
+                    lon_tmp_bis=lon_tmp+tmp_data0_deg*delta_t;
+  
+                    lon_tmp_bis = lon_tmp_bis-360.*std::floor(lon_tmp_bis/(360.));
+  
+                    // initial position x, y in meter
+    		        forward_mapx(mapNextsim,lat_tmp,lon_tmp,&x_tmp,&y_tmp);
+  
+                    // position x, y after delta_t in meter
+                    forward_mapx(mapNextsim,lat_tmp_bis,lon_tmp_bis,&x_tmp_bis,&y_tmp_bis);
+  
+                    // velocity in m/s
+                    new_tmp_data0= (x_tmp_bis-x_tmp)/delta_t;
+                    new_tmp_data1= (y_tmp_bis-y_tmp)/delta_t;
+  
+                    // normalisation
+                    speed=std::hypot(tmp_data0,tmp_data1);
+                    new_speed=std::hypot(new_tmp_data0,new_tmp_data1);
+  
+                    if(new_speed>0.)
+                    {
+                        new_tmp_data0=new_tmp_data0/new_speed*speed;
+                        new_tmp_data1=new_tmp_data1/new_speed*speed;
+                    }
+  
+                    dataset->variables[j0].loaded_data[fstep][i]=new_tmp_data0;
+                    dataset->variables[j1].loaded_data[fstep][i]=new_tmp_data1;
                 }
 
                 // Treat the case of the North Pole where east-north components are ill-defined
@@ -1253,7 +1320,7 @@ ExternalData::transformData(Dataset *dataset)
 
     // closing maps
     close_mapx(mapNextsim);
-}
+}//transformData
 
 
 void
@@ -1292,7 +1359,7 @@ ExternalData::convertTargetXY(Dataset *dataset,
 			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
         }
     }
-}
+}//convertTargetXY
 
 void
 ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
@@ -1486,11 +1553,10 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         }
     }
 
-	xDelete<double>(data_out);
-
+    xDelete<double>(data_out);
     dataset->interpolated=true;
 
-}
+}//interpolateDataset
 
 void
 ExternalData::clear()

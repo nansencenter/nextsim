@@ -2,7 +2,7 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -15,7 +15,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
-ifneq ($(XSIMCOMP_VERBOSE),no)
+ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
@@ -25,7 +25,7 @@ ifdef USE_OASIS
 	LDFLAGS += -lgfortran
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
@@ -44,33 +44,56 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/bamg/include # suppress annoying compilation warnings from -I
-CXXFLAGS += -isystem $(NEXTSIMDIR)/contrib/mapx/include # suppress annoying compilation warnings from -I
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+
+ifdef USE_ENSEMBLE
+	CXXFLAGS += -DENSEMBLE
+	CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
+endif
+
+# include with -isystem instead of -I to suppress warnings and to not
+# add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
-		CXXFLAGS += -I $(NEXTSIMDIR)/modules/aerobulk/include
+		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
 		CXXFLAGS += -DAEROBULK
 endif
 
 # openmpi
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)/
+CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
 
 # petsc
-CXXFLAGS +=	-I $(PETSC_DIR)/include
+CXXFLAGS += -isystem $(PETSC_DIR)/include
 
 # boost
-CXXFLAGS += -I $(BOOST_INCDIR)/ -I .
+CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
-CXXFLAGS +=	-I $(NETCDF_DIR)/include
+ifeq ($(NETCDF_CXX_DIR),)
+	NETCDF_CXX_DIR=$(NETCDF_DIR)
+else
+	# separate dirs on datarmor
+	# - also datarmor needs this lib too
+	LDFLAGS += -lnetcdff
+endif
+ifeq ($(NETCDF_DIR),/usr)
+	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
+	CXXFLAGS += -I $(NETCDF_DIR)/include
+	CXXFLAGS += -I $(NETCDF_CXX_DIR)/include
+else
+	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
+endif
 
 # gmsh
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
-CXXFLAGS +=	-I /opt/local/include
+CXXFLAGS += -isystem /opt/local/include
 
 ifeq ($(KERNEL),Linux)
 	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
+	CXXFLAGS += -I /usr/include
 
 else
 
@@ -78,10 +101,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I /usr/local/include #-I /opt/local/include/openmpi-mp
-
-	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
-	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	CXXFLAGS += -isystem /usr/local/include
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
@@ -91,16 +111,10 @@ endif
 
 LDFLAGS += -L /usr/local/lib
 
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
-else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
-        LDFLAGS += -Wl,-rpath,$(BLAS_LAPACK_DIR)/lib
-        LDFLAGS += -L $(BLAS_LAPACK_DIR)/lib -lsci_gnu_mp
-endif
+LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
@@ -113,9 +127,14 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+
+ifdef USE_ENSEMBLE
+	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
+	LDFLAGS += -lgfortran
+endif
+
 ifdef USE_AEROBULK
-		LDFLAGS += -L $(NEXTSIMDIR)/lib -laerobulk_nextsim
-		LDFLAGS += -L /opt/local/aerobulk/lib -laerobulk
+		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
 		LDFLAGS += -lgfortran
 endif
 
@@ -135,16 +154,23 @@ BINARYDIR=bin/
 
 # C++ files
 CXXSRCDIR=.
+CXXHDRDIR=.
 CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
+# We must exclude the version.hpp file from the list of header files because otherwise we get a circular dependency
+CXXHDR=$(filter-out $(CXXHDRDIR)/version.hpp, $(wildcard $(CXXHDRDIR)/*.hpp))
 
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 # Rules to always execute.
-.PHONY: exec all clean mrproper libs cleanlibs mrproperlibs
+.PHONY: exec clean mrproper all cleanall mrproperall
 
 # Default action.
 exec: $(PROGNAME)
+
+# Create a header file with the git version
+version.hpp: version.sh $(CXXSRC) $(CXXHDR)
+	$(SHELL) -x $<
 
 # Delete the object files.
 clean:
@@ -182,30 +208,30 @@ $(OBJECTDIR)%.o: %.cpp
 # Make dependancy rules
 $(DEPENDDIR)%.d: %.cpp
 	@mkdir -p $(DEPENDDIR)
-	@$(SHELL) -ec '$(CXX) -M $(CXXFLAGS) $< | sed "s^$*.o^$(OBJECTDIR)$*.o^" > $@'
+	$(CXX) -MM -MG -MT $(OBJECTDIR)$*.o $(CXXFLAGS) $< -MF $@
 
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
-# Make the required libraries
-libs:
-	cd ..; make
+# Make everything
+all:
+	cd ..; $(MAKE) all
 
-# Compile the libraries as well as the executable
-all: libs exec
 
-# Clean the required libraries
-cleanlibs:
-	cd ..; make clean
+# Clean everything
+cleanall:
+	cd ..; $(MAKE) clean
 
-# Clean libs and current dir
-cleanall: cleanlibs clean
+# Properly clean everything
+mrproperall:
+	cd ..; $(MAKE) mrproper
 
-# Clean recompile
-fresh: cleanall all
+# Properly clean & recompile
+fresh:
+	cd ..; $(MAKE) fresh
 
-# Fully clean the required libraries
-mrproperlibs:
-	cd ..; make mrproper
-
--include $(DEPS)
+# Include dependencies only if the goal needs it
+MAKEFILE_TARGETS_WITHOUT_INCLUDE := clean mrproper cleanall mrproperall fresh
+ifeq ($(filter $(MAKECMDGOALS),$(MAKEFILE_TARGETS_WITHOUT_INCLUDE)),)
+	-include $(DEPS)
+endif
