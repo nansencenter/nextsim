@@ -13159,19 +13159,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 
 // -------------------------------------------------------------------------------------
-//! Gets GitHub revision version of the model code.
-//! Called by the writeLogFile() function.
-std::string
-FiniteElement::gitRevision()
-{
-    //std::string command = "git rev-parse HEAD";
-    return this->system("git rev-parse HEAD");
-}//gitRevision
-
-
-// -------------------------------------------------------------------------------------
 //! Run a system command
-//! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
+//! Called by the createGmshMesh() function.
 std::string
 FiniteElement::system(std::string const& command)
 {
@@ -13235,10 +13224,11 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
-        logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C "  << CC_PATH << " (version "<< CC_VERSION << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C++ "  << CXX_PATH << " (version "<< CXX_VERSION << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << NEXTSIMDIR <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
