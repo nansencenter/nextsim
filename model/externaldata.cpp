@@ -448,7 +448,7 @@ void
 ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm)
 {
         // ierror = OASIS3::get_2d(var_id[1], pcpt*time_step, &field2_recv[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
-        LOG(DEBUG) << "recieveCouplingData at cpl_time " << cpl_time << "\n";
+        LOG(DEBUG) << "receiveCouplingData at cpl_time " << cpl_time << "\n";
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             int M_full  = dataset->grid.dimension_y_count_netcdf;
@@ -806,7 +806,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             dataset->ftime_range = {f+.5};
         }
         else
-        f_timestr ="";
+            f_timestr ="";
 
         filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
                     % Environment::nextsimDataDir().string()
