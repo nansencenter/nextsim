@@ -328,6 +328,19 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
 
+        case (variableID::M_divergence):
+            // update of concentration by assimilation
+            M_name = "M_divergence";
+            M_export_name = "Divergence";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_max = true;
+            M_max_val = 0.;
+            break;
+
         case (variableID::M_conc_upd):
             // update of concentration by assimilation
             M_name = "M_conc_upd";
@@ -538,6 +551,15 @@ ModelVariable::initElemental()
             // Mohr-Coulomb envelope we are
             M_name = "D_dcrit";
             M_export_name = "d_crit";
+            M_prognostic = false;
+            M_exporting = true;
+            break;
+
+        case (variableID::D_pressure):
+            // diagnostic variable to tell use how far outside the
+            // Mohr-Coulomb envelope we are
+            M_name = "D_pressure";
+            M_export_name = "Pressure";
             M_prognostic = false;
             M_exporting = true;
             break;

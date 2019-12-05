@@ -289,6 +289,10 @@ public:
     void initModelState();
     void DataAssimilation();
     void FETensors();
+    void compute_B0_Dunit_B0T(std::vector<double>& Dunit,
+                               std::vector<double>& B0T,
+                               std::vector<double>& B0_Dunit_B0T);
+
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -513,13 +517,13 @@ private:
     std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
-    //std::vector<double> M_Dunit_comp;
+    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -547,7 +551,7 @@ private:
     double young;
     double rhoi;
     double rhos;
-    double days_in_sec;
+    double const days_in_sec  = 86400.;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -722,7 +726,8 @@ private:
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
-    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
+    ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_divergence;         // Divergence (used by the pressure term)
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -731,8 +736,8 @@ private:
     //std::vector<ModelVariable> M_conc_fsd_thin ;
     std::vector<ModelVariable> M_conc_mech_fsd;
     int M_num_fsd_bins;
-    std::vector<double> M_fsd_bin_widths; 
-    double M_fsd_bin_cst_width; 
+    std::vector<double> M_fsd_bin_widths;
+    double M_fsd_bin_cst_width;
     double M_fsd_min_floe_size;
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
@@ -795,12 +800,14 @@ private:
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
+    ModelVariable D_pressure; // Pressure from pure bi-axial convergennce
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
     std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
+
 
 private:
     // Variables for the moorings

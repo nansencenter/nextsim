@@ -348,6 +348,13 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
+            // - Pressure term parameters
+            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
+            ("dynamics.pressure_nu", po::value<int>()->default_value( 0. ),
+             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
+
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
@@ -501,4 +508,3 @@ namespace Nextsim
     }
 
 } // Nextsim
-
