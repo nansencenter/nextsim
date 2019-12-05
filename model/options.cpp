@@ -68,7 +68,7 @@ namespace Nextsim
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
             ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
-                "If check_velocity_fields is true: find outlier nodes with extreme velocities print to DEBUG")
+                "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -355,7 +355,7 @@ namespace Nextsim
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
             ("damage.clip", po::value<double>()->default_value( 0 ),
-             "Threshold for clipping damage. All values below <damage.clip> will be turned zero before calculating how elastic modulus and stress relaxation time depend on damage.")
+             "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
 
              //-----------------------------------------------------------------------------------

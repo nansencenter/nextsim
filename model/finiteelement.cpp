@@ -11895,6 +11895,7 @@ FiniteElement::piomasIce()
     }
 }//piomasIce
 
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CREG outputs.
 //! Called by the initIce() function.
@@ -12142,6 +12143,7 @@ FiniteElement::amsr2ConstThickIce()
         M_ridge_ratio[i]=0.;
     }
 }//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
@@ -13116,7 +13118,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
-//          exporter.writeField(outbin, M_connectivity_root, "Element_connectivity");
 #if defined (OASIS)
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
@@ -13324,8 +13325,8 @@ FiniteElement::writeLogFile()
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
         }
     }
-
 }//writeLogFile
+
 
 // -------------------------------------------------------------------------------------
 //! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
