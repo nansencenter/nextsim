@@ -341,7 +341,6 @@ public:
     void finalise(std::string current_time_system);
 
 public:
-    std::string gitRevision();
     std::string system(std::string const& command);
     std::string getEnv(std::string const& envname);
     void writeLogFile();
