@@ -135,8 +135,8 @@ public:
         InterpolationType interpolation_method;
         int interp_type;
         std::string dirname;
-        std::string prefix;
-        std::string postfix;
+        std::string filename_mask;
+        std::string init_time_mask;
         std::string gridfile;
         std::string reference_date;
 
@@ -209,7 +209,12 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
+    std::string getFilename(double const& init_time, double const& current_time) const;
+    std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
+    void shiftDates(double const& init_time, double const& current_time, int const& jump,
+            double& new_init_time, double& ftime) const;
+    void replaceString(std::string &subject, const std::string& search,
+            const std::string& replace) const;
 
     void loadGrid(Grid *grid, double init_time, double current_time);
 

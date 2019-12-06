@@ -166,32 +166,32 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-                interpolation_method: InterpolationType::FromGridToMesh,
-                //interp_type : TriangleInterpEnum,  // slower
-                interp_type : BilinearInterpEnum,
-                //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum,  // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                prefix: "asr30km.comb.2D.",
-                postfix:".nc",
-                gridfile: "",
-                reference_date: "1901-01-01",
+            dirname:"",
+            filename_mask: "asr30km.comb.2D.%Y%m.nc",
+            init_time_mask:"",
+            gridfile: "",
+            reference_date: "1901-01-01",
 
-                latitude: latitude,
-                longitude: longitude,
+            latitude: latitude,
+            longitude: longitude,
 
-                dimension_x: dimension_x,
-                dimension_y: dimension_y,
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
 
-                mpp_file: "NpsASR.mpp",
-                interpolation_in_latlon: false,
+            mpp_file: "NpsASR.mpp",
+            interpolation_in_latlon: false,
 
-                loaded: false,
-                dataset_frequency:"monthly",
+            loaded: false,
+            dataset_frequency:"monthly",
 
-                waveOptions: wavopt_none,
+            waveOptions: wavopt_none,
 
-                masking: false
+            masking: false
         };
 
         std::vector<Variable> variables_tmp(2);
@@ -315,8 +315,8 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix:"asr30km.comb.2D.",
-            postfix:".nc",
+            filename_mask: "asr30km.comb.2D.%Y%m.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1901-01-01",
 
@@ -605,32 +605,32 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-                interpolation_method: InterpolationType::FromGridToMesh,
-                //interp_type : TriangleInterpEnum,  // slower
-                interp_type : BilinearInterpEnum,
-                //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum,  // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                prefix: "ec2_arome_blended_",
-                postfix:".nc",
-                gridfile: "",
-                reference_date: "1970-01-01",
+            dirname:"",
+            filename_mask: "ec2_arome_blended_%Y%m%d.nc",
+            init_time_mask:"",
+            gridfile: "",
+            reference_date: "1970-01-01",
 
-                latitude: latitude,
-                longitude: longitude,
+            latitude: latitude,
+            longitude: longitude,
 
-                dimension_x: dimension_x,
-                dimension_y: dimension_y,
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
 
-                mpp_file: "NpsNextsim.mpp",
-                interpolation_in_latlon: false,
+            mpp_file: "NpsNextsim.mpp",
+            interpolation_in_latlon: false,
 
-                loaded: false,
-                dataset_frequency:"daily",
+            loaded: false,
+            dataset_frequency:"daily",
 
-                waveOptions: wavopt_none,
+            waveOptions: wavopt_none,
 
-                masking: false
+            masking: false
         };
 
         std::vector<Variable> variables_tmp = { u, v };
@@ -751,8 +751,8 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix:"ec2_arome_blended_",
-            postfix:".nc",
+            filename_mask: "ec2_arome_blended_%Y%m%d.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1033,32 +1033,32 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-                interpolation_method: InterpolationType::FromGridToMesh,
-                //interp_type : TriangleInterpEnum,  // slower
-                interp_type : BilinearInterpEnum,
-                //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum,  // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                prefix: "ec2_arome_blended_ensemble_",
-                postfix:".nc",
-                gridfile: "",
-                reference_date: "1970-01-01",
+            dirname:"",
+            filename_mask: "ec2_arome_blended_ensemble_INITTIME.nc",
+            init_time_mask:"%Y%m%d",
+            gridfile: "",
+            reference_date: "1970-01-01",
 
-                latitude: latitude,
-                longitude: longitude,
+            latitude: latitude,
+            longitude: longitude,
 
-                dimension_x: dimension_x,
-                dimension_y: dimension_y,
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
 
-                mpp_file: "NpsNextsim.mpp",
-                interpolation_in_latlon: false,
+            mpp_file: "NpsNextsim.mpp",
+            interpolation_in_latlon: false,
 
-                loaded: false,
-                dataset_frequency:"daily",
+            loaded: false,
+            dataset_frequency:"daily",
 
-                waveOptions: wavopt_none,
+            waveOptions: wavopt_none,
 
-                masking: false
+            masking: false
         };
 
         std::vector<Variable> variables_tmp = { u, v };
@@ -1176,8 +1176,8 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            prefix: "ec2_arome_blended_ensemble_",
-            postfix:".nc",
+            filename_mask: "ec2_arome_blended_ensemble_INITTIME.nc",
+            init_time_mask:"%Y%m%d",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1489,8 +1489,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "TP4DAILY_",
-            postfix: "_30m.nc",
+            filename_mask: "TP4DAILY_%Y%m_30m.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -1694,8 +1694,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "TP4DAILY_",
-            postfix: "_3m.nc",
+            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -1902,8 +1902,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            filename_mask: "NEMO.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2104,8 +2104,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
             dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            filename_mask: "NEMO.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2288,8 +2288,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            filename_mask: "NEMO.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2490,8 +2490,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            filename_mask: "NEMO.nc",
+            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2647,9 +2647,13 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
-            postfix: ".nc",
-            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+            filename_mask: "nesting_"
+               +Environment::vm()["nesting.outer_mesh"].as<std::string>()
+               +"_%Y%m%d.nc",
+            init_time_mask:"",
+            gridfile: "nesting_grid_"
+                +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                +".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -2882,9 +2886,13 @@ DataSet::DataSet(char const *DatasetName)
                 interpolation_method: InterpolationType::FromMeshToMesh2dx,
                 interp_type: -1,
                 dirname: "",
-                prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
-                postfix: ".nc",
-                gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+                filename_mask: "nesting_"
+                   +Environment::vm()["nesting.outer_mesh"].as<std::string>()
+                   +"_%Y%m%d.nc",
+                init_time_mask:"",
+                gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
                 reference_date: "1900-01-01",
 
                 latitude: latitude,
@@ -3065,9 +3073,13 @@ DataSet::DataSet(char const *DatasetName)
               interpolation_method: InterpolationType::FromMeshToMesh2dx,
               interp_type: -1,
               dirname: "",
-              prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
-              postfix: ".nc",
-              gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+              filename_mask: "nesting_"
+                   +Environment::vm()["nesting.outer_mesh"].as<std::string>()
+                   +"_%Y%m%d.nc",
+              init_time_mask:"",
+              gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
               reference_date: "1900-01-01",
 
               latitude: latitude,
@@ -3286,9 +3298,13 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
-            postfix: ".nc",
-            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+            filename_mask: "nesting_"
+                   +Environment::vm()["nesting.outer_mesh"].as<std::string>()
+                   +"_%Y%m%d.nc",
+            init_time_mask:"",
+            gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -3453,9 +3469,13 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_"+Environment::vm()["nesting.outer_mesh"].as<std::string>()+"_",
-            postfix: ".nc",
-            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+            filename_mask: "nesting_"
+                   +Environment::vm()["nesting.outer_mesh"].as<std::string>()
+                   +"_%Y%m%d.nc",
+            init_time_mask:"",
+            gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
             reference_date: "1900-01-01",
 
             latitude: latitude,
@@ -3568,9 +3588,13 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
-            postfix: "",
-            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+            filename_mask: "nesting_grid_"
+                   +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                   +".nc",
+            init_time_mask:"",
+            gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
             reference_date: "",
 
             latitude: latitude,
@@ -3681,9 +3705,13 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
-            postfix: "",
-            gridfile: "nesting_grid_"+Environment::vm()["nesting.inner_mesh"].as<std::string>()+".nc",
+            filename_mask: "nesting_grid_"
+                   +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                   +".nc",
+            init_time_mask:"",
+            gridfile: "nesting_grid_"
+                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
+                    +".nc",
             reference_date: "",
 
             latitude: latitude,
@@ -3871,8 +3899,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            prefix: "_dm-metno-MODEL-topaz4-ARC-b",
-            postfix: "-fv02.0.nc",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-bINITTIME-fv02.0.nc",
+            init_time_mask:"%Y%m%d",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4128,8 +4156,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            prefix: "_dm-metno-MODEL-topaz4-ARC-b",
-            postfix: "-fv02.0.nc",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-bINITTIME-fv02.0.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4324,8 +4352,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "TP4DAILY_",
-            postfix: "_3m.nc",
+            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4506,8 +4534,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "PIOMAS_",
-            postfix: ".nc",
+            filename_mask: "PIOMAS_%Y.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4687,32 +4715,32 @@ DataSet::DataSet(char const *DatasetName)
 
 
         Grid grid_tmp={
-                interpolation_method: InterpolationType::FromMeshToMesh2dx,
-                interp_type: -1,
-                //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type: -1,
+            //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                prefix: "current_",
-                postfix:".nc",
+            dirname:"",
+            filename_mask: "current_%Y.nc",
+            init_time_mask: "",
             gridfile: "",
-                reference_date: "1950-01-01",
+            reference_date: "1950-01-01",
 
-                latitude: latitude,
-                longitude: longitude,
+            latitude: latitude,
+            longitude: longitude,
 
-                dimension_x: dimension_x,
-                dimension_y: dimension_y,
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
 
-                mpp_file: projfilename,
-                interpolation_in_latlon: false,
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
 
-                loaded: false,
-                dataset_frequency:"yearly",
+            loaded: false,
+            dataset_frequency:"yearly",
 
-                waveOptions: wavopt_none,
+            waveOptions: wavopt_none,
 
-                masking: true,
-                masking_variable: u
+            masking: true,
+            masking_variable: u
         };
 
         std::vector<Variable> variables_tmp(3);
@@ -4845,8 +4873,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "asi-n6250-",
-            postfix: "-v5i.nc",
+            filename_mask: "asi-n6250-%Y%m%d-v5i.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "2002-01-01",
 
@@ -5007,8 +5035,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix:"ice_conc_nh_polstere-100_multi_",
-            postfix: "1200.nc",
+            filename_mask: "ice_conc_nh_polstere%Y%m%d1200.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "1978-01-01",
 
@@ -5152,8 +5180,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix:"ice_type_nh_polstere-100_multi_",
-            postfix: "1200.nc",
+            filename_mask: "ice_type_nh_polstere-100_multi_%Y%m%d1200.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "1978-01-01",
 
@@ -5296,8 +5324,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix:"SMOS_Icethickness_v3.1_north_",
-            postfix: ".nc",
+            filename_mask: "SMOS_Icethickness_v3.1_north_%Y%m%d.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "2010-01-01",
 
@@ -5432,8 +5460,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix:"cs2_smos_ice_thickness_",
-            postfix: "-fv2p0.nc",
+            filename_mask: "cs2_smos_ice_thickness_%Y%m%d-fv2p0.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -5594,8 +5622,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "Arc_",
-            postfix: "_res3.125_pyres.nc",
+            filename_mask: "Arc_%Y%m%d_res3.125_pyres.nc",
+            init_time_mask: "",
             gridfile: "LongitudeLatitudeGrid_3.125km_Arctic.nc",//older AMSR2 files don't have lon,lat inside them
             reference_date: "0001-01-01",
 
@@ -5756,8 +5784,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "NIC_weekly_",
-            postfix: "_res3.125_pyres.nc",
+            filename_mask: "NIC_weekly_%Y%m%d_res3.125_pyres.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "0001-01-01",
 
@@ -5918,8 +5946,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "NIC_",
-            postfix: "_res3.125_pyres.nc",
+            filename_mask: "NIC_%Y%m%d_res3.125_pyres.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "0001-01-01",
 
@@ -6034,8 +6062,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "icesat_icethk_ON06",
-            postfix: "_filled.nc",
+            filename_mask: "icesat_icethk_ON06_filled.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6184,8 +6212,8 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "CREG025",
-            postfix: "_icemod.nc",
+            filename_mask: "CREG025_icemod.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6290,9 +6318,9 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix:"dist2coast_4deg.nc",
-            //prefix:"dist2coast_1deg.nc",
-            postfix:"",
+            filename_mask: "dist2coast_4deg.nc",
+            //filename_mask: "dist2coast_1deg.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6418,9 +6446,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix:"ETOPO_Arctic_2arcmin.nc",
-            //prefix:"ETOPO1_Ice_g_gmt4.grd",
-            postfix:"",
+            filename_mask: "ETOPO_Arctic_2arcmin.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6544,8 +6571,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "cfsr.6h.",
-            postfix:".nc",
+            filename_mask: "cfsr.6h.%Y%m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -6808,8 +6835,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "cfsr.6h.",
-            postfix:".nc",
+            filename_mask: "cfsr.6h.%Y%m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -6992,8 +7019,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "cfsr_h.3h.",
-            postfix:".nc",
+            filename_mask: "cfsr_h.sh.%Y%m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -7177,8 +7204,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "erai.6h.",
-            postfix:".nc",
+            filename_mask: "erai.6h.%Y%m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7440,8 +7467,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "erai.6h.",
-            postfix:".nc",
+            filename_mask: "erai.6h.%Y%m.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7625,8 +7652,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "ERA5_t2m_y",
-            postfix:".nc",
+            filename_mask: "ERA5_VARNAME_y%Y.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7888,8 +7915,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "ERA5_u10_y",
-            postfix:".nc",
+            filename_mask: "ERA5_VARNAME_y%Y.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -8073,8 +8100,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            prefix: "ec2_start",
-            postfix:".nc",
+            filename_mask: "ec2_startINITTIME.nc",
+            init_time_mask: "%Y%m%d",
             gridfile: "",
             reference_date:"1950-01-01",//"2008-01-01";
 
@@ -8088,7 +8115,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: true,
 
             loaded: false,
-            dataset_frequency:"daily_ec2_forecast",
+            dataset_frequency:"daily_forecast_1file",
 
             waveOptions: wavopt_none,
 
@@ -8338,8 +8365,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            prefix: "ec2_start",
-            postfix:".nc",
+            filename_mask: "ec2_startINITTIME.nc",
+            init_time_mask: "%Y%m%d",
             gridfile: "",
             reference_date:"1950-01-01",
 
@@ -8354,7 +8381,7 @@ DataSet::DataSet(char const *DatasetName)
 
             loaded: false,
 
-            dataset_frequency:"daily_ec2_forecast",
+            dataset_frequency:"daily_forecast_1file",
 
             waveOptions: wavopt_none,
 
@@ -8656,8 +8683,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "SWARP_WW3_ARCTIC-12K_",
-            postfix:".nc",
+            filename_mask: "SWARP_WW3_ARCTIC-12K_%Y%m%d.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1990-01-01",
 
@@ -8796,8 +8823,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "erai_waves_1deg_",
-            postfix:".nc",
+            filename_mask: "erai_waves_1deg_%Y.nc",
+            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -9034,116 +9061,84 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time)
             std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
 }//loadGrid
 
+
 std::string
-DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int jump)
+DataSet::getFilename(double const& init_time, double const& current_time) const
 {
-
-    bool is_topaz_fc = (grid_ptr->dataset_frequency=="daily_forecast");//topaz forecast
-    bool is_ec_fc = ((grid_ptr->prefix).find("start") != std::string::npos);//ECMWF forecasts (ec_[nodes,elements],ec2_[nodes,elements])
-
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
 
-    std::string current_timestr="";
-    std::string filename="";
-    if(is_ec_fc||is_topaz_fc)
+    std::string fmask = grid.filename_mask;
+    if(grid.init_time_mask != "")
     {
-        // if current (shifted) time before init_time, reduce the init_time to find a file
-        // NB jump is in days
-        double inittime = std::floor(init_time);
-        if(std::floor(current_time+jump)<inittime)
-            inittime = std::floor(current_time + jump);
-        std::string init_timestr = datenumToString(inittime, "%Y%m%d");//yyyymmdd
-
-        if(is_ec_fc)
-        {
-                //get filename
-                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                        % Environment::nextsimDataDir().string()
-                        % grid_ptr->dirname
-                        % grid_ptr->prefix
-                        % init_timestr
-                        % grid_ptr->postfix
-                        ).str();
-                return filename;
-        }
-        else
-        {
-
-            // also need current time for filename
-            current_timestr = datenumToString(current_time+jump, "%Y%m%d");//yyyymmdd
-
-            filename = (boost::format( "%1%/%2%/%3%%4%%5%%6%" )
-                    % Environment::nextsimDataDir().string()
-                    % grid_ptr->dirname
-                    % current_timestr
-                    % grid_ptr->prefix
-                    % init_timestr
-                    % grid_ptr->postfix
-                    ).str();
-            return filename;
-        }
+        std::string init_time_str = datenumToString(init_time, grid.init_time_mask);
+        this->replaceString(fmask, "INITTIME", init_time_str);
     }
-
-    if(grid_ptr->dataset_frequency=="monthly")
-    {
-        //jump is in months
-        current_timestr = datenumToString(current_time, "%Y%m");//yyyymm
-
-        std::string myString = current_timestr.substr(4,2);
-        LOG(DEBUG) <<"month= "<< myString <<"\n";
-        int value_month = atoi(myString.c_str());
-        myString = current_timestr.substr(0,4);
-        LOG(DEBUG) <<"year= "<< myString <<"\n";
-        int value_year = atoi(myString.c_str());
-
-        LOG(DEBUG) <<"value_year= "<< value_year <<"\n";
-        LOG(DEBUG) <<"value_month= "<< value_month <<"\n";
-
-        value_month+=jump;
-        if(value_month==13)
-        {
-            value_month=1;
-            value_year++;
-        }
-        if(value_month==0)
-        {
-            value_month=12;
-            value_year--;
-        }
-        current_timestr=(boost::format( "%1%%2%" )
-                % boost::io::group(std::setw(4), std::setfill('0'), value_year)
-                % boost::io::group(std::setw(2), std::setfill('0'), value_month)).str();
-    }
-    else if(grid_ptr->dataset_frequency=="yearly")
-    {
-        //jump is in years
-        current_timestr = datenumToString(current_time, "%Y");//yyyy
-        int value_year = atoi(current_timestr.c_str());
-        value_year+=jump;
-        current_timestr=(boost::format( "%1%" )
-                % boost::io::group(std::setw(4), std::setfill('0'), value_year)).str();
-    }
-    else if(grid_ptr->dataset_frequency=="daily"
-            || grid_ptr->dataset_frequency=="nearest_daily")
-        current_timestr = datenumToString(current_time+jump, "%Y%m%d");//yyyymmdd
-    else if(grid_ptr->dataset_frequency=="constant" || grid_ptr->dataset_frequency=="coupled")
-        current_timestr = "";
-    else
-        throw std::runtime_error(
-                "This option for grid_ptr->dataset_frequency is not implemented: "
-                + grid_ptr->dataset_frequency);
-
-    filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                    % Environment::nextsimDataDir().string()
-                    % grid_ptr->dirname
-                    % grid_ptr->prefix
-                    % current_timestr
-                    % grid_ptr->postfix
-                    ).str();
-
+    this->replaceString(fmask, "VARNAME", variables[0].filename_prefix);
+    
+    std::string const filename = (boost::format( "%1%/%2%/%3%" )
+            % Environment::nextsimDataDir().string()
+            % grid.dirname
+            % datenumToString(current_time, fmask)
+            ).str();
     return filename;
 }//getFilename
+
+
+std::string
+DataSet::getFilename(double const& init_time0, double const& current_time,
+        int const& jump) const
+{
+    if ( current_time < 0 )
+        throw std::runtime_error("getFilename: current time < 0");
+
+    double init_time, ftime;
+    this->shiftDates(init_time0, current_time, jump, init_time, ftime);
+    return this->getFilename(init_time, ftime);
+}//getFilename
+
+
+void
+DataSet::shiftDates(double const& init_time, double const& current_time,
+        int const& jump, double& new_init_time, double& ftime) const
+{
+    ftime = current_time + jump;//daily files
+    new_init_time = init_time;
+    if(grid.init_time_mask != "")
+    {
+        //forecast files depend on start date of forecast
+        if(ftime<init_time)
+            new_init_time = std::floor(ftime);
+        return;
+    }
+
+    // can just quit now for these dataset_frequency options
+    std::vector<std::string> namelist = {
+        "daily", "nearest_daily", "constant", "coupled"};
+    if(std::count(namelist.begin(), namelist.end(), grid.dataset_frequency) > 0)
+        return;
+
+    auto pdate = datenumToPosixTime(current_time).date();
+    // don't care about the day so move day to 1 to avoid problems with
+    // leap years etc
+    auto ptime = getPosixTime(pdate.year(), pdate.month(), 1);
+    if(grid.dataset_frequency=="monthly")
+    {
+        //jump is in months
+        ftime = posixTimeToDatenum(ptime + boost::gregorian::months(jump));
+        return;
+    }
+    if(grid.dataset_frequency=="yearly")
+    {
+        //jump is in years
+        ftime = posixTimeToDatenum(ptime + boost::gregorian::years(jump));
+        return;
+    }
+
+    throw std::runtime_error(
+            "This option for grid_ptr->dataset_frequency is not implemented: "
+            + grid.dataset_frequency);
+}//shiftDates()
 
 
 //! get longitude range from the netcdf file
@@ -9231,15 +9226,14 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
     double scale_factor;
     double add_offset;
 
-    //std::string filename = getFilename(grid_ptr, init_time, current_time);
     std::string filename = grid_ptr->gridfile;
-    if ( filename=="" )
-        filename = getFilename(grid_ptr, init_time, init_time);
-    else
+    if ( filename!="" )
         filename = (boost::format( "%1%/%2%" )
                 % Environment::nextsimDataDir().string()
                 % grid_ptr->gridfile
                 ).str();
+    else
+        filename = this->getFilename(init_time, init_time);
 
     LOG(DEBUG)<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -9515,7 +9509,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             netCDF::NcVar VTHETA;
 
             // Open the datafile
-            std::string filename = getFilename(grid_ptr, init_time, init_time);
+            std::string filename = this->getFilename(init_time, init_time);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
@@ -9571,7 +9565,7 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
             netCDF::NcDim tmpDim;
 
             // Open the datafile
-            std::string filename = getFilename(grid_ptr, init_time, init_time);
+            std::string filename = this->getFilename(init_time, init_time);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
@@ -10200,5 +10194,19 @@ DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>>
     M_weights = weights;
 }
 #endif
+
+
+// ----------------------------------------------
+//! Replace 1st instance of a substring within a string with another substring
+//! Called by Dataset::getFilename()
+void
+DataSet::replaceString(std::string &subject, const std::string& search,
+                          const std::string& replace) const
+{
+    size_t const pos = subject.find(search);
+    if ( pos != std::string::npos)
+         subject.replace(pos, search.length(), replace);
+}//replaceString
+
 
 } // Nextsim
