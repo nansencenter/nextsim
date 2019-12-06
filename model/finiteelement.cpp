@@ -1549,7 +1549,7 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! Calculates the Jacobian Matrix Determinant:  measure of the normals of the element faces relative to each other.
 //! It is the determinant of the transformation from the reference triangle with vertices
 //! (0,0), (1,0) and (0,1) to an arbitrary triangle.
 //! This transformation is:
@@ -1560,7 +1560,8 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 //! Called by the flip(), measure() and shapeCoeff() functions.
 //! \note
 //! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
+//! * The Jacobian is an indicator of the distortion of the current mesh
+//!   with respect to an undistorted mesh.
 double
 FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 {
@@ -1574,8 +1575,7 @@ template<typename FEMeshType>
 double
 FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh) const
 {
-    auto const vertices = mesh.vertices(element.indices);
-    return this->jacobian(vertices);
+    return this->jacobian(mesh.vertices(element.indices));
 }//jacobian
 
 

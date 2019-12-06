@@ -1913,7 +1913,7 @@ GmshMesh::id() const
 
 
 // ------------------------------------------------
-//! return the vertices for a given element
+//! return the vertices for a given list of indices
 //! called by FiniteElement::shapeCoeff() and FiniteElement::jacobian()
 std::vector<std::vector<double>>
 GmshMesh::vertices(std::vector<int> const& indices) const
