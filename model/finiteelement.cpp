@@ -11966,6 +11966,7 @@ FiniteElement::piomasIce()
     }
 }//piomasIce
 
+
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CREG outputs.
 //! Called by the initIce() function.
@@ -12216,6 +12217,7 @@ FiniteElement::amsr2ConstThickIce()
         M_ridge_ratio[i]=0.;
     }
 }//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
+
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2 SMOS data.
@@ -13193,7 +13195,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
-//          exporter.writeField(outbin, M_connectivity_root, "Element_connectivity");
 #if defined (OASIS)
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
@@ -13235,19 +13236,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 
 // -------------------------------------------------------------------------------------
-//! Gets GitHub revision version of the model code.
-//! Called by the writeLogFile() function.
-std::string
-FiniteElement::gitRevision()
-{
-    //std::string command = "git rev-parse HEAD";
-    return this->system("git rev-parse HEAD");
-}//gitRevision
-
-
-// -------------------------------------------------------------------------------------
 //! Run a system command
-//! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
+//! Called by the createGmshMesh() function.
 std::string
 FiniteElement::system(std::string const& command)
 {
@@ -13311,10 +13301,11 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
-        logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C "  << CC_PATH << " (version "<< CC_VERSION << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C++ "  << CXX_PATH << " (version "<< CXX_VERSION << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << NEXTSIMDIR <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
@@ -13401,8 +13392,8 @@ FiniteElement::writeLogFile()
             fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
         }
     }
-
 }//writeLogFile
+
 
 // -------------------------------------------------------------------------------------
 //! Checks velocity fields and identify outliers with too high velocity. Output to DEBUG
