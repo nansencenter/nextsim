@@ -1054,7 +1054,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily",
+            dataset_frequency:"daily_atm_forecast",
 
             waveOptions: wavopt_none,
 
@@ -1191,7 +1191,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily",
+            dataset_frequency:"daily_atm_forecast",
 
             waveOptions: wavopt_none,
 
@@ -3914,7 +3914,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_forecast",
+            dataset_frequency:"daily_ocn_forecast",
 
             waveOptions: wavopt_none,
 
@@ -4171,7 +4171,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_forecast",
+            dataset_frequency:"daily_ocn_forecast",
 
             waveOptions: wavopt_none,
 
@@ -8115,7 +8115,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: true,
 
             loaded: false,
-            dataset_frequency:"daily_forecast_1file",
+            dataset_frequency:"daily_atm_forecast",
 
             waveOptions: wavopt_none,
 
@@ -8381,7 +8381,7 @@ DataSet::DataSet(char const *DatasetName)
 
             loaded: false,
 
-            dataset_frequency:"daily_forecast_1file",
+            dataset_frequency:"daily_atm_forecast",
 
             waveOptions: wavopt_none,
 
