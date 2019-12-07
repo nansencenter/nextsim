@@ -213,8 +213,6 @@ public:
     std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
     void shiftDates(double const& init_time, double const& current_time, int const& jump,
             double& new_init_time, double& ftime) const;
-    void replaceString(std::string &subject, const std::string& search,
-            const std::string& replace) const;
 
     void loadGrid(Grid *grid, double init_time, double current_time);
 

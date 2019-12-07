@@ -9072,9 +9072,9 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
     if(grid.init_time_mask != "")
     {
         std::string init_time_str = datenumToString(init_time, grid.init_time_mask);
-        this->replaceString(fmask, "INITTIME", init_time_str);
+        boost::replace_all(fmask, "INITTIME", init_time_str);
     }
-    this->replaceString(fmask, "VARNAME", variables[0].filename_prefix);
+    boost::replace_all(fmask, "VARNAME", variables[0].filename_prefix);
     
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
             % Environment::nextsimDataDir().string()
@@ -10196,19 +10196,5 @@ DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>>
     M_weights = weights;
 }
 #endif
-
-
-// ----------------------------------------------
-//! Replace 1st instance of a substring within a string with another substring
-//! Called by Dataset::getFilename()
-void
-DataSet::replaceString(std::string &subject, const std::string& search,
-                          const std::string& replace) const
-{
-    size_t const pos = subject.find(search);
-    if ( pos != std::string::npos)
-         subject.replace(pos, search.length(), replace);
-}//replaceString
-
 
 } // Nextsim
