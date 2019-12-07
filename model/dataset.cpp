@@ -4157,7 +4157,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-bINITTIME-fv02.0.nc",
-            init_time_mask: "",
+            init_time_mask: "%Y%m%d",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -9107,6 +9107,8 @@ DataSet::shiftDates(double const& init_time, double const& current_time,
     if(grid.init_time_mask != "")
     {
         //forecast files depend on start date of forecast
+        //but can't have init time after current time
+        //eg in case of jump=-1
         if(ftime<init_time)
             new_init_time = std::floor(ftime);
         return;

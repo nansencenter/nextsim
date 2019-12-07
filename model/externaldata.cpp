@@ -680,7 +680,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     //   the "current day" (ftime+jump)
                     // NB jump is in days for these datasets
                     init_time_fc = std::floor(ftime+jump);
-                filename = dataset->getFilename(init_time_fc, ftime+jump);
+                filename = dataset->getFilename(init_time_fc, ftime, jump);
             }
             else
                 filename = dataset->getFilename(init_time, ftime, jump);
