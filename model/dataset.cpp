@@ -6465,7 +6465,7 @@ DataSet::DataSet(char const *DatasetName)
 
             waveOptions: wavopt_none,
 
-             masking: false
+            masking: false
         };
 
         Variable z={
