@@ -797,14 +797,14 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index=index_fstep[fstep];
 
             // Replace the "prefix" if we have one variable per file
-            if ( dataset->variables[j].filename_prefix != "" )
+            if ( dataset->variables[j].filename_string != "" )
             {
                 //for safety, we don't try to replace inside the parent directory
                 auto fpath = boost::filesystem::path(filename);
                 auto basedir = fpath.parent_path();
                 auto basename = fpath.filename().string();
-                boost::replace_all(basename, variables[0].filename_prefix,
-                        variables[j].filename_prefix);
+                boost::replace_all(basename, variables[0].filename_string,
+                        variables[j].filename_string);
                 filename = (boost::format( "%1%/%2%" )
                             % basedir.string()
                             % basename).str();
