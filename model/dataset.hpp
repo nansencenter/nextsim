@@ -136,7 +136,6 @@ public:
         int interp_type;
         std::string dirname;
         std::string filename_mask;
-        std::string init_time_mask;
         std::string gridfile;
         std::string reference_date;
 

@@ -173,7 +173,6 @@ DataSet::DataSet(char const *DatasetName)
 
             dirname:"",
             filename_mask: "asr30km.comb.2D.%Y%m.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1901-01-01",
 
@@ -316,7 +315,6 @@ DataSet::DataSet(char const *DatasetName)
 
             dirname:"",
             filename_mask: "asr30km.comb.2D.%Y%m.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1901-01-01",
 
@@ -612,7 +610,6 @@ DataSet::DataSet(char const *DatasetName)
 
             dirname:"",
             filename_mask: "ec2_arome_blended_%Y%m%d.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -752,7 +749,6 @@ DataSet::DataSet(char const *DatasetName)
 
             dirname:"",
             filename_mask: "ec2_arome_blended_%Y%m%d.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1039,8 +1035,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            filename_mask: "ec2_arome_blended_ensemble_INITTIME.nc",
-            init_time_mask:"%Y%m%d",
+            filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1176,8 +1171,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"",
-            filename_mask: "ec2_arome_blended_ensemble_INITTIME.nc",
-            init_time_mask:"%Y%m%d",
+            filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1490,7 +1484,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "TP4DAILY_%Y%m_30m.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -1695,7 +1688,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "TP4DAILY_%Y%m_3m.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -1903,7 +1895,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "coupler",
             filename_mask: "NEMO.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2105,7 +2096,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "coupler",
             filename_mask: "NEMO.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2289,7 +2279,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "coupler",
             filename_mask: "NEMO.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2491,7 +2480,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "coupler",
             filename_mask: "NEMO.nc",
-            init_time_mask:"",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2650,7 +2638,6 @@ DataSet::DataSet(char const *DatasetName)
             filename_mask: "nesting_"
                +Environment::vm()["nesting.outer_mesh"].as<std::string>()
                +"_%Y%m%d.nc",
-            init_time_mask:"",
             gridfile: "nesting_grid_"
                 +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                 +".nc",
@@ -2889,7 +2876,6 @@ DataSet::DataSet(char const *DatasetName)
                 filename_mask: "nesting_"
                    +Environment::vm()["nesting.outer_mesh"].as<std::string>()
                    +"_%Y%m%d.nc",
-                init_time_mask:"",
                 gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3076,7 +3062,6 @@ DataSet::DataSet(char const *DatasetName)
               filename_mask: "nesting_"
                    +Environment::vm()["nesting.outer_mesh"].as<std::string>()
                    +"_%Y%m%d.nc",
-              init_time_mask:"",
               gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3301,7 +3286,6 @@ DataSet::DataSet(char const *DatasetName)
             filename_mask: "nesting_"
                    +Environment::vm()["nesting.outer_mesh"].as<std::string>()
                    +"_%Y%m%d.nc",
-            init_time_mask:"",
             gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3472,7 +3456,6 @@ DataSet::DataSet(char const *DatasetName)
             filename_mask: "nesting_"
                    +Environment::vm()["nesting.outer_mesh"].as<std::string>()
                    +"_%Y%m%d.nc",
-            init_time_mask:"",
             gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3591,7 +3574,6 @@ DataSet::DataSet(char const *DatasetName)
             filename_mask: "nesting_grid_"
                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                    +".nc",
-            init_time_mask:"",
             gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3708,7 +3690,6 @@ DataSet::DataSet(char const *DatasetName)
             filename_mask: "nesting_grid_"
                    +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                    +".nc",
-            init_time_mask:"",
             gridfile: "nesting_grid_"
                     +Environment::vm()["nesting.inner_mesh"].as<std::string>()
                     +".nc",
@@ -3899,8 +3880,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-bINITTIME-fv02.0.nc",
-            init_time_mask:"%Y%m%d",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b${INITTIME}-fv02.0.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4156,8 +4136,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-bINITTIME-fv02.0.nc",
-            init_time_mask: "%Y%m%d",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b${INITTIME}-fv02.0.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4353,7 +4332,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "TP4DAILY_%Y%m_3m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4535,7 +4513,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "PIOMAS_%Y.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4721,7 +4698,6 @@ DataSet::DataSet(char const *DatasetName)
 
             dirname:"",
             filename_mask: "current_%Y.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4874,7 +4850,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "asi-n6250-%Y%m%d-v5i.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "2002-01-01",
 
@@ -5036,7 +5011,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "ice_conc_nh_polstere%Y%m%d1200.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "1978-01-01",
 
@@ -5181,7 +5155,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "ice_type_nh_polstere-100_multi_%Y%m%d1200.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "1978-01-01",
 
@@ -5325,7 +5298,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "SMOS_Icethickness_v3.1_north_%Y%m%d.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "2010-01-01",
 
@@ -5461,7 +5433,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "cs2_smos_ice_thickness_%Y%m%d-fv2p0.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -5623,7 +5594,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "Arc_%Y%m%d_res3.125_pyres.nc",
-            init_time_mask: "",
             gridfile: "LongitudeLatitudeGrid_3.125km_Arctic.nc",//older AMSR2 files don't have lon,lat inside them
             reference_date: "0001-01-01",
 
@@ -5785,7 +5755,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "NIC_weekly_%Y%m%d_res3.125_pyres.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "0001-01-01",
 
@@ -5947,7 +5916,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "NIC_%Y%m%d_res3.125_pyres.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "0001-01-01",
 
@@ -6063,7 +6031,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "icesat_icethk_ON06_filled.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6213,7 +6180,6 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             filename_mask: "CREG025_icemod.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6320,7 +6286,6 @@ DataSet::DataSet(char const *DatasetName)
             dirname:"",
             filename_mask: "dist2coast_4deg.nc",
             //filename_mask: "dist2coast_1deg.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6447,7 +6412,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "ETOPO_Arctic_2arcmin.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date: "",
 
@@ -6572,7 +6536,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "cfsr.6h.%Y%m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -6836,7 +6799,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "cfsr.6h.%Y%m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -7020,7 +6982,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "cfsr_h.sh.%Y%m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1901-01-01",
 
@@ -7205,7 +7166,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "erai.6h.%Y%m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7468,7 +7428,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "erai.6h.%Y%m.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7653,7 +7612,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "ERA5_VARNAME_y%Y.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -7916,7 +7874,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "ERA5_VARNAME_y%Y.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -8100,8 +8057,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ec2_startINITTIME.nc",
-            init_time_mask: "%Y%m%d",
+            filename_mask: "ec2_start${INITTIME}.nc",
             gridfile: "",
             reference_date:"1950-01-01",//"2008-01-01";
 
@@ -8365,8 +8321,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ec2_startINITTIME.nc",
-            init_time_mask: "%Y%m%d",
+            filename_mask: "ec2_start${INITTIME}.nc",
             gridfile: "",
             reference_date:"1950-01-01",
 
@@ -8684,7 +8639,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "SWARP_WW3_ARCTIC-12K_%Y%m%d.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1990-01-01",
 
@@ -8824,7 +8778,6 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"",
             filename_mask: "erai_waves_1deg_%Y.nc",
-            init_time_mask: "",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -9069,11 +9022,8 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
         throw std::runtime_error("getFilename: current time < 0");
 
     std::string fmask = grid.filename_mask;
-    if(grid.init_time_mask != "")
-    {
-        std::string init_time_str = datenumToString(init_time, grid.init_time_mask);
-        boost::replace_all(fmask, "INITTIME", init_time_str);
-    }
+    boost::replace_all(fmask, "${INITTIME}",
+            datenumToString(init_time, "%Y%m%d"));
     boost::replace_all(fmask, "VARNAME", variables[0].filename_prefix);
     
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
@@ -9104,7 +9054,9 @@ DataSet::shiftDates(double const& init_time, double const& current_time,
 {
     ftime = current_time + jump;//daily files
     new_init_time = init_time;
-    if(grid.init_time_mask != "")
+
+    if(grid.dataset_frequency == "daily_atm_forecast"
+        || grid.dataset_frequency == "daily_ocn_forecast")
     {
         //forecast files depend on start date of forecast
         //but can't have init time after current time
