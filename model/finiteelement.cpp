@@ -4796,8 +4796,9 @@ FiniteElement::update()
                 }
 
                 sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
-                M_sigma[i][cpt]   = is_ice ? sigma[i]  : 0.;
+                sigma[i]          = is_ice ? sigma[i]  : 0.;
                 D_sigma_p[i][cpt] = is_ice ? sigma_p_i : 0.;//diagnostic
+                M_sigma[i][cpt]   = sigma[i];
             }
 
             /*======================================================================
