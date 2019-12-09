@@ -686,6 +686,7 @@ FiniteElement::assignVariables()
 
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
+    D_coef_sigma_p.resize(M_num_elements);
 }//assignVariables
 
 
@@ -4221,16 +4222,18 @@ FiniteElement::assemble(int pcpt)
         double coef_P = 0;
         if(M_divergence[cpt] < 0.)
         {
-            coef_P = compression_factor*std::pow(M_thick[cpt],exponent_compression_factor)*std::exp(ridging_exponent*(1-M_conc[cpt]));
-            coef_P = coef_P/(std::abs(M_divergence[cpt])+divergence_min);
+            coef_P = compression_factor
+                *std::pow(M_thick[cpt],exponent_compression_factor)
+                *std::exp(ridging_exponent*(1-M_conc[cpt]))
+                /(std::abs(M_divergence[cpt])+divergence_min);
         }
         /* We should consider using the norm of Dunit * epsilon_veloc
          *
          * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
          *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
-         *           M_dunit_comp[i+2]*epsilon_veloc[2]);
+         *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
          */
-        D_pressure[cpt] = coef_P * M_divergence[cpt];
+        D_coef_sigma_p[cpt] = coef_P;//used in update to calculate D_sigma_p
 
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
@@ -4609,7 +4612,6 @@ FiniteElement::update()
         std::vector<double> epsilon_veloc(3);
 
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
@@ -4784,17 +4786,18 @@ FiniteElement::update()
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
-                sigma_dot_i = 0.0;
+                double sigma_dot_i = 0.0;
+                double sigma_p_i = 0.;
+                bool const is_ice = M_conc[cpt] > vm["dynamics.min_c"].as<double>();
                 for(int j=0;j<3;j++)
                 {
                     sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
-                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
-
-                M_sigma[i][cpt] = sigma[i];
-
+                M_sigma[i][cpt]   = is_ice ? sigma[i]  : 0.;
+                D_sigma_p[i][cpt] = is_ice ? sigma_p_i : 0.;//diagnostic
             }
 
             /*======================================================================
@@ -7426,8 +7429,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
-    D_pressure = ModelVariable(ModelVariable::variableID::D_pressure);//! \param D_dcrit (double) How far outside the M-C envelope are we?
-    M_variables_elt.push_back(&D_pressure);
+    D_sigma_p.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
+    for(int k=0; k<D_sigma_p.size(); k++)
+    {
+        D_sigma_p[k] = ModelVariable(ModelVariable::variableID::D_sigma_p, k);
+        M_variables_elt.push_back(&(D_sigma_p[k]));
+    }
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -10769,7 +10776,8 @@ FiniteElement::checkConsistency()
 
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
-        D_pressure[i] = 0;
+        for(int j=0; j<3; j++)
+            D_sigma_p[j][i] = 0;
     }
 
 #ifdef OASIS
