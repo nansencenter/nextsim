@@ -81,6 +81,7 @@ public:
         M_conc_mech_fsd = 20,
         M_cum_damage    = 21,
         M_cum_wave_damage=22,
+        M_divergence    = 23,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -107,6 +108,7 @@ public:
         D_Qassim     = 121,
         D_fwflux_ice = 122,
         D_dcrit      = 123,
+        D_sigma_p    = 124,
     };
 
 

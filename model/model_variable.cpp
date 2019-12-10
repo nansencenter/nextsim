@@ -328,6 +328,19 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
 
+        case (variableID::M_divergence):
+            // update of concentration by assimilation
+            M_name = "M_divergence";
+            M_export_name = "Divergence";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_max = true;
+            M_max_val = 0.;
+            break;
+
         case (variableID::M_conc_upd):
             // update of concentration by assimilation
             M_name = "M_conc_upd";
@@ -540,6 +553,22 @@ ModelVariable::initElemental()
             M_export_name = "d_crit";
             M_prognostic = false;
             M_exporting = true;
+            break;
+
+        case (variableID::D_sigma_p):
+            // stress tensor originally based on the "pressure" term
+            // of Rampal et al (2016)
+            // - now it is more of a visco-plastic term
+            //   - viscous for small deformations
+            //   - plastic (independent of strain rate) for large deformations
+            M_name = "D_sigma_p";
+            M_export_name = "D_sigma_p";
+            M_prognostic = false;
+            M_exporting = true;
+            if(M_component_number<0 || M_component_number>2)
+                throw std::runtime_error(
+                        "Unauthorised component number for D_sigma_p: "
+                        +std::to_string(M_component_number));
             break;
 
         default:
