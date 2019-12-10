@@ -686,6 +686,7 @@ FiniteElement::assignVariables()
 
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
+    D_coef_sigma_p.resize(M_num_elements);
 }//assignVariables
 
 
@@ -1929,7 +1930,8 @@ FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) c
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
-    for (int k=0; k<3; ++k)
+
+    for (int k=0; k<6; ++k)
     {
         int const kp1 = (k+1)%3;
         int const kp2 = (k+2)%3;
@@ -3913,32 +3915,29 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Identical values for all the elements -----------
     // coriolis term
-    double beta0 = 0.;
-    double beta1 = 0.;
-    double beta2 = 0.;
-    if (vm["dynamics.use_coriolis"].as<bool>())
+    double beta0;
+    double beta1;
+    double beta2;
+    if (pcpt > 1)
     {
-        if (pcpt > 1)
-        {
-            // Adams-Bashfort 3 (AB3)
-            beta0 = 23./12;
-            beta1 =-16./12;
-            beta2 =  5./12;
-        }
-        else if (pcpt == 1)
-        {
-            // Adams-Bashfort 2 (AB2)
-            beta0 = 3/2;
-            beta1 =-1/2;
-            beta2 = 0  ;
-        }
-        else if (pcpt == 0)
-        {
-            // Euler explicit (Fe)
-            beta0 = 1 ;
-            beta1 = 0 ;
-            beta2 = 0 ;
-        }
+        // Adams-Bashfort 3 (AB3)
+        beta0 = 23./12;
+        beta1 =-16./12;
+        beta2 =  5./12;
+    }
+    else if (pcpt == 1)
+    {
+        // Adams-Bashfort 2 (AB2)
+        beta0 = 3/2;
+        beta1 =-1/2;
+        beta2 = 0  ;
+    }
+    else if (pcpt == 0)
+    {
+        // Euler explicit (Fe)
+        beta0 = 1 ;
+        beta1 = 0 ;
+        beta2 = 0 ;
     }
 
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
@@ -4079,10 +4078,10 @@ FiniteElement::assemble(int pcpt)
 
             coef = (coef<coef_min) ? coef_min : coef ;
 
-            // Mass of the element is the mass of the thin+thick ice,
-            // the snow and the water in the leads.
-            // This works out to the following (Rampal et al, 2016)
-            mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
+            if (vm["dynamics.use_coriolis"].as<bool>())
+                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
+            else
+                mass_e = 0.;
 
             /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
@@ -4097,12 +4096,12 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
-        }//ice present
+            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;               /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
+            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+        }
 
         std::vector<int> rindices(6); //new
         std::vector<int> cindices(6);
@@ -4142,16 +4141,18 @@ FiniteElement::assemble(int pcpt)
         double coef_P = 0;
         if(M_divergence[cpt] < 0.)
         {
-            coef_P = compression_factor*std::pow(M_thick[cpt],exponent_compression_factor)*std::exp(ridging_exponent*(1-M_conc[cpt]));
-            coef_P = coef_P/(std::abs(M_divergence[cpt])+divergence_min);
+            coef_P = compression_factor
+                *std::pow(M_thick[cpt],exponent_compression_factor)
+                *std::exp(ridging_exponent*(1-M_conc[cpt]))
+                /(std::abs(M_divergence[cpt])+divergence_min);
         }
         /* We should consider using the norm of Dunit * epsilon_veloc
          *
          * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
          *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
-         *           M_dunit_comp[i+2]*epsilon_veloc[2]);
+         *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
          */
-        D_pressure[cpt] = coef_P * M_divergence[cpt];
+        D_coef_sigma_p[cpt] = coef_P;//used in update to calculate D_sigma_p
 
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
@@ -4159,7 +4160,8 @@ FiniteElement::assemble(int pcpt)
             /*
              * Index j is used in 2 ways:
              * - in the matrix (data) to be inverted it corresponds to the columns
-             *   (2*l_j, 2*l_j+1) in the matrix
+             *   col = (2*l_j, 2*l_j+1) in the matrix;
+             *   col = (mwIndex)it[2*j]-1, with the -1 added to use the indexing convention of C
              * - in the forcing vector (fvdata), it is used in the numerical quadrature
              *   of some integrals over the element
              * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
@@ -4194,7 +4196,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multiply with rho and mask out no-ice points
+            // Multply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4206,93 +4208,85 @@ FiniteElement::assemble(int pcpt)
             D_tau_a[index_v] = coef_Vair * (vt_v-wind_v);
 
             /* Skip ghost nodes */
-            if ((M_elements[cpt]).ghostNodes[j])
-                continue;
-
-            l_j = l_j + 1;
-            for(int i=0; i<3; i++)
+            if (!((M_elements[cpt]).ghostNodes[j]))
             {
-                /* Row corresponding to indice i (we also assemble terms in row+1) */
+                l_j = l_j + 1;
 
-                /* Select the nodal weight values from M_loc */
-                mloc = M_Mass[3*j+i];
-                dloc = M_Diag[3*j+i];
-
-                b0tj_sigma_hu = 0.;
-                b0tj_sigma_hv = 0.;
-
-                for(int k=0; k<3; k++)
+                for(int i=0; i<3; i++)
                 {
-                    b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
-                    b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
-                }
+                    /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                /* ---------- UU component */
+                    /* Select the nodal weight values from M_loc */
+                    mloc = M_Mass[3*j+i];
+                    dloc = M_Diag[3*j+i];
 
-                duu = surface_e*( mloc*(coef_V)
-                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                  +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
+                    b0tj_sigma_hu = 0.;
+                    b0tj_sigma_hv = 0.;
 
-                /* ---------- VU component */
-                dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
+                    for(int k=0; k<3; k++)
+                    {
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                    }
 
-                /* ---------- UV component */
-                duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
+                    /* ---------- UU component */
+                    duu = surface_e*( mloc*(coef_V)
+                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                      +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
 
-                /* ---------- VV component */
-                dvv = surface_e*( mloc*(coef_V)
-                                  +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                  +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
-                                  +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
+                    /* ---------- VU component */
+                    dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
 
-                data[(2*l_j  )*6+2*i  ] = duu;
-                data[(2*l_j+1)*6+2*i  ] = dvu;
-                data[(2*l_j  )*6+2*i+1] = duv;
-                data[(2*l_j+1)*6+2*i+1] = dvv;
+                    /* ---------- UV component */
+                    duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
 
-                fvdata[2*i] += surface_e*( mloc*(
-                                                 +coef_X
-                                                 +coef_V*vt_u
-                                                 +coef_C*Vcor_index_v
-                                                 )
-                                           +dloc*(
-                                                  +coef_Vair*wind_u
-                                                  +coef_Voce*cos_ocean_turning_angle*ocean_u
-                                                  -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
-                                                  )
-                                           - b0tj_sigma_hu/3
-                                           // NB we are inside a j loop and b0tj_sigma_hu
-                                           // is independent of j, so we do this step 3 times,
-                                           // which is why we have to divide by 3
-                                           );
+                    /* ---------- VV component */
+                    dvv = surface_e*( mloc*(coef_V)
+                                      +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
+                                      +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
 
-                fvdata[2*i+1] += surface_e*( mloc*(
-                                                   +coef_Y
-                                                   +coef_V*vt_v
-                                                   -coef_C*Vcor_index_u
-                                                   )
-                                             +dloc*(
-                                                    +coef_Vair*wind_v
-                                                    +coef_Voce*cos_ocean_turning_angle*ocean_v
-                                                    +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
-                                                    )
-                                             - b0tj_sigma_hv/3
-                                             // NB we are inside a j loop and b0tj_sigma_hv
-                                             // is independent of j, so we do this step 3 times,
-                                             // which is why we have to divide by 3
-                                             );
+                    data[(2*l_j  )*6+2*i  ] = duu;
+                    data[(2*l_j+1)*6+2*i  ] = dvu;
+                    data[(2*l_j  )*6+2*i+1] = duv;
+                    data[(2*l_j+1)*6+2*i+1] = dvv;
+
+                    fvdata[2*i] += surface_e*( mloc*(
+                                                     +coef_X
+                                                     +coef_V*vt_u
+                                                     +coef_C*Vcor_index_v
+                                                     )
+                                               +dloc*(
+                                                      +coef_Vair*wind_u
+                                                      +coef_Voce*cos_ocean_turning_angle*ocean_u
+                                                      -coef_Voce*sin_ocean_turning_angle*(ocean_v-vt_v)
+                                                      )
+                                               - b0tj_sigma_hu/3);
+
+                    fvdata[2*i+1] += surface_e*( mloc*(
+                                                       +coef_Y
+                                                       +coef_V*vt_v
+                                                       -coef_C*Vcor_index_u
+                                                       )
+                                                 +dloc*(
+                                                        +coef_Vair*wind_v
+                                                        +coef_Voce*cos_ocean_turning_angle*ocean_v
+                                                        +coef_Voce*sin_ocean_turning_angle*(ocean_u-vt_u)
+                                                        )
+                                                 - b0tj_sigma_hv/3);
 #ifdef OASIS
-                if( coupler_with_waves )
-                {
-                    fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
-                    fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
-                }
+                    if( coupler_with_waves )
+                    {
+                        fvdata[2*i]   += surface_e*mloc*forcing_switch*M_tau_wi[index_u];
+                        fvdata[2*i+1] += surface_e*mloc*forcing_switch*M_tau_wi[index_v];
+                    }
 #endif
-            }//loop over i
-        }//loop over j
+                }
+            }
+        }
 
         // update matrix
         M_matrix->addMatrix(&rindices[0], rindices.size(), &cindices[0], cindices.size(), &data[0]);
@@ -4300,7 +4294,8 @@ FiniteElement::assemble(int pcpt)
         // update vector
         M_vector->addVector(&cindices[0], cindices.size(), &fvdata[0]);
 
-    }//loop over elements
+
+    }
 
     // close petsc matrix
     LOG(DEBUG) <<"Closing matrix starts\n";
@@ -4413,7 +4408,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stiffness' for the pressure term
+    // 'Stifness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4435,18 +4430,6 @@ FiniteElement::FETensors()
     M_B0_Dunit_B0T.resize(M_num_elements);
     M_B0_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
-    //! B0T is a 3x6 matrix
-    //! - rows correspond to the 3 strain rate components,
-    //!   [u_x, v_y, u_y+v_x];
-    //! - columns correspond to the velocity components at the 3 nodes
-    //!   [u0, v0, u1, v1, u2, v2]
-    //! - shape_coeff contains the x,y derivatives of the 3 basis functions
-    //!   [[N0_x, N1_x, N2_x],
-    //!    [N0_y, N1_y, N2_y]]
-    //! - B0T has elements:
-    //!   [ [N0_x, 0   , N1_x, 0   , N2_x, 0   ],
-    //!     [0   , N0_y, 0   , N1_y, 0   , N2_y],
-    //!     [N0_y, N0_x, N1_y, N1_x, N2_y, N2_x] ]
 
     std::vector<double> B0T(18,0);
     std::vector<double> B0_Dunit_B0T(36,0);
@@ -4457,12 +4440,18 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
-        for (int i=0; i<3; ++i)
+        for (int i=0; i<18; ++i)
         {
-            B0T[2*i]    = shapecoeff[i];
-            B0T[7+2*i]  = shapecoeff[i+3];
-            B0T[12+2*i] = shapecoeff[i+3];
-            B0T[13+2*i] = shapecoeff[i];
+            if (i < 3)
+            {
+                B0T[2*i] = shapecoeff[i];
+                B0T[12+2*i] = shapecoeff[i+3];
+                B0T[13+2*i] = shapecoeff[i];
+            }
+            else if (i < 6)
+            {
+                B0T[2*i+1] = shapecoeff[i];
+            }
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
@@ -4548,7 +4537,6 @@ FiniteElement::update()
         std::vector<double> epsilon_veloc(3);
 
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
@@ -4723,17 +4711,19 @@ FiniteElement::update()
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
-                sigma_dot_i = 0.0;
+                double sigma_dot_i = 0.0;
+                double sigma_p_i = 0.;
+                bool const is_ice = M_conc[cpt] > vm["dynamics.min_c"].as<double>();
                 for(int j=0;j<3;j++)
                 {
                     sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
-                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
-
-                M_sigma[i][cpt] = sigma[i];
-
+                sigma[i]          = is_ice ? sigma[i]  : 0.;
+                D_sigma_p[i][cpt] = is_ice ? sigma_p_i : 0.;//diagnostic
+                M_sigma[i][cpt]   = sigma[i];
             }
 
             /*======================================================================
@@ -7365,8 +7355,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
-    D_pressure = ModelVariable(ModelVariable::variableID::D_pressure);//! \param D_dcrit (double) How far outside the M-C envelope are we?
-    M_variables_elt.push_back(&D_pressure);
+    D_sigma_p.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
+    for(int k=0; k<D_sigma_p.size(); k++)
+    {
+        D_sigma_p[k] = ModelVariable(ModelVariable::variableID::D_sigma_p, k);
+        M_variables_elt.push_back(&(D_sigma_p[k]));
+    }
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -10708,7 +10702,8 @@ FiniteElement::checkConsistency()
 
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
-        D_pressure[i] = 0;
+        for(int j=0; j<3; j++)
+            D_sigma_p[j][i] = 0;
     }
 
 #ifdef OASIS

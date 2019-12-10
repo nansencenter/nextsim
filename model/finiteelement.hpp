@@ -797,14 +797,16 @@ private:
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
-    ModelVariable D_pressure; // Pressure from pure bi-axial convergennce
+    std::vector<ModelVariable> D_sigma_p; // Visco-plastic stress term ("pressure term")
+                                          //   that is turned on in convergent conditions
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
     std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
-
+    std::vector<double> D_coef_sigma_p; // D_sigma_p = D_coef_sigma_p*M_Dunit_comp*epsilon_veloc
+                                        // - for visco-plastic stress term ("pressure term")
 
 private:
     // Variables for the moorings

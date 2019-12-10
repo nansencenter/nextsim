@@ -555,13 +555,20 @@ ModelVariable::initElemental()
             M_exporting = true;
             break;
 
-        case (variableID::D_pressure):
-            // diagnostic variable to tell use how far outside the
-            // Mohr-Coulomb envelope we are
-            M_name = "D_pressure";
-            M_export_name = "Pressure";
+        case (variableID::D_sigma_p):
+            // stress tensor originally based on the "pressure" term
+            // of Rampal et al (2016)
+            // - now it is more of a visco-plastic term
+            //   - viscous for small deformations
+            //   - plastic (independent of strain rate) for large deformations
+            M_name = "D_sigma_p";
+            M_export_name = "D_sigma_p";
             M_prognostic = false;
             M_exporting = true;
+            if(M_component_number<0 || M_component_number>2)
+                throw std::runtime_error(
+                        "Unauthorised component number for D_sigma_p: "
+                        +std::to_string(M_component_number));
             break;
 
         default:
