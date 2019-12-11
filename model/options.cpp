@@ -450,6 +450,8 @@ namespace Nextsim
                 "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+                "specify the time resolution in hours here if want to change from 6")
 
 
              //-----------------------------------------------------------------------------------
