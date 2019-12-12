@@ -960,7 +960,8 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
-        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+        LOG(DEBUG) <<"checkReloadDatasets for variable "
+            << i << ": " << (*it)->getVariableName()
             << " of dataset " << (*it)->getDatasetName() << "\n";
 
         M_timer.tick((*it)->getDatasetName());

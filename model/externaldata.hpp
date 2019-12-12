@@ -100,8 +100,18 @@ public:
 
 	bool isInitialized() const { return M_initialized; }
 
-    std::string getDatasetName() const { return M_dataset->name; }
-    std::string getVariableName() const { return M_dataset->variables[M_VariableId].name; }
+    std::string getDatasetName() const {
+        if(!M_is_constant)
+            return M_dataset->name;
+        else
+            return "constant";
+    }
+    std::string getVariableName() const {
+        if(!M_is_constant)
+            return M_dataset->variables[M_VariableId].name;
+        else
+            return "constant";
+    }
 
 private:
     double fdt;
