@@ -19,13 +19,16 @@ ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
 
-model: core modules
+docker: core modules
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
-core: contrib
+model: core modules contrib
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
+
+core:
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
-clean: cleanmodel
+clean: cleandocker
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
 ifdef USE_OASIS
