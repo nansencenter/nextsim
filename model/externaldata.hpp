@@ -101,16 +101,14 @@ public:
 	bool isInitialized() const { return M_initialized; }
 
     std::string getDatasetName() const {
-        if(!M_is_constant)
-            return M_dataset->name;
-        else
+        if(M_is_constant)
             return "constant";
+        return M_dataset->name;
     }
     std::string getVariableName() const {
-        if(!M_is_constant)
-            return M_dataset->variables[M_VariableId].name;
-        else
+        if(M_is_constant)
             return "constant";
+        return M_dataset->variables[M_VariableId].name;
     }
 
 private:
