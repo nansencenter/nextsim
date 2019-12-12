@@ -212,6 +212,10 @@ public:
     Dataset M_ocean_nodes_dataset;
     Dataset M_ocean_elements_dataset;
     Dataset M_bathymetry_elements_dataset;
+#ifdef OASIS
+    Dataset M_wave_nodes_dataset;
+    Dataset M_wave_elements_dataset;
+#endif
 
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
@@ -255,12 +259,14 @@ public:
     void initBamg();
     void initOptAndParam();
     template<typename enum_type>
-    void getOptionFromMap(enum_type &opt_val, std::string const &opt_name,
-        boost::unordered_map<const std::string, enum_type> map) const;
-    void initDrifterOpts();
+    enum_type getOptionFromMap(std::string const &opt_name,
+        boost::unordered_map<const std::string, enum_type> map);
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
+#ifdef OASIS
+    void forcingWaves();
+#endif
     void forcingNesting();
     void initBathymetry();
 
@@ -269,7 +275,6 @@ public:
     void initIce();
     void checkConsistency();
     void initSlabOcean();
-    void updateDrifterPosition();
 
     void calcCoriolis();
     //void timeInterpolation(int step);
@@ -286,6 +291,10 @@ public:
     void initModelState();
     void DataAssimilation();
     void FETensors();
+    void compute_B0_Dunit_B0T(std::vector<double>& Dunit,
+                               std::vector<double>& B0T,
+                               std::vector<double>& B0_Dunit_B0T);
+
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -296,6 +305,19 @@ public:
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
     int globalNumToprocId(int global_num);
+
+#ifdef OASIS
+    // FSD related functions
+    void initFsd();
+    void redistributeFSD();
+    void updateFSD();
+    std::vector<double> computeWaveBreakingProb();
+    double computeLateralAreaFSD(const int cpt);
+    double computeLeadFractionFSD(const int cpt);
+    void weldingRoach(const int cpt, double ddt);
+    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
+    double lateralMeltFSD(const int i,double ddt) ;
+#endif
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -309,8 +331,6 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
-    void restartIabpDrifters(boost::unordered_map<std::string, std::vector<int>> & field_map_int,
-            boost::unordered_map<std::string, std::vector<double>> & field_map_dbl);
     void partitionMeshRestart();
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
@@ -329,7 +349,6 @@ public:
     void finalise(std::string current_time_system);
 
 public:
-    std::string gitRevision();
     std::string system(std::string const& command);
     std::string getEnv(std::string const& envname);
     void writeLogFile();
@@ -434,6 +453,10 @@ private:
     setup::MeshType M_mesh_type;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
+    //fsd related
+    setup::WeldingType M_welding_type    ;
+    setup::BreakupType M_breakup_type    ;
+    setup::FSDType M_fsd_type    ;
 
     bool M_flooding;
 
@@ -474,6 +497,13 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
+#ifdef OASIS
+    ExternalData M_tau_wi;
+//    ExternalData M_str_var;
+//    ExternalData M_tm02;
+    ExternalData M_wlbk;
+#endif
+
     external_data_vec M_external_data_elements, M_external_data_nodes;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
@@ -493,13 +523,13 @@ private:
     std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
-    //std::vector<double> M_Dunit_comp;
+    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -527,7 +557,7 @@ private:
     double young;
     double rhoi;
     double rhos;
-    double days_in_sec;
+    double const days_in_sec  = 86400.;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -604,6 +634,7 @@ private: // only on root process (rank 0)
 
     //std::vector<double> M_UM_root;
     std::vector<double> M_surface_root;
+    std::vector<int> M_connectivity_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
 
@@ -669,47 +700,8 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    bool M_use_drifters;
-
-    //! vector of pointers to the ordinary (non-IABP) drifters
-    std::vector<Drifters*> M_ordinary_drifters;
-    double M_drifters_time_init;
-
-    // also needed for the drifters
-    std::vector<double> M_UT_root;
-    std::vector<double> M_UM_root;
-    std::vector<double> M_conc_root;
-
-    // IABP drifters
-    bool M_use_iabp_drifters;
-    double M_iabp_drifters_input_time_step;
-    double M_iabp_drifters_output_time_step;
-    std::vector<double> M_iabp_conc;
-    boost::unordered_map<int, std::array<double,2>> M_iabp_drifters; // Drifters are kept in an unordered map containing number and coordinates
-    std::fstream M_iabp_infile_fstream; // The file we read the IABP buoy data from
-    std::string M_iabp_outfile;         // The file we write our simulated drifter positions into
-
-    // Drifters on a grid
-    bool M_use_equally_spaced_drifters;
-    double M_equally_spaced_drifters_output_time_step;
-    Drifters M_equally_spaced_drifters;
-
-    // Drifters as in the RGPS data
-    bool M_use_rgps_drifters;
-    double M_rgps_time_init;
-    std::string M_rgps_file;
-    double M_rgps_drifters_output_time_step;
-    Drifters M_rgps_drifters;
-
-    // Drifters for SIDFEX forecast
-    double M_sidfex_drifters_output_time_step;
-    bool M_use_sidfex_drifters;
-    Drifters M_sidfex_drifters;
-
-    // drifters for the OSISAF emulation
-    bool M_use_osisaf_drifters;
-    double M_osisaf_drifters_output_time_step;
-    std::vector<Drifters> M_osisaf_drifters;
+    std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
+    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
@@ -727,6 +719,10 @@ private:
     ModelVariable M_conc;               // Ice concentration
     ModelVariable M_thick;              // Effective ice thickness [m]
     ModelVariable M_damage;             // Ice damage
+#ifdef OASIS
+    ModelVariable M_cum_damage;         // Ice cumulated damage
+    ModelVariable M_cum_wave_damage;    // Ice cumulated damage due to wave
+#endif
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
@@ -741,7 +737,54 @@ private:
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
-    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
+    ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_divergence;         // Divergence (used by the pressure term)
+
+#ifdef OASIS
+    // Following variables are related to floe size distribution
+    std::vector<ModelVariable> M_conc_fsd;
+    //std::vector<ModelVariable> M_conc_fsd_thick;
+    //std::vector<ModelVariable> M_conc_fsd_thin ;
+    std::vector<ModelVariable> M_conc_mech_fsd;
+    int M_num_fsd_bins;
+    std::vector<double> M_fsd_bin_widths;
+    double M_fsd_bin_cst_width;
+    double M_fsd_min_floe_size;
+    std::vector<double> M_fsd_bin_centres;
+    std::vector<double> M_fsd_bin_low_limits;
+    std::vector<double> M_fsd_bin_up_limits;
+    double M_fsd_unbroken_floe_size     ;
+    // Non-circularity of floes
+    double M_floe_shape                              ;
+    // Lettie's variables
+    std::vector<double> M_floe_area_up             ;
+    std::vector<double> M_floe_area_low            ;
+    std::vector<double> M_floe_area_centered       ;
+    std::vector<double> M_floe_area_binwidth       ;
+
+    std::vector<double> M_fsd_area_scaled_up       ;
+    std::vector<double> M_fsd_area_scaled_low      ;
+    std::vector<double> M_fsd_area_scaled_centered ;
+    std::vector<double> M_fsd_area_scaled_binwidth ;
+    std::vector<double> M_fsd_area_lims            ;
+    std::vector<double> M_fsd_area_lims_scaled     ;
+
+    std::vector<std::vector<int> > M_alpha_fsd_merge ;
+    // In namelist
+    bool   M_distinguish_mech_fsd             ;
+    bool   M_debug_fsd                        ;
+    int    M_fsd_damage_type                  ;
+    double M_floes_flex_strength              ;
+    double M_floes_flex_young                 ;
+    double M_welding_kappa                    ;
+    bool   M_fsd_welding_use_scaled_area      ;
+    double M_dmax_c_threshold                 ;
+    double M_breakup_thick_min                ;
+    bool   M_breakup_in_dt                    ;
+    bool   M_breakup_cell_average_thickness   ;
+    // Horvat et Tziperman (2015) lead fraction, lat. surf and lead width
+    // double M_lead_width    ;
+#endif
 
     // Diagnostic variables
     ModelVariable D_conc; //total concentration
@@ -762,16 +805,22 @@ private:
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
+    ModelVariable D_dmax; //max floe size [m]
+    ModelVariable D_dmean; //mean floe size [m]
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
+    std::vector<ModelVariable> D_sigma_p; // Visco-plastic stress term ("pressure term")
+                                          //   that is turned on in convergent conditions
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
     std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
+    std::vector<double> D_coef_sigma_p; // D_sigma_p = D_coef_sigma_p*M_Dunit_comp*epsilon_veloc
+                                        // - for visco-plastic stress term ("pressure term")
 
 private:
     // Variables for the moorings
@@ -810,25 +859,8 @@ private:
     std::vector<int> var_id_snd;
     std::vector<int> var_id_rcv;
 
-    const std::vector<std::string> var_snd{
-    //  "12345678" 8 characters field sent by neXtSIM to ocean
-        "I_taux",    // tau_u (at u-point)
-        "I_tauy",    // tau_v (at v-point)
-        "I_taumod",  // |tau| (at t-point)
-        "I_fwflux",  // Fresh water flux
-        "I_rsnos",   // Non-solar heatflux
-        "I_rsso",    // Solar/Shortwave radiation
-        "I_sfi",     // Salt/brine flux
-        "I_sic"   }; // Concentration
-
-    const std::vector<std::string> var_rcv{
-    //  "12345678"  8 characters field received by neXtSIM from ocean
-        "I_SST",   // Sea surface temperature
-        "I_SSS",   // Sea surface salinity
-        "I_Uocn",     // Ocean current - u
-        "I_Vocn",     // Ocean current - v
-        "I_SSH",   // Sea surface height
-        "I_FrcQsr"}; // Fracion of solar radiation absorbed in mixed layer
+    std::vector<std::string> var_snd;
+    std::vector<std::string> var_rcv;
 
     int cpl_time_step;
     void initOASIS();
@@ -856,31 +888,16 @@ private:
     //no ice-type option to activate these
     void topazAmsreIce();
     void topazAmsr2Ice();
+    void amsr2ConstThickIce();
 
     void warrenClimatology();
     void assimilate_topazForecastAmsr2OsisafIce();
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
-    void initialisingDrifters(
-        std::vector<std::string> & init_names,
-        bool &init_any);
-    void outputtingDrifters(
-        bool &input_iabp,
-        bool &output_iabp,
-        bool &io_any);
-    void checkDrifters();
-    void initDrifters(mesh_type_root const& movedmesh_root,
-        std::vector<std::string> const& init_names);
-    void initOsisafDrifters(mesh_type_root const& movedmesh_root);
-    void initRGPSDrifters(mesh_type_root const& movedmesh_root);
-    void initSidfexDrifters(mesh_type_root const& movedmesh_root);
-    void initEquallySpacedDrifters(mesh_type_root const& movedmesh_root);
-    void outputIabpDrifters();
-    void initIabpDrifters(mesh_type_root const& movedmesh_root);
-    void initIabpDrifterFiles();
-    void updateIabpDrifterPosition();
-    void updateIabpDrifters(mesh_type_root const& movedmesh_root);
-    void updateIabpDrifterConc(mesh_type_root const& movedmesh_root);
+    //drifter functions
+    void checkUpdateDrifters();
+    void instantiateDrifters();
+    void synchroniseOsisafDrifters();
 
     //void updateMeans(GridOutput &means);
     void updateMeans(GridOutput& means, double time_factor);

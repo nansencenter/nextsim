@@ -1,0 +1,70 @@
+##############################################################################
+#
+#      Input file for WW3
+# 
+#
+###############################################################################
+#  
+#      Input delimiters have to occupy position 1 to 9 !
+#      No blank lines allowed !
+#      Length of input lines <= 80 !
+#
+###############################################################################
+#
+# NFIELDS : total number of fields being exchanged.
+#
+ $NFIELDS
+         2
+ $END
+#
+###############################################################################
+# 
+# RUNTIME (<I8)
+#         total simulated time for the actual run in seconds
+#         the value will be set before the actual integration
+#
+ $RUNTIME
+           1036800
+ $END
+#
+###############################################################################
+#
+ $NLOGPRT
+   2  2
+ $END
+#
+###############################################################################
+#
+ $STRINGS
+#
+#
+############################################################################
+#                      ICE  --->>>  WAVES
+############################################################################
+#
+# --- start Field 1 --- ice concentration
+#
+I_sic WW3__ICE   23  2400  1  ice_nextsim.nc  EXPORTED
+118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 1 ---
+#
+#
+# --- start Field 2 --- ice thickness
+#
+I_sit WW3__IC1   24  2400  1  ice_nextsim.nc  EXPORTED
+118 149  118 149 tor2 ww3t  SEQ=1 LAG=200
+P  2  P  2
+#
+ LOCTRANS 
+#
+INSTANT
+#
+# --- end field 2 ---
+#
+ $END

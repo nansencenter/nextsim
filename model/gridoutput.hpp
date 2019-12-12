@@ -64,23 +64,25 @@ public:
 
     typedef struct Grid
     {
-        Grid() {}
+        Grid()
+            : loaded(false), defined(false)
+        {}
 
         Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         interpMethod interp_method;
@@ -91,6 +93,7 @@ public:
         std::string thetaName;
 
         bool loaded;
+        bool defined;
         bool transpose;
 
         std::string dimNameX;
@@ -173,7 +176,8 @@ public:
         wind_y   = 212,
 
         // WIM variables
-        dfloe = 300,
+        dmax        = 300,
+        dmean       = 301,
 
         // Coupling variables not already covered elsewhere
         taux       = 901,
@@ -489,11 +493,20 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+
                 //WIM variables
-                case (variableID::dfloe):
-                    name     = "dfloe";
+                case (variableID::dmax):
+                    name     = "dmax";
                     longName = "Maximum floe size";
                     stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dmean):
+                    name     = "dmean";
+                    longName = "Mean floe size";
+                    stdName  = "mean_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
