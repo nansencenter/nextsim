@@ -53,7 +53,7 @@ mounted directories. NB: the generated binary files will be available both for t
 
 If you want to recompile only the model code :
 ```
-docker run --rm -v `pwd`:/nextsim nextsim make cleandocker
+docker run --rm -v `pwd`:/nextsim nextsim make cleanmodel
 docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
 ```
 

@@ -28,7 +28,7 @@ model: core modules contrib
 core:
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
-clean: cleandocker
+clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
 ifdef USE_OASIS
