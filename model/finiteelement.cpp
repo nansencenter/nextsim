@@ -10795,14 +10795,17 @@ FiniteElement::constantIce()
     int cnt=0;
     for (int i=0; i<M_sst.size(); ++i)
     {
-        if ( M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
+        bool set_thin = M_ice_cat_type==setup::IceCategoryType::THIN_ICE;
+        if ( vm["thermo.use_thermo_forcing"].as<bool>()
+                && M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
         {
             M_conc[i]       = 0;
             M_thick[i]      = 0;
             M_snow_thick[i] = 0;
             cnt++;
+            set_thin = false;
         }
-        else if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(set_thin)
         {
             M_conc_thin[i] = init_thin_conc;
             M_h_thin[i]    = (h_thin_min+(h_thin_max-h_thin_min)/2.)*M_conc_thin[i];
