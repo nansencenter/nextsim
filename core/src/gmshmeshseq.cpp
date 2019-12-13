@@ -936,4 +936,18 @@ GmshMeshSeq::id() const
     return node_id;
 }
 
+
+// ------------------------------------------------
+//! return the vertices for a given list of indices
+//! called by FiniteElement::shapeCoeff() and FiniteElement::jacobian()
+std::vector<std::vector<double>>
+GmshMeshSeq::vertices(std::vector<int> const& indices) const
+{
+    int const nv = indices.size();
+    std::vector<std::vector<double>> vertices(nv);
+    for(int i=0; i<nv; i++)
+        vertices[i] = M_nodes[indices[i]-1].coords;
+    return vertices;
+}
+
 } // Nextsim
