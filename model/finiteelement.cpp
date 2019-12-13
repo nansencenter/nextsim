@@ -10792,10 +10792,11 @@ FiniteElement::constantIce()
     double h_thin_min = vm["thermo.h_thin_min"].as<double>();
     double h_thin_max = vm["thermo.h_thin_max"].as<double>();
     int cnt=0;
+    bool const use_thermo = vm["thermo.use_thermo_forcing"].as<bool>();
     for (int i=0; i<M_sst.size(); ++i)
     {
         bool set_thin = M_ice_cat_type==setup::IceCategoryType::THIN_ICE;
-        if ( vm["thermo.use_thermo_forcing"].as<bool>()
+        if ( use_thermo
                 && M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
         {
             M_conc[i]       = 0;
