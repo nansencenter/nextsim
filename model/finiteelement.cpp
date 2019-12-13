@@ -1550,88 +1550,46 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! Calculates the Jacobian Matrix Determinant:  measure of the normals of the element faces relative to each other.
+//! It is the determinant of the transformation from the reference triangle with vertices
+//! (0,0), (1,0) and (0,1) to an arbitrary triangle.
+//! This transformation is:
+//!   x=x0+(x1-x0)\xi + (x2-x1)\eta,
+//!   y=y0+(y1-y0)\xi + (y2-y1)\eta,
+//! with \xi,\eta between 0 and 1, so the determinant is:
+//!   (x1-x0)*(y2-y0) - (x2-x0)*(y1-y0).
 //! Called by the flip(), measure() and shapeCoeff() functions.
 //! \note
 //! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-
+//! * The Jacobian is an indicator of the distortion of the current mesh
+//!   with respect to an undistorted mesh.
 double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
+FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 {
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
+    double jac = (vertices[1][0]-vertices[0][0])*(vertices[2][1]-vertices[0][1]);
+    jac -= (vertices[2][0]-vertices[0][0])*(vertices[1][1]-vertices[0][1]);
+    return jac;
 }//jacobian
 
 
+template<typename FEMeshType>
 double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
+FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh) const
+{
+    return this->jacobian(mesh.vertices(element.indices));
+}//jacobian
+
+
+template<typename FEMeshType>
+double
+FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh,
                         std::vector<double> const& um, double factor) const
 {
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(M_num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-//------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
-//! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-//! Called by the flip(), measure() and shapeCoeff() functions.
-double
-FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-double
-FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    int num_nodes = M_mesh_root.numNodes();
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
+    auto vertices = mesh.vertices(element.indices);
+    for(int k=0; k<3; k++)
+        for (int i=0; i<2; ++i)
+            vertices[k][i] += factor*um[element.indices[k]-1+i*(M_num_nodes)];
+    return this->jacobian(vertices);
 }//jacobian
 
 
