@@ -5,7 +5,9 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: contrib modules core model
+all:
+	$(MAKE) contrib
+	$(MAKE) model
 
 contrib:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
