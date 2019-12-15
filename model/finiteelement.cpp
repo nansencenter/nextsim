@@ -1586,9 +1586,10 @@ FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh,
                         std::vector<double> const& um, double factor) const
 {
     auto vertices = mesh.vertices(element.indices);
+    int const num_nodes = mesh.numNodes();
     for(int k=0; k<3; k++)
         for (int i=0; i<2; ++i)
-            vertices[k][i] += factor*um[element.indices[k]-1+i*(M_num_nodes)];
+            vertices[k][i] += factor*um[element.indices[k]-1+i*num_nodes];
     return this->jacobian(vertices);
 }//jacobian
 
