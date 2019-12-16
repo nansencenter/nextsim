@@ -140,7 +140,8 @@ public:
     double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
+    template<typename FEMeshType>
+    std::vector<double> shapeCoeff(element_type const& element, FEMeshType const& mesh) const;
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
 

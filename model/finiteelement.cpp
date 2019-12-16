@@ -1911,74 +1911,32 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
+//! - 3 shape functions N_0, N_1, N_2 satisfy
+//!     N_k(x_j,y_j)=\delta_{kj}
+//! - this function calculates their gradients
+//!   ie [[N0_x, N1_x, N2_x],
+//!       [N0_y, N1_y, N2_y]]
+//! - gradients are calculated from:
+//!   J^{-T}*[[-1,1,0], [-1,0,1]]
+//!   - inverse of the Jacobian matrix transposed times
+//!     the gradients on the reference triangle with vertices (0,0), (1,0) and (0,1).
+//!   - the Jacobian is for the transformation from the reference triangle to
+//!     the actual triangle (see the comment on FiniteElement::jacobian)
 //! Called by the FETensors() function.
+template<typename FEMeshType>
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
+FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) const
 {
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
-        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
-    }
-
+    auto vertices = mesh.vertices(element.indices);
     std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
+    double const jac = this->jacobian(element,mesh);
+    for (int k=0; k<3; ++k)
     {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
+        int const kp1 = (k+1)%3;
+        int const kp2 = (k+2)%3;
+        coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
+        coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
     }
-
-    return coeff;
-}//shapeCoeff
-
-
-//------------------------------------------------------------------------------------------------------
-//! Calculates finite element shape coefficients.
-//! Called by the FETensors() function.
-std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
-        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
     return coeff;
 }//shapeCoeff
 
