@@ -65,13 +65,25 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
         M_SpinUpDuration= SpinUpDuration ;
     }
 
-
 ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
         double StartingTime, double SpinUpDuration, double bias_correction )//7 args
-	:
+    :
     ExternalData(dataset, mesh, VariableId, is_vector, StartingTime, SpinUpDuration )
     {
         M_bias_correction= bias_correction ;
+    }
+
+ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
+        double StartingTime, double SpinUpDuration, double bias_correction,
+        int const& ensemble_member )//8 args
+    :
+    ExternalData(dataset, mesh, VariableId, is_vector,
+            StartingTime, SpinUpDuration, bias_correction )
+    {
+        if(ensemble_member<=0)
+            throw std::runtime_error(
+                    "option statevector.ensemble_member<=0; should be >= 1");
+        M_ensemble_member = ensemble_member ;
     }
 
 ExternalData::ExternalData( double ConstantValue )
@@ -633,7 +645,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     double add_offset;
 
     std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
-    netCDF::NcDim tmpDim;
 
     // ---------- Automatic identification of the file and time index
 
@@ -874,12 +885,18 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
             index_start.resize(dataset->variables[j].dimensions.size());
-            index_count.resize(dataset->variables[j].dimensions.size());
+            index_count.resize(index_start.size());
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<dataset->variables[j].dimensions.size(); ++k)
+            for(int k=0; k<index_start.size(); ++k)
             {
-                std::string dimension_name=dataset->variables[j].dimensions[k].name;
+                std::string const dimension_name=dataset->variables[j].dimensions[k].name;
+                std::string const dn_lower=boost::algorithm::to_lower_copy(dimension_name);
+                bool is_time = false;
+                if(dn_lower.size()>=4)
+                    // so far we have time, Time, time0 so this should work
+                    is_time = dn_lower.substr(0, 4) == "time";
+
                 // dimension_x case
                 if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
                 {
@@ -892,29 +909,43 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     index_start[k] = dataset->grid.dimension_y_start;
                     index_count[k] = dataset->grid.dimension_y_count;
                 }
+                //time dimension
+                // - for constant/nearest_daily use index_start = 0
+                //   (as in other cases)
+                else if (is_time
+                        && dataset->grid.dataset_frequency!="constant"
+                        && dataset->grid.dataset_frequency!="nearest_daily")
+                {
+                    LOG(DEBUG) << "Ordinary time dimension "
+                        << k << "/" << dimension_name <<"\n";
+                    index_start[k] = index;
+                    index_count[k] = 1;
+                }
+                //depth dimension
+                else if (dimension_name == "depth")
+                {
+                    index_start[k] = 0;
+                    index_count[k] = 1;
+                }
+                // ensemble member case
+                else if (dimension_name == "ensemble_member")
+                {
+                    LOG(DEBUG)<<"Using ensemble member = "
+                        << M_ensemble_member << "\n";
+                    index_start[k] = M_ensemble_member - 1;
+                    index_count[k] = 1;
+                }
                 // other cases
-                else{
-                    tmpDim = dataFile.getDim(dimension_name);
-
+                else
+                {
+                    auto tmpDim = dataFile.getDim(dimension_name);
                     index_start[k] = 0;
                     index_count[k] = tmpDim.getSize();
                 }
-            }
-
-            // time dimension
-            if(dataset->variables[j].dimensions.size()>2
-                && dataset->grid.dataset_frequency!="constant"
-                && dataset->grid.dataset_frequency!="nearest_daily")
-            {
-                index_start[0] = index;
-                index_count[0] = 1;
-			}
-
-            // depth dimension
-            if(dataset->variables[j].dimensions.size()>3)
-            {
-                index_start[1] = 0;
-                index_count[1] = 1;
+                LOG(DEBUG) << "Dimension " << k << "(" 
+                    << dimension_name << "), start/count = "
+                    << index_start[k] << "/" << index_count[k]
+                    << "\n";
             }
 
             // Reading the netcdf

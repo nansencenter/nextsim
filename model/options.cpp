@@ -499,6 +499,9 @@ namespace Nextsim
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
 
+            // for ensemble forcing
+            ("statevector.ensemble_member", po::value<int>()->default_value(0),
+                "id of ensemble member (NB starts from 1)")
 
 #if defined(WAVES)
         ;
