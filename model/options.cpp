@@ -450,6 +450,8 @@ namespace Nextsim
                 "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+                "specify the time resolution in hours here if want to change from 6")
 
 
              //-----------------------------------------------------------------------------------
@@ -497,6 +499,9 @@ namespace Nextsim
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
 
+            // for ensemble forcing
+            ("statevector.ensemble_member", po::value<int>()->default_value(0),
+                "id of ensemble member (NB starts from 1)")
 
 #if defined(WAVES)
         ;

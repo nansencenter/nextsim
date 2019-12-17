@@ -436,6 +436,7 @@ private:
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
+    int M_ensemble_member;
 
 #ifdef AEROBULK
     aerobulk::algorithm M_ocean_bulk_formula;
