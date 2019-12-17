@@ -4220,9 +4220,10 @@ FiniteElement::assemble(int pcpt)
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
+                    //! \note b0tj_sigma_hu and b0tj_sigma_hv are independant of j
+                    //! but are added inside the j loop - hence they are divided by 3 below
                     b0tj_sigma_hu = 0.;
                     b0tj_sigma_hv = 0.;
-
                     for(int k=0; k<3; k++)
                     {
                         b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
@@ -4440,18 +4441,21 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            /* B0T is the 3x6 matrix:
+             * B0T = [
+             *          [N0x, 0, N1x, 0, N2x, 0],
+             *          [0, N0y, 0, N1y, 0, N2y],
+             *          [N0y, N1x, N1y, N1x, N2y, N2x],
+             *          ]
+             * deformation is:
+             * B0T*[u0, v0, u1, v1, u2, v2]^T = [u_x, v_y, u_y+v_x]^T
+             * */
+            B0T[2*i]    = shapecoeff[i];
+            B0T[7+2*i]  = shapecoeff[i+3];
+            B0T[12+2*i] = shapecoeff[i+3];
+            B0T[13+2*i] = shapecoeff[i];
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
