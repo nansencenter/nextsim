@@ -12618,6 +12618,7 @@ FiniteElement::instantiateDrifters()
     {
         int i0 = M_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12642,25 +12643,24 @@ FiniteElement::instantiateDrifters()
                 false                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifters to the list of drifters
-        M_drifters.push_back(
-                Drifters("OSISAF0", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info,
-                    false)
-                );
-        timing_info.time_init += 1.;
-        M_drifters.push_back(
-                Drifters("OSISAF1", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info,
-                    false)
-                );
+        for(int i=0; i<2; i++)
+        {
+            // add drifters to the list of drifters
+            timing_info.time_init += i;
+            std::stringstream name;
+            name << "OSISAF" << i;
+            M_drifters.push_back(
+                    Drifters(name.str(), osi_outfile_prefix,
+                        netcdf_input_info, drifters_conc_lim, timing_info,
+                        ignore_restart)
+                    );
 
-        // add drifters to the list of OSISAF drifters
-        // - need to sync them sometimes (mainly thinking of restart time)
-        M_osisaf_drifters = {
-            &M_drifters[i0],
-            &M_drifters[i0+1],
-        };
+            // add drifters to a list of OSISAF drifters
+            // - need to sync them sometimes (mainly thinking of restart time)
+            M_osisaf_drifters.push_back(
+                    &(M_drifters[M_drifters.size()-1])
+                    );
+        }
     }
 
     // equally spaced drifters
