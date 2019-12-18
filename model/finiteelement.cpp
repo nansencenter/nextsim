@@ -517,9 +517,6 @@ FiniteElement::initVariables()
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
 
-    // For drifters:
-    M_UT.resize(2*M_num_nodes); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
-
     if (M_rank == 0)
     {
         M_surface_root.resize(M_mesh_root.numTriangles());
@@ -575,7 +572,9 @@ FiniteElement::assignVariables()
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
     M_UM.assign(2*M_num_nodes,0.);
-    M_UT.assign(2*M_num_nodes,0.);
+
+    // For drifters:
+    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
     M_fcor.assign(M_num_elements, 0.);
 
@@ -8418,8 +8417,7 @@ void FiniteElement::checkUpdateDrifters()
     auto movedmesh_root = M_mesh_root;
     movedmesh_root.move(UM_root, 1.);
     for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        it->updateDrifters(movedmesh_root,
-                    conc_root, M_current_time);
+        it->updateDrifters(movedmesh_root, conc_root, M_current_time);
 }//checkUpdateDrifters()
 
 
