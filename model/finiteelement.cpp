@@ -575,7 +575,7 @@ FiniteElement::assignVariables()
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
     M_UM.assign(2*M_num_nodes,0.);
-    //M_UT.assign(2*M_num_nodes,0.);
+    M_UT.assign(2*M_num_nodes,0.);
 
     M_fcor.assign(M_num_elements, 0.);
 
@@ -3682,6 +3682,13 @@ FiniteElement::gatherUM(std::vector<double>& um)
 void
 FiniteElement::regrid(bool step)
 {
+
+    //move any active drifters before we reset the mesh
+    //NB assignVariables resets M_UT=0
+    M_timer.tick("checkMoveDrifters_regrid");
+    this->checkMoveDrifters();
+    M_timer.tock("checkMoveDrifters_regrid");
+
     M_comm.barrier();
 
     chrono.restart();
@@ -8346,12 +8353,39 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 }//checkOutputs
 
 
+// -----------------------------------------------------------------------
+//! move any active drifters and move them by the amount specified by M_UT
+//! Called by regrid() and checkUpdateDrifters()
+void FiniteElement::checkMoveDrifters()
+{
+    LOG(DEBUG) << "in checkMoveDrifters\n";
+    //! - check if we have any active drifters
+    int n_drifters = 0;
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        n_drifters += it->isInitialised();
+    boost::mpi::broadcast(M_comm, n_drifters, 0);
+    if(n_drifters==0)
+        return;
+    LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
+
+    //! - gather M_UT to root processor
+    std::vector<double> UT_root;
+    this->gatherNodalField(M_UT, UT_root);
+    if(M_rank!=0)
+        return;
+
+    //! - move drifters on root processor
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->move(M_mesh_root, UT_root);
+}//checkMoveDrifters
+
+
 // ---------------------------------------------
 //! check if we need to update/output any drifters (and do it if we need to)
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
-    bool update_drifters = false;
+    int n_update = 0;
     if(M_rank == 0)
     {
         //need to move if initialising, outputting, inputting or resetting
@@ -8359,34 +8393,33 @@ void FiniteElement::checkUpdateDrifters()
         //NB inputting and resetting always happen at output time
         //so don't need to check
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            update_drifters = update_drifters
-                || it->initialising(M_current_time)
-                || it->isOutputTime(M_current_time);
+            n_update += (it->initialising(M_current_time)
+                || it->isOutputTime(M_current_time));
     }
-
-    // let all the processors know if we need to gather the three vectors
-    // or if we need to reset M_UT
-    boost::mpi::broadcast(M_comm, update_drifters, 0);
-    if(!update_drifters)
+    boost::mpi::broadcast(M_comm, n_update, 0);
+    if(n_update==0)
         return;
+    LOG(DEBUG) << "updating " << n_update
+        << " drifters\n";
 
-    // Gather the fields needed by the drifters
-    std::vector<double> UT_root, UM_root, conc_root;
-    this->gatherNodalField(M_UT, UT_root);
-    this->gatherNodalField(M_UM, UM_root);
-    this->gatherElementField(M_conc, conc_root);
+    // Move any active drifters
+    this->checkMoveDrifters();
     std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
 
-    if(M_rank==0)
-    {
-        //updateDrifters does moving, initialising, resetting, inputting,
-        //outputting (if needed)
-        auto movedmesh_root = M_mesh_root;
-        movedmesh_root.move(UM_root, 1.);
-        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->updateDrifters(M_mesh_root, movedmesh_root,
-                    conc_root, UT_root, M_current_time);
-    }
+    // Gather the fields needed by the drifters
+    std::vector<double> UM_root, conc_root;
+    this->gatherNodalField(M_UM, UM_root);
+    this->gatherElementField(M_conc, conc_root);
+    if(M_rank!=0)
+        return;
+
+    //updateDrifters does initialising, resetting, inputting,
+    //outputting (if needed)
+    auto movedmesh_root = M_mesh_root;
+    movedmesh_root.move(UM_root, 1.);
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->updateDrifters(movedmesh_root,
+                    conc_root, M_current_time);
 }//checkUpdateDrifters()
 
 
