@@ -1034,7 +1034,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"ec2_arome_ensemble",
             filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1170,7 +1170,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"ec2_arome_ensemble",
             filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -9025,7 +9025,7 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
     boost::replace_all(fmask, "${INITTIME}",
             datenumToString(init_time, "%Y%m%d"));
     boost::replace_all(fmask, "${VARSTRING}", variables[0].filename_string);
-    
+
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
             % Environment::nextsimDataDir().string()
             % grid.dirname
