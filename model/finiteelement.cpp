@@ -13038,11 +13038,7 @@ FiniteElement::createGraph()
 void
 FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 {
-    LOG(DEBUG) << "Enter update Ghosts\n";
-
     std::vector<std::vector<double>> extract_local_values(M_comm.size());
-
-    LOG(DEBUG) << "Extract local index\n";
 
     for (int i=0; i<M_extract_local_index.size(); i++)
     {
@@ -13059,8 +13055,6 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
     std::vector<std::vector<int>> ghost_update_values(M_comm.size());
     std::vector<boost::mpi::request> reqs;
 
-    LOG(DEBUG) << "Send\n";
-
     for (int const& proc : M_recipients_proc_id)
     {
         // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
@@ -13068,13 +13062,6 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
         reqs.push_back(req);
     }
 
-    LOG(DEBUG) << "Wait after send\n";
-
-    boost::mpi::wait_all(reqs.begin(),reqs.end());
-
-    LOG(DEBUG) << "Recieve\n";
-
-    reqs.resize(0);
     for (int const& proc : M_local_ghosts_proc_id)
     {
         // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
@@ -13082,11 +13069,7 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
         reqs.push_back(req);
     }
 
-    LOG(DEBUG) << "Wait after recieve\n";
-
     boost::mpi::wait_all(reqs.begin(),reqs.end());
-
-    LOG(DEBUG) << "Local ghosts - local index\n";
 
     for (int i=0; i<M_local_ghosts_local_index.size(); i++)
     {
