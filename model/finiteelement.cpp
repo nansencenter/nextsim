@@ -3684,9 +3684,12 @@ FiniteElement::regrid(bool step)
 
     //move any active drifters before we reset the mesh
     //NB assignVariables resets M_UT=0
-    M_timer.tick("checkMoveDrifters_regrid");
-    this->checkMoveDrifters();
-    M_timer.tock("checkMoveDrifters_regrid");
+    if(!M_move_drifters_every_time_step)
+    {
+        M_timer.tick("checkMoveDrifters_regrid");
+        this->checkMoveDrifters();
+        M_timer.tock("checkMoveDrifters_regrid");
+    }
 
     M_comm.barrier();
 
@@ -8324,7 +8327,9 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     //! 3) update drifters if necessary
+    M_timer.tick("checkUpdateDrifters");
     this->checkUpdateDrifters();
+    M_timer.tock("checkUpdateDrifters");
 
     //! 4) check if we are outputting results file
     bool exporting = false;
@@ -8370,6 +8375,7 @@ void FiniteElement::checkMoveDrifters()
     //! - gather M_UT to root processor
     std::vector<double> UT_root;
     this->gatherNodalField(M_UT, UT_root);
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
     if(M_rank!=0)
         return;
 
@@ -8384,6 +8390,7 @@ void FiniteElement::checkMoveDrifters()
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
+    bool move_drifters = M_move_drifters_every_time_step;
     int n_update = 0;
     if(M_rank == 0)
     {
@@ -8396,6 +8403,11 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
+    move_drifters += (n_update>0);
+    if(move_drifters)
+        // Move any active drifters
+        this->checkMoveDrifters();
+
     if(n_update==0)
         return;
     LOG(DEBUG) << "updating " << n_update
@@ -8403,7 +8415,6 @@ void FiniteElement::checkUpdateDrifters()
 
     // Move any active drifters
     this->checkMoveDrifters();
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
 
     // Gather the fields needed by the drifters
     std::vector<double> UM_root, conc_root;
@@ -12604,6 +12615,12 @@ FiniteElement::warrenClimatology()
 void
 FiniteElement::instantiateDrifters()
 {
+    // for accurate results move every time step
+    // - this is because M_VT is defined on the fixed mesh
+    //   (can be seen from shapeCoeff - called only at init/regrid)
+    // - will slow running down a bit though as need to gather M_UT
+    M_move_drifters_every_time_step = vm["drifters.move_every_time_step"].as<bool>();
+
     // init drifters after spinup
     // NB use ceil to make sure the init time is 0:00
     double const drifters_time_init = std::ceil(time_init + M_spinup_duration);

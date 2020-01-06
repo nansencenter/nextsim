@@ -163,6 +163,7 @@ namespace Nextsim
 
 
             // -- drifters
+            ("drifters.move_every_time_step", po::value<bool>()->default_value(true), "Move drifters every time step for accuracy")
             ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "lower concentration limit for ignoring a drifter")
             ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "Use IABP drifters or not")
             ("drifters.iabp_drifters_output_time_step", po::value<double>()->default_value( .5 ),
