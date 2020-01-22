@@ -68,7 +68,7 @@ namespace Nextsim
             ("debugging.test_element_number", po::value<int>()->default_value( -1 ),
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
             ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
-                "If check_velocity_fields is true: find outlier nodes with extreme velocities print to DEBUG")
+                "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -348,6 +348,13 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_0", po::value<double>()->default_value( 5e-5 ), "")
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
+            // - Pressure term parameters
+            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
+            ("dynamics.pressure_nu", po::value<int>()->default_value( 0. ),
+             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
+
             // - Damage equation discretization
             //   disc_scheme is either : explicit, implicit, recursive
             //   td_type is either : fixed or damage_dependent
@@ -355,7 +362,7 @@ namespace Nextsim
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
             ("damage.clip", po::value<double>()->default_value( 0 ),
-             "Threshold for clipping damage. All values below <damage.clip> will be turned zero before calculating how elastic modulus and stress relaxation time depend on damage.")
+             "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
 
              //-----------------------------------------------------------------------------------
@@ -443,6 +450,8 @@ namespace Nextsim
                 "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+                "specify the time resolution in hours here if want to change from 6")
 
 
              //-----------------------------------------------------------------------------------
@@ -490,6 +499,9 @@ namespace Nextsim
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
 
+            // for ensemble forcing
+            ("statevector.ensemble_member", po::value<int>()->default_value(0),
+                "id of ensemble member (NB starts from 1)")
 
 #if defined(WAVES)
         ;
@@ -501,4 +513,3 @@ namespace Nextsim
     }
 
 } // Nextsim
-
