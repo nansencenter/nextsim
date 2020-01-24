@@ -2073,6 +2073,44 @@ FiniteElement::shapeCoeff(std::vector<std::vector<double>> const& vertices) cons
 }//shapeCoeff
 
 
+void
+FiniteElement::testShapeCoeff() const
+{
+    int i=0;
+    auto movedmesh = M_mesh;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it, ++i)
+    {
+        auto shapecoeff = this->shapeCoeff(*it,M_mesh);
+        auto shapecoeff_old = this->shapeCoeff_old(*it,M_mesh);
+        auto shapecoeff_moved = this->shapeCoeff(*it,M_mesh,M_UM,1);
+        auto shapecoeff_moved_old = this->shapeCoeff_old(*it,movedmesh);
+        for(int k=0; k<6; k++)
+        {
+            LOG(DEBUG)<< "Fixed SC: " << shapecoeff[k] << " : " << shapecoeff_old[k] << "\n";
+            LOG(DEBUG)<< "Moved SC: " << shapecoeff_moved[k] << " : " << shapecoeff_moved_old[k] << "\n";
+        }
+        if(i==10)
+            std::abort();
+    }
+}
+void
+FiniteElement::testJacobian() const
+{
+    int i=0;
+    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it, ++i)
+    {
+        double jac = this->jacobian(*it,M_mesh);
+        double jac_old = this->jacobian_old(*it,M_mesh);
+        double jac_moved = this->jacobian(*it,M_mesh,M_UM,1);
+        double jac_moved_old = this->jacobian_old(*it,M_mesh,M_UM,1);
+        LOG(DEBUG)<< "Fixed J: " << jac << " : " << jac_old << "\n";
+        LOG(DEBUG)<< "Moved J: " << jac_moved << " : " << jac_moved_old << "\n";
+        if(i==10)
+            std::abort();
+    }
+}
+
+
 //------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the rootMeshProcessing() and regrid() functions.

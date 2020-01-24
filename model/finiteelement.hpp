@@ -116,6 +116,7 @@ public:
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
+    void testJacobian() const;
     double jacobian(std::vector<std::vector<double>> const& vertices) const;
     double jacobian(element_type const& element, mesh_type const& mesh) const;
     double jacobian(element_type const& element, mesh_type const& mesh,
@@ -145,6 +146,7 @@ public:
     double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
+    void testShapeCoeff() const;
     std::vector<double> shapeCoeff(std::vector<std::vector<double>> const& vertices) const;
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh,
