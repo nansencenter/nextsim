@@ -1558,14 +1558,45 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! Calculates the Jacobian Matrix Determinant:  measure of the normals of the element faces relative to each other.
+//! It is the determinant of the transformation from the reference triangle with vertices
+//! (0,0), (1,0) and (0,1) to an arbitrary triangle.
+//! This transformation is:
+//!   x=x0+(x1-x0)\xi + (x2-x1)\eta,
+//!   y=y0+(y1-y0)\xi + (y2-y1)\eta,
+//! with \xi,\eta between 0 and 1, so the determinant is:
+//!   (x1-x0)*(y2-y0) - (x2-x0)*(y1-y0).
 //! Called by the flip(), measure() and shapeCoeff() functions.
 //! \note
 //! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
+//! * The Jacobian is an indicator of the distortion of the current mesh
+//!   with respect to an undistorted mesh.
+double
+FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
+{
+    double jac = (vertices[1][0]-vertices[0][0])*(vertices[2][1]-vertices[0][1]);
+    jac -= (vertices[2][0]-vertices[0][0])*(vertices[1][1]-vertices[0][1]);
+    return jac;
+}//jacobian
+
 
 double
 FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
+{
+    return this->jacobian(mesh.vertices(element.indices));
+}//jacobian
+
+
+double
+FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
+                        std::vector<double> const& um, double factor) const
+{
+    return this->jacobian(mesh.vertices(element.indices, um, factor));
+}//jacobian
+
+
+double
+FiniteElement::jacobian_old(element_type const& element, mesh_type const& mesh) const
 {
     std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
     std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
@@ -1579,7 +1610,7 @@ FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) cons
 
 
 double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
+FiniteElement::jacobian_old(element_type const& element, mesh_type const& mesh,
                         std::vector<double> const& um, double factor) const
 {
     std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
@@ -1962,7 +1993,7 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 //! Calculates finite element shape coefficients.
 //! Called by the FETensors() function.
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
+FiniteElement::shapeCoeff_old(element_type const& element, mesh_type const& mesh) const
 {
     std::vector<double> x(3);
     std::vector<double> y(3);
@@ -1991,6 +2022,53 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
         }
     }
 
+    return coeff;
+}//shapeCoeff_old
+
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates finite element shape coefficients.
+//! - 3 shape functions N_0, N_1, N_2 satisfy
+//!     N_k(x_j,y_j)=\delta_{kj}
+//! - this function calculates their gradients
+//!   ie [[N0_x, N1_x, N2_x],
+//!       [N0_y, N1_y, N2_y]]
+//! - gradients are calculated from:
+//!   J^{-T}*[[-1,1,0], [-1,0,1]]
+//!   - inverse of the Jacobian matrix transposed times
+//!     the gradients on the reference triangle with vertices (0,0), (1,0) and (0,1).
+//!   - the Jacobian is for the transformation from the reference triangle to
+//!     the actual triangle (see the comment on FiniteElement::jacobian)
+//! Called by the FETensors() function.
+std::vector<double>
+FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
+{
+    auto vertices = mesh.vertices(element.indices);
+    return this->shapeCoeff(vertices);
+}//shapeCoeff
+
+
+std::vector<double>
+FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh,
+        std::vector<double> const& um, double factor) const
+{
+    auto vertices = mesh.vertices(element.indices, um, factor);
+    return this->shapeCoeff(vertices);
+}//shapeCoeff
+
+
+std::vector<double>
+FiniteElement::shapeCoeff(std::vector<std::vector<double>> const& vertices) const
+{
+    std::vector<double> coeff(6);
+    double const jac = this->jacobian(vertices);
+    for (int k=0; k<3; ++k)
+    {
+        int const kp1 = (k+1)%3;
+        int const kp2 = (k+2)%3;
+        coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
+        coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
+    }
     return coeff;
 }//shapeCoeff
 
