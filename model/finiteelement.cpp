@@ -8197,6 +8197,7 @@ FiniteElement::step()
         }//M_regrid
     }//bamg-regrid
 
+#if 0
     LOG(DEBUG)<<
         "M_UM range: " << *std::min_element(M_UM.begin(), M_UM.end()) 
         << ", " << *std::max_element(M_UM.begin(), M_UM.end()) << "\n";
@@ -8205,6 +8206,7 @@ FiniteElement::step()
         this->testShapeCoeffJacobian();
         std::abort();
     }
+#endif
 
     M_comm.barrier();
     M_timer.tock("remesh");
