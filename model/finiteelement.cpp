@@ -801,8 +801,12 @@ FiniteElement::initDatasets()
 
         case setup::AtmosphereType::EC2_AROME:
             M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements_instaneous");//instantaneous fields at %H:00
-            M_atmosphere_bis_elements_dataset=DataSet("ec2_arome_elements_integrated");//integrated fields at %H:30
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements");
+            break;
+
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_atmosphere_nodes_dataset=DataSet("ec2_arome_ensemble_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
         default:
@@ -961,7 +965,8 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
     int i = 0;
     for ( auto it = ext_data_vec.begin(); it != ext_data_vec.end(); ++it, ++i )
     {
-        LOG(DEBUG) <<"checkReloadDatasets for variable " << (*it)->getVariableName()
+        LOG(DEBUG) <<"checkReloadDatasets for variable "
+            << i << ": " << (*it)->getVariableName()
             << " of dataset " << (*it)->getDatasetName() << "\n";
 
         M_timer.tick((*it)->getDatasetName());
@@ -1294,9 +1299,10 @@ FiniteElement::initOptAndParam()
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
+        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
-        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     // set the drag coefficient for air
@@ -1311,9 +1317,11 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
@@ -1586,9 +1594,10 @@ FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh,
                         std::vector<double> const& um, double factor) const
 {
     auto vertices = mesh.vertices(element.indices);
+    int const num_nodes = mesh.numNodes();
     for(int k=0; k<3; k++)
         for (int i=0; i<2; ++i)
-            vertices[k][i] += factor*um[element.indices[k]-1+i*(M_num_nodes)];
+            vertices[k][i] += factor*um[element.indices[k]-1+i*num_nodes];
     return this->jacobian(vertices);
 }//jacobian
 
@@ -1927,18 +1936,15 @@ std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) const
 {
     auto vertices = mesh.vertices(element.indices);
-
     std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
+    double const jac = this->jacobian(element,mesh);
+    for (int k=0; k<3; ++k)
     {
         int const kp1 = (k+1)%3;
         int const kp2 = (k+2)%3;
         coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
         coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
     }
-
     return coeff;
 }//shapeCoeff
 
@@ -3915,29 +3921,32 @@ FiniteElement::assemble(int pcpt)
 
     // ---------- Identical values for all the elements -----------
     // coriolis term
-    double beta0;
-    double beta1;
-    double beta2;
-    if (pcpt > 1)
+    double beta0 = 0.;
+    double beta1 = 0.;
+    double beta2 = 0.;
+    if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        // Adams-Bashfort 3 (AB3)
-        beta0 = 23./12;
-        beta1 =-16./12;
-        beta2 =  5./12;
-    }
-    else if (pcpt == 1)
-    {
-        // Adams-Bashfort 2 (AB2)
-        beta0 = 3/2;
-        beta1 =-1/2;
-        beta2 = 0  ;
-    }
-    else if (pcpt == 0)
-    {
-        // Euler explicit (Fe)
-        beta0 = 1 ;
-        beta1 = 0 ;
-        beta2 = 0 ;
+        if (pcpt > 1)
+        {
+            // Adams-Bashfort 3 (AB3)
+            beta0 = 23./12;
+            beta1 =-16./12;
+            beta2 =  5./12;
+        }
+        else if (pcpt == 1)
+        {
+            // Adams-Bashfort 2 (AB2)
+            beta0 = 3/2;
+            beta1 =-1/2;
+            beta2 = 0  ;
+        }
+        else if (pcpt == 0)
+        {
+            // Euler explicit (Fe)
+            beta0 = 1 ;
+            beta1 = 0 ;
+            beta2 = 0 ;
+        }
     }
 
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
@@ -4077,11 +4086,7 @@ FiniteElement::assemble(int pcpt)
             }
 
             coef = (coef<coef_min) ? coef_min : coef ;
-
-            if (vm["dynamics.use_coriolis"].as<bool>())
-                mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
-            else
-                mass_e = 0.;
+            mass_e = (rhoi*total_thickness + rhos*total_snow)/total_concentration;
 
             /* compute the x and y derivative of g*ssh, for the sea surface tilt term */
             double g_ssh_e_x = 0.;
@@ -4096,11 +4101,11 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;               /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4165,6 +4170,8 @@ FiniteElement::assemble(int pcpt)
              * - in the forcing vector (fvdata), it is used in the numerical quadrature
              *   of some integrals over the element
              * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
+             * \note some contributors to fvdata are independent of j,
+             *  but they are still computed and added inside the j loop 3 times but then divided by 3
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
@@ -4220,13 +4227,14 @@ FiniteElement::assemble(int pcpt)
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
+                    //! \note b0tj_sigma_hu and b0tj_sigma_hv are independant of j
+                    //! but are added inside the j loop - hence they are divided by 3 below
                     b0tj_sigma_hu = 0.;
                     b0tj_sigma_hv = 0.;
-
                     for(int k=0; k<3; k++)
                     {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
                     }
 
                     /* ---------- UU component */
@@ -4440,18 +4448,21 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
 
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            /* B0T is the 3x6 matrix:
+             * B0T = [
+             *          [N0x, 0, N1x, 0, N2x, 0],
+             *          [0, N0y, 0, N1y, 0, N2y],
+             *          [N0y, N1x, N1y, N1x, N2y, N2x],
+             *          ]
+             * deformation is:
+             * B0T*[u0, v0, u1, v1, u2, v2]^T = [u_x, v_y, u_y+v_x]^T
+             * */
+            B0T[2*i]    = shapecoeff[i];
+            B0T[7+2*i]  = shapecoeff[i+3];
+            B0T[12+2*i] = shapecoeff[i+3];
+            B0T[13+2*i] = shapecoeff[i];
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
@@ -10081,10 +10092,27 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
+                time_init, M_spinup_duration, 0, M_ensemble_member);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 4, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
+                    time_init, 0, 0, M_ensemble_member);
         break;
 
         default:
@@ -10767,16 +10795,20 @@ FiniteElement::constantIce()
     double h_thin_min = vm["thermo.h_thin_min"].as<double>();
     double h_thin_max = vm["thermo.h_thin_max"].as<double>();
     int cnt=0;
+    bool const use_thermo = vm["thermo.use_thermo_forcing"].as<bool>();
     for (int i=0; i<M_sst.size(); ++i)
     {
-        if ( M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
+        bool set_thin = M_ice_cat_type==setup::IceCategoryType::THIN_ICE;
+        if ( use_thermo
+                && M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
         {
             M_conc[i]       = 0;
             M_thick[i]      = 0;
             M_snow_thick[i] = 0;
             cnt++;
+            set_thin = false;
         }
-        else if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(set_thin)
         {
             M_conc_thin[i] = init_thin_conc;
             M_h_thin[i]    = (h_thin_min+(h_thin_max-h_thin_min)/2.)*M_conc_thin[i];

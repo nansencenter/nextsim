@@ -116,12 +116,12 @@ public:
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
+    double jacobian(std::vector<std::vector<double>> const& vertices) const;
     template<typename FEMeshType>
         double jacobian(element_type const& element, FEMeshType const& mesh) const;
     template<typename FEMeshType>
         double jacobian(element_type const& element, FEMeshType const& mesh,
             std::vector<double> const& um, double factor) const;
-    double jacobian(std::vector<std::vector<double>> const& vertices) const;
 
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
@@ -434,6 +434,7 @@ private:
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
+    int M_ensemble_member;
 
 #ifdef AEROBULK
     aerobulk::algorithm M_ocean_bulk_formula;
