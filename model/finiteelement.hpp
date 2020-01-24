@@ -143,8 +143,6 @@ public:
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
 
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
-
     void regrid(bool step = true);
     void adaptMesh();
     void updateNodeIds();

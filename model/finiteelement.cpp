@@ -1996,43 +1996,6 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates finite element shape coefficients.
-//! Called by the FETensors() function.
-std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
-        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
-    return coeff;
-}//shapeCoeff
-
-
-//------------------------------------------------------------------------------------------------------
 //! Interpolates hminVertices and hmaxVertices onto the current mesh.
 //! Called by the rootMeshProcessing() and regrid() functions.
 void
