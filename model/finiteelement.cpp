@@ -2074,39 +2074,40 @@ FiniteElement::shapeCoeff(std::vector<std::vector<double>> const& vertices) cons
 
 
 void
-FiniteElement::testShapeCoeff() const
+FiniteElement::testShapeCoeffJacobian() const
 {
-    int i=0;
     auto movedmesh = M_mesh;
+    auto um = M_UM;
+    for(int i=0; i<2*M_num_nodes; i++)
+        um[i] = 30*i;
+    movedmesh.move(um, 1);
+
+    int i = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it, ++i)
     {
+
+        double jac = this->jacobian(*it,M_mesh);
+        double jac_old = this->jacobian_old(*it,M_mesh);
+        double jac_moved = this->jacobian(*it,M_mesh,um,1);
+        double jac_moved_old = this->jacobian_old(*it,M_mesh,um,1);
+        LOG(DEBUG)<< "Fixed J: " << jac << " : " << jac_old << "\n";
+        LOG(DEBUG)<< "Moved J: " << jac_moved << " : " << jac_moved_old << "\n\n";
+
         auto shapecoeff = this->shapeCoeff(*it,M_mesh);
         auto shapecoeff_old = this->shapeCoeff_old(*it,M_mesh);
-        auto shapecoeff_moved = this->shapeCoeff(*it,M_mesh,M_UM,1);
+        auto shapecoeff_moved = this->shapeCoeff(*it,M_mesh,um,1);
         auto shapecoeff_moved_old = this->shapeCoeff_old(*it,movedmesh);
         for(int k=0; k<6; k++)
         {
             LOG(DEBUG)<< "Fixed SC: " << shapecoeff[k] << " : " << shapecoeff_old[k] << "\n";
             LOG(DEBUG)<< "Moved SC: " << shapecoeff_moved[k] << " : " << shapecoeff_moved_old[k] << "\n";
         }
-        if(i==10)
-            std::abort();
-    }
-}
-void
-FiniteElement::testJacobian() const
-{
-    int i=0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it, ++i)
-    {
-        double jac = this->jacobian(*it,M_mesh);
-        double jac_old = this->jacobian_old(*it,M_mesh);
-        double jac_moved = this->jacobian(*it,M_mesh,M_UM,1);
-        double jac_moved_old = this->jacobian_old(*it,M_mesh,M_UM,1);
-        LOG(DEBUG)<< "Fixed J: " << jac << " : " << jac_old << "\n";
-        LOG(DEBUG)<< "Moved J: " << jac_moved << " : " << jac_moved_old << "\n";
-        if(i==10)
-            std::abort();
+        LOG(DEBUG)<< "\n";
+
+        if(i<20)
+            continue;
+        if(i==30)
+            break;
     }
 }
 
@@ -8195,6 +8196,15 @@ FiniteElement::step()
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
+
+    LOG(DEBUG)<<
+        "M_UM range: " << *std::min_element(M_UM.begin(), M_UM.end()) 
+        << ", " << *std::max_element(M_UM.begin(), M_UM.end()) << "\n";
+    if(pcpt==10)
+    {
+        this->testShapeCoeffJacobian();
+        std::abort();
+    }
 
     M_comm.barrier();
     M_timer.tock("remesh");
