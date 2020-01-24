@@ -3684,15 +3684,11 @@ FiniteElement::regrid(bool step)
 
     //move any active drifters before we reset the mesh
     //NB assignVariables resets M_UT=0
-    if(!M_move_drifters_every_time_step)
-    {
-        M_timer.tick("checkMoveDrifters_regrid");
-        this->checkMoveDrifters();
-        M_timer.tock("checkMoveDrifters_regrid");
-    }
+    M_timer.tick("checkMoveDrifters_regrid");
+    this->checkMoveDrifters();
+    M_timer.tock("checkMoveDrifters_regrid");
 
     M_comm.barrier();
-
     chrono.restart();
 
     double displacement_factor = 2.;
@@ -8390,7 +8386,6 @@ void FiniteElement::checkMoveDrifters()
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
-    bool move_drifters = M_move_drifters_every_time_step;
     int n_update = 0;
     if(M_rank == 0)
     {
@@ -8403,8 +8398,7 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
-    move_drifters += (n_update>0);
-    if(move_drifters)
+    if(n_update>0)
         // Move any active drifters
         this->checkMoveDrifters();
 
@@ -12615,12 +12609,6 @@ FiniteElement::warrenClimatology()
 void
 FiniteElement::instantiateDrifters()
 {
-    // for accurate results move every time step
-    // - this is because M_VT is defined on the fixed mesh
-    //   (can be seen from shapeCoeff - called only at init/regrid)
-    // - will slow running down a bit though as need to gather M_UT
-    M_move_drifters_every_time_step = vm["drifters.move_every_time_step"].as<bool>();
-
     // init drifters after spinup
     // NB use ceil to make sure the init time is 0:00
     double const drifters_time_init = std::ceil(time_init + M_spinup_duration);
