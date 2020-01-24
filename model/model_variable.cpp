@@ -337,8 +337,6 @@ ModelVariable::initElemental()
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
-            M_has_max = true;
-            M_max_val = 0.;
             break;
 
         case (variableID::M_conc_upd):
