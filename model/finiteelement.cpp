@@ -4079,6 +4079,10 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
+    //M_timer.tick("FETensors");
+    //this->FETensors();
+    //M_timer.tock("FETensors");
+
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -4600,7 +4604,8 @@ FiniteElement::FETensors()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+        //std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+        std::vector<double> shapecoeff = this->shapeCoeff(*it, M_mesh, M_UM, 1);
 
         for (int i=0; i<18; ++i)
         {
@@ -7290,6 +7295,9 @@ FiniteElement::init()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     this->calcAuxiliaryVariables();
+    M_timer.tick("FETensors");
+    this->FETensors();
+    M_timer.tock("FETensors");
 
 
     //! - 5) Initializes external data:
@@ -7348,9 +7356,9 @@ FiniteElement::init()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    chrono.restart();
-    this->FETensors();
-    LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
+    //chrono.restart();
+    //this->FETensors();
+    //LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
 
     chrono.restart();
     this->calcCohesion();
@@ -8262,6 +8270,9 @@ FiniteElement::step()
     }
 
     M_timer.tock("auxiliary");
+    M_timer.tick("FETensors");
+    this->FETensors();
+    M_timer.tock("FETensors");
 
     //======================================================================
     //! 2) Performs the thermodynamics
