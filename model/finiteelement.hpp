@@ -685,7 +685,6 @@ private:
     external_data M_element_depth;
 
     // Drifters
-    bool M_move_drifters_every_time_step;// move drifters every time step for accuracy
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
 
