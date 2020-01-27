@@ -3683,7 +3683,6 @@ FiniteElement::regrid(bool step)
 {
 
     //move any active drifters before we reset the mesh
-    //NB assignVariables resets M_UT=0
     M_timer.tick("checkMoveDrifters_regrid");
     this->checkMoveDrifters();
     M_timer.tock("checkMoveDrifters_regrid");
