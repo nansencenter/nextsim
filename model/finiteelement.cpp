@@ -1953,10 +1953,9 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 //!     the actual triangle (see the comment on FiniteElement::jacobian)
 //! Called by the FETensors() function.
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
+FiniteElement::shapeCoeff(element_type const& element) const
 {
     auto vertices = M_mesh.vertices(element.indices, M_UM, 1.);
-
     std::vector<double> coeff(6);
     double const jac = this->jacobian(vertices);
     for (int k=0; k<3; ++k)
