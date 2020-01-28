@@ -1580,57 +1580,6 @@ FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 }//jacobian
 
 
-double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
-{
-    return this->jacobian(mesh.vertices(element.indices));
-}//jacobian
-
-
-double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    return this->jacobian(mesh.vertices(element.indices, um, factor));
-}//jacobian
-
-
-double
-FiniteElement::jacobian_old(element_type const& element, mesh_type const& mesh) const
-{
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-double
-FiniteElement::jacobian_old(element_type const& element, mesh_type const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(M_num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
 //------------------------------------------------------------------------------------------------------
 //! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
 //! * This is used to calculate the finite element shape coefficient.
@@ -1991,43 +1940,6 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
-//! Called by the FETensors() function.
-std::vector<double>
-FiniteElement::shapeCoeff_old(element_type const& element, mesh_type const& mesh) const
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
-        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
-    return coeff;
-}//shapeCoeff_old
-
-
-//------------------------------------------------------------------------------------------------------
-//! Calculates finite element shape coefficients.
 //! - 3 shape functions N_0, N_1, N_2 satisfy
 //!     N_k(x_j,y_j)=\delta_{kj}
 //! - this function calculates their gradients
@@ -2073,6 +1985,7 @@ FiniteElement::shapeCoeff(std::vector<std::vector<double>> const& vertices) cons
 }//shapeCoeff
 
 
+#if 0
 void
 FiniteElement::testShapeCoeffJacobian() const
 {
@@ -2110,6 +2023,7 @@ FiniteElement::testShapeCoeffJacobian() const
             break;
     }
 }
+#endif
 
 
 //------------------------------------------------------------------------------------------------------
@@ -8204,17 +8118,6 @@ FiniteElement::step()
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
     }//bamg-regrid
-
-#if 0
-    LOG(DEBUG)<<
-        "M_UM range: " << *std::min_element(M_UM.begin(), M_UM.end()) 
-        << ", " << *std::max_element(M_UM.begin(), M_UM.end()) << "\n";
-    if(pcpt==10)
-    {
-        this->testShapeCoeffJacobian();
-        std::abort();
-    }
-#endif
 
     M_comm.barrier();
     M_timer.tock("remesh");

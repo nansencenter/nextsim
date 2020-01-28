@@ -118,12 +118,11 @@ public:
 
     void testShapeCoeffJacobian() const;
     double jacobian(std::vector<std::vector<double>> const& vertices) const;
-    double jacobian(element_type const& element, mesh_type const& mesh) const;
+    double jacobian(element_type const& element, mesh_type const& mesh) const
+    { return this->jacobian(mesh.vertices(element.indices)); }
     double jacobian(element_type const& element, mesh_type const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
-    double jacobian_old(element_type const& element, mesh_type const& mesh) const;
-    double jacobian_old(element_type const& element, mesh_type const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
+                    std::vector<double> const& um, double factor = 1.) const
+    { return this->jacobian(mesh.vertices(element.indices, um, factor)); }
 
     double jacobian(element_type const& element, mesh_type_root const& mesh) const;
     double jacobian(element_type const& element, mesh_type_root const& mesh,
