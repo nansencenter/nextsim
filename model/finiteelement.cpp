@@ -1955,23 +1955,8 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
 {
-    auto vertices = mesh.vertices(element.indices);
-    return this->shapeCoeff(vertices);
-}//shapeCoeff
+    auto vertices = M_mesh.vertices(element.indices, M_UM, 1.);
 
-
-std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh,
-        std::vector<double> const& um, double factor) const
-{
-    auto vertices = mesh.vertices(element.indices, um, factor);
-    return this->shapeCoeff(vertices);
-}//shapeCoeff
-
-
-std::vector<double>
-FiniteElement::shapeCoeff(std::vector<std::vector<double>> const& vertices) const
-{
     std::vector<double> coeff(6);
     double const jac = this->jacobian(vertices);
     for (int k=0; k<3; ++k)
@@ -4518,8 +4503,7 @@ FiniteElement::FETensors()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        //std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
-        std::vector<double> shapecoeff = this->shapeCoeff(*it, M_mesh, M_UM, 1);
+        std::vector<double> shapecoeff = this->shapeCoeff(*it);
 
         for (int i=0; i<18; ++i)
         {
