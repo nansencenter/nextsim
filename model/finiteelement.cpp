@@ -1369,6 +1369,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
+        ("evp", setup::DynamicsType::EVP)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -1971,6 +1972,43 @@ FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) co
 
     std::vector<double> coeff(6);
     double jac = jacobian(element,mesh);
+
+    for (int k=0; k<6; ++k)
+    {
+        int kp1 = (k+1)%3;
+        int kp2 = (k+2)%3;
+
+        if (k<3)
+        {
+            coeff[k] = (y[kp1]-y[kp2])/jac;
+        }
+        else
+        {
+            coeff[k] = (x[kp2]-x[kp1])/jac;
+        }
+    }
+
+    return coeff;
+}//shapeCoeff
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates finite element shape coefficients.
+//! Called by the FETensors() function.
+std::vector<double>
+FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh,
+                          std::vector<double> const& um, double factor) const
+{
+    std::vector<double> x(3);
+    std::vector<double> y(3);
+
+    for (int i=0; i<3; ++i)
+    {
+        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
+        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
+    }
+
+    std::vector<double> coeff(6);
+    double jac = jacobian(element,mesh,um,factor);
 
     for (int k=0; k<6; ++k)
     {
@@ -4563,7 +4601,7 @@ FiniteElement::calcCohesion()
 //------------------------------------------------------------------------------------------------------
 //! Update all relevant fields and physical variables after solving. Called by the step() function.
 void
-FiniteElement::update()
+FiniteElement::update(std::vector<double> const & UM_P)
 {
     // Hotfix for issue #53 - we only have pure Lagrangian now.
     // // collect the variables into a single structure
@@ -4577,13 +4615,6 @@ FiniteElement::update()
     // // redistribute the interpolated values
     // this->redistributeVariables(interp_elt_out, false);//don't apply maxima during redistribution after advection
 
-    std::vector<double> UM_P = M_UM;
-    for (int nd=0; nd<M_UM.size(); ++nd)
-        M_UM[nd] += time_step*M_VT[nd];
-
-    for (const int& nd : M_neumann_nodes)
-        M_UM[nd] = UM_P[nd];
-
     // Horizontal diffusion
 #ifdef OASIS
     if ( M_ocean_type != setup::OceanType::COUPLED )
@@ -4593,59 +4624,8 @@ FiniteElement::update()
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
-    // Type of discretization scheme for the damage equation, set in options.cpp
-    // Can be either explicit, implicit or recursive
-    std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
-
-    // Characteristic time for damage
-    // Can be either fixed or damage-dependent
-    double td = t_damage;
-    std::string td_type = vm["damage.td_type"].as<std::string>();
-
-    // Slope of the MC enveloppe
-    double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
-    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
-
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
-        double old_damage;
-
-        /* deformation, deformation rate and internal stress tensor and temporary variables */
-        double epsilon_veloc_i;
-        std::vector<double> epsilon_veloc(3);
-
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-
-        /* invariant of the internal stress tensor and some variables used for the damaging process*/
-        double sigma_s, sigma_n, sigma_1, sigma_2;
-        double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor, dcrit;
-
-
-        // Temporary memory
-        old_damage = M_damage[cpt];
-
-        /*======================================================================
-         * Diagnostic:
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        //! - Computes the elastic deformation and the instantaneous deformation rate
-        for(int i=0;i<3;i++)
-        {
-            epsilon_veloc_i = 0.0;
-            for(int j=0;j<3;j++)
-            {
-                /* deformation */
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
-            }
-
-            epsilon_veloc[i] = epsilon_veloc_i;
-        }
-        M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
@@ -4781,6 +4761,78 @@ FiniteElement::update()
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
+         * Check:
+         *======================================================================
+         */
+
+        /* lower bounds */
+        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
+        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+
+    }//loop over elements
+}//update
+
+void
+FiniteElement::updateSigma(bool const reset)
+{
+
+    // Type of discretization scheme for the damage equation, set in options.cpp
+    // Can be either explicit, implicit or recursive
+    std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
+
+    // Characteristic time for damage
+    // Can be either fixed or damage-dependent
+    double td = t_damage;
+    std::string td_type = vm["damage.td_type"].as<std::string>();
+
+    // Slope of the MC enveloppe
+    double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+
+    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
+    {
+        double old_damage;
+
+        /* deformation, deformation rate and internal stress tensor and temporary variables */
+        double epsilon_veloc_i;
+        std::vector<double> epsilon_veloc(3);
+
+        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
+
+        /* invariant of the internal stress tensor and some variables used for the damaging process*/
+        double sigma_s, sigma_n, sigma_1, sigma_2;
+        double tract_max, sigma_t, sigma_c;
+        double tmp, sigma_target, tmp_factor, dcrit;
+
+
+        // Temporary memory
+        old_damage = M_damage[cpt];
+
+        /*======================================================================
+         * Diagnostic:
+         * Elastic deformation and instantaneous deformation rate
+         *======================================================================
+         */
+
+        //! - Computes the elastic deformation and the instantaneous deformation rate
+        for(int i=0;i<3;i++)
+        {
+            epsilon_veloc_i = 0.0;
+            for(int j=0;j<3;j++)
+            {
+                /* deformation */
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+            }
+
+            epsilon_veloc[i] = epsilon_veloc_i;
+        }
+        M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
+
+
+        /*======================================================================
          //! - Updates the internal stress
          *======================================================================
          */
@@ -4892,10 +4944,6 @@ FiniteElement::update()
          *======================================================================
          */
 
-        /* lower bounds */
-        M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
-        M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
-        M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
         /* Ice damage
          * We use now a constant healing rate defined as 1/time_recovery_damage
          * so that we are now able to reset the damage to 0.
@@ -4908,7 +4956,7 @@ FiniteElement::update()
 
         M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }//loop over elements
-}//update
+}//updateSigma
 
 
 #ifdef OASIS
@@ -8250,18 +8298,37 @@ FiniteElement::step()
         M_timer.tock("solve");
         LOG(VERBOSE) <<"---timer solve:                "<< M_timer.lap("solve") <<"s\n";
 
+        std::vector<double> UM_P = M_UM;
         M_timer.tick("updatevelocity");
         this->updateVelocity();
         M_timer.tock("updatevelocity");
         LOG(VERBOSE) <<"---timer updateVelocity:       "<< M_timer.lap("updatevelocity") <<"s\n";
 
         M_timer.tick("update");
-        this->update();
+        this->update(UM_P);
         M_timer.tock("update");
         LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
+
+        M_timer.tick("updateSigma");
+        this->updateSigma(false);
+        M_timer.tock("updateSigma");
+        LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
+    else if ( M_dynamics_type == setup::DynamicsType::EVP )
+    {
+        std::vector<double> UM_P = M_UM;
+        M_timer.tick("explicitSolve");
+        this->explicitSolve();
+        M_timer.tock("explicitSolve");
+        LOG(VERBOSE) <<"---timer explicitSolve:        "<< M_timer.lap("explicitSolve") <<"s\n";
+
+        M_timer.tick("update");
+        this->update(UM_P);
+        M_timer.tock("update");
+        LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
+    }
 
 #ifdef OASIS
     if(M_num_fsd_bins>0)
@@ -9863,11 +9930,17 @@ FiniteElement::updateVelocity()
     M_VTM = M_VT;
     M_VT = M_solution->container();
 
-    // increment M_UT that is used for the drifters
-    for (int nd=0; nd<M_UT.size(); ++nd)
+    // Move the mesh and update total displacement
+    std::vector<double> UM_P = M_UM;
+    for (int nd=0; nd<M_UM.size(); ++nd)
     {
+        M_UM[nd] += dtime_step*M_VT[nd];
         M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
     }
+
+    for (const int& nd : M_neumann_nodes)
+        M_UM[nd] = UM_P[nd];
+
 }//updateVelocity
 
 
@@ -9914,12 +9987,353 @@ FiniteElement::updateFreeDriftVelocity()
             M_UT[index_v] += dtime_step*M_VT[index_v]; // Total displacement (for drifters)
         }
     }
-
-    LOG(DEBUG) << "Update Ghosts\n";
-    this->updateGhosts(M_VT);
-    LOG(DEBUG) << "Update Ghosts a success\n";
 }//updateFreeDriftVelocity
 
+//------------------------------------------------------------------------------------------------------
+//! Solves the momentum equation explicitly
+//! Called by the step() function.
+void
+FiniteElement::explicitSolve()
+{
+    int const steps = vm["dynamics.substeps"].as<int>();
+    double const dte = dtime_step/real(steps);
+
+    double const cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
+    double const sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
+
+    // It's the minimum _slab_ thickness times ice density
+    double const min_m = physical::rhoi*vm["dynamics.min_h"].as<double>();
+
+#ifdef OASIS
+    bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
+#endif
+
+    // For the EVP code
+    const double e = vm["dynamics.evp.e"].as<double>();
+    const double Pstar = vm["dynamics.evp.Pstar"].as<double>();
+    const double C = vm["dynamics.evp.C"].as<double>();
+    const double delta_min = vm["dynamics.evp.dmin"].as<double>();
+
+    // Build the parts that don't change over the sub-time stepping
+    // On the elements
+    LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
+    M_timer.tick("prep elements");
+
+    std::vector<double> element_mass(M_num_elements, 0.);
+    std::vector<double> rlmass_matrix(M_num_nodes, 0.);
+    std::vector<double> node_mass(M_num_nodes, 0.);
+    for ( int cpt=0; cpt<M_num_elements; ++cpt )
+    {
+        double total_concentration=M_conc[cpt];
+        double total_thickness=M_thick[cpt];
+        double total_snow=M_snow_thick[cpt];
+
+        // Add the thin ice concentration and thickness
+        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            total_concentration += M_conc_thin[cpt];
+            total_thickness     += M_h_thin[cpt];
+            total_snow          += M_hs_thin[cpt];
+        }
+
+        // We use the slab mass (Rampal et al., 2016, Connolley et al., 2004)
+        if ( total_concentration > 0. )
+            element_mass[cpt] = (physical::rhoi*total_thickness + physical::rhos*total_snow)/total_concentration;
+        else
+            element_mass[cpt] = 0.;
+
+        // Is this needed? Is this wise?
+        M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
+        M_shape_coeff[cpt] = this->shapeCoeff(M_elements[cpt],M_mesh,M_UM);
+
+        // Loop over the nodes of the element for the lumped mass matrix and
+        // nodal mean mass (area weighted over all neighbouring elements).
+        // They are summed here and post-processed below.
+        for (int i=0; i<3; ++i)
+        {
+            int const idx_node = (M_elements[cpt]).indices[i]-1;
+            rlmass_matrix[idx_node] += M_surface[cpt];
+            node_mass[idx_node] += element_mass[cpt]*M_surface[cpt];
+        }
+    }
+
+    M_timer.tock("prep elements");
+    // On the nodes
+    LOG(DEBUG) << "Prepping the explicit solver (nodes)\n";
+    M_timer.tick("prep nodes");
+
+    std::vector<double> tau_a(2*M_num_nodes);
+    std::vector<double> fcor(M_num_nodes);
+    std::vector<double> ssh(M_num_nodes);
+    std::vector<double> const lat = M_mesh.lat();
+    for ( int i=0; i<M_num_nodes; ++i )
+    {
+        const int u_indx = i;
+        const int v_indx = i+M_num_nodes;
+
+        /* We set the open water nodes to zero here to help with the smoothing
+         * step which comes after the sub-time stepping.
+         * It's ok to have them zero during the sub-time stepping itself
+         * because the ice free elements don't contribute to any du/dx terms.
+         * */
+        if ( node_mass[i]==0. )
+        {
+            M_VT[u_indx] = 0.;
+            M_VT[v_indx] = 0.;
+        }
+
+        // Atmospheric drag
+        const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
+        tau_a[u_indx] = drag * M_wind[u_indx];
+        tau_a[v_indx] = drag * M_wind[v_indx];
+
+        // Coriolis term
+        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
+
+        // SSH because M_ssh is slow
+        ssh[i] = M_ssh[i];
+
+        // Post-process mass matrix and nodal mass
+        rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
+        node_mass[i] *= rlmass_matrix[i];
+        rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
+    }
+
+    M_timer.tock("prep nodes");
+    LOG(DEBUG) << "Starting sub-time stepping\n";
+    M_timer.tick("sub-time stepping");
+
+    // Do the sub-time stepping itself
+    for ( int s=0; s<steps; s++ )
+    {
+        // The stress tensor
+        M_timer.tick("updateSigmaEVP");
+        this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
+        M_timer.tock("updateSigmaEVP");
+
+        // Walk through all the elements to build the gradient terms of the RHS
+        M_timer.tick("gradient terms");
+        std::vector<double> grad_terms(2*M_num_nodes, 0.);
+        for ( int cpt=0; cpt<M_num_elements; ++cpt )
+        {
+            // Loop over the nodes of the element to build the gradient terms themselves
+            double const m_g_A3rd = element_mass[cpt]*physical::gravity*M_surface[cpt]/3.;
+            std::vector<double> const dx = M_shape_coeff[cpt];
+            for (int i=0; i<3; ++i)
+            {
+                int const i_indx = (M_elements[cpt]).indices[i]-1;
+
+                // Skip ghost, boundary, and ice free nodes
+                if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
+                    continue;
+
+                int const u_indx = i_indx;
+                int const v_indx = i_indx + M_num_nodes;
+
+                // Gradient of sigma
+                // The sign is counter-intuitive, but see Danilov et al. (2015)
+                grad_terms[u_indx] -= ( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
+                grad_terms[v_indx] -= ( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
+
+                // Gradient of m*g*SSH
+                for ( int j=0; j<3; ++j )
+                {
+                    int const j_indx = (M_elements[cpt]).indices[j]-1;
+                    grad_terms[u_indx] -= dx[j] * m_g_A3rd * ssh[j_indx];
+                    grad_terms[v_indx] -= dx[j+3] * m_g_A3rd * ssh[j_indx];
+                }
+            }
+        }
+        M_timer.tock("gradient terms");
+
+        M_timer.tick("sub-solve");
+        // Walk through all the (non-ghost) nodes to build the remaining terms of the RHS and solve
+        for ( int i=0; i<M_local_ndof; ++i )
+        {
+            // Skip fixed boundary nodes and ice free nodes
+            if ( M_mask_dirichlet[i] || node_mass[i]==0. )
+                continue;
+
+            int u_indx = i;
+            int v_indx = i+M_num_nodes;
+
+            /* This is Hunke and Dukowicz's solution to (22), multiplied
+             * with (\Delta t/m)^2 to ensure stability for c' = 0 */
+            double const dte_over_mass = dte/std::max(min_m, node_mass[i]);
+            double const uice = M_VT[u_indx];
+            double const vice = M_VT[v_indx];
+
+            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+
+            double const alpha  = 1. + dte_over_mass*c_prime*cos_ocean_turning_angle;
+            double const beta   = dte*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
+            double const rdenom = 1./( alpha*alpha + beta*beta );
+
+            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+
+            // We need to divide the gradient terms with the lumped mass matrix term
+            double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
+            double const grad_y = grad_terms[v_indx]*rlmass_matrix[i];
+
+            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) );
+            M_VT[u_indx] *= rdenom;
+
+            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) );
+            M_VT[v_indx] *= rdenom;
+        }
+        M_timer.tock("sub-solve");
+
+        M_timer.tick("updateGhosts");
+        // Update the ghosts and leave!
+        this->updateGhosts(M_VT);
+        M_timer.tock("updateGhosts");
+
+        M_timer.tick("move mesh");
+        // Move the mesh and update total displacement
+        std::vector<double> UM_P = M_UM;
+        for (int nd=0; nd<M_UM.size(); ++nd)
+        {
+            M_UM[nd] += dte*M_VT[nd];
+            M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+        }
+
+        for (const int& nd : M_neumann_nodes)
+            M_UM[nd] = UM_P[nd];
+
+        M_timer.tock("move mesh");
+    }
+    M_timer.tock("sub-time stepping");
+
+    // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
+    M_timer.tick("OW smoother");
+
+    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    // nit<50 gives about 50 nodes of buffer
+    for ( int nit=0; nit<50; ++nit )
+    {
+        std::vector<double> const u = M_VT;
+        for ( int i=0; i<M_local_ndof; ++i )
+        {
+            int const u_indx = i;
+            int const v_indx = i+M_num_nodes;
+
+            // Skip ice and boundary nodes
+            if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
+                continue;
+
+            // Reset M_VT for the averaging
+            M_VT[u_indx] = 0.;
+            M_VT[v_indx] = 0.;
+
+            // Loop over neighbouring nodes
+            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+            double w = 0;
+            for ( int j=0; j<num_neighbours; ++j )
+            {
+                // neigbour node index
+                int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                M_VT[u_indx] += u[nni];
+                M_VT[v_indx] += u[nni + M_num_nodes];
+            }
+            M_VT[u_indx] /= num_neighbours;
+            M_VT[v_indx] /= num_neighbours;
+        }
+
+        this->updateGhosts(M_VT);
+    }
+
+    // Move the mesh in the open water part
+    std::vector<double> UM_P = M_UM;
+    for ( int i=0; i<M_num_nodes; ++i )
+    {
+        // Skip ice and boundary nodes
+        if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
+            continue;
+
+        int const u_indx = i;
+        int const v_indx = i+M_num_nodes;
+
+        M_UM[u_indx] += dtime_step*M_VT[u_indx];
+        M_UM[v_indx] += dtime_step*M_VT[v_indx];
+
+        M_UT[u_indx] += dtime_step*M_VT[u_indx];
+        M_UT[v_indx] += dtime_step*M_VT[v_indx];
+    }
+
+    for (const int& nd : M_neumann_nodes)
+        M_UM[nd] = UM_P[nd];
+
+    M_timer.tock("OW smoother");
+}
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates M_sigma for the EVP model
+//! Called by the explicitSolve function
+inline void
+FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min)
+{
+    double const re2 = 1./(e*e);
+    double const Tevp_inv = 3./dtime_step;
+
+    double const det1 = 1./( 1. + 0.5*Tevp_inv*dte );
+    double const det2 = 1./( 1. + 0.5*Tevp_inv*dte*e*e );
+
+    for ( int cpt=0; cpt<M_num_elements; cpt++ )
+    {
+        // Skip ice-free elements (it's just a zero term anyway)
+        if ( M_thick[cpt] == 0. )
+        {
+            for ( int i=0; i<M_sigma.size(); ++i )
+                M_sigma[i][cpt] = 0.;
+
+            continue;
+        }
+
+        // Deformation rate tensor on element
+        // Sum up over the nodes of this element
+        double eps11 = 0.;
+        double eps22 = 0.;
+        double eps12 = 0.;
+        for(int i=0; i<3; i++)
+        {
+            double const u = M_VT[(M_elements[cpt]).indices[i]-1];
+            double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
+            double const dx = M_shape_coeff[cpt][i];
+            double const dy = M_shape_coeff[cpt][i+3];
+            eps11 += dx*u;
+            eps22 += dy*v;
+            eps12 += 0.5*( dx*v + dy*u );
+        }
+
+        double const eps1 = eps11 + eps22;
+        double const eps2 = eps11 - eps22;
+
+        double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
+
+        double pressure = Pstar*M_thick[cpt]*std::exp(-C*(1.-M_conc[cpt]));
+
+        pressure *= 0.5;
+        double const delta_inv = 1./std::max(delta, delta_min);
+
+        double zeta = pressure*delta_inv;
+        pressure *= delta*delta_inv;
+        pressure *= Tevp_inv;
+        zeta *= Tevp_inv;
+
+        double const r1 = zeta*eps1 - pressure;
+        double const r2 = zeta*eps2;
+        double const r3 = zeta*eps12*re2;
+        double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
+        double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
+
+        sigma1 = det1*(sigma1 + dte*r1);
+        sigma2 = det2*(sigma2 + dte*r2);
+        M_sigma[2][cpt] = det2*(M_sigma[2][cpt] + dte*r3);
+        M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
+        M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
+    }
+} //updateSigmaEVP
 
 //------------------------------------------------------------------------------------------------------
 //! ??

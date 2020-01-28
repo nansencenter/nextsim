@@ -80,6 +80,8 @@ namespace Nextsim
                 "Options for regridding: No-regridding or bamg")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
+            ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
+                "Number of iterations taken to smooth velocity into open water (only for explicit solver)")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
@@ -364,6 +366,17 @@ namespace Nextsim
             ("damage.clip", po::value<double>()->default_value( 0 ),
              "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
+            // - EVP!
+            ("dynamics.substeps", po::value<int>()->default_value( 120 ),
+             "Nuber of explicit sub-steps (default 120)")
+            ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
+             "Ellipse ratio (default 2)")
+            ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
+             "P* (default 27.5e3)")
+            ("dynamics.evp.C", po::value<double>()->default_value( 20 ),
+             "Compaction parameter (C, default 20)")
+            ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
+             "Minimum delta (default 1e-9)")
 
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics

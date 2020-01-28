@@ -144,6 +144,8 @@ public:
                    std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
+    std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh,
+                   std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
 
@@ -177,6 +179,9 @@ public:
     void init();
     void step();
     void run();
+
+    inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
+    void explicitSolve();
 
     void nestingIce();
     void nestingDynamics();
@@ -298,9 +303,11 @@ public:
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
+    void expicitSolve();
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
-    void update();
+    void update(std::vector<double> const & UM_P);
+    void updateSigma(bool const reset = false);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();

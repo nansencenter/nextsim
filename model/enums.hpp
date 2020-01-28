@@ -139,7 +139,8 @@ namespace setup
     {
         DEFAULT         = 0,
         NO_MOTION       = 1,
-        FREE_DRIFT      = 2
+        FREE_DRIFT      = 2,
+        EVP             = 3
     };
 
 } // setup
