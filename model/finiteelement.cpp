@@ -13052,24 +13052,13 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
         }
     }
 
-    std::vector<std::vector<int>> ghost_update_values(M_comm.size());
-    std::vector<boost::mpi::request> reqs;
+    std::vector<std::vector<double>> ghost_update_values(M_comm.size());
 
     for (int const& proc : M_recipients_proc_id)
-    {
-        // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
-        auto req = M_comm.isend(proc, M_rank, extract_local_values[proc]);
-        reqs.push_back(req);
-    }
+        M_comm.send(proc, M_rank, extract_local_values[proc]);
 
     for (int const& proc : M_local_ghosts_proc_id)
-    {
-        // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
-        auto req = M_comm.irecv(proc, proc, ghost_update_values[proc]);
-        reqs.push_back(req);
-    }
-
-    boost::mpi::wait_all(reqs.begin(),reqs.end());
+        M_comm.recv(proc, proc, ghost_update_values[proc]);
 
     for (int i=0; i<M_local_ghosts_local_index.size(); i++)
     {
@@ -13138,11 +13127,11 @@ FiniteElement::initUpdateGhosts()
     {
         if (M_rank == 0)
         {
-            std::cout<<"["<< i <<"]  ";
+            LOG(DEBUG) << "["<< i <<"]  ";
             for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
-                std::cout<< recipients_proc_id_extended[i][j] <<"  ";
+                LOG(DEBUG) << recipients_proc_id_extended[i][j] <<"  ";
 
-            std::cout<<"\n";
+            LOG(DEBUG) << "\n";
         }
 
         for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
@@ -13153,26 +13142,12 @@ FiniteElement::initUpdateGhosts()
     }
 
     std::vector<std::vector<int>> extract_global_index(M_comm.size());
-    std::vector<boost::mpi::request> reqs;
 
     for (int const& proc : M_local_ghosts_proc_id)
-    {
-        // std::cout<<"------------------processor "<< M_rank <<" is sending to processor "<< proc <<"\n";
-        auto req = M_comm.isend(proc, M_rank, local_ghosts_global_index[proc]);
-        reqs.push_back(req);
-    }
+        M_comm.send(proc, M_rank, local_ghosts_global_index[proc]);
 
-    boost::mpi::wait_all(reqs.begin(),reqs.end());
-
-    reqs.resize(0);
     for (int const& proc : M_recipients_proc_id)
-    {
-        // std::cout<<"------------------processor "<< M_rank <<" is waiting for processor "<< proc <<"\n";
-        auto req = M_comm.irecv(proc, proc, extract_global_index[proc]);
-        reqs.push_back(req);
-    }
-
-    boost::mpi::wait_all(reqs.begin(),reqs.end());
+        M_comm.recv(proc, proc, extract_global_index[proc]);
 
     M_extract_local_index.resize(M_comm.size());
 
