@@ -7254,19 +7254,15 @@ FiniteElement::init()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    //chrono.restart();
-    //this->FETensors();
-    //LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
-
-    chrono.restart();
+    M_timer.tick("calcCohesion");
     this->calcCohesion();
-    LOG(VERBOSE) <<"---timer calcCohesion:             "<< chrono.elapsed() <<"\n";
+    M_timer.tock("calcCohesion");
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        chrono.restart();
+        M_timer.tick("calcCoriolis");
         this->calcCoriolis();
-        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< chrono.elapsed() <<"\n";
+        M_timer.tock("calcCoriolis");
     }
 }//calcAuxiliaryVariables
 
