@@ -3893,9 +3893,9 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
-    //M_timer.tick("FETensors");
-    //this->FETensors();
-    //M_timer.tock("FETensors");
+    M_timer.tick("FETensors");
+    this->FETensors();
+    M_timer.tock("FETensors");
 
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
@@ -7108,10 +7108,6 @@ FiniteElement::init()
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     this->calcAuxiliaryVariables();
-    M_timer.tick("FETensors");
-    this->FETensors();
-    M_timer.tock("FETensors");
-
 
     //! - 5) Initializes external data:
     //!      * atmospheric and oceanic forcings
@@ -7163,7 +7159,7 @@ FiniteElement::init()
 }//init
 
 // ==============================================================================
-//! calculate the FETensors, cohesion, and Coriolis force
+//! calculate the cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
 //! called by init() and step()
 void
@@ -8068,9 +8064,6 @@ FiniteElement::step()
     }
 
     M_timer.tock("auxiliary");
-    M_timer.tick("FETensors");
-    this->FETensors();
-    M_timer.tock("FETensors");
 
     //======================================================================
     //! 2) Performs the thermodynamics
