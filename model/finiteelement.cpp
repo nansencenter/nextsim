@@ -1581,49 +1581,6 @@ FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
-//! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-//! Called by the flip(), measure() and shapeCoeff() functions.
-double
-FiniteElement::jacobian_old(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-double
-FiniteElement::jacobian_old(element_type const& element, mesh_type_root const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    int num_nodes = M_mesh_root.numNodes();
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-//------------------------------------------------------------------------------------------------------
 //! Calculates the length of the vertices of the triangular mesh elements.
 //! Called by the minMaxSides() and minAngles() functions.
 std::vector<double>
