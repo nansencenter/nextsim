@@ -1964,94 +1964,9 @@ FiniteElement::shapeCoeff(element_type const& element) const
         int const kp2 = (k+2)%3;
         coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
         coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
-        LOG(DEBUG) << "coeff["<<k<<"]="<<coeff[k]<<"\n";
-        LOG(DEBUG) << "coeff["<<k+3<<"]="<<coeff[k+3]<<"\n";
     }
     return coeff;
 }//shapeCoeff
-
-
-#if 1
-void
-FiniteElement::testShapeCoeffJacobian() const
-{
-    auto movedmesh = M_mesh_root;
-    auto elements = M_mesh_root.triangles();
-    int num_nodes = M_mesh_root.numNodes();
-    std::vector<double> um(2*num_nodes);
-    for(int i=0; i<2*num_nodes; i++)
-        um[i] = 30*i;
-    movedmesh.move(um, 1);
-
-    if (M_rank>0)
-        return;
-    int i = 0;
-    for (auto it=elements.begin(), end=elements.end(); it!=end; ++it, ++i)
-    {
-
-        LOG(DEBUG)<<"ind's="
-            << it->indices[0] << ","
-            << it->indices[1] << ","
-            << it->indices[2] << "\n";
-        double jac = this->jacobian(*it,M_mesh_root);
-        double jac_old = this->jacobian_old(*it,M_mesh_root);
-        double jac_moved = this->jacobian(*it,M_mesh_root,um,1);
-        double jac_moved_old = this->jacobian_old(*it,M_mesh_root,um,1);
-        LOG(DEBUG)<< "Fixed J: " << jac << " : " << jac_old << "\n";
-        LOG(DEBUG)<< "Moved J: " << jac_moved << " : " << jac_moved_old << "\n\n";
-    }
-    i =0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it, ++i)
-    {
-        auto shapecoeff = this->shapeCoeff(*it);
-        auto shapecoeff_old = this->shapeCoeff_old(*it,M_mesh);
-        for(int k=0; k<6; k++)
-        {
-            LOG(DEBUG)<< "Fixed SC: " << shapecoeff[k] << " : " << shapecoeff_old[k] << "\n";
-        }
-        LOG(DEBUG)<< "\n";
-
-        if(i<20)
-            continue;
-        if(i==30)
-            break;
-    }
-    std::abort();
-}
-
-std::vector<double>
-FiniteElement::shapeCoeff_old(element_type const& element, mesh_type const& mesh) const
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
-        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
-    return coeff;
-}//shapeCoeff_old
-#endif
 
 
 //------------------------------------------------------------------------------------------------------
@@ -7235,7 +7150,6 @@ FiniteElement::init()
         LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
-    this->testShapeCoeffJacobian();
     this->calcAuxiliaryVariables();
     M_timer.tick("FETensors");
     this->FETensors();
