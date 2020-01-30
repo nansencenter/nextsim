@@ -10014,6 +10014,12 @@ FiniteElement::explicitSolve()
     const double C = vm["dynamics.evp.C"].as<double>();
     const double delta_min = vm["dynamics.evp.dmin"].as<double>();
 
+    // For the grounding scheme
+    const double k1 = vm["dynamics.Lemieux_basal_k1"].as<double>();
+    const double k2 = vm["dynamics.Lemieux_basal_k2"].as<double>();
+    const double Cb = vm["dynamics.Lemieux_basal_Cb"].as<double>();
+    const double u0 = vm["dynamics.Lemieux_basal_u_0"].as<double>();
+
     // Build the parts that don't change over the sub-time stepping
     // On the elements
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
@@ -10022,13 +10028,20 @@ FiniteElement::explicitSolve()
     std::vector<double> element_mass(M_num_elements, 0.);
     std::vector<double> rlmass_matrix(M_num_nodes, 0.);
     std::vector<double> node_mass(M_num_nodes, 0.);
+    std::vector<double> C_bu(M_num_nodes, 0.);
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
+        // We need to update the mesh every time step
+        M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
+        std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt],M_mesh,M_UM);
+        M_shape_coeff[cpt] = shapecoeff;
+
+        // Calculate element mass
+        // We use the slab mass (Rampal et al., 2016, Connolley et al., 2004)
         double total_concentration=M_conc[cpt];
         double total_thickness=M_thick[cpt];
         double total_snow=M_snow_thick[cpt];
 
-        // Add the thin ice concentration and thickness
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             total_concentration += M_conc_thin[cpt];
@@ -10036,33 +10049,75 @@ FiniteElement::explicitSolve()
             total_snow          += M_hs_thin[cpt];
         }
 
-        // We use the slab mass (Rampal et al., 2016, Connolley et al., 2004)
         if ( total_concentration > 0. )
             element_mass[cpt] = (physical::rhoi*total_thickness + physical::rhos*total_snow)/total_concentration;
         else
             element_mass[cpt] = 0.;
 
-        // Is this needed? Is this wise?
-        M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
-        M_shape_coeff[cpt] = this->shapeCoeff(M_elements[cpt],M_mesh,M_UM);
+        // Basal stress term: the numerator of equation (24) in Lemieux et al. (2015) - I still call it C_bu
+        // We calculate C_bu on the element and then take the nodal maximum of it below.
+        double element_ssh = 0; // Element mean ssh
+        for (int i=0; i<3; ++i)
+            element_ssh += M_ssh[(M_elements[cpt]).indices[i]-1];
 
-        // Loop over the nodes of the element for the lumped mass matrix and
-        // nodal mean mass (area weighted over all neighbouring elements).
-        // They are summed here and post-processed below.
+        element_ssh /= 3.;
+
+        double max_keel_depth=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+        double keel_depth;
+        double critical_h;
+        double critical_h_mod;
+        switch ( M_basal_stress_type )
+        {
+            case setup::BasalStressType::NONE:
+                // No grounding
+                critical_h     = 0.;
+                critical_h_mod = 0.;
+                break;
+            case setup::BasalStressType::BOUILLON:
+                // Sylvain's grounding scheme
+                // TODO: Remove this one - we've never used it
+                keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
+                keel_depth = std::min( keel_depth, max_keel_depth );
+
+                critical_h     = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.);
+                critical_h_mod = M_conc[cpt]*std::pow(keel_depth/ice_to_keel_factor,2.);
+                break;
+            case setup::BasalStressType::LEMIEUX:
+                // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
+                // Limit keel depth (JF doesn't do that).
+                keel_depth = k1*M_thick[cpt]/M_conc[cpt];
+                keel_depth = std::min( keel_depth, max_keel_depth );
+
+                critical_h     = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/k1;
+                critical_h_mod = M_conc[cpt]*keel_depth/k1;
+                break;
+        }
+
+        /* Loop over the nodes of the element for various nodal values.
+         * The lumped mass matrix and nodal mean mass are area weighted over
+         * all neighbouring elements. They are summed here and post-processed below.
+         * The maximum C_bu (grounding drag coeficient) is calculated here */
+        double const element_C_bu = k2*std::max(0., critical_h_mod-critical_h)*std::exp(-Cb*(1.-M_conc[cpt]));
         for (int i=0; i<3; ++i)
         {
+            // Area means
             int const idx_node = (M_elements[cpt]).indices[i]-1;
             rlmass_matrix[idx_node] += M_surface[cpt];
             node_mass[idx_node] += element_mass[cpt]*M_surface[cpt];
+
+            // Max C_bu
+            C_bu[idx_node]  = std::max(C_bu[idx_node], element_C_bu);
         }
     }
-
     M_timer.tock("prep elements");
+
     // On the nodes
     LOG(DEBUG) << "Prepping the explicit solver (nodes)\n";
     M_timer.tick("prep nodes");
 
     std::vector<double> tau_a(2*M_num_nodes);
+    // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
     std::vector<double> ssh(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
@@ -10165,7 +10220,8 @@ FiniteElement::explicitSolve()
 
             double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
-            double const alpha  = 1. + dte_over_mass*c_prime*cos_ocean_turning_angle;
+            double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
+            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
             double const beta   = dte*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
