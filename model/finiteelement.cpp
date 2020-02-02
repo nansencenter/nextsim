@@ -1233,6 +1233,23 @@ FiniteElement::initOptAndParam()
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
+    //! Sets the damage evolution parameter values
+    const boost::unordered_map<const std::string, schemes::damageDiscretisation> str2disc_scheme = boost::assign::map_list_of
+        ("explicit", schemes::damageDiscretisation::EXPLICIT)
+        ("implicit", schemes::damageDiscretisation::IMPLICIT)
+        ("recursive", schemes::damageDiscretisation::RECURSIVE);
+    M_disc_scheme = this->getOptionFromMap("damage.disc_scheme", str2disc_scheme);
+        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
+    LOG(DEBUG)<<"Disc_scheme= "<< (int)M_disc_scheme <<"\n";
+
+    const boost::unordered_map<const std::string, schemes::tdType> str2td_type = boost::assign::map_list_of
+        ("fixed", schemes::tdType::FIXED)
+        ("damage_dependent", schemes::tdType::DAMAGE_DEPENDENT);
+    M_td_type = this->getOptionFromMap("damage.td_type", str2td_type);
+        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
+        //! \param M_td_type Characteristic time for damage (fixed or damage-dependent)
+    LOG(DEBUG)<<"td_type = "<< (int)M_td_type <<"\n";
+
 
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
@@ -1370,6 +1387,7 @@ FiniteElement::initOptAndParam()
         ("default", setup::DynamicsType::DEFAULT)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
+        ("mebe", setup::DynamicsType::MEBe)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -4067,6 +4085,8 @@ FiniteElement::assemble(int pcpt)
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
     double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+    double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+    double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
 #ifdef OASIS
     bool coupler_with_waves = vm["coupler.with_waves"].as<bool>();
@@ -4075,6 +4095,9 @@ FiniteElement::assemble(int pcpt)
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
+
+    // Update the multiplicator and elasticity
+    this->updateSigmaCoefs(dtime_step, undamaged_time_relaxation_sigma, exponent_relaxation_sigma, ridging_exponent, damage_min);
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -4119,16 +4142,6 @@ FiniteElement::assemble(int pcpt)
         double coef_Vair = 0.;
         double coef_Voce = 0.;
         double coef_basal = 0.;
-
-        double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-        double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
-
-        // clip damage
-        double damage_tmp = clip_damage(M_damage[cpt], damage_min);
-
-        double time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-        D_multiplicator[cpt] = time_viscous/(time_viscous+dtime_step);
-        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
         // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
@@ -4773,42 +4786,46 @@ FiniteElement::update(std::vector<double> const & UM_P)
     }//loop over elements
 }//update
 
-void
-FiniteElement::updateSigma(bool const reset)
+void inline
+FiniteElement::updateSigmaCoefs(double const dt, double const undamaged_time_relaxation_sigma,
+        double const exponent_relaxation_sigma, double const ridging_exponent, double const damage_min)
 {
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        // clip damage
+        double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+        double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
-    // Type of discretization scheme for the damage equation, set in options.cpp
-    // Can be either explicit, implicit or recursive
-    std::string disc_scheme = vm["damage.disc_scheme"].as<std::string>();
+        D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
+        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    }
+}
 
-    // Characteristic time for damage
-    // Can be either fixed or damage-dependent
-    double td = t_damage;
-    std::string td_type = vm["damage.td_type"].as<std::string>();
-
+void inline
+FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type)
+{
     // Slope of the MC enveloppe
-    double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
-    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
-        double old_damage;
+        // There's no ice we set sigma to 0 and carry on
+        if ( M_thick[cpt] == 0. )
+        {
+            for(int i=0;i<3;i++)
+            {
+                M_sigma[i][cpt] = 0.;
+                D_sigma_p[i][cpt] = 0.;
+            }
 
-        /* deformation, deformation rate and internal stress tensor and temporary variables */
-        double epsilon_veloc_i;
-        std::vector<double> epsilon_veloc(3);
-
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-
-        /* invariant of the internal stress tensor and some variables used for the damaging process*/
-        double sigma_s, sigma_n, sigma_1, sigma_2;
-        double tract_max, sigma_t, sigma_c;
-        double tmp, sigma_target, tmp_factor, dcrit;
-
+            M_damage[cpt] = 0.;
+            M_divergence[cpt] = 0.;
+            D_dcrit[cpt] = 0.;
+            continue;
+        }
 
         // Temporary memory
-        old_damage = M_damage[cpt];
+        double const old_damage = M_damage[cpt];
 
         /*======================================================================
          * Diagnostic:
@@ -4817,17 +4834,15 @@ FiniteElement::updateSigma(bool const reset)
          */
 
         //! - Computes the elastic deformation and the instantaneous deformation rate
+        std::vector<double> epsilon_veloc(3,0.);
         for(int i=0;i<3;i++)
         {
-            epsilon_veloc_i = 0.0;
             for(int j=0;j<3;j++)
             {
                 /* deformation */
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc_i += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
-
-            epsilon_veloc[i] = epsilon_veloc_i;
         }
         M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
 
@@ -4837,106 +4852,108 @@ FiniteElement::updateSigma(bool const reset)
          *======================================================================
          */
 
-        if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (young>0.))
+        //Calculating the new state of stress
+        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
+        for(int i=0;i<3;i++)
         {
-            //Calculating the new state of stress
-            for(int i=0;i<3;i++)
+            double sigma_dot_i = 0.0;
+            double sigma_p_i = 0.;
+            for(int j=0;j<3;j++)
             {
-                double sigma_dot_i = 0.0;
-                double sigma_p_i = 0.;
-                bool const is_ice = M_conc[cpt] > vm["dynamics.min_c"].as<double>();
-                for(int j=0;j<3;j++)
-                {
-                    sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
-                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
-                }
-
-                sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
-                sigma[i]          = is_ice ? sigma[i]  : 0.;
-                D_sigma_p[i][cpt] = is_ice ? sigma_p_i : 0.;//diagnostic
-                M_sigma[i][cpt]   = sigma[i];
+                sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+                sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
             }
 
-            /*======================================================================
-             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-             *======================================================================
-             */
-
-            /* Calculate the characteristic time for damage */
-            if (td_type == "damage_dependent")
-                td = min(t_damage*pow(1-old_damage,-0.5), dtime_step);
-
-            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-            sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-            sigma_n =-          (sigma[0]+sigma[1])/2.;
-
-            sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            sigma_c=2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-            sigma_t=-sigma_c/q;
-            tract_max=-tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
-
-            // to test for compressive failure
-            // - slope of line between origin and the intersection of the
-            // compressive failure line and the upper Coulomb branch
-            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
-            // to test for tensile failure
-            // - slope of line between origin and the intersection of the
-            // tensile failure line and the upper Coulomb branch
-            double slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
-
-            if( sigma_1 > 0 && sigma_2 > 0
-                && sigma_2 < slope_compr_upper*sigma_1
-                && sigma_1 < slope_compr_upper*sigma_2 )
-            {
-                // compressive failure region
-                sigma_target = compr_strength;
-                dcrit = sigma_target/sigma_n;
-            }
-            else if( sigma_1 < 0 && sigma_2 < 0
-                && sigma_2 < slope_tens_upper*sigma_1
-                && sigma_1 < slope_tens_upper*sigma_2 )
-            {
-                // tensile failure region
-                sigma_target = tract_max;
-                dcrit = sigma_target/sigma_n;
-            }
-            else
-            {
-                // Mohr-Coulomb failure region
-                sigma_target = sigma_c;
-                dcrit = sigma_target/(sigma_1-q*sigma_2);
-            }
-            D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
-
-            /* Calculate the adjusted level of damage */
-            if (dcrit < 1)
-            {
-                if (disc_scheme == "explicit")
-                    tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
-                else if (disc_scheme == "implicit")
-                {
-                    tmp_factor=1.0/((1.0-dcrit)*dtime_step/td + 1.0);
-                    tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
-                }
-                else if (disc_scheme == "recursive")
-                    tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
-
-                if(tmp>M_damage[cpt])
-                {
-#ifdef OASIS
-                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
-#endif
-                    M_damage[cpt] = min(tmp, 1.0);
-                }
-            }
+            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+            D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
+            M_sigma[i][cpt]   = sigma[i];
         }
-        else // if M_conc or M_thick too low, set sigma to 0.
+
+        /*======================================================================
+         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
+         *======================================================================
+         */
+
+        /* Calculate the characteristic time for damage */
+        double td = t_damage;
+        if ( td_type == schemes::tdType::DAMAGE_DEPENDENT )
+            td = min(t_damage*pow(1-old_damage,-0.5), dt);
+
+        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
+        double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+        double const sigma_n = -          (sigma[0]+sigma[1])/2.;
+
+        double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+
+        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        double const sigma_t   = -sigma_c/q;
+        double const tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
+
+        // to test for compressive failure
+        // - slope of line between origin and the intersection of the
+        // compressive failure line and the upper Coulomb branch
+        double const slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+        // to test for tensile failure
+        // - slope of line between origin and the intersection of the
+        // tensile failure line and the upper Coulomb branch
+        double const slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
+
+        double sigma_target;
+        double dcrit;
+
+        if( sigma_1 > 0 && sigma_2 > 0
+            && sigma_2 < slope_compr_upper*sigma_1
+            && sigma_1 < slope_compr_upper*sigma_2 )
         {
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = 0.;
-            D_dcrit[cpt] = 0.;
+            // compressive failure region
+            sigma_target = compr_strength;
+            dcrit = sigma_target/sigma_n;
+        }
+        else if( sigma_1 < 0 && sigma_2 < 0
+            && sigma_2 < slope_tens_upper*sigma_1
+            && sigma_1 < slope_tens_upper*sigma_2 )
+        {
+            // tensile failure region
+            sigma_target = tract_max;
+            dcrit = sigma_target/sigma_n;
+        }
+        else
+        {
+            // Mohr-Coulomb failure region
+            sigma_target = sigma_c;
+            dcrit = sigma_target/(sigma_1-q*sigma_2);
+        }
+        D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
+
+        /* Calculate the adjusted level of damage */
+        if (dcrit < 1)
+        {
+            double tmp;
+            double tmp_factor;
+            switch (disc_scheme)
+            {
+                case (schemes::damageDiscretisation::EXPLICIT):
+                tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
+                break;
+
+                case (schemes::damageDiscretisation::IMPLICIT):
+                tmp_factor=1.0/((1.0-dcrit)*dt/td + 1.0);
+                tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
+                break;
+
+                case (schemes::damageDiscretisation::RECURSIVE):
+                tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
+                break;
+            }
+
+            if(tmp>M_damage[cpt])
+            {
+#ifdef OASIS
+                M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
+#endif
+                M_damage[cpt] = min(tmp, 1.0);
+            }
         }
 
         /*======================================================================
@@ -4950,11 +4967,8 @@ FiniteElement::updateSigma(bool const reset)
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        tmp=M_damage[cpt]-dtime_step/M_time_relaxation_damage[cpt];
-        if(M_thick[cpt]==0.)
-            tmp=0.;
+        M_damage[cpt] -= dt/M_time_relaxation_damage[cpt];
 
-        M_damage[cpt]=((tmp>0.)?(tmp):(0.));
     }//loop over elements
 }//updateSigma
 
@@ -8309,14 +8323,17 @@ FiniteElement::step()
         M_timer.tock("update");
         LOG(VERBOSE) <<"---timer update:               "<< M_timer.lap("update") <<"s\n";
 
-        M_timer.tick("updateSigma");
-        this->updateSigma(false);
-        M_timer.tock("updateSigma");
-        LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
+        if ( young > 0. )
+        {
+            M_timer.tick("updateSigma");
+            this->updateSigma(dtime_step, M_disc_scheme, M_td_type);
+            M_timer.tock("updateSigma");
+            LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
+        }
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
         this->updateFreeDriftVelocity();
-    else if ( M_dynamics_type == setup::DynamicsType::EVP )
+    else if ( M_dynamics_type == setup::DynamicsType::EVP || M_dynamics_type == setup::DynamicsType::MEBe )
     {
         std::vector<double> UM_P = M_UM;
         M_timer.tick("explicitSolve");
@@ -10008,6 +10025,11 @@ FiniteElement::explicitSolve()
     bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
 #endif
 
+    // For the MEB code
+    double const damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+    double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+    double const exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
+
     // For the EVP code
     const double e = vm["dynamics.evp.e"].as<double>();
     const double Pstar = vm["dynamics.evp.Pstar"].as<double>();
@@ -10025,6 +10047,10 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
     M_timer.tick("prep elements");
 
+    M_surface.resize(M_num_elements);
+    M_shape_coeff.resize(M_num_elements);
+    M_B0T.resize(M_num_elements);
+
     std::vector<double> element_mass(M_num_elements, 0.);
     std::vector<double> rlmass_matrix(M_num_nodes, 0.);
     std::vector<double> node_mass(M_num_nodes, 0.);
@@ -10034,7 +10060,23 @@ FiniteElement::explicitSolve()
         // We need to update the mesh every time step
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt],M_mesh,M_UM);
+        // TODO: Put the B0T code in a seperate function
+        std::vector<double> B0T(18,0);
+        for (int i=0; i<18; ++i)
+        {
+            if (i < 3)
+            {
+                B0T[2*i] = shapecoeff[i];
+                B0T[12+2*i] = shapecoeff[i+3];
+                B0T[13+2*i] = shapecoeff[i];
+            }
+            else if (i < 6)
+            {
+                B0T[2*i+1] = shapecoeff[i];
+            }
+        }
         M_shape_coeff[cpt] = shapecoeff;
+        M_B0T[cpt] = B0T;
 
         // Calculate element mass
         // We use the slab mass (Rampal et al., 2016, Connolley et al., 2004)
@@ -10162,9 +10204,19 @@ FiniteElement::explicitSolve()
     for ( int s=0; s<steps; s++ )
     {
         // The stress tensor
-        M_timer.tick("updateSigmaEVP");
-        this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
-        M_timer.tock("updateSigmaEVP");
+        M_timer.tick("updateSigma");
+        switch(M_dynamics_type)
+        {
+            case setup::DynamicsType::EVP:
+                this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
+                break;
+
+            case setup::DynamicsType::MEBe:
+                this->updateSigmaCoefs(dte, undamaged_time_relaxation_sigma, exponent_relaxation_sigma, ridging_exponent, damage_min);
+                this->updateSigma(dte, M_disc_scheme, M_td_type);
+                break;
+        }
+        M_timer.tock("updateSigma");
 
         // Walk through all the elements to build the gradient terms of the RHS
         M_timer.tick("gradient terms");
@@ -10187,8 +10239,8 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= ( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= ( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
+                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
+                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
@@ -10367,7 +10419,7 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
 
         double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
 
-        double pressure = Pstar*M_thick[cpt]*std::exp(-C*(1.-M_conc[cpt]));
+        double pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]));
 
         pressure *= 0.5;
         double const delta_inv = 1./std::max(delta, delta_min);

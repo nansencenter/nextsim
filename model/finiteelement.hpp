@@ -307,7 +307,9 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update(std::vector<double> const & UM_P);
-    void updateSigma(bool const reset = false);
+    void inline updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type);
+    void inline updateSigmaCoefs(double const dte, double const undamaged_time_relaxation_sigma,
+            double const exponent_relaxation_sigma, double const ridging_exponent, double const damage_min);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
@@ -503,6 +505,9 @@ private:
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
+
+    schemes::damageDiscretisation M_disc_scheme;
+    schemes::tdType M_td_type;
 
 #ifdef OASIS
     ExternalData M_tau_wi;

@@ -140,13 +140,27 @@ namespace setup
         DEFAULT         = 0,
         NO_MOTION       = 1,
         FREE_DRIFT      = 2,
-        EVP             = 3
+        EVP             = 3,
+        MEBe            = 4
     };
 
 } // setup
 
 namespace schemes
 {
+    enum class damageDiscretisation
+    {
+        EXPLICIT  = 0,
+        IMPLICIT  = 1,
+        RECURSIVE = 2
+    };
+
+    enum class tdType
+    {
+        FIXED            = 0,
+        DAMAGE_DEPENDENT = 1,
+    };
+
     enum class specificHumidity
     {
         ATMOSPHERE = 0,
