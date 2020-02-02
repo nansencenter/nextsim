@@ -4934,16 +4934,16 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
             switch (disc_scheme)
             {
                 case (schemes::damageDiscretisation::EXPLICIT):
-                tmp=(1.0-old_damage)*(1.0-dcrit)*time_step/td + old_damage;
+                tmp=(1.0-old_damage)*(1.0-dcrit)*dt/td + old_damage;
                 break;
 
                 case (schemes::damageDiscretisation::IMPLICIT):
                 tmp_factor=1.0/((1.0-dcrit)*dt/td + 1.0);
-                tmp=tmp_factor*(1.0-dcrit)*time_step/td + old_damage;
+                tmp=tmp_factor*(1.0-dcrit)*dt/td + old_damage;
                 break;
 
                 case (schemes::damageDiscretisation::RECURSIVE):
-                tmp=1.0-(1.0-old_damage)*pow(dcrit,time_step/td);
+                tmp=1.0-(1.0-old_damage)*pow(dcrit,dt/td);
                 break;
             }
 
