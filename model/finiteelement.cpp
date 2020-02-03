@@ -1207,6 +1207,9 @@ FiniteElement::initOptAndParam()
 #endif
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>(); //! \param ridging_exponent (double) Ridging exponent
+    damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
+    undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
+    exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
     quad_drag_coef_water = vm["dynamics.quad_drag_coef_water"].as<double>(); //! \param quad_drag_coef_water (double) Quadratic ocean drag coefficient
     lin_drag_coef_water  = vm["dynamics.lin_drag_coef_water"].as<double>(); //! \param lin_drag_coef_water (double) Linear ocean drag coefficient
@@ -4084,9 +4087,6 @@ FiniteElement::assemble(int pcpt)
     double cos_ocean_turning_angle = std::cos(ocean_turning_angle_rad);
     double sin_ocean_turning_angle = std::sin(ocean_turning_angle_rad);
 
-    double damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
-    double undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
-    double exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
 #ifdef OASIS
     bool coupler_with_waves = vm["coupler.with_waves"].as<bool>();
@@ -4095,9 +4095,6 @@ FiniteElement::assemble(int pcpt)
     // ---------- Assembling starts -----------
     LOG(DEBUG) <<"Assembling starts\n";
     chrono.restart();
-
-    // Update the multiplicator and elasticity
-    this->updateSigmaCoefs(dtime_step, undamaged_time_relaxation_sigma, exponent_relaxation_sigma, ridging_exponent, damage_min);
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)
     {
@@ -4199,6 +4196,9 @@ FiniteElement::assemble(int pcpt)
                     break;
                 }
             }
+
+            // Update the multiplicator and elasticity
+            this->updateSigmaCoefs(cpt, dtime_step);
 
             if(young>0.) // MEB rheology
             {
@@ -4787,22 +4787,19 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 void inline
-FiniteElement::updateSigmaCoefs(double const dt, double const undamaged_time_relaxation_sigma,
-        double const exponent_relaxation_sigma, double const ridging_exponent, double const damage_min)
+FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
 {
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        // clip damage
-        double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-        double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+    // clip damage
+    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
-        D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
-        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-    }
+    D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
+    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }
 
 void inline
-FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type)
+FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
+        bool const reset)
 {
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
@@ -4866,7 +4863,6 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 
             sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
             D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
-            M_sigma[i][cpt]   = sigma[i];
         }
 
         /*======================================================================
@@ -4953,8 +4949,21 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                 M_damage[cpt] = min(tmp, 1.0);
+                this->updateSigmaCoefs(cpt, dt);
+                for(int i=0;i<3;i++)
+                {
+                    double sigma_dot_i = 0.0;
+                    for(int j=0;j<3;j++)
+                        sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+                    sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+                }
             }
         }
+
+        // Update sigma
+        for(int i=0;i<3;i++)
+            M_sigma[i][cpt]   = sigma[i];
 
         /*======================================================================
          * Check:
@@ -8326,7 +8335,7 @@ FiniteElement::step()
         if ( young > 0. )
         {
             M_timer.tick("updateSigma");
-            this->updateSigma(dtime_step, M_disc_scheme, M_td_type);
+            this->updateSigma(dtime_step, M_disc_scheme, M_td_type, false);
             M_timer.tock("updateSigma");
             LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
         }
@@ -10212,8 +10221,10 @@ FiniteElement::explicitSolve()
                 break;
 
             case setup::DynamicsType::MEBe:
-                this->updateSigmaCoefs(dte, undamaged_time_relaxation_sigma, exponent_relaxation_sigma, ridging_exponent, damage_min);
-                this->updateSigma(dte, M_disc_scheme, M_td_type);
+                for (int cpt=0; cpt < M_num_elements; ++cpt)
+                    this->updateSigmaCoefs(cpt, dte);
+
+                this->updateSigma(dte, M_disc_scheme, M_td_type, true);
                 break;
         }
         M_timer.tock("updateSigma");
