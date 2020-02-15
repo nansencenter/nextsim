@@ -8400,7 +8400,7 @@ void FiniteElement::checkUpdateDrifters()
         // Move any active drifters
         this->checkMoveDrifters();
 
-    if(n_update==0)
+        else
         return;
     LOG(DEBUG) << "updating " << n_update
         << " drifters\n";
