@@ -5766,7 +5766,8 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
-    double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+    bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration
+    double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
 
@@ -5960,14 +5961,14 @@ FiniteElement::thermo(int dt)
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
-        if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+        if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
             // compensating heat flux is a product of:
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
             Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
-                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
+                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
 
         //relaxation of concentration update with time
