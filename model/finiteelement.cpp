@@ -8348,8 +8348,7 @@ void FiniteElement::checkUpdateDrifters()
     if(n_update>0)
         // Move any active drifters
         this->checkMoveDrifters();
-
-        else
+    else
         return;
     LOG(DEBUG) << "updating " << n_update
         << " drifters\n";
