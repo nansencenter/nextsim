@@ -116,13 +116,16 @@ public:
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
-    double jacobian(element_type const& element, mesh_type const& mesh) const;
-    double jacobian(element_type const& element, mesh_type const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
+    double jacobian(std::vector<std::vector<double>> const& vertices) const;
 
-    double jacobian(element_type const& element, mesh_type_root const& mesh) const;
-    double jacobian(element_type const& element, mesh_type_root const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
+    template<typename FEMeshType>
+    double jacobian(element_type const& element, FEMeshType const& mesh) const
+    { return this->jacobian(mesh.vertices(element.indices)); }
+
+    template<typename FEMeshType>
+    double jacobian(element_type const& element, FEMeshType const& mesh,
+                    std::vector<double> const& um, double factor = 1.) const
+    { return this->jacobian(mesh.vertices(element.indices, um, factor)); }
 
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
@@ -141,9 +144,7 @@ public:
     double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
-
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
+    std::vector<double> shapeCoeff(element_type const& element) const;
 
     void regrid(bool step = true);
     void adaptMesh();
