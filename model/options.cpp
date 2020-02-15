@@ -173,6 +173,8 @@ namespace Nextsim
                  "interval between OSISAF drifter outputs (days): 2.0/n, n=1,2,... down to timestep")
             ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
                 "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
+             ("drifters.osisaf_ignore_restart", po::value<bool>()->default_value( false),
+                "do not load OSISAF drifters from restart even if present (set this to true for forecasts)")
 
             ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "use equally spaced drifters?")
             ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
@@ -408,8 +410,10 @@ namespace Nextsim
                 "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
             // -- assimilation compensating flux
+            ("thermo.use_assim_flux", po::value<bool>()->default_value(true),
+             "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
-             "Exponent of factor for heat flux that compensates assimilation of concentration")
+             "Exponent of factor for heat flux that compensates for assimilation of concentration")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
@@ -450,6 +454,8 @@ namespace Nextsim
                 "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
                 "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
+            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+                "specify the time resolution in hours here if want to change from 6")
 
 
              //-----------------------------------------------------------------------------------
@@ -497,6 +503,9 @@ namespace Nextsim
             ("wave_coupling.debug_fsd", po::value<bool>()->default_value( false ), "Do we check ice area conservation in FSD each time it is modified ?")
 #endif
 
+            // for ensemble forcing
+            ("statevector.ensemble_member", po::value<int>()->default_value(0),
+                "id of ensemble member (NB starts from 1)")
 
 #if defined(WAVES)
         ;

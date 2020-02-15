@@ -237,7 +237,6 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void reset(MeshInfo & mesh_info, std::vector<double> & conc_root,
                 double const& current_time);
         void updateConc( MeshInfo & mesh_info,
