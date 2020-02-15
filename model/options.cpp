@@ -357,8 +357,10 @@ namespace Nextsim
             ("dynamics.pressure_nu", po::value<int>()->default_value( 0. ),
              "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
 
+            ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
+
             // - Damage equation discretization
-            //   disc_scheme is either : explicit, implicit, recursive
+            //   disc_scheme is either : explicit, implicit, recursive, or pseudo_recursive
             //   td_type is either : fixed or damage_dependent
             //   clip : float
             ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")

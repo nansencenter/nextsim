@@ -150,9 +150,10 @@ namespace schemes
 {
     enum class damageDiscretisation
     {
-        EXPLICIT  = 0,
-        IMPLICIT  = 1,
-        RECURSIVE = 2
+        EXPLICIT    = 0,
+        IMPLICIT    = 1,
+        RECURSIVE   = 2,
+        P_RECURSIVE = 3
     };
 
     enum class tdType

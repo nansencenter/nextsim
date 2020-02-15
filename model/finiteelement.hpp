@@ -180,6 +180,7 @@ public:
     void step();
     void run();
 
+    inline void updateSigmaRecursive(double const dte);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
     void explicitSolve();
 
