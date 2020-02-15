@@ -584,6 +584,7 @@ private:
     double divergence_min;
     double compression_factor;
     double exponent_compression_factor;
+    double exponent_cohesion;
     double ocean_turning_angle_rad;
     double ridging_exponent;
     double damage_min;
