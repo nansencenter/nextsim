@@ -4882,7 +4882,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
-        // There's no ice we set sigma to 0 and carry on
+        // There's no ice so we set sigma to 0 and carry on
         if ( M_thick[cpt] == 0. )
         {
             for(int i=0;i<3;i++)
@@ -4897,11 +4897,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
             continue;
         }
 
-        // Temporary memory
-        double const old_damage = M_damage[cpt];
-
         /*======================================================================
-         * Diagnostic:
          * Elastic deformation and instantaneous deformation rate
          *======================================================================
          */
@@ -4949,7 +4945,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
         /* Calculate the characteristic time for damage */
         double td = t_damage;
         if ( td_type == schemes::tdType::DAMAGE_DEPENDENT )
-            td = min(t_damage*pow(1-old_damage,-0.5), dt);
+            td = min(t_damage/std::sqrt(1.-M_damage[cpt]), dt);
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
@@ -5006,25 +5002,26 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
             switch (disc_scheme)
             {
                 case (schemes::damageDiscretisation::EXPLICIT):
-                tmp=(1.0-old_damage)*(1.0-dcrit)*dt/td + old_damage;
+                tmp=(1.0-M_damage[cpt])*(1.0-dcrit)*dt/td + M_damage[cpt];
                 break;
 
                 case (schemes::damageDiscretisation::IMPLICIT):
                 tmp_factor=1.0/((1.0-dcrit)*dt/td + 1.0);
-                tmp=tmp_factor*(1.0-dcrit)*dt/td + old_damage;
+                tmp=tmp_factor*(1.0-dcrit)*dt/td + M_damage[cpt];
                 break;
 
-                case (schemes::damageDiscretisation::RECURSIVE):
-                tmp=1.0-(1.0-old_damage)*pow(dcrit,dt/td);
+                case (schemes::damageDiscretisation::P_RECURSIVE):
+                tmp=1.0-(1.0-M_damage[cpt])*pow(dcrit,dt/td);
                 break;
             }
 
+            // TODO: Check if this if clause is needed (I think maybe it's always true)
             if(tmp>M_damage[cpt])
             {
 #ifdef OASIS
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
-                M_damage[cpt] = min(tmp, 1.0);
+                M_damage[cpt] = std::min(tmp, 1.0);
                 this->updateSigmaCoefs(cpt, dt);
                 for(int i=0;i<3;i++)
                 {
@@ -7311,8 +7308,8 @@ FiniteElement::init()
     this->initMesh();
 
     LOG(INFO) << "-----------------------Simulation started on "<< Nextsim::current_time_local() <<"\n";
-    LOG(INFO) <<"TIMESTEP= "<< time_step <<"\n";
-    LOG(INFO) <<"DURATION= "<< duration <<"\n";
+    LOG(INFO) <<"TIMESTEP= "<< time_step <<" s\n";
+    LOG(INFO) <<"DURATION= "<< duration/days_in_sec <<" day(s)\n";
 
     // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
@@ -7350,7 +7347,7 @@ FiniteElement::init()
     double minang = this->minAngle(M_mesh);
     if (minang < vm["numerics.regrid_angle"].as<double>())
     {
-        LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid\n";
+        LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid (" << minang << ")\n";
         throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
     }
     this->calcAuxiliaryVariables();
@@ -7581,7 +7578,7 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
-    D_sigma_p.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
+    D_sigma_p.resize(3);//! \param D_sigma_p (double) Tensor components of the pressure term [Pa]
     for(int k=0; k<D_sigma_p.size(); k++)
     {
         D_sigma_p[k] = ModelVariable(ModelVariable::variableID::D_sigma_p, k);
