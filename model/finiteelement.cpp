@@ -4148,6 +4148,7 @@ FiniteElement::assemble(int pcpt)
                     // No grounding
                     critical_h     = 0.;
                     critical_h_mod = 0.;
+                    break;
                 case setup::BasalStressType::BOUILLON:
                     // Sylvain's grounding scheme
                     keel_height_estimate = ice_to_keel_factor*std::pow(M_thick[cpt]/M_conc[cpt],0.5);
@@ -4508,7 +4509,7 @@ FiniteElement::FETensors()
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
     // 'Stifness' for the pressure term
-    double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
+    double const pressure_nu = vm["dynamics.pressure_nu"].as<double>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
     M_Dunit_comp[1]= Dunit_factor * pressure_nu;
