@@ -9590,15 +9590,15 @@ FiniteElement::readRestart(std::string const& name_str)
         }
 
         //! add drifters
-        bool using_drifters;
+        int n_drifters = 0;
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
         {
             it->initFromRestart(field_map_int, field_map_dbl);
-            using_drifters = using_drifters || it->isInitialised();
+            n_drifters += it->isInitialised();
         }
         if(M_osisaf_drifters.size()>0)
             this->synchroniseOsisafDrifters();
-        if(using_drifters)
+        if(n_drifters>0)
         {
             if(field_map_dbl.count("Drifters_mesh_x")==0)
                 throw std::runtime_error("Restart file does not contain Drifters_mesh_x");
