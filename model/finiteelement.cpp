@@ -3687,7 +3687,6 @@ FiniteElement::regrid(bool step)
     this->checkMoveDrifters();
     M_timer.tock("checkMoveDrifters_regrid");
 
-    M_comm.barrier();
     chrono.restart();
 
     double displacement_factor = 2.;
