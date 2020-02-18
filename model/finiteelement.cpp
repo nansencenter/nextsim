@@ -8345,13 +8345,9 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
-    if(n_update>0)
-        // Move any active drifters
-        this->checkMoveDrifters();
-    else
+    if(n_update==0)
         return;
-    LOG(DEBUG) << "updating " << n_update
-        << " drifters\n";
+    LOG(DEBUG) << "updating " << n_update << " drifters\n";
 
     // Move any active drifters
     this->checkMoveDrifters();
