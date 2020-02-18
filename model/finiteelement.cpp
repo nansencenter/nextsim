@@ -1580,28 +1580,6 @@ FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 }//jacobian
 
 
-template<typename FEMeshType>
-double
-FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh) const
-{
-    return this->jacobian(mesh.vertices(element.indices));
-}//jacobian
-
-
-template<typename FEMeshType>
-double
-FiniteElement::jacobian(element_type const& element, FEMeshType const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    auto vertices = mesh.vertices(element.indices);
-    int const num_nodes = mesh.numNodes();
-    for(int k=0; k<3; k++)
-        for (int i=0; i<2; ++i)
-            vertices[k][i] += factor*um[element.indices[k]-1+i*num_nodes];
-    return this->jacobian(vertices);
-}//jacobian
-
-
 //------------------------------------------------------------------------------------------------------
 //! Calculates the length of the vertices of the triangular mesh elements.
 //! Called by the minMaxSides() and minAngles() functions.
@@ -1933,11 +1911,11 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 //! Called by the FETensors() function.
 template<typename FEMeshType>
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, FEMeshType const& mesh) const
+FiniteElement::shapeCoeff(element_type const& element) const
 {
-    auto vertices = mesh.vertices(element.indices);
+    auto vertices = M_mesh.vertices(element.indices, M_UM, 1.);
     std::vector<double> coeff(6);
-    double const jac = this->jacobian(element,mesh);
+    double const jac = this->jacobian(vertices);
     for (int k=0; k<3; ++k)
     {
         int const kp1 = (k+1)%3;
@@ -3916,6 +3894,10 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
+    M_timer.tick("FETensors");
+    this->FETensors();
+    M_timer.tock("FETensors");
+
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -4446,7 +4428,7 @@ FiniteElement::FETensors()
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+        std::vector<double> shapecoeff = this->shapeCoeff(*it);
 
         for (int i=0; i<3; ++i)
         {
@@ -5797,7 +5779,8 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
-    double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+    bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration
+    double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
 
@@ -5991,14 +5974,14 @@ FiniteElement::thermo(int dt)
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
-        if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+        if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
             // compensating heat flux is a product of:
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
             Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
-                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
+                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
 
         //relaxation of concentration update with time
@@ -7140,7 +7123,6 @@ FiniteElement::init()
     }
     this->calcAuxiliaryVariables();
 
-
     //! - 5) Initializes external data:
     //!      * atmospheric and oceanic forcings
     //!      * bathymetry
@@ -7191,25 +7173,21 @@ FiniteElement::init()
 }//init
 
 // ==============================================================================
-//! calculate the FETensors, cohesion, and Coriolis force
+//! calculate the cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
 //! called by init() and step()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    chrono.restart();
-    this->FETensors();
-    LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
-
-    chrono.restart();
+    M_timer.tick("calcCohesion");
     this->calcCohesion();
-    LOG(VERBOSE) <<"---timer calcCohesion:             "<< chrono.elapsed() <<"\n";
+    M_timer.tock("calcCohesion");
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        chrono.restart();
+        M_timer.tick("calcCoriolis");
         this->calcCoriolis();
-        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< chrono.elapsed() <<"\n";
+        M_timer.tock("calcCoriolis");
     }
 }//calcAuxiliaryVariables
 
@@ -11030,7 +11008,7 @@ FiniteElement::topazIceOsisafIcesat()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_conc_thin[i]=std::max(M_amsre_conc[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1., std::max(M_amsre_conc[i]-M_conc[i],0.));
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
@@ -13449,7 +13427,8 @@ FiniteElement::checkFields()
                 {
                     crash = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
-                        << val << " < " << thresh << "\n";
+                        << val << " < " << thresh
+                        << ", |diff|=" << thresh - val << "\n";
                 }
             }
 
@@ -13461,7 +13440,8 @@ FiniteElement::checkFields()
                 {
                     crash = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
-                        << val << " > " << thresh << "\n";
+                        << val << " > " << thresh
+                        << ", |diff|=" << val-thresh << "\n";
                 }
             }
 

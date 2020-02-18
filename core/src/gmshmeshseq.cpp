@@ -950,4 +950,17 @@ GmshMeshSeq::vertices(std::vector<int> const& indices) const
     return vertices;
 }
 
+
+std::vector<std::vector<double>>
+GmshMeshSeq::vertices(std::vector<int> const& indices,
+        std::vector<double> const& um, double factor) const
+{
+    int const nv = indices.size();
+    auto vertices = this->vertices(indices);
+    for(int i=0; i<nv; i++)
+        for(int k=0; k<2; k++)
+            vertices[i][k] += factor*um[indices[i]-1+k*M_num_nodes];
+    return vertices;
+}//vertices
+
 } // Nextsim
