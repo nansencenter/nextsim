@@ -4445,22 +4445,6 @@ FiniteElement::FETensors()
             B0T[12+2*i] = shapecoeff[i+3];
             B0T[13+2*i] = shapecoeff[i];
         }
-        auto B0T2 = B0T;
-        for (int i=0; i<18; ++i)
-        {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
-            LOG(DEBUG) << B0T[i] << " =? " << B0T2[i] << "\n";
-        }
-        std::abort();
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
         this->compute_B0_Dunit_B0T(M_Dunit_comp, B0T, B0_Dunit_comp_B0T);
