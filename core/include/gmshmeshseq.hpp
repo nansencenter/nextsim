@@ -128,9 +128,6 @@ public:
     void setId(std::vector<int> const& newid);
     std::vector<int> id() const;
 
-    std::vector<std::vector<double>>
-        vertices(std::vector<int> const& indices) const;
-
     void initGModel();
     void writeToGModel();
     void clear();

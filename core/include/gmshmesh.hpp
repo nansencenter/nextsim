@@ -157,9 +157,6 @@ public:
     void setId(std::vector<int> const& newid);
     std::vector<int> id() const;
 
-    std::vector<std::vector<double>>
-        vertices(std::vector<int> const& indices) const;
-
 private:
 
     Communicator M_comm;
