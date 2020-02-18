@@ -1938,5 +1938,4 @@ GmshMesh::vertices(std::vector<int> const& indices,
     return vertices;
 }//vertices
 
-
 } // Nextsim
