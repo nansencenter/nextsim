@@ -4184,7 +4184,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multply with rho and mask out no-ice points
+            // Multiply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4204,7 +4204,8 @@ FiniteElement::assemble(int pcpt)
                 {
                     /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                    /* Select the nodal weight values from M_loc */
+                    /* Select the quadrature scheme for the FEM integrals
+                     * (see calculation of M_mass and M_diag above) */
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
@@ -4397,7 +4398,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stifness' for the pressure term
+    // 'Stiffness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4406,6 +4407,23 @@ FiniteElement::FETensors()
     M_Dunit_comp[4]= Dunit_factor * 1.;
     M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
 
+    /* Select the quadrature scheme for the FEM integrals
+     * - see mloc below:
+     *   \int[N_i*f].dS \approx \sum_{j=1}^3f_j\int[N_i*N_j].dS
+     *      = \sum_{j=1}^3M_{ij}S_ef_j,
+     *      where S_e is the element area (surface_e below),
+     *      and M_ij=M_mass[i,j]
+     *   This is exact for linear f.
+     * - see dloc below:
+     *   \int[N_i*f].dS \approx \frac{S_i}{3}\sum_{j=1}^3f_jN_i(x_j)
+     *      = \frac{S_e}{3}\sum_{j=1}^3\delta_{ij}f_j
+     *      = \frac{S_e}{3}f_i
+     *      = S_e*D_ii*f_i,
+     *   where D_{ij} = M_diag[i,j].
+     *   This is exact for constant f (ie will fail for \int[N_i*N_j].dS)
+     *   I might be remembering incorrectly, but I think Sylvain had better results
+     *   round coasts when this was used for the drag terms
+     *   */
     for (int i=0; i<3; ++i)
     {
         for (int j=0; j<3; ++j)
