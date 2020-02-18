@@ -1909,7 +1909,6 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 //!   - the Jacobian is for the transformation from the reference triangle to
 //!     the actual triangle (see the comment on FiniteElement::jacobian)
 //! Called by the FETensors() function.
-template<typename FEMeshType>
 std::vector<double>
 FiniteElement::shapeCoeff(element_type const& element) const
 {
@@ -4085,8 +4084,8 @@ FiniteElement::assemble(int pcpt)
             forcing_switch  = 1.;
             coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
             coef_V     = mass_e/dtime_step;                 /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope gradient (x-component) */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope gradient (y-component) */
             coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
         }
 
