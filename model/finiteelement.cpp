@@ -7919,7 +7919,7 @@ FiniteElement::step()
         M_timer.tick("angle_check");
         double displacement_factor = 1.;
         double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        M_regrid = this->flip(minAngle(M_mesh,M_UM,displacement_factor)
+        M_regrid = this->flip(M_mesh,M_UM,displacement_factor)
                 || minang < vm["numerics.regrid_angle"].as<double>();
         LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 
