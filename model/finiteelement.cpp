@@ -1786,19 +1786,10 @@ template<typename FEMeshType>
 bool
 FiniteElement::flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const
 {
-    std::vector<double> area(mesh.numTriangles());
-
-    int cpt = 0;
     for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
-    {
-        area[cpt] = this->jacobian(*it,mesh,um,factor);
-        ++cpt;
-    }
-
-    double minarea = *std::min_element(area.begin(),area.end());
-    double maxarea = *std::max_element(area.begin(),area.end());
-
-    return ((minarea <= 0.) && (maxarea >= 0.));
+        if (this->jacobian(*it, mesh, um, factor) < 0)
+            return true;
+    return false;
 }//flip
 
 
