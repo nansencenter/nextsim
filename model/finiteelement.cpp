@@ -8264,7 +8264,32 @@ FiniteElement::step()
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
- }//step
+}//step
+
+
+//-------------------------------------------------------------------------------------
+//! Test all processes if regridding is necessary,
+//! and make sure all the others know it is time.
+//! Called by FiniteElement::step()
+bool
+FiniteElement::checkRegridding()
+{
+    bool regrid;
+    double const minang = this->minAngle(M_mesh, M_UM, 1.);
+    LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+    bool const regrid_local =
+        (minang < vm["numerics.regrid_angle"].as<double>())
+        ;
+        //|| this->flip(M_mesh, M_UM, 1.);
+   if(M_rank==0)
+        boost::mpi::reduce(M_comm, regrid_local, regrid,
+                std::plus<bool>(), 0);//NB std::plus<bool>() is "or"
+   else
+        boost::mpi::reduce(M_comm, regrid_local,
+                std::plus<bool>(), 0);
+   return regrid;
+}
+
 
 
 //------------------------------------------------------------------------------------------------------
