@@ -7952,17 +7952,15 @@ FiniteElement::step()
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         M_timer.tick("angle_check");
-        double displacement_factor = 1.;
-        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-
+        double const minang = this->minAngle(M_mesh, M_UM, 1.);
+        M_regrid = ( minang < vm["numerics.regrid_angle"].as<double>() );
         M_timer.tock("angle_check");
 
-        if ( minang < vm["numerics.regrid_angle"].as<double>() )
+        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+
+        if (M_regrid)
         {
-            M_regrid = true;
 
             if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
