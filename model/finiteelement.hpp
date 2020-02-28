@@ -756,6 +756,7 @@ private:
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
+    std::vector<ModelVariable> M_epsilon_ep;         // Elastic strain for the Elastic-Plastic term
 
 #ifdef OASIS
     // Following variables are related to floe size distribution

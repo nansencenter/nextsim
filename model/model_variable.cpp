@@ -571,6 +571,19 @@ ModelVariable::initElemental()
                         +std::to_string(M_component_number));
             break;
 
+        case (variableID::M_epsilon_ep):
+            // Elastic strain for the EP portion of MEB-EP
+            M_name = "M_epsilon_ep";
+            M_export_name = "M_epsilon_ep";
+            M_prognostic = false;
+            M_exporting = false;
+            if(M_component_number<0 || M_component_number>2)
+                throw std::runtime_error(
+                        "Unauthorised component number for "
+                        + M_name + ": "
+                        + std::to_string(M_component_number));
+            break;
+
         default:
             elemental = false;
     }

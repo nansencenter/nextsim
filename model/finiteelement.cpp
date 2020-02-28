@@ -3759,7 +3759,7 @@ FiniteElement::regrid(bool step)
         this->exportResults("flip", true, true, true);
         M_comm.barrier();
 
-        LOG(ERROR) << "FLIP DETECTED! It is probably due to very hihg ice spees. Check your fields in the 'flip' debug file!\n";
+        LOG(ERROR) << "FLIP DETECTED! It is probably due to very high ice spees. Check your fields in the 'flip' debug file!\n";
         throw std::runtime_error("FLIP DETECTED - exiting!\n");
     }
 
@@ -4801,34 +4801,55 @@ FiniteElement::updateSigmaRecursive(double const dt)
                 epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
         }
+        double const div = 0.5*(epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          //! - Updates the internal stress
          *======================================================================
          */
 
-        double const sigma_c   = std::pow(M_thick[cpt],exponent_cohesion)*
-            2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
+        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
         double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+
+        bool ep_fail = false;
+        bool first_loop = true;
+        double const Pmax = compression_factor*expC; //*M_thick[cpt]; // TODO: Make this an option
 
         while ( 1.-M_damage[cpt] > 1e-12 )
         {
-            // clip damage
-            double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+            double const damage_tmp = M_damage[cpt]; //clip_damage(M_damage[cpt], damage_min);
             double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
             double const multiplicator = time_viscous/(time_viscous+dt);
-            double const elasticity = young*(1.-damage_tmp)*expC;
+            double const elasticity = young*expC*(1.-damage_tmp);
+
+            std::vector<double> epsilon_ep(3);
+            double E_factor;
+            if ( ep_fail )
+            {
+                E_factor = 1.;
+                for ( int i=0; i<3; ++i )
+                    epsilon_ep[i] = M_epsilon_ep[i][cpt];
+            } else {
+                E_factor = 2.;
+                for ( int i=0; i<3; ++i )
+                    epsilon_ep[i] = M_epsilon_ep[i][cpt] + dt*epsilon_veloc[i];
+            }
+
 
             //Calculating the new state of stress
             std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
+            std::vector<double> sigma_ep(3,0.);
             for(int i=0;i<3;i++)
             {
                 double sigma_dot_i = 0.0;
                 for(int j=0;j<3;j++)
-                    sigma_dot_i += elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+                {
+                    sigma_dot_i += E_factor*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_ep[i] +=          elasticity*M_Dunit[3*i + j]*epsilon_ep[j];
+                }
 
-                sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*multiplicator;
+                sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*multiplicator + dt*sigma_ep[i]/(time_viscous+dt);
             }
 
             /*======================================================================
@@ -4843,13 +4864,36 @@ FiniteElement::updateSigmaRecursive(double const dt)
             double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-            // Are we inside the envelope? If yes -> continue, if no -> damage and try again.
+            // Are we inside the EP envelope?
+            if ( first_loop )
+            {
+                first_loop = false;
+
+                double const sigma_s_ep = std::hypot((sigma_ep[0]-sigma_ep[1])/2.,sigma_ep[2]);
+                double const sigma_n_ep =           -(sigma_ep[0]+sigma_ep[1])/2.;
+                double const sigma_1_ep = sigma_n_ep+sigma_s_ep; // max principal component following convention (positive sigma_n=pressure)
+                double const sigma_2_ep = sigma_n_ep-sigma_s_ep; // min principal component following convention (positive sigma_n=pressure)
+                if ( (div<0. && sigma_1_ep>Pmax) || (div>0. && sigma_2_ep<0.) )
+                {
+                    // Plastic deformation: Re-calculate sigma before estimating damage
+                    ep_fail = true;
+                    continue;
+                }
+            }
+
+            // Are we inside the MEB envelope? If yes -> continue, if no -> damage and try again.
             if ( (sigma_1-q*sigma_2) > sigma_c )
-                M_damage[cpt] = 1. - (1.-M_damage[cpt])*0.9;
+            {
+                // clip damage
+                M_damage[cpt] = std::max(damage_min, 1. - (1.-M_damage[cpt])*0.9);
+            }
             else
             {
                 for ( int i=0; i<3; ++i )
+                {
                     M_sigma[i][cpt] = sigma[i];
+                    M_epsilon_ep[i][cpt] = epsilon_ep[i];
+                }
 
                 break;
             }
@@ -4868,7 +4912,7 @@ FiniteElement::updateSigmaRecursive(double const dt)
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        M_damage[cpt] -= dt/M_time_relaxation_damage[cpt];
+        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
 
     }//loop over elements
 } //updateSigmaRecursive
@@ -7457,6 +7501,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_conc_upd);
     M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
     M_variables_elt.push_back(&M_divergence);
+    M_epsilon_ep.resize(3);//! \param M_epsilon_ep (double) Elastic strain for the EP part
+    for (int k=0; k<M_epsilon_ep.size(); ++k )
+    {
+        M_epsilon_ep[k] = ModelVariable(ModelVariable::variableID::M_epsilon_ep, k);
+        M_variables_elt.push_back(&(M_epsilon_ep[k]));
+    }
 
     switch (M_thermo_type)
     {
@@ -7617,7 +7667,7 @@ FiniteElement::initModelVariables()
 
         // resize - note need to make sure variables are initialised properly in initModelState()
         // otherwise model will crash
-        ptr->resize(M_num_elements);
+        ptr->assign(M_num_elements,0.);
     }// loop over M_variables_elt
 
     //! - 3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
@@ -10303,7 +10353,6 @@ FiniteElement::explicitSolve()
 
                     this->updateSigma(dte, M_disc_scheme, M_td_type, true);
                 }
-
                 break;
         }
         M_timer.tock("updateSigma");
