@@ -7951,17 +7951,9 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
-        M_timer.tick("angle_check");
-        double const minang = this->minAngle(M_mesh, M_UM, 1.);
-        M_regrid = ( minang < vm["numerics.regrid_angle"].as<double>() );
-        M_timer.tock("angle_check");
-        bool M_regrid = this->checkRegridding();
-        ASSERT(M_regrid, "should be regridding");
-        LOG(DEBUG) << "regridding test OK!\n";
-        std::abort();
-
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+        M_timer.tick("checkRegridding");
+        M_regrid = this->checkRegridding();
+        M_timer.tock("checkRegridding");
 
         if (M_regrid)
         {
@@ -8041,6 +8033,8 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
+
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -8279,20 +8273,13 @@ FiniteElement::checkRegridding()
     int nprocs_regrid;
     double const minang = this->minAngle(M_mesh, M_UM, 1.);
     LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-#if 0
     bool const regrid_local =
         (minang < vm["numerics.regrid_angle"].as<double>())
         ;
         //|| this->flip(M_mesh, M_UM, 1.);
-#else
-   int const regrid_local = (M_rank==2 || M_rank==1) ? 1:0;
-   std::cout<< "[" << M_rank << "]: regridding (local)? " << regrid_local << "\n";
-#endif
-   boost::mpi::all_reduce(M_comm, regrid_local, nprocs_regrid, std::plus<int>());
-   std::cout<< "[" << M_rank << "]: regridding? " << nprocs_regrid << "\n";
-   ASSERT(nprocs_regrid==2, "should be regridding but not");
-   std::cout<< "[" << M_rank << "]: OK!\n";
-   return nprocs_regrid>0;
+    int const tmp = regrid_local? 1: 0;
+    boost::mpi::all_reduce(M_comm, tmp, nprocs_regrid, std::plus<int>());
+    return nprocs_regrid>0;
 }
 
 
