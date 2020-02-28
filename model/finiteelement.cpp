@@ -8276,7 +8276,7 @@ FiniteElement::step()
 bool
 FiniteElement::checkRegridding()
 {
-    int regrid;
+    int nprocs_regrid;
     double const minang = this->minAngle(M_mesh, M_UM, 1.);
     LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
 #if 0
@@ -8285,15 +8285,14 @@ FiniteElement::checkRegridding()
         ;
         //|| this->flip(M_mesh, M_UM, 1.);
 #else
-   int const regrid_local = (M_rank==0) ? 1:0;
+   int const regrid_local = (M_rank==2 || M_rank==1) ? 1:0;
    std::cout<< "[" << M_rank << "]: regridding (local)? " << regrid_local << "\n";
 #endif
-   boost::mpi::all_reduce(M_comm, regrid_local, regrid,
-           std::plus<int>());//NB std::plus<bool>() is "or"
-   std::cout<< "[" << M_rank << "]: regridding? " << regrid << "\n";
-   ASSERT(regrid==1, "should be regridding but not");
+   boost::mpi::all_reduce(M_comm, regrid_local, nprocs_regrid, std::plus<int>());
+   std::cout<< "[" << M_rank << "]: regridding? " << nprocs_regrid << "\n";
+   ASSERT(nprocs_regrid==2, "should be regridding but not");
    std::cout<< "[" << M_rank << "]: OK!\n";
-   return regrid>0;
+   return nprocs_regrid>0;
 }
 
 
