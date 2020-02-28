@@ -7956,7 +7956,7 @@ FiniteElement::step()
         M_regrid = ( minang < vm["numerics.regrid_angle"].as<double>() );
         M_timer.tock("angle_check");
         bool M_regrid = this->checkRegridding();
-        ASSERT(!M_regrid, "should not be regridding");
+        ASSERT(M_regrid, "should be regridding");
         LOG(DEBUG) << "regridding test OK!\n";
         std::abort();
 
@@ -8285,13 +8285,13 @@ FiniteElement::checkRegridding()
         ;
         //|| this->flip(M_mesh, M_UM, 1.);
 #else
-   int const regrid_local = (M_rank==3) ? 1:0;
+   int const regrid_local = (M_rank==0) ? 1:0;
    std::cout<< "[" << M_rank << "]: regridding (local)? " << regrid_local << "\n";
 #endif
    boost::mpi::all_reduce(M_comm, regrid_local, regrid,
            std::plus<int>());//NB std::plus<bool>() is "or"
    std::cout<< "[" << M_rank << "]: regridding? " << regrid << "\n";
-   ASSERT(regrid==0, "should be regridding but not");
+   ASSERT(regrid==1, "should be regridding but not");
    std::cout<< "[" << M_rank << "]: OK!\n";
    return regrid>0;
 }
