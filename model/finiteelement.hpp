@@ -151,6 +151,7 @@ public:
     std::vector<double> surface(FEMeshType const& mesh,
             std::vector<double> const& um, double const& factor=1);
 
+    bool checkRegridding();
     void regrid(bool step = true);
     void adaptMesh();
     void updateNodeIds();
