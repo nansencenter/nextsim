@@ -4977,7 +4977,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
             }
 
-            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt] + dt*sigma_p_i/(time_viscous+dt);
             D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
         }
 
