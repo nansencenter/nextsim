@@ -3579,7 +3579,7 @@ FiniteElement::gatherUM(std::vector<double>& um)
 //! Performs the re-gridding.
 //! -Called by the step() function.
 void
-FiniteElement::regrid(bool step)
+FiniteElement::regrid()
 {
     M_comm.barrier();
 
@@ -5467,16 +5467,11 @@ FiniteElement::solve()
                     _pc=vm["solver.pc-type"].as<std::string>()/*"cholesky"*/,
                     _pcfactormatsolverpackage=vm["solver.mat-package-type"].as<std::string>()/*"cholmod"*/,
                     _reuse_prec=vm["solver.ksp-reuse-prec"].as<bool>()/*true*/,
-                    _rebuild=M_regrid
+                    _rebuild=M_rebuild_solver
                     );
 
-
     M_solution->close();
-
-    // if (M_rank==0)
-    //     std::cout<<"TIMER SOLUTION= " << chrono.elapsed() <<"s\n";
-
-    //M_solution->printMatlab("solution.m");
+    M_rebuild_solver = false;
 }//solve
 
 
@@ -7934,159 +7929,12 @@ FiniteElement::step()
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
-
-    // check velocity fields if speed exceed a threshold
     if (vm["debugging.check_velocity_fields"].as<bool>())
+        // check velocity fields if speed exceeds a threshold
         this->checkVelocityFields();
 
-    M_timer.tick("remesh");
-
-    //! 1) Remeshes and remaps the prognostic variables
-    M_regrid = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg")
-    {
-        M_timer.tick("checkRegridding");
-        M_regrid = this->checkRegridding();
-        M_timer.tock("checkRegridding");
-
-        if ( M_regrid )
-        {
-            if(vm["restart.write_restart_before_regrid"].as<bool>())
-            {
-                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->writeRestart(str);
-            }
-            if(vm["output.export_before_regrid"].as<bool>())
-            {
-                this->updateIceDiagnostics();
-                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
-            }
-
-            if ( M_use_moorings && !M_moorings_snapshot )
-            {
-                M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh);
-                M_timer.tock("updateGridMean");
-            }
-
-#ifdef OASIS
-            M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh);
-            M_timer.tock("updateGridMean_cpl");
-#endif
-            LOG(DEBUG) <<"Regridding starts\n";
-            M_timer.tick("regrid");
-            if ( M_use_restart && pcpt==0)
-                this->regrid(1); // Special case where the restart conditions imply to remesh
-            else
-                this->regrid(pcpt);
-
-            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
-            M_timer.tock("regrid");
-
-#ifdef OASIS
-            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
-             * are needed iff we do conservative remapping and this is only supported in the coupled
-             * case (so far). */
-            M_timer.tick("resetMeshMean_cpl");
-            if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
-            else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
-
-            if ( M_ocean_type == setup::OceanType::COUPLED )
-                M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-
-            if ( vm["coupler.with_waves"].as<bool>() )
-                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
-                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-
-            M_timer.tock("resetMeshMean_cpl");
-#endif
-
-            if ( M_use_moorings )
-            {
-                M_timer.tick("resetMeshMean");
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
-                            M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                else
-#endif
-                if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
-
-                M_timer.tock("resetMeshMean");
-            }
-
-            ++M_nb_regrid;
-
-            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
-        }//M_regrid
-
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-    }//bamg-regrid
-
-    M_comm.barrier();
-    M_timer.tock("remesh");
-
-    M_timer.tick("checkReload");
-
-    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
-
-    M_timer.tock("checkReload");
-
-    M_timer.tick("auxiliary");
-
-    if (M_regrid)
-    {
-        // calculate the cohesion, coriolis force etc
-        this->calcAuxiliaryVariables();
-
-#ifdef OASIS
-        // Update FSD in case conc. has been modified during regrid.
-        if (M_num_fsd_bins>0)
-            this ->updateFSD();
-#endif
-        this->updateIceDiagnostics();
-
-        // save outputs after regrid
-        if(vm["restart.write_restart_after_regrid"].as<bool>())
-        {
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->writeRestart(str);
-        }
-        if(vm["output.export_after_regrid"].as<bool>())
-        {
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
-        }
-
-        // check the fields for nans etc after regrid
-        if( (vm["debugging.check_fields"].as<bool>())
-#ifdef OASIS
-                && M_debug_fsd
-#endif
-                )
-            this->checkFields();
-            LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
-    }
-    else if(pcpt==0)
-    {
-        // The first time step we also behave as if we just did a regrid
-        // (after this point)
-        M_regrid = true;
-    }
-
-    M_timer.tock("auxiliary");
-
     //======================================================================
-    //! 2) Performs the thermodynamics
+    //! 1) Performs the thermodynamics
     //======================================================================
     if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
     {
@@ -8101,7 +7949,7 @@ FiniteElement::step()
     }
 #ifdef OASIS
     //======================================================================
-    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up
+    //! 1 + 1/2 : if coupled with waves and FSD activated -> Perform break-up
     //======================================================================
     if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
     {
@@ -8122,7 +7970,7 @@ FiniteElement::step()
     if( M_use_nesting )
     {
         //======================================================================
-        //! 3) Performs the nesting of the tracers
+        //! 2) Performs the nesting of the tracers
         //======================================================================
         chrono.restart();
         LOG(DEBUG) <<"nestingIce starts\n";
@@ -8130,7 +7978,7 @@ FiniteElement::step()
         LOG(DEBUG) <<"nestingIce done in "<< chrono.elapsed() <<"s\n";
 
         //======================================================================
-        //! 4) Performs the nesting of the dynamical variables
+        //! 3) Performs the nesting of the dynamical variables
         //======================================================================
         if( M_nest_dynamic_vars )
         {
@@ -8142,13 +7990,13 @@ FiniteElement::step()
     }
 
     //======================================================================
-    //! 5) Performs the dynamics
+    //! 4) Performs the dynamics
     //======================================================================
     M_timer.tick("dynamics");
     if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
     {
         //======================================================================
-        //! - 5.1) Assembles the rigidity matrix by calling the assemble() function,
+        //! - 4.1) Assembles the rigidity matrix by calling the assemble() function,
         //======================================================================
         M_timer.tick("assemble");
         this->assemble(pcpt);
@@ -8157,9 +8005,9 @@ FiniteElement::step()
 
 
         //======================================================================
-        //! - 5.2) Solves the linear problem by calling the solve() function
-        //! - 5.3) Updates the velocities by calling the updateVelocity() function
-        //! - 5.4) Uptates relevant variables by calling the update() function
+        //! - 4.2) Solves the linear problem by calling the solve() function
+        //! - 4.3) Updates the velocities by calling the updateVelocity() function
+        //! - 4.4) Uptates relevant variables by calling the update() function
         //======================================================================
         M_timer.tick("solve");
         this->solve();
@@ -8187,7 +8035,7 @@ FiniteElement::step()
     M_timer.tock("dynamics");
 
     //======================================================================
-    //! 6) Update the info on the coupling grid
+    //! 5) Update the info on the coupling grid
     //======================================================================
 #ifdef OASIS
     M_timer.tick("coupler put");
@@ -8216,13 +8064,17 @@ FiniteElement::step()
         {
             LOG(DEBUG) << "OASIS put ... at " << pcpt*time_step << "\n";
 
-            for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
+            for (auto it=M_cpl_out.M_nodal_variables.begin();
+                    it!=M_cpl_out.M_nodal_variables.end(); ++it)
                 if ( it->varID > 0 ) // Skip non-outputing variables
-                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step,
+                            &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
 
-            for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
+            for (auto it=M_cpl_out.M_elemental_variables.begin();
+                    it!=M_cpl_out.M_elemental_variables.end(); ++it)
                 if ( it->varID > 0 ) // Skip non-outputing variables
-                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
+                    int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step,
+                            &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
         M_cpl_out.resetMeshMean(bamgmesh);
@@ -8232,11 +8084,32 @@ FiniteElement::step()
 #endif
 
     //======================================================================
-    //! 7) Update the time
+    //! 6) Update the time
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
 
+    M_timer.tick("remesh");
+    //! 7) Check if we need to remesh and remap the prognostic variables
+    bool regridding = false;
+    if (vm["numerics.regrid"].as<std::string>() == "bamg")
+    {
+        M_timer.tick("checkRegridding");
+        regridding = this->checkRegridding();
+        M_timer.tock("checkRegridding");
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+    }//bamg-regrid
+    M_comm.barrier();
+    M_timer.tock("remesh");
+
+    M_timer.tick("checkReload");
+    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
+    M_timer.tock("checkReload");
+
+    if(regridding)
+        this->checkAfterRegrid();
 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
@@ -8247,9 +8120,7 @@ FiniteElement::step()
     // - check if we are adding records to netcdf file
     // 2. check if writing outputs, and do it if it's time
     // 3. check if writing restart, and do it if it's time
-    // TODO also add drifter check here
-    // - if we move at restart output time we can remove M_UT from
-    //   restart files (then it would always be 0)
+    // 4. check if it is time to output drifters
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
@@ -8271,8 +8142,131 @@ FiniteElement::checkRegridding()
         || this->flip(M_mesh, M_UM, 1.);
     boost::mpi::all_reduce(M_comm, regrid_local, regrid,
             std::plus<bool>());//NB "+" for bools is "or"
+    if(!regrid)
+        return false;
+
+    if(vm["restart.write_restart_before_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+        this->writeRestart(str);
+    }
+    if(vm["output.export_before_regrid"].as<bool>())
+    {
+        this->updateIceDiagnostics();
+        std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+        this->exportResults(str, true, true, true);
+    }
+
+    if ( M_use_moorings && !M_moorings_snapshot )
+    {
+        M_timer.tick("updateGridMean");
+        M_moorings.updateGridMean(bamgmesh);
+        M_timer.tock("updateGridMean");
+    }
+
+#ifdef OASIS
+    M_timer.tick("updateGridMean_cpl");
+    M_cpl_out.updateGridMean(bamgmesh);
+    M_timer.tock("updateGridMean_cpl");
+#endif
+    LOG(DEBUG) <<"Regridding starts\n";
+    M_timer.tick("regrid");
+    this->regrid();
+
+    LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+    M_timer.tock("regrid");
+
+#ifdef OASIS
+    /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+     * are needed iff we do conservative remapping and this is only supported in the coupled
+     * case (so far). */
+    M_timer.tick("resetMeshMean_cpl");
+    if ( M_rank==0 )
+        M_cpl_out.resetMeshMean(bamgmesh, regrid, M_local_nelements,
+                M_mesh.transferMapElt(), bamgmesh_root);
+    else
+        M_cpl_out.resetMeshMean(bamgmesh, regrid, M_local_nelements,
+                M_mesh.transferMapElt());
+
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+        M_ocean_elements_dataset.setWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+    if ( vm["coupler.with_waves"].as<bool>() )
+        M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+
+    M_timer.tock("resetMeshMean_cpl");
+#endif
+
+    if ( M_use_moorings )
+    {
+        M_timer.tick("resetMeshMean");
+#ifdef OASIS
+        if(vm["moorings.grid_type"].as<std::string>()=="coupled")
+            M_moorings.resetMeshMean(bamgmesh, regrid, M_local_nelements,
+                    M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        else
+#endif
+        if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+            M_moorings.resetMeshMean(bamgmesh, regrid, M_local_nelements,
+                    M_mesh.transferMapElt(), bamgmesh_root);
+        else
+            M_moorings.resetMeshMean(bamgmesh, regrid, M_local_nelements);
+
+        M_timer.tock("resetMeshMean");
+    }
+
+    LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
+    LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+
+    // recalculate the cohesion, coriolis force etc
+    M_timer.tick("auxiliary");
+    this->calcAuxiliaryVariables();
+    M_timer.tock("auxiliary");
+
+#ifdef OASIS
+    // Update FSD in case conc. has been modified during regrid.
+    if (M_num_fsd_bins>0)
+        this ->updateFSD();
+#endif
+    //update diagnostics
+    this->updateIceDiagnostics();
+
+    // update M_nb_regrid and tell the solver it needs to be rebuilt
+    ++M_nb_regrid;
+    M_rebuild_solver = true;
     return regrid;
+
 }//checkRegridding
+
+
+void
+FiniteElement::checkAfterRegrid()
+{
+    //save outputs if debugging
+    if(vm["restart.write_restart_after_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+        this->writeRestart(str);
+    }
+    if(vm["output.export_after_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+        this->exportResults(str, true, true, true);
+    }
+
+    // check the fields for nans etc after regrid
+    if( (vm["debugging.check_fields"].as<bool>())
+#ifdef OASIS
+            && M_debug_fsd
+#endif
+            )
+    {
+        this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
+    }
+}
 
 
 //------------------------------------------------------------------------------------------------------

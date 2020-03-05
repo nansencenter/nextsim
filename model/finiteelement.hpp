@@ -152,10 +152,11 @@ public:
             std::vector<double> const& um, double const& factor=1);
 
     bool checkRegridding();
-    void regrid(bool step = true);
+    void regrid();
     void adaptMesh();
     void updateNodeIds();
     void updateBoundaryFlags();
+    void checkAfterRegrid();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -602,7 +603,7 @@ private:
     double ridge_h;
     double M_current_time;
     bool M_reuse_prec;
-    bool M_regrid;
+    bool M_rebuild_solver = true;
     int M_nb_regrid;
 
     bool M_use_assimilation;
