@@ -4801,7 +4801,6 @@ FiniteElement::updateSigmaRecursive(double const dt)
                 epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
         }
-        double const div = 0.5*(epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          //! - Updates the internal stress
@@ -4810,10 +4809,9 @@ FiniteElement::updateSigmaRecursive(double const dt)
 
         double const sigma_c   = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
         double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = compression_factor*expC;
 
         bool ep_fail = false;
-        bool first_loop = true;
-        double const Pmax = compression_factor*expC; //*M_thick[cpt]; // TODO: Make this an option
 
         while ( 1.-M_damage[cpt] > 1e-12 )
         {
@@ -4822,6 +4820,17 @@ FiniteElement::updateSigmaRecursive(double const dt)
 
             double const multiplicator = time_viscous/(time_viscous+dt);
             double const elasticity = young*expC*(1.-damage_tmp);
+
+            // Estimate the EP part
+            std::vector<double> sigma_ep(3,0.);
+            for(int i=0;i<3;i++)
+                for(int j=0;j<3;j++)
+                    sigma_ep[i] += elasticity*M_Dunit[3*i + j]*(M_epsilon_ep[j][cpt] + dt*epsilon_veloc[j]);
+
+            double const sigma_n_ep = -(sigma_ep[0]+sigma_ep[1])/2.;
+            // Plastic deformation: Don't add dt*epsilon_veloc to M_epsilon_ep
+            if ( (sigma_n_ep>Pmax) || (sigma_n_ep<0.) )
+                ep_fail = true;
 
             std::vector<double> epsilon_ep(3);
             double E_factor;
@@ -4836,10 +4845,8 @@ FiniteElement::updateSigmaRecursive(double const dt)
                     epsilon_ep[i] = M_epsilon_ep[i][cpt] + dt*epsilon_veloc[i];
             }
 
-
             //Calculating the new state of stress
             std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-            std::vector<double> sigma_ep(3,0.);
             for(int i=0;i<3;i++)
             {
                 double sigma_dot_i = 0.0;
@@ -4863,23 +4870,6 @@ FiniteElement::updateSigmaRecursive(double const dt)
 
             double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            // Are we inside the EP envelope?
-            if ( first_loop )
-            {
-                first_loop = false;
-
-                double const sigma_s_ep = std::hypot((sigma_ep[0]-sigma_ep[1])/2.,sigma_ep[2]);
-                double const sigma_n_ep =           -(sigma_ep[0]+sigma_ep[1])/2.;
-                double const sigma_1_ep = sigma_n_ep+sigma_s_ep; // max principal component following convention (positive sigma_n=pressure)
-                double const sigma_2_ep = sigma_n_ep-sigma_s_ep; // min principal component following convention (positive sigma_n=pressure)
-                if ( (div<0. && sigma_1_ep>Pmax) || (div>0. && sigma_2_ep<0.) )
-                {
-                    // Plastic deformation: Re-calculate sigma before estimating damage
-                    ep_fail = true;
-                    continue;
-                }
-            }
 
             // Are we inside the MEB envelope? If yes -> continue, if no -> damage and try again.
             if ( (sigma_1-q*sigma_2) > sigma_c )
