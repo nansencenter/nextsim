@@ -8725,8 +8725,13 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Non-output variables
             case (GridOutput::variableID::ice_mask):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
-                break;
+                {
+                    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                        it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
+                    else
+                        it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
+                    break;
+                }
 
             default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
