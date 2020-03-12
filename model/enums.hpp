@@ -141,7 +141,10 @@ namespace setup
         NO_MOTION       = 1,
         FREE_DRIFT      = 2,
         EVP             = 3,
-        MEBe            = 4
+        MEBe            = 4,
+        MEBEP           = 5,
+        BMEB            = 6,
+        MEBp            = 7
     };
 
 } // setup
@@ -153,7 +156,8 @@ namespace schemes
         EXPLICIT    = 0,
         IMPLICIT    = 1,
         RECURSIVE   = 2,
-        P_RECURSIVE = 3
+        P_RECURSIVE = 3,
+        DIRECT      = 3
     };
 
     enum class tdType

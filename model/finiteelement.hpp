@@ -180,7 +180,11 @@ public:
     void step();
     void run();
 
+    inline void updateSigmaDirect(double const dte);
     inline void updateSigmaRecursive(double const dte);
+    inline void updateSigmaMEBEP(double const dte);
+    inline void updateSigmaBMEB(double const dte);
+    inline void updateSigmaMEBp(double const dte);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
     void explicitSolve();
 
@@ -757,6 +761,7 @@ private:
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
     std::vector<ModelVariable> M_epsilon_ep;         // Elastic strain for the Elastic-Plastic term
+    ModelVariable M_dcrit;              // Distance to the plastic criterion (BMEB)
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
