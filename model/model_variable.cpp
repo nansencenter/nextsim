@@ -88,7 +88,7 @@ ModelVariable::initElemental()
             M_export_name = "Damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -103,7 +103,7 @@ ModelVariable::initElemental()
             M_export_name = "Cumulated_damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -116,7 +116,7 @@ ModelVariable::initElemental()
             M_export_name = "Cumulated_wave_damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -151,7 +151,7 @@ ModelVariable::initElemental()
             {
                 case(0):
                     // surface temperature
-                    M_interp_method = interpMethod::conservative;
+                    M_interp_method = interpMethod::nearest_neighbour;
                     M_interp_transformation = interpTransformation::none;
                     break;
 
@@ -180,7 +180,7 @@ ModelVariable::initElemental()
             M_export_name = "SST";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sst"].as<double>();
             break;
@@ -191,7 +191,7 @@ ModelVariable::initElemental()
             M_export_name = "SSS";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
@@ -202,7 +202,7 @@ ModelVariable::initElemental()
             M_export_name = "Tsurf_thin_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
+            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
