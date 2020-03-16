@@ -356,22 +356,6 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
-        case (variableID::M_dcrit):
-            // Prognostic variable to tell use how far outside the
-            // plastic envelope we are (for BMEB)
-            M_name = "Distance to plastic yield";
-            M_export_name = "d_crit_bmeb";
-            M_prognostic = true;
-            M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0.;
-            M_has_min = true;
-            M_min_val = 0.;
-            M_has_max = true;
-            M_max_val = 1.;
-            break;
-
         // Diagnostic variables
         case (variableID::D_conc):
             // total concentration (thin + thick ice)

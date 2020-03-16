@@ -83,7 +83,6 @@ public:
         M_cum_wave_damage=22,
         M_divergence    = 23,
         M_epsilon_ep    = 24,
-        M_dcrit         = 25,
 
         // Diagnostic variables
         D_conc       = 100,

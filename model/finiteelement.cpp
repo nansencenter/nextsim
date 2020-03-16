@@ -4901,7 +4901,6 @@ FiniteElement::updateSigmaBMEB(double const dt)
                 M_sigma[i][cpt] = 0.;
 
             M_damage[cpt] = 0.;
-            M_dcrit[cpt] = 0.;
             continue;
         }
 
@@ -4934,15 +4933,23 @@ FiniteElement::updateSigmaBMEB(double const dt)
         double const old_damage = M_damage[cpt];
 
         double damage_dot = 0.;
-        std::vector<double> sigma(3);
-        int k;
-        do
+        double sigma_n = -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
+        while ( 1.-M_damage[cpt] > 1e-12 )
         {
+            // Plastic failure
+            double dcrit_p;
+            if ( sigma_n > 0. )
+                // dcrit_p must be capped at 1 to get an elastic response
+                dcrit_p = std::min(1., Pmax/sigma_n);
+            else
+                dcrit_p = 0.;
+
             double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-            double const multiplicator = time_viscous/(time_viscous+dt*(1.-M_dcrit[cpt]+time_viscous*damage_dot/(1.-M_damage[cpt])));
+            double const multiplicator = time_viscous/(time_viscous+dt*(1.-dcrit_p+time_viscous*damage_dot/(1.-M_damage[cpt])));
             double const elasticity = young*expC*(1.-M_damage[cpt]);
 
             //Calculating the new state of stress
+            std::vector<double> sigma(3);
             for(int i=0;i<3;i++)
             {
                 sigma[i] = M_sigma[i][cpt];
@@ -4958,60 +4965,38 @@ FiniteElement::updateSigmaBMEB(double const dt)
              */
 
             /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor (positive sigma_n=pressure) */
-            double       sigma_n = -          (sigma[0]+sigma[1])/2.;
-            double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+            sigma_n = -(sigma[0]+sigma[1])*0.5;
+            double const sigma_s = std::hypot((sigma[0]-sigma[1])*0.5,sigma[2]);
 
             /* Compute the principle components */
             double const sigma_1 = sigma_n+sigma_s;
             double const sigma_2 = sigma_n-sigma_s;
 
-            // Damage
-            double dcrit;
-            if ( sigma_2 > 0. )
-                dcrit = sigma_c/(sigma_1-q*sigma_2);
-            else
-                dcrit = sigma_t/sigma_2;
-
-            if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
+            // Are we inside the MEB envelope? If yes -> continue, if no -> damage and try again.
+            if ( (sigma_1-q*sigma_2) > sigma_c )
             {
                 double const prev_damage = M_damage[cpt];
 
-                // Relax onto the envelope
-                M_damage[cpt] += (1.-dcrit)*(1.-M_damage[cpt]);
-
                 // clip damage
-                M_damage[cpt] = std::max(damage_min, M_damage[cpt]);
+                M_damage[cpt] = std::max(damage_min, 1. - (1.-M_damage[cpt])*0.9);
 
                 // New estimate for sigma_n
-                dcrit = 1. - (M_damage[cpt]-prev_damage)/(1.-prev_damage);
+                double const dcrit = 1. - (M_damage[cpt]-prev_damage)/(1.-prev_damage);
                 sigma_n *= dcrit;
 
                 // Time rate of change in damage over the time step
                 damage_dot = (M_damage[cpt] - old_damage)/dt;
             }
-
-            // Plastic failure
-            double const M_dcrit_old = M_dcrit[cpt];
-            if ( sigma_n > 0. )
-                M_dcrit[cpt] = Pmax/sigma_n;
             else
-                M_dcrit[cpt] = 0.;
+            {
+                for ( int i=0; i<3; ++i )
+                    M_sigma[i][cpt] = sigma[i];
 
-            // M_dcrit must be capped at 1 to get an elastic response
-            M_dcrit[cpt] = std::min(1., M_dcrit[cpt]);
-
-            // Iterate until M_dcrit and damage aren't changing anymore
-            if ( (M_damage[cpt]-old_damage < 1e6) && (std::abs(M_dcrit[cpt]-M_dcrit_old) < 1e6) )
                 break;
-
-            ++k;
+            }
         }
-        while ( k<100 );
-        // Whe should use the break - but we don't want to hang in case of error
-        assert(k<100);
-
-        for ( int i=0; i<3; ++i )
-            M_sigma[i][cpt] = sigma[i];
+        // A check to make sure we have a sensible damage value!
+        assert( 1.-M_damage[cpt] > 1e-12 );
 
         /*======================================================================
          * Check:
@@ -8134,8 +8119,6 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
-    M_dcrit = ModelVariable(ModelVariable::variableID::M_dcrit);//! \param M_dcrit (double) How far outside the plastic envelope are we?
-    M_variables_elt.push_back(&M_dcrit);
     D_sigma_p.resize(3);//! \param D_sigma_p (double) Tensor components of the pressure term [Pa]
     for(int k=0; k<D_sigma_p.size(); k++)
     {
