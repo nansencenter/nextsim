@@ -581,7 +581,9 @@ FiniteElement::assignVariables()
     M_solution->init(2*M_ndof,2*M_local_ndof,M_graphmpi);
 
     M_UM.assign(2*M_num_nodes,0.);
-    //M_UT.assign(2*M_num_nodes,0.);
+
+    // For drifters:
+    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
     M_fcor.assign(M_num_elements, 0.);
 
@@ -3581,7 +3583,11 @@ FiniteElement::gatherUM(std::vector<double>& um)
 void
 FiniteElement::regrid(bool step)
 {
-    M_comm.barrier();
+
+    //move any active drifters before we reset the mesh
+    M_timer.tick("checkMoveDrifters_regrid");
+    this->checkMoveDrifters();
+    M_timer.tock("checkMoveDrifters_regrid");
 
     chrono.restart();
 
@@ -4076,11 +4082,11 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;               /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope gradient (x-component) */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope gradient (y-component) */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4137,8 +4143,16 @@ FiniteElement::assemble(int pcpt)
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
-            /* Column corresponding to indice j (we also assemble terms in col+1)
-             * col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C
+            /*
+             * Index j is used in 2 ways:
+             * - in the matrix (data) to be inverted it corresponds to the columns
+             *   col = (2*l_j, 2*l_j+1) in the matrix;
+             *   col = (mwIndex)it[2*j]-1, with the -1 added to use the indexing convention of C
+             * - in the forcing vector (fvdata), it is used in the numerical quadrature
+             *   of some integrals over the element
+             * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
+             * \note some contributors to fvdata are independent of j,
+             *  but they are still computed and added inside the j loop 3 times but then divided by 3
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
@@ -4170,7 +4184,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multply with rho and mask out no-ice points
+            // Multiply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4190,17 +4204,19 @@ FiniteElement::assemble(int pcpt)
                 {
                     /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                    /* Select the nodal weight values from M_loc */
+                    /* Select the quadrature scheme for the FEM integrals
+                     * (see calculation of M_mass and M_diag above) */
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
+                    //! \note b0tj_sigma_hu and b0tj_sigma_hv are independant of j
+                    //! but are added inside the j loop - hence they are divided by 3 below
                     b0tj_sigma_hu = 0.;
                     b0tj_sigma_hv = 0.;
-
                     for(int k=0; k<3; k++)
                     {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
                     }
 
                     /* ---------- UU component */
@@ -4382,7 +4398,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stifness' for the pressure term
+    // 'Stiffness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4391,6 +4407,23 @@ FiniteElement::FETensors()
     M_Dunit_comp[4]= Dunit_factor * 1.;
     M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
 
+    /* Select the quadrature scheme for the FEM integrals
+     * - see mloc below:
+     *   \int[N_i*f].dS \approx \sum_{j=1}^3f_j\int[N_i*N_j].dS
+     *      = \sum_{j=1}^3M_{ij}S_ef_j,
+     *      where S_e is the element area (surface_e below),
+     *      and M_ij=M_mass[i,j]
+     *   This is exact for linear f.
+     * - see dloc below:
+     *   \int[N_i*f].dS \approx \frac{S_i}{3}\sum_{j=1}^3f_jN_i(x_j)
+     *      = \frac{S_e}{3}\sum_{j=1}^3\delta_{ij}f_j
+     *      = \frac{S_e}{3}f_i
+     *      = S_e*D_ii*f_i,
+     *   where D_{ij} = M_diag[i,j].
+     *   This is exact for constant f (ie will fail for \int[N_i*N_j].dS)
+     *   I might be remembering incorrectly, but I think Sylvain had better results
+     *   round coasts when this was used for the drag terms
+     *   */
     for (int i=0; i<3; ++i)
     {
         for (int j=0; j<3; ++j)
@@ -4414,18 +4447,21 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it);
 
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            /* B0T is the 3x6 matrix:
+             * B0T = [
+             *          [N0x, 0, N1x, 0, N2x, 0],
+             *          [0, N0y, 0, N1y, 0, N2y],
+             *          [N0y, N1x, N1y, N1x, N2y, N2x],
+             *          ]
+             * deformation is:
+             * B0T*[u0, v0, u1, v1, u2, v2]^T = [u_x, v_y, u_y+v_x]^T
+             * */
+            B0T[2*i]    = shapecoeff[i];
+            B0T[7+2*i]  = shapecoeff[i+3];
+            B0T[12+2*i] = shapecoeff[i+3];
+            B0T[13+2*i] = shapecoeff[i];
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
@@ -8261,7 +8297,9 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     }
 
     //! 3) update drifters if necessary
+    M_timer.tick("checkUpdateDrifters");
     this->checkUpdateDrifters();
+    M_timer.tock("checkUpdateDrifters");
 
     //! 4) check if we are outputting results file
     bool exporting = false;
@@ -8289,12 +8327,40 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 }//checkOutputs
 
 
+// -----------------------------------------------------------------------
+//! move any active drifters and move them by the amount specified by M_UT
+//! Called by regrid() and checkUpdateDrifters()
+void FiniteElement::checkMoveDrifters()
+{
+    LOG(DEBUG) << "in checkMoveDrifters\n";
+    //! - check if we have any active drifters
+    int n_drifters = 0;
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        n_drifters += it->isInitialised();
+    boost::mpi::broadcast(M_comm, n_drifters, 0);
+    if(n_drifters==0)
+        return;
+    LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
+
+    //! - gather M_UT to root processor
+    std::vector<double> UT_root;
+    this->gatherNodalField(M_UT, UT_root);
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+    if(M_rank!=0)
+        return;
+
+    //! - move drifters on root processor
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->move(M_mesh_root, UT_root);
+}//checkMoveDrifters
+
+
 // ---------------------------------------------
 //! check if we need to update/output any drifters (and do it if we need to)
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
-    bool update_drifters = false;
+    int n_update = 0;
     if(M_rank == 0)
     {
         //need to move if initialising, outputting, inputting or resetting
@@ -8302,34 +8368,35 @@ void FiniteElement::checkUpdateDrifters()
         //NB inputting and resetting always happen at output time
         //so don't need to check
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            update_drifters = update_drifters
-                || it->initialising(M_current_time)
-                || it->isOutputTime(M_current_time);
+            n_update += (it->initialising(M_current_time)
+                || it->isOutputTime(M_current_time));
     }
+    boost::mpi::broadcast(M_comm, n_update, 0);
+    if(n_update>0)
+        // Move any active drifters
+        this->checkMoveDrifters();
 
-    // let all the processors know if we need to gather the three vectors
-    // or if we need to reset M_UT
-    boost::mpi::broadcast(M_comm, update_drifters, 0);
-    if(!update_drifters)
+        else
         return;
+    LOG(DEBUG) << "updating " << n_update
+        << " drifters\n";
+
+    // Move any active drifters
+    this->checkMoveDrifters();
 
     // Gather the fields needed by the drifters
-    std::vector<double> UT_root, UM_root, conc_root;
-    this->gatherNodalField(M_UT, UT_root);
+    std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
     this->gatherElementField(M_conc, conc_root);
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+    if(M_rank!=0)
+        return;
 
-    if(M_rank==0)
-    {
-        //updateDrifters does moving, initialising, resetting, inputting,
-        //outputting (if needed)
-        auto movedmesh_root = M_mesh_root;
-        movedmesh_root.move(UM_root, 1.);
-        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->updateDrifters(M_mesh_root, movedmesh_root,
-                    conc_root, UT_root, M_current_time);
-    }
+    //updateDrifters does initialising, resetting, inputting,
+    //outputting (if needed)
+    auto movedmesh_root = M_mesh_root;
+    movedmesh_root.move(UM_root, 1.);
+    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->updateDrifters(movedmesh_root, conc_root, M_current_time);
 }//checkUpdateDrifters()
 
 
@@ -8634,8 +8701,13 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Non-output variables
             case (GridOutput::variableID::ice_mask):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
-                break;
+                {
+                    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                        it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
+                    else
+                        it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
+                    break;
+                }
 
             default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
@@ -12562,6 +12634,7 @@ FiniteElement::instantiateDrifters()
     {
         int i0 = M_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12586,25 +12659,24 @@ FiniteElement::instantiateDrifters()
                 false                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
-        // add drifters to the list of drifters
-        M_drifters.push_back(
-                Drifters("OSISAF0", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info,
-                    false)
-                );
-        timing_info.time_init += 1.;
-        M_drifters.push_back(
-                Drifters("OSISAF1", osi_outfile_prefix,
-                    netcdf_input_info, drifters_conc_lim, timing_info,
-                    false)
-                );
+        for(int i=0; i<2; i++)
+        {
+            // add drifters to the list of drifters
+            timing_info.time_init += i;
+            std::stringstream name;
+            name << "OSISAF" << i;
+            M_drifters.push_back(
+                    Drifters(name.str(), osi_outfile_prefix,
+                        netcdf_input_info, drifters_conc_lim, timing_info,
+                        ignore_restart)
+                    );
 
-        // add drifters to the list of OSISAF drifters
-        // - need to sync them sometimes (mainly thinking of restart time)
-        M_osisaf_drifters = {
-            &M_drifters[i0],
-            &M_drifters[i0+1],
-        };
+            // add drifters to a list of OSISAF drifters
+            // - need to sync them sometimes (mainly thinking of restart time)
+            M_osisaf_drifters.push_back(
+                    &(M_drifters[M_drifters.size()-1])
+                    );
+        }
     }
 
     // equally spaced drifters
