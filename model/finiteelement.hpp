@@ -887,6 +887,7 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
+    void checkMoveDrifters();
     void checkUpdateDrifters();
     void instantiateDrifters();
     void synchroniseOsisafDrifters();
