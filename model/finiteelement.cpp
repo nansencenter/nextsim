@@ -12703,12 +12703,6 @@ FiniteElement::instantiateDrifters()
                         netcdf_input_info, drifters_conc_lim, timing_info,
                         ignore_restart)
                     );
-
-            // add drifters to a list of OSISAF drifters
-            // - need to sync them sometimes (mainly thinking of restart time)
-            M_osisaf_drifters.push_back(
-                    &(M_drifters[M_drifters.size()-1])
-                    );
         }
     }
 
