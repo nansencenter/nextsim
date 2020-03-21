@@ -514,8 +514,6 @@ FiniteElement::initVariables()
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
 
-    // For drifters:
-    M_UT.resize(2*M_num_nodes); //! \param M_UT (double) Total ice displacement (M_UT[] = time_step*M_VT[]) [m]
     this->assignVariables();
 
 }//initVariables
