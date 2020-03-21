@@ -222,10 +222,12 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
+    std::cout << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
     if(M_ignore_restart)
         std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
     else
         in_restart = readFromRestart(field_map_int, field_map_dbl);
+    std::cout << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
 
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
@@ -256,7 +258,7 @@ Drifters::initFromRestart(
         this->selectRecordsFromBackup(backup, restart_time);
         std::remove(backup.c_str());
     }
-        
+
 }//initFromRestart()
 
 
@@ -410,7 +412,7 @@ Drifters::readFromRestart(
 void
 Drifters::fixInitTimeAtRestart(double const& restart_time)
 {
-    // if we are restarting before sceduled init time, there is no problem
+    // if we are restarting before scheduled init time, there is no problem
     // - they will be initialised at that time
     if(restart_time<=M_time_init)
         return;

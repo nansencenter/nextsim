@@ -640,8 +640,6 @@ private: // only on root process (rank 0)
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
 
-
-
 private:
 
     // Thermodynamic and dynamic forcing
@@ -691,7 +689,7 @@ private:
 
     // Drifters
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
-    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
+    std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
