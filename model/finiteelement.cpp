@@ -4937,15 +4937,14 @@ FiniteElement::updateSigmaBMEB(double const dt)
         while ( 1.-M_damage[cpt] > 1e-12 )
         {
             // Plastic failure
-            double dcrit_p;
             if ( sigma_n > 0. )
-                // dcrit_p must be capped at 1 to get an elastic response
-                dcrit_p = std::min(1., Pmax/sigma_n);
+                // D_dcrit must be capped at 1 to get an elastic response
+                D_dcrit[cpt] = std::min(1., Pmax/sigma_n);
             else
-                dcrit_p = 0.;
+                D_dcrit[cpt] = 0.;
 
             double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-            double const multiplicator = time_viscous/(time_viscous+dt*(1.-dcrit_p+time_viscous*damage_dot/(1.-M_damage[cpt])));
+            double const multiplicator = time_viscous/(time_viscous+dt*(1.-D_dcrit[cpt]+time_viscous*damage_dot/(1.-M_damage[cpt])));
             double const elasticity = young*expC*(1.-M_damage[cpt]);
 
             //Calculating the new state of stress
