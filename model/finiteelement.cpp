@@ -7163,11 +7163,16 @@ FiniteElement::init()
         this->initModelState();
         LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
-    else if ( M_use_assimilation )
+    else
     {
-        chrono.restart();
-        this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        if ( M_use_assimilation )
+        {
+            chrono.restart();
+            this->DataAssimilation();
+            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        }
+        LOG(DEBUG) << "checkFields: restart\n";
+        this->checkFields();
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
