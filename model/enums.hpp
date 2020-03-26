@@ -143,9 +143,7 @@ namespace setup
         FREE_DRIFT      = 2,
         EVP             = 3,
         MEBe            = 4,
-        MEBEP           = 5,
-        BMEB            = 6,
-        MEBp            = 7
+        MEBp            = 5
     };
 
 } // setup
