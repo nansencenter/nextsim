@@ -8375,14 +8375,9 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
-    if(n_update>0)
-        // Move any active drifters
-        this->checkMoveDrifters();
-
-        else
+    if(n_update==0)
         return;
-    LOG(DEBUG) << "updating " << n_update
-        << " drifters\n";
+    LOG(DEBUG) << "updating " << n_update << " drifters\n";
 
     // Move any active drifters
     this->checkMoveDrifters();
@@ -12634,7 +12629,6 @@ FiniteElement::instantiateDrifters()
     {
         int i0 = M_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12668,7 +12662,7 @@ FiniteElement::instantiateDrifters()
             M_drifters.push_back(
                     Drifters(name.str(), osi_outfile_prefix,
                         netcdf_input_info, drifters_conc_lim, timing_info,
-                        ignore_restart)
+                        false)
                     );
 
             // add drifters to a list of OSISAF drifters
