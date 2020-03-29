@@ -51,11 +51,8 @@ FiniteElement::initMesh()
 {
     this->initBamg();
     this->rootMeshProcessing();
-
     if (!M_use_restart)
-    {
         this->distributedMeshProcessing(true);
-    }
 }//initMesh
 
 
@@ -517,18 +514,6 @@ FiniteElement::initVariables()
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
 
-    if (M_rank == 0)
-    {
-        M_surface_root.resize(M_mesh_root.numTriangles());
-
-        int cpt = 0;
-        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
-        {
-            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
-            ++cpt;
-        }
-    }
-
     this->assignVariables();
 
 }//initVariables
@@ -549,20 +534,42 @@ FiniteElement::DataAssimilation()
 }//DataAssimilation
 
 
+//--------------------------------------------------------------------------------------------------
+//! Calculate the surface area of all the mesh triangles
+//! Called by assignVariables(), readRestart(), exportResults()
+template<typename FEMeshType>
+std::vector<double>
+FiniteElement::surface(FEMeshType const& mesh, std::vector<double> const& um, double const& factor)
+{
+    std::vector<double> surface(mesh.numTriangles());
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it, mesh, um, factor);
+    return surface;
+}//surface
+
+
+template<typename FEMeshType>
+std::vector<double>
+FiniteElement::surface(FEMeshType const& mesh)
+{
+    std::vector<double> surface(mesh.numTriangles());
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it, mesh);
+    return surface;
+}//surface
+
+
 //------------------------------------------------------------------------------------------------------
 //! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
 //! Called by the regrid() and initVariables() functions.
 void
 FiniteElement::assignVariables()
 {
-    M_surface.assign(M_num_elements,0.);
-
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
+    M_surface = this->surface(M_mesh);
 
     M_matrix->init(2*M_ndof,2*M_ndof,
                    2*M_local_ndof,2*M_local_ndof,
@@ -635,7 +642,7 @@ FiniteElement::assignVariables()
     M_atmosphere_bis_elements_dataset.interpolated=false;
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
-#ifdef OASIS 
+#ifdef OASIS
     M_wave_nodes_dataset.interpolated = false;
     M_wave_elements_dataset.interpolated = false;
 #endif
@@ -668,23 +675,12 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
-
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
-    if (M_rank == 0)
-    {
-        M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-        cpt = 0;
-        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
-        {
-            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
-            ++cpt;
-        }
-    }
-
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
+    D_coef_sigma_p.resize(M_num_elements);
 }//assignVariables
 
 
@@ -799,8 +795,12 @@ FiniteElement::initDatasets()
 
         case setup::AtmosphereType::EC2_AROME:
             M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements_instaneous");//instantaneous fields at %H:00
-            M_atmosphere_bis_elements_dataset=DataSet("ec2_arome_elements_integrated");//integrated fields at %H:30
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements");
+            break;
+
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_atmosphere_nodes_dataset=DataSet("ec2_arome_ensemble_nodes");
+            M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
         default:
@@ -1092,9 +1092,12 @@ FiniteElement::initOptAndParam()
     rhoi = physical::rhoi; //! \param rhoi (double) Ice density [kg/m3]
     rhos = physical::rhos; //! \param rhos (double) Snow density [kg/m3]
 
+    //! Sets parameters for the pressure term coefficient
+    compression_factor = vm["dynamics.compression_factor"].as<double>(); //! \param Max pressure for damaged converging ice
+    exponent_compression_factor = vm["dynamics.exponent_compression_factor"].as<double>(); //! \param Power of ice thickness in the pressure coefficient
+    divergence_min = vm["dynamics.divergence_min"].as<double>() / days_in_sec; //! \param Minimum divergence at which pressure term is activated
 
     //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
-    days_in_sec = 24.0*3600.0; // Conversion factor from days to seconds
     if (vm["simul.time_init"].as<std::string>() == "")
         throw std::runtime_error("Please provide simul.time_init option (start time)\n");
     else
@@ -1290,9 +1293,10 @@ FiniteElement::initOptAndParam()
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME);
+        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
+        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
-        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant or reanalyses)
+        //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
 
     // set the drag coefficient for air
@@ -1307,9 +1311,11 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
@@ -1385,7 +1391,7 @@ FiniteElement::initOptAndParam()
     //! FSD Initialization
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
     const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
-        ("constant_size", setup::FSDType::CONSTANT_SIZE) 
+        ("constant_size", setup::FSDType::CONSTANT_SIZE)
         ("constant_area", setup::FSDType::CONSTANT_AREA);
     M_fsd_type = this->getOptionFromMap("wave_coupling.fsd_type", str2fsd);
     //
@@ -1397,15 +1403,15 @@ FiniteElement::initOptAndParam()
 
     //! If FSD : Welding
     const boost::unordered_map<const std::string, setup::WeldingType> str2welding= boost::assign::map_list_of
-        ("none", setup::WeldingType::NONE) 
+        ("none", setup::WeldingType::NONE)
         ("roach", setup::WeldingType::ROACH);
     M_welding_type = this->getOptionFromMap("wave_coupling.welding_type", str2welding);
     M_welding_kappa = vm["wave_coupling.welding_kappa"].as<double>();
     M_fsd_welding_use_scaled_area = vm["wave_coupling.fsd_welding_use_scaled_area"].as<bool>();
 
-    //! If FSD : Break-up (redistribution) 
+    //! If FSD : Break-up (redistribution)
     const boost::unordered_map<const std::string, setup::BreakupType> str2breakup= boost::assign::map_list_of
-        ("none", setup::BreakupType::NONE) 
+        ("none", setup::BreakupType::NONE)
         ("zhang", setup::BreakupType::ZHANG)
         ("uniform_size", setup::BreakupType::UNIFORM_SIZE)
         ("dumont", setup::BreakupType::DUMONT);
@@ -1546,88 +1552,25 @@ FiniteElement::createGMSHMesh(std::string const& geofilename)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
+//! Calculates the Jacobian Matrix Determinant:  measure of the normals of the element faces relative to each other.
+//! It is the determinant of the transformation from the reference triangle with vertices
+//! (0,0), (1,0) and (0,1) to an arbitrary triangle.
+//! This transformation is:
+//!   x=x0+(x1-x0)\xi + (x2-x1)\eta,
+//!   y=y0+(y1-y0)\xi + (y2-y1)\eta,
+//! with \xi,\eta between 0 and 1, so the determinant is:
+//!   (x1-x0)*(y2-y0) - (x2-x0)*(y1-y0).
 //! Called by the flip(), measure() and shapeCoeff() functions.
 //! \note
 //! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-
+//! * The Jacobian is an indicator of the distortion of the current mesh
+//!   with respect to an undistorted mesh.
 double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh) const
+FiniteElement::jacobian(std::vector<std::vector<double>> const& vertices) const
 {
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-double
-FiniteElement::jacobian(element_type const& element, mesh_type const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    std::vector<double> vertex_0 = mesh.nodes().find(element.indices[0])->second.coords;
-    std::vector<double> vertex_1 = mesh.nodes().find(element.indices[1])->second.coords;
-    std::vector<double> vertex_2 = mesh.nodes().find(element.indices[2])->second.coords;
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(M_num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(M_num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(M_num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-//------------------------------------------------------------------------------------------------------
-//! Calculates the Jacobian Matrix Determinate:  measure of the normals of the element faces relative to each other.
-//! * This is used to calculate the finite element shape coefficient.
-//! * The Jacobian an indicator of the distortion of the current mesh with respect to an undistorted mesh.
-//! Called by the flip(), measure() and shapeCoeff() functions.
-double
-FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
-}//jacobian
-
-
-double
-FiniteElement::jacobian(element_type const& element, mesh_type_root const& mesh,
-                        std::vector<double> const& um, double factor) const
-{
-    std::vector<double> vertex_0 = mesh.nodes()[element.indices[0]-1].coords;
-    std::vector<double> vertex_1 = mesh.nodes()[element.indices[1]-1].coords;
-    std::vector<double> vertex_2 = mesh.nodes()[element.indices[2]-1].coords;
-
-    int num_nodes = M_mesh_root.numNodes();
-
-    for (int i=0; i<2; ++i)
-    {
-        vertex_0[i] += factor*um[element.indices[0]-1+i*(num_nodes)];
-        vertex_1[i] += factor*um[element.indices[1]-1+i*(num_nodes)];
-        vertex_2[i] += factor*um[element.indices[2]-1+i*(num_nodes)];
-    }
-
-    double jac = (vertex_1[0]-vertex_0[0])*(vertex_2[1]-vertex_0[1]);
-    jac -= (vertex_2[0]-vertex_0[0])*(vertex_1[1]-vertex_0[1]);
-
-    return  jac;
+    double jac = (vertices[1][0]-vertices[0][0])*(vertices[2][1]-vertices[0][1]);
+    jac -= (vertices[2][0]-vertices[0][0])*(vertices[1][1]-vertices[0][1]);
+    return jac;
 }//jacobian
 
 
@@ -1948,74 +1891,31 @@ FiniteElement::measure(element_type const& element, FEMeshType const& mesh,
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates finite element shape coefficients.
+//! - 3 shape functions N_0, N_1, N_2 satisfy
+//!     N_k(x_j,y_j)=\delta_{kj}
+//! - this function calculates their gradients
+//!   ie [[N0_x, N1_x, N2_x],
+//!       [N0_y, N1_y, N2_y]]
+//! - gradients are calculated from:
+//!   J^{-T}*[[-1,1,0], [-1,0,1]]
+//!   - inverse of the Jacobian matrix transposed times
+//!     the gradients on the reference triangle with vertices (0,0), (1,0) and (0,1).
+//!   - the Jacobian is for the transformation from the reference triangle to
+//!     the actual triangle (see the comment on FiniteElement::jacobian)
 //! Called by the FETensors() function.
 std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type const& mesh) const
+FiniteElement::shapeCoeff(element_type const& element) const
 {
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes().find(element.indices[i])->second.coords[0];
-        y[i] = mesh.nodes().find(element.indices[i])->second.coords[1];
-    }
-
+    auto vertices = M_mesh.vertices(element.indices, M_UM, 1.);
     std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
+    double const jac = this->jacobian(vertices);
+    for (int k=0; k<3; ++k)
     {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
+        int const kp1 = (k+1)%3;
+        int const kp2 = (k+2)%3;
+        coeff[k]   = (vertices[kp1][1]-vertices[kp2][1])/jac;//x derivatives depend on y
+        coeff[k+3] = (vertices[kp2][0]-vertices[kp1][0])/jac;//y derivatives depend on x
     }
-
-    return coeff;
-}//shapeCoeff
-
-
-//------------------------------------------------------------------------------------------------------
-//! Calculates finite element shape coefficients.
-//! Called by the FETensors() function.
-std::vector<double>
-FiniteElement::shapeCoeff(element_type const& element, mesh_type_root const& mesh) const
-{
-    std::vector<double> x(3);
-    std::vector<double> y(3);
-
-    for (int i=0; i<3; ++i)
-    {
-        x[i] = mesh.nodes()[element.indices[i]-1].coords[0];
-        y[i] = mesh.nodes()[element.indices[i]-1].coords[1];
-    }
-
-    std::vector<double> coeff(6);
-    double jac = jacobian(element,mesh);
-
-    for (int k=0; k<6; ++k)
-    {
-        int kp1 = (k+1)%3;
-        int kp2 = (k+2)%3;
-
-        if (k<3)
-        {
-            coeff[k] = (y[kp1]-y[kp2])/jac;
-        }
-        else
-        {
-            coeff[k] = (x[kp2]-x[kp1])/jac;
-        }
-    }
-
     return coeff;
 }//shapeCoeff
 
@@ -3991,6 +3891,10 @@ FiniteElement::assemble(int pcpt)
     M_vector->zero();
     LOG(DEBUG) << "Reinitialize matrix and vector to zero done\n";
 
+    M_timer.tick("FETensors");
+    this->FETensors();
+    M_timer.tock("FETensors");
+
 
     //std::vector<int> extended_dirichlet_nodes = M_dirichlet_nodes;
 
@@ -4176,11 +4080,11 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;               /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope gradient (x-component) */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope gradient (y-component) */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4218,12 +4122,36 @@ FiniteElement::assemble(int pcpt)
         std::vector<double> data(36);
         std::vector<double> fvdata(6,0.);
 
+        double coef_P = 0;
+        if(M_divergence[cpt] < 0.)
+        {
+            coef_P = compression_factor
+                *std::pow(M_thick[cpt],exponent_compression_factor)
+                *std::exp(ridging_exponent*(1-M_conc[cpt]))
+                /(std::abs(M_divergence[cpt])+divergence_min);
+        }
+        /* We should consider using the norm of Dunit * epsilon_veloc
+         *
+         * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
+         *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
+         *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
+         */
+        D_coef_sigma_p[cpt] = coef_P;//used in update to calculate D_sigma_p
+
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
-            /* Column corresponding to indice j (we also assemble terms in col+1) */
-            //col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C */
-
+            /*
+             * Index j is used in 2 ways:
+             * - in the matrix (data) to be inverted it corresponds to the columns
+             *   col = (2*l_j, 2*l_j+1) in the matrix;
+             *   col = (mwIndex)it[2*j]-1, with the -1 added to use the indexing convention of C
+             * - in the forcing vector (fvdata), it is used in the numerical quadrature
+             *   of some integrals over the element
+             * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
+             * \note some contributors to fvdata are independent of j,
+             *  but they are still computed and added inside the j loop 3 times but then divided by 3
+             */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
 
@@ -4254,7 +4182,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multply with rho and mask out no-ice points
+            // Multiply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4274,35 +4202,40 @@ FiniteElement::assemble(int pcpt)
                 {
                     /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                    /* Select the nodal weight values from M_loc */
+                    /* Select the quadrature scheme for the FEM integrals
+                     * (see calculation of M_mass and M_diag above) */
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
+                    //! \note b0tj_sigma_hu and b0tj_sigma_hv are independant of j
+                    //! but are added inside the j loop - hence they are divided by 3 below
                     b0tj_sigma_hu = 0.;
                     b0tj_sigma_hv = 0.;
-
                     for(int k=0; k<3; k++)
                     {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
                     }
 
                     /* ---------- UU component */
-
                     duu = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step );
+                                      +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j]*coef_P );
 
                     /* ---------- VU component */
-                    dvu = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step );
+                    dvu = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j]*coef_P );
 
                     /* ---------- UV component */
-                    duv = surface_e*( +M_B0T_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step );
+                    duv = surface_e*( +M_B0_Dunit_B0T[cpt][(2*i)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i)*6+2*j+1]*coef_P );
 
                     /* ---------- VV component */
                     dvv = surface_e*( mloc*(coef_V)
                                       +dloc*(coef_Vair+coef_basal+coef_Voce*cos_ocean_turning_angle)
-                                      +M_B0T_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step );
+                                      +M_B0_Dunit_B0T[cpt][(2*i+1)*6+2*j+1]*coef*dtime_step
+                                      +M_B0_Dunit_comp_B0T[cpt][(2*i+1)*6+2*j+1]*coef_P );
 
                     data[(2*l_j  )*6+2*i  ] = duu;
                     data[(2*l_j+1)*6+2*i  ] = dvu;
@@ -4368,139 +4301,174 @@ FiniteElement::assemble(int pcpt)
 
 
 //------------------------------------------------------------------------------------------------------
+//! Computes the B0_Dunit_B0T matrix.
+//! Called by the FETensors() function.
+void
+FiniteElement::compute_B0_Dunit_B0T(std::vector<double>& Dunit, std::vector<double>& B0T, std::vector<double>& B0_Dunit_B0T)
+{
+    double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
+    double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    std::vector<double> B0Tj_Dunit(6,0);
+
+    for(int j=0; j<3; j++)
+    {
+
+        /* The 6x6 rigidity matrix that will be multiplied by E and by the surface
+         * is given by the product B0*matrix.Dunit*B0T
+         * (B0T=B0' is 3x6)
+         * This product is computed for the indices:
+         * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
+         * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
+         * 2*i+1,2*j   -> B0Tj_Dunit_B0Ti[2]
+         * 2*i+1,2*j+1 -> B0Tj_Dunit_B0Ti[3] */
+
+        /* new version without assembling zero */
+        for(int i=0; i<3; i++)
+        {
+            /* product of the i-th line of B0T' and the matrix Dunit */
+            B0Tj_Dunit_tmp0 = 0.;
+            B0Tj_Dunit_tmp1 = 0.;
+
+            for(int kk=0; kk<3; kk++)
+            {
+                B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*Dunit[3*i+kk];
+                B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*Dunit[3*i+kk];
+            }
+
+            B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
+            B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
+        }
+
+        for(int i=0; i<3; i++)
+        {
+            /* The rigidity matrix */
+            /* scalar product of B0Ti_Dunit and the first column of B0T */
+            B0Tj_Dunit_B0Ti_tmp0 = 0.;
+            B0Tj_Dunit_B0Ti_tmp1 = 0.;
+            B0Tj_Dunit_B0Ti_tmp2 = 0.;
+            B0Tj_Dunit_B0Ti_tmp3 = 0.;
+
+            for(int kk=0; kk<3; kk++)
+            {
+                B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
+                B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
+                B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
+                B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
+            }
+
+            B0_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
+            B0_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
+            B0_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
+            B0_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
+        }
+    }
+    /*
+     * B0_Dunit_B0T should be symmetric but is not exactly after the calculation here above
+     * because the sequence of operation is not the same for the component i,j and j,i.
+     * We force the matrix to be symmetric by copying the upper part onto the lower part
+     */
+    for(int i=1; i<6; i++)
+        for(int j=0; j<i; j++)
+            B0_Dunit_B0T[i*6+j] = B0_Dunit_B0T[j*6+i];
+}//compute_B0_Dunit_B0T
+
+
+//------------------------------------------------------------------------------------------------------
 //! Assembles the mass matrix.
 //! Called by the step() function.
 void
 FiniteElement::FETensors()
 {
     M_Dunit.assign(9,0);
+    M_Dunit_comp.assign(9,0);
     M_Mass.assign(9,0);
     M_Diag.assign(9,0);
 
-    for (int k=0; k<6; k+=3)
-    {
-        for (int kk=0; kk<2; ++kk )
-        {
-            M_Dunit[k+kk] = (1-((k+kk)%2)*(1-nu0))/(1-std::pow(nu0,2.));
-        }
-    }
-    M_Dunit[8] = (1-nu0)/(2.*(1-std::pow(nu0,2.)));
+    double Dunit_factor=1./(1.-nu0*nu0);
+    /* Stiffness matrix
+     * 1  nu 0
+     * nu 1  0
+     * 0  0  (1-nu)/2
+     */
+    M_Dunit[0]= Dunit_factor * 1.;
+    M_Dunit[1]= Dunit_factor * nu0;
+    M_Dunit[3]= Dunit_factor * nu0;
+    M_Dunit[4]= Dunit_factor * 1.;
+    M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
+    // 'Stiffness' for the pressure term
+    double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
+    Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
+    M_Dunit_comp[0]= Dunit_factor * 1.;
+    M_Dunit_comp[1]= Dunit_factor * pressure_nu;
+    M_Dunit_comp[3]= Dunit_factor * pressure_nu;
+    M_Dunit_comp[4]= Dunit_factor * 1.;
+    M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
+
+    /* Select the quadrature scheme for the FEM integrals
+     * - see mloc below:
+     *   \int[N_i*f].dS \approx \sum_{j=1}^3f_j\int[N_i*N_j].dS
+     *      = \sum_{j=1}^3M_{ij}S_ef_j,
+     *      where S_e is the element area (surface_e below),
+     *      and M_ij=M_mass[i,j]
+     *   This is exact for linear f.
+     * - see dloc below:
+     *   \int[N_i*f].dS \approx \frac{S_i}{3}\sum_{j=1}^3f_jN_i(x_j)
+     *      = \frac{S_e}{3}\sum_{j=1}^3\delta_{ij}f_j
+     *      = \frac{S_e}{3}f_i
+     *      = S_e*D_ii*f_i,
+     *   where D_{ij} = M_diag[i,j].
+     *   This is exact for constant f (ie will fail for \int[N_i*N_j].dS)
+     *   I might be remembering incorrectly, but I think Sylvain had better results
+     *   round coasts when this was used for the drag terms
+     *   */
     for (int i=0; i<3; ++i)
     {
         for (int j=0; j<3; ++j)
         {
             M_Mass[3*i+j] = ((i == j) ? 2.0 : 1.0)/12.0;
             M_Diag[3*i+j] = ((i == j) ? 1.0 : 0.0)/3.0;
-            //std::cout<< std::left << std::setw(12) << Mass[3*i+j] <<"  ";
         }
     }
 
     M_B0T.resize(M_num_elements);
-    M_B0T_Dunit_B0T.resize(M_num_elements);
+    M_B0_Dunit_B0T.resize(M_num_elements);
+    M_B0_Dunit_comp_B0T.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
 
     std::vector<double> B0T(18,0);
-    std::vector<double> B0Tj_Dunit(6,0);
-    std::vector<double> B0T_Dunit_B0T(36,0);
-
-    double B0Tj_Dunit_tmp0, B0Tj_Dunit_tmp1;
-    double B0Tj_Dunit_B0Ti_tmp0, B0Tj_Dunit_B0Ti_tmp1, B0Tj_Dunit_B0Ti_tmp2, B0Tj_Dunit_B0Ti_tmp3;
+    std::vector<double> B0_Dunit_B0T(36,0);
+    std::vector<double> B0_Dunit_comp_B0T(36,0);
 
     int cpt = 0;
     for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
     {
-        std::vector<double> shapecoeff = this->shapeCoeff(*it,M_mesh);
+        std::vector<double> shapecoeff = this->shapeCoeff(*it);
 
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            /* B0T is the 3x6 matrix:
+             * B0T = [
+             *          [N0x, 0, N1x, 0, N2x, 0],
+             *          [0, N0y, 0, N1y, 0, N2y],
+             *          [N0y, N1x, N1y, N1x, N2y, N2x],
+             *          ]
+             * deformation is:
+             * B0T*[u0, v0, u1, v1, u2, v2]^T = [u_x, v_y, u_y+v_x]^T
+             * */
+            B0T[2*i]    = shapecoeff[i];
+            B0T[7+2*i]  = shapecoeff[i+3];
+            B0T[12+2*i] = shapecoeff[i+3];
+            B0T[13+2*i] = shapecoeff[i];
         }
 
-        //std::cout<<"\n";
-        // if (cpt == 0)
-        //     for (int i=0; i<3; ++i)
-        //     {
-        //         for (int j=0; j<6; ++j)
-        //         {
-        //             std::cout<< std::left << std::setw(12) << B0T[6*i+j] <<"  ";
-        //         }
-        //         std::cout<<"\n";
-        //     }
-
-        for(int j=0; j<3; j++)
-        {
-
-            /* The rigidity matrix that will be multiplied by E and by the surface
-             * is given by the product B0'*matrix.Dunit*B0
-             * This product is computed for the indices:
-             * 2*i  ,2*j   -> B0Tj_Dunit_B0Ti[0]
-             * 2*i  ,2*j+1 -> B0Tj_Dunit_B0Ti[1]
-             * 2*i+1,2*j   -> B0Tj_Dunit_B0Ti[2]
-             * 2*i+1,2*j+1 -> B0Tj_Dunit_B0Ti[3] */
-
-            /* new version without assembling zero */
-            for(int i=0; i<3; i++)
-            {
-                /* product of the first line of B0T' and the matrix Dunit */
-                B0Tj_Dunit_tmp0 = 0.;
-                B0Tj_Dunit_tmp1 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_tmp0 += B0T[kk*6+2*j]*M_Dunit[3*i+kk];
-                    B0Tj_Dunit_tmp1 += B0T[kk*6+2*j+1]*M_Dunit[3*i+kk];
-                }
-
-                B0Tj_Dunit[2*i] = B0Tj_Dunit_tmp0;
-                B0Tj_Dunit[2*i+1] = B0Tj_Dunit_tmp1;
-            }
-
-            for(int i=0; i<3; i++)
-            {
-                /* The rigidity matrix */
-                /* scalar product of B0Ti_Dunit and the first column of B0T */
-                B0Tj_Dunit_B0Ti_tmp0 = 0.;
-                B0Tj_Dunit_B0Ti_tmp1 = 0.;
-                B0Tj_Dunit_B0Ti_tmp2 = 0.;
-                B0Tj_Dunit_B0Ti_tmp3 = 0.;
-
-                for(int kk=0; kk<3; kk++)
-                {
-                    B0Tj_Dunit_B0Ti_tmp0 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp1 += B0Tj_Dunit[2*kk]*B0T[kk*6+2*i+1];
-                    B0Tj_Dunit_B0Ti_tmp2 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i];
-                    B0Tj_Dunit_B0Ti_tmp3 += B0Tj_Dunit[2*kk+1]*B0T[kk*6+2*i+1];
-                }
-
-                B0T_Dunit_B0T[(2*i)*6+2*j] = B0Tj_Dunit_B0Ti_tmp0;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j] = B0Tj_Dunit_B0Ti_tmp1;
-                B0T_Dunit_B0T[(2*i)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp2;
-                B0T_Dunit_B0T[(2*i+1)*6+2*j+1] = B0Tj_Dunit_B0Ti_tmp3;
-            }
-        }
-
-        /*
-         * B0T_Dunit_B0T should be symmetric but is not exactly after the calcultation here above
-         * because the sequence of operation is not the same for the component i,j and j,i.
-         * We force the matrix to be symmetric by copying the upper part onto the lower part
-         */
-        for(int i=1; i<6; i++)
-            for(int j=0; j<i; j++)
-                B0T_Dunit_B0T[i*6+j] = B0T_Dunit_B0T[j*6+i];
+        this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
+        this->compute_B0_Dunit_B0T(M_Dunit_comp, B0T, B0_Dunit_comp_B0T);
 
         M_shape_coeff[cpt]        = shapecoeff;
         M_B0T[cpt]                = B0T;
-        M_B0T_Dunit_B0T[cpt]      = B0T_Dunit_B0T;
+        M_B0_Dunit_B0T[cpt]      = B0_Dunit_B0T;
+        M_B0_Dunit_comp_B0T[cpt] = B0_Dunit_comp_B0T;
 
         ++cpt;
     }
@@ -4541,7 +4509,6 @@ FiniteElement::update()
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
         M_UM[nd] += time_step*M_VT[nd];
-
     for (const int& nd : M_neumann_nodes)
         M_UM[nd] = UM_P[nd];
 
@@ -4577,7 +4544,6 @@ FiniteElement::update()
         std::vector<double> epsilon_veloc(3);
 
         std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        double sigma_dot_i;
 
         /* invariant of the internal stress tensor and some variables used for the damaging process*/
         double sigma_s, sigma_n, sigma_1, sigma_2;
@@ -4607,6 +4573,7 @@ FiniteElement::update()
 
             epsilon_veloc[i] = epsilon_veloc_i;
         }
+        M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
         //! - Updates the ice and snow thickness and ice concentration using a Lagrangian or an Eulerian advection scheme
@@ -4623,10 +4590,11 @@ FiniteElement::update()
             to_be_updated=false;
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
+        double const surface_old = M_surface[cpt];
+        M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
-            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
-
+            double const surf_ratio = surface_old/M_surface[cpt];
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
             M_snow_thick[cpt] *= surf_ratio;
@@ -4751,17 +4719,19 @@ FiniteElement::update()
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
-                sigma_dot_i = 0.0;
+                double sigma_dot_i = 0.0;
+                double sigma_p_i = 0.;
+                bool const is_ice = M_conc[cpt] > vm["dynamics.min_c"].as<double>();
                 for(int j=0;j<3;j++)
                 {
                     sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt] + dtime_step*sigma_dot_i)*D_multiplicator[cpt];
-                sigma[i] = (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) ? (sigma[i]):0.;
-
-                M_sigma[i][cpt] = sigma[i];
-
+                sigma[i]          = is_ice ? sigma[i]  : 0.;
+                D_sigma_p[i][cpt] = is_ice ? sigma_p_i : 0.;//diagnostic
+                M_sigma[i][cpt]   = sigma[i];
             }
 
             /*======================================================================
@@ -4833,7 +4803,7 @@ FiniteElement::update()
                 if(tmp>M_damage[cpt])
                 {
 #ifdef OASIS
-                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ; 
+                    M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                     M_damage[cpt] = min(tmp, 1.0);
                 }
@@ -4878,7 +4848,7 @@ FiniteElement::update()
 void
 FiniteElement::redistributeFSD()
 {
-    
+
     std::vector<double> P(M_num_fsd_bins) ;
     //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
@@ -4904,20 +4874,20 @@ FiniteElement::redistributeFSD()
                 continue ;
             M_breakup_in_dt=true ;
             if (M_distinguish_mech_fsd)
-            {    
+            {
             //! As break-up indeed occurs reset "real" FSD to mechanical FSD
                for(int j=0;j<M_num_fsd_bins;j++)
-               { 
+               {
                    M_conc_fsd[j][i]= M_conc_mech_fsd[j][i] ;
-               } 
+               }
             }
             // Sea ice properties
             double  sea_ice_thickness = 0;
             if (M_breakup_cell_average_thickness)
                 sea_ice_thickness = M_thick[i] ;
-            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE) 
+            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
                sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
-               
+
             sea_ice_thickness = std::max(M_breakup_thick_min,sea_ice_thickness) ;
 
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
@@ -4956,7 +4926,7 @@ FiniteElement::redistributeFSD()
                 double  lim_dflex = std::max(0.,std::tanh( (M_fsd_bin_centres[j]-d_flex) / (coef3*d_flex) ) ) ;
                 switch (M_breakup_type)
                 {
-                    //! 2. Redistribute the broken sea ice area 
+                    //! 2. Redistribute the broken sea ice area
                     //! So far, redistribution also occurs within the broken category
                     case (setup::BreakupType::ZHANG):
                     {
@@ -4982,8 +4952,8 @@ FiniteElement::redistributeFSD()
                         {
                              broken_area= M_conc_fsd[j][i] * P[j] ;
                              M_conc_fsd[j][i] -= broken_area ;
-                            
-                             //!Define a redistributor beta 
+
+                             //!Define a redistributor beta
                              //! with uniform redistribution of floes for sizes below the broken categories
                              //! (for any D such as Dmin < D < D_broken_cat, it generates an equal number of floes)
                              for (int k=0; k<=j ; k++)
@@ -5024,31 +4994,31 @@ FiniteElement::redistributeFSD()
                         std::cout << "breakup_type= " << (int)M_breakup_type << "\n";
                         throw std::logic_error("Wrong breakup_type");
                 }
-            
+
             }
             /* Ensure that mech FSD and "real" FSD are the same after break-up */
             if (M_distinguish_mech_fsd)
-            {    
+            {
                 for(int j=0;j<M_num_fsd_bins;j++)
                     M_conc_mech_fsd[j][i]= M_conc_fsd[j][i] ;
             }
 
-            // Mini Checkfields 
+            // Mini Checkfields
             double ctot2 = M_conc_fsd[0][i];
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][i] ;
-            
+
             if( (std::abs(ctot-ctot2)>2e-7) && M_debug_fsd )
-            {  
+            {
                std::cout<<"Crash message coming !\n";
                std::cout<<"Redistribute : [" <<M_rank << "], element : "<<i<<", sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
                           <<ctot<< "), diff =" << ctot-ctot2 << " \n";
                crash =  true;
             }
-            
+
             if(crash)
                 throw std::runtime_error(crash_msg.str());
-            
+
             /* Choice of relationship between break-up and damage */
             /* By default, M_fsd_damage_type=0, no change in damage  */
             /* So far, only thick ice can be damaged  */
@@ -5098,7 +5068,7 @@ void
 FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
 //------------------------------------------------------------------------------------------------------
 //! Takes care of changes induced by lateral growth and melt in the FSD
-//Input : 
+//Input :
 // -- const int i -> Element Index
 // -- lat_melt_rate -> lateral melt rate in m/s. Computed in thermo()
 // -- thin_ice_growth -> the delta concentration due to thin ice reduction by bottom melt
@@ -5107,7 +5077,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     // Used for debug
     std::stringstream crash_msg;
     bool crash = false;
-    // 
+    //
     double del_c_thin = 0.;
     double del_c_fsd = M_conc[i] - old_conc;
     double cat0_del_c =0. ;
@@ -5122,23 +5092,23 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     // THIN ICE CASE
     if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
              del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
-    del_c_fsd += del_c_thin ; 
-    
+    del_c_fsd += del_c_thin ;
+
     /*FSD : initialize a vector for ulterior redistribution  */
     std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
 
-    if ( ( abs(lat_melt_rate)>0.) && (ctot_init>1e-12) )// So far, it is only the case for lat. melt, but same equation applies to lat. growth 
+    if ( ( abs(lat_melt_rate)>0.) && (ctot_init>1e-12) )// So far, it is only the case for lat. melt, but same equation applies to lat. growth
     {
         /*  Compute the FSD gradient needed in FSD evolution (Horvat&Tziperman, 2015)  */
         std::vector<double> fsd_dr(M_num_fsd_bins+1,0.) ;
         std::vector<double> dfsd_dr(M_num_fsd_bins,0.)  ;
-        
+
         // if m<M_num_fsd_bins-1;m++) -> no transfer from unbroken ice
         for(int m=1; m<M_num_fsd_bins-1;m++)
             fsd_dr[m]=M_conc_fsd[m][i]/M_fsd_bin_widths[m] ;
         for(int m=0; m<M_num_fsd_bins;m++)
             dfsd_dr[m]=fsd_dr[m+1]-fsd_dr[m] ;
-       
+
         if  ( (abs( std::accumulate(dfsd_dr.begin(), dfsd_dr.end(),0.))>1e-11) && M_debug_fsd)
         {
             crash=true ;
@@ -5152,7 +5122,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
                 crash_msg << "dfsd_dr  ("<< j <<") :" << dfsd_dr[j] <<" \n";
             }
         }
-        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/             
+        /* FSD evolution during thermo. following Horvat & Tzipperman (2015)*/
         for (int m=0; m<M_num_fsd_bins-1;m++)
         {
             del_c_bin_melt[m] = ddt * lat_melt_rate * (-dfsd_dr[m] + fsd_init[m]*2./M_fsd_bin_centres[m] ) ;
@@ -5165,7 +5135,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         }
         else                  // if there is freezing, flux of growing floes that become "unbroken"
             M_conc_fsd[M_num_fsd_bins-1][i] += fsd_init[M_num_fsd_bins-1] / M_fsd_bin_widths[M_num_fsd_bins-1]*ddt * lat_melt_rate;
-        
+
         double ctot=0.;
         for(int m=0;m<M_num_fsd_bins;m++)
             ctot+=M_conc_fsd[m][i] ;
@@ -5189,7 +5159,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         { // Complete refreezing if thin ice fills the lead
             if (M_conc[i] + M_conc_thin[i]==1.)
             {
-                M_conc_fsd[M_num_fsd_bins-1][i] =1.; // 
+                M_conc_fsd[M_num_fsd_bins-1][i] =1.; //
                 for(int m=0;m<M_num_fsd_bins-1;m++)
                    M_conc_fsd[m][i]=0.;
             }
@@ -5204,10 +5174,10 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
                     M_conc_fsd[m][i]+=del_c_fsd*M_conc_fsd[m][i]/ctot_init ;
                 }
             }
-        }    
+        }
         else // Refreezing without FSD recombination
-            M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1 
-    } 
+            M_conc_fsd[M_num_fsd_bins-1][i]+=  del_c_fsd ; // It cannot exceed 1
+    }
 
     if (M_distinguish_mech_fsd)
     {
@@ -5305,8 +5275,8 @@ FiniteElement::updateFSD()//----------------------------------------------------
                     M_conc_fsd[k][cpt]*=ctot/ctot2;
             }
 
-            else if (std::abs(ctot-ctot2)>1e-11)        
-            {  
+            else if (std::abs(ctot-ctot2)>1e-11)
+            {
                 if ( (ctot2==0.)and(ctot>0.) )
                    M_conc_fsd[M_num_fsd_bins-1][cpt]=ctot ;
                 else
@@ -5315,7 +5285,7 @@ FiniteElement::updateFSD()//----------------------------------------------------
                         M_conc_fsd[k][cpt]*= ctot/ctot2;
                 }
             }
-          
+
             if (M_distinguish_mech_fsd)
             {
                 double  ctot3= M_conc_mech_fsd[0][cpt];
@@ -5327,8 +5297,8 @@ FiniteElement::updateFSD()//----------------------------------------------------
                     for(int k=0;k<M_num_fsd_bins;k++)
                         M_conc_mech_fsd[k][cpt]*=ctot/ctot3;
                 }
-                else if (std::abs(ctot-ctot3)>1e-11)         
-                {  
+                else if (std::abs(ctot-ctot3)>1e-11)
+                {
                     if  ( (ctot3==0.)and(ctot>0.) )
                        M_conc_mech_fsd[M_num_fsd_bins-1][cpt]=ctot ;
                     else
@@ -5346,7 +5316,7 @@ FiniteElement::updateFSD()//----------------------------------------------------
 //------------------------------------------------------------------------------------------------------
 void
 FiniteElement::weldingRoach(const int cpt, double ddt)
-//! welding following Roach et al. 2018, called in thermo() 
+//! welding following Roach et al. 2018, called in thermo()
 //------------------------------------------------------------------------------------------------------
 {
     double c_fsd_broken = M_conc_fsd[0][cpt];
@@ -5356,18 +5326,18 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
     std::vector<double>  old_conc_fsd(M_num_fsd_bins,0.) ; // vector  keeping in memory old fsd
     for(int j=0;j<M_num_fsd_bins;j++)
         old_conc_fsd[j]=M_conc_fsd[j][cpt] ;
-    double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.); 
+    double old_conc_tot = std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.);
 
-    for(int j=1;j<M_num_fsd_bins-1;j++) 
+    for(int j=1;j<M_num_fsd_bins-1;j++)
         c_fsd_broken += M_conc_fsd[j][cpt] ;
     if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
     {
-         double unbroken_area_loss=0.; 
+         double unbroken_area_loss=0.;
          // time step limitations for merging
          double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
-         int ndt_mrg = std::round(stability+0.5) ; // round up                        
+         int ndt_mrg = std::round(stability+0.5) ; // round up
          double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
-         std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd            
+         std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd
          std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
          std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
 
@@ -5381,17 +5351,17 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                      int a = M_alpha_fsd_merge[kx][ky] ;
                      double sum_mergers = 0.           ;
                      if (a<M_num_fsd_bins)
-                     { 
+                     {
                         for(int p=a; p<M_num_fsd_bins; p++)
                             sum_mergers += tmp_conc_fsd[p] ;
                      }
                      coag_pos[kx] = coag_pos[kx] +
-                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * ( 
-                                    sum_mergers +  
+                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * (
+                                    sum_mergers +
                                     (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
                                     ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
                  }
-             } 
+             }
              coag_neg[0]=0. ; // no gain of area for the smallest bin
              tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
              for (int m=1; m<M_num_fsd_bins;m++)
@@ -5436,7 +5406,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
              }    // end sanity check
          } // end welding sub-timestep
          tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
-         
+
          // following lines are additional check and correction for potential numeric errors
          double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
          if (abs(conc_loss)>1.e-6)
@@ -5447,9 +5417,9 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
          for(int m=0; m<M_num_fsd_bins;m++)
          {
              M_conc_fsd[m][cpt] = tmp_conc_fsd[m] *  old_conc_tot / std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.)
-                                                 ; // correction for small numeric errors 
+                                                 ; // correction for small numeric errors
              if (M_conc_fsd[m][cpt]<0.)
-             {    
+             {
              // It can happen for very very low values in one category. Check that is not too serious. If it is very small, set to 0
              // (it should not impact much sea ice conservation)
                  if (M_conc_fsd[m][cpt]<-1e-12)
@@ -5461,7 +5431,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                  {
                      M_conc_fsd[m][cpt]=0.;
                  }
-             }    
+             }
          }
          if(crash)
          {
@@ -5469,7 +5439,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
              crash_msg << "conc :" << M_conc[cpt]  << " \n";
              crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
              crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
-             for(int m=0; m<M_num_fsd_bins;m++) 
+             for(int m=0; m<M_num_fsd_bins;m++)
              {
                  crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
                  crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
@@ -5824,7 +5794,8 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
-    double const assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+    bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration
+    double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
 
@@ -6018,14 +5989,14 @@ FiniteElement::thermo(int dt)
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
-        if ( (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+        if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
             // compensating heat flux is a product of:
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
             Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
-                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, assim_flux_exponent) - 1);
+                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
 
         //relaxation of concentration update with time
@@ -6050,7 +6021,7 @@ FiniteElement::thermo(int dt)
         double del_c = 0.;
         double newsnow = 0.;
         // FSD variables ------------------------------------------------
-        /* In case there is an FSD initialize a lateral rate melt for 
+        /* In case there is an FSD initialize a lateral rate melt for
         ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
         double lat_melt_rate = 0.;
         // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
@@ -6099,7 +6070,7 @@ FiniteElement::thermo(int dt)
                     if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
                     {
                         M_conc_thin[i] = M_h_thin[i]/h_thin_min;
-                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;       
+                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;
                     }
                     else
                     {
@@ -6186,17 +6157,17 @@ FiniteElement::thermo(int dt)
                     /* Only if FSD, Roach et al. (2018) */
                     if (M_num_fsd_bins<1)
                         throw std::logic_error("melt_type =3 && num_fsd_bins <1 are not compatible");
-                    else if (tw_new>tfrw)  
-                    { 
-                        /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2 
+                    else if (tw_new>tfrw)
+                    {
+                        /* Similar to NEMO-LIM3 : Melt rate W = m1 * (Tw -Tf)**m2
                         // *--- originally from Josberger 1979 ---
                         (Tw - Tf) = elevation of water temp above freezing
                         m1 and m2 = (1.6e-6 , 1.36) best fit from field experiment near the coast of Prince Patrick Island (Perovich 1983) => static ice
                         m1 and m2 = (3.0e-6 , 1.36) best fit from MIZEX 84 experiment (Maykut and Perovich 1987) => moving ice */
                         double m1=3.e-6 ; double m2=1.36  ;
-                        double del_c_melt=0. ; 
+                        double del_c_melt=0. ;
                         double cat0_del_c=0. ;
-                        if (hi>0)  //case hi==0 is treated in thermo 
+                        if (hi>0)  //case hi==0 is treated in thermo
                         {
                             // It would be worthy checking that lat. melt is indeed lower for unbroken ice than for broken ice
                             double ctot = M_conc[i] + M_conc_thin[i];
@@ -6205,7 +6176,7 @@ FiniteElement::thermo(int dt)
                             double h0 = 0. ;
                             if (M_conc_thin[i]>0.)
                                 h0=h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
-                        
+
                             if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
                             {
                                 /* Use the fraction PhiM of (1-c)*Qow to melt laterally */
@@ -6213,17 +6184,17 @@ FiniteElement::thermo(int dt)
                                 del_c_melt = std::max(del_c_melt,-ctot);
                                 /* Deliver the fraction (1-PhiM) of Qow to the ocean */
                                 Qow[i] *= (1.-PhiM);
-                            }   
-                            else 
-                            {    
+                            }
+                            else
+                            {
                                 // Melt speed rate [m/s]
                                 lat_melt_rate = - m1 * std::pow(tw_new-tfrw, m2) ; // wlat <0
                                 /* Following code is from Horvat & Tzipermann (2015) */
                                 lat_melt_rate=lat_melt_rate*2. ;// Careful that Horvat/Roach are working with radius, while D is a diameter. Therefore the melt rate is twice as big
                                 cat0_del_c =  lat_melt_rate * M_conc_fsd[0][i] / M_fsd_bin_widths[0] * ddt ; //<0
                                 del_c_melt += cat0_del_c ;
-                                for (int j=0;j<M_num_fsd_bins-1;++j) 
-                                    del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ; 
+                                for (int j=0;j<M_num_fsd_bins-1;++j)
+                                    del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ;
                                 Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
                             }
                             del_c +=  (M_conc[i]/ctot)*del_c_melt ;
@@ -6297,7 +6268,7 @@ FiniteElement::thermo(int dt)
                         M_conc_fsd[m][i]+= (-old_conc)*M_conc_fsd[m][i]/ctot ;
                 }
                 if (M_distinguish_mech_fsd)
-                {   
+                {
                     for(int m=0;m<M_num_fsd_bins;m++)
                         ctot_mech+=M_conc_mech_fsd[m][i] ;
                     if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
@@ -6305,7 +6276,7 @@ FiniteElement::thermo(int dt)
                         for(int m=0;m<M_num_fsd_bins;m++)
                             M_conc_mech_fsd[m][i]+= (-old_conc)*M_conc_mech_fsd[m][i]/ctot_mech ;
                     }
-                } 
+                }
                 else
                 {
                     for(int k=0; k<M_num_fsd_bins; k++)
@@ -6315,7 +6286,7 @@ FiniteElement::thermo(int dt)
                             M_conc_mech_fsd[k][i] = 0. ;
                     }
                 }
-            } 
+            }
 #endif
         }
         else
@@ -6332,7 +6303,7 @@ FiniteElement::thermo(int dt)
         //! 6.b) Merge of ice floe if FSD (Roach et al. 2018)
         // -------------------------------------------------
         if ( (M_num_fsd_bins>0) && (del_hi>0.))   // If FSD && freezing condition
-        {  
+        {
             switch (M_welding_type)
             {
                 case (setup::WeldingType::NONE):
@@ -6344,7 +6315,7 @@ FiniteElement::thermo(int dt)
                     std::cout << "welding_type= " << (int)M_welding_type << "\n";
                     throw std::logic_error("Wrong welding_type");
             }
-        } 
+        }
 #endif
 
         //! 7) Calculates effective ice and snow thickness
@@ -6446,15 +6417,15 @@ FiniteElement::thermo(int dt)
 
 #ifdef OASIS
         // -------------------------------------------------
-        //! 9.b) Mechanical FSD healing 
+        //! 9.b) Mechanical FSD healing
         // -------------------------------------------------
         // // If FSD && Mech FSD && freezing condition
-        if ( M_distinguish_mech_fsd && (M_num_fsd_bins>0) && (del_hi>0.) )          
+        if ( M_distinguish_mech_fsd && (M_num_fsd_bins>0) && (del_hi>0.) )
         {
             double fsd_mech_healing_weight = std::min(1.,ddt/M_time_relaxation_damage[i]) ;
             for(int m=0; m<M_num_fsd_bins; m++)
             {
-                M_conc_mech_fsd[m][i]=M_conc_mech_fsd[m][i]*(1.-fsd_mech_healing_weight) 
+                M_conc_mech_fsd[m][i]=M_conc_mech_fsd[m][i]*(1.-fsd_mech_healing_weight)
                                      + fsd_mech_healing_weight* M_conc_fsd[m][i]       ;
             }
         }
@@ -7167,7 +7138,6 @@ FiniteElement::init()
     }
     this->calcAuxiliaryVariables();
 
-
     //! - 5) Initializes external data:
     //!      * atmospheric and oceanic forcings
     //!      * bathymetry
@@ -7218,25 +7188,21 @@ FiniteElement::init()
 }//init
 
 // ==============================================================================
-//! calculate the FETensors, cohesion, and Coriolis force
+//! calculate the cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
 //! called by init() and step()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
-    chrono.restart();
-    this->FETensors();
-    LOG(VERBOSE) <<"---timer FETensors:              "<< chrono.elapsed() <<"\n";
-
-    chrono.restart();
+    M_timer.tick("calcCohesion");
     this->calcCohesion();
-    LOG(VERBOSE) <<"---timer calcCohesion:             "<< chrono.elapsed() <<"\n";
+    M_timer.tock("calcCohesion");
 
     if (vm["dynamics.use_coriolis"].as<bool>())
     {
-        chrono.restart();
+        M_timer.tick("calcCoriolis");
         this->calcCoriolis();
-        LOG(VERBOSE) <<"---timer calcCoriolis:             "<< chrono.elapsed() <<"\n";
+        M_timer.tock("calcCoriolis");
     }
 }//calcAuxiliaryVariables
 
@@ -7270,6 +7236,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_ridge_ratio);
     M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
     M_variables_elt.push_back(&M_conc_upd);
+    M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
+    M_variables_elt.push_back(&M_divergence);
 
     switch (M_thermo_type)
     {
@@ -7391,6 +7359,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_rain);
     D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
     M_variables_elt.push_back(&D_dcrit);
+    D_sigma_p.resize(3);//! \param M_sigma (double) Tensor components of stress [Pa]
+    for(int k=0; k<D_sigma_p.size(); k++)
+    {
+        D_sigma_p[k] = ModelVariable(ModelVariable::variableID::D_sigma_p, k);
+        M_variables_elt.push_back(&(D_sigma_p[k]));
+    }
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -7440,14 +7414,14 @@ FiniteElement::initModelVariables()
 //! simple function to init the floe size
 void
 FiniteElement::initFsd()
-{   
+{
     //! Initialize the FSD bins and FSD related variables used in:
     //! - floe size redistribution
     //! - lateral growth / melt / welding
     //! N.B : If M_num_fsd_bins not defined in the conf. file, then no FSD in the model.
     if (M_num_fsd_bins==0)
         return ;
-    
+
     // Floe size variables
     M_fsd_bin_widths.assign(M_num_fsd_bins, 0.)                  ;
     M_fsd_bin_low_limits.assign(M_num_fsd_bins,0.)                  ;
@@ -7457,12 +7431,12 @@ FiniteElement::initFsd()
     M_floe_shape = 0.66;
 
     // Lettie's variables
-    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ; 
-    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ; 
+    M_floe_area_up.assign(M_num_fsd_bins, 0.)             ;
+    M_floe_area_low.assign(M_num_fsd_bins, 0.)            ;
     M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
-    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ; 
-    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;        
-    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;   
+    M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ;
+    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;
+    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;
     M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
     M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
     M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
@@ -7481,11 +7455,11 @@ FiniteElement::initFsd()
             {
                 M_fsd_bin_widths[m]      = M_fsd_bin_cst_width          ;
                 M_fsd_bin_low_limits[m] = M_fsd_bin_low_limits[m-1]
-                                        + M_fsd_bin_cst_width  ; 
+                                        + M_fsd_bin_cst_width  ;
                 M_fsd_bin_up_limits[m]  = M_fsd_bin_up_limits[m-1]
-                                        + M_fsd_bin_cst_width  ;  
+                                        + M_fsd_bin_cst_width  ;
                 M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]
-                                        +  M_fsd_bin_low_limits[m]) / 2 ; 
+                                        +  M_fsd_bin_low_limits[m]) / 2 ;
             }
             for(int m=0; m<M_num_fsd_bins; m++)
             {
@@ -7514,10 +7488,10 @@ FiniteElement::initFsd()
             for(int m=0; m<M_num_fsd_bins; m++)
             {
                 M_fsd_area_lims[m]      = M_floe_area_low[m]                         ;
-                M_fsd_bin_low_limits[m] = std::sqrt(M_floe_area_low[m]/M_floe_shape)  ; 
-                M_fsd_bin_up_limits[m]  = std::sqrt(M_floe_area_up[m] /M_floe_shape)  ; 
+                M_fsd_bin_low_limits[m] = std::sqrt(M_floe_area_low[m]/M_floe_shape)  ;
+                M_fsd_bin_up_limits[m]  = std::sqrt(M_floe_area_up[m] /M_floe_shape)  ;
                 M_fsd_bin_widths[m]      = M_fsd_bin_up_limits[m] - M_fsd_bin_low_limits[m]     ;
-                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]+ M_fsd_bin_low_limits[m])/ 2 ; 
+                M_fsd_bin_centres[m]    = (M_fsd_bin_up_limits[m]+ M_fsd_bin_low_limits[m])/ 2 ;
                 M_floe_area_centered[m] = M_floe_shape*std::pow(M_fsd_bin_centres[m],2)  ;
             }
             M_fsd_area_lims[M_num_fsd_bins] = M_floe_area_up[M_num_fsd_bins-1] ;
@@ -7529,19 +7503,19 @@ FiniteElement::initFsd()
             throw std::logic_error("Wrong fsd_type");
     }
    // LOGS
-    if (M_rank==0) 
+    if (M_rank==0)
     {
         LOG(INFO)  << "--------- FSD BINS INFO ---------\n";
-        for(int m=0; m<M_num_fsd_bins; m++)   
-        { 
-            LOG(INFO) << "\n" 
-                      << "FSD bin centres  : (" << m << ") "<< M_fsd_bin_centres[m] << " \n"     
-                      << "FSD bin low lim. : (" << m << ") "<< M_fsd_bin_low_limits[m] << " \n"  
+        for(int m=0; m<M_num_fsd_bins; m++)
+        {
+            LOG(INFO) << "\n"
+                      << "FSD bin centres  : (" << m << ") "<< M_fsd_bin_centres[m] << " \n"
+                      << "FSD bin low lim. : (" << m << ") "<< M_fsd_bin_low_limits[m] << " \n"
                       << "FSD bin up lim.  : (" << m << ") "<< M_fsd_bin_up_limits[m] << " \n"   ;
         }
     }
 
-    if (M_fsd_welding_use_scaled_area) 
+    if (M_fsd_welding_use_scaled_area)
     {
         for(int m=0; m<M_num_fsd_bins+1; m++)
             M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
@@ -7565,7 +7539,7 @@ FiniteElement::initFsd()
     {
         M_alpha_fsd_merge[m].assign(M_num_fsd_bins,-999);
         for(int n=0; n<M_num_fsd_bins; n++)
-        {  
+        {
             double test =  M_fsd_area_scaled_up[m] -  M_fsd_area_scaled_centered[n];
             for(int p=0; p<M_num_fsd_bins; p++)
             {
@@ -7573,52 +7547,52 @@ FiniteElement::initFsd()
                     M_alpha_fsd_merge[m][n]=p+1;
             }
         }
-    }  
-    if (M_rank==0) 
+    }
+    if (M_rank==0)
     {
         LOG(INFO)  << "--------- FSD BINS INFO (WIELDING VARIABLES)---------\n";
-        for(int m=0; m<M_num_fsd_bins; m++)   
-        { 
-            LOG(INFO) << "\n" 
-                      << "FSD bin area scaled centre   : (" << m << ") "<< M_fsd_area_scaled_centered[m] << " \n"     
-                      << "FSD bin area scaled low lim. : (" << m << ") "<< M_fsd_area_scaled_low[m] << " \n"  
-                      << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n" 
+        for(int m=0; m<M_num_fsd_bins; m++)
+        {
+            LOG(INFO) << "\n"
+                      << "FSD bin area scaled centre   : (" << m << ") "<< M_fsd_area_scaled_centered[m] << " \n"
+                      << "FSD bin area scaled low lim. : (" << m << ") "<< M_fsd_area_scaled_low[m] << " \n"
+                      << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n"
                       << "FSD binwidth area scaled     : (" << m << ") "<< M_fsd_area_scaled_binwidth[m] << " \n" ;
         }
         LOG(INFO) << "-------- alpha merge ------- \n" ;
-        for(int m=0; m<M_num_fsd_bins; m++)   
-        { 
+        for(int m=0; m<M_num_fsd_bins; m++)
+        {
             LOG(INFO) << "["<< m <<"]   ";
             for(int n=0; n<M_num_fsd_bins; n++)
                 LOG(INFO) << M_alpha_fsd_merge[m][n] << " ; " ;
             LOG(INFO) << "\n";
          }
-              
-       
+
+
     }
     // End of Lettie's code
-  
 
 
- 
+
+
     //! Distribute the ice into the categories
     for(int i=0; i<M_num_elements; i++)
     {
         // all the thick ice in the highest bin
-        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i]; 
+        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i];
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
 
         //nothing in the other bins
         for(int k=0; k<M_num_fsd_bins-1; k++)
-            M_conc_fsd[k][i] = 0.; 
+            M_conc_fsd[k][i] = 0.;
         // If we want to distinguish between mechanical and thermodynamical properties
         if (M_distinguish_mech_fsd)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
     }
-    
- 
+
+
 }//init FSD
 #endif
 
@@ -7906,9 +7880,9 @@ FiniteElement::updateIceDiagnostics()
         // FSD relative parameters
         D_dmean[i] = 0. ;
         D_dmax[i]  = 0. ;
-#if defined (OASIS)  
+#if defined (OASIS)
         if (M_num_fsd_bins>0)
-        {   
+        {
             if (D_conc[i]>0)
             {
                 D_dmax[i]=1000. ;
@@ -7920,7 +7894,7 @@ FiniteElement::updateIceDiagnostics()
                     {
                         ctot_fsd += M_conc_mech_fsd[j][i] ;
                         if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
-                        {   
+                        {
                             D_dmax[i]=M_fsd_bin_up_limits[j]   ;
                             break ;
                         }
@@ -7931,10 +7905,10 @@ FiniteElement::updateIceDiagnostics()
                 }
                 else
                 {
-                    D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold) 
+                    D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold)
                            * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
                     D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
-                    
+
                     D_dmean[i]=0.;
                     for(int j=0;j<M_num_fsd_bins-1;j++)
                         D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
@@ -8129,21 +8103,21 @@ FiniteElement::step()
         this->thermo(thermo_timestep);
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
-        
+
         //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
         // this->checkFields();
         //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
     }
 #ifdef OASIS
     //======================================================================
-    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up 
+    //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up
     //======================================================================
     if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
-    {        
+    {
         chrono.restart();
         LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
         this->updateFSD();
-        this->redistributeFSD();   
+        this->redistributeFSD();
         if (M_debug_fsd)
         {
             LOG(DEBUG) <<"FSD redistribution done in "<< chrono.elapsed() <<"s\n";
@@ -8396,14 +8370,9 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
-    if(n_update>0)
-        // Move any active drifters
-        this->checkMoveDrifters();
-
-        else
+    if(n_update==0)
         return;
-    LOG(DEBUG) << "updating " << n_update
-        << " drifters\n";
+    LOG(DEBUG) << "updating " << n_update << " drifters\n";
 
     // Move any active drifters
     this->checkMoveDrifters();
@@ -9655,6 +9624,9 @@ FiniteElement::readRestart(std::string const& name_str)
     std::vector<double> interp_nd_out;
     this->collectNodesRestart(interp_nd_out);
     this->scatterFieldsNode(&interp_nd_out[0]);
+
+    // correct the surface area (calculated for M_UM=0 in assignVariables)
+    M_surface = this->surface(M_mesh, M_UM, 1.);
 }//readRestart
 
 
@@ -10147,10 +10119,27 @@ FiniteElement::forcingAtmosphere()
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,0,false,time_init);
-            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,2,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+            M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
+                time_init, M_spinup_duration, 0, M_ensemble_member);
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 4, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
+                    time_init, 0, 0, M_ensemble_member);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
+                    time_init, 0, 0, M_ensemble_member);
         break;
 
         default:
@@ -10768,6 +10757,8 @@ FiniteElement::checkConsistency()
 
         //initialise this to 0 (water value)
         D_dcrit[i] = 0;
+        for(int j=0; j<3; j++)
+            D_sigma_p[j][i] = 0;
     }
 
 #ifdef OASIS
@@ -10943,6 +10934,7 @@ FiniteElement::topazIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazIce
 
@@ -11065,11 +11057,12 @@ FiniteElement::topazIceOsisafIcesat()
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            M_conc_thin[i]=std::max(M_amsre_conc[i]-M_conc[i],0.);
+            M_conc_thin[i]=std::min(1., std::max(M_amsre_conc[i]-M_conc[i],0.));
             M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazIceOsisafIcesat
 
@@ -11672,6 +11665,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
             M_damage[i]=0.;
+            M_divergence[i]=0.;
         }
         else
         {
@@ -11680,6 +11674,7 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i] = M_conc[i]*hs;
             M_thick[i] = M_conc[i]*hi;
             M_damage[i]=0.;
+            M_divergence[i]=0.;
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -11892,6 +11887,7 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         }//use NIC
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
@@ -11935,6 +11931,7 @@ FiniteElement::piomasIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//piomasIce
 
@@ -11979,6 +11976,7 @@ FiniteElement::cregIce()
         }
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
     }
 }//cregIce
 
@@ -12047,6 +12045,7 @@ FiniteElement::topazAmsreIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazAmsreIce TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -12124,6 +12123,7 @@ FiniteElement::topazAmsr2Ice()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -12169,7 +12169,7 @@ FiniteElement::amsr2ConstThickIce()
         // TOPAZ puts very small values instead of 0.
         tmp_var=M_init_conc[i];
         init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
-    
+
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
         {
@@ -12286,6 +12286,7 @@ FiniteElement::cs2SmosIce()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -12396,6 +12397,7 @@ FiniteElement::cs2SmosAmsr2Ice()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
+        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -12464,6 +12466,7 @@ FiniteElement::smosIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
+        M_divergence[i]=0.;
     }
 }//smosIce
 
@@ -12624,7 +12627,6 @@ FiniteElement::instantiateDrifters()
     {
         int i0 = M_drifters.size();
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12658,7 +12660,7 @@ FiniteElement::instantiateDrifters()
             M_drifters.push_back(
                     Drifters(name.str(), osi_outfile_prefix,
                         netcdf_input_info, drifters_conc_lim, timing_info,
-                        ignore_restart)
+                        false)
                     );
 
             // add drifters to a list of OSISAF drifters
@@ -13075,9 +13077,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
     std::vector<double> M_UM_root;
     if (apply_displacement)
-    {
-        this->gatherNodalField(M_UM,M_UM_root);
-    }
+        this->gatherNodalField(M_UM, M_UM_root);
 
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
@@ -13089,11 +13089,14 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // get names of the variables in the output file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
+    std::vector<double> M_surface_root;
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
     if(export_fields)
     {
+        M_surface_root = this->surface(M_mesh_root, M_UM_root);
+
         if(vm["output.save_forcing_fields"].as<bool>())
         {
             ext_data_elements = M_external_data_elements;
@@ -13202,19 +13205,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
 
 // -------------------------------------------------------------------------------------
-//! Gets GitHub revision version of the model code.
-//! Called by the writeLogFile() function.
-std::string
-FiniteElement::gitRevision()
-{
-    //std::string command = "git rev-parse HEAD";
-    return this->system("git rev-parse HEAD");
-}//gitRevision
-
-
-// -------------------------------------------------------------------------------------
 //! Run a system command
-//! Called by the writeLogFile(), gitRevision(), createGmshMesh() functions.
+//! Called by the createGmshMesh() function.
 std::string
 FiniteElement::system(std::string const& command)
 {
@@ -13278,10 +13270,11 @@ FiniteElement::writeLogFile()
         logfile << std::setw(log_width) << std::left << "Git commit "  << NEXTSIM_COMMIT_GIT  <<"\n";
 
         logfile << "#----------Compilers\n";
-        logfile << std::setw(log_width) << std::left << "C "  << system("which gcc") << " (version "<< system("gcc -dumpversion") << ")" <<"\n";
-        logfile << std::setw(log_width) << std::left << "C++ "  << system("which g++") << " (version "<< system("g++ -dumpversion") << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C "  << CC_PATH << " (version "<< CC_VERSION << ")" <<"\n";
+        logfile << std::setw(log_width) << std::left << "C++ "  << CXX_PATH << " (version "<< CXX_VERSION << ")" <<"\n";
 
         logfile << "#----------Environment variables\n";
+        logfile << std::setw(log_width) << std::left << "NEXTSIMDIR "  << NEXTSIMDIR <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_DATA_DIR "  << getEnv("NEXTSIM_DATA_DIR") <<"\n";
         logfile << std::setw(log_width) << std::left << "NEXTSIM_MESH_DIR "  << getEnv("NEXTSIM_MESH_DIR") <<"\n";
 
@@ -13483,7 +13476,8 @@ FiniteElement::checkFields()
                 {
                     crash = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
-                        << val << " < " << thresh << "\n";
+                        << val << " < " << thresh
+                        << ", |diff|=" << thresh - val << "\n";
                 }
             }
 
@@ -13495,7 +13489,8 @@ FiniteElement::checkFields()
                 {
                     crash = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
-                        << val << " > " << thresh << "\n";
+                        << val << " > " << thresh
+                        << ", |diff|=" << val-thresh << "\n";
                 }
             }
 
@@ -13522,7 +13517,7 @@ FiniteElement::checkFields()
             double ctot2 = M_conc_fsd[0][i];
             for(int j=1;j<M_num_fsd_bins;j++)
                 ctot2 += M_conc_fsd[j][i] ;
-            
+
             if ((std::abs(ctot-ctot2)>1e-7)&&(ctot>1e-4))
             {
                 crash =  true;

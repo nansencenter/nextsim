@@ -116,13 +116,16 @@ public:
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
-    double jacobian(element_type const& element, mesh_type const& mesh) const;
-    double jacobian(element_type const& element, mesh_type const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
+    double jacobian(std::vector<std::vector<double>> const& vertices) const;
 
-    double jacobian(element_type const& element, mesh_type_root const& mesh) const;
-    double jacobian(element_type const& element, mesh_type_root const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const;
+    template<typename FEMeshType>
+    double jacobian(element_type const& element, FEMeshType const& mesh) const
+    { return this->jacobian(mesh.vertices(element.indices)); }
+
+    template<typename FEMeshType>
+    double jacobian(element_type const& element, FEMeshType const& mesh,
+                    std::vector<double> const& um, double factor = 1.) const
+    { return this->jacobian(mesh.vertices(element.indices, um, factor)); }
 
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
@@ -141,9 +144,12 @@ public:
     double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type const& mesh) const;
-
-    std::vector<double> shapeCoeff(element_type const& element, mesh_type_root const& mesh) const;
+    std::vector<double> shapeCoeff(element_type const& element) const;
+    template<typename FEMeshType>
+    std::vector<double> surface(FEMeshType const& mesh);
+    template<typename FEMeshType>
+    std::vector<double> surface(FEMeshType const& mesh,
+            std::vector<double> const& um, double const& factor=1);
 
     void regrid(bool step = true);
     void adaptMesh();
@@ -289,6 +295,10 @@ public:
     void initModelState();
     void DataAssimilation();
     void FETensors();
+    void compute_B0_Dunit_B0T(std::vector<double>& Dunit,
+                               std::vector<double>& B0T,
+                               std::vector<double>& B0_Dunit_B0T);
+
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
@@ -339,7 +349,6 @@ public:
     void finalise(std::string current_time_system);
 
 public:
-    std::string gitRevision();
     std::string system(std::string const& command);
     std::string getEnv(std::string const& envname);
     void writeLogFile();
@@ -433,6 +442,7 @@ private:
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
+    int M_ensemble_member;
 
 #ifdef AEROBULK
     aerobulk::algorithm M_ocean_bulk_formula;
@@ -514,13 +524,13 @@ private:
     std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
-    //std::vector<double> M_Dunit_comp;
+    std::vector<double> M_Dunit_comp;
     std::vector<double> M_Mass;
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<std::vector<double>> M_B0T_Dunit_B0T;
-    //std::vector<std::vector<double>> M_B0T_Dunit_comp_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_B0T;
+    std::vector<std::vector<double>> M_B0_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -548,7 +558,7 @@ private:
     double young;
     double rhoi;
     double rhos;
-    double days_in_sec;
+    double const days_in_sec  = 86400.;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -617,8 +627,6 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
 
-    //std::vector<double> M_UM_root;
-    std::vector<double> M_surface_root;
     std::vector<int> M_connectivity_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
@@ -634,8 +642,6 @@ private: // only on root process (rank 0)
     BamgOpts *bamgopt_previous;
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
-
-
 
 private:
 
@@ -722,7 +728,8 @@ private:
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
-    ModelVariable M_conc_upd;               // Ice concentration update by assimilation
+    ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_divergence;         // Divergence (used by the pressure term)
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -731,8 +738,8 @@ private:
     //std::vector<ModelVariable> M_conc_fsd_thin ;
     std::vector<ModelVariable> M_conc_mech_fsd;
     int M_num_fsd_bins;
-    std::vector<double> M_fsd_bin_widths; 
-    double M_fsd_bin_cst_width; 
+    std::vector<double> M_fsd_bin_widths;
+    double M_fsd_bin_cst_width;
     double M_fsd_min_floe_size;
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
@@ -795,12 +802,16 @@ private:
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
+    std::vector<ModelVariable> D_sigma_p; // Visco-plastic stress term ("pressure term")
+                                          //   that is turned on in convergent conditions
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
     std::vector<double> D_elasticity; // Elasticity
     std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
+    std::vector<double> D_coef_sigma_p; // D_sigma_p = D_coef_sigma_p*M_Dunit_comp*epsilon_veloc
+                                        // - for visco-plastic stress term ("pressure term")
 
 private:
     // Variables for the moorings
