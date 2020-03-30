@@ -4757,7 +4757,7 @@ FiniteElement::update()
             // to test for compressive failure
             // - slope of line between origin and the intersection of the
             // compressive failure line and the upper Coulomb branch
-            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*M_Compressive_strength[cpt]- sigma_c);
             // to test for tensile failure
             // - slope of line between origin and the intersection of the
             // tensile failure line and the upper Coulomb branch
@@ -4768,7 +4768,7 @@ FiniteElement::update()
                 && sigma_1 < slope_compr_upper*sigma_2 )
             {
                 // compressive failure region
-                sigma_target = compr_strength;
+                sigma_target = M_Compressive_strength[cpt];
                 dcrit = sigma_target/sigma_n;
             }
             else if( sigma_1 < 0 && sigma_2 < 0
