@@ -8699,8 +8699,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
                     else
                         it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
-                    break;
                 }
+                break;
 
             default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
