@@ -131,11 +131,11 @@ public:
 
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
-                              std::vector<double> const& um, double factor) const;
+                              std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
-                              std::vector<double> const& um, double factor) const;
+                              std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> minMaxSide(mesh_type_root const& mesh) const;
 
