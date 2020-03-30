@@ -4055,6 +4055,8 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod = 0.;
 
+        double coef_P = 0.;
+
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
@@ -4099,6 +4101,7 @@ FiniteElement::assemble(int pcpt)
 
             // Update the multiplicator and elasticity
             this->updateSigmaCoefs(cpt, dtime_step);
+            coef_P = D_coef_sigma_p[cpt];
 
             if(young>0.) // MEB rheology
             {
@@ -4169,22 +4172,6 @@ FiniteElement::assemble(int pcpt)
         double duu, dvu, duv, dvv;
         std::vector<double> data(36);
         std::vector<double> fvdata(6,0.);
-
-        double coef_P = 0;
-        if(M_divergence[cpt] < 0.)
-        {
-            coef_P = compression_factor
-                *std::pow(M_thick[cpt],exponent_compression_factor)
-                *std::exp(ridging_exponent*(1-M_conc[cpt]))
-                /(std::abs(M_divergence[cpt])+divergence_min);
-        }
-        /* We should consider using the norm of Dunit * epsilon_veloc
-         *
-         * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
-         *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
-         *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
-         */
-        D_coef_sigma_p[cpt] = coef_P;//used in update to calculate D_sigma_p
 
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
@@ -4670,6 +4657,22 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+
+    if(M_divergence[cpt] < 0.)
+    {
+        D_coef_sigma_p[cpt] = compression_factor
+            *std::pow(M_thick[cpt],exponent_compression_factor)
+            *std::exp(ridging_exponent*(1-M_conc[cpt]))
+            /(std::abs(M_divergence[cpt])+divergence_min);
+    } else {
+        D_coef_sigma_p[cpt] = 0.;
+    }
+    /* We should consider using the norm of Dunit * epsilon_veloc
+     *
+     * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
+     *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
+     *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
+     */
 }
 
 void inline
@@ -4845,15 +4848,6 @@ FiniteElement::updateSigmaMEBp(double const dt)
             double const multiplicator = time_viscous/(time_viscous+dt);
             double const elasticity = young*expC*(1.-damage_tmp);
 
-            double coef_P = 0.;
-            if(divergence < 0.)
-            {
-                coef_P = compression_factor
-                    *std::pow(M_thick[cpt],exponent_compression_factor)
-                    *std::exp(ridging_exponent*(1-M_conc[cpt]))
-                    /(std::abs(divergence)+divergence_min);
-            }
-
             //Calculating the new state of stress
             for(int i=0;i<3;i++)
             {
@@ -4862,7 +4856,7 @@ FiniteElement::updateSigmaMEBp(double const dt)
                 for(int j=0;j<3;j++)
                 {
                     sigma_dot_i += elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-                    sigma_p_i += coef_P*M_Dunit[3*i + j]*epsilon_veloc[j];
+                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
                 }
 
                 sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i + sigma_p_i-D_sigma_p[i][cpt])*multiplicator + dt*sigma_p_i/(time_viscous+dt);
