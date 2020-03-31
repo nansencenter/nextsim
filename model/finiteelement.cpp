@@ -12642,7 +12642,7 @@ FiniteElement::instantiateDrifters()
     if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
         // need to remember where OSISAF drifters are in M_drifters
-        // - need to sync them sometimes (mainly thinking of restart time)
+        // - need to sync them at restart time
         int i0 = M_drifters.size();
         M_osisaf_drifters_indices = {i0, i0+1};
 
