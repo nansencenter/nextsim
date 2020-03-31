@@ -173,8 +173,6 @@ namespace Nextsim
                  "interval between OSISAF drifter outputs (days): 2.0/n, n=1,2,... down to timestep")
             ("drifters.use_refined_osisaf_grid", po::value<bool>()->default_value( false ),
                 "true: if using OSISAF drifters, use grid refined by a factor of 9, so averaged model results can be compared to the data; false: use same grid as OSISAF drift dataset")
-             ("drifters.osisaf_ignore_restart", po::value<bool>()->default_value( false),
-                "do not load OSISAF drifters from restart even if present (set this to true for forecasts)")
 
             ("drifters.use_equally_spaced_drifters", po::value<bool>()->default_value( false), "use equally spaced drifters?")
             ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
