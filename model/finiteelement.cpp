@@ -4757,7 +4757,7 @@ FiniteElement::update()
             // to test for compressive failure
             // - slope of line between origin and the intersection of the
             // compressive failure line and the upper Coulomb branch
-            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*M_Compressive_strength[cpt]- sigma_c);
             // to test for tensile failure
             // - slope of line between origin and the intersection of the
             // tensile failure line and the upper Coulomb branch
@@ -4768,7 +4768,7 @@ FiniteElement::update()
                 && sigma_1 < slope_compr_upper*sigma_2 )
             {
                 // compressive failure region
-                sigma_target = compr_strength;
+                sigma_target = M_Compressive_strength[cpt];
                 dcrit = sigma_target/sigma_n;
             }
             else if( sigma_1 < 0 && sigma_2 < 0
@@ -8384,14 +8384,9 @@ void FiniteElement::checkUpdateDrifters()
                 || it->isOutputTime(M_current_time));
     }
     boost::mpi::broadcast(M_comm, n_update, 0);
-    if(n_update>0)
-        // Move any active drifters
-        this->checkMoveDrifters();
-
-        else
+    if(n_update==0)
         return;
-    LOG(DEBUG) << "updating " << n_update
-        << " drifters\n";
+    LOG(DEBUG) << "updating " << n_update << " drifters\n";
 
     // Move any active drifters
     this->checkMoveDrifters();
@@ -8718,8 +8713,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
                     else
                         it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
-                    break;
                 }
+                break;
 
             default: std::logic_error("Updating of given variableID not implemented (elements)");
         }
@@ -12667,7 +12662,6 @@ FiniteElement::instantiateDrifters()
         M_osisaf_drifters_indices = {i0, i0+1};
 
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12701,7 +12695,7 @@ FiniteElement::instantiateDrifters()
             M_drifters.push_back(
                     Drifters(name.str(), osi_outfile_prefix,
                         netcdf_input_info, drifters_conc_lim, timing_info,
-                        ignore_restart)
+                        false)
                     );
         }
     }
