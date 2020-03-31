@@ -7171,6 +7171,7 @@ FiniteElement::init()
             this->DataAssimilation();
             LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
         }
+        // check restart file has no crazy fields (eg with nans, conc>1)
         LOG(DEBUG) << "checkFields: restart\n";
         this->checkFields();
     }
