@@ -1395,7 +1395,6 @@ FiniteElement::initOptAndParam()
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
         ("mebe", setup::DynamicsType::MEBe)
-        ("mebp", setup::DynamicsType::MEBp)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -4055,8 +4054,6 @@ FiniteElement::assemble(int pcpt)
         double keel_height_estimate;
         double critical_h_mod = 0.;
 
-        double coef_P = 0.;
-
         if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) )
         {
             /* Compute the value that only depends on the element */
@@ -4101,7 +4098,6 @@ FiniteElement::assemble(int pcpt)
 
             // Update the multiplicator and elasticity
             this->updateSigmaCoefs(cpt, dtime_step);
-            coef_P = D_coef_sigma_p[cpt];
 
             if(young>0.) // MEB rheology
             {
@@ -4172,6 +4168,22 @@ FiniteElement::assemble(int pcpt)
         double duu, dvu, duv, dvv;
         std::vector<double> data(36);
         std::vector<double> fvdata(6,0.);
+
+        double coef_P = 0;
+        if(M_divergence[cpt] < 0.)
+        {
+            coef_P = compression_factor
+                *std::pow(M_thick[cpt],exponent_compression_factor)
+                *std::exp(ridging_exponent*(1-M_conc[cpt]))
+                /(std::abs(M_divergence[cpt])+divergence_min);
+        }
+        /* We should consider using the norm of Dunit * epsilon_veloc
+         *
+         * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
+         *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
+         *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
+         */
+        D_coef_sigma_p[cpt] = coef_P;//used in update to calculate D_sigma_p
 
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
@@ -4657,22 +4669,6 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-
-    if(M_divergence[cpt] < 0.)
-    {
-        D_coef_sigma_p[cpt] = compression_factor
-            *std::pow(M_thick[cpt],exponent_compression_factor)
-            *std::exp(ridging_exponent*(1-M_conc[cpt]))
-            /(std::abs(M_divergence[cpt])+divergence_min);
-    } else {
-        D_coef_sigma_p[cpt] = 0.;
-    }
-    /* We should consider using the norm of Dunit * epsilon_veloc
-     *
-     * coef_P * (M_Dunit_comp[i]*epsilon_veloc[0] +
-     *           M_Dunit_comp[i+1]*epsilon_veloc[1] +
-     *           M_Dunit_comp[i+2]*epsilon_veloc[2]);
-     */
 }
 
 void inline
@@ -4791,117 +4787,6 @@ FiniteElement::updateSigmaDirect(double const dt)
 
     }//loop over elements
 } //updateSigmaDirect
-
-void inline
-FiniteElement::updateSigmaMEBp(double const dt)
-{
-    // Slope of the MC enveloppe
-    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
-    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
-    {
-        // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
-        {
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = 0.;
-
-            M_damage[cpt] = 0.;
-            continue;
-        }
-
-        /*======================================================================
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        //! - Computes the elastic deformation and the instantaneous deformation rate
-        std::vector<double> epsilon_veloc(3,0.);
-        for(int i=0;i<3;i++)
-        {
-            for(int j=0;j<3;j++)
-            {
-                /* deformation */
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
-            }
-        }
-        double const divergence = (epsilon_veloc[0]+epsilon_veloc[1]);
-
-        /*======================================================================
-         //! - Updates the internal stress
-         *======================================================================
-         */
-
-        double const sigma_c = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
-        double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
-
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        for ( int k=0; k<2; ++k )
-        {
-            double const td = std::min(t_damage/std::sqrt(1.-M_damage[cpt]), t_damage);
-
-            // clip damage
-            double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-            double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-
-            double const multiplicator = time_viscous/(time_viscous+dt);
-            double const elasticity = young*expC*(1.-damage_tmp);
-
-            //Calculating the new state of stress
-            for(int i=0;i<3;i++)
-            {
-                double sigma_dot_i = 0.0;
-                double sigma_p_i = 0.0;
-                for(int j=0;j<3;j++)
-                {
-                    sigma_dot_i += elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-                    sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
-                }
-
-                sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i + sigma_p_i-D_sigma_p[i][cpt])*multiplicator + dt*sigma_p_i/(time_viscous+dt);
-                D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
-            }
-
-            /*======================================================================
-             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-             *======================================================================
-             */
-
-            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-            double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-            double const sigma_n = -          (sigma[0]+sigma[1])/2.;
-
-            double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            // Are we inside the envelope? If yes -> no need to recalculate sigma, if no -> damage and recalculate
-            double const dcrit = sigma_c/(sigma_1-q*sigma_2);
-            if ( (0.<dcrit) && (dcrit<1.) )
-                M_damage[cpt] += (1.-dcrit)*(1.-M_damage[cpt])*dt/td;
-            else
-                break;
-        }
-        for ( int i=0; i<3; ++i )
-            M_sigma[i][cpt] = sigma[i];
-
-        /*======================================================================
-         * Check:
-         *======================================================================
-         */
-
-        /* Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
-        assert(M_damage[cpt]<=1.);
-        assert(M_damage[cpt]>=0.);
-
-    }//loop over elements
-} //updateSigmaMEBp
 
 void inline
 FiniteElement::updateSigmaRecursive(double const dt)
@@ -10496,10 +10381,6 @@ FiniteElement::explicitSolve()
 
                         this->updateSigma(dte, M_disc_scheme, M_td_type, true);
                 }
-                break;
-
-            case setup::DynamicsType::MEBp:
-                this->updateSigmaMEBp(dte);
                 break;
         }
         M_timer.tock("updateSigma");
