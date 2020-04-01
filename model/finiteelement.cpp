@@ -7520,12 +7520,6 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_conc_upd);
     M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
     M_variables_elt.push_back(&M_divergence);
-    M_epsilon_ep.resize(3);//! \param M_epsilon_ep (double) Elastic strain for the EP part
-    for (int k=0; k<M_epsilon_ep.size(); ++k )
-    {
-        M_epsilon_ep[k] = ModelVariable(ModelVariable::variableID::M_epsilon_ep, k);
-        M_variables_elt.push_back(&(M_epsilon_ep[k]));
-    }
 
     switch (M_thermo_type)
     {
