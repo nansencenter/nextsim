@@ -145,7 +145,8 @@ namespace setup
         MEBe            = 4,
         MEBEP           = 5,
         BMEB            = 6,
-        MEBp            = 7
+        MEBp            = 7,
+        MEBpp           = 8
     };
 
 } // setup

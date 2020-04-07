@@ -1398,6 +1398,7 @@ FiniteElement::initOptAndParam()
         ("mebep", setup::DynamicsType::MEBEP)
         ("bmeb", setup::DynamicsType::BMEB)
         ("mebp", setup::DynamicsType::MEBp)
+        ("mebpp", setup::DynamicsType::MEBpp)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -5058,6 +5059,64 @@ FiniteElement::updateSigmaMEBp(double const dt)
 } //updateSigmaMEBp
 
 void inline
+FiniteElement::updateSigmaP(double const dt)
+{
+    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
+    {
+        // There's no ice so we set sigma to 0 and carry on
+        if ( M_thick[cpt] == 0. )
+        {
+            M_sigma_p[cpt] = 0.;
+            continue;
+        }
+
+        /*======================================================================
+         * Elastic deformation and instantaneous deformation rate
+         *======================================================================
+         */
+
+        //! - Computes the elastic deformation and the instantaneous deformation rate
+        std::vector<double> epsilon_veloc(3,0.);
+        for(int i=0;i<3;i++)
+        {
+            for(int j=0;j<3;j++)
+            {
+                /* deformation */
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+            }
+        }
+
+        /*======================================================================
+         //! - Updates the internal stress
+         *======================================================================
+         */
+
+        double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = compression_factor*expC;
+
+        // Plastic failure
+        // if ( M_sigma_p[cpt] > 0. )
+        //     // D_dcrit must be capped at 1 to get an elastic response
+        //     D_dcrit[cpt] = std::min( 1., Pmax/M_sigma_p[cpt] );
+        // else
+        //     D_dcrit[cpt] = 0.;
+
+        // double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
+        // double const multiplicator = time_viscous/(time_viscous+dt*(1.-D_dcrit[cpt]));
+        double const elasticity = young*expC; //*(1.-M_damage[cpt]);
+
+        //Calculating the new state of stress
+        for(int j=0;j<2;j++)
+            M_sigma_p[cpt] += dt*elasticity*epsilon_veloc[j];
+
+        // M_sigma_p[cpt] = multiplicator*std::min(0., M_sigma_p[cpt]);
+        M_sigma_p[cpt] = std::max( -Pmax, std::min(0., M_sigma_p[cpt]) );
+
+    }//loop over elements
+} //updateSigmaP
+
+void inline
 FiniteElement::updateSigmaRecursive(double const dt)
 {
     // Slope of the MC enveloppe
@@ -7925,6 +7984,9 @@ FiniteElement::initModelVariables()
         M_variables_elt.push_back(&(M_sigma[k]));
     }
 
+    M_sigma_p = ModelVariable(ModelVariable::variableID::M_sigma, 0);
+    M_variables_elt.push_back(&(M_sigma_p));
+
     M_sst = ModelVariable(ModelVariable::variableID::M_sst);//! \param M_sst (double) Sea surface temperature (slab ocean) [C]
     M_variables_elt.push_back(&M_sst);
     M_sss = ModelVariable(ModelVariable::variableID::M_sss);//! \param M_sss (double) Sea surface salinity (slab ocean) [C]
@@ -10771,6 +10833,10 @@ FiniteElement::explicitSolve()
                 this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
                 break;
 
+            case setup::DynamicsType::MEBpp:
+                this->updateSigmaP(dte);
+                // NB: no "break" because we also need the MEBe part active here
+
             case setup::DynamicsType::MEBe:
                 switch ( M_disc_scheme )
                 {
@@ -10827,6 +10893,10 @@ FiniteElement::explicitSolve()
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
                 grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
                 grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
+
+                // Gradient of pressure term
+                grad_terms[u_indx] -= M_thick[cpt]*M_sigma_p[cpt]*dx[i]  *M_surface[cpt];
+                grad_terms[v_indx] -= M_thick[cpt]*M_sigma_p[cpt]*dx[i+3]*M_surface[cpt];
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )

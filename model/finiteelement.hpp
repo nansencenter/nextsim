@@ -189,6 +189,7 @@ public:
     inline void updateSigmaMEBEP(double const dte);
     inline void updateSigmaBMEB(double const dte);
     inline void updateSigmaMEBp(double const dte);
+    inline void updateSigmaP(double const dte);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
     void explicitSolve();
 
@@ -750,6 +751,7 @@ private:
     ModelVariable M_ridge_ratio;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<ModelVariable> M_sigma; // Internal stress tensor
+    ModelVariable M_sigma_p;            // Elastic pressure stress (MEBpp)
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
     ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
