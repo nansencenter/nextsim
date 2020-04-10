@@ -172,11 +172,9 @@ public:
         bool isInitialised() { return M_is_initialised; }
 
         //main interface to FiniteElement
-        void updateDrifters(GmshMeshSeq const& mesh_root,
-                GmshMeshSeq const& movedmesh_root,
-                std::vector<double> & conc_root,
-                std::vector<double> const& UT_root,
-                double const& current_time);
+        void updateDrifters(GmshMeshSeq const& movedmesh_root,
+                std::vector<double> & conc_root, double const& current_time);
+        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
 
 private:
         //initialising
@@ -200,7 +198,6 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
         void updateConc( GmshMeshSeq const& movedmesh,

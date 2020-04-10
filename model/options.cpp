@@ -408,8 +408,10 @@ namespace Nextsim
                 "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
             // -- assimilation compensating flux
+            ("thermo.use_assim_flux", po::value<bool>()->default_value(true),
+             "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
-             "Exponent of factor for heat flux that compensates assimilation of concentration")
+             "Exponent of factor for heat flux that compensates for assimilation of concentration")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
