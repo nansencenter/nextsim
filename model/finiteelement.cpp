@@ -4953,7 +4953,6 @@ FiniteElement::updateSigmaMEBp(double const dt)
                 epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
         }
-        double const divergence = (epsilon_veloc[0]+epsilon_veloc[1]);
 
         /*======================================================================
          //! - Updates the internal stress
@@ -4961,61 +4960,33 @@ FiniteElement::updateSigmaMEBp(double const dt)
          */
 
         double const sigma_c = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
+        double const sigma_t = -sigma_c/q;
+
         double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const elasticity = young*expC;
+        double const Pmax = compression_factor*expC;
+        std::vector<double> Pvec = {Pmax, Pmax, 0.};
 
-        /*
-        double delta_x = 0;
-        auto const sides = this->sides(M_elements[cpt], M_mesh, M_UM);
-        for ( auto it=sides.begin(), it!=sides.end(), ++it )
-            delta_x += *it;
+        double const old_damage = M_damage[cpt];
+        double damage_dot = 0.;
 
-        delta_x /= sides.length();
-        double const td_intact = delta_x/std::sqrt(young/(2.*(1.+nu0)*physical::rhoi));
-        */
-
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        for ( int k=0; k<2; ++k )
+        while ( 1.-M_damage[cpt] > 1e-12 )
         {
-            double const td = std::min(t_damage/std::sqrt(1.-M_damage[cpt]), t_damage);
 
-            // clip damage
-            double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-            double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
-
-            double const multiplicator = time_viscous/(time_viscous+dt);
-            double const elasticity = young*expC*(1.-damage_tmp);
-
-            double coef_P = 0.;
-            if(divergence < 0.)
-            {
-                coef_P = compression_factor
-                    *std::pow(M_thick[cpt],exponent_compression_factor)
-                    *std::exp(ridging_exponent*(1-M_conc[cpt]))
-                    /(std::abs(divergence)+divergence_min);
-            }
-
-            /*
-            double const nu = nu0*(1.-damage_tmp); // ... or ... 0.5 + (nu0-0.5)*(1-damage_tmp);
-            std::vector<double> const Dunit {
-                1./(1.-nu*nu), nu/(1.-nu*nu), 0.,
-                nu/(1.-nu*nu), 1./(1.-nu*nu), 0,
-                0,             0,             (1.-nu)/(1.-nu*nu)/2.
-            };
-            */
+            double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma);
+            double const damage_dot_factor = 1.; // + time_viscous*damage_dot/(1.-M_damage[cpt]);
+            double const multiplicator = time_viscous/(time_viscous+dt*damage_dot_factor);
+            double const pressure_factor = dt*damage_dot_factor/(time_viscous+dt*damage_dot_factor);
 
             //Calculating the new state of stress
+            std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
             for(int i=0;i<3;i++)
             {
                 double sigma_dot_i = 0.0;
-                double sigma_p_i = 0.0;
                 for(int j=0;j<3;j++)
-                {
                     sigma_dot_i += elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-                    sigma_p_i += coef_P*M_Dunit[3*i + j]*epsilon_veloc[j];
-                }
 
-                sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i + sigma_p_i-D_sigma_p[i][cpt])*multiplicator + dt*sigma_p_i/(time_viscous+dt);
-                D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
+                sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*multiplicator - Pvec[i]*pressure_factor;
             }
 
             /*======================================================================
@@ -5030,15 +5001,34 @@ FiniteElement::updateSigmaMEBp(double const dt)
             double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
             double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-            // Are we inside the envelope? If yes -> no need to recalculate sigma, if no -> damage and recalculate
-            double const dcrit = sigma_c/(sigma_1-q*sigma_2);
-            if ( (0.<dcrit) && (dcrit<1.) )
-                M_damage[cpt] += (1.-dcrit)*(1.-M_damage[cpt])*dt/td;
+            // Are we inside the MEB envelope? If yes -> continue, if no -> damage and try again.
+            // if ( (sigma_1-q*sigma_2) > sigma_c )
+            double dcrit;
+            if ( sigma_2 > 0. )
+            {
+                dcrit = sigma_c/(sigma_1-q*sigma_2);
+            }
             else
+            {
+                dcrit = sigma_t/sigma_2;
+            }
+
+            if ( (0.<dcrit) && (dcrit<1.) )
+            {
+                // clip damage
+                M_damage[cpt] = std::max(damage_min, 1. - (1.-M_damage[cpt])*0.9);
+
+                // Time rate of change in damage over the time step
+                damage_dot = (M_damage[cpt] - old_damage)/dt;
+            }
+            else
+            {
+                for ( int i=0; i<3; ++i )
+                    M_sigma[i][cpt] = sigma[i];
+
                 break;
+            }
         }
-        for ( int i=0; i<3; ++i )
-            M_sigma[i][cpt] = sigma[i];
 
         /*======================================================================
          * Check:
