@@ -4703,6 +4703,12 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+
+    double const Pmax = compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    double const pressure_factor = dt/(time_viscous+dt);
+    D_sigma_p[0][cpt] = Pmax*pressure_factor;
+    D_sigma_p[1][cpt] = Pmax*pressure_factor;
+    D_sigma_p[2][cpt] = 0.;
 }//updateSigmaCoefs
 
 void inline
@@ -4765,8 +4771,8 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
             }
 
-            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
-            D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
+            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt] - D_sigma_p[i][cpt];
+            // D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
         }
 
         /*======================================================================
@@ -4868,7 +4874,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                     for(int j=0;j<3;j++)
                         sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
 
-                    sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+                    sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt] - D_sigma_p[i][cpt];
                 }
             }
         }
