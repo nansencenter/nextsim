@@ -794,7 +794,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_fstep.push_back(index_prev);
         }
         else
-            throw std::runtime_error("Not found a file for before current_date!");
+        {
+            std::stringstream msg;
+            msg << "Dataset " << dataset->name
+                << ": file for before " << datenumToString(M_current_time)
+                << " not found";
+            throw std::runtime_error(msg.str());
+        }
 
 
         if(filename_next!="")
@@ -803,7 +809,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_fstep.push_back(index_next);
         }
         else
-            throw std::runtime_error("Not found a file for after current_date!");
+        {
+            std::stringstream msg;
+            msg << "Dataset " << dataset->name
+                << ": file for after " << datenumToString(M_current_time)
+                << " not found";
+            throw std::runtime_error(msg.str());
+        }
 
         dataset->ftime_range = {time_prev,time_next};
     }//not nearest_daily or constant
