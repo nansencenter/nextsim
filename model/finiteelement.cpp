@@ -1150,7 +1150,9 @@ FiniteElement::initOptAndParam()
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+    M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+
+    M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
     M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
     LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
@@ -7171,9 +7173,12 @@ FiniteElement::init()
             this->DataAssimilation();
             LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
         }
-        // check restart file has no crazy fields (eg with nans, conc>1)
-        LOG(DEBUG) << "checkFields: restart\n";
-        this->checkFields();
+        if ( M_check_restart )
+        {
+            // check restart file has no crazy fields (eg with nans, conc>1)
+            LOG(DEBUG) << "checkFields: restart\n";
+            this->checkFields();
+        }
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
