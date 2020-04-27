@@ -114,7 +114,7 @@ namespace Nextsim
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics [ default (implicit MEB) | no_motion | evp | mebe (explicit MEB) | free_drift ] ")
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
@@ -360,11 +360,11 @@ namespace Nextsim
             ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
 
             // - Damage equation discretization
-            //   disc_scheme is either : explicit, implicit, recursive, or pseudo_recursive
+            //   disc_scheme is either : explicit, implicit, or recursive
             //   td_type is either : fixed or damage_dependent
             //   clip : float
-            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
-            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "Discretization scheme for the damage equation [ explicit (default) | implicit | recursive ]")
+            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
             ("damage.clip", po::value<double>()->default_value( 0 ),
              "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
