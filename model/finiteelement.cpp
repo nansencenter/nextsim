@@ -1240,8 +1240,6 @@ FiniteElement::initOptAndParam()
         ("explicit", schemes::damageDiscretisation::EXPLICIT)
         ("implicit", schemes::damageDiscretisation::IMPLICIT)
         ("recursive", schemes::damageDiscretisation::RECURSIVE)
-        ("pseudo_recursive", schemes::damageDiscretisation::P_RECURSIVE)
-        ("direct", schemes::damageDiscretisation::DIRECT);
     M_disc_scheme = this->getOptionFromMap("damage.disc_scheme", str2disc_scheme);
         //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
     LOG(DEBUG)<<"Disc_scheme= "<< (int)M_disc_scheme <<"\n";
@@ -4845,7 +4843,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 tmp=tmp_factor*(1.0-dcrit)*dt/td + M_damage[cpt];
                 break;
 
-                case (schemes::damageDiscretisation::P_RECURSIVE):
+                case (schemes::damageDiscretisation::RECURSIVE):
                 tmp=1.0-(1.0-M_damage[cpt])*pow(dcrit,dt/td);
                 break;
             }
@@ -4888,234 +4886,6 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 
     }//loop over elements
 }//updateSigma
-
-
-void inline
-FiniteElement::updateSigmaDirect(double const dt)
-{
-    // Slope of the MC enveloppe
-    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
-    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
-    {
-        // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
-        {
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = 0.;
-
-            M_damage[cpt] = 0.;
-            continue;
-        }
-
-        /*======================================================================
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        //! - Computes the elastic deformation and the instantaneous deformation rate
-        std::vector<double> epsilon_veloc(3,0.);
-        for(int i=0;i<3;i++)
-        {
-            for(int j=0;j<3;j++)
-            {
-                /* deformation */
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
-            }
-        }
-
-        /*======================================================================
-         //! - Updates the internal stress
-         *======================================================================
-         */
-
-        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
-        double const sigma_t = -sigma_c/q;
-        double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
-        double const old_damage = M_damage[cpt];
-        double damage_dot = 0.;
-
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        for ( int k=0; k<2; ++k )
-        {
-            double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-            double const multiplicator = time_viscous/(time_viscous+dt*(1+time_viscous*damage_dot/(1.-M_damage[cpt])));
-            double const elasticity = young*expC*(1.-M_damage[cpt]);
-
-            //Calculating the new state of stress
-            for(int i=0;i<3;i++)
-            {
-                sigma[i] = M_sigma[i][cpt];
-                for(int j=0;j<3;j++)
-                    sigma[i] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-                sigma[i] *= multiplicator;
-            }
-
-            /*======================================================================
-             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-             *======================================================================
-             */
-
-            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-            double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-            double const sigma_n = -          (sigma[0]+sigma[1])/2.;
-
-            double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            // Damage
-            double dcrit;
-            if ( sigma_2 > 0. )
-                dcrit = sigma_c/(sigma_1-q*sigma_2);
-            else
-                dcrit = sigma_t/sigma_2;
-
-            if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
-            {
-                // Relax onto the envelope
-                M_damage[cpt] += (1.-dcrit)*(1.-M_damage[cpt]);
-
-                // clip damage
-                M_damage[cpt] = std::max(damage_min, M_damage[cpt]);
-
-                // Time rate of change in damage over the time step
-                damage_dot = (M_damage[cpt] - old_damage)/dt;
-            }
-            else
-            {
-                break;
-            }
-        }
-        for ( int i=0; i<3; ++i )
-            M_sigma[i][cpt] = sigma[i];
-
-        /*======================================================================
-         * Check:
-         *======================================================================
-         */
-
-        /* Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
-
-    }//loop over elements
-} //updateSigmaDirect
-
-void inline
-FiniteElement::updateSigmaRecursive(double const dt)
-{
-    // Slope of the MC enveloppe
-    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
-    for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
-    {
-        // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
-        {
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = 0.;
-
-            M_damage[cpt] = 0.;
-            continue;
-        }
-
-        /*======================================================================
-         * Elastic deformation and instantaneous deformation rate
-         *======================================================================
-         */
-
-        //! - Computes the elastic deformation and the instantaneous deformation rate
-        std::vector<double> epsilon_veloc(3,0.);
-        for(int i=0;i<3;i++)
-        {
-            for(int j=0;j<3;j++)
-            {
-                /* deformation */
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
-            }
-        }
-
-        /*======================================================================
-         //! - Updates the internal stress
-         *======================================================================
-         */
-
-        double const sigma_c = 2.*M_Cohesion[cpt]/(std::sqrt(tan_phi*tan_phi+1)-tan_phi);
-        double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
-        double const old_damage = M_damage[cpt];
-        double damage_dot = 0.;
-
-        while ( 1.-M_damage[cpt] > 1e-12 )
-        {
-            double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-M_damage[cpt],exponent_relaxation_sigma-1.);
-            double const multiplicator = time_viscous/(time_viscous+dt*(1+time_viscous*damage_dot/(1.-M_damage[cpt])));
-            double const elasticity = young*expC*(1.-M_damage[cpt]);
-
-            //Calculating the new state of stress
-            std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-            for(int i=0;i<3;i++)
-            {
-                sigma[i] = M_sigma[i][cpt];
-                for(int j=0;j<3;j++)
-                    sigma[i] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-                sigma[i] *= multiplicator;
-            }
-
-            /*======================================================================
-             //! - Estimates the level of damage from the updated internal stress and the local damage criterion
-             *======================================================================
-             */
-
-            /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-            double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-            double const sigma_n = -          (sigma[0]+sigma[1])/2.;
-
-            double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-            double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
-
-            // Are we inside the MEB envelope? If yes -> continue, if no -> damage and try again.
-            if ( (sigma_1-q*sigma_2) > sigma_c )
-            {
-                // clip damage
-                M_damage[cpt] = std::max(damage_min, 1. - (1.-M_damage[cpt])*0.9);
-
-                // Time rate of change in damage over the time step
-                damage_dot = (M_damage[cpt] - old_damage)/dt;
-            }
-            else
-            {
-                for ( int i=0; i<3; ++i )
-                    M_sigma[i][cpt] = sigma[i];
-
-                break;
-            }
-        }
-        // A check to make sure we have a sensible damage value!
-        assert( 1.-M_damage[cpt] > 1e-12 );
-
-        /*======================================================================
-         * Check:
-         *======================================================================
-         */
-
-        /* Ice damage
-         * We use now a constant healing rate defined as 1/time_recovery_damage
-         * so that we are now able to reset the damage to 0.
-         * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
-         */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
-
-    }//loop over elements
-} //updateSigmaRecursive
 
 #ifdef OASIS
 //------------------------------------------------------------------------------------------------------
@@ -10389,22 +10159,10 @@ FiniteElement::explicitSolve()
                 break;
 
             case setup::DynamicsType::MEBe:
-                switch ( M_disc_scheme )
-                {
-                    case ( schemes::damageDiscretisation::RECURSIVE ):
-                        this->updateSigmaRecursive(dte);
-                        break;
+                for (int cpt=0; cpt < M_num_elements; ++cpt)
+                    this->updateSigmaCoefs(cpt, dte);
 
-                    case ( schemes::damageDiscretisation::DIRECT ):
-                        this->updateSigmaDirect(dte);
-                        break;
-
-                    default:
-                        for (int cpt=0; cpt < M_num_elements; ++cpt)
-                            this->updateSigmaCoefs(cpt, dte);
-
-                        this->updateSigma(dte, M_disc_scheme, M_td_type, true);
-                }
+                this->updateSigma(dte, M_disc_scheme, M_td_type, true);
                 break;
         }
         M_timer.tock("updateSigma");

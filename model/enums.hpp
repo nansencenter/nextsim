@@ -153,9 +153,7 @@ namespace schemes
     {
         EXPLICIT    = 0,
         IMPLICIT    = 1,
-        RECURSIVE   = 2,
-        P_RECURSIVE = 3,
-        DIRECT      = 3
+        RECURSIVE   = 2
     };
 
     enum class tdType
