@@ -1517,6 +1517,7 @@ FiniteElement::initOptAndParam()
 
 }//initOptAndParam
 
+
 //------------------------------------------------------------------------------------------------------
 //! Initialise M_Dunit, M_Dunit_comp, M_Mass, and M_Diag, all of which are
 //! constants used by the Finite Element Method
@@ -1575,7 +1576,7 @@ FiniteElement::initFETensors()
         }
     }
 
-}
+}//initFETensors
 
 
 //------------------------------------------------------------------------------------------------------
