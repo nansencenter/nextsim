@@ -4856,14 +4856,18 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                 M_damage[cpt] = std::min(tmp, 1.0);
-                this->updateSigmaCoefs(cpt, dt);
-                for(int i=0;i<3;i++)
-                {
-                    double sigma_dot_i = 0.0;
-                    for(int j=0;j<3;j++)
-                        sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
 
-                    sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+                if (reset)
+                {
+                    this->updateSigmaCoefs(cpt, dt);
+                    for(int i=0;i<3;i++)
+                    {
+                        double sigma_dot_i = 0.0;
+                        for(int j=0;j<3;j++)
+                            sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+                        sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
+                    }
                 }
             }
         }
