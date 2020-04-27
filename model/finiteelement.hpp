@@ -607,6 +607,7 @@ private:
     bool M_use_assimilation;
 
     bool M_use_restart;
+    bool M_check_restart;
     bool M_write_restart_interval;
     bool M_write_restart_end;
     bool M_write_restart_start;
