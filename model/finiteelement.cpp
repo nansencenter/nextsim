@@ -122,9 +122,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    this->initUpdateGhosts();
-    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+    if ( M_dynamics_type == setup::DynamicsType::MEBe || M_dynamics_type == setup::DynamicsType::EVP )
+    {
+        chrono.restart();
+        this->initUpdateGhosts();
+        LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+    }
 
 #if 0
     // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
