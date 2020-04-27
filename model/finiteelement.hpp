@@ -308,7 +308,6 @@ public:
     void calcCohesion();
     void updateVelocity();
     void updateFreeDriftVelocity();
-    void expicitSolve();
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update(std::vector<double> const & UM_P);
