@@ -1239,7 +1239,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, schemes::damageDiscretisation> str2disc_scheme = boost::assign::map_list_of
         ("explicit", schemes::damageDiscretisation::EXPLICIT)
         ("implicit", schemes::damageDiscretisation::IMPLICIT)
-        ("recursive", schemes::damageDiscretisation::RECURSIVE)
+        ("recursive", schemes::damageDiscretisation::RECURSIVE);
     M_disc_scheme = this->getOptionFromMap("damage.disc_scheme", str2disc_scheme);
         //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
     LOG(DEBUG)<<"Disc_scheme= "<< (int)M_disc_scheme <<"\n";
