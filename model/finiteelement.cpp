@@ -4074,6 +4074,9 @@ FiniteElement::assemble(int pcpt)
         double coef_Voce = 0.;
         double coef_basal = 0.;
 
+        // Update the multiplicator and elasticity
+        this->updateSigmaCoefs(cpt, dtime_step);
+
         // TODO: Do we need the _min values here?
         double norm_Voce_ice = 0.;
         double norm_Voce_ice_min = 0.01; // minimum value to avoid 0 water drag term.
@@ -4131,9 +4134,6 @@ FiniteElement::assemble(int pcpt)
                     break;
                 }
             }
-
-            // Update the multiplicator and elasticity
-            this->updateSigmaCoefs(cpt, dtime_step);
 
             if(young>0.) // MEB rheology
             {
