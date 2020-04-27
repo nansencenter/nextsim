@@ -4775,12 +4775,8 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
          */
 
         /* Calculate the characteristic time for damage */
-        double delta_x = 0;
         auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
-        for ( auto it=my_sides.begin(); it!=my_sides.end(); ++it )
-            delta_x += *it;
-
-        delta_x /= my_sides.size();
+        double const delta_x = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
 
         double td = delta_x/std::sqrt(young/(2.*(1.+nu0)*physical::rhoi));
         if ( td_type == schemes::tdType::DAMAGE_DEPENDENT )
