@@ -222,12 +222,12 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
-    std::cout << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
+    LOG(DEBUG) << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
     if(M_ignore_restart)
-        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+        LOG(DEBUG)<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
     else
         in_restart = readFromRestart(field_map_int, field_map_dbl);
-    std::cout << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
+    LOG(DEBUG) << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
 
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
@@ -258,7 +258,6 @@ Drifters::initFromRestart(
         this->selectRecordsFromBackup(backup, restart_time);
         std::remove(backup.c_str());
     }
-
 }//initFromRestart()
 
 
@@ -393,7 +392,7 @@ Drifters::readFromRestart(
     std::string const key = "Drifter_ID_" + M_tag;
     if(field_map_int.count(key) == 0)
     {
-        std::cout << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
+        LOG(DEBUG) << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
             << " Drifter positions will be initialised as if there was no restart.\n";
         return false;
     }
@@ -771,7 +770,7 @@ Drifters::selectRecordsFromBackupNetCDF(
     if ( dim.isNull() )
     {
         M_nc_step = 0;
-        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
+        LOG(DEBUG) << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
         return;
     }
     size_t ntime = dim.getSize();
