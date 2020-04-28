@@ -199,6 +199,8 @@ namespace Nextsim
             // -- inputs
             ("restart.start_from_restart", po::value<bool>()->default_value( false ),
                 "are we starting from a restart file?")
+            ("restart.check_restart", po::value<bool>()->default_value( false ),
+                "check restart file at init time?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
             ("restart.basename", po::value<std::string>()->default_value( "" ),

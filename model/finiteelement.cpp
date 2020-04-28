@@ -1150,7 +1150,9 @@ FiniteElement::initOptAndParam()
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+    M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+
+    M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
     M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
     LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
@@ -7163,11 +7165,20 @@ FiniteElement::init()
         this->initModelState();
         LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
-    else if ( M_use_assimilation )
+    else
     {
-        chrono.restart();
-        this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        if ( M_use_assimilation )
+        {
+            chrono.restart();
+            this->DataAssimilation();
+            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        }
+        if ( M_check_restart )
+        {
+            // check restart file has no crazy fields (eg with nans, conc>1)
+            LOG(DEBUG) << "checkFields: restart\n";
+            this->checkFields();
+        }
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
@@ -9611,7 +9622,7 @@ FiniteElement::readRestart(std::string const& name_str)
         //! add drifters
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
             it->initFromRestart(field_map_int, field_map_dbl);
-        if(M_osisaf_drifters.size()>0)
+        if(M_osisaf_drifters_indices.size()>0)
             this->synchroniseOsisafDrifters();
     }//M_rank==0
 
@@ -9638,29 +9649,45 @@ FiniteElement::synchroniseOsisafDrifters()
     // make sure OSISAF drifters are consistent with each other
     // - OK if 2 in restart
     // - otherwise need to check consistency (one should be a day after the other)
-    bool i0 = M_osisaf_drifters[0]->isInitialised();
-    bool i1 = M_osisaf_drifters[1]->isInitialised();
-    if( i1 && !i0 )
+    int i0 = M_osisaf_drifters_indices[0];
+    int i1 = M_osisaf_drifters_indices[1];
+    bool b0 = M_drifters[i0].isInitialised();
+    bool b1 = M_drifters[i1].isInitialised();
+    if( b1 && !b0 )
     {
         // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
-        double const t = M_osisaf_drifters[1]->getInitTime() + 1;
-        M_osisaf_drifters[0]->setInitTime(t);
+        double t = M_drifters[i1].getInitTime() + 1;
+        while(t<M_current_time)
+            t += 2;//make sure it's after the restart time, otherwise it will never start
+        M_drifters[i0].setInitTime(t);
+        LOG(DEBUG) << "OSISAF drifters: have #1 at " << M_drifters[i1].getInitTime()
+            << " = " << datenumToString(M_drifters[i1].getInitTime()) << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
     }
-    else if( i0 && !i1 )
+    else if( b0 && !b1 )
     {
         // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
-        double const t = M_osisaf_drifters[0]->getInitTime() + 1;
-        M_osisaf_drifters[1]->setInitTime(t);
+        double t = M_drifters[i0].getInitTime() + 1;
+        while(t<M_current_time)
+            t += 2;//make sure it's after the restart time, otherwise it will never start
+        M_drifters[i1].setInitTime(t);
+        LOG(DEBUG) << "OSISAF drifters: have #0 at " << M_drifters[i0].getInitTime()
+            << " = " << datenumToString(M_drifters[i0].getInitTime()) << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t << "\n";
     }
-    else if( !(i0 || i1) )
+    else if( !(b0 || b1) )
     {
         // neither are initialised from restart => need to check the times
-        double const t0 = std::min(
-                M_osisaf_drifters[0]->getInitTime(),
-                M_osisaf_drifters[1]->getInitTime()
+        double t = std::min(
+                M_drifters[i0].getInitTime(),
+                M_drifters[i1].getInitTime()
                 );
-        M_osisaf_drifters[0]->setInitTime(t0);
-        M_osisaf_drifters[1]->setInitTime(t0 + 1);
+        while(t<M_current_time)
+            t += 1;//make sure it's after the restart time, otherwise neither will ever start
+        M_drifters[i0].setInitTime(t);
+        M_drifters[i1].setInitTime(t + 1);
+        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t + 1 << "\n";
     }
 }//synchroniseOsisafDrifters
 
@@ -12625,7 +12652,11 @@ FiniteElement::instantiateDrifters()
     // - output time step is an option
     if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
+        // need to remember where OSISAF drifters are in M_drifters
+        // - need to sync them at restart time
         int i0 = M_drifters.size();
+        M_osisaf_drifters_indices = {i0, i0+1};
+
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
@@ -12663,11 +12694,6 @@ FiniteElement::instantiateDrifters()
                         false)
                     );
 
-            // add drifters to a list of OSISAF drifters
-            // - need to sync them sometimes (mainly thinking of restart time)
-            M_osisaf_drifters.push_back(
-                    &(M_drifters[M_drifters.size()-1])
-                    );
         }
     }
 
@@ -12736,10 +12762,10 @@ FiniteElement::instantiateDrifters()
 
         Drifters::TimingInfo const timing_info(
                 sidfex_time_init, //init time
-                output_time_step,   //output interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                fix_time_init       //fixed init time? (like RGPS, SIDFEX)
+                output_time_step, //output interval
+                false,            //has finite lifetime?
+                0.,               //lifetime before re-initialising
+                fix_time_init     //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
