@@ -18,6 +18,7 @@
 #include <exporter.hpp>
 #include <environment.hpp>
 #include "debug.hpp"
+#include <numeric>
 
 /**
  * @class GridOutput
