@@ -6,6 +6,7 @@
 
 
 all:
+	$(MAKE) core
 	$(MAKE) contrib
 	$(MAKE) model
 

@@ -39,6 +39,7 @@
 #include <omp.h>
 #include <boost/random/linear_congruential.hpp>
 #include <boost/random/uniform_01.hpp>
+#include <rheolef/rheolef.h>
 #if defined OASIS
 #include<oasis_cpp_interface.h>
 #endif

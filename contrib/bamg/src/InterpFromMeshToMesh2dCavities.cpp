@@ -17,6 +17,8 @@
 using namespace bamg;
 using namespace std;
 
+#define next_node(a) ( ( (a) == 0 )  ?  1   : ( ( (a) == 1 ) ?  2   : 0 ) )
+#define sign(a) ( ( (a) < 0 )  ?  -1   : ( (a) > 0 ) )
 
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* IntMatrix_in,

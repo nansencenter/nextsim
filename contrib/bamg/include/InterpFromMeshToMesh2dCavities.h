@@ -30,8 +30,8 @@ typedef struct{
     int  	max_size_dead_cavity;
 } InterpFromMeshToMesh2dCavitiesThreadStruct;
 
-#define next_node(a) ( ( (a) == 0 )  ?  1   : ( ( (a) == 1 ) ?  2   : 0 ) )
-#define sign(a) ( ( (a) < 0 )  ?  -1   : ( (a) > 0 ) )
+/* #define next_node(a) ( ( (a) == 0 )  ?  1   : ( ( (a) == 1 ) ?  2   : 0 ) ) */
+/* #define sign(a) ( ( (a) < 0 )  ?  -1   : ( (a) > 0 ) ) */
 
 int InterpFromMeshToMesh2dCavities(double** pdata_interp,double* data, int* method,int N_data,
 			double* surface_old, double* surface_new, BamgMesh* bamgmesh_old,BamgMesh* bamgmesh_new);

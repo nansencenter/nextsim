@@ -21,7 +21,7 @@ ifeq ($(KERNEL),Linux)
 else
 
 	ifeq ($(CXX),clang)
-	CXXFLAGS += -stdlib=libc++
+		CXXFLAGS += -stdlib=libc++
 	endif
 
 	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include -I /usr/local/include

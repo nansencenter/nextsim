@@ -47,6 +47,9 @@ CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 # CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -I $(RHEOLEF_DIR)/include
+#CXXFLAGS += -I/opt/local/include/eigen3
+CXXFLAGS += -I/usr/local/include/eigen3
 
 ifdef USE_ENSEMBLE
 	CXXFLAGS += -DENSEMBLE
@@ -127,6 +130,17 @@ LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
 #LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+
+# LDFLAGS += -Wl,-rpath,$(RHEOLEF_DIR)/lib
+# LDFLAGS += $(RHEOLEF_DIR)/lib/librheolef.a
+
+#LDFLAGS += -L/opt/local/PKGGCC6/rheolef/7.1.0/lib -lrheolef
+LDFLAGS += -Wl,-rpath,$(RHEOLEF_DIR)/lib
+LDFLAGS += -L $(RHEOLEF_DIR)/lib -lrheolef
+LDFLAGS += -L/opt/local/lib -lCGAL -lgmp
+LDFLAGS += -L/opt/local/PKGGCC6/petsc/3.6.3/lib -lumfpack -lamd
+LDFLAGS += -Wl,-rpath,/opt/local/PKGGCC6/boost/1.67.0/lib/
+LDFLAGS += -Wl,-rpath,/opt/local/lib
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
