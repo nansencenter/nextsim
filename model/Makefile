@@ -61,7 +61,7 @@ ifdef USE_AEROBULK
 endif
 
 # openmpi
-CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
+#CXXFLAGS += -isystem $(OPENMPI_DIR)/include/ #doesn't seem to be needed
 
 # petsc
 CXXFLAGS += -isystem $(PETSC_DIR)/include
@@ -78,6 +78,7 @@ else
 	LDFLAGS += -lnetcdff
 endif
 LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib -L $(NETCDF_FOR_DIR)/lib -lnetcdff
+LDFLAGS += -Wl,-rpath,$(OPENMPI_DIR)/lib -L $(OPENMPI_DIR)/lib -lmpi_mpifh
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I $(NETCDF_DIR)/include
