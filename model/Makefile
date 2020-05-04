@@ -77,6 +77,7 @@ else
 	# - also datarmor needs this lib too
 	LDFLAGS += -lnetcdff
 endif
+LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib -L $(NETCDF_FOR_DIR)/lib -lnetcdff
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I $(NETCDF_DIR)/include
