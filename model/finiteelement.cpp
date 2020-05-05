@@ -4697,13 +4697,24 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 void inline
-FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
+FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
     // clip damage
-    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+    double const damage_tmp = M_damage[cpt]; //clip_damage(M_damage[cpt], damage_min);
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
-    D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
+    // Plastic failure
+    double dcrit;
+    if ( sigma_n > 0. )
+    {
+        double const Pmax = compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        // dcrit must be capped at 1 to get an elastic response
+        dcrit = std::min(1., Pmax/sigma_n);
+    } else {
+        dcrit = 0.;
+    }
+
+    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
@@ -4858,11 +4869,17 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 #ifdef OASIS
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
+                double const old_damage = M_damage[cpt];
                 M_damage[cpt] = std::min(tmp, 1.0);
+                // clip damage
+                M_damage[cpt] = std::max(M_damage[cpt], damage_min);
 
                 if (reset)
                 {
-                    this->updateSigmaCoefs(cpt, dt);
+                    // Time rate of change in damage over the time step
+                    double const damage_dot = (M_damage[cpt] - old_damage)/dt;
+
+                    this->updateSigmaCoefs(cpt, dt, sigma_n*dcrit, damage_dot);
                     for(int i=0;i<3;i++)
                     {
                         double sigma_dot_i = 0.0;
@@ -10168,7 +10185,7 @@ FiniteElement::explicitSolve()
 
             case setup::DynamicsType::MEBe:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
-                    this->updateSigmaCoefs(cpt, dte);
+                    this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
                 this->updateSigma(dte, M_disc_scheme, M_td_type, true);
                 break;
