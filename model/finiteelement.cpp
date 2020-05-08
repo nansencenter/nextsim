@@ -10187,7 +10187,7 @@ FiniteElement::explicitSolve()
             {
                 int const i_indx = (M_elements[cpt]).indices[i]-1;
 
-                // Skip boundary, ice free, and ghost nodes
+                // Skip closed boundaries, ice free, and ghost nodes
                 if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
                     continue;
 
