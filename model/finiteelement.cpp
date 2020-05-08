@@ -4709,9 +4709,11 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
+//------------------------------------------------------------------------------------------------------
+//! Calculate M_sigma for the current time step and update M_damage. If update_sigma==true then we recalculate M_sigma using the new damage value - this is only needed for the explicit solver
 void inline
-FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
-        bool const reset)
+FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
+        bool const update_sigma)
 {
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
@@ -4862,7 +4864,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 #endif
                 M_damage[cpt] = std::min(tmp, 1.0);
 
-                if (reset)
+                if (update_sigma)
                 {
                     this->updateSigmaCoefs(cpt, dt);
                     for(int i=0;i<3;i++)
@@ -4895,7 +4897,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
         M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
 
     }//loop over elements
-}//updateSigma
+}//updateDamage
 
 #ifdef OASIS
 //------------------------------------------------------------------------------------------------------
@@ -8246,10 +8248,10 @@ FiniteElement::step()
 
         if ( young > 0. )
         {
-            M_timer.tick("updateSigma");
-            this->updateSigma(dtime_step, M_disc_scheme, M_td_type, false);
-            M_timer.tock("updateSigma");
-            LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
+            M_timer.tick("updateDamage");
+            this->updateDamage(dtime_step, M_disc_scheme, M_td_type, false);
+            M_timer.tock("updateDamage");
+            LOG(VERBOSE) <<"---timer updateDamage:          "<< M_timer.lap("updateDamage") <<"s\n";
         }
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
@@ -10172,7 +10174,7 @@ FiniteElement::explicitSolve()
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
                     this->updateSigmaCoefs(cpt, dte);
 
-                this->updateSigma(dte, M_disc_scheme, M_td_type, true);
+                this->updateDamage(dte, M_disc_scheme, M_td_type, true);
                 break;
         }
         M_timer.tock("updateSigma");

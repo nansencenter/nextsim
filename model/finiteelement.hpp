@@ -311,8 +311,8 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
     void update(std::vector<double> const & UM_P);
-    void inline updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
-            bool const reset);
+    void inline updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
+            bool const update_sigma);
     void inline updateSigmaCoefs(int const cpt, double const dte);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
