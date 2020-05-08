@@ -10186,7 +10186,7 @@ FiniteElement::explicitSolve()
         {
             // Loop over the nodes of the element to build the gradient terms themselves
             double const m_g_A3rd = element_mass[cpt]*physical::gravity*M_surface[cpt]/3.;
-            std::vector<double> const dx = M_shape_coeff[cpt];
+            std::vector<double> const dxN = M_shape_coeff[cpt];
             for (int i=0; i<3; ++i)
             {
                 int const i_indx = (M_elements[cpt]).indices[i]-1;
@@ -10200,15 +10200,15 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
+                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] )*M_surface[cpt];
+                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] )*M_surface[cpt];
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
                 {
                     int const j_indx = (M_elements[cpt]).indices[j]-1;
-                    grad_terms[u_indx] -= dx[j] * m_g_A3rd * ssh[j_indx];
-                    grad_terms[v_indx] -= dx[j+3] * m_g_A3rd * ssh[j_indx];
+                    grad_terms[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
+                    grad_terms[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
                 }
             }
         }
@@ -10368,11 +10368,11 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
         {
             double const u = M_VT[(M_elements[cpt]).indices[i]-1];
             double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
-            double const dx = M_shape_coeff[cpt][i];
-            double const dy = M_shape_coeff[cpt][i+3];
-            eps11 += dx*u;
-            eps22 += dy*v;
-            eps12 += 0.5*( dx*v + dy*u );
+            double const dxN = M_shape_coeff[cpt][i];
+            double const dyN = M_shape_coeff[cpt][i+3];
+            eps11 += dxN*u;
+            eps22 += dyN*v;
+            eps12 += 0.5*( dxN*v + dyN*u );
         }
 
         double const eps1 = eps11 + eps22;
