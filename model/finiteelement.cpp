@@ -4696,6 +4696,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
     }//loop over elements
 }//update
 
+//------------------------------------------------------------------------------------------------------
+//! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
 {
