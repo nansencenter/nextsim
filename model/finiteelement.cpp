@@ -1392,10 +1392,10 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
-        ("mebi", setup::DynamicsType::MEBi)
+        ("meb_semi_implicit", setup::DynamicsType::MEBi)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
-        ("mebe", setup::DynamicsType::MEBe)
+        ("meb_explicit", setup::DynamicsType::MEBe)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
