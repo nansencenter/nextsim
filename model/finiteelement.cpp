@@ -4700,7 +4700,7 @@ void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
     // clip damage
-    double const damage_tmp = M_damage[cpt]; //clip_damage(M_damage[cpt], damage_min);
+    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
     // Plastic failure
@@ -4871,8 +4871,6 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
 #endif
                 double const old_damage = M_damage[cpt];
                 M_damage[cpt] = std::min(tmp, 1.0);
-                // clip damage
-                M_damage[cpt] = std::max(M_damage[cpt], damage_min);
 
                 if (reset)
                 {
@@ -9998,7 +9996,6 @@ FiniteElement::explicitSolve()
 #endif
 
     // For the MEB code
-    double const damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
     double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
     double const exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
