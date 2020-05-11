@@ -19,6 +19,8 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/version.hpp>
 #include <boost/format.hpp>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
@@ -129,11 +131,11 @@ public:
 
     std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type const& mesh,
-                              std::vector<double> const& um, double factor) const;
+                              std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
     std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
-                              std::vector<double> const& um, double factor) const;
+                              std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> minMaxSide(mesh_type_root const& mesh) const;
 
@@ -181,6 +183,9 @@ public:
     void init();
     void step();
     void run();
+
+    inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
+    void explicitSolve();
 
     void nestingIce();
     void nestingDynamics();
@@ -262,6 +267,7 @@ public:
 
     void initBamg();
     void initOptAndParam();
+    void initFETensors();
     template<typename enum_type>
     enum_type getOptionFromMap(std::string const &opt_name,
         boost::unordered_map<const std::string, enum_type> map);
@@ -304,7 +310,14 @@ public:
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
     void scalingVelocity();
-    void update();
+    void update(std::vector<double> const & UM_P);
+    void inline updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
+            bool const update_sigma);
+    void inline updateSigmaCoefs(int const cpt, double const dte);
+
+    void updateGhosts(std::vector<double>& mesh_nodal_vec);
+    void initUpdateGhosts();
+    int globalNumToprocId(int global_num);
 
 #ifdef OASIS
     // FSD related functions
@@ -498,6 +511,9 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
+    schemes::damageDiscretisation M_disc_scheme;
+    schemes::tdType M_td_type;
+
 #ifdef OASIS
     ExternalData M_tau_wi;
 //    ExternalData M_str_var;
@@ -572,8 +588,12 @@ private:
     double divergence_min;
     double compression_factor;
     double exponent_compression_factor;
+    double exponent_cohesion;
     double ocean_turning_angle_rad;
     double ridging_exponent;
+    double damage_min;
+    double undamaged_time_relaxation_sigma;
+    double exponent_relaxation_sigma;
     double quad_drag_coef_air;
     double quad_drag_coef_water;
     double lin_drag_coef_air;
@@ -615,6 +635,12 @@ private:
     double M_spinup_duration;
 
     std::string M_export_path;
+
+private: // update solution from explicit solver
+    std::vector<std::vector<int>> M_extract_local_index;
+    std::vector<int> M_recipients_proc_id;
+    std::vector<int> M_local_ghosts_proc_id;
+    std::vector<std::vector<int>> M_local_ghosts_local_index;
 
 private:
 
