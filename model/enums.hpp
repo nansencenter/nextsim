@@ -138,11 +138,11 @@ namespace setup
 
     enum class DynamicsType
     {
-        DEFAULT         = 0,
-        NO_MOTION       = 1,
-        FREE_DRIFT      = 2,
-        EVP             = 3,
-        MEBe            = 4
+        MEBi       = 0,
+        NO_MOTION  = 1,
+        FREE_DRIFT = 2,
+        EVP        = 3,
+        MEBe       = 4
     };
 
 } // setup

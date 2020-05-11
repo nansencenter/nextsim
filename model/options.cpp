@@ -114,7 +114,7 @@ namespace Nextsim
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics [ default (implicit MEB) | no_motion | evp | mebe (explicit MEB) | free_drift ] ")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "meb_semi_implicit" ), "type of dynamics [ meb_semi_implicit | no_motion | evp | meb_explicit | free_drift ] ")
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh

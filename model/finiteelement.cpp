@@ -1394,10 +1394,10 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
-        ("default", setup::DynamicsType::DEFAULT)
+        ("meb_semi_implicit", setup::DynamicsType::MEBi)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
-        ("mebe", setup::DynamicsType::MEBe)
+        ("meb_explicit", setup::DynamicsType::MEBe)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -4698,6 +4698,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
     }//loop over elements
 }//update
 
+//------------------------------------------------------------------------------------------------------
+//! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
@@ -4720,9 +4722,11 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
+//------------------------------------------------------------------------------------------------------
+//! Calculate M_sigma for the current time step and update M_damage. If update_sigma==true then we recalculate M_sigma using the new damage value - this is only needed for the explicit solver
 void inline
-FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
-        bool const reset)
+FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
+        bool const update_sigma)
 {
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
@@ -4874,7 +4878,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
                 double const old_damage = M_damage[cpt];
                 M_damage[cpt] = std::min(tmp, 1.0);
 
-                if (reset)
+                if (update_sigma)
                 {
                     // Time rate of change in damage over the time step
                     double const damage_dot = (M_damage[cpt] - old_damage)/dt;
@@ -4910,7 +4914,7 @@ FiniteElement::updateSigma(double const dt, schemes::damageDiscretisation const 
         M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
 
     }//loop over elements
-}//updateSigma
+}//updateDamage
 
 #ifdef OASIS
 //------------------------------------------------------------------------------------------------------
@@ -8236,7 +8240,7 @@ FiniteElement::step()
     //! 5) Performs the dynamics
     //======================================================================
     M_timer.tick("dynamics");
-    if ( M_dynamics_type == setup::DynamicsType::DEFAULT )
+    if ( M_dynamics_type == setup::DynamicsType::MEBi )
     {
         //======================================================================
         //! - 5.1) Assembles the rigidity matrix by calling the assemble() function,
@@ -8270,10 +8274,10 @@ FiniteElement::step()
 
         if ( young > 0. )
         {
-            M_timer.tick("updateSigma");
-            this->updateSigma(dtime_step, M_disc_scheme, M_td_type, false);
-            M_timer.tock("updateSigma");
-            LOG(VERBOSE) <<"---timer updateSigma:          "<< M_timer.lap("updateSigma") <<"s\n";
+            M_timer.tick("updateDamage");
+            this->updateDamage(dtime_step, M_disc_scheme, M_td_type, false);
+            M_timer.tock("updateDamage");
+            LOG(VERBOSE) <<"---timer updateDamage:          "<< M_timer.lap("updateDamage") <<"s\n";
         }
     }
     else if ( M_dynamics_type == setup::DynamicsType::FREE_DRIFT )
@@ -10211,7 +10215,7 @@ FiniteElement::explicitSolve()
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
                     this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
-                this->updateSigma(dte, M_disc_scheme, M_td_type, true);
+                this->updateDamage(dte, M_disc_scheme, M_td_type, true);
                 break;
         }
         M_timer.tock("updateSigma");
@@ -10223,12 +10227,12 @@ FiniteElement::explicitSolve()
         {
             // Loop over the nodes of the element to build the gradient terms themselves
             double const m_g_A3rd = element_mass[cpt]*physical::gravity*M_surface[cpt]/3.;
-            std::vector<double> const dx = M_shape_coeff[cpt];
+            std::vector<double> const dxN = M_shape_coeff[cpt];
             for (int i=0; i<3; ++i)
             {
                 int const i_indx = (M_elements[cpt]).indices[i]-1;
 
-                // Skip boundary, ice free, and ghost nodes
+                // Skip closed boundaries, ice free, and ghost nodes
                 if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
                     continue;
 
@@ -10237,15 +10241,15 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dx[i] + M_sigma[2][cpt]*dx[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dx[i] + M_sigma[1][cpt]*dx[i+3] )*M_surface[cpt];
+                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] )*M_surface[cpt];
+                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] )*M_surface[cpt];
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
                 {
                     int const j_indx = (M_elements[cpt]).indices[j]-1;
-                    grad_terms[u_indx] -= dx[j] * m_g_A3rd * ssh[j_indx];
-                    grad_terms[v_indx] -= dx[j+3] * m_g_A3rd * ssh[j_indx];
+                    grad_terms[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
+                    grad_terms[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
                 }
             }
         }
@@ -10405,11 +10409,11 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
         {
             double const u = M_VT[(M_elements[cpt]).indices[i]-1];
             double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
-            double const dx = M_shape_coeff[cpt][i];
-            double const dy = M_shape_coeff[cpt][i+3];
-            eps11 += dx*u;
-            eps22 += dy*v;
-            eps12 += 0.5*( dx*v + dy*u );
+            double const dxN = M_shape_coeff[cpt][i];
+            double const dyN = M_shape_coeff[cpt][i+3];
+            eps11 += dxN*u;
+            eps22 += dyN*v;
+            eps12 += 0.5*( dxN*v + dyN*u );
         }
 
         double const eps1 = eps11 + eps22;
