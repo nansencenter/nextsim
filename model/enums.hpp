@@ -142,7 +142,7 @@ namespace setup
         NO_MOTION  = 1,
         FREE_DRIFT = 2,
         EVP        = 3,
-        MEBe       = 4
+        BMEB       = 4
     };
 
 } // setup

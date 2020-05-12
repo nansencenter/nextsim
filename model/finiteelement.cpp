@@ -122,7 +122,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
-    if ( M_dynamics_type == setup::DynamicsType::MEBe || M_dynamics_type == setup::DynamicsType::EVP )
+    if ( M_dynamics_type == setup::DynamicsType::BMEB || M_dynamics_type == setup::DynamicsType::EVP )
     {
         chrono.restart();
         this->initUpdateGhosts();
@@ -1397,7 +1397,7 @@ FiniteElement::initOptAndParam()
         ("meb_semi_implicit", setup::DynamicsType::MEBi)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
-        ("meb_explicit", setup::DynamicsType::MEBe)
+        ("bmeb", setup::DynamicsType::BMEB)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -10215,7 +10215,7 @@ FiniteElement::explicitSolve()
                 this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
                 break;
 
-            case setup::DynamicsType::MEBe:
+            case setup::DynamicsType::BMEB:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
                     this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
