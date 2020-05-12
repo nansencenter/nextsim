@@ -122,7 +122,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
-    if ( M_dynamics_type == setup::DynamicsType::MEBe || M_dynamics_type == setup::DynamicsType::EVP )
+    if ( M_dynamics_type == setup::DynamicsType::BMEB || M_dynamics_type == setup::DynamicsType::EVP )
     {
         chrono.restart();
         this->initUpdateGhosts();
@@ -1397,7 +1397,7 @@ FiniteElement::initOptAndParam()
         ("meb_semi_implicit", setup::DynamicsType::MEBi)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
-        ("meb_explicit", setup::DynamicsType::MEBe)
+        ("bmeb", setup::DynamicsType::BMEB)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -4700,14 +4700,29 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
 //------------------------------------------------------------------------------------------------------
 //! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
+//! Optional parameters for BMEB are sigma_n and damage_dot.
+//! damage_dot > 0 only when calculating sigma after a change in damage
+//! sigma_n left optional for backwards compatability with the semi-implicit MEB
+//! Called from assemble(), explicitSolve() and updateDamage()
 void inline
-FiniteElement::updateSigmaCoefs(int const cpt, double const dt)
+FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
 
-    D_multiplicator[cpt] = time_viscous/(time_viscous+dt);
+    // Plastic failure
+    double dcrit;
+    if ( sigma_n > 0. )
+    {
+        double const Pmax = compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        // dcrit must be capped at 1 to get an elastic response
+        dcrit = std::min(1., Pmax/sigma_n);
+    } else {
+        dcrit = 0.;
+    }
+
+    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
@@ -4864,11 +4879,15 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
 #ifdef OASIS
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
+                double const old_damage = M_damage[cpt];
                 M_damage[cpt] = std::min(tmp, 1.0);
 
                 if (update_sigma)
                 {
-                    this->updateSigmaCoefs(cpt, dt);
+                    // Time rate of change in damage over the time step
+                    double const damage_dot = (M_damage[cpt] - old_damage)/dt;
+
+                    this->updateSigmaCoefs(cpt, dt, sigma_n*dcrit, damage_dot);
                     for(int i=0;i<3;i++)
                     {
                         double sigma_dot_i = 0.0;
@@ -10012,7 +10031,6 @@ FiniteElement::explicitSolve()
 #endif
 
     // For the MEB code
-    double const damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
     double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
     double const exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
@@ -10197,9 +10215,9 @@ FiniteElement::explicitSolve()
                 this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
                 break;
 
-            case setup::DynamicsType::MEBe:
+            case setup::DynamicsType::BMEB:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
-                    this->updateSigmaCoefs(cpt, dte);
+                    this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
                 this->updateDamage(dte, M_disc_scheme, M_td_type, true);
                 break;
