@@ -4700,6 +4700,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
 //------------------------------------------------------------------------------------------------------
 //! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
+//! Called from assemble(), explicitSolve() and updateDamage()
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
