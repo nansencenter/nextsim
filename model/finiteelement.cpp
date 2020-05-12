@@ -4700,6 +4700,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
 //------------------------------------------------------------------------------------------------------
 //! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
+//! Optional parameters for BMEB are sigma_n and damage_dot.
+//! damage_dot > 0 only when calculating sigma after a change in damage
+//! sigma_n left optional for backwards compatability with the semi-implicit MEB
 //! Called from assemble(), explicitSolve() and updateDamage()
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
