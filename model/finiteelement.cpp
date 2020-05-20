@@ -8377,6 +8377,7 @@ FiniteElement::step()
 //-------------------------------------------------------------------------------------
 //! Test all processes if regridding is necessary,
 //! and make sure all the others know it is time.
+//! We check if the smallest angle in the triangle is too low, or if the triangle has flipped.
 //! Called by FiniteElement::step()
 bool
 FiniteElement::checkRegridding()
