@@ -73,13 +73,12 @@ subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
    real, allocatable    :: phi(:,:)
    real, allocatable    :: y(:,:)   ! Physical field
    complex*16, allocatable :: x(:,:)   ! Fourier amplitudes
-   complex, allocatable :: xx(:,:)   ! complex physical field
 
    real, parameter :: dx=1.0
    real, parameter :: pi=3.141592653589
 
    !real, external :: func2D
-
+   
    if (nens < 1) then
       stop 'pseudo2D: error nens < 1'
    end if
@@ -192,7 +191,7 @@ subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
       b1=0.1e-06
       tol=0.1e-10
       call zeroin(func2D,sigma,a1,b1,tol,rh,dx,fval,n1,n2)
-
+      
       sigma2=sigma**2
       sum=0.0
       do p=-n2/2+1,n2/2
@@ -282,12 +281,12 @@ subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
       enddo
       enddo
       !print *,'min,max Amat:',minval(Amat),maxval(Amat)
-
+      
    enddo
 
 
    deallocate(fampl, phi, y, x)
-
+   
 end subroutine pseudo2D
 
 

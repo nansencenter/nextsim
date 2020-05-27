@@ -235,10 +235,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
-
-            // add synoptic perturbations on the wind field here
-            // can be done as M_dataset.perturb()
-#ifdef ENSEMBLE
             int M_full  = M_dataset->grid.dimension_y_count_netcdf;
             int N_full  = M_dataset->grid.dimension_x_count_netcdf;
             int MN_full = M_full*N_full;
@@ -246,10 +242,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
             if ( M_comm.rank() == 0 )
             LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-
+            
+            // add synoptic perturbations on the wind field here
+            // can be done as M_dataset.perturb()
+#ifdef ENSEMBLE
             ensemble perturbation;
-            std::string forcing_name="asr_nodes";
-            if (strcmp (M_dataset->name.c_str(), forcing_name.c_str()) == 0) //remove this when generalized to ECMWF
+            //std::string forcing_name[2]={"asr_nodes", "ec2_nodes"};
+            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
             {
                 M_comm.barrier();
                 LOG(DEBUG) << "### Rank: " << M_comm.rank() << " of " << M_comm.size() << ".\n";

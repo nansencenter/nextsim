@@ -75,6 +75,7 @@ module mod_random_forcing
       real,pointer ::  precip (:,:) !  precipitation
       real,pointer ::  sss    (:,:) !  SSS for relax
       real,pointer ::  sst    (:,:) !  SST for relax
+
       real,pointer ::  uwind  (:,:) !  u-component of wind
       real,pointer ::  vwind  (:,:) !  v-component of wind
       real,pointer ::  tauxice(:,:) !  ice stress on water in x dir
@@ -111,7 +112,7 @@ module mod_random_forcing
       module procedure var_sqrt
    end interface
 
-   public :: randf, init_rand_update, rand_update, init_fvars
+   public :: randf, init_rand_update, rand_update,init_fvars,limits_randf
 
 contains
 
@@ -120,8 +121,6 @@ contains
       implicit none
       real :: dx
 
-      call limits_randf()
-!      dx=scpx(idm/2,jdm/2)
       if(.not.randf) then
         write(*,'("randf option switched off in pseudo2D.nml")')
         write( *,'("no perturbation will be applied")')
@@ -140,7 +139,7 @@ contains
         endif
       end if
       write(*,'("pseudo-random forcing is active for ensemble generation")')
-      dx=30
+      dx=30  !scpx(idm/2,jdm/2)
       if(debug) print*,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells
       rv=rf_tradius        ! Temporal decorrelation scale (days)
@@ -158,7 +157,7 @@ contains
       !-- IF exists, load and move to ranfld_prev.dat, IF NOT run ranfields(ran,rh) --!
 
       INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
-
+      
       if (file_exists) then
               if (debug) print*, 'reading from file...'
               call randfld_rd('01')
@@ -384,12 +383,12 @@ contains
       end do
       end do
 
-
+      
 
 
       do jy=1,jdm
       do ix=1,idm
-
+         
          ! Coriolis balance (at 40 deg)
          !fcor=2*sin(max(abs(plat(ix,jy)),20.)/radtodeg)*2*pi/86400;
          fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
@@ -420,10 +419,10 @@ contains
          synairtmp(ix,jy) = ran1%airtmp(ix,jy)
          synrelhum(ix,jy) = ran1%relhum(ix,jy)
          synslp   (ix,jy) = ran1%slp   (ix,jy)
-         synprecip(ix,jy) = ran1%precip(ix,jy)
+         synprecip(ix,jy) = ran1%precip(ix,jy) 
          synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
          synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
-         synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
+         synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0) 
       end do
       end do
 !      synuwind = synuwind - compute_mean(synuwind)
@@ -486,7 +485,7 @@ contains
       !end if
       end do
       end do
-
+      
 
       end if ! rf_prsflg
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -662,7 +661,7 @@ contains
    subroutine init_fvars()
    implicit none
      ! Allocate fields - some are not used...
-
+   
      IF( .NOT. ALLOCATED( synuwind  ) ) allocate(synuwind (idm,jdm))
      IF( .NOT. ALLOCATED( synvwind  ) ) allocate(synvwind (idm,jdm))
      IF( .NOT. ALLOCATED( synwndspd ) ) allocate(synwndspd(idm,jdm))
@@ -782,7 +781,7 @@ contains
 
            do jy=1,jdm
              do ix=1,idm
-                write(13,'(2i5,6e14.3)') ix,jy,  &
+               write(13,'(2i5,6e14.3)') ix,jy,  &
                         synuwind(ix,jy), synvwind(ix,jy), &
                         synairtmp(ix,jy), synslp(ix,jy), &
                         synprecip(ix,jy), synrelhum(ix,jy)

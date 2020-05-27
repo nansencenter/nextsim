@@ -11,7 +11,7 @@ void ensemble::synopticPerturbation(int rdm)
 
 void ensemble::addPerturbation(int rdm)
 {
-    float ranfld[rdm][8];
+    std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8));
 
     // Call fortran library for synoptic perturbation
     // A file called ranfld.dat will be written
@@ -22,11 +22,11 @@ void ensemble::addPerturbation(int rdm)
     franfld.open(M_ranfile[0]);
     int row = 0;
     while(!franfld.eof()){
-       std::string str;
-       std::getline(franfld, str);
-       std::stringstream ss(str);
-       int col = 0;
-       while(ss >> ranfld[row][col]) col++;
+        std::string str;
+        std::getline(franfld, str);
+        std::stringstream ss(str);   
+        int col = 0;     
+        while(ss >> ranfld[row][col]) col++;
 
        row++;
     }
@@ -36,7 +36,7 @@ void ensemble::addPerturbation(int rdm)
     synoptic.slp.data.reserve(rdm);
     synoptic.t2air.data.reserve(rdm);
     synoptic.precip.data.reserve(rdm);
-    synoptic.relhum.data.reserve(rdm);
+    synoptic.relhum.data.reserve(rdm);   
     for(int i=0; i<rdm; i++) {
         synoptic.uwind.data.push_back (ranfld[i][synoptic.uwind.id] );
         synoptic.vwind.data.push_back (ranfld[i][synoptic.vwind.id] );
@@ -50,14 +50,14 @@ void ensemble::addPerturbation(int rdm)
 
 void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<double>& loaded_vwind, int rdm, int ranid)
 {
-    float ranfld[rdm][8];
+    std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8,0.0)); 
 
     // Find and read the ranfld.dat into struct synoptic
     M_ranfile = { "synforc.00", "synforc.01" };
     ifstream franfld;
     franfld.open(M_ranfile[ranid]);
 
-    int row = 0;
+    int row = 0;    
     while(!franfld.eof()){
         std::string str;
         std::getline(franfld, str);
