@@ -39,6 +39,7 @@ obsreader_entry allreaders[] = {
     {"NAVO", "standard", reader_navo_standard},
     {"SMOS", "standard", reader_smos_standard},
     {"SMOS", "standard2", reader_smos_standard2},
+    {"SMOS", "standard3", reader_smos_standard3},
     {"WINDSAT", "standard", reader_windsat_standard},
     {"PATHFINDER", "standard", reader_pathfinder_standard},
     {"CARS", "standard", reader_cars_standard},
