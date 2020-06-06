@@ -312,7 +312,7 @@ void find_files(char* template, int* nfiles, char*** fnames)
     int status;
 
     status = glob(template, GLOB_PERIOD | GLOB_TILDE_CHECK, NULL, &gl);
-    if (status == GLOB_NOSPACE || status == GLOB_ABORTED || status == GLOB_ERR) {
+    if (status == GLOB_NOSPACE || status == GLOB_ABORTED || status == GLOB_NOMATCH) {
         int errno_saved = errno;
 
         enkf_quit("failed looking for \"%s\": %s", template, strerror(errno_saved));
