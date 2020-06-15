@@ -5940,7 +5940,7 @@ FiniteElement::thermo(int dt)
             // nudgeFlux
             Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
-            double delS = M_sss[i] - M_ocean_salt[i];
+            double const delS = M_sss[i] - M_ocean_salt[i];
             Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
         }
 
