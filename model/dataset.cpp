@@ -6418,7 +6418,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix:"ETOPO_Arctic_2arcmin.nc",
+            prefix:"ETOPO_NH25_10arcmin.nc",
             //prefix:"ETOPO1_Ice_g_gmt4.grd",
             postfix:"",
             gridfile: "",

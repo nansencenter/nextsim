@@ -390,14 +390,11 @@ ModelVariable::initElemental()
         case (variableID::D_sigma):
             // principal stresses [Pa]
             M_name = "D_sigma";
-            M_export_name = "Sigma";
-            M_prognostic = false;
-            M_exporting = true;
-            if(M_component_number<0 || M_component_number>1)
-                throw std::runtime_error(
+            
+            M_prognostic = false; M_exporting = true; if(M_component_number<0
+                    || M_component_number>1) throw std::runtime_error(
                         "Unauthorised component number for D_sigma: "
-                        +std::to_string(M_component_number));
-            break;
+                        +std::to_string(M_component_number)); break;
 
         case (variableID::D_Qa):
             // Total heat flux to the atmosphere [W/m^2]
@@ -493,6 +490,14 @@ ModelVariable::initElemental()
             M_export_name = "D_fwflux_ice";
             M_prognostic = false;
             M_exporting = false;
+            break;
+
+        case (variableID::D_vice_melt):
+            // ice volume gain/loss by freezing/melt
+            M_name = "D_vice_melt";
+            M_export_name = "D_vice_melt";
+            M_prognostic = false;
+            M_exporting = true;
             break;
 
         case (variableID::D_brine):

@@ -6518,7 +6518,7 @@ FiniteElement::thermo(int dt)
         D_Qa[i] = Qia[i]*old_conc + Qia_thin[i]*old_conc_thin + Qow[i]*old_ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qsw[i] = Qswi[i]*old_conc + Qsw_thin[i]*old_conc_thin + Qsw_ow[i]*old_ow_fraction;
+        
 
         // Long wave flux to the atmosphere
         D_Qlw[i] = Qlwi[i]*old_conc + Qlw_thin[i]*old_conc_thin + Qlw_ow[i]*old_ow_fraction;
@@ -6558,6 +6558,9 @@ FiniteElement::thermo(int dt)
 
         // Rain
         D_rain[i] = rain;
+
+        // Ice volume formed melted per element area [m]
+        D_vice_melt[i] = del_vi;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -7433,6 +7436,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m]
+    M_variables_elt.push_back(&D_vice_melt);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -7860,7 +7865,7 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_Uocn"));
         var_rcv.push_back(std::string("I_Vocn"));
         var_rcv.push_back(std::string("I_SSH"));
-        var_rcv.push_back(std::string("I_MLD"));
+        //var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
 
