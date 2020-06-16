@@ -113,8 +113,10 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
+LDFLAGS += -Wl,-rpath,$(OPENMPI_DIR)/lib -L $(OPENMPI_DIR)/lib -lmpi_mpifh
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
 LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib -L $(NETCDF_FOR_DIR)/lib -lnetcdff
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time

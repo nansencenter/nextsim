@@ -934,8 +934,9 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
         }
         // Check if the variable was set, skipping non-outputing variables
         if ( it->varID>0 && !set )
-            throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set.\n"
-                   + "Make sure your namcouple file matches neXtSIM defaults.");
+            LOG(WARNING) << "Sent field I_"  << it->name << " is not declared in namcouple \n";
+/*            throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set.\n"
+                   + "Make sure your namcouple file matches neXtSIM defaults."); */
     }
 }
 #endif
@@ -5994,6 +5995,7 @@ FiniteElement::thermo(int dt)
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
+            //assert(mld>0);
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -6030,6 +6032,8 @@ FiniteElement::thermo(int dt)
             }
         }
 
+            //assert(M_sst[i]>0);
+            //assert(M_sss[i]>0);
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
@@ -8347,11 +8351,11 @@ FiniteElement::step()
             LOG(DEBUG) << "OASIS put ... at " << pcpt*time_step << "\n";
 
             for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
-                if ( it->varID > 0 ) // Skip non-outputing variables
+                if ( ( it->varID > 0 ) && ( it->cpl_id > 0 ) ) // Skip non-outputing variables
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
 
             for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
-                if ( it->varID > 0 ) // Skip non-outputing variables
+                if ( ( it->varID > 0 ) && ( it->cpl_id > 0 ) ) // Skip non-outputing variables
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
@@ -10960,6 +10964,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
             M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
