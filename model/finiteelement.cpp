@@ -4670,6 +4670,10 @@ FiniteElement::update()
                     M_thick[cpt]        += newice;
                     M_conc[cpt]         += del_c;
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
+                    //assume thin ice is FYI
+                    //TODO M_age, M_age_det?
+                    M_fyi_fraction[cpt] += del_c;
+                    M_fyi_fraction[cpt] = std::min(1.,std::max(M_fyi_fraction[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
 
@@ -4698,20 +4702,36 @@ FiniteElement::update()
             //need to do ridging
             M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
         }
+        //change FYI proportionally to M_conc
+        //TODO M_age, M_age_det?
+        if(M_conc[cpt]>0.)
+            M_fyi_fraction[cpt] *= new_conc/M_conc[cpt];
+        else
+            M_fyi_fraction[cpt] = new_conc;
         M_conc[cpt]=new_conc;
 
-        double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
-            double test_h_thick=M_thick[cpt]/M_conc[cpt];
-            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_thin,M_thick[cpt]/test_h_thick);
+            //make sure absolute thickness is not too large (<50m)
+            double const max_true_thickness = 50.;
+            if(M_thick[cpt] > M_conc[cpt]*max_true_thickness)
+            {
+                double const old_conc = M_conc[cpt];
+                M_conc[cpt] = std::max(0., std::min(1.-conc_thin, M_thick[cpt]/max_true_thickness));
+                //change FYI proportionally to M_conc
+                //TODO M_age, M_age_det?
+                M_fyi_fraction[cpt] *= M_conc[cpt]/old_conc;
+                M_fyi_fraction[cpt] = std::max(0., std::min(M_conc[cpt], M_fyi_fraction[cpt]));
+            }
         }
         else
         {
             M_ridge_ratio[cpt]=0.;
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
+            M_fyi_fraction[cpt] = 0.;
+            M_age[cpt] = 0.;
+            M_age_det[cpt] = 0.;
         }
         // END: Ridging scheme and mechanical redistribution
 
