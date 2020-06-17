@@ -4614,6 +4614,10 @@ FiniteElement::update()
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
+            M_fyi_fraction[cpt] *= surf_ratio;
+            M_age[cpt] *= surf_ratio;
+            M_age_det[cpt] *= surf_ratio;
+
         }
 
         /*======================================================================
