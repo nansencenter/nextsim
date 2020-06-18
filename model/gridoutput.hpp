@@ -188,6 +188,7 @@ public:
         QSwOcean   = 906,
         saltflux   = 907,
         fwflux_ice = 908,
+        vice_melt  = 909,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -470,6 +471,13 @@ public:
                     longName = "Surface Ice Originating Downward Ocean Freshwater Flux";
                     stdName  = "surface_ice_originating_downward_ocean_freshwater_flux";
                     Units    = "kg m-2 s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::vice_melt):
+                    name     = "vice_melt";
+                    longName = "Ice Volume Melted or Formed per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_surface_area";
+                    Units    = " m";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::QNoSw):

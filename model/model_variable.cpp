@@ -497,7 +497,7 @@ ModelVariable::initElemental()
             M_name = "D_vice_melt";
             M_export_name = "D_vice_melt";
             M_prognostic = false;
-            M_exporting = true;
+            M_exporting = false;
             break;
 
         case (variableID::D_brine):
