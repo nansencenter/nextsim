@@ -4670,15 +4670,24 @@ FiniteElement::update()
                     M_thick[cpt]        += newice;
                     M_conc[cpt]         += del_c;
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-                    //assume thin ice is FYI
-                    //TODO M_age, M_age_det?
-                    M_fyi_fraction[cpt] += del_c;
-                    M_fyi_fraction[cpt] = std::min(1.,std::max(M_fyi_fraction[cpt],0.));
-
                     M_snow_thick[cpt]   += newsnow;
 
                     if( newice>0. )
-                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(
+                                        M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt] ));
+
+                    //assume thin ice is FYI, so del_c is also added to M_fyi_fraction
+                    M_fyi_fraction[cpt] += del_c;
+                    M_fyi_fraction[cpt] = std::min(1.,std::max(M_fyi_fraction[cpt],0.));
+
+                    // All ice that is added has the age dtime_step
+                    // M_age is volume averaged ice age, so
+                    M_age[cpt] = M_age[cpt]*(M_thick[cpt]-newice)/M_thick[cpt]
+                        + dtime_step*newice/M_thick[cpt];
+
+                    // M_age_det is area averaged ice age, so
+                    M_age_det[cpt] = M_age_det[cpt]*(M_conc[cpt]-del_c)/M_conc[cpt]
+                        + dtime_step*del_c/M_conc[cpt];
                 }
 
                 M_conc_thin[cpt] = new_conc_thin;
@@ -4710,21 +4719,7 @@ FiniteElement::update()
             M_fyi_fraction[cpt] = new_conc;
         M_conc[cpt]=new_conc;
 
-        if(M_conc[cpt]>0.)
-        {
-            //make sure absolute thickness is not too large (<50m)
-            double const max_true_thickness = 50.;
-            if(M_thick[cpt] > M_conc[cpt]*max_true_thickness)
-            {
-                double const old_conc = M_conc[cpt];
-                M_conc[cpt] = std::max(0., std::min(1.-conc_thin, M_thick[cpt]/max_true_thickness));
-                //change FYI proportionally to M_conc
-                //TODO M_age, M_age_det?
-                M_fyi_fraction[cpt] *= M_conc[cpt]/old_conc;
-                M_fyi_fraction[cpt] = std::max(0., std::min(M_conc[cpt], M_fyi_fraction[cpt]));
-            }
-        }
-        else
+        if(M_conc[cpt] <= 0.)
         {
             M_ridge_ratio[cpt]=0.;
             M_thick[cpt]=0.;
