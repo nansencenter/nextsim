@@ -272,14 +272,14 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
     int ncid;
     int x_dimid, y_dimid, t_dimid;
     size_t nobslen, xlen, ylen, tlen;
-    int varid_lon, varid_lat, varid_sit, varid_error, varid_time;
-    int sit_fill_value;
-    int estd_fill_value;
-    float sit_scale_factor,estd_scale_factor;
+    int varid_lon, varid_lat, varid_sit, varid_error, varid_iconc, varid_time;
+    int sit_fill_value, estd_fill_value, iconc_fill_value;
+    float sit_scale_factor,estd_scale_factor,iconc_scale_factor;
     float** lon;
     float** lat;
     int*** sit;
     int*** error_std;
+    int*** ice_conc;
     double* time = NULL;
     int year, month, day;
     char tunits[MAXSTRLEN];
@@ -311,25 +311,29 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
     lon = alloc2d(ylen, xlen, sizeof(float));
     ncw_get_var_float(ncid, varid_lon, lon[0]);
 
-    ncw_inq_varid(ncid, "analysis_sea_ice_thickness", &varid_sit);
+    ncw_inq_varid(ncid, "analysis_ice_thickness", &varid_sit);
     sit = alloc3d(tlen, ylen, xlen, sizeof(int));
     ncw_get_var_int(ncid, varid_sit, sit[0][0]);
     if (ncw_att_exists(ncid, varid_sit, "_FillValue"))
         ncw_get_att_int(ncid, varid_sit, "_FillValue", &sit_fill_value);
-    else if (ncw_att_exists(ncid, varid_sit, "missing_value"))
-        ncw_get_att_int(ncid, varid_sit, "missing_value", &sit_fill_value);
     if (ncw_att_exists(ncid, varid_sit, "scale_factor"))
         ncw_get_att_float(ncid, varid_sit, "scale_factor", &sit_scale_factor);
 
-    ncw_inq_varid(ncid, "analysis_sea_ice_thickness_unc", &varid_error);
+    ncw_inq_varid(ncid, "analysis_thickness_unc", &varid_error);
     error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
     ncw_get_var_int(ncid, varid_error, error_std[0][0]);
     if (ncw_att_exists(ncid, varid_error, "_FillValue"))
         ncw_get_att_int(ncid, varid_error, "_FillValue", &estd_fill_value);
-    else if (ncw_att_exists(ncid, varid_error, "missing_value"))
-        ncw_get_att_int(ncid, varid_error, "missing_value", &estd_fill_value);
     if (ncw_att_exists(ncid, varid_error, "scale_factor"))
         ncw_get_att_float(ncid, varid_error, "scale_factor", &estd_scale_factor);
+
+    ncw_inq_varid(ncid, "ice_conc", &varid_iconc);
+    ice_conc = alloc3d(tlen, ylen, xlen, sizeof(int));
+    ncw_get_var_int(ncid, varid_iconc, ice_conc[0][0]);
+    if (ncw_att_exists(ncid, varid_iconc, "_FillValue"))
+        ncw_get_att_int(ncid, varid_iconc, "_FillValue", &iconc_fill_value);
+    if (ncw_att_exists(ncid, varid_iconc, "scale_factor"))
+        ncw_get_att_float(ncid, varid_iconc, "scale_factor", &iconc_scale_factor);        
 
     ncw_inq_varid(ncid, "time", &varid_time);
     time = malloc(tlen * sizeof(double));

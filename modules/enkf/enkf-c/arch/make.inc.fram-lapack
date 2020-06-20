@@ -27,10 +27,10 @@ LIB_M = -lm
 INC_NC  = -I/opt/netcdf/include
 # with gridutils (default) (comment out below to compile without):
 #
-# (assume it is installed in $/usr/local)
 #
 INC_GU = -I../gridutils-c
-LIB_GU = -lgu
+LIB_GU =/cluster/home/chengsukun/src/nextsim/modules/enkf/gridutils-c/libgu.so 
+#LIB_GU = -lgu
 #
 # without gridutils (uncomment below):
 #

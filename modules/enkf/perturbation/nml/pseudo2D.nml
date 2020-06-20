@@ -1,10 +1,10 @@
 ! Namelist for mod_random_forcing
 
 &setup
-iopath   = "../IO"
-xdim     = 360
-ydim     = 360
-debug    = .false.
+iopath = '__no path__'
+xdim     = 3600
+ydim     = 501
+debug = .false.
 /
 
 &pseudo2D
