@@ -6561,8 +6561,8 @@ FiniteElement::thermo(int dt)
         // Rain
         D_rain[i] = rain;
 
-        // Ice volume formed melted per element area [m]
-        D_vice_melt[i] = del_vi;
+        // Ice volume melt rate per day per element area  [m/day]
+        D_vice_melt[i] = del_vi*86400/ddt;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice

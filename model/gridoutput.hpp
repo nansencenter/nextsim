@@ -475,9 +475,9 @@ public:
                     break;
                 case (variableID::vice_melt):
                     name     = "vice_melt";
-                    longName = "Ice Volume Melted or Formed per Surface Area";
-                    stdName  = "ice_volume_melted_or_formed_per_surface_area";
-                    Units    = " m";
+                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::QNoSw):
