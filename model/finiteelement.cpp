@@ -10376,8 +10376,8 @@ FiniteElement::explicitSolve()
         int const v_indx = i+M_num_nodes;
 
         // Save ice-ocean drag
-        D_tau_w[index_u] = c_prime[i]*( M_VT[index_u] - M_ocean[index_u] );
-        D_tau_w[index_v] = c_prime[i]*( M_VT[index_v] - M_ocean[index_v] );
+        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
 
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
