@@ -9701,8 +9701,9 @@ FiniteElement::synchroniseOsisafDrifters()
 
     for (int i=0; i<2; i++)
     {
+        double const t = M_drifters[M_osisaf_drifters_indices[i]].getInitTime();
         LOG(DEBUG) << "OSISAF drifters: init #" << i << " at "
-            << M_drifters[M_osisaf_drifters_indices[i]].getInitTime() << "\n";
+            << t << " = " << datenumToString(t) << "\n";
     }
 }//synchroniseOsisafDrifters
 
