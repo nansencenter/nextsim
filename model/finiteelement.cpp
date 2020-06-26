@@ -8331,8 +8331,8 @@ FiniteElement::exportStateVector(bool const& at_init_time)
 
         }
 
-        // - interpolate to the grid and write them to the netcdf file
-        this->stateVectorAppendNetcdf(M_current_time);
+        // - interpolate to the grid and write them to the netcdf file 
+     //   this->stateVectorAppendNetcdf(M_current_time); it is included in updateStateVector；
      }
 }//exportStateVector
 
