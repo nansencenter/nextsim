@@ -1150,7 +1150,9 @@ FiniteElement::initOptAndParam()
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+    M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+
+    M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
     M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
     LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
@@ -5936,18 +5938,10 @@ FiniteElement::thermo(int dt)
         else
         {
             // nudgeFlux
-            if ( M_ocean_salt[i] > physical::si )
-            {
-                Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
+            Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
-                double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
-            }
-            else
-            {
-                Qdw = Qdw_const;
-                Fdw = Fdw_const;
-            }
+            double const delS = M_sss[i] - M_ocean_salt[i];
+            Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
         }
 
         // -------------------------------------------------
@@ -6364,7 +6358,9 @@ FiniteElement::thermo(int dt)
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
-        double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
+        // Use si_eff (effective ice salinity) to make sure that salt is only moved from the ocean to the ice when ocean salinity is higher than the ice salinity
+        double const si_eff = std::min(M_sss[i], physical::si);
+        double const delsss = ( (M_sss[i]-si_eff)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
@@ -6465,13 +6461,13 @@ FiniteElement::thermo(int dt)
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
-        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*si_eff)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Freshwater balance at the surface - kg/m^2/s
         D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
-        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*si_eff*physical::rhoi*del_vi/ddt;
 
         // Evaporation
         D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
@@ -7163,11 +7159,20 @@ FiniteElement::init()
         this->initModelState();
         LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
-    else if ( M_use_assimilation )
+    else
     {
-        chrono.restart();
-        this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        if ( M_use_assimilation )
+        {
+            chrono.restart();
+            this->DataAssimilation();
+            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        }
+        if ( M_check_restart )
+        {
+            // check restart file has no crazy fields (eg with nans, conc>1)
+            LOG(DEBUG) << "checkFields: restart\n";
+            this->checkFields();
+        }
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
@@ -7949,19 +7954,12 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
-        M_timer.tick("angle_check");
-        double displacement_factor = 1.;
-        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+        M_timer.tick("checkRegridding");
+        M_regrid = this->checkRegridding();
+        M_timer.tock("checkRegridding");
 
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-
-        M_timer.tock("angle_check");
-
-        if ( minang < vm["numerics.regrid_angle"].as<double>() )
+        if ( M_regrid )
         {
-            M_regrid = true;
-
             if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
@@ -8037,6 +8035,8 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
+
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -8262,7 +8262,26 @@ FiniteElement::step()
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
- }//step
+}//step
+
+
+//-------------------------------------------------------------------------------------
+//! Test all processes if regridding is necessary,
+//! and make sure all the others know it is time.
+//! Called by FiniteElement::step()
+bool
+FiniteElement::checkRegridding()
+{
+    bool regrid;
+    double const minang = this->minAngle(M_mesh, M_UM, 1.);
+    LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+    bool const regrid_local =
+        (minang < vm["numerics.regrid_angle"].as<double>())
+        || this->flip(M_mesh, M_UM, 1.);
+    boost::mpi::all_reduce(M_comm, regrid_local, regrid,
+            std::plus<bool>());//NB "+" for bools is "or"
+    return regrid;
+}//checkRegridding
 
 
 //------------------------------------------------------------------------------------------------------
@@ -12682,7 +12701,6 @@ FiniteElement::instantiateDrifters()
                         netcdf_input_info, drifters_conc_lim, timing_info,
                         false)
                     );
-
         }
     }
 

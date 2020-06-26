@@ -1,4 +1,4 @@
-FROM akorosov/boost_petsc_gmsh:0.0.5
+FROM nansencenter/boost_petsc_gmsh:0.0.6
 
 RUN apt-get update && apt-get install -yq --no-install-recommends \
     libnetcdf-dev \
