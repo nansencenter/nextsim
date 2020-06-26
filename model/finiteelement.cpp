@@ -51,11 +51,8 @@ FiniteElement::initMesh()
 {
     this->initBamg();
     this->rootMeshProcessing();
-
     if (!M_use_restart)
-    {
         this->distributedMeshProcessing(true);
-    }
 }//initMesh
 
 
@@ -517,18 +514,6 @@ FiniteElement::initVariables()
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
 
-    if (M_rank == 0)
-    {
-        M_surface_root.resize(M_mesh_root.numTriangles());
-
-        int cpt = 0;
-        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
-        {
-            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
-            ++cpt;
-        }
-    }
-
     this->assignVariables();
 
 }//initVariables
@@ -549,20 +534,42 @@ FiniteElement::DataAssimilation()
 }//DataAssimilation
 
 
+//--------------------------------------------------------------------------------------------------
+//! Calculate the surface area of all the mesh triangles
+//! Called by assignVariables(), readRestart(), exportResults()
+template<typename FEMeshType>
+std::vector<double>
+FiniteElement::surface(FEMeshType const& mesh, std::vector<double> const& um, double const& factor)
+{
+    std::vector<double> surface(mesh.numTriangles());
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it, mesh, um, factor);
+    return surface;
+}//surface
+
+
+template<typename FEMeshType>
+std::vector<double>
+FiniteElement::surface(FEMeshType const& mesh)
+{
+    std::vector<double> surface(mesh.numTriangles());
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it, mesh);
+    return surface;
+}//surface
+
+
 //------------------------------------------------------------------------------------------------------
 //! Assigns variables in the context of remeshing : the size of variables needs to be update when remeshing because the nb of elements/nodes has changed.
 //! Called by the regrid() and initVariables() functions.
 void
 FiniteElement::assignVariables()
 {
-    M_surface.assign(M_num_elements,0.);
-
-    int cpt = 0;
-    for (auto it=M_elements.begin(), end=M_elements.end(); it!=end; ++it)
-    {
-        M_surface[cpt] = this->measure(*it,M_mesh);
-        ++cpt;
-    }
+    M_surface = this->surface(M_mesh);
 
     M_matrix->init(2*M_ndof,2*M_ndof,
                    2*M_local_ndof,2*M_local_ndof,
@@ -668,22 +675,11 @@ FiniteElement::assignVariables()
     M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
-
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
     if (M_rank == 0)
-    {
-        M_surface_root.assign(M_mesh_root.numTriangles(),0.);
-        cpt = 0;
-        for (auto it=M_mesh_root.triangles().begin(), end=M_mesh_root.triangles().end(); it!=end; ++it)
-        {
-            M_surface_root[cpt] = this->measure(*it,M_mesh_root);
-            ++cpt;
-        }
-
         M_drifters_mesh_info = Drifters::MeshInfo(M_mesh_root);
-    }
 
     D_multiplicator.resize(M_num_elements);
     D_elasticity.resize(M_num_elements);
@@ -1157,7 +1153,9 @@ FiniteElement::initOptAndParam()
 
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
-    M_use_restart   = vm["restart.start_from_restart"].as<bool>(); //! \param M_write_restart (boolean) Option on using starting simulation from a restart file
+    M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+
+    M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
     M_write_restart_start    = vm["restart.write_initial_restart"].as<bool>(); //! param M_write_restart_start (boolan) Option to write restart at the start of the simulation
     LOG(DEBUG) << "Write restart at start " << M_write_restart_start << "\n";
@@ -4077,11 +4075,11 @@ FiniteElement::assemble(int pcpt)
             }
 
             forcing_switch  = 1.;
-            coef_C     = mass_e*M_fcor[cpt];              /* for the Coriolis term */
-            coef_V     = mass_e/dtime_step;               /* for the inertial term */
-            coef_X     = - mass_e*g_ssh_e_x;              /* for the ocean slope */
-            coef_Y     = - mass_e*g_ssh_e_y;              /* for the ocean slope */
-            coef_sigma = M_thick[cpt]*D_multiplicator[cpt];      /* for the internal stress */
+            coef_C     = mass_e*M_fcor[cpt];                /* for the Coriolis term */
+            coef_V     = mass_e/dtime_step;                 /* for the inertial term */
+            coef_X     = - mass_e*g_ssh_e_x;                /* for the ocean slope gradient (x-component) */
+            coef_Y     = - mass_e*g_ssh_e_y;                /* for the ocean slope gradient (y-component) */
+            coef_sigma = M_thick[cpt]*D_multiplicator[cpt]; /* for the internal stress */
         }
 
         std::vector<int> rindices(6); //new
@@ -4138,8 +4136,16 @@ FiniteElement::assemble(int pcpt)
         int l_j = -1; // node counter to skip ghosts
         for(int j=0; j<3; j++)
         {
-            /* Column corresponding to indice j (we also assemble terms in col+1)
-             * col = (mwIndex)it[2*j]-1; /* -1 to use the indice convention of C
+            /*
+             * Index j is used in 2 ways:
+             * - in the matrix (data) to be inverted it corresponds to the columns
+             *   col = (2*l_j, 2*l_j+1) in the matrix;
+             *   col = (mwIndex)it[2*j]-1, with the -1 added to use the indexing convention of C
+             * - in the forcing vector (fvdata), it is used in the numerical quadrature
+             *   of some integrals over the element
+             * - the index i below will correspond to the rows (2*i, 2*i+1) of data and fvdata
+             * \note some contributors to fvdata are independent of j,
+             *  but they are still computed and added inside the j loop 3 times but then divided by 3
              */
             int index_u = (M_elements[cpt]).indices[j]-1;
             int index_v = (M_elements[cpt]).indices[j]-1+M_num_nodes;
@@ -4171,7 +4177,7 @@ FiniteElement::assemble(int pcpt)
 
             coef_basal = basal_k2/norm_Vice;
 
-            // Multply with rho and mask out no-ice points
+            // Multiply with rho and mask out no-ice points
             coef_Voce  *= forcing_switch*physical::rhow;
             coef_Vair  *= forcing_switch*physical::rhoa;
             coef_basal *= forcing_switch*std::max(0., critical_h_mod-critical_h)*std::exp(-basal_Cb*(1.-M_conc[cpt]));
@@ -4191,17 +4197,19 @@ FiniteElement::assemble(int pcpt)
                 {
                     /* Row corresponding to indice i (we also assemble terms in row+1) */
 
-                    /* Select the nodal weight values from M_loc */
+                    /* Select the quadrature scheme for the FEM integrals
+                     * (see calculation of M_mass and M_diag above) */
                     mloc = M_Mass[3*j+i];
                     dloc = M_Diag[3*j+i];
 
+                    //! \note b0tj_sigma_hu and b0tj_sigma_hv are independant of j
+                    //! but are added inside the j loop - hence they are divided by 3 below
                     b0tj_sigma_hu = 0.;
                     b0tj_sigma_hv = 0.;
-
                     for(int k=0; k<3; k++)
                     {
-                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
-                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma/*+sigma_P[k]*/);
+                        b0tj_sigma_hu += M_B0T[cpt][k*6+2*i]*(M_sigma[k][cpt]*coef_sigma);
+                        b0tj_sigma_hv += M_B0T[cpt][k*6+2*i+1]*(M_sigma[k][cpt]*coef_sigma);
                     }
 
                     /* ---------- UU component */
@@ -4383,7 +4391,7 @@ FiniteElement::FETensors()
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
 
-    // 'Stifness' for the pressure term
+    // 'Stiffness' for the pressure term
     double const pressure_nu = vm["dynamics.pressure_nu"].as<int>();
     Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
     M_Dunit_comp[0]= Dunit_factor * 1.;
@@ -4392,6 +4400,23 @@ FiniteElement::FETensors()
     M_Dunit_comp[4]= Dunit_factor * 1.;
     M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
 
+    /* Select the quadrature scheme for the FEM integrals
+     * - see mloc below:
+     *   \int[N_i*f].dS \approx \sum_{j=1}^3f_j\int[N_i*N_j].dS
+     *      = \sum_{j=1}^3M_{ij}S_ef_j,
+     *      where S_e is the element area (surface_e below),
+     *      and M_ij=M_mass[i,j]
+     *   This is exact for linear f.
+     * - see dloc below:
+     *   \int[N_i*f].dS \approx \frac{S_i}{3}\sum_{j=1}^3f_jN_i(x_j)
+     *      = \frac{S_e}{3}\sum_{j=1}^3\delta_{ij}f_j
+     *      = \frac{S_e}{3}f_i
+     *      = S_e*D_ii*f_i,
+     *   where D_{ij} = M_diag[i,j].
+     *   This is exact for constant f (ie will fail for \int[N_i*N_j].dS)
+     *   I might be remembering incorrectly, but I think Sylvain had better results
+     *   round coasts when this was used for the drag terms
+     *   */
     for (int i=0; i<3; ++i)
     {
         for (int j=0; j<3; ++j)
@@ -4415,18 +4440,21 @@ FiniteElement::FETensors()
     {
         std::vector<double> shapecoeff = this->shapeCoeff(*it);
 
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            /* B0T is the 3x6 matrix:
+             * B0T = [
+             *          [N0x, 0, N1x, 0, N2x, 0],
+             *          [0, N0y, 0, N1y, 0, N2y],
+             *          [N0y, N1x, N1y, N1x, N2y, N2x],
+             *          ]
+             * deformation is:
+             * B0T*[u0, v0, u1, v1, u2, v2]^T = [u_x, v_y, u_y+v_x]^T
+             * */
+            B0T[2*i]    = shapecoeff[i];
+            B0T[7+2*i]  = shapecoeff[i+3];
+            B0T[12+2*i] = shapecoeff[i+3];
+            B0T[13+2*i] = shapecoeff[i];
         }
 
         this->compute_B0_Dunit_B0T(M_Dunit, B0T, B0_Dunit_B0T);
@@ -4476,7 +4504,6 @@ FiniteElement::update()
     std::vector<double> UM_P = M_UM;
     for (int nd=0; nd<M_UM.size(); ++nd)
         M_UM[nd] += time_step*M_VT[nd];
-
     for (const int& nd : M_neumann_nodes)
         M_UM[nd] = UM_P[nd];
 
@@ -4558,10 +4585,11 @@ FiniteElement::update()
             to_be_updated=false;
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
+        double const surface_old = M_surface[cpt];
+        M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
-            double surf_ratio = this->measure(M_elements[cpt],M_mesh, UM_P) / this->measure(M_elements[cpt],M_mesh,M_UM);
-
+            double const surf_ratio = surface_old/M_surface[cpt];
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
             M_snow_thick[cpt] *= surf_ratio;
@@ -4724,7 +4752,7 @@ FiniteElement::update()
             // to test for compressive failure
             // - slope of line between origin and the intersection of the
             // compressive failure line and the upper Coulomb branch
-            double slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+            double slope_compr_upper = q+sigma_c*(1+q)/(2*M_Compressive_strength[cpt]- sigma_c);
             // to test for tensile failure
             // - slope of line between origin and the intersection of the
             // tensile failure line and the upper Coulomb branch
@@ -4735,7 +4763,7 @@ FiniteElement::update()
                 && sigma_1 < slope_compr_upper*sigma_2 )
             {
                 // compressive failure region
-                sigma_target = compr_strength;
+                sigma_target = M_Compressive_strength[cpt];
                 dcrit = sigma_target/sigma_n;
             }
             else if( sigma_1 < 0 && sigma_2 < 0
@@ -5903,18 +5931,10 @@ FiniteElement::thermo(int dt)
         else
         {
             // nudgeFlux
-            if ( M_ocean_salt[i] > physical::si )
-            {
-                Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
+            Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
-                double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
-            }
-            else
-            {
-                Qdw = Qdw_const;
-                Fdw = Fdw_const;
-            }
+            double const delS = M_sss[i] - M_ocean_salt[i];
+            Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
         }
 
         // -------------------------------------------------
@@ -6331,7 +6351,9 @@ FiniteElement::thermo(int dt)
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
-        double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
+        // Use si_eff (effective ice salinity) to make sure that salt is only moved from the ocean to the ice when ocean salinity is higher than the ice salinity
+        double const si_eff = std::min(M_sss[i], physical::si);
+        double const delsss = ( (M_sss[i]-si_eff)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
@@ -6432,13 +6454,13 @@ FiniteElement::thermo(int dt)
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
-        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*si_eff)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Freshwater balance at the surface - kg/m^2/s
         D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
-        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*si_eff*physical::rhoi*del_vi/ddt;
 
         // Evaporation
         D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
@@ -7130,11 +7152,20 @@ FiniteElement::init()
         this->initModelState();
         LOG(DEBUG) <<"initModelState done in "<< chrono.elapsed() <<"s\n";
     }
-    else if ( M_use_assimilation )
+    else
     {
-        chrono.restart();
-        this->DataAssimilation();
-        LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        if ( M_use_assimilation )
+        {
+            chrono.restart();
+            this->DataAssimilation();
+            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+        }
+        if ( M_check_restart )
+        {
+            // check restart file has no crazy fields (eg with nans, conc>1)
+            LOG(DEBUG) << "checkFields: restart\n";
+            this->checkFields();
+        }
     }
 
     //! - 8) Initializes the moorings - if requested - using the initMoorings() function,
@@ -7916,16 +7947,9 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
-        M_timer.tick("angle_check");
-        double displacement_factor = 1.;
-        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        M_regrid = this->flip(M_mesh,M_UM,displacement_factor)
-                || minang < vm["numerics.regrid_angle"].as<double>();
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-
-        M_timer.tock("angle_check");
+        M_timer.tick("checkRegridding");
+        M_regrid = this->checkRegridding();
+        M_timer.tock("checkRegridding");
 
         if ( M_regrid )
         {
@@ -8004,6 +8028,8 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
+
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -8229,7 +8255,26 @@ FiniteElement::step()
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
- }//step
+}//step
+
+
+//-------------------------------------------------------------------------------------
+//! Test all processes if regridding is necessary,
+//! and make sure all the others know it is time.
+//! Called by FiniteElement::step()
+bool
+FiniteElement::checkRegridding()
+{
+    bool regrid;
+    double const minang = this->minAngle(M_mesh, M_UM, 1.);
+    LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+    bool const regrid_local =
+        (minang < vm["numerics.regrid_angle"].as<double>())
+        || this->flip(M_mesh, M_UM, 1.);
+    boost::mpi::all_reduce(M_comm, regrid_local, regrid,
+            std::plus<bool>());//NB "+" for bools is "or"
+    return regrid;
+}//checkRegridding
 
 
 //------------------------------------------------------------------------------------------------------
@@ -8663,7 +8708,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             // Non-output variables
             case (GridOutput::variableID::ice_mask):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
+                {
+                    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+                        it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
+                    else
+                        it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
+                }
                 break;
 
             default: std::logic_error("Updating of given variableID not implemented (elements)");
@@ -9586,7 +9636,7 @@ FiniteElement::readRestart(std::string const& name_str)
             it->initFromRestart(field_map_int, field_map_dbl);
             n_drifters += it->isInitialised();
         }
-        if(M_osisaf_drifters.size()>0)
+        if(M_osisaf_drifters_indices.size()>0)
             this->synchroniseOsisafDrifters();
         if(n_drifters>0)
         {
@@ -9613,6 +9663,9 @@ FiniteElement::readRestart(std::string const& name_str)
     std::vector<double> interp_nd_out;
     this->collectNodesRestart(interp_nd_out);
     this->scatterFieldsNode(&interp_nd_out[0]);
+
+    // correct the surface area (calculated for M_UM=0 in assignVariables)
+    M_surface = this->surface(M_mesh, M_UM, 1.);
 }//readRestart
 
 
@@ -9624,29 +9677,45 @@ FiniteElement::synchroniseOsisafDrifters()
     // make sure OSISAF drifters are consistent with each other
     // - OK if 2 in restart
     // - otherwise need to check consistency (one should be a day after the other)
-    bool i0 = M_osisaf_drifters[0]->isInitialised();
-    bool i1 = M_osisaf_drifters[1]->isInitialised();
-    if( i1 && !i0 )
+    int i0 = M_osisaf_drifters_indices[0];
+    int i1 = M_osisaf_drifters_indices[1];
+    bool b0 = M_drifters[i0].isInitialised();
+    bool b1 = M_drifters[i1].isInitialised();
+    if( b1 && !b0 )
     {
         // OSISAF1 is initialised from restart => OSISAF0 should be started 1 day later
-        double const t = M_osisaf_drifters[1]->getInitTime() + 1;
-        M_osisaf_drifters[0]->setInitTime(t);
+        double t = M_drifters[i1].getInitTime() + 1;
+        while(t<M_current_time)
+            t += 2;//make sure it's after the restart time, otherwise it will never start
+        M_drifters[i0].setInitTime(t);
+        LOG(DEBUG) << "OSISAF drifters: have #1 at " << M_drifters[i1].getInitTime()
+            << " = " << datenumToString(M_drifters[i1].getInitTime()) << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
     }
-    else if( i0 && !i1 )
+    else if( b0 && !b1 )
     {
         // OSISAF0 is initialised from restart => OSISAF1 should be started 1 day later
-        double const t = M_osisaf_drifters[0]->getInitTime() + 1;
-        M_osisaf_drifters[1]->setInitTime(t);
+        double t = M_drifters[i0].getInitTime() + 1;
+        while(t<M_current_time)
+            t += 2;//make sure it's after the restart time, otherwise it will never start
+        M_drifters[i1].setInitTime(t);
+        LOG(DEBUG) << "OSISAF drifters: have #0 at " << M_drifters[i0].getInitTime()
+            << " = " << datenumToString(M_drifters[i0].getInitTime()) << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t << "\n";
     }
-    else if( !(i0 || i1) )
+    else if( !(b0 || b1) )
     {
         // neither are initialised from restart => need to check the times
-        double const t0 = std::min(
-                M_osisaf_drifters[0]->getInitTime(),
-                M_osisaf_drifters[1]->getInitTime()
+        double t = std::min(
+                M_drifters[i0].getInitTime(),
+                M_drifters[i1].getInitTime()
                 );
-        M_osisaf_drifters[0]->setInitTime(t0);
-        M_osisaf_drifters[1]->setInitTime(t0 + 1);
+        while(t<M_current_time)
+            t += 1;//make sure it's after the restart time, otherwise neither will ever start
+        M_drifters[i0].setInitTime(t);
+        M_drifters[i1].setInitTime(t + 1);
+        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
+        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t + 1 << "\n";
     }
 }//synchroniseOsisafDrifters
 
@@ -12611,9 +12680,12 @@ FiniteElement::instantiateDrifters()
     // - output time step is an option
     if(vm["drifters.use_osisaf_drifters"].as<bool>())
     {
+        // need to remember where OSISAF drifters are in M_drifters
+        // - need to sync them at restart time
         int i0 = M_drifters.size();
+        M_osisaf_drifters_indices = {i0, i0+1};
+
         double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
-        bool const ignore_restart = vm["drifters.osisaf_ignore_restart"].as<bool>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12647,13 +12719,7 @@ FiniteElement::instantiateDrifters()
             M_drifters.push_back(
                     Drifters(name.str(), osi_outfile_prefix,
                         netcdf_input_info, drifters_conc_lim, timing_info,
-                        ignore_restart)
-                    );
-
-            // add drifters to a list of OSISAF drifters
-            // - need to sync them sometimes (mainly thinking of restart time)
-            M_osisaf_drifters.push_back(
-                    &(M_drifters[M_drifters.size()-1])
+                        false)
                     );
         }
     }
@@ -12723,10 +12789,10 @@ FiniteElement::instantiateDrifters()
 
         Drifters::TimingInfo const timing_info(
                 sidfex_time_init, //init time
-                output_time_step,   //output interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                fix_time_init       //fixed init time? (like RGPS, SIDFEX)
+                output_time_step, //output interval
+                false,            //has finite lifetime?
+                0.,               //lifetime before re-initialising
+                fix_time_init     //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -13064,9 +13130,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
     std::vector<double> M_UM_root;
     if (apply_displacement)
-    {
-        this->gatherNodalField(M_UM,M_UM_root);
-    }
+        this->gatherNodalField(M_UM, M_UM_root);
 
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
@@ -13078,11 +13142,14 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // get names of the variables in the output file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
+    std::vector<double> M_surface_root;
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
     if(export_fields)
     {
+        M_surface_root = this->surface(M_mesh_root, M_UM_root);
+
         if(vm["output.save_forcing_fields"].as<bool>())
         {
             ext_data_elements = M_external_data_elements;

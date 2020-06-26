@@ -145,7 +145,13 @@ public:
                    std::vector<double> const& um, double factor = 1.) const;
 
     std::vector<double> shapeCoeff(element_type const& element) const;
+    template<typename FEMeshType>
+    std::vector<double> surface(FEMeshType const& mesh);
+    template<typename FEMeshType>
+    std::vector<double> surface(FEMeshType const& mesh,
+            std::vector<double> const& um, double const& factor=1);
 
+    bool checkRegridding();
     void regrid(bool step = true);
     void adaptMesh();
     void updateNodeIds();
@@ -602,6 +608,7 @@ private:
     bool M_use_assimilation;
 
     bool M_use_restart;
+    bool M_check_restart;
     bool M_write_restart_interval;
     bool M_write_restart_end;
     bool M_write_restart_start;
@@ -622,8 +629,6 @@ private: // only on root process (rank 0)
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
 
-    //std::vector<double> M_UM_root;
-    std::vector<double> M_surface_root;
     std::vector<int> M_connectivity_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
@@ -639,8 +644,6 @@ private: // only on root process (rank 0)
     BamgOpts *bamgopt_previous;
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
-
-
 
 private:
 
@@ -691,8 +694,7 @@ private:
 
     // Drifters
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
-    std::vector<Drifters*> M_osisaf_drifters;//pointers to the OSISAF drifters inside M_drifters (used at readRestart)
-    Drifters::MeshInfo M_drifters_mesh_info;//stores mesh nodes and element indices at time when M_UT was reset to 0
+    std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)

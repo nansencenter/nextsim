@@ -158,9 +158,10 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         ("info", INFO)
         ("warning", WARNING)
         ("error", ERROR);
-
-    log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
-
+    std::string const s = vmenv["debugging.log-level"].as<std::string>();
+    if(str2log.count(s)==0)
+        throw std::runtime_error("bad value for option debugging.log-level: " + s);
+    log_level = str2log.find(s)->second;
     log_all = vmenv["debugging.log-all"].as<bool>();
 }
 
