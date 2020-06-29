@@ -9774,7 +9774,6 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i0].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #1 at " << M_drifters[i1].getInitTime()
             << " = " << datenumToString(M_drifters[i1].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
     }
     else if( b0 && !b1 )
     {
@@ -9785,11 +9784,11 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i1].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #0 at " << M_drifters[i0].getInitTime()
             << " = " << datenumToString(M_drifters[i0].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t << "\n";
     }
     else if( !(b0 || b1) )
     {
         // neither are initialised from restart => need to check the times
+        LOG(DEBUG) << "Neither OSISAF drifters initialised\n";
         double t = std::min(
                 M_drifters[i0].getInitTime(),
                 M_drifters[i1].getInitTime()
@@ -9798,8 +9797,17 @@ FiniteElement::synchroniseOsisafDrifters()
             t += 1;//make sure it's after the restart time, otherwise neither will ever start
         M_drifters[i0].setInitTime(t);
         M_drifters[i1].setInitTime(t + 1);
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t + 1 << "\n";
+    }
+    else
+    {
+        LOG(DEBUG) << "Both OSISAF drifters initialised\n";
+    }
+
+    for (int i=0; i<2; i++)
+    {
+        double const t = M_drifters[M_osisaf_drifters_indices[i]].getInitTime();
+        LOG(DEBUG) << "OSISAF drifters: init #" << i << " at "
+            << t << " = " << datenumToString(t) << "\n";
     }
 }//synchroniseOsisafDrifters
 
