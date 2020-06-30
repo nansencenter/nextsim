@@ -48,8 +48,8 @@ namespace Nextsim
         FromMeshToMesh2dCavities = 2,
 #if defined OASIS
         ConservativeRemapping = 3,
-        FromMeshToMeshQuick = 4
 #endif
+        FromMeshToMeshQuick = 4
     };
 
     typedef struct WaveOptions
