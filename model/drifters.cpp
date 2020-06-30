@@ -224,9 +224,13 @@ Drifters::initFromRestart(
     bool in_restart = false;
     LOG(DEBUG) << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
     if(M_ignore_restart)
+    {
         LOG(DEBUG)<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    }
     else
+    {
         in_restart = readFromRestart(field_map_int, field_map_dbl);
+    }
     LOG(DEBUG) << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
 
     if( !in_restart )
