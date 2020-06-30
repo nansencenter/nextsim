@@ -5645,7 +5645,6 @@ DataSet::DataSet(char const *DatasetName)
 #endif
      }
 #endif
-    }
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
         // Definition of topaz grid and datasets
