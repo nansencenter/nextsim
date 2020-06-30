@@ -10262,8 +10262,8 @@ DataSet::getMinMax(mapx_class *mapNextsim, Grid *grid_ptr,
 
         //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
     } else {
-        RX_min = -std::numeric_limits<double>::lowest();
-        RX_max =  std::numeric_limits<double>::max();
+        RX_min = std::numeric_limits<double>::lowest();
+        RX_max = std::numeric_limits<double>::max();
         RY_min = RX_min;
         RY_max = RX_max;
     }
