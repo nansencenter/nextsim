@@ -7870,8 +7870,8 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_Uocn"));
         var_rcv.push_back(std::string("I_Vocn"));
         var_rcv.push_back(std::string("I_SSH"));
-        // MLD is not needed for coupling with NEMO
-        //var_rcv.push_back(std::string("I_MLD"));
+        if ( vm["coupler.rcv_first_layer_depth"].as<bool>() )
+            var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
 
@@ -10973,7 +10973,8 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
             M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
-            M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
+            if ( vm["coupler.rcv_first_layer_depth"].as<bool>() )
+                M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:
