@@ -7854,7 +7854,8 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_Uocn"));
         var_rcv.push_back(std::string("I_Vocn"));
         var_rcv.push_back(std::string("I_SSH"));
-        var_rcv.push_back(std::string("I_MLD"));
+        // MLD is not needed for coupling with NEMO
+        //var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
 
@@ -10213,6 +10214,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Starting sub-time stepping\n";
     M_timer.tick("sub-time stepping");
 
+    std::vector<double> c_prime(M_num_nodes); // Saved for the ice-ocean drag to send to coupler
     // Do the sub-time stepping itself
     for ( int s=0; s<steps; s++ )
     {
@@ -10285,15 +10287,15 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            c_prime[i] = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
-            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dte*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
+            double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
+            double const beta   = dte*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime[i]*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
@@ -10367,15 +10369,20 @@ FiniteElement::explicitSolve()
     }
 
     // Move the mesh in the open water part
+    // Diagnostic/coupling: Ice-ocean drag
     std::vector<double> UM_P = M_UM;
     for ( int i=0; i<M_num_nodes; ++i )
     {
+        int const u_indx = i;
+        int const v_indx = i+M_num_nodes;
+
+        // Save ice-ocean drag
+        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
+
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
             continue;
-
-        int const u_indx = i;
-        int const v_indx = i+M_num_nodes;
 
         M_UM[u_indx] += dtime_step*M_VT[u_indx];
         M_UM[v_indx] += dtime_step*M_VT[v_indx];
