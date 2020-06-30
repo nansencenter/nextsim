@@ -5,7 +5,9 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: contrib modules core model
+all:
+	$(MAKE) contrib
+	$(MAKE) model
 
 contrib:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
@@ -21,10 +23,13 @@ ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE)
 endif
 
-model: core modules
+docker: core modules
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
-core: contrib modules
+model: core modules contrib
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
+
+core:
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel

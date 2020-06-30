@@ -79,6 +79,8 @@ public:
     typedef struct Variable
     {
         // Information on the input data
+        std::string filename_prefix; // In case the dataset is composed of one file per variable - leave empty "" if everything is in the same (grid) file
+
         std::string name;   //! name of the variable in the input file
         std::vector<Dimension> dimensions; //! dimensions in the input file
 

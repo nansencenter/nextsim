@@ -18,12 +18,12 @@ namespace setup
         CONSTANT  = 0,
         ASR       = 1,
         ERAi      = 2,
-        EC        = 3,
-        EC2       = 4,
-        EC_ERAi   = 5,
-        CFSR      = 6,
-        CFSR_HI   = 7,
-        EC2_AROME = 8,
+        EC2       = 3,
+        EC_ERAi   = 4,
+        CFSR      = 5,
+        CFSR_HI   = 6,
+        EC2_AROME = 7,
+        EC2_AROME_ENSEMBLE = 8,
         ERA5      = 9
     };
 
@@ -60,7 +60,8 @@ namespace setup
         TOPAZ4OSISAFICESAT  = 18,
         TOPAZ4FAMSR2OSISAFNIC= 19,
         TOPAZ4FAMSR2OSISAFNICWEEKLY= 20,
-        CREG                = 21
+        CREG                = 21,
+        AMSR2CSTTHICK     =22
 	};
 
     enum class WaveType
@@ -92,6 +93,24 @@ namespace setup
         MULTI       = 2
     };
 
+    enum class WeldingType
+    {
+        NONE     = 0,
+        ROACH    = 1
+    };
+
+    enum class FSDType
+    {
+        CONSTANT_SIZE   = 0,
+        CONSTANT_AREA   = 1
+    };
+    enum class BreakupType
+    {
+        NONE  = 0,
+        UNIFORM_SIZE = 1,
+        ZHANG   =2,
+        DUMONT  =3
+    };
     enum class MeshType
     {
         FROM_UNREF     = 0,
@@ -119,15 +138,30 @@ namespace setup
 
     enum class DynamicsType
     {
-        DEFAULT         = 0,
-        NO_MOTION       = 1,
-        FREE_DRIFT      = 2
+        MEBi       = 0,
+        NO_MOTION  = 1,
+        FREE_DRIFT = 2,
+        EVP        = 3,
+        BMEB       = 4
     };
 
 } // setup
 
 namespace schemes
 {
+    enum class damageDiscretisation
+    {
+        EXPLICIT    = 0,
+        IMPLICIT    = 1,
+        RECURSIVE   = 2
+    };
+
+    enum class tdType
+    {
+        FIXED            = 0,
+        DAMAGE_DEPENDENT = 1,
+    };
+
     enum class specificHumidity
     {
         ATMOSPHERE = 0,

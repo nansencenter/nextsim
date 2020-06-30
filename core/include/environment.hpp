@@ -85,6 +85,9 @@ public:
     //! return neXtSIM .mpp file
 	static std::string const& nextsimMppfile() { return nextsim_mppfile; }
 
+    //! return neXtSIM config files
+	static std::vector<std::string> const& nextsimConfigFiles() { return configFiles; }
+    
     //! return log level
 	static LogLevel const& logLevel() { return log_level; }
 
@@ -111,6 +114,10 @@ private:
 
     //! .mpp file for nextsim
     static std::string nextsim_mppfile;
+
+
+    //! neXtSIM config files
+    static std::vector<std::string> configFiles;
 
     //! log level
     static LogLevel log_level;

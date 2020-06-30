@@ -73,10 +73,15 @@ public:
         M_hs_thin       = 12,
         M_conc_thin     = 13,
         M_random_number = 14,
-        M_fyi_fraction  = 15,
-        M_age_det       = 16,
-        M_age           = 17,
-        M_conc_upd      = 18,
+        M_conc_fsd      = 15,
+        M_fyi_fraction  = 16,
+        M_age_det       = 17,
+        M_age           = 18,
+        M_conc_upd      = 19,
+        M_conc_mech_fsd = 20,
+        M_cum_damage    = 21,
+        M_cum_wave_damage=22,
+        M_divergence    = 23,
 
         // Diagnostic variables
         D_conc       = 100,
@@ -98,8 +103,12 @@ public:
         D_brine      = 116,
         D_evap       = 117,
         D_rain       = 118,
-        D_Qassim     = 119,
-        D_fwflux_ice = 120,
+        D_dmax       = 119,
+        D_dmean      = 120,
+        D_Qassim     = 121,
+        D_fwflux_ice = 122,
+        D_dcrit      = 123,
+        D_sigma_p    = 124,
     };
 
 

@@ -64,23 +64,25 @@ public:
 
     typedef struct Grid
     {
-        Grid() {}
+        Grid()
+            : loaded(false), defined(false)
+        {}
 
         Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         interpMethod interp_method;
@@ -91,6 +93,7 @@ public:
         std::string thetaName;
 
         bool loaded;
+        bool defined;
         bool transpose;
 
         std::string dimNameX;
@@ -121,71 +124,74 @@ public:
     enum variableID
     {
         // Land-sea mask
-        lsm         =  0,
+        lsm =  0,
 
         // Prognostic variables
-        conc        =  1,
-        thick       =  2,
-        damage      =  3,
-        snow        =  4,
-        VT_x        =  5,
-        VT_y        =  6,
-        tsurf       =  7,
-        sst         =  8,
-        sss         =  9,
-        tsurf_ice   = 10,
-        t1          = 11,
-        t2          = 12,
-        h_thin      = 13,
-        hs_thin     = 14,
-        conc_thin   = 15,
-        fyi_fraction    = 16,
-        age_d       = 17,
-        age         = 18,
-        conc_upd    = 19,
+        conc         =  1,
+        thick        =  2,
+        snow         =  3,
+        damage       =  4,
+        ridge_ratio  =  5,
+        VT_x         =  6,
+        VT_y         =  7,
+        tsurf        =  8,
+        sst          =  9,
+        sss          = 10,
+        tsurf_ice    = 11,
+        t1           = 12,
+        t2           = 13,
+        h_thin       = 14,
+        hs_thin      = 15,
+        conc_thin    = 16,
+        fyi_fraction = 17,
+        age_d        = 18,
+        age          = 19,
+        conc_upd     = 20,
 
         // Diagnostic variables
-        Qa          = 100,
-        Qsw         = 101,
-        Qlw         = 102,
-        Qsh         = 103,
-        Qlh         = 104,
-        Qo          = 105,
-        delS        = 106,
-        rain        = 107,
-        evap        = 108,
+        Qa     = 100,
+        Qsw    = 101,
+        Qlw    = 102,
+        Qsh    = 103,
+        Qlh    = 104,
+        Qo     = 105,
+        delS   = 106,
+        rain   = 107,
+        evap   = 108,
+        d_crit = 109,
 
         // Forcing variables
-        tair        = 200,
-        sphuma      = 201,
-        mixrat      = 202,
-        d2m         = 203,
-        mslp        = 204,
-        Qsw_in      = 205,
-        Qlw_in      = 206,
-        tcc         = 207,
-        snowfall    = 208,
-        precip      = 209,
-        snowfr      = 210,
-        wind_x      = 211,
-        wind_y      = 212,
+        tair     = 200,
+        sphuma   = 201,
+        mixrat   = 202,
+        d2m      = 203,
+        mslp     = 204,
+        Qsw_in   = 205,
+        Qlw_in   = 206,
+        tcc      = 207,
+        snowfall = 208,
+        precip   = 209,
+        snowfr   = 210,
+        wind_x   = 211,
+        wind_y   = 212,
 
         // WIM variables
-        dfloe       = 300,
+        dmax        = 300,
+        dmean       = 301,
 
         // Coupling variables not already covered elsewhere
-        taux        = 901,
-        tauy        = 902,
-        taumod      = 903,
-        fwflux      = 904,
-        QNoSw       = 905,
-        QSwOcean    = 906,
-        saltflux    = 907,
-        fwflux_ice  = 908,
+        taux       = 901,
+        tauy       = 902,
+        taumod     = 903,
+        fwflux     = 904,
+        QNoSw      = 905,
+        QSwOcean   = 906,
+        saltflux   = 907,
+        fwflux_ice = 908,
 
         // Non-output variables - all negative
-        proc_mask   = -1,
-        ice_mask    = -2
+        proc_mask = -1,
+        ice_mask  = -2
     };
 
 
@@ -230,6 +236,13 @@ public:
                     name     = "damage";
                     longName = "Sea Ice Damage";
                     stdName  = "sea_ice_damage";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::ridge_ratio):
+                    name     = "ridge_ratio";
+                    longName = "Sea Ice Ridge Ratio";
+                    stdName  = "sea_ice_ridge_ratio";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -415,6 +428,13 @@ public:
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::d_crit):
+                    name     = "d_crit";
+                    longName = "Distance_To_Yield_Criterion";
+                    stdName  = "distance_to_yield_criterion";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
 
                 // Coupling variables
                 case (variableID::taux):
@@ -473,11 +493,20 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+
                 //WIM variables
-                case (variableID::dfloe):
-                    name     = "dfloe";
+                case (variableID::dmax):
+                    name     = "dmax";
                     longName = "Maximum floe size";
                     stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dmean):
+                    name     = "dmean";
+                    longName = "Mean floe size";
+                    stdName  = "mean_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
@@ -569,6 +598,7 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+                    break;
 
                 case (variableID::wind_x):
                     name     = "wndx";
@@ -584,7 +614,6 @@ public:
                     stdName  = "wind_y_velocity";
                     Units    = "m/s";
                     cell_methods = "area: mean";
-                    break;
                     break;
 
                 // Non-output variables
@@ -671,7 +700,7 @@ public:
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,

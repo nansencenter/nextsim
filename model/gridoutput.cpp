@@ -856,8 +856,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
     lon.putAtt("standard_name","longitude");
     lon.putAtt("long_name","longitude");
-    lon.putAtt("units","degrees_north");
-    lon.putAtt("_CoordinateAxisType","Lon");
+    lon.putAtt("units","degrees_east");
     lon.putVar(&M_grid.gridLON[0]);
 
     // Latitude
@@ -865,7 +864,6 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     lat.putAtt("standard_name","latitude");
     lat.putAtt("long_name","latitude");
     lat.putAtt("units","degrees_north");
-    lat.putAtt("_CoordinateAxisType","Lat");
     lat.putVar(&M_grid.gridLAT[0]);
 
     // Create the output variables
@@ -970,7 +968,7 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
 
     // Append to the output variables
     start = {nc_step, 0, 0};
-    count = {1, M_ncols, M_nrows};
+    count = {1, (size_t) M_ncols, (size_t) M_nrows};
 
     // Apply mask - if needed
     if (M_use_lsm)

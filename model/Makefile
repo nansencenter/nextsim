@@ -2,7 +2,7 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -25,7 +25,7 @@ ifdef USE_OASIS
 	LDFLAGS += -lgfortran
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
@@ -70,11 +70,20 @@ CXXFLAGS += -isystem $(PETSC_DIR)/include
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
 # netcdf
+ifeq ($(NETCDF_CXX_DIR),)
+	NETCDF_CXX_DIR=$(NETCDF_DIR)
+else
+	# separate dirs on datarmor
+	# - also datarmor needs this lib too
+	LDFLAGS += -lnetcdff
+endif
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I $(NETCDF_DIR)/include
+	CXXFLAGS += -I $(NETCDF_CXX_DIR)/include
 else
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
 # gmsh
@@ -92,10 +101,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -isystem /usr/local/include #-I /opt/local/include/openmpi-mp
-
-	#LDFLAGS += -Wl,-rpath,/usr/local/lib #-Wl,-rpath,/opt/local/lib/openmpi-mp
-	#LDFLAGS += -L /usr/local/lib #-L /opt/local/lib/openmpi-mp -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
+	CXXFLAGS += -isystem /usr/local/include
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
@@ -105,16 +111,10 @@ endif
 
 LDFLAGS += -L /usr/local/lib
 
-LDFLAGS += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
-ifndef MACHINE_HEXAGON
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpi_cxx -lmpi -ldl -lstdc++ #-lpthread
-else
-	LDFLAGS += -L $(OPENMPI_LIB_DIR)/ -lmpichcxx -lmpich -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
-        LDFLAGS += -Wl,-rpath,$(BLAS_LAPACK_DIR)/lib
-        LDFLAGS += -L $(BLAS_LAPACK_DIR)/lib -lsci_gnu_mp
-endif
+LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
