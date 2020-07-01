@@ -15,11 +15,9 @@ contrib:
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE)
 
 modules:
-	@echo modules from wich oasis
-#ifdef USE_OASIS
-	@echo module oasis
+ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE)
-#endif
+endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
@@ -31,15 +29,14 @@ model: core modules contrib
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
 core:
-	@echo makefile for core
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
-#ifdef USE_OASIS
+ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
-#endif
+endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
 endif
@@ -51,9 +48,9 @@ cleanmodel:
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
-#ifdef USE_OASIS
+ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
-#endif
+endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
 endif

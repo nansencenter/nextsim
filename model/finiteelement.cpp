@@ -5995,7 +5995,6 @@ FiniteElement::thermo(int dt)
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-            //assert(mld>0);
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -6024,8 +6023,6 @@ FiniteElement::thermo(int dt)
             Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
         }
 
-            //assert(M_sst[i]>0);
-            //assert(M_sss[i]>0);
         // -------------------------------------------------
         //! 5) Calculates the thickness change of the ice slab (thermoIce0 in matlab)
 
