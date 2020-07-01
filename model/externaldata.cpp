@@ -234,7 +234,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             }
 
             this->recieveCouplingData(M_dataset, cpl_time, comm);
-            transformData(M_dataset);
+            this->transformData(M_dataset);
             M_dataset->interpolated = false;
             M_dataset->itime_range[0] = cpl_time;
             M_dataset->itime_range[1] = cpl_time + cpl_dt;

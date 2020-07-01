@@ -1906,7 +1906,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
             dirname: "coupler",
             prefix: "NEMO",
