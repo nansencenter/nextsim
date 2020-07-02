@@ -4567,6 +4567,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
+        double const conc_old = M_conc[cpt];
+        double myi_fraction = M_conc[cpt]-M_fyi_fraction[cpt];
         M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
@@ -4588,7 +4590,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
-            M_fyi_fraction[cpt] *= surf_ratio;
+            double conc_ratio = std::min(1.,M_conc)/old_conc // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
+            myi_fraction *= conc_ratio; // Adjusting myi rather than fyi as this is what we want to conserve. Using conc_ratio means myi_fraction does not exceed 1
+            // M_fyi_fraction[cpt] *= surf_ratio;
         }
 
         /*======================================================================
@@ -4648,8 +4652,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
                                         M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt] ));
 
                     //assume thin ice is FYI, so del_c is also added to M_fyi_fraction
-                    M_fyi_fraction[cpt] += del_c;
-                    M_fyi_fraction[cpt] = std::min(1.,std::max(M_fyi_fraction[cpt],0.));
+                    // M_fyi_fraction[cpt] += del_c;
+                    // M_fyi_fraction[cpt] = std::min(1.,std::max(M_fyi_fraction[cpt],0.));
 
                     // All ice that is added has the age dtime_step
                     // M_age is volume averaged ice age, so
@@ -4684,10 +4688,22 @@ FiniteElement::update(std::vector<double> const & UM_P)
         }
         //change FYI proportionally to M_conc
         //TODO M_age, M_age_det?
-        if(M_conc[cpt]>0.)
-            M_fyi_fraction[cpt] *= new_conc/M_conc[cpt];
-        else
-            M_fyi_fraction[cpt] = new_conc;
+        //if(M_conc[cpt]>0.)
+        //    M_fyi_fraction[cpt] *= new_conc/M_conc[cpt];
+        // if(M_conc[cpt]>0.)
+        // {
+        //     if(new_conc<M_conc[cpt]) // if M_conc > 1, need to remove excess fyi
+        //     {
+        //         M_fyi_fraction[cpt] -= M_conc[cpt] - new_conc;
+        //         M_fyi_fraction[cpt] = std::max(0.,M_fyi_fraction[cpt]);
+        //     }
+        //     else
+        //         M_fyi_fraction[cpt] *= new_conc/M_conc[cpt];
+        // }
+        // else
+        //     M_fyi_fraction[cpt] = new_conc;
+        M_fyi_fraction[cpt] = std::max(0.,std::min(1.,new_conc-myi_fraction));
+
         M_conc[cpt]=new_conc;
 
         if(M_conc[cpt] <= 0.)
