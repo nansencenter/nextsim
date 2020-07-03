@@ -262,7 +262,7 @@ private:
         addHalo(int const halo_size, int const tmp_start, int const tmp_end, int& dim_start, int& dim_count);
 
     void inline
-        findXYMinMax(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end);
+        findMinMaxIndices(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end);
 
 };
 
