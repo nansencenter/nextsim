@@ -9329,8 +9329,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 	std::vector<double> Y(grid_ptr->dimension_y_count);
 
         this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
-#if 1
-        // Get the proc speciffic boundaries
+        // Get the proc specific boundaries
         double RX_min, RX_max, RY_min, RY_max;
         this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
 
