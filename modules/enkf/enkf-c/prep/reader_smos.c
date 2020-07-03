@@ -273,14 +273,14 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
     int ncid;
     int x_dimid, y_dimid, t_dimid;
     size_t nobslen, xlen, ylen, tlen;
-    int varid_lon, varid_lat, varid_sit, varid_error, varid_iconc, varid_time;
-    int sit_fill_value, estd_fill_value, iconc_fill_value;
-    float sit_scale_factor,estd_scale_factor,iconc_scale_factor;
+    int varid_lon, varid_lat, varid_sit, varid_error, varid_sic, varid_time;
+    int   sit_fill_value,  estd_fill_value,  sic_fill_value;
+    float sit_scale_factor,estd_scale_factor,sic_scale_factor;
     float** lon;
     float** lat;
     int*** sit;
     int*** error_std;
-    int*** ice_conc;
+    int*** sic;
     double* time = NULL;
     int year, month, day;
     char tunits[MAXSTRLEN];
@@ -312,30 +312,32 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
     lon = alloc2d(ylen, xlen, sizeof(float));
     ncw_get_var_float(ncid, varid_lon, lon[0]);
 
-    ncw_inq_varid(ncid, "analysis_sea_ice_thickness", &varid_sit);
-    sit = alloc3d(tlen, ylen, xlen, sizeof(int));
-    ncw_get_var_int(ncid, varid_sit, sit[0][0]);
-    if (ncw_att_exists(ncid, varid_sit, "_FillValue"))
-        ncw_get_att_int(ncid, varid_sit, "_FillValue", &sit_fill_value);
-    if (ncw_att_exists(ncid, varid_sit, "scale_factor"))
-        ncw_get_att_float(ncid, varid_sit, "scale_factor", &sit_scale_factor);
+    if (strcmp(meta->type,"sea_ice_thickness") == 0) {  // type in obstypes.prm
+        ncw_inq_varid(ncid, "analysis_sea_ice_thickness", &varid_sit);
+        sit = alloc3d(tlen, ylen, xlen, sizeof(int));
+        ncw_get_var_int(ncid, varid_sit, sit[0][0]);
+        if (ncw_att_exists(ncid, varid_sit, "_FillValue"))
+            ncw_get_att_int(ncid, varid_sit, "_FillValue", &sit_fill_value);
+        if (ncw_att_exists(ncid, varid_sit, "scale_factor"))
+            ncw_get_att_float(ncid, varid_sit, "scale_factor", &sit_scale_factor);
 
-    ncw_inq_varid(ncid, "analysis_sea_ice_thickness_unc", &varid_error);
-    error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
-    ncw_get_var_int(ncid, varid_error, error_std[0][0]);
-    if (ncw_att_exists(ncid, varid_error, "_FillValue"))
-        ncw_get_att_int(ncid, varid_error, "_FillValue", &estd_fill_value);
-    if (ncw_att_exists(ncid, varid_error, "scale_factor"))
-        ncw_get_att_float(ncid, varid_error, "scale_factor", &estd_scale_factor);
-
-    ncw_inq_varid(ncid, "sea_ice_concentration", &varid_iconc);
-    ice_conc = alloc3d(tlen, ylen, xlen, sizeof(int));
-    ncw_get_var_int(ncid, varid_iconc, ice_conc[0][0]);
-    if (ncw_att_exists(ncid, varid_iconc, "_FillValue"))
-        ncw_get_att_int(ncid, varid_iconc, "_FillValue", &iconc_fill_value);
-    if (ncw_att_exists(ncid, varid_iconc, "scale_factor"))
-        ncw_get_att_float(ncid, varid_iconc, "scale_factor", &iconc_scale_factor);        
-
+        ncw_inq_varid(ncid, "analysis_sea_ice_thickness_unc", &varid_error);
+        error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
+        ncw_get_var_int(ncid, varid_error, error_std[0][0]);
+        if (ncw_att_exists(ncid, varid_error, "_FillValue"))
+            ncw_get_att_int(ncid, varid_error, "_FillValue", &estd_fill_value);
+        if (ncw_att_exists(ncid, varid_error, "scale_factor"))
+            ncw_get_att_float(ncid, varid_error, "scale_factor", &estd_scale_factor);
+    }
+    else if (strcmp(meta->type,"sea_ice_concentration") == 0) {
+        ncw_inq_varid(ncid, "sea_ice_concentration", &varid_sic);
+        sic = alloc3d(tlen, ylen, xlen, sizeof(int));
+        ncw_get_var_int(ncid, varid_sic, sic[0][0]);
+        if (ncw_att_exists(ncid, varid_sic, "_FillValue"))
+            ncw_get_att_int(ncid, varid_sic, "_FillValue", &sic_fill_value);
+        if (ncw_att_exists(ncid, varid_sic, "scale_factor"))
+            ncw_get_att_float(ncid, varid_sic, "scale_factor", &sic_scale_factor);        
+    }
     ncw_inq_varid(ncid, "time", &varid_time);
     time = malloc(tlen * sizeof(double));
     ncw_get_var_double(ncid, varid_time, time);
@@ -372,8 +374,15 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
                 o->id = obs->nobs;
                 o->fid = fid;
                 o->batch = 0;
-                o->value = (double) (sit[it][i][j]*sit_scale_factor);
-                o->std = (double) (error_std[it][i][j]*estd_scale_factor);
+                if (strcmp(meta->type,"sea_ice_thickness") == 0) {
+                    o->value = (double) (sit[it][i][j]*sit_scale_factor);
+                    o->std   = (double) (error_std[it][i][j]*estd_scale_factor);
+                    printf("%f",error_std[it][i][j])
+                }
+                else if (strcmp(meta->type,"sea_ice_concentration") == 0) {
+                    o->value = (double) (sic[it][i][j]*sic_scale_factor);
+                    o->std   = 0.01+pow(0.5-fabs(0.5-o->value),2.0);
+                }
                 o->lon = lon[i][j];
                 o->lat = lat[i][j];
                 o->depth = 0.0;
@@ -394,14 +403,19 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
 
     free(lon);
     free(lat);
-    free(sit);
-    free(error_std);
+    if (strcmp(meta->type,"sea_ice_thickness") == 0) {
+        free(sit);
+        free(error_std);
+    }
+    else if (strcmp(meta->type,"sea_ice_concentration") == 0) 
+        free(sic);
+    
     free(time);
 }
 
 
 // /**
-//  * read cs2-smos, W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20181105_20181111_r_v201_01_l4sit   << v201
+//  * read cs2-smos v2.1, W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20181105_20181111_r_v201_01_l4sit   << v201
 // */
 // void reader_smos_standard4(char* fname, int fid, obsmeta* meta, grid* g, observations* obs)
 // {
