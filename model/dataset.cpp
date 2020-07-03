@@ -9210,6 +9210,9 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
 void
 DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time)
 {
+    // Empty RXY vector is needed for the coupling so that all the domain is considered.
+    /* TODO: Check if we really need to do this, or if the coupling can be made
+     * more efficient by only considering a sub-domain */
     std::vector<double> RXY(0);
     loadGrid(mapNextsim, grid_ptr, init_time, current_time, RXY, RXY);
 
@@ -9290,14 +9293,14 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
         // Then, we determine the reduced dimension
         int tmp_start, tmp_end;
-        this->findXYMinMax(LAT, RY_min, RY_max, tmp_start, tmp_end);
+        this->findMinMaxIndices(LAT, RY_min, RY_max, tmp_start, tmp_end);
 
         // Add a halo
         this->addHalo(halo_size, tmp_start, tmp_end,
                 grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
         // Do the same for x
-        this->findXYMinMax(LON, RX_min, RX_max, tmp_start, tmp_end);
+        this->findMinMaxIndices(LON, RX_min, RX_max, tmp_start, tmp_end);
         this->addHalo(halo_size, tmp_start, tmp_end,
                 grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
 
@@ -9335,14 +9338,14 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
         // Then, we determine the reduced dimension
         int tmp_start, tmp_end;
-        this->findXYMinMax(Y, RY_min, RY_max, tmp_start, tmp_end);
+        this->findMinMaxIndices(Y, RY_min, RY_max, tmp_start, tmp_end);
 
         // Add a halo
         this->addHalo(halo_size, tmp_start, tmp_end,
                 grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
         // Do the same for x
-        this->findXYMinMax(X, RX_min, RX_max, tmp_start, tmp_end);
+        this->findMinMaxIndices(X, RX_min, RX_max, tmp_start, tmp_end);
         this->addHalo(halo_size, tmp_start, tmp_end,
                 grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
 
@@ -9809,7 +9812,7 @@ DataSet::addHalo(int const halo_size, int const tmp_start, int const tmp_end, in
 
 // Determine the reduced dimension
 void inline
-DataSet::findXYMinMax(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end)
+DataSet::findMinMaxIndices(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end)
 {
         tmp_start = -1;
         tmp_end   = -1;
