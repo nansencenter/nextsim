@@ -9210,6 +9210,9 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
 void
 DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time)
 {
+    // Empty RXY vector is needed for the coupling so that all the domain is considered.
+    /* TODO: Check if we really need to do this, or if the coupling can be made
+     * more efficient by only considering a sub-domain */
     std::vector<double> RXY(0);
     loadGrid(mapNextsim, grid_ptr, init_time, current_time, RXY, RXY);
 
