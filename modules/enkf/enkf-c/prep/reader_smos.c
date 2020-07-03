@@ -377,7 +377,6 @@ void reader_smos_standard3(char* fname, int fid, obsmeta* meta, grid* g, observa
                 if (strcmp(meta->type,"sea_ice_thickness") == 0) {
                     o->value = (double) (sit[it][i][j]*sit_scale_factor);
                     o->std   = (double) (error_std[it][i][j]*estd_scale_factor);
-                    printf("%f",error_std[it][i][j])
                 }
                 else if (strcmp(meta->type,"sea_ice_concentration") == 0) {
                     o->value = (double) (sic[it][i][j]*sic_scale_factor);
