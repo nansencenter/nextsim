@@ -774,7 +774,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     filename_prev = filename;
                 }
 
-                // The index above the courrent time
+                // The index above the current time
                 if ( indx_ceil >= 0 && indx_ceil < timeDim.getSize() )
                 {
                     index_start[0] = indx_ceil;
