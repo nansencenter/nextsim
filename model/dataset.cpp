@@ -9351,7 +9351,6 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         X.resize(grid_ptr->dimension_x_count);
 
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
-#endif
         grid_ptr->gridX=X;
         grid_ptr->gridY=Y;
 
