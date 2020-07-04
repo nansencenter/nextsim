@@ -1,11 +1,10 @@
 NAME = Arctic
 
 VAR = sit
-#VAR = sic
+VAR = sic
 #VAR = siu
 #VAR = siv
 #VAR = snt
 #VAR = sic_thin
 #VAR = sit_thin
 #VAR = snt_thin
-
