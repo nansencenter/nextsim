@@ -5478,12 +5478,12 @@ DataSet::DataSet(char const *DatasetName)
     {   // structure is similar to ice_amsr2_elements
         // Definition of topaz grid and datasets
         Dimension dimension_x={
-            name:"x",
+            name:"y",    // this setting works!   dimension_x <-> y, while dimension_y <-> x
             cyclic:false
         };
 
         Dimension dimension_y={
-            name:"y",
+            name:"x",
             cyclic:false
         };
 

@@ -7300,12 +7300,12 @@ FiniteElement::init()
 
 #ifdef ENSEMBLE
     if ( M_use_statevector ){
-        this->initStateVector();
-        LOG(DEBUG) <<"initStateVector...\n";
+        LOG(DEBUG) <<"initStateVector\n";
+        this->initStateVector();        
     }
     if (M_restart_from_analysis){
-       this->readStateVector();
-       LOG(DEBUG) <<"readStateVector\n";
+        LOG(DEBUG) <<"readStateVector\n";
+        this->readStateVector();       
     }
 #endif
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
