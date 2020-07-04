@@ -1606,6 +1606,9 @@ int grid_xy2fij(grid* g, double x, double y, double* fi, double* fj)
             x -= 360.0;
     }
 
+    // if (y<84)  // csk set latitudes of observations >N85
+    //     return STATUS_OUTSIDEGRID;
+
     if (g->htype == GRIDHTYPE_LATLON)
         gs_xy2fij(g, x, y, fi, fj);
 #if !defined(NO_GRIDUTILS)

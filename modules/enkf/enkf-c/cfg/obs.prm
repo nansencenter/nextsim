@@ -1,9 +1,9 @@
-PRODUCT = SMOS
-READER = standard3
+PRODUCT = CS2SMOS
+READER = standard
 TYPE = sea_ice_thickness
 FILE = obs/W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20181118_20181124_r_v202_01_l4sit.nc
 
-PRODUCT = SMOS
-READER = standard3
+PRODUCT = CS2SMOS
+READER = standard
 TYPE = sea_ice_concentration
 FILE = obs/W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20181118_20181124_r_v202_01_l4sit.nc

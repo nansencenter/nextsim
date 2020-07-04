@@ -4,7 +4,7 @@
 # -DGRIDNODES_WRITE
 # -DINTERNAL_QSORT_R
 # -DNO_GRIDUTILS
-PREPCALC_FLAGS =
+PREPCALC_FLAGS = 
 
 # Select flags for CALC from the following list (default = none):
 #
@@ -66,6 +66,7 @@ common/observations.c\
 prep/allreaders.c\
 prep/reader_navo.c\
 prep/reader_smos.c\
+prep/reader_cs2smos.c\
 prep/reader_windsat.c\
 prep/reader_rads.c\
 prep/reader_cars.c\
