@@ -592,11 +592,8 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
-    // TOPAZ needs special handling
-    if (   M_ocean_type == setup::OceanType::TOPAZR
-        || M_ocean_type == setup::OceanType::TOPAZR_atrest
-        || M_ocean_type == setup::OceanType::TOPAZF
-        || M_ocean_type == setup::OceanType::TOPAZR_ALTIMETER )
+    // The coupled system needs special handling
+    if ( M_ocean_type != setup::OceanType::COUPLED )
     {
         M_ocean_nodes_dataset.loaded=false;
         M_ocean_elements_dataset.loaded=false;
@@ -604,43 +601,19 @@ FiniteElement::assignVariables()
         M_ocean_elements_dataset.grid.loaded=false;
     }
 
-/* This shouldn't be needed - and it messes up the coupling
- * But let's keep it commented for now, just in case.
- *    // reload the dataset
- *    M_atmosphere_nodes_dataset.loaded=false;
- *    M_atmosphere_elements_dataset.loaded=false;
- *    M_atmosphere_bis_elements_dataset.loaded=false;
- *    M_ocean_nodes_dataset.loaded=false;
- *    M_ocean_elements_dataset.loaded=false;
- *
- *    M_ice_topaz_elements_dataset.loaded=false;
- *    M_ice_piomas_elements_dataset.loaded=false;
- *    M_ice_amsre_elements_dataset.loaded=false;
- *    M_ice_osisaf_elements_dataset.loaded=false;
- *    M_ice_osisaf_type_elements_dataset.loaded=false;
- *    M_ice_amsr2_elements_dataset.loaded=false;
- *    M_ice_cs2_smos_elements_dataset.loaded=false;
- *    M_ice_smos_elements_dataset.loaded=false;
- *    M_bathymetry_elements_dataset.loaded=false;
- *
- *
- *    // reload the grid
- *    M_atmosphere_nodes_dataset.grid.loaded=false;
- *    M_atmosphere_elements_dataset.grid.loaded=false;
- *    M_atmosphere_bis_elements_dataset.grid.loaded=false;
- *    M_ocean_nodes_dataset.grid.loaded=false;
- *    M_ocean_elements_dataset.grid.loaded=false;
- *
- *    M_ice_topaz_elements_dataset.grid.loaded=false;
- *    M_ice_piomas_elements_dataset.grid.loaded=false;
- *    M_ice_amsre_elements_dataset.grid.loaded=false;
- *    M_ice_osisaf_elements_dataset.grid.loaded=false;
- *    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
- *    M_ice_amsr2_elements_dataset.grid.loaded=false;
- *    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
- *    M_ice_smos_elements_dataset.grid.loaded=false;
- *    M_bathymetry_elements_dataset.grid.loaded=false;
-*/
+    // reload the dataset
+    M_atmosphere_nodes_dataset.loaded=false;
+    M_atmosphere_elements_dataset.loaded=false;
+    M_atmosphere_bis_elements_dataset.loaded=false;
+    M_bathymetry_elements_dataset.loaded=false;
+
+
+    // reload the grid
+    M_atmosphere_nodes_dataset.grid.loaded=false;
+    M_atmosphere_elements_dataset.grid.loaded=false;
+    M_atmosphere_bis_elements_dataset.grid.loaded=false;
+    M_bathymetry_elements_dataset.grid.loaded=false;
+
 
     // --------------------------------------------------------------
     // interpolation of the dataset
@@ -7847,7 +7820,8 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_Uocn"));
         var_rcv.push_back(std::string("I_Vocn"));
         var_rcv.push_back(std::string("I_SSH"));
-        var_rcv.push_back(std::string("I_MLD"));
+        // MLD is not needed for coupling with NEMO
+        //var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
 
@@ -9794,7 +9768,6 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i0].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #1 at " << M_drifters[i1].getInitTime()
             << " = " << datenumToString(M_drifters[i1].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
     }
     else if( b0 && !b1 )
     {
@@ -9805,11 +9778,11 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i1].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #0 at " << M_drifters[i0].getInitTime()
             << " = " << datenumToString(M_drifters[i0].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t << "\n";
     }
     else if( !(b0 || b1) )
     {
         // neither are initialised from restart => need to check the times
+        LOG(DEBUG) << "Neither OSISAF drifters initialised\n";
         double t = std::min(
                 M_drifters[i0].getInitTime(),
                 M_drifters[i1].getInitTime()
@@ -9818,8 +9791,17 @@ FiniteElement::synchroniseOsisafDrifters()
             t += 1;//make sure it's after the restart time, otherwise neither will ever start
         M_drifters[i0].setInitTime(t);
         M_drifters[i1].setInitTime(t + 1);
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t + 1 << "\n";
+    }
+    else
+    {
+        LOG(DEBUG) << "Both OSISAF drifters initialised\n";
+    }
+
+    for (int i=0; i<2; i++)
+    {
+        double const t = M_drifters[M_osisaf_drifters_indices[i]].getInitTime();
+        LOG(DEBUG) << "OSISAF drifters: init #" << i << " at "
+            << t << " = " << datenumToString(t) << "\n";
     }
 }//synchroniseOsisafDrifters
 
@@ -10233,6 +10215,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Starting sub-time stepping\n";
     M_timer.tick("sub-time stepping");
 
+    std::vector<double> c_prime(M_num_nodes); // Saved for the ice-ocean drag to send to coupler
     // Do the sub-time stepping itself
     for ( int s=0; s<steps; s++ )
     {
@@ -10305,15 +10288,15 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            c_prime[i] = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
-            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dte*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
+            double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
+            double const beta   = dte*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime[i]*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
@@ -10387,15 +10370,20 @@ FiniteElement::explicitSolve()
     }
 
     // Move the mesh in the open water part
+    // Diagnostic/coupling: Ice-ocean drag
     std::vector<double> UM_P = M_UM;
     for ( int i=0; i<M_num_nodes; ++i )
     {
+        int const u_indx = i;
+        int const v_indx = i+M_num_nodes;
+
+        // Save ice-ocean drag
+        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
+
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
             continue;
-
-        int const u_indx = i;
-        int const v_indx = i+M_num_nodes;
 
         M_UM[u_indx] += dtime_step*M_VT[u_indx];
         M_UM[v_indx] += dtime_step*M_VT[v_indx];
