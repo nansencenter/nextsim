@@ -721,6 +721,7 @@ private:
     // Drifters
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters
+    Drifters::MeshInfo M_drifters_mesh_info;//save the mesh nodes when drifters were last moved
 
     // Element variable
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
