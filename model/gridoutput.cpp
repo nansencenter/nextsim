@@ -495,12 +495,35 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
 
 
     // Add the output pointer value to the grid vectors
-    for (int i=0; i<nb_var; i++)
-        for (int j=0; j<M_grid_size; ++j)
-            if ( kind == variableKind::nodal )
-                variables[i].data_grid[j] += interp_out[nb_var*j+i]*M_proc_mask[j];
-            else
-                variables[i].data_grid[j] += interp_out[nb_var*j+i];
+    for (int nv=0; nv<nb_var; nv++)
+    {
+        if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
+        {
+            // regularly spaced grid
+            // - need to transpose bamg output
+            //   - bamg increases down columns
+            //   - grid increases along rows
+            int bamg_ind = 0;
+            for (int i=0; i<M_ncols; ++i)//x
+                for (int j=0; j<M_nrows; ++j)//y
+                {
+                    int const grid_ind = i + M_ncols*j;
+                    if ( kind == variableKind::nodal )
+                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[j];
+                    else
+                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
+                    bamg_ind++;
+                }
+        }
+        else
+        {
+            for (int j=0; j<M_grid_size; ++j)
+                if ( kind == variableKind::nodal )
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv]*M_proc_mask[j];
+                else
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
+        }
+    }
 
     xDelete<double>(interp_out);
 }
