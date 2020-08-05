@@ -236,22 +236,16 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, C
     // Open file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    /* We don't know the dimNameX and dimNameY so we assume the first dimension is x and the second
-     * is y ... unless M_grid.transpose is true, then we do it the other way around. */
+    /* We don't know the dimNameX and dimNameY so we assume the first dimension is y and the second
+     * is x ... unless M_grid.transpose is true, then we do it the other way around. */
     netCDF::NcVar VLAT = dataFile.getVar(M_grid.latName);
     netCDF::NcVar VLON = dataFile.getVar(M_grid.lonName);
 
     // Read the dimension of the grid
-    netCDF::NcDim dim;
-    M_grid.dimNameX = VLAT.getDim((int)M_grid.transpose).getName();
-
-    dim = dataFile.getDim(M_grid.dimNameX);
-    M_ncols = dim.getSize();
-
-    M_grid.dimNameY = VLAT.getDim((int)!M_grid.transpose).getName();
-
-    dim = dataFile.getDim(M_grid.dimNameY);
-    M_nrows = dim.getSize();
+    M_grid.dimNameX = VLAT.getDim((int)!M_grid.transpose).getName();
+    M_grid.dimNameY = VLAT.getDim((int)M_grid.transpose).getName();
+    M_ncols = dataFile.getDim(M_grid.dimNameX).getSize();
+    M_nrows = dataFile.getDim(M_grid.dimNameY).getSize();
 
     M_mooring_spacing = -1.;
     M_grid_size = M_ncols*M_nrows;
