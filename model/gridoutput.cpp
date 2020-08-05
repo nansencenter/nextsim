@@ -837,7 +837,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     // Create the two spatial dimensions.
     netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
     netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
-    std::vector<netCDF::NcDim> dims2 = {ydim, xdim};
+    std::vector<netCDF::NcDim> dims2 = {yDim, xDim};
 
     // cell methods - combine time method with hard-coded area method defined for each variable
     std::string cell_methods_time = "time: point ";//for snapshot
@@ -866,7 +866,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // Create the output variables
     netCDF::NcVar data;
-    std::vector<netCDF::NcDim> dims = {tdim, ydim, xdim};
+    std::vector<netCDF::NcDim> dims = {tDim, yDim, xDim};
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
         if ( it->varID < 0 ) // Skip non-outputting variables
