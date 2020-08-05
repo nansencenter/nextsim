@@ -191,21 +191,22 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
     double lat;
     double lon;
     int i=0;
-    double X = xmin;
-    for (int ncols=0; ncols<M_ncols; ncols++)
+    double Y = ymin;
+    // x changes in cols, y in rows
+    for (int nrows=0; nrows<M_nrows; nrows++)
     {
-        double Y = ymin;
-        for (int nrows=0; nrows<M_nrows; nrows++)
+        double X = xmin;
+        for (int ncols=0; ncols<M_ncols; ncols++)
         {
             int status = inverse_mapx(map,X,Y,&lat,&lon);
             M_grid.gridLAT[i] = lat;
             M_grid.gridLON[i] = lon;
-            Y += mooring_spacing;
+            X += mooring_spacing;
             i++;
         }
-        X += mooring_spacing;
-        M_ymax = Y - mooring_spacing;
+        Y += mooring_spacing;
     }
+    M_ymax = Y - mooring_spacing;
 
     close_mapx(map);
 
@@ -836,10 +837,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     // Create the two spatial dimensions.
     netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
     netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
-
-    std::vector<netCDF::NcDim> dims2(2);
-    dims2[0] = xDim;
-    dims2[1] = yDim;
+    std::vector<netCDF::NcDim> dims2 = {ydim, xdim};
 
     // cell methods - combine time method with hard-coded area method defined for each variable
     std::string cell_methods_time = "time: point ";//for snapshot
@@ -868,10 +866,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // Create the output variables
     netCDF::NcVar data;
-    std::vector<netCDF::NcDim> dims(3);
-    dims[0] = tDim;
-    dims[1] = xDim;
-    dims[2] = yDim;
+    std::vector<netCDF::NcDim> dims = {tdim, ydim, xdim};
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
         if ( it->varID < 0 ) // Skip non-outputting variables
