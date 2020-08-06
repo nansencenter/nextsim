@@ -43,7 +43,6 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
              //-----------------------------------------------------------------------------------
