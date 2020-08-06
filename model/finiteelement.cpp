@@ -9064,13 +9064,19 @@ FiniteElement::initMoorings()
         // Element variables
         else if (mooring_name_map_elements.count(*it)==0)
         {
-            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
-            LOG(ERROR)<<"Available names are:\n";
-            LOG(ERROR)<<"  velocity\n";
-            LOG(ERROR)<<"  tau\n";
+            std::stringstream error_msg;
+            error_msg<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
+            error_msg<<"Available names are:\n";
+            error_msg<<"  velocity\n    vectors of sea-ice velocity\n";
+            error_msg<<"  tau\n    vectors of ice-ocean stress\n";
+            error_msg<<"\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
-                LOG(ERROR)<<"  "<< ptr->first <<"\n";
+            {
+                GridOutput::Variable tmp(ptr->second);
+                error_msg<<"  "<< ptr->first << "\n    netCDF name: " << tmp.name << "\n    netCDF long name: " << tmp.longName <<"\n";
+            }
+            LOG(ERROR) << error_msg.str();
             throw std::runtime_error("Invalid mooring name");
         }
         else
