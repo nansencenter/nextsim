@@ -172,6 +172,7 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
     M_ncols = ncols;
     M_nrows = nrows;
     M_mooring_spacing = mooring_spacing;
+    M_is_regular_grid = true;
     M_grid_size = M_ncols*M_nrows;
 
     M_xmin = xmin;
@@ -246,8 +247,6 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, C
     M_grid.dimNameY = VLAT.getDim((int)M_grid.transpose).getName();
     M_ncols = dataFile.getDim(M_grid.dimNameX).getSize();
     M_nrows = dataFile.getDim(M_grid.dimNameY).getSize();
-
-    M_mooring_spacing = -1.;
     M_grid_size = M_ncols*M_nrows;
 
     // Read the lat and lon, and theta and corners if requested
@@ -465,8 +464,16 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
                                     &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
                                     true, 0.);
     }
-    else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
+    else if (M_is_regular_grid)
     {
+        if ( (M_ncols <= 0) || (M_nrows <= 0) || (M_mooring_spacing <= 0) )
+        {
+            // sanity check
+            std::stringstream msg;
+            msg << "GridOutput::updateGridMeanWorker: using regular grid\n";
+            msg << "but not all of M_ncols, M_nrows, or M_mooring_spacing are set properly.\n";
+            std::logic_error(msg.str());
+        }
         InterpFromMeshToGridx(interp_out,
                               &indexTr[0],&coordX[0],&coordY[0],
                               numNodes,numTriangles,
@@ -479,7 +486,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     }
     else
     {
-        std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded from file and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
+        std::logic_error("GridOutput::updateGridMeanWorker: Not regular grid and no grid loaded.\n");
     }
 
     // Rotate vectors if needed (these may only be on the nodes)
@@ -491,7 +498,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     // Add the output pointer value to the grid vectors
     for (int nv=0; nv<nb_var; nv++)
     {
-        if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
+        if (M_is_regular_grid)
         {
             // regularly spaced grid
             // - need to transpose bamg output
