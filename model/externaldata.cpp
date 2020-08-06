@@ -211,25 +211,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     }
 
                     // ---------------------------------
-                    // Projection of the mesh positions into the coordinate system of the data before the interpolation
-                    // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
-                    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
-
-                    std::vector<double> RX,RY;//size set in convertTargetXY
-                    this->convertTargetXY(M_dataset,RX_in,RY_in,RX,RY,mapNextsim);
-
-                    // closing maps
-                    close_mapx(mapNextsim);
-
-                    double RX_min=*std::min_element(RX.begin(),RX.end());
-                    double RX_max=*std::max_element(RX.begin(),RX.end());
-                    double RY_min=*std::min_element(RY.begin(),RY.end());
-                    double RY_max=*std::max_element(RY.begin(),RY.end());
-
-                    // ---------------------------------
                     // Load grid if unloaded
                     // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
-                    M_dataset->loadGrid(&(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                    M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
                 }
 
                 this->receiveCouplingData(M_dataset, cpl_time, comm);
@@ -545,48 +529,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
 
     // ---------------------------------
-    // Projection of the mesh positions into the coordinate system of the data before the interpolation
-    // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
-    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
-
-    std::vector<double> RX,RY;//size set in convertTargetXY
-    this->convertTargetXY(dataset,RX_in,RY_in,RX,RY,mapNextsim);
-
-#if 0
-    auto RX = mesh.coordX(dataset->rotation_angle);
-    auto RY = mesh.coordY(dataset->rotation_angle);
-
-    if(dataset->target_size==mesh.numTriangles())
-    {
-    	RX = mesh.bCoordX(dataset->rotation_angle);
-        RY = mesh.bCoordY(dataset->rotation_angle);
-    }
-
-	if(dataset->grid.interpolation_in_latlon)
-	{
-		double lat, lon;
-
-		for (int i=0; i<dataset->target_size; ++i)
-		{
-			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
-			RY[i]=lat;
-			RX[i]=lon;
-			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			//RY[i]=tmp_latlon[0];
-			//RX[i]=tmp_latlon[1];
-		}
-	}
-#endif
-
-    // closing maps
-    close_mapx(mapNextsim);
-
-    double RX_min=*std::min_element(RX.begin(),RX.end());
-    double RX_max=*std::max_element(RX.begin(),RX.end());
-    double RY_min=*std::min_element(RY.begin(),RY.end());
-    double RY_max=*std::max_element(RY.begin(),RY.end());
-
-    // ---------------------------------
     // Load grid if unloaded
     LOG(DEBUG) << dataset->grid.loaded << "\n";
     if(!dataset->grid.loaded)
@@ -613,8 +555,11 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
         }
         //only need init_time to get grid
-        dataset->loadGrid(&(dataset->grid), init_time, init_time, RX_min, RX_max, RY_min, RY_max);
+        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
     }
+
+    // closing maps
+    close_mapx(mapNextsim);
 
     // ---------------------------------
     std::vector<double> XTIME(1);
@@ -726,65 +671,90 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             index_start.resize(1);
             index_count.resize(1);
 
-            bool has_time_variable;
+            // Open the netcdf file
+            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-            try // we try because sometimes no time dimension is available in the netcdf
+            netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
+            netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
+
+            // Read first two or the only time coordinates
+            index_start[0]=0;
+            index_count[0]=std::min(2, int(timeDim.getSize()));
+            XTIME.resize(index_count[0]);
+
+            FVTIME.getVar(index_start, index_count, &XTIME[0]);
+
+            double const t_ref = stringToDatenum(dataset->grid.reference_date);
+
+            // If we have two time indices we calculate a delta t and derive the correct index
+            if ( index_count[0] == 2 )
             {
-                // Open the netcdf file
-                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                double const t0 = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
+                double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
+                double const dt = t1 - t0;
 
-                // Set the time range XTIME
-                netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
-		        netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
-                index_start[0]=0;
-                index_count[0]=timeDim.getSize();
-                XTIME.resize(index_count[0]);
-                FVTIME.getVar(index_start, index_count, &XTIME[0]);
-                has_time_variable=true;
+                // This is a double because we're most likely in between integer indices
+                double const indx = (M_current_time - t0)/dt;
+
+                /* There is an extremely small chance that this procedure puts
+                 * us in the wrong interval. It can only happen if the rounding
+                 * error on indx results in indx_floor being smaller than the
+                 * correct value. But we know that M_current_time >
+                 * M_dataset->ftime_range[1], so this is almost certainly not
+                 * going to happen. */
+                int const indx_floor = std::floor(indx);
+                int const indx_ceil  = indx_floor + 1;
+
+                // The index below the current time
+                if ( indx_floor >= 0 && indx_floor < timeDim.getSize() )
+                {
+                    index_start[0] = indx_floor;
+                    index_count[0] = 1;
+                    XTIME.resize(index_count[0]);
+
+                    FVTIME.getVar(index_start, index_count, &XTIME[0]);
+
+                    time_prev = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
+                    index_prev = indx_floor;
+                    filename_prev = filename;
+                }
+
+                // The index above the current time
+                if ( indx_ceil >= 0 && indx_ceil < timeDim.getSize() )
+                {
+                    index_start[0] = indx_ceil;
+                    index_count[0] = 1;
+                    XTIME.resize(index_count[0]);
+
+                    FVTIME.getVar(index_start, index_count, &XTIME[0]);
+
+                    time_next = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
+                    index_next = indx_ceil;
+                    filename_next = filename;
+                }
             }
-            catch(const std::exception& e) // if no time dimension is available in the netcdf, we define the time as
+            // If there's only one time step per file
+            else if ( index_count[0] == 1 )
             {
-                has_time_variable=false;
-                index_start[0]=0;
-                index_count[0]=1;
-                XTIME.resize(index_count[0]);
-                XTIME[0]=-1.;
+                double const f = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
 
-                if(dataset->grid.dataset_frequency=="monthly" || dataset->grid.dataset_frequency=="yearly")
-                    throw std::runtime_error("The case monthly and yearly when no time dimension is available is not implemented!");
+                if(f>M_current_time && index_next==-1)
+                {
+                    time_next=f;
+                    index_next = 0;
+                    filename_next = filename;
+                }
+                if(f<=M_current_time)
+                {
+                    time_prev=f;
+                    index_prev = 0;
+                    filename_prev = filename;
+                }
             }
-
-            double f;
-            int nt = XTIME.size();
-            if(is_ec_fc && (!true_forecast))
+            // WTF?
+            else
             {
-                int ftime_res = dataset->time.a*(XTIME[1] - XTIME[0]);//forcing resolution in hours
-                nt = 24/ftime_res;// just use the first day of each file
-            }
-
-            for (int it=0; it < nt; ++it) // always need one step before and one after the target time
-            {
-                 if (!has_time_variable || ((dataset->name).find("ice_amsr2") != std::string::npos))
-                     f = stringToDatenum((boost::format( "%1%-%2%-%3%" )
-                                 % f_timestr.substr(0,4)
-                                 % f_timestr.substr(4,2)
-                                 % f_timestr.substr(6,2)).str())+0.5;
-                 else
-                     f = (XTIME[it]*dataset->time.a+dataset->time.b)/24.0
-                          + stringToDatenum(dataset->grid.reference_date);
-
-                 if(f>M_current_time && index_next==-1)
-                 {
-                     time_next=f;
-                     index_next = it;
-                     filename_next = filename;
-                 }
-                 if(f<=M_current_time)
-                 { 
-                     time_prev=f;
-                     index_prev = it;
-                     filename_prev = filename;
-                 }
+                throw std::runtime_error("ExternalData::loadData: Empty time variable in dataset " + dataset->name + "\n");
             }
         }//loop over jump
 
@@ -1365,45 +1335,6 @@ ExternalData::transformData(Dataset *dataset)
     close_mapx(mapNextsim);
 }//transformData
 
-
-void
-ExternalData::convertTargetXY(Dataset *dataset,
-        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
-        std::vector<double> & RX_out, std::vector<double> & RY_out,
-        mapx_class *mapNextsim)//(double const& u, double const& v)
-{
-    RX_out.resize(M_target_size);
-    RY_out.resize(M_target_size);
-
-    if(dataset->grid.interpolation_in_latlon)
-    {
-        double lat, lon;
-        for (int i=0; i<M_target_size; ++i)
-        {
-            //convert to lon,lat
-			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
-			RY_out[i]=lat;
-            double bc_lon=dataset->grid.branch_cut_lon;
-            bool close_on_right=false;
-                //if true  make target lon >  bc_lon,<=bc_lon+180
-                //if false make target lon >= bc_lon,< bc_lon+180
-                //this shouldn't matter here though?
-			RX_out[i]=dataset->thetaInRange(lon,bc_lon,close_on_right);
-        }
-    }
-    else
-    {
-        double cos_rotangle = std::cos(dataset->rotation_angle);
-        double sin_rotangle = std::sin(dataset->rotation_angle);
-        //rotate to coord sys of dataset
-        for (int i=0; i<M_target_size; ++i)
-        {
-			RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
-			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
-        }
-    }
-}//convertTargetXY
-
 void
 ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<double> const& RY_in)
@@ -1537,7 +1468,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 	}
 #endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
-    this->convertTargetXY(dataset,RX_in, RY_in, RX, RY,mapNextsim);
+    dataset->convertTargetXY(&(dataset->grid), RX_in, RY_in, RX, RY,mapNextsim);
 
     // closing maps
     close_mapx(mapNextsim);
