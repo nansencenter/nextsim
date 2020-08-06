@@ -41,6 +41,21 @@ DataSet::DataSet(char const *DatasetName)
     std::vector<std::vector<double>> interpolated_data_tmp;
     interpolated_data_tmp.resize(2);
 
+#ifdef OASIS
+    // Extract the dirname, prefix, and postfix from coupler.exchange_grid_file (default is coupler/NEMO.nc).
+    std::string grid_file = Environment::vm()["coupler.exchange_grid_file"].as<std::string>();
+
+    std::size_t indx_dir = grid_file.find_last_of("/");
+    std::string const cpl_dirname = grid_file.substr(0,indx_dir);
+
+    std::size_t indx_ext = grid_file.find_last_of(".");
+    if (indx_ext==std::string::npos)
+        indx_ext = grid_file.size();
+
+    std::string const cpl_prefix = grid_file.substr(indx_dir+1,indx_ext);
+    std::string const cpl_postfix = grid_file.substr(indx_ext);
+#endif
+
     /*
      *	match projection name and initialize remaining parameters
      */
@@ -1901,9 +1916,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: cpl_dirname,
+            prefix: cpl_prefix,
+            postfix: cpl_postfix,
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2103,9 +2118,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: cpl_dirname,
+            prefix: cpl_prefix,
+            postfix: cpl_postfix,
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2287,9 +2302,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: cpl_dirname,
+            prefix: cpl_prefix,
+            postfix: cpl_postfix,
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2489,9 +2504,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: cpl_dirname,
+            prefix: cpl_prefix,
+            postfix: cpl_postfix,
             gridfile: "",
             reference_date: "1979-01-01",
 
