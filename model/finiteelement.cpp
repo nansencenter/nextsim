@@ -1086,19 +1086,8 @@ FiniteElement::initOptAndParam()
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
-    thermo_timestep = vm["simul.thermo_timestep"].as<int>(); //! \param thermo_timestep (int) Thermodynamic time step [s]
-    if ( thermo_timestep % time_step != 0)
-    {
-        throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
-    }
-    // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
-    thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
-    // for now thermo_timestep must be equal to cpl_time_step
-    // this is preferable anyway, but less flexible than allowing thermo_timestep <= cpl_time_step
-    // This is deactivated for now as per issue 255 - but a better solution is needed.
-    // thermo_timestep = cpl_time_step;
 
     if ( cpl_time_step % time_step != 0)
     {
@@ -5981,7 +5970,7 @@ FiniteElement::thermo(int dt)
         {
             Qdw = 0;
             Fdw = 0;
-            // Assuming thermo_timestep == cpl_time_step
+            // Assuming time_step == cpl_time_step
             M_sst[i] = M_ocean_temp[i];
             M_sss[i] = M_ocean_salt[i];
         }
@@ -8150,10 +8139,10 @@ FiniteElement::step()
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
-    if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
+    if ( vm["thermo.use_thermo_forcing"].as<bool>() )
     {
         M_timer.tick("thermo");
-        this->thermo(thermo_timestep);
+        this->thermo(time_step);
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
 
