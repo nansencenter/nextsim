@@ -174,6 +174,7 @@ public:
         snowfr   = 210,
         wind_x   = 211,
         wind_y   = 212,
+        wspeed   = 213,
 
         // WIM variables
         dmax        = 300,
@@ -612,6 +613,14 @@ public:
                     name     = "wndy";
                     longName = "Wind Y velocity";
                     stdName  = "wind_y_velocity";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::wspeed):
+                    name     = "wspeed";
+                    longName = "Wind speed";
+                    stdName  = "wind_speed";
                     Units    = "m/s";
                     cell_methods = "area: mean";
                     break;
