@@ -6024,24 +6024,14 @@ FiniteElement::thermo(int dt)
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
-        if (M_use_assim_flux)
+        if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
-            double const Qoc_out = Qow[i]*old_ow_fraction
-                + Qio*old_conc + Qio_thin*old_conc_thin;
-            if (conc_pre_assim > 0 && M_conc_upd[i] < 0)
-            {
-                // compensating heat flux is a product of:
-                // * total flux out of the ocean
-                // * relative change in concentration (dCrel)
-                // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-                Qassm = -Qoc_out *
-                        (1 - std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent));
-            }
-            if(M_conc_upd[i]>0)
-            {
-                //want Qassm>0 (Qoc_out<0 : warming) to cool water and limit melting
-                Qassm = -Qoc_out * ( 1- std::pow(M_conc_upd[i], M_assim_flux_exponent) );
-            }
+            // compensating heat flux is a product of:
+            // * total flux out of the ocean
+            // * relative change in concentration (dCrel)
+            // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
+                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
 
         //relaxation of concentration update with time
