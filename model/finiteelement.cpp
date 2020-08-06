@@ -8935,6 +8935,8 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
+            ("sst", GridOutput::variableID::sst)
+            ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("fwflux", GridOutput::variableID::fwflux)
