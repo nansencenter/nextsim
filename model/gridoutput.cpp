@@ -222,6 +222,7 @@ void
 GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
 {
+    M_is_regular_grid = false;
     M_grid = grid;
     M_comm = comm;
 

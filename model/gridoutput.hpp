@@ -742,7 +742,7 @@ public:
     int M_ncols;
     int M_nrows;
     double M_mooring_spacing = 0;
-    bool M_is_regular_grid = false;
+    bool M_is_regular_grid;
     double M_averaging_period;
     int M_grid_size;
     bool M_false_easting;
