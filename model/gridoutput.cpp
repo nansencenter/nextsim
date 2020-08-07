@@ -510,7 +510,8 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
                 {
                     int const grid_ind = i + M_ncols*j;
                     if ( kind == variableKind::nodal )
-                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[j];
+                        variables[nv].data_grid[grid_ind]
+                            += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[grid_ind];
                     else
                         variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
                     bamg_ind++;
