@@ -8768,6 +8768,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::vice_melt):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_vice_melt[i]*time_factor;
+                break;
             case (GridOutput::variableID::wspeed):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
