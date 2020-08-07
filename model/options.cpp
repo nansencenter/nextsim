@@ -43,7 +43,6 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
              //-----------------------------------------------------------------------------------
@@ -484,6 +483,9 @@ namespace Nextsim
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            ("coupler.BGC_active", po::value<bool>()->default_value( false ), "Activate sending of MSLP and wind speed for the BGC model.")
+            ("coupler.rcv_first_layer_depth", po::value<bool>()->default_value( false ), "Activate/deactivate (default) receiving of the depth of the first ocean layer (I_MLD in namcouple).")
+
 
             //-----------------------------------------------------------------------------------
             //!wave_coupling

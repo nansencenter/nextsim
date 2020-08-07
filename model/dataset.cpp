@@ -2030,6 +2030,23 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        Variable mld={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "I_MLD",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
             filename_prefix: "", // All variables are in the same (grid) file
@@ -2127,10 +2144,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask
         };
 
-        std::vector<Variable> variables_tmp(3);
+        std::vector<Variable> variables_tmp(4);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = qsrml;
+        variables_tmp[3] = mld;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -6418,7 +6436,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix:"ETOPO_NH25_10arcmin.nc",
+            prefix:"ETOPO_Arctic_2arcmin.nc",
             //prefix:"ETOPO1_Ice_g_gmt4.grd",
             postfix:"",
             gridfile: "",
@@ -9026,14 +9044,6 @@ DataSet::DataSet(char const *DatasetName)
 
 }
 
-void
-DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time)
-{
-    loadGrid(grid_ptr, init_time, current_time,
-            std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-            std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max());
-}//loadGrid
-
 std::string
 DataSet::getFilename(Grid *grid_ptr, double init_time, double current_time,int jump)
 {
@@ -9215,16 +9225,24 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
     return data;
 }//getNcVarData
 
+void
+DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time)
+{
+    // Empty RXY vector is needed for the coupling so that all the domain is considered.
+    /* TODO: Check if we really need to do this, or if the coupling can be made
+     * more efficient by only considering a sub-domain */
+    std::vector<double> RXY(0);
+    loadGrid(mapNextsim, grid_ptr, init_time, current_time, RXY, RXY);
+
+}//loadGrid
 
 void
-DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max)
+DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in)
 {
     /* We make the loaded domain a bit larger to avoid problems.
      * This is now done by adding a "halo" of one grid cell around the grid
      * cells needed. Replaces the old "expansion_factor" approach. */
     int halo_size = 1;
-
-    //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
 
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -9286,42 +9304,28 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 		std::vector<double> LAT(grid_ptr->dimension_y_count);
 		std::vector<double> LON(grid_ptr->dimension_x_count);
         this->getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
-#if 0
+#if 1
+        // Get the proc speciffic boundaries
+        double RX_min, RX_max, RY_min, RY_max;
+        this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
+
         // Then, we determine the reduced dimension
-        int tmp_start=-1;
-        int tmp_end=-1;
-        for (int i=0; i<(LAT.size()); ++i)
-        {
-            if(LAT[i]>=RY_min && LAT[i]<=RY_max)
-            {
-                tmp_end=i;
-                if(tmp_start==-1)
-                    tmp_start=i;
-            }
-        }
+        int tmp_start, tmp_end;
+        this->findMinMaxIndices(LAT, RY_min, RY_max, tmp_start, tmp_end);
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        // Add a halo
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
-        tmp_start=-1;
-        tmp_end=-1;
-        for (int i=0; i<(LON.size()); ++i)
-        {
-            if((LON[i]>=RX_min) && (LON[i]<=RX_max))
-            {
-                tmp_end=i;
-                if(tmp_start==-1)
-                    tmp_start=i;
-            }
-        }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
+        // Do the same for x
+        this->findMinMaxIndices(LON, RX_min, RX_max, tmp_start, tmp_end);
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
 
-		LAT.resize(grid_ptr->dimension_y_count);
-		LON.resize(grid_ptr->dimension_x_count);
-
-        std::cout<<tmp_start<<","<<tmp_end<<","<<tmp_end-tmp_start+1<<"\n";
         // Then we load the reduced grid
+        LAT.resize(grid_ptr->dimension_y_count);
+        LON.resize(grid_ptr->dimension_x_count);
+
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #endif
         grid_ptr->gridY=LAT;
@@ -9346,43 +9350,28 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 	std::vector<double> Y(grid_ptr->dimension_y_count);
 
         this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
-#if 0
+        // Get the proc specific boundaries
+        double RX_min, RX_max, RY_min, RY_max;
+        this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
+
         // Then, we determine the reduced dimension
-        int tmp_start=-1;
-        int tmp_end=-1;
-        for (int i=0; i<(Y.size()); ++i)
-        {
-            if(Y[i]>=RY_min && Y[i]<=RY_max)
-            {
-                tmp_end=i;
-                if(tmp_start==-1)
-                    tmp_start=i;
-            }
-        }
+        int tmp_start, tmp_end;
+        this->findMinMaxIndices(Y, RY_min, RY_max, tmp_start, tmp_end);
 
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_y_count = std::min(grid_ptr->dimension_y_count, tmp_end+1-tmp_start+2*halo_size);
+        // Add a halo
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
-        tmp_start=-1;
-        tmp_end=-1;
-        for (int i=0; i<(X.size()); ++i)
-        {
-            if((X[i]>=RX_min) && (X[i]<=RX_max))
-            {
-                tmp_end=i;
-                if(tmp_start==-1)
-                    tmp_start=i;
-            }
-        }
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        grid_ptr->dimension_x_count = std::min(grid_ptr->dimension_x_count, tmp_end+1-tmp_start+2*halo_size);
-
-		Y.resize(grid_ptr->dimension_y_count);
-		X.resize(grid_ptr->dimension_x_count);
+        // Do the same for x
+        this->findMinMaxIndices(X, RX_min, RX_max, tmp_start, tmp_end);
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
+        Y.resize(grid_ptr->dimension_y_count);
+        X.resize(grid_ptr->dimension_x_count);
+
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
-#endif
         grid_ptr->gridX=X;
         grid_ptr->gridY=Y;
 
@@ -9462,6 +9451,11 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 #endif
 
         // we just store the indices of all the points included in [RY_min, RY_max]
+
+        // Get the proc specific boundaries
+        double RX_min, RX_max, RY_min, RY_max;
+        this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
+
         std::vector<int> tmp_tmp_x_id(0);
         std::vector<int> tmp_tmp_y_id(0);
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
@@ -9484,19 +9478,15 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
         int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
         int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
 
-        // Add a halo - keeping in mind that grid_ptr->dimension_(x|y)_count is the total dimension
-        // size at the moment.
-        grid_ptr->dimension_y_start = std::max(0,tmp_start-halo_size);
-        tmp_end = std::min(grid_ptr->dimension_y_count, tmp_end+halo_size);
-        grid_ptr->dimension_y_count = tmp_end - grid_ptr->dimension_y_start;
+        // Add a halo
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
         // Do the same for x
         tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
         tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
-
-        grid_ptr->dimension_x_start = std::max(0,tmp_start-halo_size);
-        tmp_end = std::min(grid_ptr->dimension_x_count, tmp_end+halo_size);
-        grid_ptr->dimension_x_count = tmp_end - grid_ptr->dimension_x_start;
+        this->addHalo(halo_size, tmp_start, tmp_end,
+                grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
 
         // Resize and read
         LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
@@ -9828,6 +9818,32 @@ DataSet::loadGrid(Grid *grid_ptr, double init_time, double current_time, double 
 
     grid_ptr->loaded=true;
 }//loadGrid
+
+// Add a halo - keeping in mind that dime_count is the total dimension size at the moment.
+void inline
+DataSet::addHalo(int const halo_size, int const tmp_start, int const tmp_end, int& dim_start, int& dim_count)
+{
+        dim_start = std::max(0,tmp_start-halo_size);
+        double const end = std::min(dim_count-1, tmp_end+halo_size);
+        dim_count = end - dim_start + 1;
+}
+
+// Determine the reduced dimension
+void inline
+DataSet::findMinMaxIndices(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end)
+{
+        tmp_start = -1;
+        tmp_end   = -1;
+        for (int i=0; i<(XY.size()); ++i)
+        {
+            if(XY[i]>=R_min && XY[i]<=R_max)
+            {
+                tmp_end = i;
+                if ( tmp_start == -1 )
+                    tmp_start = i;
+            }
+        }
+}
 
 void
 DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
@@ -10200,5 +10216,76 @@ DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>>
     M_weights = weights;
 }
 #endif
+
+void
+DataSet::convertTargetXY(Grid *grid_ptr,
+        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
+        std::vector<double> & RX_out, std::vector<double> & RY_out,
+        mapx_class *mapNextsim)//(double const& u, double const& v)
+{
+    double const target_size = RX_in.size();
+    assert(target_size==RY_in.size());
+
+    RX_out.resize(target_size);
+    RY_out.resize(target_size);
+
+    if(grid_ptr->interpolation_in_latlon)
+    {
+        double lat, lon;
+        for (int i=0; i<target_size; ++i)
+        {
+            //convert to lon,lat
+			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
+			RY_out[i]=lat;
+            double bc_lon=grid_ptr->branch_cut_lon;
+            bool close_on_right=false;
+                //if true  make target lon >  bc_lon,<=bc_lon+180
+                //if false make target lon >= bc_lon,< bc_lon+180
+                //this shouldn't matter here though?
+			RX_out[i]=this->thetaInRange(lon,bc_lon,close_on_right);
+        }
+    }
+    else
+    {
+        double cos_rotangle = std::cos(rotation_angle);
+        double sin_rotangle = std::sin(rotation_angle);
+        //rotate to coord sys of dataset
+        for (int i=0; i<target_size; ++i)
+        {
+			RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
+			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
+        }
+    }
+}//convertTargetXY
+
+void
+DataSet::getMinMax(mapx_class *mapNextsim, Grid *grid_ptr,
+        std::vector<double> const& RX_in, std::vector<double> const& RY_in,
+        double& RX_min, double& RX_max, double& RY_min, double& RY_max)
+{
+    // ---------------------------------
+    // Projection of the mesh positions into the coordinate system of the data before the interpolation
+    // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
+    // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
+
+
+    if ( RX_in.size() > 0 && RY_in.size() > 0 )
+    {
+        std::vector<double> RX,RY;//size set in convertTargetXY
+        this->convertTargetXY(grid_ptr, RX_in,RY_in,RX,RY,mapNextsim);
+
+        RX_min=*std::min_element(RX.begin(),RX.end());
+        RX_max=*std::max_element(RX.begin(),RX.end());
+        RY_min=*std::min_element(RY.begin(),RY.end());
+        RY_max=*std::max_element(RY.begin(),RY.end());
+
+        //std::cout <<"RX_min= "<< RX_min << "RX_max= "<< RX_max <<"RY_min= "<< RY_min <<"RY_max= "<< RY_max <<"\n";
+    } else {
+        RX_min = std::numeric_limits<double>::lowest();
+        RX_max = std::numeric_limits<double>::max();
+        RY_min = RX_min;
+        RY_max = RX_max;
+    }
+}
 
 } // Nextsim

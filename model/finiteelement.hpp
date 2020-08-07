@@ -584,7 +584,6 @@ private:
     int restart_time_step;
     int time_step;
     double dtime_step;
-    int thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;

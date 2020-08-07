@@ -390,11 +390,14 @@ ModelVariable::initElemental()
         case (variableID::D_sigma):
             // principal stresses [Pa]
             M_name = "D_sigma";
-            
-            M_prognostic = false; M_exporting = true; if(M_component_number<0
-                    || M_component_number>1) throw std::runtime_error(
+            M_export_name = "Sigma";
+            M_prognostic = false;
+            M_exporting = true;
+            if(M_component_number<0 || M_component_number>1)
+                throw std::runtime_error(
                         "Unauthorised component number for D_sigma: "
-                        +std::to_string(M_component_number)); break;
+                        +std::to_string(M_component_number));
+            break;
 
         case (variableID::D_Qa):
             // Total heat flux to the atmosphere [W/m^2]
