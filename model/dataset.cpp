@@ -5049,7 +5049,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
      }
-     else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
+    else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
      {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5193,7 +5193,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
      }
-     else if (strcmp (DatasetName, "ice_smos_elements") == 0)
+    else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5475,10 +5475,10 @@ DataSet::DataSet(char const *DatasetName)
      }
 #ifdef ENSEMBLE
     else if (strcmp (DatasetName, "enkf_analysis_elements") == 0)
-    {
+    {   // structure is similar to ice_amsr2_elements
         // Definition of topaz grid and datasets
         Dimension dimension_x={
-            name:"y",
+            name:"y",    // this setting works!   dimension_x <-> y, while dimension_y <-> x
             cyclic:false
         };
 
@@ -5505,6 +5505,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plat",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -5521,6 +5522,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "plon",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -5537,6 +5539,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable time_tmp={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -5553,6 +5556,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable thickness={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "sit",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -5564,6 +5568,23 @@ DataSet::DataSet(char const *DatasetName)
             a: 1.,
             b: 0.,
             Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable conc={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "sic", //sea_ice_concentration
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 0.01,
+            b: 0.,
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -5586,6 +5607,7 @@ DataSet::DataSet(char const *DatasetName)
 //        };
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
+            filename_prefix: "", // All variables are in the same (grid) file
             name: "mask",
             dimensions: dimensions_latlon,
             land_mask_defined: true,
@@ -5628,9 +5650,9 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(1);
+        std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = thickness;
-//        variables_tmp[1] = conc;
+        variables_tmp[1] = conc;
 
         variables= variables_tmp;
         grid= grid_tmp;
@@ -6131,7 +6153,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
      }
-     else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
+    else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
      	// Definition of the icesat grid and datasets
          Dimension dimension_x={
