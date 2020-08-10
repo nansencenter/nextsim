@@ -758,6 +758,8 @@ private:
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
+    ModelVariable M_conc_myi;           // Concentration of multiyear ice
+    ModelVariable M_melt_seconds;       // Seconds of melting
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -851,6 +853,8 @@ private:
     std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
+    std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_melt_seconds_mean;  // Mean concentration of number of seconds melting has been occurring (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
@@ -859,6 +863,8 @@ private:
     std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
+    std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_melt_seconds_grid;  // Mean concentration of number of seconds melting has been occurring (on the grid)
 
 private:
     // Variables for the moorings

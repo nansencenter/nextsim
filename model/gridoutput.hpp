@@ -147,6 +147,8 @@ public:
         age_d        = 18,
         age          = 19,
         conc_upd     = 20,
+        conc_myi     = 21,
+        melt_seconds = 22,
 
         // Diagnostic variables
         Qa     = 100,
@@ -361,6 +363,20 @@ public:
                     longName = "conc_upd";
                     stdName  = "conc_upd";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_myi):
+                    name     = "conc_myi";
+                    longName = "Concentration of Multiyear Ice";
+                    stdName  = "conc_myi";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::melt_seconds):
+                    name     = "melt_seconds";
+                    longName = "Time (seconds) of ice melting";
+                    stdName  = "melt_seconds";
+                    Units    = "s";
                     cell_methods = "area: mean";
                     break;
 

@@ -82,6 +82,8 @@ public:
         M_cum_damage    = 21,
         M_cum_wave_damage=22,
         M_divergence    = 23,
+        M_conc_myi      = 24,
+        M_melt_seconds  = 25,
 
         // Diagnostic variables
         D_conc       = 100,

@@ -4521,6 +4521,10 @@ FiniteElement::update(std::vector<double> const & UM_P)
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
+    bool ridge_myi_and_fyi = vm["age.ridge_myi_and_fyi"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
+    int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
+    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -4540,6 +4544,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
+        double const conc_old = M_conc[cpt];
         M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
@@ -4561,6 +4566,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
+            if(ridge_myi_and_fyi==false)
+                M_conc_myi[cpt] *= surf_ratio;
+            else
+            {
+                double conc_ratio = std::min(1.,M_conc[cpt])/conc_old; // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
+                M_conc_myi[cpt] *= conc_ratio; // Adjusting myi rather than fyi as this is what we want to conserve. Using conc_ratio means M_conc_myi does not exceed 1
+            } 
         }
 
         /*======================================================================
@@ -4667,6 +4679,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+
+        if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_thin[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        else
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
 
     }//loop over elements
 }//update
@@ -5856,6 +5873,11 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
+    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_thin (this depends on use_thin_ice_in_myi_reset) 
+    bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
+    double const melt_seconds_threshold = vm["age.reset_melt_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of melting to reset myi, if reset_by_date is false
+
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     M_timer.tick("fluxes");
@@ -6253,6 +6275,11 @@ FiniteElement::thermo(int dt)
                     std::cout << "melt_type = " << melt_type << "\n";
                     throw std::logic_error("Wrong melt_type");
             }
+            M_melt_seconds[i] = M_melt_seconds[i] + ddt; // If melting, add this timestep to counter
+        }
+        else
+        {
+           M_melt_seconds[i] = 0.; // if not melting, reset the counter
         }
 
         /* New concentration */
@@ -6533,6 +6560,8 @@ FiniteElement::thermo(int dt)
             M_fyi_fraction[i] = 0.;
             M_age_det[i] = 0.;
             M_age[i] =  0.;
+            M_conc_myi[i] = 0.;
+            M_melt_seconds[i] = 0.; // If there is no ice, the melt counter for myi should be reset as no myi to tag
         }
         else    //If there is ice
         {
@@ -6569,6 +6598,39 @@ FiniteElement::thermo(int dt)
             else //new ice
             {
                 M_age[i] =  dt;
+            }
+            // MYI should be reset to M_conc (or M_conc+M_conc_thin) on the reset date
+            bool reset_myi = false; 
+            if (reset_by_date)
+            {
+                if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
+                    reset_myi = true;
+            }
+            else
+            {
+                if (M_melt_seconds[i] >= melt_seconds_threshold)
+                {
+                    if (M_melt_seconds[i] < melt_seconds_threshold + ddt)
+                        reset_myi = true;
+                }
+            }
+
+            if (reset_myi)
+            {
+                if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+                    M_conc_myi[i] = M_conc[i] + M_conc_thin[i]; // include thin ice in reset: all ice on reset date is myi
+                else
+                    M_conc_myi[i] = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
+                M_conc_myi[i] = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
+            }
+            else // on a non-reset day, myi is only modified by melting, not freezing
+            {
+                if (del_c < 0.) 
+                    if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+                        M_conc_myi[i] = std::max(0.,std::min(M_conc[i]+M_conc_thin[i]+del_c,M_conc_myi[i])); // if del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
+                    else
+                        M_conc_myi[i] = std::max(0.,std::min(M_conc[i]+del_c,M_conc_myi[i])); // if del_c removes all fyi, take some from myi. Preferentially removes fyi. Don't include thin ice in total ice conc
+
             }
         }
 
@@ -7366,6 +7428,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_age_det);
     M_age = ModelVariable(ModelVariable::variableID::M_age);//! \param M_age (double) Sea ice age (volumetric) [s]
     M_variables_elt.push_back(&M_age);
+    M_conc_myi = ModelVariable(ModelVariable::variableID::M_conc_myi);//! \param M_conc_myi (double) Concentration of MYI
+    M_variables_elt.push_back(&M_conc_myi);
+    M_melt_seconds = ModelVariable(ModelVariable::variableID::M_melt_seconds);//! \param M_melt_seconds (double) Counter of time (seconds) of ice melting for myi reset
+    M_variables_elt.push_back(&M_melt_seconds);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -8667,6 +8733,15 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::conc_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::melt_seconds):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_melt_seconds[i]*time_factor;
+                break;
+
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8962,6 +9037,8 @@ FiniteElement::initMoorings()
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
+            ("conc_myi", GridOutput::variableID::conc_myi)
+            ("melt_seconds", GridOutput::variableID::melt_seconds)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -11192,6 +11269,8 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_age_det);
     vars_to_zero.push_back(&M_age);
     vars_to_zero.push_back(&M_conc_upd);
+    vars_to_zero.push_back(&M_conc_myi);
+    vars_to_zero.push_back(&M_melt_seconds);
     for (int k=0; k<3; k++)
         vars_to_zero.push_back(&(M_sigma[k]));
     for (auto ptr: vars_to_zero)
