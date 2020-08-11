@@ -6516,6 +6516,9 @@ FiniteElement::thermo(int dt)
         // Rain
         D_rain[i] = rain;
 
+        // Ice volume melt rate per day per element area  [m/day]
+        D_vice_melt[i] = del_vi*86400/ddt;
+
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -7390,6 +7393,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m]
+    M_variables_elt.push_back(&D_vice_melt);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -8760,6 +8765,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
+            case (GridOutput::variableID::vice_melt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_vice_melt[i]*time_factor;
+                break;
             case (GridOutput::variableID::wspeed):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
@@ -8945,6 +8954,7 @@ FiniteElement::initMoorings()
             ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
+            ("vice_melt", GridOutput::variableID::vice_melt)
             ("fwflux", GridOutput::variableID::fwflux)
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
