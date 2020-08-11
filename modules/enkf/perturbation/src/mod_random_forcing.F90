@@ -701,11 +701,12 @@ contains
 
            if (debug) print*, 'reading randfile ', filename
 
-           open(10, file=filename, status="old", action="read")
+           open(10, file=filename, access='stream', status="old", action="read")
 
            do jy=1,jdm
              do ix=1,idm
-             read(10, '(10e14.3)') &
+             !read(10, '(10e14.3)') &
+                  read(10) &
                         ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
                         ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
                         ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
@@ -726,12 +727,13 @@ contains
 
            if (debug) print*, 'reading synforc ', filename
 
-           open(11, file=filename, status="old", action="read")
+           open(11, file=filename, access='stream', status="old", action="read")
 
            do jy=1,jdm
              do ix=1,idm
-                read(11,'(2i5,6e14.3)') xx, yy,  &
-                        synuwind(ix,jy), synvwind(ix,jy), &
+                !read(11,'(2i5,6e14.3)') xx, yy,  &
+                  read(11) xx, yy,  &
+                     synuwind(ix,jy), synvwind(ix,jy), &
                         synairtmp(ix,jy), synslp(ix,jy), &
                         synprecip(ix,jy), synrelhum(ix,jy)
              end do !ix
@@ -752,11 +754,12 @@ contains
 
            if (debug) print*, 'writing randfile ', filename
 
-           open(12,file=filename,status='replace')
+           open(12,file=filename,access='stream',status='replace')
 
            do jy=1,jdm
              do ix=1,idm
-                write(12,'(10e14.3)') &
+                !write(12,'(10e14.3)') &
+                  write(12) &
                         ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
                         ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
                         ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
@@ -777,11 +780,12 @@ contains
 
            if (debug) print*, 'writing synforc ', filename
 
-           open(13,file=filename, status='replace')
+           open(13,file=filename,access='stream', status='replace')
 
            do jy=1,jdm
              do ix=1,idm
-               write(13,'(2i5,6e14.3)') ix,jy,  &
+               !write(13,'(2i5,6e14.3)') ix,jy,  &
+               write(13) ix,jy,  &
                         synuwind(ix,jy), synvwind(ix,jy), &
                         synairtmp(ix,jy), synslp(ix,jy), &
                         synprecip(ix,jy), synrelhum(ix,jy)
