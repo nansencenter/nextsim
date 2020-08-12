@@ -6430,14 +6430,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        // Extract the dirname, prefix, and postfix from setup.bathymetry-file (default is ETOPO_Arctic_2arcmin.nc).
+        boost::filesystem::path const topo_file ( Environment::vm()["setup.bathymetry-file"].as<std::string>() );
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
-            prefix:"ETOPO_Arctic_2arcmin.nc",
-            //prefix:"ETOPO1_Ice_g_gmt4.grd",
+            dirname:topo_file.parent_path().string(),
+            prefix:topo_file.filename().string(),
             postfix:"",
             gridfile: "",
             reference_date: "",
