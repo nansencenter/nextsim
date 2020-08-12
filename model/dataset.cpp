@@ -2159,11 +2159,12 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask
         };
 
-        std::vector<Variable> variables_tmp(4);
+        std::vector<Variable> variables_tmp(3);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = qsrml;
-        variables_tmp[3] = mld;
+        if ( Environment::vm()["coupler.rcv_first_layer_depth"].as<bool>() )
+            variables_tmp.push_back(mld);
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
