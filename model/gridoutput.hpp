@@ -174,6 +174,7 @@ public:
         snowfr   = 210,
         wind_x   = 211,
         wind_y   = 212,
+        wspeed   = 213,
 
         // WIM variables
         dmax        = 300,
@@ -188,6 +189,7 @@ public:
         QSwOcean   = 906,
         saltflux   = 907,
         fwflux_ice = 908,
+        vice_melt  = 909,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -472,6 +474,13 @@ public:
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::vice_melt):
+                    name     = "vice_melt";
+                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
                 case (variableID::QNoSw):
                     name     = "rsnos";
                     longName = "Surface Net Downward Nonsolar Heatflux";
@@ -616,6 +625,14 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+                case (variableID::wspeed):
+                    name     = "wspeed";
+                    longName = "Wind speed";
+                    stdName  = "wind_speed";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
@@ -732,7 +749,8 @@ public:
 
     int M_ncols;
     int M_nrows;
-    double M_mooring_spacing;
+    double M_mooring_spacing = 0;
+    bool M_is_regular_grid;
     double M_averaging_period;
     int M_grid_size;
     bool M_false_easting;

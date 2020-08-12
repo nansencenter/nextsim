@@ -98,11 +98,6 @@ public:
     void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
 
-    void convertTargetXY(Dataset *dataset,
-        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
-        std::vector<double> & RX_out, std::vector<double> & RY_out,
-        mapx_class *mapNextsim);//(double const& u, double const& v)
-    
 #if defined OASIS
     void receiveCouplingData(Dataset *dataset, int cpl_time, Communicator comm);
 #endif

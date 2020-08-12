@@ -592,11 +592,8 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
-    // TOPAZ needs special handling
-    if (   M_ocean_type == setup::OceanType::TOPAZR
-        || M_ocean_type == setup::OceanType::TOPAZR_atrest
-        || M_ocean_type == setup::OceanType::TOPAZF
-        || M_ocean_type == setup::OceanType::TOPAZR_ALTIMETER )
+    // The coupled system needs special handling
+    if ( M_ocean_type != setup::OceanType::COUPLED )
     {
         M_ocean_nodes_dataset.loaded=false;
         M_ocean_elements_dataset.loaded=false;
@@ -604,43 +601,19 @@ FiniteElement::assignVariables()
         M_ocean_elements_dataset.grid.loaded=false;
     }
 
-/* This shouldn't be needed - and it messes up the coupling
- * But let's keep it commented for now, just in case.
- *    // reload the dataset
- *    M_atmosphere_nodes_dataset.loaded=false;
- *    M_atmosphere_elements_dataset.loaded=false;
- *    M_atmosphere_bis_elements_dataset.loaded=false;
- *    M_ocean_nodes_dataset.loaded=false;
- *    M_ocean_elements_dataset.loaded=false;
- *
- *    M_ice_topaz_elements_dataset.loaded=false;
- *    M_ice_piomas_elements_dataset.loaded=false;
- *    M_ice_amsre_elements_dataset.loaded=false;
- *    M_ice_osisaf_elements_dataset.loaded=false;
- *    M_ice_osisaf_type_elements_dataset.loaded=false;
- *    M_ice_amsr2_elements_dataset.loaded=false;
- *    M_ice_cs2_smos_elements_dataset.loaded=false;
- *    M_ice_smos_elements_dataset.loaded=false;
- *    M_bathymetry_elements_dataset.loaded=false;
- *
- *
- *    // reload the grid
- *    M_atmosphere_nodes_dataset.grid.loaded=false;
- *    M_atmosphere_elements_dataset.grid.loaded=false;
- *    M_atmosphere_bis_elements_dataset.grid.loaded=false;
- *    M_ocean_nodes_dataset.grid.loaded=false;
- *    M_ocean_elements_dataset.grid.loaded=false;
- *
- *    M_ice_topaz_elements_dataset.grid.loaded=false;
- *    M_ice_piomas_elements_dataset.grid.loaded=false;
- *    M_ice_amsre_elements_dataset.grid.loaded=false;
- *    M_ice_osisaf_elements_dataset.grid.loaded=false;
- *    M_ice_osisaf_type_elements_dataset.grid.loaded=false;
- *    M_ice_amsr2_elements_dataset.grid.loaded=false;
- *    M_ice_cs2_smos_elements_dataset.grid.loaded=false;
- *    M_ice_smos_elements_dataset.grid.loaded=false;
- *    M_bathymetry_elements_dataset.grid.loaded=false;
-*/
+    // reload the dataset
+    M_atmosphere_nodes_dataset.loaded=false;
+    M_atmosphere_elements_dataset.loaded=false;
+    M_atmosphere_bis_elements_dataset.loaded=false;
+    M_bathymetry_elements_dataset.loaded=false;
+
+
+    // reload the grid
+    M_atmosphere_nodes_dataset.grid.loaded=false;
+    M_atmosphere_elements_dataset.grid.loaded=false;
+    M_atmosphere_bis_elements_dataset.grid.loaded=false;
+    M_bathymetry_elements_dataset.grid.loaded=false;
+
 
     // --------------------------------------------------------------
     // interpolation of the dataset
@@ -940,8 +913,9 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
         }
         // Check if the variable was set, skipping non-outputing variables
         if ( it->varID>0 && !set )
-            throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set.\n"
-                   + "Make sure your namcouple file matches neXtSIM defaults.");
+            LOG(WARNING) << "Sent field I_"  << it->name << " is not declared in namcouple \n";
+/*            throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set.\n"
+                   + "Make sure your namcouple file matches neXtSIM defaults."); */
     }
 }
 #endif
@@ -1119,19 +1093,8 @@ FiniteElement::initOptAndParam()
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
 
-    thermo_timestep = vm["simul.thermo_timestep"].as<int>(); //! \param thermo_timestep (int) Thermodynamic time step [s]
-    if ( thermo_timestep % time_step != 0)
-    {
-        throw std::runtime_error("thermo_timestep is not an integer multiple of time_step");
-    }
-    // Temporarily disabling super-stepping of the thermodynamics. The model hangs randomly when it's enabled
-    thermo_timestep = time_step;
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
-    // for now thermo_timestep must be equal to cpl_time_step
-    // this is preferable anyway, but less flexible than allowing thermo_timestep <= cpl_time_step
-    // This is deactivated for now as per issue 255 - but a better solution is needed.
-    // thermo_timestep = cpl_time_step;
 
     if ( cpl_time_step % time_step != 0)
     {
@@ -4595,6 +4558,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
         }
+        // Ridge ratio capping (might not been performed later if ridging does not happen)
+        M_ridge_ratio[cpt]=std::min(1., M_ridge_ratio[cpt]) ;
 
         /*======================================================================
         //! - Performs the mechanical redistribution (after the advection the concentration can be higher than 1, meaning that ridging should have occured)
@@ -6014,7 +5979,7 @@ FiniteElement::thermo(int dt)
         {
             Qdw = 0;
             Fdw = 0;
-            // Assuming thermo_timestep == cpl_time_step
+            // Assuming time_step == cpl_time_step
             M_sst[i] = M_ocean_temp[i];
             M_sss[i] = M_ocean_salt[i];
         }
@@ -6558,6 +6523,9 @@ FiniteElement::thermo(int dt)
 
         // Rain
         D_rain[i] = rain;
+
+        // Ice volume melt rate per day per element area  [m/day]
+        D_vice_melt[i] = del_vi*86400/ddt;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -7429,6 +7397,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
+    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m]
+    M_variables_elt.push_back(&D_vice_melt);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -7735,6 +7705,18 @@ FiniteElement::initOASIS()
         var_snd.push_back(std::string("I_"+Sflx.name));
         var_snd.push_back(std::string("I_"+conc.name));
 
+        if ( vm["coupler.BGC_active"].as<bool>() )
+        {
+            GridOutput::Variable mslp(GridOutput::variableID::mslp);
+            GridOutput::Variable wspeed(GridOutput::variableID::wspeed);
+
+            elemental_variables.push_back(mslp);
+            elemental_variables.push_back(wspeed);
+
+            var_snd.push_back(std::string("I_"+mslp.name));
+            var_snd.push_back(std::string("I_"+wspeed.name));
+        }
+
         // The vectorial variables are ...
         GridOutput::Vectorial_Variable tau(std::make_pair(0,1));
         vectorial_variables.push_back(tau);
@@ -7859,8 +7841,8 @@ FiniteElement::initOASIS()
         var_rcv.push_back(std::string("I_Uocn"));
         var_rcv.push_back(std::string("I_Vocn"));
         var_rcv.push_back(std::string("I_SSH"));
-        // MLD is not needed for coupling with NEMO
-        //var_rcv.push_back(std::string("I_MLD"));
+        if ( vm["coupler.rcv_first_layer_depth"].as<bool>() )
+            var_rcv.push_back(std::string("I_MLD"));
         var_rcv.push_back(std::string("I_FrcQsr"));
     }
 
@@ -8096,7 +8078,7 @@ FiniteElement::step()
             }
 
             if ( vm["coupler.with_waves"].as<bool>() )
-                M_wave_elements_dataset.setWeights(M_cpl_out.getGridP(),
+                M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
                         M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
             M_timer.tock("resetMeshMean_cpl");
@@ -8185,10 +8167,10 @@ FiniteElement::step()
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
-    if ( vm["thermo.use_thermo_forcing"].as<bool>() && ( pcpt*time_step % thermo_timestep == 0) )
+    if ( vm["thermo.use_thermo_forcing"].as<bool>() )
     {
         M_timer.tick("thermo");
-        this->thermo(thermo_timestep);
+        this->thermo(time_step);
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
 
@@ -8338,11 +8320,11 @@ FiniteElement::step()
             LOG(DEBUG) << "OASIS put ... at " << pcpt*time_step << "\n";
 
             for (auto it=M_cpl_out.M_nodal_variables.begin(); it!=M_cpl_out.M_nodal_variables.end(); ++it)
-                if ( it->varID > 0 ) // Skip non-outputing variables
+                if ( ( it->varID > 0 ) && ( it->cpl_id > 0 ) ) // Skip non-outputing variables
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
 
             for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
-                if ( it->varID > 0 ) // Skip non-outputing variables
+                if ( ( it->varID > 0 ) && ( it->cpl_id > 0 ) ) // Skip non-outputing variables
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
@@ -8793,6 +8775,14 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
+            case (GridOutput::variableID::vice_melt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_vice_melt[i]*time_factor;
+                break;
+            case (GridOutput::variableID::wspeed):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
+                break;
 
             // WIM variables
             case (GridOutput::variableID::dmax):
@@ -8970,8 +8960,11 @@ FiniteElement::initMoorings()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
+            ("sst", GridOutput::variableID::sst)
+            ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
+            ("vice_melt", GridOutput::variableID::vice_melt)
             ("fwflux", GridOutput::variableID::fwflux)
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
@@ -8997,6 +8990,7 @@ FiniteElement::initMoorings()
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
+            ("wspeed", GridOutput::variableID::wspeed)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -9090,13 +9084,19 @@ FiniteElement::initMoorings()
         // Element variables
         else if (mooring_name_map_elements.count(*it)==0)
         {
-            LOG(ERROR)<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
-            LOG(ERROR)<<"Available names are:\n";
-            LOG(ERROR)<<"  velocity\n";
-            LOG(ERROR)<<"  tau\n";
+            std::stringstream error_msg;
+            error_msg<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
+            error_msg<<"Available names are:\n";
+            error_msg<<"  velocity\n    vectors of sea-ice velocity\n";
+            error_msg<<"  tau\n    vectors of ice-ocean stress\n";
+            error_msg<<"\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
-                LOG(ERROR)<<"  "<< ptr->first <<"\n";
+            {
+                GridOutput::Variable tmp(ptr->second);
+                error_msg<<"  "<< ptr->first << "\n    netCDF name: " << tmp.name << "\n    netCDF long name: " << tmp.longName <<"\n";
+            }
+            LOG(ERROR) << error_msg.str();
             throw std::runtime_error("Invalid mooring name");
         }
         else
@@ -10960,6 +10960,8 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_ocean_temp=ExternalData(&M_ocean_elements_dataset, M_mesh, 0,false,time_init);
             M_ocean_salt=ExternalData(&M_ocean_elements_dataset, M_mesh, 1,false,time_init);
             M_qsrml=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
+            if ( vm["coupler.rcv_first_layer_depth"].as<bool>() )
+                M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
             break;
 #endif
         case setup::OceanType::TOPAZR_ALTIMETER:

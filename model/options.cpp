@@ -43,7 +43,6 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
              //-----------------------------------------------------------------------------------
@@ -112,6 +111,7 @@ namespace Nextsim
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "which oceanic forcing?")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
+            ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "meb_semi_implicit" ), "type of dynamics [ meb_semi_implicit | no_motion | evp | bmeb | free_drift ] ")
@@ -158,7 +158,7 @@ namespace Nextsim
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
             ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
             ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
-            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If false we assume the first dimension is y and the second x.")
+            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is x and the second y (non-standard ordering).")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
                 "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
@@ -484,6 +484,9 @@ namespace Nextsim
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            ("coupler.BGC_active", po::value<bool>()->default_value( false ), "Activate sending of MSLP and wind speed for the BGC model.")
+            ("coupler.rcv_first_layer_depth", po::value<bool>()->default_value( false ), "Activate/deactivate (default) receiving of the depth of the first ocean layer (I_MLD in namcouple).")
+
 
             //-----------------------------------------------------------------------------------
             //!wave_coupling
