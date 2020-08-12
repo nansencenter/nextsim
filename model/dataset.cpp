@@ -52,7 +52,7 @@ DataSet::DataSet(char const *DatasetName)
     if (indx_ext==std::string::npos)
         indx_ext = grid_file.size();
 
-    std::string const cpl_prefix = grid_file.substr(indx_dir+1,indx_ext);
+    std::string const cpl_prefix = grid_file.substr(indx_dir+1,indx_ext-indx_dir-1);
     std::string const cpl_postfix = grid_file.substr(indx_ext);
 #endif
 
