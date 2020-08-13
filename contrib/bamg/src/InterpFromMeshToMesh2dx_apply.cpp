@@ -59,10 +59,10 @@ int InterpFromMeshToMesh2dx_apply(double** pdata_interp,
             }
         }
         else{
-         for (j=0;j<N_data;j++)
-         {
-            if (it[i]<0 || it[i]>=nels_data)
+            for (j=0;j<N_data;j++)
             {
+                if (it[i]<0 || it[i]>=nels_data)
+                {
                     _error_("Triangle number " << it[i] << " not in [0 " << nels_data << "], report bug to developers");
                 }
                 data_interp[i*N_data+j]=data[N_data*it[i]+j];
