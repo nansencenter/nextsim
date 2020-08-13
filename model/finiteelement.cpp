@@ -914,8 +914,6 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
         // Check if the variable was set, skipping non-outputing variables
         if ( it->varID>0 && !set )
             LOG(WARNING) << "Sent field I_"  << it->name << " is not declared in namcouple \n";
-/*            throw std::logic_error("FinitElement::setCplId_snd: Coupling variable I_"+it->name+" not set.\n"
-                   + "Make sure your namcouple file matches neXtSIM defaults."); */
     }
 }
 #endif

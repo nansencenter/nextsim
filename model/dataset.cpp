@@ -48,6 +48,11 @@ DataSet::DataSet(char const *DatasetName)
     std::vector<std::vector<double>> interpolated_data_tmp;
     interpolated_data_tmp.resize(2);
 
+#ifdef OASIS
+    // Extract the dirname, prefix, and postfix from coupler.exchange_grid_file (default is coupler/NEMO.nc).
+    boost::filesystem::path const exchange_grid_file( Environment::vm()["coupler.exchange_grid_file"].as<std::string>() );
+#endif
+
     /*
      *	match projection name and initialize remaining parameters
      */
@@ -1908,9 +1913,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2127,9 +2132,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2151,11 +2156,12 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask
         };
 
-        std::vector<Variable> variables_tmp(4);
+        std::vector<Variable> variables_tmp(3);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = qsrml;
-        variables_tmp[3] = mld;
+        if ( Environment::vm()["coupler.rcv_first_layer_depth"].as<bool>() )
+            variables_tmp.push_back(mld);
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -2312,9 +2318,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2514,9 +2520,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
