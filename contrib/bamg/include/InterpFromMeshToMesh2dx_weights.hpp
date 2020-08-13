@@ -1,4 +1,4 @@
-/*!\file:  InterpFromMeshToMesh2dx.h
+/*!\file:  InterpFromMeshToMesh2dx_weights.h
  * \brief header file for Bamg module
  */
 
