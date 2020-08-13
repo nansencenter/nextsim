@@ -16,6 +16,6 @@ int InterpFromMeshToMesh2dx_apply(double** pdata_interp,
       std::vector<int> it,
       int nods_data,int nels_data,
       double* data,int M_data,int N_data,
-      double* x_interp,double* y_interp,int N_interp);
+      double* x_interp,double* y_interp);
 
 #endif

@@ -1529,7 +1529,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                  dataset->grid.gridX.size(),dataset->grid.pfnels,
                                  &data_in[0],
                                  dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
-                                 &RX[0], &RY[0], M_target_size);
+                                 &RX[0], &RY[0]);
         break;
 #endif
         default:
