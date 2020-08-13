@@ -41,6 +41,11 @@ DataSet::DataSet(char const *DatasetName)
     std::vector<std::vector<double>> interpolated_data_tmp;
     interpolated_data_tmp.resize(2);
 
+#ifdef OASIS
+    // Extract the dirname, prefix, and postfix from coupler.exchange_grid_file (default is coupler/NEMO.nc).
+    boost::filesystem::path const exchange_grid_file( Environment::vm()["coupler.exchange_grid_file"].as<std::string>() );
+#endif
+
     /*
      *	match projection name and initialize remaining parameters
      */
@@ -1901,9 +1906,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2120,9 +2125,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2306,9 +2311,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2508,9 +2513,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -6431,14 +6436,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        // Extract the dirname, prefix, and postfix from setup.bathymetry-file (default is ETOPO_Arctic_2arcmin.nc).
+        boost::filesystem::path const topo_file ( Environment::vm()["setup.bathymetry-file"].as<std::string>() );
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
-            prefix:"ETOPO_Arctic_2arcmin.nc",
-            //prefix:"ETOPO1_Ice_g_gmt4.grd",
+            dirname:topo_file.parent_path().string(),
+            prefix:topo_file.filename().string(),
             postfix:"",
             gridfile: "",
             reference_date: "",
