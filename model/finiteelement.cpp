@@ -8005,6 +8005,8 @@ FiniteElement::updateIceDiagnostics()
 void
 FiniteElement::step()
 {
+    M_timer.tick("check_fields");
+
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
@@ -8012,6 +8014,12 @@ FiniteElement::step()
     // check velocity fields if speed exceed a threshold
     if (vm["debugging.check_velocity_fields"].as<bool>())
         this->checkVelocityFields();
+
+    if (vm["debugging.check_fields_fast"].as<bool>())
+        // quick sanity check of select fields
+        this->checkFieldsFast();
+
+    M_timer.tock("check_fields");
 
     M_timer.tick("remesh");
 
@@ -14160,6 +14168,92 @@ FiniteElement::checkVelocityFields()
                        << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
                        << "\n";
         }
+    }
+}
+
+// -------------------------------------------------------------------------------------
+//! Checks fields for some basic too large or too small values - coded to be quick
+//! Called by the step() function.
+void
+FiniteElement::checkFieldsFast()
+{
+    // common sense min/max
+    boost::unordered_map<std::string, std::pair<double,double>>
+        minmax = boost::assign::map_list_of
+            ("M_thick",      std::make_pair(   0., 35.))
+            ("M_snow_thick", std::make_pair(   0.,  5.))
+            ("M_conc",       std::make_pair(   0.,  1.))
+            ("M_damage",     std::make_pair(   0.,  1.))
+            ("M_tice",       std::make_pair(-100.,  0.))
+            ("M_sst",        std::make_pair(  -3., 50.))
+            ("M_sss",        std::make_pair(   0., 50.))
+            ;
+
+    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        double const h_thin_max = vm["thermo.h_thin_max"].as<double>();
+
+        minmax.emplace("M_tsurf_thin", std::make_pair(-100.,  0.));
+        minmax.emplace("M_h_thin",     std::make_pair(   0.,  h_thin_max));
+        minmax.emplace("M_hs_thin",    std::make_pair(   0.,  h_thin_max));
+        minmax.emplace("M_conc_thin",  std::make_pair(   0.,  1.));
+    }
+
+    bool crash = false;
+    std::stringstream crash_msg;
+
+    // Loop over all the nodal variables
+    for (auto ptr: M_variables_elt)
+    {
+        std::string const name = ptr->name();
+
+        // Skip those we're not checking
+        if ( minmax.count(name) == 0 )
+            continue;
+
+        double const min = minmax[name].first;
+        double const max = minmax[name].second;
+        for(int i=0; i<M_num_elements; i++)
+        {
+            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
+
+            // check if it is too high for common sense
+            if( val > max )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                    << val << " > " << max << "\n";
+            }
+
+            // check if it is too low for common sense
+            if( val < min )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
+                    << val << " < " << min << "\n";
+            }
+        }
+    }
+
+    // Check the velocity
+    for ( int i=0; i<M_num_nodes; i++ )
+    {
+        if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
+        {
+            crash = true;
+            crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
+                << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+        }
+    }
+
+    // Export everything and crash
+    if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
+    {
+        this->exportResults("crash", true, true, true);
+        this->writeRestart("crash");
+
+        M_comm.barrier();
+        throw std::runtime_error(crash_msg.str());
     }
 }
 
