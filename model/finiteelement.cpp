@@ -6129,9 +6129,11 @@ FiniteElement::thermo(int dt)
                             newsnow = del_hs_thin;
                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                            M_conc_thin[i] -= del_c;
-                            M_h_thin[i]    -= del_h_thin;
-                            M_hs_thin[i]   -= del_hs_thin;
+                            // std::max is to prevent round-off error giving negative values
+                            M_conc_thin[i] = std::max( 0., M_conc_thin[i] - del_c );
+                            M_h_thin[i]    = std::max( 0., M_h_thin[i] - del_h_thin );
+                            assert(M_h_thin[i]>=0.);
+                            M_hs_thin[i]   = std::max( 0., M_hs_thin[i] - del_hs_thin );
                         }
                     }
                 }
