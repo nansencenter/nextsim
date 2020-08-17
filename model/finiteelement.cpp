@@ -6115,12 +6115,12 @@ FiniteElement::thermo(int dt)
                     }
                     else
                     {
-                        double h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                        double const h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
                         if(h0>h_thin_max)
                         {
-                            del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
-                            double del_h_thin = del_c*(h0+h_thin_max)/2.;
-                            double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+                            del_c = std::max( -M_conc_thin[i], M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max) );
+                            double const del_h_thin  = std::max( -M_h_thin[i],  del_c*(h0+h_thin_max)/2. );
+                            double const del_hs_thin = std::max( -M_hs_thin[i], del_c*M_hs_thin[i]/M_conc_thin[i] );
 
                             M_thick[i] += del_h_thin;
                             // M_conc[i]  += del_c; ; <- this is done properly below
