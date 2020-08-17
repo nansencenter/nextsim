@@ -68,6 +68,8 @@ namespace Nextsim
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
             ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
                 "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
+            ("debugging.check_fields_fast", po::value<bool>()->default_value( true ),
+                "Do a quick sanity check on select fields. Export binary files and stop model if the check fails.")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
