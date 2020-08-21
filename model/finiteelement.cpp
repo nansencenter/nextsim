@@ -6129,9 +6129,11 @@ FiniteElement::thermo(int dt)
                             newsnow = del_hs_thin;
                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                            M_conc_thin[i] -= del_c;
-                            M_h_thin[i]    -= del_h_thin;
-                            M_hs_thin[i]   -= del_hs_thin;
+                            // std::max is to prevent round-off error giving negative values
+                            M_conc_thin[i] = std::max( 0., M_conc_thin[i] - del_c );
+                            M_h_thin[i]    = std::max( 0., M_h_thin[i] - del_h_thin );
+                            assert(M_h_thin[i]>=0.);
+                            M_hs_thin[i]   = std::max( 0., M_hs_thin[i] - del_hs_thin );
                         }
                     }
                 }
@@ -14180,8 +14182,8 @@ FiniteElement::checkFieldsFast()
     // common sense min/max
     boost::unordered_map<std::string, std::pair<double,double>>
         minmax = boost::assign::map_list_of
-            ("M_thick",      std::make_pair(   0., 35.))
-            ("M_snow_thick", std::make_pair(   0.,  5.))
+            ("M_thick",      std::make_pair(   0., 50.))
+            ("M_snow_thick", std::make_pair(   0., 10.))
             ("M_conc",       std::make_pair(   0.,  1.))
             ("M_damage",     std::make_pair(   0.,  1.))
             ("M_tice",       std::make_pair(-100.,  0.))
@@ -14201,6 +14203,7 @@ FiniteElement::checkFieldsFast()
 
     bool crash = false;
     std::stringstream crash_msg;
+    crash_msg << "FiniteElement::checkFieldsFast: Check failed: ";
 
     // Loop over all the nodal variables
     for (auto ptr: M_variables_elt)
@@ -14255,7 +14258,7 @@ FiniteElement::checkFieldsFast()
         M_comm.barrier();
         throw std::runtime_error(crash_msg.str());
     }
-}
+} //checkFieldsFast
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for NaNs and for too big ice thickness values.
