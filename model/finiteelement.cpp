@@ -14187,7 +14187,7 @@ FiniteElement::checkFieldsFast()
             ("M_conc",       std::make_pair(   0.,  1.))
             ("M_damage",     std::make_pair(   0.,  1.))
             ("M_tice",       std::make_pair(-100.,  0.))
-            ("M_sst",        std::make_pair(  -3., 50.))
+            ("M_sst",        std::make_pair(  -5., 50.))
             ("M_sss",        std::make_pair(   0., 50.))
             ;
 
