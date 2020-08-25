@@ -29,7 +29,8 @@ INC_NC  = -I/opt/netcdf/include
 #
 #
 INC_GU = -I../gridutils-c
-LIB_GU =/cluster/home/chengsukun/src/nextsim/modules/enkf/gridutils-c/libgu.so 
+#LIB_GU =/cluster/home/chengsukun/src/nextsim/modules/enkf/gridutils-c/libgu.so 
+LIB_GU =$(NEXTSIMDIR)/modules/enkf/gridutils-c/libgu.so 
 #LIB_GU = -lgu
 #
 # without gridutils (uncomment below):
