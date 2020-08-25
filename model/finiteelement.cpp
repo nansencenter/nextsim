@@ -1364,6 +1364,7 @@ FiniteElement::initOptAndParam()
         ("meb_semi_implicit", setup::DynamicsType::MEBi)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
+        ("mevp", setup::DynamicsType::mEVP)
         ("bmeb", setup::DynamicsType::BMEB)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
@@ -10074,6 +10075,10 @@ FiniteElement::explicitSolve()
     const double C = vm["dynamics.evp.C"].as<double>();
     const double delta_min = vm["dynamics.evp.dmin"].as<double>();
 
+    // For mEVP
+    double const alpha_mevp = vm["dynamics.mevp.alpha"].as<double>();
+    double const beta_mevp  = vm["dynamics.mevp.beta"].as<double>();
+
     // For the grounding scheme
     const double k1 = vm["dynamics.Lemieux_basal_k1"].as<double>();
     const double k2 = vm["dynamics.Lemieux_basal_k2"].as<double>();
@@ -10232,6 +10237,10 @@ FiniteElement::explicitSolve()
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
         node_mass[i] *= rlmass_matrix[i];
         rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
+
+        // For the mEVP
+        M_VTM[u_indx] = M_VT[u_indx];
+        M_VTM[v_indx] = M_VT[v_indx];
     }
 
     M_timer.tock("prep nodes");
@@ -10248,6 +10257,10 @@ FiniteElement::explicitSolve()
         {
             case setup::DynamicsType::EVP:
                 this->updateSigmaEVP(dte, e, Pstar, C, delta_min);
+                break;
+
+            case setup::DynamicsType::mEVP:
+                this->updateSigmaMEVP(dte, e, Pstar, C, delta_min, alpha_mevp);
                 break;
 
             case setup::DynamicsType::BMEB:
@@ -10305,9 +10318,23 @@ FiniteElement::explicitSolve()
             int u_indx = i;
             int v_indx = i+M_num_nodes;
 
+            // mEVP modificatinos and additional term
+            double dtep, delu, delv;
+            if ( M_dynamics_type == setup::DynamicsType::mEVP )
+            {
+                double const b_mevp = beta_mevp + 1.;
+                delu = (M_VTM[u_indx]-M_VT[u_indx])/b_mevp;
+                delv = (M_VTM[v_indx]-M_VT[v_indx])/b_mevp;
+                dtep = dte/b_mevp;
+            } else {
+                delu = 0.;
+                delv = 0.;
+                dtep = dte;
+            }
+
             /* This is Hunke and Dukowicz's solution to (22), multiplied
              * with (\Delta t/m)^2 to ensure stability for c' = 0 */
-            double const dte_over_mass = dte/std::max(min_m, node_mass[i]);
+            double const dte_over_mass = dtep/std::max(min_m, node_mass[i]);
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
@@ -10315,7 +10342,7 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
-            double const beta   = dte*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
+            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
@@ -10325,10 +10352,10 @@ FiniteElement::explicitSolve()
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
             double const grad_y = grad_terms[v_indx]*rlmass_matrix[i];
 
-            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) );
+            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + delu;
             M_VT[u_indx] *= rdenom;
 
-            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) );
+            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) ) + delv;
             M_VT[v_indx] *= rdenom;
         }
         M_timer.tock("sub-solve");
@@ -10488,6 +10515,68 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
         M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
     }
 } //updateSigmaEVP
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates M_sigma for the mEVP
+//! Called by the explicitSolve function
+inline void
+FiniteElement::updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha)
+{
+    double const re2 = 1./(e*e);
+    double const Tevp_inv = 3./dtime_step;
+
+    double const det2 = 1./( 1. + alpha );
+    double const det1 = alpha*det2;
+
+    for ( int cpt=0; cpt<M_num_elements; cpt++ )
+    {
+        // Skip ice-free elements (it's just a zero term anyway)
+        if ( M_thick[cpt] == 0. )
+        {
+            for ( int i=0; i<M_sigma.size(); ++i )
+                M_sigma[i][cpt] = 0.;
+
+            continue;
+        }
+
+        // Deformation rate tensor on element
+        // Sum up over the nodes of this element
+        double eps11 = 0.;
+        double eps22 = 0.;
+        double eps12 = 0.;
+        for(int i=0; i<3; i++)
+        {
+            double const u = M_VT[(M_elements[cpt]).indices[i]-1];
+            double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
+            double const dxN = M_shape_coeff[cpt][i];
+            double const dyN = M_shape_coeff[cpt][i+3];
+            eps11 += dxN*u;
+            eps22 += dyN*v;
+            eps12 += 0.5*( dxN*v + dyN*u );
+        }
+
+        double const eps1 = eps11 + eps22;
+        double const eps2 = eps11 - eps22;
+
+        double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
+
+        double const pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]))/(delta+delta_min);
+
+        double const r1 = pressure*(eps1-delta);
+        double const r2 = pressure*eps2*re2;
+        double const r3 = pressure*eps12*re2;
+
+        double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
+        double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
+
+        sigma1 = det1*sigma1 + det2*r1;
+        sigma2 = det1*sigma2 + det2*r2;
+
+        M_sigma[2][cpt] = det1*M_sigma[2][cpt] + det2*r3;
+        M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
+        M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
+    }
+} //updateSigmaMEVP
 
 //------------------------------------------------------------------------------------------------------
 //! ??
