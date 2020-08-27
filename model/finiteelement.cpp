@@ -5961,6 +5961,9 @@ FiniteElement::thermo(int dt)
             if(M_tair[i]<0)
                 tmp_snowfall=M_precip[i];
 
+        // To catch round-off errors in the input
+        tmp_snowfall = std::max(0., tmp_snowfall);
+
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
@@ -7085,9 +7088,9 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
-        del_hs = std::max(del_hs,-hs);
+        hs = std::max(0., hs + del_hs);
         // snowfall in kg/m^2/s
-        hs  = hs + del_hs + snowfall/physical::rhos*dt;
+        hs  += snowfall/physical::rhos*dt;
 
         /* Bottom melt/growth */
         del_hb = (Qic-Qio)*dt/qi;
