@@ -80,17 +80,19 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     lon = alloc2d(ylen, xlen, sizeof(float));
     ncw_get_var_float(ncid, varid_lon, lon[0]);
 
+    error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
+    sit = alloc3d(tlen, ylen, xlen, sizeof(int));
+    sic = alloc3d(tlen, ylen, xlen, sizeof(int));
+    
     if (strcmp(meta->type,"sea_ice_thickness") == 0) {  // type in obstypes.prm
-        ncw_inq_varid(ncid, "analysis_sea_ice_thickness", &varid_sit);
-        sit = alloc3d(tlen, ylen, xlen, sizeof(int));
+        ncw_inq_varid(ncid, "analysis_sea_ice_thickness", &varid_sit);     
         ncw_get_var_int(ncid, varid_sit, sit[0][0]);
         if (ncw_att_exists(ncid, varid_sit, "_FillValue"))
             ncw_get_att_int(ncid, varid_sit, "_FillValue", &sit_fill_value);
         if (ncw_att_exists(ncid, varid_sit, "scale_factor"))
             ncw_get_att_float(ncid, varid_sit, "scale_factor", &sit_scale_factor);
 
-        ncw_inq_varid(ncid, "analysis_sea_ice_thickness_unc", &varid_error);
-        error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
+        ncw_inq_varid(ncid, "analysis_sea_ice_thickness_unc", &varid_error);    
         ncw_get_var_int(ncid, varid_error, error_std[0][0]);
         if (ncw_att_exists(ncid, varid_error, "_FillValue"))
             ncw_get_att_int(ncid, varid_error, "_FillValue", &estd_fill_value);
@@ -99,7 +101,6 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     }
     else if (strcmp(meta->type,"sea_ice_concentration") == 0) {
         ncw_inq_varid(ncid, "sea_ice_concentration", &varid_sic);
-        sic = alloc3d(tlen, ylen, xlen, sizeof(int));
         ncw_get_var_int(ncid, varid_sic, sic[0][0]);
         if (ncw_att_exists(ncid, varid_sic, "_FillValue"))
             ncw_get_att_int(ncid, varid_sic, "_FillValue", &sic_fill_value);
