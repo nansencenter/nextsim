@@ -47,7 +47,7 @@ namespace Nextsim
         FromMeshToMesh2dx = 1,
         FromMeshToMesh2dCavities = 2,
 #if defined (OASIS) || defined (ENSEMBLE)
-        ConservativeRemapping = 3
+        ConservativeRemapping = 3,
 #endif
         FromMeshToMeshQuick = 4
     };
