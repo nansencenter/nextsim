@@ -116,7 +116,7 @@ namespace Nextsim
             ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "meb_semi_implicit" ), "type of dynamics [ meb_semi_implicit | no_motion | evp | bmeb | free_drift ] ")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "meb_semi_implicit" ), "type of dynamics [ meb_semi_implicit | no_motion | evp | mevp | bmeb | free_drift ] ")
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
@@ -383,6 +383,10 @@ namespace Nextsim
              "Compaction parameter (C, default 20)")
             ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
              "Minimum delta (default 1e-9)")
+
+            // - mEVP!
+            ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
+            ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
 
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics

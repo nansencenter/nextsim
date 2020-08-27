@@ -186,6 +186,7 @@ public:
     void run();
 
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
+    inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
 
     void nestingIce();
