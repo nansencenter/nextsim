@@ -186,6 +186,7 @@ public:
     void run();
 
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
+    inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
 
     void nestingIce();
@@ -587,7 +588,6 @@ private:
     int restart_time_step;
     int time_step;
     double dtime_step;
-    int thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;
@@ -823,6 +823,7 @@ private:
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
+    ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -928,6 +929,7 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
+    void checkFieldsFast();
     void checkVelocityFields();
 
 #ifdef ENSEMBLE

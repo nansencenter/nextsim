@@ -7,6 +7,7 @@
 
 all:
 	$(MAKE) contrib
+	$(MAKE) modules
 	$(MAKE) model
 
 contrib:

@@ -24,6 +24,9 @@ extern "C"
 {
 #include <mapx.h>
 }
+#ifdef OASIS
+#include <InterpFromMeshToMesh2dx_weights.hpp>
+#endif
 
 
 /**
@@ -46,6 +49,7 @@ namespace Nextsim
 #if defined (OASIS) || defined (ENSEMBLE)
         ConservativeRemapping = 3
 #endif
+        FromMeshToMeshQuick = 4
     };
 
     typedef struct WaveOptions
@@ -170,8 +174,10 @@ public:
                 // and is now determined automatically in loadGrid)
         std::vector<int> reduced_nodes_ind;
 
+        // Storage for MeshToMesh interpolation
         std::vector<int> pfindex;
         int pfnels;
+
         std::vector<double> gridX;
         std::vector<double> gridY;
 
@@ -211,9 +217,44 @@ public:
             
     std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
 
-    void loadGrid(Grid *grid, double init_time, double current_time);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time);
 
-    void loadGrid(Grid *grid, double init_time, double current_time, double RX_min, double RX_max, double RY_min, double RY_max);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in);
+
+    void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
+        std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);
+
+    void convertTargetXY(Grid *grid_ptr,
+        std::vector<double> const& RX_in,  std::vector<double> const& RY_in,
+        std::vector<double> & RX_out, std::vector<double> & RY_out,
+        mapx_class *mapNextsim);
+
+    // name of the dataSet
+    std::string name;
+    std::string projfilename;
+
+#if defined OASIS
+    bool coupled;
+    std::vector<int> M_cpl_id;
+
+    void setElementWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
+    std::vector<int> M_gridP;
+    std::vector<std::vector<int>> M_triangles;
+    std::vector<std::vector<double>> M_weights;
+
+    bool calc_nodal_weights;
+
+    void setNodalWeights(const std::vector<double>& RX, const std::vector<double>& RY);
+    std::vector<std::vector<double>> M_areacoord;
+    std::vector<std::vector<int>> M_vertex;
+    std::vector<int> M_it;
+#endif
+
+private:
+
+    LogLevel M_log_level;
+    bool M_log_all;
+    Communicator M_comm;
 
     std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
     void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);
@@ -225,29 +266,16 @@ public:
     void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
-    void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
-        std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);
+    void getMinMax(mapx_class *mapNextsim, Grid *grid_ptr,
+        std::vector<double> const& RX_in, std::vector<double> const& RY_in,
+        double &RX_min, double &RX_max, double &RY_min, double &RY_max);
 
-    // name of the dataSet
-    std::string name;
-    std::string projfilename;
+    void inline
+        addHalo(int const halo_size, int const tmp_start, int const tmp_end, int& dim_start, int& dim_count);
 
-#if defined OASIS
-    bool coupled;
-    std::vector<int> M_cpl_id;
+    void inline
+        findMinMaxIndices(std::vector<double>& XY, double const R_min, double const R_max, int& tmp_start, int& tmp_end);
 
-    void setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights);
-
-    std::vector<int> M_gridP;
-    std::vector<std::vector<int>> M_triangles;
-    std::vector<std::vector<double>> M_weights;
-#endif
-
-private:
-
-    LogLevel M_log_level;
-    bool M_log_all;
-    Communicator M_comm;
 };
 
 } // Nextsim
