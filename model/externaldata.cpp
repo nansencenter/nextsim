@@ -894,11 +894,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             for(int k=0; k<index_start.size(); ++k)
             {
                 std::string const dimension_name=dataset->variables[j].dimensions[k].name;
-                std::string const dn_lower=boost::algorithm::to_lower_copy(dimension_name);
-                bool is_time = false;
-                if(dn_lower.size()>=4)
-                    // so far we have time, Time, time0 so this should work
-                    is_time = dn_lower.substr(0, 4) == "time";
+                // We assume the time dimension is unlimited (and the only unlimited dimension)
+                bool const is_time = dataFile.getDim(dimension_name).isUnlimited();
 
                 // dimension_x case
                 if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
