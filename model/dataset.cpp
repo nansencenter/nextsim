@@ -8045,7 +8045,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
              name:"west_east",
-             cyclic:true
+             cyclic:false
         };
 
         Dimension dimension_y={
@@ -8054,7 +8054,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Dimension dimension_time={
-             name:" XTIME",
+             name:"XTIME",
              cyclic:false
         };
 
@@ -8105,12 +8105,10 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type : TriangleInterpEnum, // slower
-            interp_type : BilinearInterpEnum,
-            //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type : -1,
             dirname:"",
-            prefix: "breakup_march2013_r10_ctrl_T2_y",
+            prefix: "breakup_march2013_r10_ctrl_Q2_y",
             postfix:".nc",
             gridfile: "",
             reference_date:"2013-02-10",
@@ -8121,8 +8119,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "",
-            interpolation_in_latlon: true,
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
 
             loaded: false,
             dataset_frequency:"yearly", // 'yearly' because data spans multiple months
@@ -8139,14 +8137,9 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions_time(1);
         dimensions_time[0] = dimension_time;
 
-        std::vector<Dimension> dimensions(3);
-        dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
-        dimensions[2] = dimension_x;
-
         Variable time_tmp={
-            filename_prefix: "", // All variables are in the same (grid) file
-            name: "time",
+            filename_prefix: "breakup_march2013_r10_ctrl_Q2_y",
+            name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8154,7 +8147,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 60.,
             b: 0.,
             Units: "minutes",
             loaded_data: loaded_data_tmp,
@@ -8314,7 +8307,7 @@ DataSet::DataSet(char const *DatasetName)
         // Definition of dimensions
         Dimension dimension_x={
             name:"west_east",
-            cyclic:true
+            cyclic:false
         };
 
         Dimension dimension_y={
@@ -8333,7 +8326,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "south_north",
+            name: "XLAT",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8350,7 +8343,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "east_west",
+            name: "XLONG",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8366,10 +8359,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type : TriangleInterpEnum, // slower
-            interp_type : BilinearInterpEnum,
-            //interp_type : NearestInterpEnum,
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type : -1,
             dirname:"",
             prefix: "breakup_march2013_r10_ctrl_U10_y",
             postfix:".nc",
@@ -8382,8 +8373,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "",
-            interpolation_in_latlon: true,
+            mpp_file: projfilename,
+            interpolation_in_latlon: false,
 
             loaded: false,
 
@@ -8407,7 +8398,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_prefix: "breakup_march2013_r10_ctrl_U10_y",
             name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -8416,7 +8407,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 60.,
             b: 0.,
             Units: "minutes",
             loaded_data: loaded_data_tmp,
