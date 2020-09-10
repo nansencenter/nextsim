@@ -93,9 +93,17 @@ class ensemble
 
         void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
 
+        void addPerturbation(std::vector<double>&, std::vector<double>&, std::vector<double>&, std::vector<double>&, int, int, int, int);
+
+        //void addPerturbation(Dataset *dataset, std::vector<std::vector<double> >&, std::vector<std::vector<double> >&);
+
         void computeMinMax(const std::vector<double> &, const char*);
 
         void computeVecMean(const std::vector<double> &, const char*);
 
         void getpath(std::string);
+//
+//        void loadPerturbation(std::vector<double>&, std::vector<double>& ,int, int);
+        void loadPerturbation(std::vector<std::vector<double> >& ,int, int);
+       // std::vector<std::vector<double> > loadPerturbation(int, int);
 };

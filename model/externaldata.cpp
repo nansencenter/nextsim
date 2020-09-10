@@ -252,30 +252,43 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             // can be done as M_dataset.perturb()
 #ifdef ENSEMBLE
             ensemble perturbation;
-            //std::string forcing_name[2]={"asr_nodes", "ec2_nodes"};
+             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
+             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf
+            std::vector<std::vector<double> > synforc00(2,  std::vector<double>(MN_full,0.0)), \
+                                              synforc01(2,  std::vector<double>(MN_full,0.0));
+            
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
             {
-                M_comm.barrier();
-                LOG(DEBUG) << "### Rank: " << M_comm.rank() << " of " << M_comm.size() << ".\n";
                 if (M_comm.rank() == 0) {
-                    for(int ranstep=0; ranstep<2; ranstep++) {
-                        if (ranstep == 0 ) {
-                           perturbation.synopticPerturbation(ranstep);
-                        }
-                        perturbation.addPerturbation(
-                                M_dataset->variables[0].loaded_data[ranstep], M_dataset->variables[1].loaded_data[ranstep], MN_full, ranstep);
-                    }
+                    LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
+                    perturbation.synopticPerturbation();
+                    LOG(DEBUG) << "### Load perturbations\n";
+                    perturbation.loadPerturbation(synforc00,MN_full,0); 
+                    perturbation.loadPerturbation(synforc01,MN_full,1); // this maybe replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.
                 }
                 M_comm.barrier();
-                for(int ii=0; ii<2; ii++) {
-                    for(int jj=0; jj<2; jj++) {
-                        boost::mpi::broadcast(M_comm, & M_dataset->variables[ii].loaded_data[jj][0], MN_full, 0);
-                    }
+                LOG(DEBUG) << "### Broadcast perturbations to all processors\n";
+                for(int ii=0; ii<2; ii++) {       // loop u,v         
+                    boost::mpi::broadcast(M_comm, &synforc00[ii][0], MN_full, 0);                
+                    boost::mpi::broadcast(M_comm, &synforc01[ii][0], MN_full, 0);                
                 }
+                M_comm.barrier();  
+
+                LOG(DEBUG) << "add perturbations to wind fields\n";
+                int y_start = M_dataset->grid.dimension_y_start;
+                int x_start = M_dataset->grid.dimension_x_start;
+                int y_count = M_dataset->grid.dimension_y_count;
+                int x_count = M_dataset->grid.dimension_x_count;
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], synforc00[0],synforc00[1],x_start, y_start, x_count, y_count);                 
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], synforc01[0],synforc01[1], x_start, y_start, x_count, y_count); 
+                
+                //perturbation.addPerturbation(M_dataset, synforc00, synforc01); 
+
                 double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
+                M_comm.barrier();
             }
 #endif
 
