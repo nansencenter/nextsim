@@ -35,11 +35,23 @@ DataSet::DataSet(char const *DatasetName)
     name = std::string(DatasetName);
     projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
 
+    ftime_range.resize(2,0.);
+#ifdef OASIS
+    itime_range.resize(2,0.);
+    calc_nodal_weights = false;
+#endif
+
+
     std::vector<std::vector<double>> loaded_data_tmp;
     loaded_data_tmp.resize(2);
 
     std::vector<std::vector<double>> interpolated_data_tmp;
     interpolated_data_tmp.resize(2);
+
+#ifdef OASIS
+    // Extract the dirname, prefix, and postfix from coupler.exchange_grid_file (default is coupler/NEMO.nc).
+    boost::filesystem::path const exchange_grid_file( Environment::vm()["coupler.exchange_grid_file"].as<std::string>() );
+#endif
 
     /*
      *	match projection name and initialize remaining parameters
@@ -1899,11 +1911,11 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2030,6 +2042,23 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        Variable mld={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "I_MLD",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
             filename_prefix: "", // All variables are in the same (grid) file
@@ -2103,9 +2132,9 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2131,6 +2160,8 @@ DataSet::DataSet(char const *DatasetName)
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = qsrml;
+        if ( Environment::vm()["coupler.rcv_first_layer_depth"].as<bool>() )
+            variables_tmp.push_back(mld);
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -2285,11 +2316,11 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         grid = {
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -2489,9 +2520,9 @@ DataSet::DataSet(char const *DatasetName)
         grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "coupler",
-            prefix: "NEMO",
-            postfix: ".nc",
+            dirname: exchange_grid_file.parent_path().string(),
+            prefix: exchange_grid_file.filename().string(),
+            postfix: "",
             gridfile: "",
             reference_date: "1979-01-01",
 
@@ -6412,14 +6443,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        // Extract the dirname, prefix, and postfix from setup.bathymetry-file (default is ETOPO_Arctic_2arcmin.nc).
+        boost::filesystem::path const topo_file ( Environment::vm()["setup.bathymetry-file"].as<std::string>() );
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
-            prefix:"ETOPO_Arctic_2arcmin.nc",
-            //prefix:"ETOPO1_Ice_g_gmt4.grd",
+            dirname:topo_file.parent_path().string(),
+            prefix:topo_file.filename().string(),
             postfix:"",
             gridfile: "",
             reference_date: "",
@@ -9018,12 +9051,6 @@ DataSet::DataSet(char const *DatasetName)
 
         //close_Dataset (this);
     }
-
-    ftime_range.resize(2,0.);
-#ifdef OASIS
-    itime_range.resize(2,0.);
-#endif
-
 }
 
 std::string
@@ -9363,9 +9390,10 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
         //std::cout <<"GRID : READ NETCDF done\n";
 
-    }//end interpolation_method==InterpolationType::FromGridToMesh
-    else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx)
-    {
+	}//end interpolation_method==InterpolationType::FromGridToMesh
+	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx
+	     || grid_ptr->interpolation_method==InterpolationType::FromMeshToMeshQuick)
+	{
         // interpolation_method==InterpolationType::FromMeshToMesh2dx
         // - most general method
         // - project to x,y plane with nextsim .mpp file and do interpolation in x,y space
@@ -10191,11 +10219,32 @@ DataSet::thetaInRange(double const& th_, double const& th1, bool const& close_on
 
 #if defined OASIS
 void
-DataSet::setWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights)
+DataSet::setElementWeights(std::vector<int> const &gridP, std::vector<std::vector<int>> const &triangles, std::vector<std::vector<double>> const &weights)
 {
     M_gridP = gridP;
     M_triangles = triangles;
     M_weights = weights;
+}
+
+void
+DataSet::setNodalWeights(const std::vector<double>& RX, const std::vector<double>& RY)
+{
+    // One call to set the node weights
+    InterpFromMeshToMesh2dx_weights(
+          M_areacoord, M_vertex, M_it,
+          &grid.pfindex[0],&grid.gridX[0],&grid.gridY[0],
+          grid.gridX.size(),grid.pfnels,
+          grid.gridX.size(),
+          &RX[0], &RY[0], RX.size());
+
+    // And another one to set the element weights for a drop-in-the-bucket interpolation
+    /* This one's not currently used and hence commented out - this leaves M_it empty with length = 0
+     * InterpFromMeshToMesh2dx_weights(
+     *       M_areacoord, M_vertex, M_it,
+     *       &grid.pfindex[0],&grid.gridX[0],&grid.gridY[0],
+     *       grid.gridX.size(),grid.pfnels,
+     *       grid.pfnels,
+     *       &RX[0], &RY[0], RX.size()); */
 }
 #endif
 

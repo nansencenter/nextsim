@@ -111,6 +111,7 @@ public:
         D_fwflux_ice = 122,
         D_dcrit      = 123,
         D_sigma_p    = 124,
+        D_vice_melt  = 125,
     };
 
 

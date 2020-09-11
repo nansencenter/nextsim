@@ -521,6 +521,14 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_vice_melt):
+            // ice volume gain/loss by freezing/melt
+            M_name = "D_vice_melt";
+            M_export_name = "D_vice_melt";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_brine):
             // Brine release - kg/m^2/s
             M_name = "D_brine";
