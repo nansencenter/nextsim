@@ -139,7 +139,7 @@ void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<do
     int count = loaded_uwind.size();
     int start = x_count*y_start + x_start; // double check
     
-    std::cout<<"subdomain_size="<<ranfld_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
+    //std::cout<<"subdomain_size="<<ranfld_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
     for(int i = start; i <=count; i++) {
         loaded_uwind[i] += ranfld_u[i];
         loaded_vwind[i] += ranfld_v[i];                

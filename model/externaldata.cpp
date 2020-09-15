@@ -240,32 +240,29 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
-            int M_full  = M_dataset->grid.dimension_y_count_netcdf;
-            int N_full  = M_dataset->grid.dimension_x_count_netcdf;
-            int MN_full = M_full*N_full;
-
-            LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
-            if ( M_comm.rank() == 0 )
-            LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-            
-            // add synoptic perturbations on the wind field here
-            // can be done as M_dataset.perturb()
-#ifdef ENSEMBLE
-            ensemble perturbation;
-             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
-             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf
-            std::vector<std::vector<double> > synforc00(2,  std::vector<double>(MN_full,0.0)), \
-                                              synforc01(2,  std::vector<double>(MN_full,0.0));
-            
+                                    
+#ifdef ENSEMBLE                                    
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
             {
+                ensemble perturbation; 
+                int M_full  = M_dataset->grid.dimension_y_count_netcdf;
+                int N_full  = M_dataset->grid.dimension_x_count_netcdf;
+                int MN_full = M_full*N_full;
+
+                LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
+                LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
+                LOG(DEBUG) << "### M_current_time: " << M_current_time << "\n";                              
+            //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
+            //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf           
+                std::vector<std::vector<double> > synforc00(2,  std::vector<double>(MN_full,0.0)), \
+                                                  synforc01(2,  std::vector<double>(MN_full,0.0));
                 if (M_comm.rank() == 0) {
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
                     perturbation.synopticPerturbation();
                     LOG(DEBUG) << "### Load perturbations\n";
                     perturbation.loadPerturbation(synforc00,MN_full,0); 
-                    perturbation.loadPerturbation(synforc01,MN_full,1); // this maybe replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.
+                    perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";
@@ -273,7 +270,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     boost::mpi::broadcast(M_comm, &synforc00[ii][0], MN_full, 0);                
                     boost::mpi::broadcast(M_comm, &synforc01[ii][0], MN_full, 0);                
                 }
-                M_comm.barrier();  
 
                 LOG(DEBUG) << "add perturbations to wind fields\n";
                 int y_start = M_dataset->grid.dimension_y_start;

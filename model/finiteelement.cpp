@@ -1,3 +1,5 @@
+
+
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
@@ -953,7 +955,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         std::string msg = "checkReloadDatasets: ExternalData object "
                 + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
-            throw std::runtime_error(msg);
+            throw std::runtime_error(msg);     
 #ifdef OASIS
         (*it)->check_and_reload(RX, RY, CRtime, M_comm, pcpt*time_step, cpl_time_step);
 #else
@@ -1091,7 +1093,7 @@ FiniteElement::initOptAndParam()
 
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
-
+    
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
 
@@ -9782,8 +9784,8 @@ FiniteElement::readStateVector()
 {
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-
-    external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);
+    
+    external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
 //    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
 
     external_data_vec external_data_tmp;
@@ -9792,7 +9794,7 @@ FiniteElement::readStateVector()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-
+    
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 //    external_data_tmp.resize(0);
 
