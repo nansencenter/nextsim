@@ -62,7 +62,7 @@ module mod_random_forcing
                                          synairtmp, synrelhum, synprecip,       &
                                          synclouds, syntaux, syntauy, synvapmix,&
                                          synradflx, synshwflx, synslp, synssr
-
+   
   ! Random forcing variables:
    type forcing_fields
       real,pointer ::  slp    (:,:) !  Sea level pressure
@@ -113,13 +113,15 @@ module mod_random_forcing
    end interface
 
    public :: randf, init_rand_update, rand_update,init_fvars,limits_randf
-
+   real, public, allocatable, dimension(:,:)  :: randfld00,randfld01 
 contains
 
-      subroutine init_rand_update()
+      subroutine init_rand_update(xdm,ydm)
       use mod_pseudo
       implicit none
       real :: dx
+      integer xdm,ydm
+      !allocate(randfld00(2,xdm*ydm),randfld01(2,xdm*ydm))
 
       if(.not.randf) then
         write(*,'("randf option switched off in pseudo2D.nml")')

@@ -1,11 +1,10 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation()
+void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<float> > &synforc00,std::vector<std::vector<float> > &synforc01) 
 {
     // Call fortran library for synoptic perturbation
-    // // A file named ranfld.dat will be written
-    p_pseudo2D_fld_sub();
-
+    // // A file named ranfld.dat will be written   
+    p_pseudo2D_fld_sub(&xdm, &ydm, &synforc00[0][0], &synforc01[0][0]);
 }
 
 // void ensemble::addPerturbation(int rdm)
@@ -107,9 +106,9 @@ void ensemble::getpath(std::string iopath){
 
 
 //void ensemble::loadPerturbation(std::vector<double>& uwind, std::vector<double>& vwind, int rdm, int ranid)
-void ensemble::loadPerturbation(std::vector<std::vector<double> > &synforc,int rdm, int ranid)
+void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rdm, int ranid)
 {
-    std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8,0.0)); 
+    std::vector<std::vector<float> > ranfld(rdm, std::vector<float>(8,0.0)); 
 
     // Find and read the ranfld.dat into struct synoptic
     M_ranfile = { "synforc.00", "synforc.01" };
@@ -133,7 +132,7 @@ void ensemble::loadPerturbation(std::vector<std::vector<double> > &synforc,int r
 };
 
 // todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<double>& loaded_vwind, std::vector<double>& ranfld_u, std::vector<double>& ranfld_v, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<double>& loaded_vwind, std::vector<float>& ranfld_u, std::vector<float>& ranfld_v, int x_start, int y_start, int x_count, int y_count)
 {    
     //int count = x_count*y_count; =loaded_uwind.size() //
     int count = loaded_uwind.size();

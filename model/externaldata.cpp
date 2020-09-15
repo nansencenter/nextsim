@@ -254,15 +254,16 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time << "\n";                              
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
+            // use float variable to save sources, since it's no needs to have high precision perturbations.
             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf           
-                std::vector<std::vector<double> > synforc00(2,  std::vector<double>(MN_full,0.0)), \
-                                                  synforc01(2,  std::vector<double>(MN_full,0.0));
-                if (M_comm.rank() == 0) {
+                std::vector<std::vector<float> > synforc00(2,std::vector<float>(MN_full,0.0)), synforc01(2,std::vector<float>(MN_full,0.0));
+
+                if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
-                    perturbation.synopticPerturbation();
+                    perturbation.synopticPerturbation(M_full,N_full,synforc00,synforc01);        
                     LOG(DEBUG) << "### Load perturbations\n";
                     perturbation.loadPerturbation(synforc00,MN_full,0); 
-                    perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.
+                    perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";
