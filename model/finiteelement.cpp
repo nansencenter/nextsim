@@ -12665,7 +12665,7 @@ FiniteElement::cregIce()
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     // Surface temperature over which we consider there is no ice when init.
     // There is only ice if sst <= t_freez + sst_limit (tunable)
-    double SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
+    double const SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
     // In nemo code default value is 2, just like in neXtSIM.
     for (int i=0; i<M_num_elements; ++i)
     {
