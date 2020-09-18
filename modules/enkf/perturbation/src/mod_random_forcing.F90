@@ -113,38 +113,26 @@ module mod_random_forcing
    end interface
 
    public :: randf, init_rand_update, rand_update,init_fvars,limits_randf
-   real, public, allocatable, dimension(:,:)  :: randfld00,randfld01 
+   !real, public, allocatable, dimension(:,:)  :: randfld00,randfld01 
 contains
-
-      subroutine init_rand_update(xdm,ydm)
+      
+   subroutine init_rand_update()
       use mod_pseudo
       implicit none
       real :: dx
-      integer xdm,ydm
-      !allocate(randfld00(2,xdm*ydm),randfld01(2,xdm*ydm))
 
       if(.not.randf) then
-        write(*,'("randf option switched off in pseudo2D.nml")')
-        write( *,'("no perturbation will be applied")')
-        INQUIRE(FILE=trim(iopath)//"/synforc.01", EXIST=file_exists)
-        print *,'checking if synforc files exists: ', file_exists
-        if (file_exists) then
-          write( *,'("synforc exists -> Nothing to do")')
-          return
-        else
-          call randfld_wr('01')
-          call synforc_wr('01')
-          call randfld_wr('00')
-          call synforc_wr('00')
-          write(*,'("synforc is set to zero for initial time")')
-          return
-        endif
+        write(*,'("randf option switched off in pseudo2D.nml,no perturbation will be applied")')
+        return
       end if
+
       write(*,'("pseudo-random forcing is active for ensemble generation")')
+
       dx=30  !scpx(idm/2,jdm/2)
       if(debug) print*,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells
       rv=rf_tradius        ! Temporal decorrelation scale (days)
+
       if(debug) print*, "initialized init_ran"
       call init_ran(ran)
       call init_ran(ran1)
@@ -155,28 +143,22 @@ contains
       ! Init fft dimensions in mod_pseudo
       call initfftdim(idm,jdm)
 
-      !-- CHeCK: a conditional here to check ranfld_next.dat exists \
-      !-- IF exists, load and move to ranfld_prev.dat, IF NOT run ranfields(ran,rh) --!
-
-      INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
-      
-      if (file_exists) then
-              if (debug) print*, 'reading from file...'
-              call randfld_rd('01')
-              call synforc_rd('01')
-              call randfld_wr('00')
-              call synforc_wr('00')
-              call rand_update('01')
+      !-- CHeCK: a conditional here to check ranfld_next exists \
+      !-- IF exists, load and move to ranfld_prev, IF NOT run ranfields(ran,rh) --!
+      if (randfld01 is given as input) then ! todo
+         if (debug) print*,  'set perturbations as previous one'
+         randfld00 = randfld01
+         synforc00 = synforc01
       else
-              if (debug) print*, 'generating initial random field...'
-              call ranfields(ran,rh)
-              call rand_update('00')
-              call rand_update('01')
+         if (debug) print*, 'generating initial random field...'
+         call ranfields(ran,rh)
+         call rand_update(synforc00, randfld00)     
       end if
+      call rand_update(synforc01, randfld01)
+   end subroutine
 
-      end subroutine
-
-      subroutine set_random_seed2
+!----------------------------------
+   subroutine set_random_seed2
       ! Sets a random seed based on the wall clock time
       implicit none
 
@@ -193,23 +175,21 @@ contains
       pt = pt * (val(8)-500)  ! val(8) is milliseconds - this randomizes stuff if random_seed is nut updated often e nough
       call RANDOM_SEED(put=pt)
       deallocate( pt)
-      end subroutine set_random_seed2
+   end subroutine set_random_seed2
 
 !c --- Initialize FFT dimensions used in pseudo routines
-      subroutine initfftdim(nx,ny)
-
+   subroutine initfftdim(nx,ny)
       use mod_pseudo
-
       implicit none
       integer, intent(in) :: nx,ny
       fnx = ceiling(log(float(nx))/log(2.))
       fnx = 2**fnx
       fny = ceiling(log(float(ny))/log(2.))
       fny = 2**fny
-         if (debug) write(*,'("Fourier transform dimensions ",2i6)')  fnx,fny
-      end subroutine
+      if (debug) write(*,'("Fourier transform dimensions ",2i6)')  fnx,fny
+   end subroutine
 
-      subroutine limits_randf()
+   subroutine limits_randf()
 
       implicit none
       real, parameter :: version2=1.2     ! version of limits routine
@@ -253,8 +233,8 @@ contains
       read (99,NML=pseudo2D)
       close(99)
 
-      idm         = xdim
-      jdm         = ydim
+      idm         = xdim   ! remove xdim, ydim from pseudo2D.nml
+      jdm         = ydim   ! xdim, ydim 
       vars%slp    = vslp
       vars%taux   = vtaux
       vars%tauy   = vtauy
@@ -266,33 +246,26 @@ contains
       rf_hradius  = scorr
       rf_tradius  = tcorr
       rf_prsflg   = prsflg
-
-      end subroutine limits_randf
-
+   end subroutine limits_randf
 
 ! --- This routine updates the random forcing component, according to
 ! --- a simple correlation progression with target variance specified
 ! --- By forcing_variances. At the end of the routine, if applicable,
 ! --- the random forcing is added to the forcing fields.
-
-
-      subroutine rand_update(time_index)
+   subroutine rand_update(synforc, randfld)
       implicit none
 
       ! rt       -- Information on time (mod_year_info)
       ! ran      -- Nondimensional random perturbations
       ! vars     -- Variances of fields ( Real pert = ran * vars)
       ! lrestart -- Special actions are taken if this is a restart
-
       !type(forcing_fields)    , intent(inout) :: ran
       !type(forcing_variances) , intent(in)    :: vars
 
       integer :: ix,jy
       real :: alpha, autocorr, nsteps, wspd, mtime
-      character(2) :: time_index
 
       logical, save :: first=.true.
-      integer, save :: ccount=1
 
       real, dimension(idm,jdm) :: modlon, modlat
 
@@ -309,8 +282,6 @@ contains
       integer i,j
       real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
 
-
-
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
       autocorr = exp(-1.0)
@@ -326,202 +297,171 @@ contains
       alpha=autocorr**(1/nsteps)
 
       !write(lp,*) 'Rand_update -- Random forcing field update'
-
-
       ! Add new random forcing field to the newly read
       ! fields from ecmwf or ncep (:,:,4)
       !ran1=sqrt(vars)*ran
 
-      call calc_forc_update(ran1,ran,sqrt(vars))
-
-
+      call calc_forc_update(ran1,ran,sqrt(vars)) ! only use ran1 & vars below, except ran_update_ran1 also uses ran
 
       if (rf_prsflg .eq. 1 .or. rf_prsflg .eq.2 ) then
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! rf_prsflag=1 : wind perturbations calculated from slp, using coriolis
-!                parameter at 40 deg N
-! rf_prsflag=2 : wind perturbations calculated from slp, using coriolis
-!                parameter at 40 deg N, but limited by the setting of
-!                windspeed, to account for the horizontal scale of pert.
-!                As far as the wind is concerned, this is the same as
-!                reducing pressure perturbations
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! rf_prsflag=1 : wind perturbations calculated from slp, using coriolis
+   !                parameter at 40 deg N
+   ! rf_prsflag=2 : wind perturbations calculated from slp, using coriolis
+   !                parameter at 40 deg N, but limited by the setting of
+   !                windspeed, to account for the horizontal scale of pert.
+   !                As far as the wind is concerned, this is the same as
+   !                reducing pressure perturbations
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+         ! grid size min max
+   !      minscpx=minval(scpx)
+         minscpx=30
+         wprsfac=1.
+         ! flag used in prsflg=2
+         if (rf_prsflg==2) then
+            fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
 
-      ! grid size min max
-!      minscpx=minval(scpx)
-      minscpx=30
-      wprsfac=1.
-      ! flag used in prsflg=2
-      if (rf_prsflg==2) then
+            ! typical pressure gradient
+            wprsfac=100.*sqrt(vars%slp)/(rh*minscpx)
 
-         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
+            ! results in this typical wind magnitude
+            wprsfac=wprsfac/fcor
 
-         ! typical pressure gradient
-         wprsfac=100.*sqrt(vars%slp)/(rh*minscpx)
+            ! but should give wind according to vars%wndspd
+            ! this is a correction factor for that
+            wprsfac=sqrt(vars%wndspd)/(3*wprsfac)
+         end if
 
-         ! results in this typical wind magnitude
-         wprsfac=wprsfac/fcor
-
-         ! but should give wind according to vars%wndspd
-         ! this is a correction factor for that
-         wprsfac=sqrt(vars%wndspd)/(3*wprsfac)
-
-      end if
-
-
-      dpresx=0.
-      dpresy=0.
-      do jy=2,jdm
-      do ix=2,idm
+         dpresx=0.
+         dpresy=0.
+         do jy=2,jdm
+         do ix=2,idm
          ! Pressure gradient. Coversion from mBar to Pa
             dpresx(ix,jy) = &
-              100.*(ran1%slp(ix,jy) - ran1%slp(ix-1,jy))/ minscpx
+               100.*(ran1%slp(ix,jy) - ran1%slp(ix-1,jy))/ minscpx
             dpresx(ix,jy)=dpresx(ix,jy)*wprsfac
 
             dpresy(ix,jy) = &
                100.*(ran1%slp(ix,jy) - ran1%slp(ix,jy-1))/ minscpx
             dpresy(ix,jy)=dpresy(ix,jy)*wprsfac
-      end do
-      end do
-
-      
+         end do
+         end do
 
 
-      do jy=1,jdm
-      do ix=1,idm
-         
-         ! Coriolis balance (at 40 deg)
-         !fcor=2*sin(max(abs(plat(ix,jy)),20.)/radtodeg)*2*pi/86400;
-         fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
-         fcor=fcor*rhoa
-         vcor= dpresx(ix,jy) / (fcor)
-         ucor=-dpresy(ix,jy) / (fcor)
+         do jy=1,jdm
+         do ix=1,idm
+            
+            ! Coriolis balance (at 40 deg)
+            !fcor=2*sin(max(abs(plat(ix,jy)),20.)/radtodeg)*2*pi/86400;
+            fcor=2*sin(40./radtodeg)*2*pi/86400; ! Constant
+            fcor=fcor*rhoa
+            vcor= dpresx(ix,jy) / (fcor)
+            ucor=-dpresy(ix,jy) / (fcor)
 
+            ! In the equatorial band u,v are aligned with the
+            ! pressure gradients. Here we use the coriolis
+            ! factor above to set it up (to limit the speeds)
+            ueq=-dpresx(ix,jy) / abs(fcor)
+            veq=-dpresy(ix,jy) / abs(fcor)
 
-         ! In the equatorial band u,v are aligned with the
-         ! pressure gradients. Here we use the coriolis
-         ! factor above to set it up (to limit the speeds)
-         ueq=-dpresx(ix,jy) / abs(fcor)
-         veq=-dpresy(ix,jy) / abs(fcor)
+            ! Weighting between coriiolis/equator solution
+   !         wcor=sin( &
+   !            min(abs(plat(ix,jy)),wlat) / wlat * pi * 0.5)
+            wcor=sin(wlat) / wlat * pi * 0.5
 
-         ! Weighting between coriiolis/equator solution
-!         wcor=sin( &
-!            min(abs(plat(ix,jy)),wlat) / wlat * pi * 0.5)
-         wcor=sin(wlat) / wlat * pi * 0.5
+            synuwind(ix,jy) = wcor*ucor + (1.-wcor)*ueq
+            synvwind(ix,jy) = wcor*vcor + (1.-wcor)*veq
 
+            synwndspd(ix,jy) = sqrt(  &
+               synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
 
-         synuwind(ix,jy) = wcor*ucor + (1.-wcor)*ueq
-         synvwind(ix,jy) = wcor*vcor + (1.-wcor)*veq
-
-         synwndspd(ix,jy) = sqrt(  &
-              synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
-
-         ! The rest use uncorrelated fields
-         synairtmp(ix,jy) = ran1%airtmp(ix,jy)
-         synrelhum(ix,jy) = ran1%relhum(ix,jy)
-         synslp   (ix,jy) = ran1%slp   (ix,jy)
-         synprecip(ix,jy) = ran1%precip(ix,jy) 
-         synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
-         synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
-         synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0) 
-      end do
-      end do
-!      synuwind = synuwind - compute_mean(synuwind)
-!      synvwind = synvwind - compute_mean(synvwind)
-
-
-
+            ! The rest use uncorrelated fields
+            synairtmp(ix,jy) = ran1%airtmp(ix,jy)
+            synrelhum(ix,jy) = ran1%relhum(ix,jy)
+            synslp   (ix,jy) = ran1%slp   (ix,jy)
+            synprecip(ix,jy) = ran1%precip(ix,jy) 
+            synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
+            synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
+            synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0) 
+         end do
+         end do
+   !      synuwind = synuwind - compute_mean(synuwind)
+   !      synvwind = synvwind - compute_mean(synvwind)
 
          ! Drag
-      do jy=2,jdm-1
-      do ix=2,idm-1
-         wndfac=(1.+sign(1.,synwndspd(ix,jy)-11.))*.5
-         cd_new=(0.49+0.065*synwndspd(ix,jy))*1.0e-3*wndfac+cdfac*(1.-wndfac)
+         do jy=2,jdm-1
+         do ix=2,idm-1
+            wndfac=(1.+sign(1.,synwndspd(ix,jy)-11.))*.5
+            cd_new=(0.49+0.065*synwndspd(ix,jy))*1.0e-3*wndfac+cdfac*(1.-wndfac)
 
-         w4    =.25*( &
-            synvwind(ix-1,jy+1)+synvwind(ix,jy+1)+  &
-            synvwind(ix-1,jy  )+synvwind(ix,jy  ))
-         wfact=sqrt( synuwind(ix,jy)*synuwind(ix,jy)+w4*w4)* airdns*cd_new
-         syntaux(ix,jy)=synuwind(ix,jy)*wfact
+            w4    =.25*( &
+               synvwind(ix-1,jy+1)+synvwind(ix,jy+1)+  &
+               synvwind(ix-1,jy  )+synvwind(ix,jy  ))
+            wfact=sqrt( synuwind(ix,jy)*synuwind(ix,jy)+w4*w4)* airdns*cd_new
+            syntaux(ix,jy)=synuwind(ix,jy)*wfact
 
-         w4   =.25*( &
-            synuwind(ix  ,jy-1)+synuwind(ix+1,jy-1)+ &
-            synuwind(ix+1,jy  )+synuwind(ix  ,jy  ))
-         wfact=sqrt( &
-               synvwind(ix,jy)*synvwind(ix,jy)+w4*w4)* airdns*cd_new
-         syntauy(ix,jy)=synvwind(ix,jy)*wfact
-      end do
-      end do
+            w4   =.25*( &
+               synuwind(ix  ,jy-1)+synuwind(ix+1,jy-1)+ &
+               synuwind(ix+1,jy  )+synuwind(ix  ,jy  ))
+            wfact=sqrt( &
+                  synvwind(ix,jy)*synvwind(ix,jy)+w4*w4)* airdns*cd_new
+            syntauy(ix,jy)=synvwind(ix,jy)*wfact
+         end do
+         end do
 
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! rf_prsflag=0 : wind and slp are uncorrelated
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! rf_prsflag=0 : wind and slp are uncorrelated
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       else  ! rf_prsflg .eq. 0
+         do jy=2,jdm-1
+         do ix=2,idm-1
+         !if (ip(ix,jy)==1) then
+            syntaux  (ix,jy) = syntaux  (ix,jy) + ran1%taux(ix,jy)
+            syntauy  (ix,jy) = syntauy  (ix,jy) + ran1%tauy(ix,jy)
 
-
-      do jy=2,jdm-1
-      do ix=2,idm-1
-      !if (ip(ix,jy)==1) then
-         syntaux  (ix,jy) = syntaux  (ix,jy) + ran1%taux(ix,jy)
-         syntauy  (ix,jy) = syntauy  (ix,jy) + ran1%tauy(ix,jy)
-
-         ! KAL -- winds are nonlinear functions of tau and mainly
-         ! KAL -- used for sea ice
-         wspd = sqrt(syntaux(ix,jy)**2 + syntauy(ix,jy)**2)
-         wspd = max(sqrt(wspd / (cdfac*rhoa)),0.1)
-         synuwind(ix,jy) = syntaux (ix,jy) / (wspd*cdfac*rhoa)
-         synvwind(ix,jy) = syntauy (ix,jy) / (wspd*cdfac*rhoa)
-
-
-         synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
-         synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
-         synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
-         synprecip(ix,jy) = synprecip(ix,jy)+ran1%precip(ix,jy)
-         synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
-         synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
-         synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
-
-      !end if
-      end do
-      end do
-      
-
+            ! KAL -- winds are nonlinear functions of tau and mainly
+            ! KAL -- used for sea ice
+            wspd = sqrt(syntaux(ix,jy)**2 + syntauy(ix,jy)**2)
+            wspd = max(sqrt(wspd / (cdfac*rhoa)),0.1)
+            synuwind(ix,jy) = syntaux (ix,jy) / (wspd*cdfac*rhoa)
+            synvwind(ix,jy) = syntauy (ix,jy) / (wspd*cdfac*rhoa)
+            synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
+            synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
+            synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
+            synprecip(ix,jy) = synprecip(ix,jy)+ran1%precip(ix,jy)
+            synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
+            synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
+            synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
+         !end if
+         end do
+         end do
       end if ! rf_prsflg
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! end if rf_prsflag=0
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! write output files  -- Spatial field dumped on first run
+! write output files  -- Spatial field dumped on first run （Instead, spatial fields are saved in variables）
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      call synforc_wr(time_index)
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
-
       call ranfields(ran1,rh)
-
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
 
-      call randfld_wr(time_index)
-
-
+      call save_synforc_randfld(synforc,randfld)
+   
+   end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      ccount=ccount+1
-      end subroutine rand_update
 
-      subroutine ranfields(ranfld,scorr)
+   subroutine ranfields(ranfld,scorr)
       use mod_pseudo
       implicit none
 
       type(forcing_fields)    , intent(inout) :: ranfld
       real,                     intent(in)    :: scorr
-      real, dimension(1:idm,1:jdm) :: tmp
-      real, dimension(idm,jdm) :: gtmp
+      real, dimension(idm,jdm) :: gtmp, tmp
 
       ranfld=0.
       call pseudo2D(ranfld%slp,idm,jdm,1,scorr,fnx,fny)
@@ -532,9 +472,9 @@ contains
       call pseudo2D(ranfld%relhum,idm,jdm,1,scorr,fnx,fny)
       call pseudo2D(ranfld%clouds,idm,jdm,1,scorr,fnx,fny)
       call pseudo2D(ranfld%precip,idm,jdm,1,scorr,fnx,fny)
-      end subroutine ranfields
+   end subroutine ranfields
 
-
+!------------------------------------------
    subroutine calc_forc_update(A,B,C)
       type(forcing_fields), intent(inout) :: A
       type(forcing_fields), intent(in   ) :: B
@@ -556,65 +496,7 @@ contains
       end do
    end subroutine calc_forc_update
 
-   function var_sqrt(A)
-      type(forcing_variances) var_sqrt
-      type(forcing_variances), intent(in) :: A
-
-      var_sqrt%slp   = sqrt(A%slp   )
-      var_sqrt%taux  = sqrt(A%taux  )
-      var_sqrt%tauy  = sqrt(A%tauy  )
-      var_sqrt%wndspd= sqrt(A%wndspd)
-      var_sqrt%airtmp= sqrt(A%airtmp)
-      var_sqrt%relhum= sqrt(A%relhum)
-      var_sqrt%clouds= sqrt(A%clouds)
-      var_sqrt%precip= sqrt(A%precip)
-      var_sqrt%sss   = sqrt(A%sss   )
-      var_sqrt%sst   = sqrt(A%sst   )
-   end function var_sqrt
-
-   subroutine assign_force(A,r)
-      type(forcing_fields), intent(out) :: A
-      real, intent(in) :: r
-
-      integer :: i,j
-
-      do j=1,jdm
-      do i=1,idm
-         A%slp    (i,j) = r
-         A%taux   (i,j) = r
-         A%tauy   (i,j) = r
-         A%wndspd (i,j) = r
-         A%airtmp (i,j) = r
-         A%relhum (i,j) = r
-         A%clouds (i,j) = r
-         A%precip (i,j) = r
-         A%sss    (i,j) = r
-         A%sst    (i,j) = r
-         A%uwind  (i,j) = r
-         A%vwind  (i,j) = r
-         A%tauxice(i,j) = r
-         A%tauyice(i,j) = r
-      end do
-      end do
-   end subroutine assign_force
-
-
-   subroutine assign_vars(A,r)
-      type(forcing_variances), intent(out) :: A
-      real, intent(in) :: r
-      A%slp    = r
-      A%taux   = r
-      A%tauy   = r
-      A%wndspd = r
-      A%airtmp = r
-      A%relhum = r
-      A%clouds = r
-      A%precip = r
-      A%sss    = r
-      A%sst    = r
-   end subroutine assign_vars
-
-
+!--------------------------------------------------
    subroutine ran_update_ran1(ran,ran1,alpha)
       type(forcing_fields), intent(inout) :: ran
       type(forcing_fields), intent(   in) :: ran1
@@ -638,7 +520,7 @@ contains
       end do
    end subroutine
 
-
+!------------------------------------------
    subroutine init_ran(ran)
    implicit none
 
@@ -660,6 +542,7 @@ contains
       allocate(ran%tauyice(idm,jdm))
    end subroutine
 
+!------------------------------------------
    subroutine init_fvars()
    implicit none
      ! Allocate fields - some are not used...
@@ -690,117 +573,90 @@ contains
      synradflx(:,:)=0.
      synshwflx(:,:)=0.
      synslp   (:,:)=0.
-
    end subroutine
 
-   subroutine randfld_rd(time_index)
-
-           character(2)  :: time_index
-           character(150) :: filename
-           integer :: ix,jy
-
-           filename = trim(iopath)//'/randfld.'//time_index
-
-           if (debug) print*, 'reading randfile ', filename
-
-           open(10, file=filename, access='stream', status="old", action="read")
-
-           do jy=1,jdm
-             do ix=1,idm
-             !read(10, '(10e14.3)') &
-                  read(10) &
-                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
-                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
-                        ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
-             end do !ix
-           end do !jy
-           close(10)
-           if (debug) print*, 'read from file'
-
+!------------------------------------------
+   subroutine save_synforc_randfld(synforc,randfld)
+      integer :: ix,jy,id
+      do jy=1,jdm
+      do ix=1,idm
+         id = (jy-1)*idm + ix
+         randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
+         ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
+         ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
+      
+         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
+         !synairtmp(ix,jy), synslp(ix,jy), &
+         !synprecip(ix,jy), synrelhum(ix,jy) /)
+      end do 
+      end do 
    end subroutine
 
-   subroutine synforc_rd(time_index)
-
-           character(2)  :: time_index
-           character(150) :: filename
-           integer       :: ix,jy, xx, yy
-
-           filename = trim(iopath)//'/synforc.'//time_index
-
-           if (debug) print*, 'reading synforc ', filename
-
-           open(11, file=filename, access='stream', status="old", action="read")
-
-           do jy=1,jdm
-             do ix=1,idm
-                !read(11,'(2i5,6e14.3)') xx, yy,  &
-                  read(11) xx, yy,  &
-                     synuwind(ix,jy), synvwind(ix,jy), &
-                        synairtmp(ix,jy), synslp(ix,jy), &
-                        synprecip(ix,jy), synrelhum(ix,jy)
-             end do !ix
-           end do !jy
-
-           close(11)
-
-   end subroutine
-
-   subroutine randfld_wr(time_index)
-
-           character(2)  :: time_index
-           character(150) :: filename
-           integer :: ix,jy
-
-           filename = trim(iopath)//'/randfld.'//time_index
-
-
-           if (debug) print*, 'writing randfile ', filename
-
-           open(12,file=filename,access='stream',status='replace')
-
-           do jy=1,jdm
-             do ix=1,idm
-                !write(12,'(10e14.3)') &
-                  write(12) &
-                        ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
-                        ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
-                        ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
-             end do !ix
-           end do !jy
-
-           close(12)
-
-   end subroutine
-
-   subroutine synforc_wr(time_index)
-
-           character(2)  :: time_index
-           character(150) :: filename
-           integer       :: ix,jy
-
-           filename = trim(iopath)//'/synforc.'//time_index
-
-           if (debug) print*, 'writing synforc ', filename
-
-           open(13,file=filename,access='stream', status='replace')
-
-           do jy=1,jdm
-             do ix=1,idm
-               !write(13,'(2i5,6e14.3)') ix,jy,  &
-               write(13) ix,jy,  &
-                        synuwind(ix,jy), synvwind(ix,jy), &
-                        synairtmp(ix,jy), synslp(ix,jy), &
-                        synprecip(ix,jy), synrelhum(ix,jy)
-             end do !ix
-           end do !jy
-
-           close(13)
-
-   end subroutine
-
-real function compute_mean(mat)
+   ! following functions are not used.
+   !------------------------------------------
+   real function compute_mean(mat)
       real, dimension(:,:), intent(in) :: mat
       compute_mean = sum(mat)/size(mat)
-     end function
+   end function
+
+   !------------------------------------------
+   function var_sqrt(A)
+      type(forcing_variances) var_sqrt
+      type(forcing_variances), intent(in) :: A
+
+      var_sqrt%slp   = sqrt(A%slp   )
+      var_sqrt%taux  = sqrt(A%taux  )
+      var_sqrt%tauy  = sqrt(A%tauy  )
+      var_sqrt%wndspd= sqrt(A%wndspd)
+      var_sqrt%airtmp= sqrt(A%airtmp)
+      var_sqrt%relhum= sqrt(A%relhum)
+      var_sqrt%clouds= sqrt(A%clouds)
+      var_sqrt%precip= sqrt(A%precip)
+      var_sqrt%sss   = sqrt(A%sss   )
+      var_sqrt%sst   = sqrt(A%sst   )
+   end function var_sqrt
+
+!------------------------------------------
+   subroutine assign_force(A,r)
+      type(forcing_fields), intent(out) :: A
+      real, intent(in) :: r
+
+      integer :: i,j
+
+      do j=1,jdm
+      do i=1,idm
+         A%slp    (i,j) = r
+         A%taux   (i,j) = r
+         A%tauy   (i,j) = r
+         A%wndspd (i,j) = r
+         A%airtmp (i,j) = r
+         A%relhum (i,j) = r
+         A%clouds (i,j) = r
+         A%precip (i,j) = r
+         A%sss    (i,j) = r
+         A%sst    (i,j) = r
+         A%uwind  (i,j) = r
+         A%vwind  (i,j) = r
+         A%tauxice(i,j) = r
+         A%tauyice(i,j) = r
+      end do
+      end do
+   end subroutine assign_force
+
+!------------------------------------------
+   subroutine assign_vars(A,r)
+      type(forcing_variances), intent(out) :: A
+      real, intent(in) :: r
+      A%slp    = r
+      A%taux   = r
+      A%tauy   = r
+      A%wndspd = r
+      A%airtmp = r
+      A%relhum = r
+      A%clouds = r
+      A%precip = r
+      A%sss    = r
+      A%sst    = r
+   end subroutine assign_vars
 
 end module mod_random_forcing

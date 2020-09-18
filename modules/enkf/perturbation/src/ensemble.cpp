@@ -46,7 +46,7 @@ void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<
 // };
 
 
-// void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<double>& loaded_vwind, int rdm, int ranid)
+// void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, int rdm, int ranid)
 // {
 //     std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8,0.0)); 
 
@@ -83,8 +83,8 @@ void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<
 //     }
 
 //     for(int i = 0; i < rdm; i++) {
-//         loaded_uwind[i] += synoptic.uwind.data[i];
-//         loaded_vwind[i] += synoptic.vwind.data[i];
+//         velocity_u[i] += synoptic.uwind.data[i];
+//         velocity_v[i] += synoptic.vwind.data[i];
 //     }
 
 // };
@@ -106,6 +106,7 @@ void ensemble::getpath(std::string iopath){
 
 
 //void ensemble::loadPerturbation(std::vector<double>& uwind, std::vector<double>& vwind, int rdm, int ranid)
+// todo: remove this function
 void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rdm, int ranid)
 {
     std::vector<std::vector<float> > ranfld(rdm, std::vector<float>(8,0.0)); 
@@ -132,16 +133,16 @@ void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rd
 };
 
 // todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& loaded_uwind, std::vector<double>& loaded_vwind, std::vector<float>& ranfld_u, std::vector<float>& ranfld_v, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<float>& synforc_u, std::vector<float>& synforc_v, int x_start, int y_start, int x_count, int y_count)
 {    
-    //int count = x_count*y_count; =loaded_uwind.size() //
-    int count = loaded_uwind.size();
+    //int count = x_count*y_count; =velocity_u.size() //
+    int count = velocity_u.size();
     int start = x_count*y_start + x_start; // double check
     
-    //std::cout<<"subdomain_size="<<ranfld_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
+    //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
     for(int i = start; i <=count; i++) {
-        loaded_uwind[i] += ranfld_u[i];
-        loaded_vwind[i] += ranfld_v[i];                
+        velocity_u[i] += synforc_u[i];
+        velocity_v[i] += synforc_v[i];                
     }
 };
 

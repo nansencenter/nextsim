@@ -8654,10 +8654,21 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
+    
+        Variable synforce={ // "wind perturbations added to u,v dimension(2,xdim*ydim)", 
+            loaded_data: loaded_data_tmp
+        };
 
-        std::vector<Variable> variables_tmp(2);
+        Variable randfld={ // "wind perturbations related varialbes (10, xdim*ydim)", 
+            loaded_data: loaded_data_tmp
+        };
+
+
+        std::vector<Variable> variables_tmp(4);
         variables_tmp[0] = u;
         variables_tmp[1] = v;
+        variables_tmp[2] = synforc;
+        variables_tmp[3] = randfld;
 
         std::vector<int> uv_tmp(2);
             uv_tmp[0] = 0;

@@ -105,6 +105,8 @@ public:
         // Storage of the loaded and interpolated data
         std::vector<std::vector<double>> loaded_data;       //! 2 vectors, one for the previous and one for the next data timestep
         std::vector<std::vector<double>> interpolated_data; //! 2 vectors, one for the previous and one for the next data timestep
+        //
+        std::vector<std::vector<float>> synforc,randfld;
 
         WaveDirOptions wavDirOptions;
             // to determine if this is the mean wave direction
