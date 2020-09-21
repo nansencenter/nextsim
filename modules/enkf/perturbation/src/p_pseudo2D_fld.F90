@@ -12,9 +12,9 @@ contains
     implicit none 
     !
     integer(c_int), intent(in):: xdim, ydim
-    real(c_double), intent(inout):: synforc01(2,xdim*ydim), randfld01(10,xdim*ydim)   ! variables need to be saved in memory
-    !real(c_double),public, intent(out):: synforc00(2,xdim*ydim)
-    !real(c_double) :: synforc00(2,xdim*ydim), randfld00(10,xdim*ydim)
+    real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
+    !real(c_double),public, intent(out):: synforc00(xdim*ydim, 2)
+    !real(c_double) :: synforc00(xdim*ydim, 2), randfld00(xdim*ydim, 10)
     !
     
     call limits_randf(xdim,ydim)  ! read in setting from pseudo2D.nml

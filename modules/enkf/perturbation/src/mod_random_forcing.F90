@@ -307,7 +307,7 @@ contains
       real, parameter :: wlat=60.
       integer i,j
       real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
-      real*8  :: randfld(10,idm*jdm), synforc(2,idm*jdm)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
       autocorr = exp(-1.0)
@@ -606,7 +606,7 @@ contains
 !------------------------------------------
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
-      real*8  :: randfld(10,idm*jdm), synforc(2,idm*jdm)
+      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
       do jy=1,jdm
       do ix=1,idm
          id = (jy-1)*idm + ix
@@ -632,7 +632,7 @@ contains
    !------------------------------------------
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
-      real*8  :: randfld(10,idm*jdm), synforc(2,idm*jdm)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
       do jy=1,jdm
       do ix=1,idm
          id = (jy-1)*idm + ix

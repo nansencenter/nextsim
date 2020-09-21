@@ -1,10 +1,10 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<double> > &synforc00,std::vector<std::vector<double> > &synforc01) 
+void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld) 
 {
     // Call fortran library for synoptic perturbation
     // // A file named ranfld.dat will be written   
-    p_pseudo2D_fld_sub(&xdm, &ydm, &synforc00[0][0], &synforc01[0][0]);
+    p_pseudo2D_fld_sub(&xdm, &ydm, &synforc[0][0], &randfld[0][0]);
 }
 
 // void ensemble::addPerturbation(int rdm)
