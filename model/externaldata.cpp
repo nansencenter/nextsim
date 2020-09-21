@@ -256,38 +256,36 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
             // use float variable to save sources, since it's no needs to have high precision perturbations.
             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf           
-                //std::vector<std::vector<float> > synforc00(2,std::vector<float>(MN_full,0.0)), synforc01(2,std::vector<float>(MN_full,0.0));
+             //   std::vector<std::vector<float> > randfld(10,std::vector<float>(MN_full,0.0)), synforc01(2,std::vector<float>(MN_full,0.0));
 
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
-                    M_dataset->variables[3].loaded_data.resize(2);  //synforc, todo, check if resize will change content in the array
-                    M_dataset->variables[3].loaded_data[0].resize(MN_full);// is it necessary to claim size? can it be defined in fortran
-                    M_dataset->variables[3].loaded_data[1].resize(MN_full);
-                    M_dataset->variables[4].loaded_data.resize(10);  // randfld
-                    M_dataset->variables[4].loaded_data[0].resize(MN_full);
-                    M_dataset->variables[4].loaded_data[1].resize(MN_full);
-                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->variables[3].loaded_data, &  
-                                                                    M_dataset->variables[4].loaded_data); //synforc and randfld
+                    
+                    M_dataset->synforc[0].resize(MN_full);
+                    M_dataset->synforc[1].resize(MN_full);
+                    M_dataset->randfld[0].resize(MN_full);
+                    M_dataset->randfld[1].resize(MN_full);
+                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc, M_dataset->randfld); //synforc and randfld
                     //perturbation.synopticPerturbation(M_full,N_full,synforc00,synforc01,randfld01);  // may not need  synforc00
                     
-                    LOG(DEBUG) << "### Load perturbations\n";
-                    perturbation.loadPerturbation(synforc00,MN_full,0); 
-                    perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
+                    // LOG(DEBUG) << "### Load perturbations\n";
+                    // perturbation.loadPerturbation(synforc00,MN_full,0); 
+                   // perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";
                 for(int ii=0; ii<2; ii++) {       // loop u,v         
-                    boost::mpi::broadcast(M_comm, &synforc00[ii][0], MN_full, 0);                
-                    boost::mpi::broadcast(M_comm, &synforc01[ii][0], MN_full, 0);                
-                }
+                    // boost::mpi::broadcast(M_comm,  &M_dataset->synforc[i][0], MN_full, 0);                
+                     boost::mpi::broadcast(M_comm, &M_dataset->synforc[ii][0], MN_full, 0);                
+                }// since randfld is used above in root 0, I think it doesn't need to broadcast to other processors
 
                 LOG(DEBUG) << "add perturbations to wind fields\n";
                 int y_start = M_dataset->grid.dimension_y_start;
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count;
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], synforc00[0],synforc00[1],x_start, y_start, x_count, y_count);                 
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc01[0],synforc01[1], x_start, y_start, x_count, y_count); 
+                //perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], synforc00[0],synforc00[1],x_start, y_start, x_count, y_count);                 
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc[0],M_dataset->synforc[1], x_start, y_start, x_count, y_count); 
                 
                 //perturbation.addPerturbation(M_dataset, synforc00, synforc01); 
 

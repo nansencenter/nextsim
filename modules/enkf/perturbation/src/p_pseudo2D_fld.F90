@@ -12,19 +12,17 @@ contains
     implicit none 
     !
     integer(c_int), intent(in):: xdim, ydim
-    real(c_float),public, intent(inout):: synforc01(2,xdim*ydim), randfld01(10,xdim*ydim)   ! variables need to be saved in memory
-    !real(c_float),public, intent(out):: synforc00(2,xdim*ydim)
-    real(c_float),public:: synforc00(2,xdim*ydim), randfld00(10,xdim*ydim)
+    real(c_double), intent(inout):: synforc01(2,xdim*ydim), randfld01(10,xdim*ydim)   ! variables need to be saved in memory
+    !real(c_double),public, intent(out):: synforc00(2,xdim*ydim)
+    !real(c_double) :: synforc00(2,xdim*ydim), randfld00(10,xdim*ydim)
     !
     
-    call limits_randf  ! read in setting from pseudo2D.nml
+    call limits_randf(xdim,ydim)  ! read in setting from pseudo2D.nml
     call init_fvars    ! init field variables
-    call init_rand_update(xdim,ydim) ! core routine, xdim, ydim are set for idm,jdm in the routines
-    ! todo: give values of synforc01, randfld01 to variables by synforc_rd, randfld_rd
-    ! 
-    ! synforc00=synforc01, randfld00= randfld01 
+    call init_rand_update(synforc01,randfld01) ! core routine, xdim, ydim are set for idm,jdm in the routines
     ! calcualte synforc01, randfld01 in the routine
     ! output synforc00, synforc01, randfld01.
+    ! check if it is necessary to return synforc00
   end subroutine p_pseudo2D_fld_sub
 
 end module p_pseudo2D_fld

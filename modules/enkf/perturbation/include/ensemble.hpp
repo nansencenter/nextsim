@@ -15,7 +15,7 @@ Header file for ensemble.cpp
 #include <boost/program_options.hpp>
 
 extern "C" {
-    void p_pseudo2D_fld_sub(const int *xdm,const int *ydm,float *synforc00,float *synforc01);
+    void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc00, double *synforc01);
 /* Other subroutines in libpseudo2D.dylib fortran library
     void init_fvars_();
         void m_set_random_seed_();
@@ -87,7 +87,7 @@ class ensemble
 
         void synopticPerturbation(int);
 
-        void synopticPerturbation(int const&, int const&,std::vector<std::vector<float>>&,std::vector<std::vector<float>>&);
+        void synopticPerturbation(int const&, int const&,std::vector<std::vector<double>>&,std::vector<std::vector<double>>&);
 
         void addPerturbation();
 
@@ -95,7 +95,7 @@ class ensemble
 
         void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
 
-        void addPerturbation(std::vector<double>&, std::vector<double>&, std::vector<float>&, std::vector<float>&, int, int, int, int);
+        void addPerturbation(std::vector<double>&, std::vector<double>&, std::vector<double>&, std::vector<double>&, int, int, int, int);
 
         //void addPerturbation(Dataset *dataset, std::vector<std::vector<double> >&, std::vector<std::vector<double> >&);
 

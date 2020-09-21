@@ -1,6 +1,6 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<float> > &synforc00,std::vector<std::vector<float> > &synforc01) 
+void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<double> > &synforc00,std::vector<std::vector<double> > &synforc01) 
 {
     // Call fortran library for synoptic perturbation
     // // A file named ranfld.dat will be written   
@@ -133,7 +133,7 @@ void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rd
 };
 
 // todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<float>& synforc_u, std::vector<float>& synforc_v, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc_u, std::vector<double>& synforc_v, int x_start, int y_start, int x_count, int y_count)
 {    
     //int count = x_count*y_count; =velocity_u.size() //
     int count = velocity_u.size();
