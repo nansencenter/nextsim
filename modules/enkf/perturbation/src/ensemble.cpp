@@ -1,12 +1,78 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(int const& xdm, int const& ydm, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld) 
+void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld) 
 {
+    std::cout<< "t1\n";
+    int rows,cols;
+    rows = synforc.size();
+    cols = synforc[0].size();
+//     std::cout<< "r,c:"<<rows<<", "<<cols<<"t1\n";
     // Call fortran library for synoptic perturbation
-    // // A file named ranfld.dat will be written   
-    p_pseudo2D_fld_sub(&xdm, &ydm, &synforc[0][0], &randfld[0][0]);
+    // // A file named ranfld.dat will be written 
+    int id;  
+    for(int i = 0; i < xdim; i++) {
+        for(int j = 0; j < ydim; j++) {
+            id = i*ydim + j;
+            synforc[0][id] = i+1;
+            synforc[1][id] = j+1;
+        }    
+    }
+    std::cout<< "t2\n";
+    //return;
+    // pass 2D vector from c++ to fortran. Because fortran only recogizes array allocated contiguous in memory, while multidimentional array in c++ is not always contiguous automatically. Thus, a contiguous array is defined here to transfer data.
+    rows = synforc.size();
+    cols = synforc[0].size();
+    std::cout<< "row and col"<< rows << "  "<<cols<<"\n";
+    double *data1 = (double *)malloc(rows*cols*sizeof(double));
+    double **synforc_p = (double **)malloc(rows*sizeof(double*));
+    for(int i = 0; i < rows; i++) 
+        synforc_p[i] = &(data1[cols*i]);
+    
+    rows = randfld.size();
+    cols = randfld[0].size();
+    std::cout<< "row and col"<< rows << "  "<<cols<<"\n";
+    double *data = (double *)malloc(rows*cols*sizeof(double));
+    double **randfld_p = (double **)malloc(rows*sizeof(double*));
+    for(int i = 0; i < rows; i++) 
+        randfld_p[i] = &(data[cols*i]);
+    
+    //return;
+    
+    std::cout<< "t3\n";
+    for(int i = 0; i < xdim; i++) {
+        for(int j = 0; j < ydim; j++) {
+            id = i*ydim + j;
+            for(int k = 0; k < synforc.size(); k++) {
+                synforc_p[k][id] = 0.;
+            }   
+            for(int k = 0; k < randfld.size(); k++) {
+                randfld[k][id] = 0.;
+                randfld_p[k][id] = randfld[k][id];
+            }    
+        }    
+    }
+   // return;
+    std::cout<< "t4\n";
+    
+    //
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0]);
+    //
+ //   return;
+    std::cout<< "t5\n";
+    for(int i = 0; i < xdim; i++) {
+        for(int j = 0; j < ydim; j++) {
+            id = i*ydim + j;
+            for(int k = 0; k < synforc.size(); k++) {
+                synforc[k][id] = synforc_p[k][id];
+            }   
+            for(int k = 0; k < randfld.size(); k++) {
+                randfld[k][id] = randfld_p[k][id];
+            }    
+        }    
+    }
+    std::cout<< "t6\n";
+ //   return; */  
 }
-
 // void ensemble::addPerturbation(int rdm)
 // {
 //     std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8));

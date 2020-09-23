@@ -260,11 +260,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
-                    
-                    M_dataset->synforc[0].resize(MN_full);
-                    M_dataset->synforc[1].resize(MN_full);
-                    M_dataset->randfld[0].resize(MN_full);
-                    M_dataset->randfld[1].resize(MN_full);
+                     for(int k = 0; k < M_dataset->synforc.size(); k++){
+                         M_dataset->synforc[k].resize(MN_full);
+                    }
+                    for(int k = 0; k < M_dataset->randfld.size(); k++){
+                         M_dataset->randfld[k].resize(MN_full);
+                    }
+                     
                     perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc, M_dataset->randfld); //synforc and randfld
                     //perturbation.synopticPerturbation(M_full,N_full,synforc00,synforc01,randfld01);  // may not need  synforc00
                     
