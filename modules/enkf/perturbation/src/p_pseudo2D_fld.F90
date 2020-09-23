@@ -14,7 +14,7 @@ contains
     integer(c_int), intent(in):: xdim, ydim, perturbation_count ! perturbation_count is only used to decide whether generate ran
     !real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
     real*8 :: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10) !
-     integer ix, jy, id
+    ! integer ix, jy, id
     ! do ix=1,xdim
     !   do jy=1,ydim
     !     id = jy + (ix-1)*ydim

@@ -343,7 +343,7 @@ contains
    !                reducing pressure perturbations
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-         ! grid size min max
+   ! grid size min max
    !      minscpx=minval(scpx)
          minscpx=30
          wprsfac=1.
@@ -415,6 +415,7 @@ contains
             synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0) 
          end do
          end do
+   ! todo
    !      synuwind = synuwind - compute_mean(synuwind)
    !      synvwind = synvwind - compute_mean(synvwind)
 

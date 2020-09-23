@@ -2,58 +2,103 @@
 
 void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count) 
 {
-    std::cout<< "t1\n";
-    int rows,cols;
-    rows = synforc.size();
-    cols = synforc[0].size();
-//     std::cout<< "r,c:"<<rows<<", "<<cols<<"t1\n";
-    // Call fortran library for synoptic perturbation
-    // // A file named ranfld.dat will be written 
-    int id;  
-    // for(int i = 0; i < xdim; i++) {
-    //     for(int j = 0; j < ydim; j++) {
-    //         id = i*ydim + j;
-    //         synforc[0][id] = i+1;
-    //         synforc[1][id] = j+1;
-    //     }    
-    // }
-    std::cout<< "t2\n";
-    //return;
-    // pass 2D vector from c++ to fortran. Because fortran only recogizes array allocated contiguous in memory, while multidimentional array in c++ is not always contiguous automatically. Thus, a contiguous array is defined here to transfer data.
-    rows = synforc.size();
-    cols = synforc[0].size();
-    std::cout<< "row and col"<< rows << "  "<<cols<<"\n";
-    double *data1 = (double *)malloc(rows*cols*sizeof(double));
-    double **synforc_p = (double **)malloc(rows*sizeof(double*));
-    for(int i = 0; i < rows; i++) 
-        synforc_p[i] = &(data1[cols*i]);
+//     std::cout<< "t1\n";
+//     int rows,cols, id;
+//     // rows = synforc.size();
+//     // cols = synforc[0].size();
+// //     std::cout<< "r,c:"<<rows<<", "<<cols<<"t1\n";
+//     // Call fortran library for synoptic perturbation
+//     // // A file named ranfld.dat will be written 
+ 
+//     // for(int i = 0; i < xdim; i++) {
+//     //     for(int j = 0; j < ydim; j++) {
+//     //         id = i*ydim + j;
+//     //         synforc[0][id] = i+1;
+//     //         synforc[1][id] = j+1;
+//     //     }    
+//     // }
+//     //std::cout<< "t2\n";
+//     //return;
     
-    rows = randfld.size();
-    cols = randfld[0].size();
-    std::cout<< "row and col"<< rows << "  "<<cols<<"\n";
-    double *data = (double *)malloc(rows*cols*sizeof(double));
-    double **randfld_p = (double **)malloc(rows*sizeof(double*));
-    for(int i = 0; i < rows; i++) 
-        randfld_p[i] = &(data[cols*i]);
+//     // pass 2D vector from c++ to fortran. Because fortran only recogizes array allocated contiguous in memory, while multidimentional array in c++ is not always contiguous automatically. Thus, a contiguous array is defined here to transfer data.
+
+//     // define two temporally continuous 1d array for transfering data with fortran routine and mpi broadcast       
+//     rows = synforc.size();
+//     cols = synforc[0].size();
+//     double *data1 = (double *)malloc(rows*cols*sizeof(double));
+//     double **synforc_p = (double **)malloc(rows*sizeof(double*));
+//     for(int i = 0; i < rows; i++) 
+//         synforc_p[i] = &(data1[cols*i]);
+//     //
+//     rows = randfld.size();
+//     cols = randfld[0].size();
+//     double *data2 = (double *)malloc(rows*cols*sizeof(double));
+//     double **randfld_p = (double **)malloc(rows*sizeof(double*));
+//     for(int i = 0; i < rows; i++) 
+//         randfld_p[i] = &(data2[cols*i]);
+
+//     //
+//     for(int i = 0; i < synforc[0].size(); i++) {
+//         for(int k = 0; k < synforc.size(); k++) {
+//             synforc_p[k][i] = synforc[k][i];
+//         }
+//     } 
+//     for(int i = 0; i < randfld[0].size(); i++) {
+//         for(int k = 0; k < randfld.size(); k++) {
+//             randfld_p[k][id] = randfld[k][id];
+//         }    
+//     }    
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
+//     //
+//    // std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
+//  //   return;
+//     //std::cout<< "t5\n";
     
+//     for(int i = 0; i < synforc[0].size(); i++) {
+//         for(int k = 0; k < synforc.size(); k++) {
+//             synforc[k][i] = synforc_p[k][i];
+//         }
+//         std::cout<<j+1<<", "<<i+1<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
+//     } 
+//     for(int i = 0; i < randfld[0].size(); i++) {
+//         for(int k = 0; k < randfld.size(); k++) {
+//             randfld[k][id] = randfld_p[k][id];
+//         }    
+//     }    
+//     std::cout<< "t6\n";
+//  //   return; */  
+
+
+    double *synforc_p = (double *)malloc(synforc.size()*synforc[0].size()*sizeof(double));
+    double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
     //
-    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
-    //
-    std::cout<< "t5\n";
-        for(int j = 0; j < ydim; j++) {
-    for(int i = 0; i < xdim; i++) {
-            id = j*xdim + i;
-            for(int k = 0; k < synforc.size(); k++) {
-                synforc[k][id] = synforc_p[k][id];
-            }
-            std::cout<<j+1<<", "<<i+1<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n"; 
-            for(int k = 0; k < randfld.size(); k++) {
-                randfld[k][id] = randfld_p[k][id];
-            }    
-        }    
+    int Ncol = xdim*ydim;    // = synforc[0].size() 
+    for(int row = 0; row < synforc.size(); row++){
+        for(int col = 0; col < Ncol; col++) {
+            synforc_p[row*Ncol+col] = synforc[row][col];
+        }
     }
-    std::cout<< "t6\n";
-}
+    for(int row = 0; row < randfld.size(); row++){
+        for(int col = 0; col < Ncol; col++) {
+            randfld_p[row*Ncol+col] = randfld[row][col];
+        }
+    } 
+    //
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);
+    //
+    for(int row = 0; row < synforc.size(); row++){
+        for(int col = 0; col < Ncol; col++) {
+            synforc[row][col] = synforc_p[row*Ncol+col];
+            std::cout<< row<< col<< ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
+        }
+    }           
+    for(int row = 0; row < randfld.size(); row++){
+        for(int col = 0; col < Ncol; col++) {
+            randfld[row][col] = randfld_p[row*Ncol+col];
+        }
+    } 
+    return;   
+}    
 // void ensemble::addPerturbation(int rdm)
 // {
 //     std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8));
@@ -216,3 +261,53 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
 //         n++;
 //     }
 // };
+
+
+
+
+
+// // define two temporally continuous 1d array for transfering data with fortran routine and mpi broadcast       
+//                 int rows = M_dataset->synforc.size();
+//                 int cols = MN_full;
+//                 double *temp1 = (double *)malloc(rows*cols*sizeof(double));
+//                 double **synforc_p = (double **)malloc(rows*sizeof(double*));
+//                 for(int i = 0; i < rows; i++) 
+//                     synforc_p[i] = &(temp1[cols*i]);
+                
+//                 rows = M_dataset->randfld.size();
+//                 cols = MN_full;
+//                 double *temp2 = (double *)malloc(rows*cols*sizeof(double));
+//                 double **randfld_p = (double **)malloc(rows*sizeof(double*));
+//                 for(int i = 0; i < rows; i++) 
+//                     randfld_p[i] = &(temp2[cols*i]);
+//                 if (M_comm.rank() == 0) {                    
+//                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";        
+//                     for(int k = 0; k < M_dataset->synforc.size(); k++)
+//                          M_dataset->synforc[k].resize(MN_full);
+//                          for(int i = 0; i < MN_full; i++)
+//                             synforc_p[k][i] = synforc[k][i];
+        
+//                     for(int k = 0; k < M_dataset->randfld.size(); k++)
+//                         M_dataset->randfld[k].resize(MN_full);
+//                         for(int i = 0; i < MN_full; i++)
+//                             randfld_p[k][i] = randfld[k][i];
+//                     }
+//                     // 
+//                     perturbation.synopticPerturbation(M_full,N_full,&synforc_p[0][0],&randfld_p[0][0],M_dataset->perturbation_count); 
+//                     M_dataset->perturbation_count++;
+//                     //
+//                     for(int k = 0; k < M_dataset->synforc.size(); k++)
+//                          M_dataset->synforc[k].resize(MN_full);
+//                          for(int i = 0; i < MN_full; i++)
+//                             synforc[k][i] = synforc_p[k][i];
+                    
+//                     for(int k = 0; k < M_dataset->randfld.size(); k++)
+//                         M_dataset->randfld[k].resize(MN_full);
+//                         for(int i = 0; i < MN_full; i++)
+//                             randfld[k][i] = randfld_p[k][i];
+//                     //perturbation.synopticPerturbation(M_full,N_full,synforc00,synforc01,randfld01);  // may not need  synforc00
+                    
+//                     // LOG(DEBUG) << "### Load perturbations\n";
+//                     // perturbation.loadPerturbation(synforc00,MN_full,0); 
+//                    // perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
+//                 }

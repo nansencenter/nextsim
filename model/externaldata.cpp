@@ -252,15 +252,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
                 LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-                LOG(DEBUG) << "### M_current_time: " << M_current_time << "\n";                              
+                LOG(DEBUG) << "### M_current_time: " << M_current_time  << "\n";                              
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
             // use float variable to save sources, since it's no needs to have high precision perturbations.
             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf           
-             //   std::vector<std::vector<float> > randfld(10,std::vector<float>(MN_full,0.0)), synforc01(2,std::vector<float>(MN_full,0.0));
-
+                
                 if (M_comm.rank() == 0) {                    
-                    LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";
-                    
+                    LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";    
                     for(int k = 0; k < M_dataset->synforc.size(); k++){
                          M_dataset->synforc[k].resize(MN_full);
                     }
