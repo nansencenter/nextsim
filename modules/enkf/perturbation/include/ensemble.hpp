@@ -88,7 +88,7 @@ class ensemble
 
         void synopticPerturbation(int);
 
-        void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, bool first_perturbation);
+        void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, int const& perturbation_count);
 
         void addPerturbation();
 

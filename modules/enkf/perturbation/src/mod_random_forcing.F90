@@ -159,17 +159,17 @@ contains
 
       INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
       
-      if (file_exists .and. perturbation_count>0) then
+      if (file_exists .or. perturbation_count>0) then
                   if (debug) print*,  'set perturbations as previous one'
                   call load_randfld_synforc(synforc01,randfld01)
                   randfld00 = randfld01
                   !synforc00 = synforc01
 
               if (debug) print*, 'reading from file...'
-              call randfld_rd('01')
-              call synforc_rd('01')
-              call randfld_wr('00')
-              call synforc_wr('00')
+             ! call randfld_rd('01')
+             ! call synforc_rd('01')
+             ! call randfld_wr('00')
+             ! call synforc_wr('00')
               !call rand_update('01')
       else
               !if (debug) print*, 'generating initial random field...'
@@ -472,7 +472,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! write output files  -- Spatial field dumped on first run （Instead, spatial fields are saved in variables）
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      call synforc_wr(time_index)
+      call synforc_wr(time_index,synforc)
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
       call ranfields(ran1,rh)
@@ -480,7 +480,7 @@ contains
       call ran_update_ran1(ran,ran1,alpha)
       call randfld_wr(time_index)
 
-      call save_randfld_synforc(randfld, synforc)
+     ! call save_randfld_synforc(randfld, synforc)
    
    end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -638,13 +638,15 @@ contains
       do jy=1,jdm
       do ix=1,idm
          id = (jy-1)*idm + ix
-         randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
-         ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
-         ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
-      
-         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
+         !randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
+         !ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
+         !ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
+         !synforc(id,1) = synuwind(ix,jy) 
+         !synforc(id,2) = synvwind(ix,jy)
+        ! synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
          !synairtmp(ix,jy), synslp(ix,jy), &
          !synprecip(ix,jy), synrelhum(ix,jy) /)
+         print*,'save_r',ix,jy,synuwind(ix,jy), synvwind(ix,jy)
       end do 
       end do 
    end subroutine
@@ -792,12 +794,12 @@ contains
 
    end subroutine
 
-   subroutine synforc_wr(time_index)
+   subroutine synforc_wr(time_index,synforc)
 
          character(2)  :: time_index
          character(150) :: filename
-         integer       :: ix,jy
-
+         integer       :: ix,jy,id
+        real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
          filename = trim(iopath)//'/synforc.'//time_index
 
          if (debug) print*, 'writing synforc ', filename
@@ -810,6 +812,8 @@ contains
                      synuwind(ix,jy), synvwind(ix,jy), &
                      synairtmp(ix,jy), synslp(ix,jy), &
                      synprecip(ix,jy), synrelhum(ix,jy)
+                id = (jy-1)*idm + ix
+           synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) 
          end do !ix
          end do !jy
 
