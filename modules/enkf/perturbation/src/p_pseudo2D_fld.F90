@@ -3,7 +3,7 @@ module p_pseudo2D_fld
 use, intrinsic :: ISO_C_BINDING
 
 contains
-  subroutine p_pseudo2D_fld_sub(xdim, ydim, synforc01, randfld01, perturbation_count) bind(C,NAME='p_pseudo2D_fld_sub')
+  subroutine p_pseudo2D_fld_sub(xdim, ydim, perturbation_count) bind(C,NAME='p_pseudo2D_fld_sub')
 
     ! Generates a random 2D field on a 100x100 grid. 
     use mod_random_forcing
@@ -12,10 +12,8 @@ contains
     implicit none 
     !
     integer(c_int), intent(in):: xdim, ydim, perturbation_count ! perturbation_count is only used to decide whether generate ran
-    real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
-    !real(c_double),public, intent(out):: synforc00(xdim*ydim, 2)
-    !real(c_double) :: synforc00(xdim*ydim, 2), randfld00(xdim*ydim, 10)
-    !
+    !real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
+    real :: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10) !
     ! integer ix, jy, id
     ! do ix=1,xdim
     !   do jy=1,ydim
