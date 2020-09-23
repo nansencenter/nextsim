@@ -17,10 +17,10 @@ contains
     !real(c_double) :: synforc00(xdim*ydim, 2), randfld00(xdim*ydim, 10)
     !
     integer ix, jy, id
-    do jy=1,ydim
-      do ix=1,xdim
-        id = ix + (jy-1)*xdim
-        print*,ix,jy,id,synforc01(id,1),synforc01(id,2)
+    do ix=1,xdim
+      do jy=1,ydim
+        id = jy + (ix-1)*ydim
+        print*,ydim,xdim,ix,jy,id,synforc01(id,1),synforc01(id,2)
         synforc01(id,1)=-1.*synforc01(id,1)
         synforc01(id,2)=-1.*synforc01(id,2)
        enddo

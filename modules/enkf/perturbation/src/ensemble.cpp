@@ -1,6 +1,6 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld) 
+void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld) 
 {
     std::cout<< "t1\n";
     int rows,cols;
@@ -53,7 +53,7 @@ void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vecto
     }
    // return;
     std::cout<< "t4\n";
-    
+    std::cout<<ydim<<", "<<xdim<<"\n";
     //
     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0]);
     //
@@ -65,8 +65,7 @@ void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vecto
             for(int k = 0; k < synforc.size(); k++) {
                 synforc[k][id] = synforc_p[k][id];
             }
-	  std::cout<<j<<", "<<i<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
-             
+            std::cout<<ydim<<", "<<xdim<<", "<<j+1<<", "<<i+1<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n"; 
             for(int k = 0; k < randfld.size(); k++) {
                 randfld[k][id] = randfld_p[k][id];
             }    
