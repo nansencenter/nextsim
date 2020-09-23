@@ -43,10 +43,10 @@ void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vecto
         for(int j = 0; j < ydim; j++) {
             id = i*ydim + j;
             for(int k = 0; k < synforc.size(); k++) {
-                synforc_p[k][id] = 0.;
+                synforc_p[k][id] = synforc[k][id];
             }   
             for(int k = 0; k < randfld.size(); k++) {
-                randfld[k][id] = 0.;
+                randfld[k][id] = 10.;
                 randfld_p[k][id] = randfld[k][id];
             }    
         }    
@@ -64,7 +64,9 @@ void ensemble::synopticPerturbation(int const& xdim, int const& ydim, std::vecto
             id = i*ydim + j;
             for(int k = 0; k < synforc.size(); k++) {
                 synforc[k][id] = synforc_p[k][id];
-            }   
+            }
+	  std::cout<<j<<", "<<i<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
+             
             for(int k = 0; k < randfld.size(); k++) {
                 randfld[k][id] = randfld_p[k][id];
             }    
