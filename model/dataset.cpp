@@ -8667,8 +8667,6 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = u;
         variables_tmp[1] = v;
-        // variables_tmp[2] = synforc;
-        // variables_tmp[3] = randfld;
 
         std::vector<int> uv_tmp(2);
             uv_tmp[0] = 0;
@@ -8690,6 +8688,7 @@ DataSet::DataSet(char const *DatasetName)
         randfld_tmp.resize(10);
         synforc = synforc_tmp;
         randfld = randfld_tmp;
+        perturbation_count=0;
         loaded=false;
         interpolated=false;
 

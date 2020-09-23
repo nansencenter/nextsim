@@ -116,9 +116,10 @@ module mod_random_forcing
 
 contains
       
-   subroutine init_rand_update(synforc01,randfld01)
+   subroutine init_rand_update(synforc01,randfld01,perturbation_count)
       use mod_pseudo
       implicit none
+      integer:: perturbation_count
       real :: dx
       real*8, dimension( 2,xdim*ydim) :: synforc00, synforc01
       real*8, dimension(10,xdim*ydim) :: randfld00, randfld01
@@ -144,7 +145,7 @@ contains
 
       !-- CHeCK: a conditional here to check ranfld_next exists \
       !-- IF exists, load and move to ranfld_prev, IF NOT run ranfields(ran,rh) --!
-      ! if (randfld01 is given as input) then ! todo
+      ! if (perturbation_count>0) then ! todo
       !    if (debug) print*,  'set perturbations as previous one'
       !    call load_randfld_synforc(synforc01,randfld01)
       !    randfld00 = randfld01
@@ -158,7 +159,7 @@ contains
 
       INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
       
-      if (file_exists) then
+      if (file_exists .and. perturbation_count>0) then
                   if (debug) print*,  'set perturbations as previous one'
                   call load_randfld_synforc(synforc01,randfld01)
                   randfld00 = randfld01
@@ -219,13 +220,14 @@ contains
       real, parameter :: version2=1.2     ! version of limits routine
 
       logical :: ex
-      integer :: seed, prsflg, xdim,ydim
+      integer :: seed, prsflg
+      integer, intent(in):: xdim,ydim
       real    :: fversion
       real    :: vslp, vtaux, vtauy, vwndspd, vclouds
       real    :: vairtmp, vprecip, vrelhum, scorr, tcorr
       character(80) :: nmlfile, cwd
 
-      namelist /setup/ iopath, xdim, ydim, debug
+      namelist /setup/ iopath, debug
       namelist /pseudo2D/ randf, seed, &
                           vslp, vtaux, vtauy, vwndspd, &
                           vclouds, vairtmp, vprecip, vrelhum, &

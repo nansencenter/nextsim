@@ -252,6 +252,7 @@ public:
 
 #if defined (ENSEMBLE)
     std::vector<std::vector<double>> synforc,randfld;    
+    int perturbation_count; // count times of perturbation routine is applied
 #endif
 private:
 

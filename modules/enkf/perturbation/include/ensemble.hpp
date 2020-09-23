@@ -15,7 +15,7 @@ Header file for ensemble.cpp
 #include <boost/program_options.hpp>
 
 extern "C" {
-	  void p_pseudo2D_fld_sub(int const *xdm, int const *, double *, double *);  
+	  void p_pseudo2D_fld_sub(int const *xdm, int const *, double *, double *, int const*);  
 //  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc00, double *synforc01);
 /* Other subroutines in libpseudo2D.dylib fortran library
     void init_fvars_();
@@ -88,7 +88,7 @@ class ensemble
 
         void synopticPerturbation(int);
 
-        void synopticPerturbation(int const&, int const&,std::vector<std::vector<double>>&,std::vector<std::vector<double>>&);
+        void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, bool first_perturbation);
 
         void addPerturbation();
 
