@@ -36,30 +36,9 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
     for(int i = 0; i < rows; i++) 
         randfld_p[i] = &(data[cols*i]);
     
-    //return;
-    
-    std::cout<< "t3\n";
-    // for(int i = 0; i < xdim; i++) {
-    //     for(int j = 0; j < ydim; j++) {
-    //         id = i*ydim + j;
-    //         for(int k = 0; k < synforc.size(); k++) {
-    //             synforc_p[k][id] = synforc[k][id];
-    //         }   
-    //         for(int k = 0; k < randfld.size(); k++) {
-    //             randfld[k][id] = 10.;
-    //             randfld_p[k][id] = randfld[k][id];
-    //         }    
-    //     }    
-    // }
-   // return;
-    std::cout<< "t4\n";
-    std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
     //
-    //p_pseudo2D_fld_sub(&xdim, &ydim,&perturbation_count);
     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
     //
-    std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
- //   return;
     std::cout<< "t5\n";
         for(int j = 0; j < ydim; j++) {
     for(int i = 0; i < xdim; i++) {
@@ -74,7 +53,6 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
         }    
     }
     std::cout<< "t6\n";
- //   return; */  
 }
 // void ensemble::addPerturbation(int rdm)
 // {

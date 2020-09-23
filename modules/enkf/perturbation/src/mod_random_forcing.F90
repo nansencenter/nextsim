@@ -646,7 +646,7 @@ contains
          synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
          !synairtmp(ix,jy), synslp(ix,jy), &
          !synprecip(ix,jy), synrelhum(ix,jy) /)
-         print*,'save_r',ix,jy,synforc(id,1), synforc(id,2)
+         !print*,'save_r',ix,jy,synforc(id,1), synforc(id,2)
       end do 
       end do 
    end subroutine
