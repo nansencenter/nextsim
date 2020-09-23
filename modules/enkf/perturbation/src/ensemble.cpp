@@ -55,15 +55,15 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
     std::cout<< "t4\n";
     std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
     //
-    p_pseudo2D_fld_sub(&xdim, &ydim,&perturbation_count);
-    //p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
+    //p_pseudo2D_fld_sub(&xdim, &ydim,&perturbation_count);
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
     //
     std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
  //   return;
     std::cout<< "t5\n";
-    for(int i = 0; i < xdim; i++) {
         for(int j = 0; j < ydim; j++) {
-            id = i*ydim + j;
+    for(int i = 0; i < xdim; i++) {
+            id = j*xdim + i;
             for(int k = 0; k < synforc.size(); k++) {
                 synforc[k][id] = synforc_p[k][id];
             }

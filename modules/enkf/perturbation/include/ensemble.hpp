@@ -15,8 +15,8 @@ Header file for ensemble.cpp
 #include <boost/program_options.hpp>
 
 extern "C" {
-	void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, int const *perturbation_count );   
-//  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *perturbation_count);
+//	void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, int const *perturbation_count );   
+  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *perturbation_count);
 /* Other subroutines in libpseudo2D.dylib fortran library
     void init_fvars_();
         void m_set_random_seed_();

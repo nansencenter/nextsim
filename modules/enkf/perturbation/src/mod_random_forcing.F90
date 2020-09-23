@@ -121,8 +121,8 @@ contains
       implicit none
       integer:: perturbation_count
       real :: dx
-      real*4, dimension( 2,xdim*ydim) :: synforc00, synforc01
-      real*4, dimension(10,xdim*ydim) :: randfld00, randfld01
+      real*8, dimension(idm*jdm, 2) :: synforc00, synforc01
+      real*8, dimension(idm*jdm,10) :: randfld00, randfld01
       if(.not.randf) then
         write(*,'("randf option switched off in pseudo2D.nml,no perturbation will be applied")')
         return
@@ -309,7 +309,8 @@ contains
       real, parameter :: wlat=60.
       integer i,j
       real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
-      real*4  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
       autocorr = exp(-1.0)
@@ -472,7 +473,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! write output files  -- Spatial field dumped on first run （Instead, spatial fields are saved in variables）
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      call synforc_wr(time_index,synforc)
+      call synforc_wr(time_index)
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
       call ranfields(ran1,rh)
@@ -480,7 +481,7 @@ contains
       call ran_update_ran1(ran,ran1,alpha)
       call randfld_wr(time_index)
 
-     ! call save_randfld_synforc(randfld, synforc)
+      call save_randfld_synforc(randfld, synforc)
    
    end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -608,7 +609,7 @@ contains
 !------------------------------------------
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
-      real*4  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
       do jy=1,jdm
       do ix=1,idm
          id = (jy-1)*idm + ix
@@ -634,19 +635,18 @@ contains
    !------------------------------------------
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
-      real*4  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
       do jy=1,jdm
       do ix=1,idm
          id = (jy-1)*idm + ix
-         !randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
-         !ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
-         !ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
-         !synforc(id,1) = synuwind(ix,jy) 
-         !synforc(id,2) = synvwind(ix,jy)
-        ! synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
+         randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
+         ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
+         ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
+         
+         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
          !synairtmp(ix,jy), synslp(ix,jy), &
          !synprecip(ix,jy), synrelhum(ix,jy) /)
-         print*,'save_r',ix,jy,synuwind(ix,jy), synvwind(ix,jy)
+         print*,'save_r',ix,jy,synforc(id,1), synforc(id,2)
       end do 
       end do 
    end subroutine
@@ -794,12 +794,11 @@ contains
 
    end subroutine
 
-   subroutine synforc_wr(time_index,synforc)
+   subroutine synforc_wr(time_index)
 
          character(2)  :: time_index
          character(150) :: filename
-         integer       :: ix,jy,id
-        real*4  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+         integer       :: ix,jy
          filename = trim(iopath)//'/synforc.'//time_index
 
          if (debug) print*, 'writing synforc ', filename
@@ -812,8 +811,6 @@ contains
                      synuwind(ix,jy), synvwind(ix,jy), &
                      synairtmp(ix,jy), synslp(ix,jy), &
                      synprecip(ix,jy), synrelhum(ix,jy)
-                id = (jy-1)*idm + ix
-           synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) 
          end do !ix
          end do !jy
 
