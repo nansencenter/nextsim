@@ -8688,6 +8688,11 @@ DataSet::DataSet(char const *DatasetName)
         randfld_tmp.resize(10);
         synforc = synforc_tmp;
         randfld = randfld_tmp;
+
+        double *tmp1;
+        double *tmp2;
+        synforc_p = tmp1;
+        randfld_p = tmp2;
         perturbation_count=0;
         loaded=false;
         interpolated=false;

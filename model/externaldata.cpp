@@ -267,6 +267,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         for(int k = 0; k < M_dataset->randfld.size(); k++){
                             M_dataset->randfld[k].resize(MN_full);
                         }
+
+                        M_dataset->synforc_p = (double *)malloc( 2*MN_full*sizeof(double));
+                        M_dataset->randfld_p = (double *)malloc(10*MN_full*sizeof(double));
+                        
                     } else{
                         std::cout<<"x2222\n";
                         for(int col = 0; col < MN_full; col++) {
