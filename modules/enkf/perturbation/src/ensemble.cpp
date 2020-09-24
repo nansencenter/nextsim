@@ -30,7 +30,6 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
             randfld[row][col] = randfld_p[row*Ncol+col];
         }
     } 
-    return(synforc_p);   
 }    
 
 void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count) 
