@@ -1,8 +1,7 @@
 #include "ensemble.hpp"
 
-double *ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count) 
+void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p) 
 {
-    double *synforc_p = (double *)malloc(synforc.size()*synforc[0].size()*sizeof(double));
     double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
     //
     int Ncol = xdim*ydim;    // = synforc[0].size() 
@@ -92,7 +91,7 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
         for(int k = 0; k < synforc.size(); k++) {
             synforc[k][i] = synforc_p[k][i];
         }
-        std::cout<<j+1<<", "<<i+1<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
+        std::cout<<i+1<< ",  "<< id << ",  "<<synforc[0][id]<<", "<<synforc[1][id]<<"\n";
     } 
     for(int i = 0; i < randfld[0].size(); i++) {
         for(int k = 0; k < randfld.size(); k++) {
