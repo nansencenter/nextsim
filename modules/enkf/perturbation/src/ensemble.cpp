@@ -228,7 +228,7 @@ void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rd
 };
 
 // todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc_u, std::vector<double>& synforc_v, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int MN_full, int x_start, int y_start, int x_count, int y_count)
 {    
     //int count = x_count*y_count; =velocity_u.size() //
     int count = velocity_u.size();
@@ -236,8 +236,8 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
     
     //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
     for(int i = start; i <=count; i++) {
-        velocity_u[i] += synforc_u[i];
-        velocity_v[i] += synforc_v[i];                
+        velocity_u[i] += synforc_p[i];
+        velocity_v[i] += synforc_p[i+MN_full];                
     }
 };
 
