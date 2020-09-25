@@ -261,26 +261,26 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
                     if (M_dataset->perturbation_count==0) {
-                        for(int k = 0; k < M_dataset->synforc.size(); k++){
-                            M_dataset->synforc[k].resize(MN_full);
-                        }
-                        for(int k = 0; k < M_dataset->randfld.size(); k++){
-                            M_dataset->randfld[k].resize(MN_full);
-                        }
+                        // for(int k = 0; k < M_dataset->synforc.size(); k++){
+                        //     M_dataset->synforc[k].resize(MN_full);
+                        // }
+                        // for(int k = 0; k < M_dataset->randfld.size(); k++){
+                        //     M_dataset->randfld[k].resize(MN_full);
+                        // }
 
                         M_dataset->synforc_p = (double *)malloc( 2*MN_full*sizeof(double));
-                        M_dataset->randfld_p = (double *)malloc(10*MN_full*sizeof(double));
-                        
-                    } else{
+                        M_dataset->randfld_p = (double *)malloc(10*MN_full*sizeof(double));                        
+                    } 
+                    else{
                         std::cout<<"x2222\n";
                         for(int col = 0; col < MN_full; col++) {
-                            std::cout<< col<<M_dataset->synforc[0][col]<<","<<M_dataset->synforc[1][col]<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
+                            std::cout<< col<<M_dataset->synforc_p[col]<<","<<M_dataset->synforc_p[MN_full+col]<<"\n";
                         }
                     }
                     
                      
 //                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc, M_dataset->randfld,M_dataset->perturbation_count,synforc_p); //synforc and randfld
-                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc_p, M_dataset->randfld_p,M_dataset->perturbation_count)
+                    perturbation.synopticPerturbation(M_dataset->synforc_p, M_dataset->randfld_p, M_full,N_full, M_dataset->perturbation_count)
                     M_dataset->perturbation_count++;
                     // std::cout<<"xxxx\n";
                     // for(int col = 0; col < MN_full; col++) {

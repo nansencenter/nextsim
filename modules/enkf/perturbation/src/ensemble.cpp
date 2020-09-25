@@ -1,5 +1,13 @@
 #include "ensemble.hpp"
 
+void ensemble::synopticPerturbation(double *synforc_p, double *randfld_p, int const& ydim, int const& xdim, int const& perturbation_count) 
+{
+    // Call fortran library for synoptic perturbation
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);    
+}    
+
+
+
 void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p) 
 {
     double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
