@@ -232,12 +232,13 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
 {    
     //int count = x_count*y_count; =velocity_u.size() //
     int count = velocity_u.size();
-    int start = x_count*y_start + x_start; // double check
-    
+    int start = y_count*x_start + y_start; // double check
+    std::cout<<"start_count"<<start<<", "<<count<<"\n";
     //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
     for(int i = start; i <=count; i++) {
         velocity_u[i] += synforc_p[i];
-        velocity_v[i] += synforc_p[i+MN_full];                
+        velocity_v[i] += synforc_p[i+MN_full];               
+	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
     }
 };
 

@@ -257,7 +257,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             // use float variable to save sources, since it's no needs to have high precision perturbations.
             //  MU_full=M_dataset->grid.dimension_y_count_netcdf*M_dataset->grid.dimension_x_count_netcdf           
                 double *synforc_p = (double *)malloc(M_dataset->synforc.size()*MN_full*sizeof(double));
-                
+                   
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
                     if (M_dataset->perturbation_count==0) {
@@ -274,12 +274,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     } else{
                         std::cout<<"x2222\n";
                         for(int col = 0; col < MN_full; col++) {
-                            std::cout<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
+                            std::cout<< col<<M_dataset->synforc[0][col]<<","<<M_dataset->synforc[1][col]<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
                         }
                     }
                     
                      
-                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc, M_dataset->randfld,M_dataset->perturbation_count,synforc_p); //synforc and randfld
+//                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc, M_dataset->randfld,M_dataset->perturbation_count,synforc_p); //synforc and randfld
+                    perturbation.synopticPerturbation(M_full,N_full,M_dataset->synforc_p, M_dataset->randfld_p,M_dataset->perturbation_count)
                     M_dataset->perturbation_count++;
                     // std::cout<<"xxxx\n";
                     // for(int col = 0; col < MN_full; col++) {
@@ -297,19 +298,20 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 //      boost::mpi::broadcast(M_comm, &M_dataset->synforc[ii][0], MN_full, 0);                
                 // }// since randfld is used above in root 0, I think it doesn't need to broadcast to other processors
                 boost::mpi::broadcast(M_comm, synforc_p, M_dataset->synforc.size()*MN_full, 0);  
-                if (M_comm.rank() == 10) {  
-                    std::cout<<"x1111\n";
-                    for(int col = 0; col < MN_full; col++) {
-                        std::cout<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
-                    }  
-                }
+               // if (M_comm.rank() == 10) {  
+               //     std::cout<<"x1111\n";
+               //    for(int col = 0; col < MN_full; col++) {
+               //         std::cout<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
+               //     }  
+               // }
                 M_comm.barrier();
                 LOG(DEBUG) << "add perturbations to wind fields\n";
                 int y_start = M_dataset->grid.dimension_y_start;
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count;                 
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p[0],M_dataset->synforc.size()*MN_full, x_start, y_start, x_count, y_count); 
+                std::cout<<"x3333\n";
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p, MN_full, x_start, y_start, x_count, y_count); 
                 
                 //perturbation.addPerturbation(M_dataset, synforc00, synforc01); 
 
