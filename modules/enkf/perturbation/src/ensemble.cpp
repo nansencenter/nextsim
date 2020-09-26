@@ -4,6 +4,7 @@ void ensemble::synopticPerturbation(double *synforc_p, double *randfld_p, int co
 {
     // Call fortran library for synoptic perturbation
     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);    
+	std::cout<<"leaving synoptic perturbation\n";
 }    
 
 
@@ -246,13 +247,13 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
     for(int i = start; i <=count; i++) {
         velocity_u[i] += synforc_p[i];
         velocity_v[i] += synforc_p[i+MN_full];               
-	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
+//	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
     }
 };
 
 
 // //----------------------------------------------// how to declare type Dataset in this file?
-// void ensemble::addPerturbation(Dataset *M_dataset, \   
+// void ensemble::addPerturbation(Dataset *M_dataset,\ 
 //     std::vector<std::vector<double> >& ranfld00,\
 //     std::vector<std::vector<double> >& ranfld01)
 // {
@@ -274,52 +275,3 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
 //     }
 // };
 
-
-
-
-
-// // define two temporally continuous 1d array for transfering data with fortran routine and mpi broadcast       
-//                 int rows = M_dataset->synforc.size();
-//                 int cols = MN_full;
-//                 double *temp1 = (double *)malloc(rows*cols*sizeof(double));
-//                 double **synforc_p = (double **)malloc(rows*sizeof(double*));
-//                 for(int i = 0; i < rows; i++) 
-//                     synforc_p[i] = &(temp1[cols*i]);
-                
-//                 rows = M_dataset->randfld.size();
-//                 cols = MN_full;
-//                 double *temp2 = (double *)malloc(rows*cols*sizeof(double));
-//                 double **randfld_p = (double **)malloc(rows*sizeof(double*));
-//                 for(int i = 0; i < rows; i++) 
-//                     randfld_p[i] = &(temp2[cols*i]);
-//                 if (M_comm.rank() == 0) {                    
-//                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n";        
-//                     for(int k = 0; k < M_dataset->synforc.size(); k++)
-//                          M_dataset->synforc[k].resize(MN_full);
-//                          for(int i = 0; i < MN_full; i++)
-//                             synforc_p[k][i] = synforc[k][i];
-        
-//                     for(int k = 0; k < M_dataset->randfld.size(); k++)
-//                         M_dataset->randfld[k].resize(MN_full);
-//                         for(int i = 0; i < MN_full; i++)
-//                             randfld_p[k][i] = randfld[k][i];
-//                     }
-//                     // 
-//                     perturbation.synopticPerturbation(M_full,N_full,&synforc_p[0][0],&randfld_p[0][0],M_dataset->perturbation_count); 
-//                     M_dataset->perturbation_count++;
-//                     //
-//                     for(int k = 0; k < M_dataset->synforc.size(); k++)
-//                          M_dataset->synforc[k].resize(MN_full);
-//                          for(int i = 0; i < MN_full; i++)
-//                             synforc[k][i] = synforc_p[k][i];
-                    
-//                     for(int k = 0; k < M_dataset->randfld.size(); k++)
-//                         M_dataset->randfld[k].resize(MN_full);
-//                         for(int i = 0; i < MN_full; i++)
-//                             randfld[k][i] = randfld_p[k][i];
-//                     //perturbation.synopticPerturbation(M_full,N_full,synforc00,synforc01,randfld01);  // may not need  synforc00
-                    
-//                     // LOG(DEBUG) << "### Load perturbations\n";
-//                     // perturbation.loadPerturbation(synforc00,MN_full,0); 
-//                    // perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
-//                 }
