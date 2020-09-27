@@ -221,27 +221,25 @@ void ensemble::getpath(std::string iopath){
 };
 
 // todo: use this function for restart case
-// void ensemble::loadPerturbation(std::vector<std::vector<double> > &synforc,int rdm, int ranid)
-// {
-//     std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8,0.0)); 
+void ensemble::loadPerturbation(double *synforc,int rdm, int ranid)
+{
+    // Find and read the ranfld.dat into struct synoptic
+    M_ranfile = { "synforc.00", "synforc.01" };
+    ifstream franfld;
+    franfld.open(M_ranfile[ranid]);
 
-//     // Find and read the ranfld.dat into struct synoptic
-//     M_ranfile = { "synforc.00", "synforc.01" };
-//     ifstream franfld;
-//     franfld.open(M_ranfile[ranid]);
-
-//     int row = 0;    
-//     while(!franfld.eof()){
-//         std::string str;
-//         std::getline(franfld, str);
-//         std::stringstream ss(str);
-//         int col = 0;
-//         while(ss >> ranfld[row][col]) col++;
-//         row++;
-//     }
-//     franfld.close();
-//     for(int i = 0; i < rdm; i++) {
-//         synforc[0][i] = ranfld[i][3];  //see index in synforc_wr()
-//         synforc[1][i] = ranfld[i][4];
-//     }
-// };
+    int row = 0;    
+    while(!franfld.eof()){
+        std::string str;
+        std::getline(franfld, str);
+        std::stringstream ss(str);
+        int col = 0;
+        while(ss >> ranfld[row][col]) col++;
+        row++;
+    }
+    franfld.close();
+    for(int i = 0; i < rdm; i++) {
+        synforc[i]     = ranfld[i][3];  //see index in synforc_wr()
+        synforc[i+rdm] = ranfld[i][4];
+    }
+};

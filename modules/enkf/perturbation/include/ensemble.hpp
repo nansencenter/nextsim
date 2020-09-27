@@ -110,7 +110,7 @@ class ensemble
 
         void getpath(std::string);
 //
-//        void loadPerturbation(std::vector<double>&, std::vector<double>& ,int, int);
+        void loadPerturbation(double *synforc,int rdm, int ranid);
        // void loadPerturbation(std::vector<std::vector<float> >& ,int, int);
        // std::vector<std::vector<double> > loadPerturbation(int, int);
 };

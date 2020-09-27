@@ -277,6 +277,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                          synforc_p[col+MN_full] = M_dataset->synforc_p[col+MN_full];
                    //      std::cout<<"x0"<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
                     }
+                    // LOG(DEBUG) << "### Load perturbations\n";
+                    perturbation.loadPerturbation(synforc_p,MN_full,1); 
+                   // perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
+                
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";            
@@ -286,7 +290,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 //   for(int col = 0; col < MN_full; col++) {
                 //        std::cout<<"x1"<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
                 //    }  
-               }
+                //}
                 M_comm.barrier();
                 LOG(DEBUG) << "add perturbations to wind fields\n";
                 int y_start = M_dataset->grid.dimension_y_start;
