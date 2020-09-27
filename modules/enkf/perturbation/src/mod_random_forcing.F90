@@ -145,40 +145,15 @@ contains
 
       !-- CHeCK: a conditional here to check ranfld_next exists \
       !-- IF exists, load and move to ranfld_prev, IF NOT run ranfields(ran,rh) --!
-      ! if (perturbation_count>0) then ! todo
-      !    if (debug) print*,  'set perturbations as previous one'
-      !    call load_randfld_synforc(synforc01,randfld01)
-      !    randfld00 = randfld01
-      !    !synforc00 = synforc01
-      ! else
-      !    if (debug) print*, 'generating initial random field...'
-      !    call ranfields(ran,rh)
-      !    call rand_update(randfld00, synforc00)     
-      ! end if
-      ! call rand_update(randfld01, synforc01)
-
-      INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
-      
-      if (file_exists .or. perturbation_count>0) then
-                  if (debug) print*,  'set perturbations as previous one'
-                  call load_randfld_synforc(synforc01,randfld01)
-                  randfld00 = randfld01
-                  !synforc00 = synforc01
-
-              if (debug) print*, 'reading from file...'
-             ! call randfld_rd('01')
-             ! call synforc_rd('01')
-             ! call randfld_wr('00')
-             ! call synforc_wr('00')
-              !call rand_update('01')
+      if (perturbation_count>0) then 
+         if (debug) print*,  'set perturbations as previous one'
+         call load_randfld_synforc(synforc01,randfld01)
+         randfld00 = randfld01
+         !synforc00 = synforc01   ! todo: ensure synforc00 is not used to addPerturbation 
       else
-              !if (debug) print*, 'generating initial random field...'
-              !call ranfields(ran,rh)
-              !call rand_update('00')
-              !call rand_update('01')
-
-          call ranfields(ran,rh)
-          call rand_update('00',randfld00, synforc00)     
+         if (debug) print*, 'generating initial random field...'
+         call ranfields(ran,rh)
+         call rand_update('00',randfld00, synforc00)     
       end if
       call rand_update('01',randfld01, synforc01)
    end subroutine
@@ -473,17 +448,18 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! write output files  -- Spatial field dumped on first run （Instead, spatial fields are saved in variables）
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      call synforc_wr(time_index)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
       call ranfields(ran1,rh)
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
-      call randfld_wr(time_index)
-
       call save_randfld_synforc(randfld, synforc)
-   
+      ! ! todo: save synforc, randfld at the end of a simulation
+      ! if(perturbation_count==100)then  !100 represents the last input
+      !    call synforc_wr(time_index)
+      !    call randfld_wr(time_index)
+      ! endif
    end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
