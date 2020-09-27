@@ -111,6 +111,6 @@ class ensemble
         void getpath(std::string);
 //
 //        void loadPerturbation(std::vector<double>&, std::vector<double>& ,int, int);
-        void loadPerturbation(std::vector<std::vector<float> >& ,int, int);
+       // void loadPerturbation(std::vector<std::vector<float> >& ,int, int);
        // std::vector<std::vector<double> > loadPerturbation(int, int);
 };

@@ -8654,15 +8654,6 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
-    
-        // Variable synforce={ // "wind perturbations added to u,v dimension(2,xdim*ydim)", 
-        //     loaded_data: loaded_data_tmp
-        // };
-
-        // Variable randfld={ // "wind perturbations related varialbes (10, xdim*ydim)", 
-        //     loaded_data: loaded_data_tmp
-        // };
-
 
         std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = u;
@@ -8682,23 +8673,19 @@ DataSet::DataSet(char const *DatasetName)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-
-		std::vector<std::vector<double>> synforc_tmp,randfld_tmp;
-        synforc_tmp.resize(2);
-        randfld_tmp.resize(10);
-        synforc = synforc_tmp;
-        randfld = randfld_tmp;
-
-        double *tmp1;
-        double *tmp2;
-        synforc_p = tmp1;
-        randfld_p = tmp2;
-        perturbation_count=0;
         loaded=false;
         interpolated=false;
 
         averaging_period=0.;
         time= time_tmp;
+        
+#if defined (ENSEMBLE) 
+        double *tmp1;
+        double *tmp2;
+        synforc_p = tmp1;
+        randfld_p = tmp2;
+        perturbation_count=0;
+#endif
 #ifdef OASIS
         coupled = false;
 #endif

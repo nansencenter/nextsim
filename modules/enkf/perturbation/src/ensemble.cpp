@@ -7,8 +7,6 @@ void ensemble::synopticPerturbation(double *synforc_p, double *randfld_p, int co
 	std::cout<<"leaving synoptic perturbation\n";
 }    
 
-
-
 void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p) 
 {
     double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
@@ -110,6 +108,20 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
  //   return; */  
 }    
 
+// todo:  ensure the start,count are correct, check with others.
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int MN_full, int x_start, int y_start, int x_count, int y_count)
+{    
+    //int count = x_count*y_count; =velocity_u.size() //
+    int count = velocity_u.size();
+    int start = y_count*x_start + y_start; // double check
+    std::cout<<"start_count"<<start<<", "<<count<<"\n";
+    //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
+    for(int i = start; i <=count; i++) {
+        velocity_u[i] += synforc_p[i];
+        velocity_v[i] += synforc_p[i+MN_full];               
+//	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
+    }
+};
 
 // void ensemble::addPerturbation(int rdm)
 // {
@@ -208,70 +220,28 @@ void ensemble::getpath(std::string iopath){
      M_ranpath = iopath;
 };
 
-
-//void ensemble::loadPerturbation(std::vector<double>& uwind, std::vector<double>& vwind, int rdm, int ranid)
-// todo: remove this function
-void ensemble::loadPerturbation(std::vector<std::vector<float> > &synforc,int rdm, int ranid)
-{
-    std::vector<std::vector<float> > ranfld(rdm, std::vector<float>(8,0.0)); 
-
-    // Find and read the ranfld.dat into struct synoptic
-    M_ranfile = { "synforc.00", "synforc.01" };
-    ifstream franfld;
-    franfld.open(M_ranfile[ranid]);
-
-    int row = 0;    
-    while(!franfld.eof()){
-        std::string str;
-        std::getline(franfld, str);
-        std::stringstream ss(str);
-        int col = 0;
-        while(ss >> ranfld[row][col]) col++;
-        row++;
-    }
-    franfld.close();
-    for(int i = 0; i < rdm; i++) {
-        synforc[0][i] = ranfld[i][3];  //see index in synforc_wr()
-        synforc[1][i] = ranfld[i][4];
-    }
-};
-
-// todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int MN_full, int x_start, int y_start, int x_count, int y_count)
-{    
-    //int count = x_count*y_count; =velocity_u.size() //
-    int count = velocity_u.size();
-    int start = y_count*x_start + y_start; // double check
-    std::cout<<"start_count"<<start<<", "<<count<<"\n";
-    //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
-    for(int i = start; i <=count; i++) {
-        velocity_u[i] += synforc_p[i];
-        velocity_v[i] += synforc_p[i+MN_full];               
-//	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
-    }
-};
-
-
-// //----------------------------------------------// how to declare type Dataset in this file?
-// void ensemble::addPerturbation(Dataset *M_dataset,\ 
-//     std::vector<std::vector<double> >& ranfld00,\
-//     std::vector<std::vector<double> >& ranfld01)
+// todo: use this function for restart case
+// void ensemble::loadPerturbation(std::vector<std::vector<double> > &synforc,int rdm, int ranid)
 // {
-//     int y_start = M_dataset->grid.dimension_y_start;
-//     int x_start = M_dataset->grid.dimension_x_start;
-//     int y_count = M_dataset->grid.dimension_y_count;
-//     int x_count = M_dataset->grid.dimension_x_count;
-    
-//     int start = x_count*(y_start-1) + x_start; // double check
-//     int n = 0;
-//     for(int i = start; i < x_count*y_count; i++) {
-//         // 
-//         M_dataset->variables[0].loaded_data[0][n] += ranfld00[0][i];  // wind u
-//         M_dataset->variables[1].loaded_data[0][n] += ranfld00[1][i];  // wind v 
-//         //
-//         M_dataset->variables[0].loaded_data[1][n] += ranfld01[0][i];  // wind u
-//         M_dataset->variables[1].loaded_data[1][n] += ranfld01[1][i];  // wind v 
-//         n++;
+//     std::vector<std::vector<double> > ranfld(rdm, std::vector<double>(8,0.0)); 
+
+//     // Find and read the ranfld.dat into struct synoptic
+//     M_ranfile = { "synforc.00", "synforc.01" };
+//     ifstream franfld;
+//     franfld.open(M_ranfile[ranid]);
+
+//     int row = 0;    
+//     while(!franfld.eof()){
+//         std::string str;
+//         std::getline(franfld, str);
+//         std::stringstream ss(str);
+//         int col = 0;
+//         while(ss >> ranfld[row][col]) col++;
+//         row++;
+//     }
+//     franfld.close();
+//     for(int i = 0; i < rdm; i++) {
+//         synforc[0][i] = ranfld[i][3];  //see index in synforc_wr()
+//         synforc[1][i] = ranfld[i][4];
 //     }
 // };
-

@@ -250,8 +250,7 @@ public:
     std::vector<int> M_it;
 #endif
 
-#if defined (ENSEMBLE)
-    std::vector<std::vector<double>> synforc,randfld;    
+#if defined (ENSEMBLE)  
     int perturbation_count; // count times of perturbation routine is applied
     double *synforc_p,*randfld_p;
 #endif
