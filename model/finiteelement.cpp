@@ -12663,7 +12663,10 @@ FiniteElement::cregIce()
     auto RY = M_mesh.bCoordY();
     LOG(DEBUG)<<"init - CREG ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
-
+    // Surface temperature over which we consider there is no ice when init.
+    // There is only ice if sst <= t_freez + sst_limit (tunable)
+    double const SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
+    // In nemo code default value is 2, just like in neXtSIM.
     for (int i=0; i<M_num_elements; ++i)
     {
         M_conc[i] = std::min(1.,init_conc[i]);
@@ -12681,7 +12684,12 @@ FiniteElement::cregIce()
             M_conc[i]=0.;
             M_snow_thick[i]=0.;
         }
-
+        if (M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
         M_damage[i]=0.;
         M_divergence[i]=0.;
     }
