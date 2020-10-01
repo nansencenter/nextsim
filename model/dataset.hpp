@@ -251,8 +251,9 @@ public:
 #endif
 
 #if defined (ENSEMBLE)  
-    int perturbation_count; // count times of perturbation routine is applied
-    double *synforc_p,*randfld_p;
+    int perturbation_count; // count times of perturbation applied in the whole simulation
+    std::vector<double> synforc, randfld;
+//    double *synforc_p,*randfld_p; 
 #endif
 private:
 

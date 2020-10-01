@@ -1,6 +1,6 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(double *synforc_p, double *randfld_p, int const& ydim, int const& xdim, int const& perturbation_count) 
+void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& perturbation_count) 
 {
     // Call fortran library for synoptic perturbation
     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);    
@@ -11,6 +11,7 @@ void ensemble::synopticPerturbation(double *synforc_p, double *randfld_p, int co
 void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
 {   // submesh size is x_count*y_count; =velocity_u.size()     
     // full mesh size M_full*N_full
+    int x_start_tmp;
     for(int j = 0; j <y_count; j++) {  // loop rows indicated by y direction. j is index in submesh
         x_start_tmp = x_start + (y_start + j)*M_full;
         for(int i = x_start_tmp; i < x_start_tmp + x_count; i++ ) { 

@@ -84,21 +84,21 @@ class ensemble
 
     public:
 
-        void synopticPerturbation();
+        // void synopticPerturbation();
 
-        void synopticPerturbation(int);
+        // void synopticPerturbation(int);
 
-        void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, int const& perturbation_count);
+        // void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, int const& perturbation_count);
 
-        void synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p);
+        // void synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p);
 
-        void synopticPerturbation(double *synforc_p, double *randfld_p,int const& ydim, int const& xdim, int const& perturbation_count); 
+        void synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld,int const& ydim, int const& xdim, int const& perturbation_count); 
 
-        void addPerturbation();
+        // void addPerturbation();
 
-        void addPerturbation(int);
+        // void addPerturbation(int);
 
-        void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
+        // void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
 
         void addPerturbation(std::vector<double>&, std::vector<double>&, double *synforc_p, int M_full, int N_full, int, int, int, int);
 
@@ -110,7 +110,7 @@ class ensemble
 
         void getpath(std::string);
 //
-        void loadPerturbation(double *synforc,int rdm, int ranid);
+       // void loadPerturbation(double *synforc,int rdm, int ranid);
        // void loadPerturbation(std::vector<std::vector<float> >& ,int, int);
        // std::vector<std::vector<double> > loadPerturbation(int, int);
 };

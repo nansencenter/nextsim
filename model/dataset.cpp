@@ -8680,10 +8680,9 @@ DataSet::DataSet(char const *DatasetName)
         time= time_tmp;
         
 #if defined (ENSEMBLE) 
-        double *tmp1;
-        double *tmp2;
-        synforc_p = tmp1;
-        randfld_p = tmp2;
+        std::vector<double> tmp1,tmp2;
+        synforc = tmp1;
+        randfld = tmp2;
         perturbation_count=0;
 #endif
 #ifdef OASIS
