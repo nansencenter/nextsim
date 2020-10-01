@@ -109,17 +109,16 @@ void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vecto
 }    
 
 // todo:  ensure the start,count are correct, check with others.
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int MN_full, int x_start, int y_start, int x_count, int y_count)
-{    
-    //int count = x_count*y_count; =velocity_u.size() //
-    int count = velocity_u.size();
-    int start = y_count*x_start + y_start; // double check
-    std::cout<<"start_count"<<start<<", "<<count<<"\n";
-    //std::cout<<"subdomain_size="<<synforc_v.size()<<",start="<<start<<", end="<<start+count -1<<", length="<<count<<", x_start="<<x_start<<", y_start="<<y_start<<",x_count="<<x_count<<", y_count="<<y_count<<"\n";
-    for(int i = start; i <=count; i++) {
-        velocity_u[i] += synforc_p[i];
-        velocity_v[i] += synforc_p[i+MN_full];               
-//	std::cout<<i<<",  "<<synforc_p[i]<<",  "<<synforc_p[i+MN_full]<<"\n"; 
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
+{   //subdomain size is x_count*y_count; =velocity_u.size()     
+    // M_full,N_full are domain size of the full mesh
+    for(int j = 0; j <y_count; j++) {  // loop rows indicated by y direction. j is index in submesh
+        x_start_tmp = x_start + (y_start + j)*M_full;
+        for(int i = x_start_tmp; i < x_start_tmp + x_count; i++ ) { 
+            // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
+            velocity_u[j] += synforc_p[i];
+            velocity_v[j] += synforc_p[i+M_full*N_full];               
+        }
     }
 };
 

@@ -278,7 +278,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                    //      std::cout<<"x0"<< col<< ",  "<<synforc_p[col]<<", "<<synforc_p[MN_full+col]<<"\n";
                     }
                     // LOG(DEBUG) << "### Load perturbations\n";
-                    perturbation.loadPerturbation(synforc_p,MN_full,1); 
+                   // perturbation.loadPerturbation(synforc_p,MN_full,1); 
                    // perturbation.loadPerturbation(synforc01,MN_full,1); //todo: be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                
                 
                 }
@@ -297,7 +297,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count;                 
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p, MN_full, x_start, y_start, x_count, y_count); 
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p, M_full,N_full x_start, y_start, x_count, y_count); 
                 free(synforc_p);
                 
                 double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
