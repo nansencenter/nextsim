@@ -3,12 +3,12 @@
 void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& perturbation_count) 
 {
     // Call fortran library for synoptic perturbation
-    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);    
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&perturbation_count);    
 	std::cout<<"leaving synoptic perturbation\n";
 }    
 
 
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc_p, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double> &synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
 {   // submesh size is x_count*y_count; =velocity_u.size()     
     // full mesh size M_full*N_full
     int x_start_tmp;
@@ -16,8 +16,8 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
         x_start_tmp = x_start + (y_start + j)*M_full;
         for(int i = x_start_tmp; i < x_start_tmp + x_count; i++ ) { 
             // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
-            velocity_u[j] += synforc_p[i];
-            velocity_v[j] += synforc_p[i+M_full*N_full];               
+            velocity_u[j] += synforc[i];
+            velocity_v[j] += synforc[i+M_full*N_full];               
         }
     }
 };
