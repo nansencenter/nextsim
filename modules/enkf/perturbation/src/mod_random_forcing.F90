@@ -124,10 +124,10 @@ contains
       real*8, dimension(idm*jdm, 2) :: synforc00, synforc01
       real*8, dimension(idm*jdm,10) :: randfld00, randfld01
       if(.not.randf) then
-        write(*,'("randf option switched off in pseudo2D.nml,no perturbation will be applied")')
+        if(debug) write(*,'("randf option switched off in pseudo2D.nml,no perturbation will be applied")')
         return
       end if
-      write(*,'("pseudo-random forcing is active for ensemble generation")')
+        if(debug)write(*,'("pseudo-random forcing is active for ensemble generation")')
       dx=30  !scpx(idm/2,jdm/2)
       if(debug) print*,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells

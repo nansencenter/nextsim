@@ -7237,7 +7237,7 @@ FiniteElement::init()
     //!      * nesting (if needed)
     this->initExternalData();
 
-    //! - 6) Loads the data from the datasets initialized in 4) using the checkReloadDatasets(),
+    //! - 6) Loads the data from the datasets initialized in 5) using the checkReloadDatasets(),
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
@@ -9838,7 +9838,7 @@ FiniteElement::readStateVector()
 //         fout<<"\n";
 //     }
 // }//exportWindPerturbations
-// #endif // ENSEMBLE
+#endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.

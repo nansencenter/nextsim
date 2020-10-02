@@ -241,10 +241,11 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
                                     
-#ifdef ENSEMBLE                                    
+#ifdef ENSEMBLE                                          
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
             {
+                chrono.restart();  
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
                 int N_full  = M_dataset->grid.dimension_x_count_netcdf;
@@ -303,16 +304,16 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
                 M_comm.barrier();
+                LOG(DEBUG) <<"wind perturbation in "<< chrono.elapsed() <<"s\n";
             }
 #endif
-
             this->transformData(M_dataset);
             LOG(DEBUG) << "Done\n";
 
             //need to interpolate again if reloading
             M_dataset->interpolated = false;
 #ifdef OASIS
-        }
+        } //why includes } in ifdef
 #endif
     }
 
