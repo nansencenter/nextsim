@@ -283,7 +283,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";            
-                boost::mpi::broadcast(M_comm, synforc_p, synforc_size, 0); 
+                boost::mpi::broadcast(M_comm, &synforc_p[0], synforc_size, 0); 
                 //boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], synforc_size, 0); 
                 if (M_comm.rank() == 10) {  
                     for(int col = 0; col < MN_full; col++) {
