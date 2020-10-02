@@ -254,9 +254,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << "\n";                              
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
-            synforc_size = 2*MN_full;
+            int synforc_size = 2*MN_full;
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.      
-                double *synforc_p = std::vector<double>(synforc_size); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
+                //double *synforc_p = (double *)malloc(2*MN_full*sizeof(double));
+                std::vector<double> synforc_p(synforc_size); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
                 
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 

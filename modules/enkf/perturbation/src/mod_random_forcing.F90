@@ -456,10 +456,9 @@ contains
       call ranfields(ran1,rh)
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
-      call save_randfld_synforc(randfld, synforc)
-
-      call synforc_wr(time_index)
-      call randfld_wr(time_index)
+      call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
+      !call synforc_wr(time_index)
+      !call randfld_wr(time_index)
       
    end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -735,7 +734,7 @@ contains
 
          do jy=1,jdm
          do ix=1,idm
-            read(11,'(2i5,6e14.3)') xx, yy,  &
+            read(11,'(6e14.3)') &
                      synuwind(ix,jy), synvwind(ix,jy), &
                      synairtmp(ix,jy), synslp(ix,jy), &
                      synprecip(ix,jy), synrelhum(ix,jy)
@@ -746,54 +745,54 @@ contains
 
    end subroutine
 
-   subroutine randfld_wr(time_index)
+   ! subroutine randfld_wr(time_index)
 
-         character(2)  :: time_index
-         character(150) :: filename
-         integer :: ix,jy
+   !       character(2)  :: time_index
+   !       character(150) :: filename
+   !       integer :: ix,jy
 
-         filename = trim(iopath)//'/randfld.'//time_index
+   !       filename = trim(iopath)//'/randfld.'//time_index
 
 
-         if (debug) print*, 'writing randfile ', filename
+   !       if (debug) print*, 'writing randfile ', filename
 
-         open(12,file=filename,status='replace')
+   !       open(12,file=filename,status='replace')
 
-         do jy=1,jdm
-         do ix=1,idm
-            write(12,'(10e14.3)') &
-                     ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
-                     ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
-                     ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
-         end do !ix
-         end do !jy
+   !       do jy=1,jdm
+   !       do ix=1,idm
+   !          write(12,'(10e14.3)') &
+   !                   ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
+   !                   ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
+   !                   ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
+   !       end do !ix
+   !       end do !jy
 
-         close(12)
+   !       close(12)
 
-   end subroutine
+   ! end subroutine
 
-   subroutine synforc_wr(time_index)
+   ! subroutine synforc_wr(time_index)
 
-         character(2)  :: time_index
-         character(150) :: filename
-         integer       :: ix,jy
-         filename = trim(iopath)//'/synforc.'//time_index
+   !       character(2)  :: time_index
+   !       character(150) :: filename
+   !       integer       :: ix,jy
+   !       filename = trim(iopath)//'/synforc.'//time_index
 
-         if (debug) print*, 'writing synforc ', filename
+   !       if (debug) print*, 'writing synforc ', filename
 
-         open(13,file=filename, status='replace')
+   !       open(13,file=filename, status='replace')
 
-         do jy=1,jdm
-         do ix=1,idm
-            write(13,'(2i5,6e14.3)') ix,jy,  &
-                     synuwind(ix,jy), synvwind(ix,jy), &
-                     synairtmp(ix,jy), synslp(ix,jy), &
-                     synprecip(ix,jy), synrelhum(ix,jy)
-         end do !ix
-         end do !jy
+   !       do jy=1,jdm
+   !       do ix=1,idm
+   !          write(13,'(2i5,6e14.3)') ix,jy,  &
+   !                   synuwind(ix,jy), synvwind(ix,jy), &
+   !                   synairtmp(ix,jy), synslp(ix,jy), &
+   !                   synprecip(ix,jy), synrelhum(ix,jy)
+   !       end do !ix
+   !       end do !jy
 
-         close(13)
+   !       close(13)
 
-   end subroutine
+   ! end subroutine
 
 end module mod_random_forcing

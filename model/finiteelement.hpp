@@ -952,6 +952,8 @@ private:
     void stateVectorAppendNetcdf(double const& output_time);
     void exportStateVector(bool const& init_time);
     void readStateVector();
+    
+    void exportWindPerturbations(); // export dimensional and nondimensional stochastic forcing for restart 
 #endif
 };
 } // Nextsim

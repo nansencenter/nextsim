@@ -8637,6 +8637,7 @@ FiniteElement::run()
 #ifdef ENSEMBLE
     if (M_use_statevector)
         this->exportStateVector(false);
+    this->exportWindPerturbations();
 #endif
 
     // **********************************************************************
@@ -9813,6 +9814,30 @@ FiniteElement::readStateVector()
     }
 
 }//readStateVector
+
+void
+FiniteElement::exportWindPerturbations(M_wind)
+{
+    // include < fstream.h>
+    // export dimensional and nondimensional stochastic forcing of wind fields for restart 
+    int MN_full = M_wind->synforc.size()/2;
+    // // dimensional forcing fields
+    // ofstream fout("synforc.01");
+    // for(int i = 0; i < MN_full; i++) {
+    //     for(int j = 0; j < 6; j++){
+    //         fout<< M_wind->synforc[i]<<"    "<<M_wind->synforc[j*MN_full+i];
+    //     }
+    //     fout<<"\n";    
+    // }    
+    ofstream fout("randfld.01");
+    // nondimensional forcing fields
+    for(int i = 0; i < MN_full; i++) {
+        for(int j = 0; j < 10; j++) {  //output 10 variables
+            fout<< M_wind->randfld[j*MN_full+i]<<"    ";
+        }
+        fout<<"\n";
+    }
+}//exportWindPerturbations
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
