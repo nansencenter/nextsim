@@ -254,13 +254,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << "\n";                              
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
+            synforc_size = 2*MN_full;
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.      
-                double *synforc_p = (double *)malloc(2*MN_full*sizeof(double)); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
-                   
+                double *synforc_p = std::vector<double>(synforc_size); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
+                
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
                     if (M_dataset->perturbation_count==0) {
-                        M_dataset->synforc = std::vector<double>( 2*MN_full);
+                        M_dataset->synforc = std::vector<double>(synforc_size);
                         M_dataset->randfld = std::vector<double>(10*MN_full);                      
                     } 
                     // else{ // for comment this part
@@ -271,23 +272,21 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     // }
                     perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->perturbation_count); 
                     M_dataset->perturbation_count++;
-                    std::cout<<"x0xxx\n";
                     for(int col = 0; col < MN_full; col++) {
-                    //     synforc_p[col] = M_dataset->synforc[col];
-                    //     synforc_p[col+MN_full] = M_dataset->synforc[col+MN_full];
-                        std::cout<<"x0"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
+                         synforc_p[col] = M_dataset->synforc[col];
+                         synforc_p[col+MN_full] = M_dataset->synforc[col+MN_full];
+                    //    std::cout<<"x0"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
                     }
                     // LOG(DEBUG) << "### Load perturbations\n";
-                   // perturbation.loadPerturbation(synforc_p,MN_full,1); // be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                                
+                   // perturbation.loadPerturbation(synforc_p,MN_full,1); // be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                               
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";            
-                //boost::mpi::broadcast(M_comm, synforc_p, 2*MN_full, 0); 
-                boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], 2*MN_full, 0); 
+                boost::mpi::broadcast(M_comm, synforc_p, synforc_size, 0); 
+                //boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], synforc_size, 0); 
                 if (M_comm.rank() == 10) {  
-                    std::cout<<"x1111\n";
                     for(int col = 0; col < MN_full; col++) {
-                       std::cout<<"x1"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
+                //       std::cout<<"x1"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
                     }  
                 }
                 M_comm.barrier();
@@ -296,7 +295,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count;                 
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count); 
+                //perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count); 
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p, M_full,N_full, x_start, y_start, x_count, y_count); 
                 
                 double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
