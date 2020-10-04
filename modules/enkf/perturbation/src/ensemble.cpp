@@ -7,27 +7,30 @@ void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<dou
 }    
 
 
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double> &synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, double *synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
 {   // submesh size is x_count*y_count; =velocity_u.size()     
     // full mesh size M_full*N_full
     // outer loop rows indicated by y direction. j is index in submesh
     // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
-    int x_start_tmp;
+    int start_tmp,n = 0;
     for(int j = 0; j <y_count; j++) {  
-        x_start_tmp = x_start + (y_start + j)*M_full;
-        for(int i = x_start_tmp; i < x_start_tmp + x_count; i++ ) { 
-            velocity_u[j] += synforc[i];
-            velocity_v[j] += synforc[i+M_full*N_full];               
-        }
-    }
+       start_tmp = x_start + (y_start + j)*M_full;
+       for(int i = start_tmp; i < start_tmp + x_count; i++ ) { 
+           n++;
+           velocity_u[n] += synforc[i];
+           velocity_v[n] += synforc[i+M_full*N_full];       
+           std::cout<<n<<","<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";        
+       }
+   }
 
-    for(int j = 0; j <x_count; j++) {  
-        y_start_tmp = y_start + (x_start + j)*M_full;
-        for(int i = y_start_tmp; i < y_start_tmp + y_count; i++ ) { 
-            velocity_u[j] += synforc[i];
-            velocity_v[j] += synforc[i+M_full*N_full];               
-        }
-    }    
+    // for(int j = 0; j <x_count; j++) {  
+    //     start_tmp = y_start + (x_start + j)*M_full;
+    //     for(int i = start_tmp; i < start_tmp + y_count; i++ ) { 
+    //         n++;
+    //         velocity_u[n] += synforc[i];
+    //         velocity_v[n] += synforc[i+M_full*N_full];               
+    //     }
+    // }    
 };
 
 

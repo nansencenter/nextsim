@@ -245,7 +245,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
             {
-                chrono.restart();  
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
                 int N_full  = M_dataset->grid.dimension_x_count_netcdf;
@@ -257,8 +256,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
             int synforc_size = 2*MN_full;
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.      
-                //double *synforc_p = (double *)malloc(2*MN_full*sizeof(double));
-                std::vector<double> synforc_p(synforc_size); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
+                double *synforc_p = (double *)malloc(synforc_size*sizeof(double));
+                //std::vector<double> synforc_p(synforc_size); //have trouble to broadcast M_dataset->synforc by mpi, thus define a tempory pointer
                 
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
@@ -267,29 +266,23 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         M_dataset->randfld = std::vector<double>(10*MN_full);                      
                     } 
                     // else{ // for comment this part
-                    //     std::cout<<"x2222\n";
-                    //     for(int col = 0; col < MN_full; col++) {
-                    //         std::cout<< col<<"x2"<<M_dataset->synforc_p[col]<<","<<M_dataset->synforc_p[MN_full+col]<<"\n";
-                    //     }
+                    //     for(int i = 0; i < MN_full; i++)
+                    //         std::cout<<"x2  "<<i<<", "<<M_dataset->synforc_p[i]<<","<<M_dataset->synforc_p[MN_full+i]<<"\n";
                     // }
                     perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->perturbation_count); 
                     M_dataset->perturbation_count++;
-                    for(int col = 0; col < MN_full; col++) {
-                         synforc_p[col] = M_dataset->synforc[col];
-                         synforc_p[col+MN_full] = M_dataset->synforc[col+MN_full];
-                    //    std::cout<<"x0"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
-                    }
-                    // LOG(DEBUG) << "### Load perturbations\n";
-                   // perturbation.loadPerturbation(synforc_p,MN_full,1); // be replaced by returning variables from synopticPerturbation, but need to consider at the inital condition.                                                               
+                    for(int i = 0; i < synforc_size; i++)
+                        synforc_p[i] = M_dataset->synforc[i];
+                    for(int i = 0; i < MN_full; i++)    
+                        std::cout<<"x0"<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";            
-                boost::mpi::broadcast(M_comm, &synforc_p[0], synforc_size, 0); 
+                boost::mpi::broadcast(M_comm, &synforc_p[0], 2*MN_full, 0); 
                 //boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], synforc_size, 0); 
                 if (M_comm.rank() == 10) {  
-                    for(int col = 0; col < MN_full; col++) {
-                //       std::cout<<"x1"<< col<< ",  "<<M_dataset->synforc[col]<<", "<<M_dataset->synforc[MN_full+col]<<"\n";
-                    }  
+                    for(int i = 0; i < MN_full; i++) 
+                       std::cout<<"x1  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "add perturbations to wind fields\n";
@@ -297,14 +290,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count;                 
-                //perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count); 
                 perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], synforc_p, M_full,N_full, x_start, y_start, x_count, y_count); 
                 
                 double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
                 M_comm.barrier();
-                LOG(DEBUG) <<"wind perturbation in "<< chrono.elapsed() <<"s\n";
             }
 #endif
             this->transformData(M_dataset);

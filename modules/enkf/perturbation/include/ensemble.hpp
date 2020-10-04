@@ -100,7 +100,7 @@ class ensemble
 
         // void addPerturbation(std::vector<double>&, std::vector<double>&, int, int);
 
-        void addPerturbation(std::vector<double>&, std::vector<double>&, std::vector<double>&synforc, int M_full, int N_full, int, int, int, int);
+        void addPerturbation(std::vector<double>&, std::vector<double>&, double *synforc_p, int M_full, int N_full, int, int, int, int);
 
         //void addPerturbation(Dataset *dataset, std::vector<std::vector<double> >&, std::vector<std::vector<double> >&);
 
