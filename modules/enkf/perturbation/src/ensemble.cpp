@@ -2,37 +2,36 @@
 
 void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& perturbation_count) 
 {
+    // M_full = ydim is size of y domain, N_full = xdim is size of x domain
     // Call fortran library for synoptic perturbation
     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&perturbation_count);    
 }    
 
 
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
-{   // submesh size is x_count*y_count; =velocity_u.size()     
-    // full mesh size M_full*N_full
+void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int id)
+{   // submesh size is y_count*x_count; =velocity_u.size()     
+    // full mesh size M_full(y domain)*N_full(x domain)
     // outer loop rows indicated by y direction. j is index in submesh
     // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
     int start_tmp,n = 0;
     for(int j = 0; j <y_count; j++) {  
-        start_tmp = x_start + (y_start + j)*M_full;
-        for(int i = start_tmp; i < start_tmp + x_count; i++ ) { 
-           n++;
-           velocity_u[n] += synforc[i];
-           velocity_v[n] += synforc[i+M_full*N_full];       
-    //       std::cout<<n<<","<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";        
-       }
-    } 
-
-    for(int j = 0; j <x_count; j++) {  
-        start_tmp = y_start + (x_start + j)*N_full;
-        for(int i = start_tmp; i < start_tmp + y_count; i++ ) { 
-            n++;
+        start_tmp = x_start + (y_start + j)*N_full;
+        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {                                 
+           // std::cout<<i<<", "<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";   
             velocity_u[n] += synforc[i];
-            velocity_v[n] += synforc[i+M_full*N_full];               
-            // std::cout<<n<<","<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";        
+            velocity_v[n] += synforc[i+M_full*N_full];       
+            n++; 
         }
-     }
+    }        
 
+    // for(int j = 0; j <x_count; j++) {  
+    //     start_tmp = y_start + (x_start + j)*M_full;
+    //     for(int i = start_tmp; i < start_tmp + y_count; i++ ) { 
+    //         velocity_u[n] += synforc[i];
+    //         velocity_v[n] += synforc[i+M_full*N_full];          
+    //         n++;               
+    //     }
+    //  }
 //     std::cout<<"leaving add perturbation"<<velocity_u.size()-n<<"\n";
 };
 

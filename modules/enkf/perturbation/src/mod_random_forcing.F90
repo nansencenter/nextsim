@@ -124,10 +124,11 @@ contains
       real*8, dimension(idm*jdm, 2) :: synforc00, synforc01
       real*8, dimension(idm*jdm,10) :: randfld00, randfld01
       if(.not.randf) then
-        if(debug) write(*,'("randf option switched off in pseudo2D.nml,no perturbation will be applied")')
+        if(debug) write(*,'("perturbation is switched off in pseudo2D.nml")')
         return
       end if
-        if(debug)write(*,'("pseudo-random forcing is active for ensemble generation")')
+      if(debug) write(*,'("pseudo-random forcing is active for ensemble generation")')
+      
       dx=30  !scpx(idm/2,jdm/2)
       if(debug) print*,'typical model grid scale ', dx
       rh=rf_hradius/dx     ! Decorrelation length is rh grid cells
@@ -145,15 +146,23 @@ contains
 
       !-- CHeCK: a conditional here to check ranfld_next exists \
       !-- IF exists, load and move to ranfld_prev, IF NOT run ranfields(ran,rh) --!
-      if (perturbation_count>0) then 
+      
+      if (perturbation_count==0 ) then                 
+         INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
+         if (file_exists) then          
+            if (debug) print*, 'loading random field from previous perturbation, only for restart forecast'
+            call randfld_rd('01')
+            !call synforc_rd('01') ! Todo: ensure syn*** variables are not used in code.
+         else
+            if (debug) print*, 'generating initial random field...'
+            call ranfields(ran,rh)
+            call rand_update('00',randfld00, synforc00)   
+         endif
+      else
          if (debug) print*,  'set perturbations as previous one'
          call load_randfld_synforc(synforc01,randfld01)
          randfld00 = randfld01
-         !synforc00 = synforc01   ! todo: ensure synforc00 is not used to addPerturbation 
-      else
-         if (debug) print*, 'generating initial random field...'
-         call ranfields(ran,rh)
-         call rand_update('00',randfld00, synforc00)     
+         !synforc00 = synforc01   ! previous perturbations - synforc01 has added to the previous wind fields outside p_pseudo2D_fld()
       end if
       call rand_update('01',randfld01, synforc01)
    end subroutine
@@ -448,16 +457,14 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! write output files  -- Spatial field dumped on first run （Instead, spatial fields are saved in variables）
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
       ! ran1 is new random forcing. ran is nondimensional
       ! "Brownian increment".
       call ranfields(ran1,rh)
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
       call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
-      !call synforc_wr(time_index)
+      call synforc_wr(time_index)
       !call randfld_wr(time_index)
       
    end subroutine rand_update
@@ -587,9 +594,9 @@ contains
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
       real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
-      do jy=1,jdm
       do ix=1,idm
-         id = (jy-1)*idm + ix
+      do jy=1,jdm      
+         id = (ix-1)*jdm + jy  ! the order of x,y and id is related to the order of loading wind data in loadDataset() in externaldata.cpp
          ran%slp(ix,jy)    = randfld(id,1)
          ran%taux(ix,jy)   = randfld(id,2)
          ran%tauy(ix,jy)   = randfld(id,3)
@@ -601,8 +608,9 @@ contains
          ran%sss(ix,jy)    = randfld(id,9)
          ran%sst(ix,jy)    = randfld(id,10)
       
+         ! Todo: no need to load synforc if its varialbes are not used in calculating new random forcings.
          synuwind(ix,jy) = synforc(id,1)
-         synvwind(ix,jy) = synforc(id,2)! since perturbtions is only applied to wind speeds, the unused variables are commented.
+         synvwind(ix,jy) = synforc(id,2)! only perturbtions wind speeds at the moment, the unused variables are commented.
          !synairtmp(ix,jy), synslp(ix,jy), &
          !synprecip(ix,jy), synrelhum(ix,jy) /)
       end do 
@@ -613,22 +621,26 @@ contains
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
       real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
-      do jy=1,jdm
+      ! do ix=1,idm
+      ! do jy=1,jdm      
+      !    id = (ix-1)*jdm + jy
+      
+      do jy=1,jdm      
       do ix=1,idm
          id = (jy-1)*idm + ix
          randfld(id,:) = (/ ran%slp(ix,jy),ran%taux(ix,jy),ran%tauy(ix,jy), &
          ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
          ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
          
-         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) ! since perturbtions is only applied to wind speeds, the unused variables are commented.
+         ! only perturbtions wind speeds at the moment, the unused variables are commented. In externaldata.cpp, set synforc_size=2.
+         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) 
          !synairtmp(ix,jy), synslp(ix,jy), &
          !synprecip(ix,jy), synrelhum(ix,jy) /)
-         !print*,'save_r',ix,jy,synforc(id,1), synforc(id,2)
       end do 
       end do 
    end subroutine
 
-   ! following functions are not used.
+   ! some of the following functions are not used.
    !------------------------------------------
    real function compute_mean(mat)
       real, dimension(:,:), intent(in) :: mat
@@ -745,54 +757,54 @@ contains
 
    end subroutine
 
-   ! subroutine randfld_wr(time_index)
+   subroutine randfld_wr(time_index)
 
-   !       character(2)  :: time_index
-   !       character(150) :: filename
-   !       integer :: ix,jy
+         character(2)  :: time_index
+         character(150) :: filename
+         integer :: ix,jy
 
-   !       filename = trim(iopath)//'/randfld.'//time_index
+         filename = trim(iopath)//'/randfld.'//time_index
 
 
-   !       if (debug) print*, 'writing randfile ', filename
+         if (debug) print*, 'writing randfile ', filename
 
-   !       open(12,file=filename,status='replace')
+         open(12,file=filename,status='replace')
 
-   !       do jy=1,jdm
-   !       do ix=1,idm
-   !          write(12,'(10e14.3)') &
-   !                   ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
-   !                   ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
-   !                   ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
-   !       end do !ix
-   !       end do !jy
+         do jy=1,jdm
+         do ix=1,idm
+            write(12,'(10e14.3)') &
+                     ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
+                     ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
+                     ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)
+         end do !ix
+         end do !jy
 
-   !       close(12)
+         close(12)
 
-   ! end subroutine
+   end subroutine
 
-   ! subroutine synforc_wr(time_index)
+   subroutine synforc_wr(time_index)
 
-   !       character(2)  :: time_index
-   !       character(150) :: filename
-   !       integer       :: ix,jy
-   !       filename = trim(iopath)//'/synforc.'//time_index
+         character(2)  :: time_index
+         character(150) :: filename
+         integer       :: ix,jy
+         filename = trim(iopath)//'/synforc.'//time_index
 
-   !       if (debug) print*, 'writing synforc ', filename
+         if (debug) print*, 'writing synforc ', filename
 
-   !       open(13,file=filename, status='replace')
+         open(13,file=filename, status='replace')
 
-   !       do jy=1,jdm
-   !       do ix=1,idm
-   !          write(13,'(2i5,6e14.3)') ix,jy,  &
-   !                   synuwind(ix,jy), synvwind(ix,jy), &
-   !                   synairtmp(ix,jy), synslp(ix,jy), &
-   !                   synprecip(ix,jy), synrelhum(ix,jy)
-   !       end do !ix
-   !       end do !jy
+         do jy=1,jdm
+         do ix=1,idm
+            write(13,'(2i5,6e14.3)') ix,jy,  &
+                     synuwind(ix,jy), synvwind(ix,jy), &
+                     synairtmp(ix,jy), synslp(ix,jy), &
+                     synprecip(ix,jy), synrelhum(ix,jy)
+         end do !ix
+         end do !jy
 
-   !       close(13)
+         close(13)
 
-   ! end subroutine
+   end subroutine
 
 end module mod_random_forcing

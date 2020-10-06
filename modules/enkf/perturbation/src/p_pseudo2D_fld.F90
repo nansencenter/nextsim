@@ -14,28 +14,13 @@ contains
     integer(c_int), intent(in):: xdim, ydim, perturbation_count ! perturbation_count is only used to decide whether generate ran
     !real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
     real*8 :: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10) !
-    ! integer ix, jy, id
-    ! do ix=1,xdim
-    !   do jy=1,ydim
-    !     id = jy + (ix-1)*ydim
-    !     print*,ydim,xdim,ix,jy,id,synforc01(id,1),synforc01(id,2)
-    !     synforc01(id,1)=-1.*synforc01(id,1)
-    !     synforc01(id,2)=-1.*synforc01(id,2)
-    !    enddo
-    ! enddo    
+  
     call limits_randf(xdim,ydim)  ! read in setting from pseudo2D.nml
     call init_fvars    ! init field variables
     call init_rand_update(synforc01,randfld01, perturbation_count) ! core routine, xdim, ydim are set for idm,jdm in the routines
-    !     print*,'xxx' 
-    ! do jy=1,ydim
-    ! do ix=1,xdim
-    !     id = ix + (jy-1)*xdim
-    !     print*,ix,jy,id,synforc01(id,1),synforc01(id,2)      
-    !    enddo
-    ! enddo 
+
  ! calcualte synforc01, randfld01 in the routine
     ! output synforc00, synforc01, randfld01.
-    ! check if it is necessary to return synforc00
   end subroutine p_pseudo2D_fld_sub
 
 end module p_pseudo2D_fld
