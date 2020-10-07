@@ -285,8 +285,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // }
                 LOG(DEBUG) << "291 Add perturbations to current wind fields\n";  
                 M_comm.barrier();      
-                //if(M_comm.rank()==0)           
-                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
+                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
                 // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 // double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                 // LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
