@@ -16,8 +16,9 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
     int start_tmp,n = 0;
     for(int j = 0; j <y_count; j++) {  
         start_tmp = x_start + (y_start + j)*N_full;
-        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {                                 
-           // std::cout<<i<<", "<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";   
+        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {   
+           // if(id==0)                              
+           //     std::cout<<i<<", "<<velocity_u[n]<<", "<<velocity_v[n]<<", "<<synforc[i]<<", "<<synforc[i+M_full*N_full]<<"\n";   
             velocity_u[n] += synforc[i];
             velocity_v[n] += synforc[i+M_full*N_full];       
             n++; 
@@ -32,7 +33,6 @@ void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<doub
     //         n++;               
     //     }
     //  }
-//     std::cout<<"leaving add perturbation"<<velocity_u.size()-n<<"\n";
 };
 
 
