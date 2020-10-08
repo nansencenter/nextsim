@@ -78,7 +78,7 @@ docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
 ```
 
 **REMEMBER:** If you want to use the code compiled inplace, mount the current folder into `/nextsim`
-(with options `-v ``pwd``:/nextsim`).
+(with options ```-v `pwd`:/nextsim```).
 
 ## 5. Run the neXtSIM executable inside a container
 
