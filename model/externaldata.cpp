@@ -157,6 +157,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
 
     bool to_be_reloaded=false;
+    bool do_perturbation=false;
 
     if(M_dataset->grid.dataset_frequency=="constant")
         to_be_reloaded=!M_dataset->loaded;
@@ -171,6 +172,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     else
         to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
+    LOG(DEBUG) <<"line174, "<<M_dataset->name.c_str()<< ", "<< datenumToString(M_dataset->ftime_range[0]) <<", " <<datenumToString(current_time_tmp)<<", "<< datenumToString(M_dataset->ftime_range[1]) << "  bool:"<<M_dataset->loaded<<", to_be_loaded:"<<to_be_reloaded<< "\n";
     if (to_be_reloaded)
     {
 #ifdef OASIS
@@ -238,13 +240,25 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         }
         else {
 #endif
-            LOG(DEBUG) << "Load " << M_datasetname << "\n";
-            this->loadDataset(M_dataset, RX_in, RY_in);
-                                    
-#ifdef ENSEMBLE                                          
-            M_comm.barrier();
+            LOG(DEBUG) << "Load " << M_datasetname << "\n";   
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
+            {
+                do_perturbation = ((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp));         
+            }
+            this->loadDataset(M_dataset, RX_in, RY_in);
+
+            //debug comment to be deleted 
+            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0){
+                    LOG(DEBUG) <<"line249, "<< datenumToString(M_dataset->ftime_range[0]) <<", " <<datenumToString(current_time_tmp)<<", "<< datenumToString(M_dataset->ftime_range[1]) << "  bool:"<<M_dataset->loaded<< "\n";
+            }                                    
+#ifdef ENSEMBLE                                          
+            M_comm.barrier();
+            //if ( do_perturbation)  // this if-statement is to avoid too frequent perturbations.
+
+            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0) 
             {
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
@@ -257,7 +271,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
                 LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-                LOG(DEBUG) << "### M_current_time: " << M_current_time  << "\n";                              
+                LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";                             
             //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
                 int synforc_size = 2*MN_full;
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.      
@@ -719,7 +733,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             FVTIME.getVar(index_start, index_count, &XTIME[0]);
 
             double const t_ref = stringToDatenum(dataset->grid.reference_date);
-
             // If we have two time indices we calculate a delta t and derive the correct index
             if ( index_count[0] == 2 )
             {
@@ -821,6 +834,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         }
 
         dataset->ftime_range = {time_prev,time_next};
+        LOG(DEBUG) <<"line831 loadData: "<<dataset->ftime_range[0]<<", "<<dataset->ftime_range[1]<<"\n";
     }//not nearest_daily or constant
     else
     {
