@@ -45,6 +45,13 @@ This will, of course, raise an error because no configfile or data is given to t
 shows that the model is already compiled and stored inside the image. See section 5 below how to
 run the model correctly.
 
+By default the base image will be quite large, it will contain many libraries and Python packages.
+If a smaller image needs to be built with bare minimum of libraries, an extra option should be
+added to the build command:
+```
+docker build . -t nextsim --build-arg BASE_IMAGE=nextsim_base_pro:latest
+```
+
 ## 4. Compile the model inplace
 
 You can also use this image for compiling the nextsim core and model inplace.
