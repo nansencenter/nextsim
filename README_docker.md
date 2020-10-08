@@ -34,12 +34,25 @@ command:
 ```
 docker build . -t nextsim
 ```
-It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and install gcc, libnetcdf and
-compile BAMG and MAPX libraries.
+It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and install gcc, libnetcdf;
+compile BAMG and MAPX libraries and compile the model itself.
 
-## 4. Compile the code
+Now you can run the model code which is inside the image:
+```
+docker run --rm nextsim nextsim.exec
+```
+This will, of course, raise an error because no configfile or data is given to the model. But it
+shows that the model is already compiled and stored inside the image. See section 5 below how to
+run the model correctly.
 
-Now you can use this image for compiling nextsim core and model. You need to run a container:
+## 4. Compile the model inplace
+
+You can also use this image for compiling the nextsim core and model inplace.
+"Inplace" means that it will generate libraries and executable in the same place as your source
+code. This can be used by developers of nextsim who need to recompile the model several times
+before their buggy code starts to work.
+
+For compiling inplace you need to run a container:
 ```
 docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
 ```
@@ -57,7 +70,10 @@ docker run --rm -v `pwd`:/nextsim nextsim make cleanmodel
 docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
 ```
 
-## 4. Run the neXtSIM executable inside a container
+**REMEMBER:** If you want to use the code compiled inplace, mount the current folder into `/nextsim`
+(with options `-v ``pwd``:/nextsim`).
+
+## 5. Run the neXtSIM executable inside a container
 
 The image is built to run any executable inside a container. For example, if you only want to run
 bash:
