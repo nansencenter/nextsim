@@ -156,12 +156,12 @@ contains
          else
             if (debug) print*, 'generating initial random field...'
             call ranfields(ran,rh)
-            call rand_update('00',randfld00, synforc00)   
+            call rand_update('00',randfld00, synforc00)   ! TODO: delete time index later
          endif
       else
          if (debug) print*,  'set perturbations as previous one'
-         call load_randfld_synforc(synforc01,randfld01)
-         randfld00 = randfld01
+         call load_randfld_synforc(randfld01,synforc01)
+         !randfld00 = randfld01
          !synforc00 = synforc01   ! previous perturbations - synforc01 has added to the previous wind fields outside p_pseudo2D_fld()
       end if
       call rand_update('01',randfld01, synforc01)
@@ -464,7 +464,7 @@ contains
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
       call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
-      !call synforc_wr(time_index)
+      call synforc_wr(time_index)
       !call randfld_wr(time_index)
       
    end subroutine rand_update
@@ -594,9 +594,9 @@ contains
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
       real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
-      do ix=1,idm
-      do jy=1,jdm      
-         id = (ix-1)*jdm + jy  ! the order of x,y and id is related to the order of loading wind data in loadDataset() in externaldata.cpp
+      do jy=1,jdm
+      do ix=1,idm            
+         id = (jy-1)*idm + ix  ! the order of x,y and id is related to the order of loading wind data in loadDataset() in externaldata.cpp
          ran%slp(ix,jy)    = randfld(id,1)
          ran%taux(ix,jy)   = randfld(id,2)
          ran%tauy(ix,jy)   = randfld(id,3)
@@ -621,9 +621,6 @@ contains
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
       real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
-      ! do ix=1,idm
-      ! do jy=1,jdm      
-      !    id = (ix-1)*jdm + jy
       
       do jy=1,jdm      
       do ix=1,idm
@@ -721,7 +718,7 @@ contains
 
       do jy=1,jdm
         do ix=1,idm
-        read(10, '(10e14.3)') &
+            read(10, '(10e14.3)') &
                    ran%slp(ix,jy), ran%taux(ix,jy), ran%tauy(ix,jy), &
                    ran%wndspd(ix,jy), ran%airtmp(ix,jy), ran%relhum(ix,jy), &
                    ran%clouds(ix,jy), ran%precip(ix,jy), ran%sss(ix,jy), ran%sst(ix,jy)

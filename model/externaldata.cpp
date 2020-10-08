@@ -243,7 +243,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             LOG(DEBUG) << "Load " << M_datasetname << "\n";   
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
-            {
+            { //because ftime_range is changed in loadDataset() below, the if-statement must be used.
                 do_perturbation = ((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp));         
             }
             this->loadDataset(M_dataset, RX_in, RY_in);
@@ -255,10 +255,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             }                                    
 #ifdef ENSEMBLE                                          
             M_comm.barrier();
-            //if ( do_perturbation)  // this if-statement is to avoid too frequent perturbations.
+            if ( do_perturbation)  // this if-statement is to avoid too frequent perturbations.
 
-            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0) 
+            // if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+            //     strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0) 
             {
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
