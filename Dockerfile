@@ -3,7 +3,6 @@ FROM $BASE_IMAGE
 
 ENV NEXTSIM_MESH_DIR=/mesh \
     NEXTSIM_DATA_DIR=/data \
-    LIBRARY_PATH=/opt/local/mapx/lib:/opt/local/bamg/lib \
     NEXTSIMDIR=/nextsim \
     LD_LIBRARY_PATH=/nextsim/lib/ \
     PATH=/nextsim/model/bin:$PATH
@@ -20,18 +19,14 @@ WORKDIR $NEXTSIMDIR/contrib/mapx/src
 RUN make -j8 \
 &&  mkdir -p /opt/local/mapx/lib  \
 &&  cp -d $NEXTSIMDIR/lib/libmapx* /opt/local/mapx/lib/ \
-&&  cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx \
-&&  echo /opt/local/mapx/lib/ >> /etc/ld.so.conf \
-&&  ldconfig
+&&  cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx
 
 # compile bamg
 WORKDIR $NEXTSIMDIR/contrib/bamg/src
 RUN make -j8 \
 &&  mkdir -p /opt/local/bamg/lib  \
 &&  cp -d $NEXTSIMDIR/lib/libbamg* /opt/local/bamg/lib/ \
-&&  cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg \
-&&  echo /opt/local/bamg/lib/ >> /etc/ld.so.conf \
-&&  ldconfig
+&&  cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg
 
 # compile model
 WORKDIR $NEXTSIMDIR
