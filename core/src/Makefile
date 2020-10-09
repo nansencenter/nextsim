@@ -14,12 +14,7 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = mpicxx
 
-# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
-ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
-	CXXFLAGS += -std=c++14
-else
-	CXXFLAGS += -std=c++11
-endif
+CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -fpermissive
@@ -54,7 +49,6 @@ CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/g
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-MMD -MP
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
 else
 	ifeq ($(CXX),clang)

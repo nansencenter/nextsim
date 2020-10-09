@@ -1,18 +1,14 @@
 ARG BASE_IMAGE=nansencenter/nextsim_base_dev:latest
 FROM $BASE_IMAGE
 
-ENV OPENMPI_INCLUDE_DIR=/usr/lib/x86_64-linux-gnu/openmpi/include \
-    OPENMPI_LIB_DIR=/usr/lib/x86_64-linux-gnu/openmpi/lib \
-    BOOST_INCDIR=/opt/local/boost/include \
-    BOOST_LIBDIR=/opt/local/boost/lib \
-    PETSC_DIR=/opt/local/petsc \
-    GMSH_DIR=/opt/local/gmsh \
-    NEXTSIM_MESH_DIR=/mesh \
+ENV NEXTSIM_MESH_DIR=/mesh \
     NEXTSIM_DATA_DIR=/data \
-    LIBRARY_PATH=/opt/local/mapx/lib:/opt/local/bamg/lib:/opt/local/nextsim/lib
+    LIBRARY_PATH=/opt/local/mapx/lib:/opt/local/bamg/lib \
+    NEXTSIMDIR=/nextsim \
+    LD_LIBRARY_PATH=/nextsim/lib/ \
+    PATH=/nextsim/model/bin:$PATH
 
 # copy source code into temporary dir
-ENV NEXTSIMDIR=/tmp/nextsim
 COPY contrib $NEXTSIMDIR/contrib
 COPY core $NEXTSIMDIR/core
 COPY model $NEXTSIMDIR/model
@@ -39,15 +35,4 @@ RUN make -j8 \
 
 # compile model
 WORKDIR $NEXTSIMDIR
-RUN make docker && \
-    mkdir -p /opt/local/nextsim/lib && \
-    cp -d $NEXTSIMDIR/lib/* /opt/local/nextsim/lib/ && \
-    echo /opt/local/nextsim/lib/ >> /etc/ld.so.conf && \
-    ldconfig && \
-    cp $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/ && \
-    rm -rf $NEXTSIMDIR
-
-# trick to use inplace compiled nextsim
-ENV NEXTSIMDIR=/nextsim
-ENV PATH=$NEXTSIMDIR/model/bin:$PATH
-WORKDIR $NEXTSIMDIR
+RUN make docker
