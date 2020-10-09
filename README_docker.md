@@ -49,7 +49,7 @@ By default the base image will be quite large, it will contain many libraries an
 If a smaller image needs to be built with bare minimum of libraries, an extra option should be
 added to the build command:
 ```
-docker build . -t nextsim --build-arg BASE_IMAGE=nextsim_base_prod:latest
+docker build . -t nextsim --build-arg BASE_IMAGE=nansencenter/nextsim_base_prod:latest
 ```
 
 ## 4. Compile the model inplace
