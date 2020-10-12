@@ -30,4 +30,4 @@ RUN mkdir -p /opt/local/bamg/lib  \
 &&  cp -d $NEXTSIMDIR/lib/libbamg* /opt/local/bamg/lib/ \
 &&  cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg
 
-WORKDIR /root
+WORKDIR $NEXTSIMDIR
