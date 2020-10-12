@@ -26,22 +26,23 @@ Otherwise the model won't compile.
 ## 3. Build an image
 
 The Docker image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains a
-Dockerfile for installation of compilers and libraries. This Dockerfile is based on another image
-`boost_petsc_gmsh` available [here](https://github.com/nansencenter/docker-boost-petsc-gmsh)
+Dockerfile for compiling the model code. This Dockerfile is based on another image
+`nextsim_base` openly available at Docker hub. The Dockerfile for nextsim_base is locate in
+[nextsim-env](https://github.com/nansencenter/nextsim-env) repo.
 
 To build an image you need to clone the repository, go to nextsim directory and run the following
 command:
 ```
 docker build . -t nextsim
 ```
-It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and install gcc, libnetcdf;
-compile BAMG and MAPX libraries and compile the model itself.
+It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and
+compile BAMG and MAPX libraries and compile the core and the model itself.
 
 Now you can run the model code which is inside the image:
 ```
 docker run --rm nextsim nextsim.exec
 ```
-This will, of course, raise an error because no configfile or data is given to the model. But it
+This will, of course, crashr because no configfile is given to the model. But it
 shows that the model is already compiled and stored inside the image. In the section 4 below see
 how to run the model correctly.
 
@@ -71,6 +72,25 @@ NEXTSIM_DATA_DIR=/data
 
 ```
 Therefore you need to provide mounting of these two directories and a directory for output.
+These directories should contain either files or links to files. There are two helping scripts that
+can create these links autometcially. You can run these scripts inside the nextsim image:
+```
+# link meshes
+docker run --rm \
+    -v /Data/sim/:/Data/sim/ \
+    -v /home/user/nextsim/mesh:/mesh \
+    nextsim \
+    link_meshes.sh /Data/sim/data/mesh /mesh
+
+# link datafiles
+docker run --rm \
+    -v /Data/sim/:/Data/sim/ \
+    -v /Data/nextsimf/:/Data/nextsimf/ \
+    -v /home/user/nextsim/data:/data \
+    nextsim \
+    link_data.sh /Data/sim/data /Data/nextsimf/data /data
+```
+
 In addition you need to provide the command to run mpirun with the path to the config file, number
 of CPUs and so on. Note that all paths (to the config file, to the mesh, to the data, to outputs)
 are given in the container file system.
@@ -86,7 +106,7 @@ docker run -it --rm \
     mpirun --allow-run-as-root -np 8 nextsim.exec -mat_mumps_icntl_23 200 --config-files=/output/test.cfg
 ```
 This example will mount the following directories:
-* `/home/user/nextsim/data` with all input data as `/data` in container
+* `/home/user/nextsim/data` with links to all input data as `/data` in container
 * `/home/user/nextsim/mesh` with mpp files and links to meshes as `/mesh` in container
 * `/home/user/output` with model output as `/output` in container
 If your directories (e.g. `/home/user/nextsim/mesh`) contain not the files but symbolic links to files,
@@ -96,5 +116,5 @@ you also need to mount the directories where the files are actually residing
 One more option `--security-opt seccomp=unconfined` is apparently needed to run MPI in container.
 
 An example script to run model in a container can be found here:
-[run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/maud_antonk/run_nextsim_container.sh)
+[run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/maud_antonk/run_nextsim.sh)
 
