@@ -52,12 +52,11 @@ added to the build command:
 docker build . -t nextsim --build-arg BASE_IMAGE=nansencenter/nextsim_base_prod:latest
 ```
 
-## 4. Compile the model inplace
+## 4. Compile the model in-place
 
-You can also use this image for compiling the nextsim core and model inplace.
-"Inplace" means that it will generate libraries and executable in the same place as your source
-code. This can be used by developers of nextsim who need to recompile the model several times
-before their buggy code starts to work.
+You can also use this image for compiling the nextsim code in-place.
+"In-place" means that it will generate libraries and executable in the same place as your source
+code. This can be used by developers of nextsim who need to recompile the model several times.
 
 For compilation in-place you need to run a container:
 ```
@@ -84,7 +83,7 @@ docker run --rm -v `pwd`:/nextsim nextsim make fresh -j8
 ```
 
 
-**REMEMBER:** If you want to use the code compiled inplace, mount the current folder into `/nextsim`
+**REMEMBER:** If you want to use the code compiled in-place, mount the current folder into `/nextsim`
 (with options ```-v `pwd`:/nextsim```).
 
 ## 5. Run the neXtSIM executable inside a container
