@@ -59,23 +59,30 @@ You can also use this image for compiling the nextsim core and model inplace.
 code. This can be used by developers of nextsim who need to recompile the model several times
 before their buggy code starts to work.
 
-For compiling inplace you need to run a container:
+For compilation in-place you need to run a container:
 ```
-docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
+docker run --rm -v `pwd`:/nextsim nextsim make -j8
 ```
+
 These commands will:
 * start a container whith all the required libraries
 * set environment variables in the container (PATH, NEXTSIMDIR, etc..)
 * mount the current folder (with nextsim source code) into /nextsim in container
-* compile the code in the core and model directories and save the objects and executable in the
+* compile the code in the contrib, core and model directories and save the objects and executable in the
 mounted directories. NB: the generated binary files will be available both for the host
 (in the current directory) and for the container (in /nextsim).
 
 If you want to recompile only the model code :
 ```
 docker run --rm -v `pwd`:/nextsim nextsim make cleanmodel
-docker run --rm -v `pwd`:/nextsim nextsim make docker -j8
+docker run --rm -v `pwd`:/nextsim nextsim make -j8
 ```
+
+If you want to recompile the entire code :
+```
+docker run --rm -v `pwd`:/nextsim nextsim make fresh -j8
+```
+
 
 **REMEMBER:** If you want to use the code compiled inplace, mount the current folder into `/nextsim`
 (with options ```-v `pwd`:/nextsim```).
