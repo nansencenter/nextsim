@@ -3,31 +3,40 @@ FROM $BASE_IMAGE
 
 ENV NEXTSIM_MESH_DIR=/mesh \
     NEXTSIM_DATA_DIR=/data \
-    NEXTSIMDIR=/nextsim \
-    LD_LIBRARY_PATH=/nextsim/lib/ \
-    PATH=/nextsim/model/bin:$PATH
+    NEXTSIMDIR=/nextsim
 
-# copy source code into temporary dir
+# copy source, compile and copy libs of mapx and bamg
 COPY contrib $NEXTSIMDIR/contrib
-COPY core $NEXTSIMDIR/core
-COPY model $NEXTSIMDIR/model
-COPY modules $NEXTSIMDIR/modules
-COPY Makefile $NEXTSIMDIR/Makefile
-
-# compile model
-WORKDIR $NEXTSIMDIR
-RUN make -j8
-
-# copy mapx
 WORKDIR $NEXTSIMDIR/contrib/mapx/src
-RUN mkdir -p /opt/local/mapx/lib  \
+RUN make -j8 \
+&&  mkdir -p /opt/local/mapx/lib  \
 &&  cp -d $NEXTSIMDIR/lib/libmapx* /opt/local/mapx/lib/ \
-&&  cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx
-
-# copy bamg
+&&  cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx \
+&&  echo /opt/local/mapx/lib/ >> /etc/ld.so.conf
 WORKDIR $NEXTSIMDIR/contrib/bamg/src
-RUN mkdir -p /opt/local/bamg/lib  \
+RUN make -j8 \
+&&  mkdir -p /opt/local/bamg/lib  \
 &&  cp -d $NEXTSIMDIR/lib/libbamg* /opt/local/bamg/lib/ \
-&&  cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg
+&&  cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg \
+&&  echo /opt/local/bamg/lib/ >> /etc/ld.so.conf
 
-WORKDIR $NEXTSIMDIR
+# copy source, compile and copy libs of core
+COPY core $NEXTSIMDIR/core
+WORKDIR $NEXTSIMDIR/core/src
+RUN make -j8 \
+&&  mkdir -p /opt/local/nextsim/lib \
+&&  cp -d $NEXTSIMDIR/lib/libnextsim* /opt/local/nextsim/lib \
+&&  echo /opt/local/nextsim/lib >> /etc/ld.so.conf
+
+RUN ldconfig
+
+# copy source, compile and copy exec of the model
+COPY model $NEXTSIMDIR/model
+WORKDIR $NEXTSIMDIR/model
+RUN make -j8 \
+&& cp $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/
+
+RUN rm -rf $NEXTSIMDIR
+
+
+WORKDIR /root
