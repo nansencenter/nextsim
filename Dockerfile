@@ -32,11 +32,15 @@ RUN ldconfig
 
 # copy source, compile and copy exec of the model
 COPY model $NEXTSIMDIR/model
+COPY .git $NEXTSIMDIR/.git
 WORKDIR $NEXTSIMDIR/model
 RUN make -j8 \
 && cp $NEXTSIMDIR/model/bin/nextsim.exec /usr/local/bin/
 
 RUN rm -rf $NEXTSIMDIR
 
-
 WORKDIR /root
+
+# allow model to compile in-place
+ENV LIBRARY_PATH=/opt/local/bamg/lib:/opt/local/mapx/lib:/opt/local/nextsim/lib \
+    PATH=$NEXTSIMDIR/model/bin:$PATH
