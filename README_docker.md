@@ -118,10 +118,11 @@ One more option `--security-opt seccomp=unconfined` is apparently needed to run 
 An example script to run model in a container can be found here:
 [run_nextsim_container.sh](https://github.com/nansencenter/nextsim-env/blob/master/machines/maud_antonk/run_nextsim.sh)
 
-## 5. It is still possible to compile the code inside `model` directory in-place. "In-place" means
+## 5. It is still possible to compile the model code in-place. "In-place" means
 that the binary objects and exceutbale are created in the directory on the host machine. For
 compiling inplace you need to mount the current folder into `/nextsim` and set the working
 directory with `-w` options:
+
 ```
 docker run --rm -it -v /home/user/nextsim:/nextsim -w /nextsim/model nextsim make
 ```
