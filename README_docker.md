@@ -42,7 +42,7 @@ Now you can run the model code which is inside the image:
 ```
 docker run --rm nextsim nextsim.exec
 ```
-This will, of course, crashr because no configfile is given to the model. But it
+This will, of course, crash because no configfile is given to the model. But it
 shows that the model is already compiled and stored inside the image. In the section 4 below see
 how to run the model correctly.
 
