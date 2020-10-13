@@ -127,4 +127,4 @@ directory with `-w` options:
 docker run --rm -it -v /home/user/nextsim:/nextsim -w /nextsim/model nextsim make
 ```
 
-**Remebmer:** if you want to run the code compiled in-place, mount the `/nextsim` directory.
+**Remember:** if you want to run the code compiled in-place, mount the `/nextsim` directory.
