@@ -27,7 +27,7 @@ Otherwise the model won't compile.
 
 The Docker image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains a
 Dockerfile for compiling the model code. This Dockerfile is based on another image
-`nextsim_base` openly available at Docker hub. The Dockerfile for nextsim_base is locate in
+`nextsim_base` openly available at Docker hub. The Dockerfile for nextsim_base is located in
 [nextsim-env](https://github.com/nansencenter/nextsim-env) repo.
 
 To build an image you need to clone the repository, go to nextsim directory and run the following
