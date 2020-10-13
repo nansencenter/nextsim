@@ -73,7 +73,7 @@ NEXTSIM_DATA_DIR=/data
 ```
 Therefore you need to provide mounting of these two directories and a directory for output.
 These directories should contain either files or links to files. There are two helping scripts that
-can create these links autometcially. You can run these scripts inside the nextsim image:
+can create these links automatically. You can run these scripts inside the `nextsim` image:
 ```
 # link meshes
 docker run --rm \
