@@ -157,7 +157,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
 
     bool to_be_reloaded=false;
-    bool do_perturbation=false;
 
     if(M_dataset->grid.dataset_frequency=="constant")
         to_be_reloaded=!M_dataset->loaded;
@@ -172,7 +171,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     else
         to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
-    LOG(DEBUG) <<"line174, "<<M_dataset->name.c_str()<< ", "<< datenumToString(M_dataset->ftime_range[0]) <<", " <<datenumToString(current_time_tmp)<<", "<< datenumToString(M_dataset->ftime_range[1]) << "  bool:"<<M_dataset->loaded<<", to_be_loaded:"<<to_be_reloaded<< "\n";
     if (to_be_reloaded)
     {
 #ifdef OASIS
@@ -241,24 +239,21 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         else {
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";   
+#ifdef ENSEMBLE     
+        //because ftime_range is changed in loadDataset(), the if-statement must be used. do_perturbation is to avoid perturbation due to remesh.  
+            bool do_perturbation=false;      
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0)
-            { //because ftime_range is changed in loadDataset() below, the if-statement must be used.
+            { 
                 do_perturbation = ((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp));         
             }
-            this->loadDataset(M_dataset, RX_in, RY_in);
-
-            //debug comment to be deleted 
-            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0){
-                    LOG(DEBUG) <<"line249, "<< datenumToString(M_dataset->ftime_range[0]) <<", " <<datenumToString(current_time_tmp)<<", "<< datenumToString(M_dataset->ftime_range[1]) << "  bool:"<<M_dataset->loaded<< "\n";
-            }                                    
-#ifdef ENSEMBLE                                          
+#endif            
+            this->loadDataset(M_dataset, RX_in, RY_in);                                           
+#ifdef ENSEMBLE 
+            //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
+            // remove perturbation_count,                                        
             M_comm.barrier();
-            if ( do_perturbation)  // this if-statement is to avoid too frequent perturbations.
-
-            // if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-            //     strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0) 
+            if (do_perturbation)  
             {
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
@@ -272,15 +267,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";                             
-            //The two variables should be global variable defined in the initialization, saved noises in u,v directions.
-                int synforc_size = 2*MN_full;
-            //Todo: use float variable to save sources, since it's no need to have high precision perturbations.      
-                if (M_dataset->perturbation_count==0) {
-                    M_dataset->synforc = std::vector<double>(synforc_size,0.);
-                    M_dataset->randfld = std::vector<double>(10*MN_full,  0.);                      
-                }
-                                
-                LOG(DEBUG) << "269 Add perturbations to last wind fields\n";
+                                           
+                M_dataset->synforc.resize(2*MN_full);  // synforc saves dimensional perturbation, and randfld saves nondimensional perturbation
+                M_dataset->randfld.resize(10*MN_full);
+                LOG(DEBUG) << "### Add perturbations to previous wind fields\n";
                 perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
                 if (M_comm.rank() == 0) {                    
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
@@ -291,13 +281,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 }
                 M_comm.barrier();
                 LOG(DEBUG) << "### Broadcast perturbations to all processors\n";  
-                boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], synforc_size, 0); 
+                boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
 
                 // if (M_comm.rank() == 10) {  
                 //     for(int i = 0; i < MN_full; i++)
                 //        std::cout<<"x1  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
                 // }
-                LOG(DEBUG) << "291 Add perturbations to current wind fields\n";  
+                LOG(DEBUG) << "### Add perturbations to current wind fields\n";  
                 M_comm.barrier();      
                 perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
                 // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());

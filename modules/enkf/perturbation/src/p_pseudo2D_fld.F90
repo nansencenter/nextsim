@@ -16,7 +16,7 @@ contains
     real*8 :: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10) !
   
     call limits_randf(xdim,ydim)  ! read in setting from pseudo2D.nml
-    call init_fvars    ! init field variables
+    call init_fvars               ! init field variables
     call init_rand_update(synforc01,randfld01, perturbation_count) ! core routine, xdim, ydim are set for idm,jdm in the routines
 
  ! calcualte synforc01, randfld01 in the routine

@@ -464,7 +464,7 @@ contains
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
       call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
-      call synforc_wr(time_index)
+      !call synforc_wr(time_index)
       !call randfld_wr(time_index)
       
    end subroutine rand_update
