@@ -54,7 +54,7 @@ DataSet::DataSet(char const *DatasetName)
 #endif
 
     /*
-     *	match projection name and initialize remaining parameters
+     *  match projection name and initialize remaining parameters
      */
     if (strcmp (DatasetName, "asr_nodes") == 0)
     {
@@ -3138,7 +3138,7 @@ DataSet::DataSet(char const *DatasetName)
   #ifdef OASIS
           coupled = false;
   #endif
-        }          
+        }
 
     }
     else if (strcmp (DatasetName, "nesting_dynamics_elements") == 0)
@@ -5425,7 +5425,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable conc={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "ice_conc",
+            name: "sea_ice_concentration",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5443,7 +5443,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thickness={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "analysis_ice_thickness",
+            name: "analysis_sea_ice_thickness",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5464,7 +5464,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type: -1,
             dirname: "",
             prefix:"cs2_smos_ice_thickness_",
-            postfix: "-fv2p0.nc",
+            postfix: "-fv2p2.nc",
             gridfile: "",
             reference_date: "",
 
@@ -5992,16 +5992,16 @@ DataSet::DataSet(char const *DatasetName)
      }
      else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
      {
-     	// Definition of the icesat grid and datasets
+        // Definition of the icesat grid and datasets
          Dimension dimension_x={
              name:"x",
              cyclic:false
-     	};
+        };
 
          Dimension dimension_y={
              name:"y",
              cyclic:false
-     	};
+        };
 
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = dimension_y;
@@ -6045,21 +6045,21 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thickness={
             filename_prefix: "", // All variables are in the same (grid) file
-     		name: "Th",
-     		dimensions: dimensions_latlon,
+            name: "Th",
+            dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-     		a: 0.01,
-     		b: 0.,
-     		Units: "",
+            a: 0.01,
+            b: 0.,
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-     	};
+        };
 
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
@@ -6077,14 +6077,14 @@ DataSet::DataSet(char const *DatasetName)
             dimension_y: dimension_y,
 
             mpp_file: projfilename,
-     		interpolation_in_latlon: false,
+            interpolation_in_latlon: false,
 
             loaded: false,
             dataset_frequency:"constant",
 
             waveOptions: wavopt_none,
 
-     		masking: false
+            masking: false
         };
 
         std::vector<Variable> variables_tmp(1);
@@ -9270,7 +9270,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
     LOG(DEBUG)<<"GRID : FILENAME = "<< filename <<"\n";
 
-	//std::cout <<"GRID : READ NETCDF starts\n";
+    //std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
         throw std::runtime_error("File not found: " + filename);
 
@@ -9284,7 +9284,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
     grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
+    grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
     grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
@@ -9295,8 +9295,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
                 "lon & lat should be dimensions if Dataset::grid.interpolation_in_latlon = true");
         ASSERT(grid_ptr->interpolation_method == InterpolationType::FromGridToMesh,
                 "Dataset::grid.interpolation_method should be FromGridToMesh if Dataset::grid.interpolation_in_latlon = true");
-		netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-		netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // first we determine where the branch cut should be from
         // the range in longitude
@@ -9310,8 +9310,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // although that wouldn't work for a reduced grid but you get the idea
 
         // We load the full grid
-		std::vector<double> LAT(grid_ptr->dimension_y_count);
-		std::vector<double> LON(grid_ptr->dimension_x_count);
+        std::vector<double> LAT(grid_ptr->dimension_y_count);
+        std::vector<double> LON(grid_ptr->dimension_x_count);
         this->getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
 #if 1
         // Get the proc speciffic boundaries
@@ -9351,12 +9351,12 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-	netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-	netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+    netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+    netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
-    	std::vector<double> X(grid_ptr->dimension_x_count);
-	std::vector<double> Y(grid_ptr->dimension_y_count);
+        std::vector<double> X(grid_ptr->dimension_x_count);
+    std::vector<double> Y(grid_ptr->dimension_y_count);
 
         this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
         // Get the proc specific boundaries
@@ -9390,10 +9390,10 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
         //std::cout <<"GRID : READ NETCDF done\n";
 
-	}//end interpolation_method==InterpolationType::FromGridToMesh
-	else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx
-	     || grid_ptr->interpolation_method==InterpolationType::FromMeshToMeshQuick)
-	{
+    }//end interpolation_method==InterpolationType::FromGridToMesh
+    else if(grid_ptr->interpolation_method==InterpolationType::FromMeshToMesh2dx
+         || grid_ptr->interpolation_method==InterpolationType::FromMeshToMeshQuick)
+    {
         // interpolation_method==InterpolationType::FromMeshToMesh2dx
         // - most general method
         // - project to x,y plane with nextsim .mpp file and do interpolation in x,y space
@@ -9422,9 +9422,9 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<int> tmp_y_end(grid_ptr->dimension_x_count,-1);
 
         for (int i=0; i<grid_ptr->dimension_x_count; ++i)
-		{
-			for (int j=0; j<grid_ptr->dimension_y_count; ++j)
-			{
+        {
+            for (int j=0; j<grid_ptr->dimension_y_count; ++j)
+            {
                 if((Y[grid_ptr->dimension_x_count*j+i]>=RY_min) && (Y[grid_ptr->dimension_x_count*j+i]<=RY_max))
                 {
                     tmp_y_end[i]=j;
@@ -9435,9 +9435,9 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         }
 
         for (int i=0; i<grid_ptr->dimension_y_count; ++i)
-		{
-			for (int j=0; j<grid_ptr->dimension_x_count; ++j)
-			{
+        {
+            for (int j=0; j<grid_ptr->dimension_x_count; ++j)
+            {
                 if((X[grid_ptr->dimension_x_count*i+j]>=RX_min) && (X[grid_ptr->dimension_x_count*i+j]<=RX_max))
                 {
                     tmp_x_end[i]=j;
@@ -9575,7 +9575,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
-        	//std::cout <<"GRID : READ NETCDF starts\n";
+            //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
                 throw std::runtime_error("File not found: " + filename);
 
@@ -9676,8 +9676,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             bool find_valid_min=true;
             try
             {
-				att = VMASK.getAtt("valid_min");
-				att.getValues(&valid_min);
+                att = VMASK.getAtt("valid_min");
+                att.getValues(&valid_min);
             }
             catch(netCDF::exceptions::NcException& e)
             {
@@ -9689,8 +9689,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             bool find_valid_max=true;
             try
             {
-				att = VMASK.getAtt("valid_max");
-				att.getValues(&valid_max);
+                att = VMASK.getAtt("valid_max");
+                att.getValues(&valid_max);
             }
             catch(netCDF::exceptions::NcException& e)
             {
@@ -9863,21 +9863,21 @@ DataSet::getLatLonRegularLatLon(double* LAT, double* LON,netCDF::NcVar* VLAT_ptr
     double scale_factor;
     double add_offset;
 
-	// read in coordinates
-	std::vector<size_t> index_x_count(1);
-	std::vector<size_t> index_y_count(1);
+    // read in coordinates
+    std::vector<size_t> index_x_count(1);
+    std::vector<size_t> index_y_count(1);
 
-	std::vector<size_t> index_x_start(1);
-	std::vector<size_t> index_y_start(1);
+    std::vector<size_t> index_x_start(1);
+    std::vector<size_t> index_y_start(1);
 
-	index_y_start[0] = grid.dimension_y_start;
-	index_y_count[0] = grid.dimension_y_count;
+    index_y_start[0] = grid.dimension_y_start;
+    index_y_count[0] = grid.dimension_y_count;
 
-	index_x_start[0] = grid.dimension_x_start;
-	index_x_count[0] = grid.dimension_x_count;
-	VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
+    index_x_start[0] = grid.dimension_x_start;
+    index_x_count[0] = grid.dimension_x_count;
+    VLAT_ptr->getVar(index_y_start,index_y_count,&LAT[0]);
     //std::cout<<"getLatLonRegularLatLon x "<<index_x_start[0]<<","<<index_x_count[0]<<"\n";
-	VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
+    VLON_ptr->getVar(index_x_start,index_x_count,&LON[0]);
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
     scale_factor=1.;
@@ -9944,21 +9944,21 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
     // by only taking the first line and column into account (only used for ASR so far)
     index_py_start[0] = grid.dimension_y_start;
     index_py_start[1] = 0;
-    
+
     index_py_count[0] = grid.dimension_y_count;
     index_py_count[1] = 1;
-    
+
     index_px_start[0] = 0;
     index_px_start[1] = grid.dimension_x_start;
-    
+
     index_px_count[0] = 1;
     index_px_count[1] = grid.dimension_x_count;
-    
+
     std::vector<double> XLAT(index_px_count[0]*index_px_count[1]);
     std::vector<double> XLON(index_px_count[0]*index_px_count[1]);
     std::vector<double> YLAT(index_py_count[0]*index_py_count[1]);
     std::vector<double> YLON(index_py_count[0]*index_py_count[1]);
-    
+
     //std::cout <<"GRID : READ NETCDF done\n";
 
     // Need to multiply with scale factor and add offset - these are stored as variable attributes
@@ -10008,7 +10008,7 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
                           % Environment::nextsimMeshDir().string()
                           % grid.mpp_file
                           ).str();
-    
+
     std::vector<char> str(configfile.begin(), configfile.end());
     str.push_back('\0');
     map = init_mapx(&str[0]);
@@ -10018,22 +10018,22 @@ DataSet::getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcV
 
     for (int i=0; i<index_px_count[0]; ++i)
     {
-    	for (int j=0; j<index_px_count[1]; ++j)
-    	{
-    	    forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
-    	    X[index_px_count[1]*i+j]=x;
-    	}
+        for (int j=0; j<index_px_count[1]; ++j)
+        {
+            forward_mapx(map,XLAT[index_px_count[1]*i+j],XLON[index_px_count[1]*i+j],&x,&y);
+            X[index_px_count[1]*i+j]=x;
+        }
     }
-    
+
     for (int i=0; i<index_py_count[0]; ++i)
     {
-    	for (int j=0; j<index_py_count[1]; ++j)
-    	{
-    	    forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
-    	    Y[index_py_count[1]*i+j]=y;
-    	}
+        for (int j=0; j<index_py_count[1]; ++j)
+        {
+            forward_mapx(map,YLAT[index_py_count[1]*i+j],YLON[index_py_count[1]*i+j],&x,&y);
+            Y[index_py_count[1]*i+j]=y;
+        }
     }
-    
+
     close_mapx(map);
 
 }//getXYRegularXY
@@ -10266,14 +10266,14 @@ DataSet::convertTargetXY(Grid *grid_ptr,
         for (int i=0; i<target_size; ++i)
         {
             //convert to lon,lat
-			inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
-			RY_out[i]=lat;
+            inverse_mapx(mapNextsim,RX_in[i],RY_in[i],&lat,&lon);
+            RY_out[i]=lat;
             double bc_lon=grid_ptr->branch_cut_lon;
             bool close_on_right=false;
                 //if true  make target lon >  bc_lon,<=bc_lon+180
                 //if false make target lon >= bc_lon,< bc_lon+180
                 //this shouldn't matter here though?
-			RX_out[i]=this->thetaInRange(lon,bc_lon,close_on_right);
+            RX_out[i]=this->thetaInRange(lon,bc_lon,close_on_right);
         }
     }
     else
@@ -10283,8 +10283,8 @@ DataSet::convertTargetXY(Grid *grid_ptr,
         //rotate to coord sys of dataset
         for (int i=0; i<target_size; ++i)
         {
-			RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
-			RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
+            RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
+            RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
         }
     }
 }//convertTargetXY
