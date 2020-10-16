@@ -119,12 +119,9 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->scatterElementConnectivity();
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
-    if ( M_dynamics_type == setup::DynamicsType::BMEB || M_dynamics_type == setup::DynamicsType::EVP )
-    {
-        chrono.restart();
-        this->initUpdateGhosts();
-        LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
-    }
+    chrono.restart();
+    this->initUpdateGhosts();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
     // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -1344,11 +1341,9 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
 
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
-        ("meb_semi_implicit", setup::DynamicsType::MEBi)
-        ("no_motion", setup::DynamicsType::NO_MOTION)
         ("evp", setup::DynamicsType::EVP)
         ("mevp", setup::DynamicsType::mEVP)
-        ("bmeb", setup::DynamicsType::BMEB)
+        ("bbm", setup::DynamicsType::BBM)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -4115,7 +4110,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
 //------------------------------------------------------------------------------------------------------
 //! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
-//! Optional parameters for BMEB are sigma_n and damage_dot.
+//! Optional parameters for BBM are sigma_n and damage_dot.
 //! damage_dot > 0 only when calculating sigma after a change in damage
 //! sigma_n left optional for backwards compatability with the semi-implicit MEB
 //! Called from explicitSolve() and updateDamage()
@@ -9614,7 +9609,7 @@ FiniteElement::explicitSolve()
                 this->updateSigmaMEVP(dte, e, Pstar, C, delta_min, alpha_mevp);
                 break;
 
-            case setup::DynamicsType::BMEB:
+            case setup::DynamicsType::BBM:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
                     this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
