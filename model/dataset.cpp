@@ -9356,7 +9356,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
         // We load the full grid
         std::vector<double> X(grid_ptr->dimension_x_count);
-    std::vector<double> Y(grid_ptr->dimension_y_count);
+        std::vector<double> Y(grid_ptr->dimension_y_count);
 
         this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
         // Get the proc specific boundaries
