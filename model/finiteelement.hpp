@@ -621,6 +621,7 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
+    double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
@@ -744,6 +745,7 @@ private:
 #endif
     ModelVariable M_snow_thick;         // Effective snow thickness [m]
     ModelVariable M_ridge_ratio;
+    ModelVariable M_ridge_ratio_ht;
     std::vector<ModelVariable> M_tice;  // Ice temperature - 0 for surface and higher ordinals for layers in the ice
     std::vector<ModelVariable> M_sigma; // Internal stress tensor
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
@@ -760,6 +762,11 @@ private:
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
     ModelVariable M_conc_myi;           // Concentration of multiyear ice
     ModelVariable M_melt_seconds;       // Seconds of melting
+    ModelVariable M_freeze_seconds;     // Seconds of freezing
+    ModelVariable M_melt_onset;         // Onset of melting
+    ModelVariable M_freeze_onset;       // Onset of freezing
+    ModelVariable M_conc_summer;        // Concentration at end of summer
+    ModelVariable M_del_hi_tend;        // Daily sum of ice volume tendency
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -854,7 +861,10 @@ private:
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
     std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
-    std::vector<double> M_melt_seconds_mean;  // Mean concentration of number of seconds melting has been occurring (on the mesh)
+    std::vector<double> M_melt_seconds_mean;  // Mean number of seconds melting has been occurring (on the mesh)
+    std::vector<double> M_freeze_seconds_mean;  // Mean number of seconds freezing has been occurring (on the mesh)
+    std::vector<double> M_melt_onset_mean;  // 1 if melting has been occurring (on the mesh)
+    std::vector<double> M_freeze_onset_mean;  // 1 if freezeing has been occurring (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
@@ -864,7 +874,10 @@ private:
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
     std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
-    std::vector<double> M_melt_seconds_grid;  // Mean concentration of number of seconds melting has been occurring (on the grid)
+    std::vector<double> M_melt_seconds_grid;  // Mean number of seconds melting has been occurring (on the grid)
+    std::vector<double> M_freeze_seconds_grid;  // Mean number of seconds freezing has been occurring (on the grid)
+    std::vector<double> M_melt_onset_grid;  // 1 if melting has been occurring (on the grid)
+    std::vector<double> M_freeze_onset_grid;  // 1 if freezing has been occurring (on the grid)
 
 private:
     // Variables for the moorings

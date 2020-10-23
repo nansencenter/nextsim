@@ -530,6 +530,10 @@ namespace Nextsim
             ("age.ridge_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
             ("age.reset_by_date", po::value<bool>()->default_value( true ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
             ("age.reset_melt_seconds", po::value<double>()->default_value( 432000. ), "If reset by melt days, this is number of seconds after which ice becomes myi")
+            ("age.reset_freeze_seconds", po::value<double>()->default_value( 432000. ), "If reset by freeze days, this is number of seconds before which ice becomes myi")
+            ("age.melt_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
+            ("age.reset_by_freeze_or_melt", po::value<std::string>()->default_value( "melt" ), "If reset_by_date is false, this chooses how to reset all ice to multiyear ice")
+            ("age.assign_by_time_or_integral", po::value<std::string>()->default_value( "integral" ), "When doing daily average melt/freeze days, decides whether to base just on time or time integral of property")
 
 #if defined(WAVES)
         ;
