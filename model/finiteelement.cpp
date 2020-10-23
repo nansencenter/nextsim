@@ -4685,7 +4685,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor;
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
@@ -4693,7 +4693,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     }
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
-    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    D_elasticity[cpt] = young*(1.-damage_tmp);
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
@@ -10296,8 +10296,9 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] )*M_surface[cpt];
+                double const mult = M_thick[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt]))*M_surface[cpt];
+                grad_terms[u_indx] -= mult*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] );
+                grad_terms[v_indx] -= mult*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] );
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
