@@ -14516,8 +14516,15 @@ FiniteElement::checkFields()
             std::cout<<"\n";
         }
 
-        if(crash)
+        // Export everything and crash
+        if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
+        {
+            this->exportResults("crash", true, true, true);
+            this->writeRestart("crash");
+
+            M_comm.barrier();
             throw std::runtime_error(crash_msg.str());
+        }
     }
 }//checkFields
 
