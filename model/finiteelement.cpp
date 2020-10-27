@@ -4679,7 +4679,9 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
 {
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+    double const time_viscous = undamaged_time_relaxation_sigma
+        *std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.)
+            *std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
     // Plastic failure
     double dcrit;
