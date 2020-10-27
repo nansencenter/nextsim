@@ -14336,6 +14336,13 @@ FiniteElement::checkFieldsFast()
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
                     << val << " < " << min << "\n";
             }
+
+            // check if it's a nan
+            if ( std::isnan(val) )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " contains a NaN\n";
+            }
         }
     }
 
