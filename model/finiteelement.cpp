@@ -10168,7 +10168,7 @@ FiniteElement::explicitSolve()
                 if ( M_conc[cpt] > 0. )
                     keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
                 else
-                    keel_depth = 0.
+                    keel_depth = 0. ;
 
                 keel_depth = std::min( keel_depth, max_keel_depth );
 
@@ -10181,7 +10181,7 @@ FiniteElement::explicitSolve()
                 if ( M_conc[cpt] > 0. )
                     keel_depth = k1*M_thick[cpt]/M_conc[cpt];
                 else
-                    keel_depth = 0.
+                    keel_depth = 0. ;
 
                 keel_depth = std::min( keel_depth, max_keel_depth );
 
