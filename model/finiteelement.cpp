@@ -10165,7 +10165,11 @@ FiniteElement::explicitSolve()
             case setup::BasalStressType::BOUILLON:
                 // Sylvain's grounding scheme
                 // TODO: Remove this one - we've never used it
-                keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
+                if ( M_conc[cpt] > 0. )
+                    keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
+                else
+                    keel_depth = 0.
+
                 keel_depth = std::min( keel_depth, max_keel_depth );
 
                 critical_h     = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.);
@@ -10174,7 +10178,11 @@ FiniteElement::explicitSolve()
             case setup::BasalStressType::LEMIEUX:
                 // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
                 // Limit keel depth (JF doesn't do that).
-                keel_depth = k1*M_thick[cpt]/M_conc[cpt];
+                if ( M_conc[cpt] > 0. )
+                    keel_depth = k1*M_thick[cpt]/M_conc[cpt];
+                else
+                    keel_depth = 0.
+
                 keel_depth = std::min( keel_depth, max_keel_depth );
 
                 critical_h     = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/k1;
