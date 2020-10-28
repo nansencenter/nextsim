@@ -4680,20 +4680,22 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+    double const dAdt = (M_conc[cpt]-M_conc_M[cpt])/dt;
 
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor;
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
         dcrit = 0.;
     }
 
-    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
-    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    D_multiplicator[cpt] = time_viscous/( time_viscous
+            + dt*( 1. - dcrit + time_viscous*damage_dot/(1.-M_damage[cpt])) - time_viscous*ridging_exponent*dAdt );
+    D_elasticity[cpt] = young*(1.-damage_tmp);
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
@@ -7284,6 +7286,8 @@ FiniteElement::initModelVariables()
     // Prognostic variables
     M_conc = ModelVariable(ModelVariable::variableID::M_conc);//! \param M_conc (double) Concentration of thick ice
     M_variables_elt.push_back(&M_conc);
+    M_conc_M = ModelVariable(ModelVariable::variableID::M_conc);//! \param M_conc_M (double) Concentration of thick ice from previous time step
+    M_variables_elt.push_back(&M_conc_M);
     M_thick = ModelVariable(ModelVariable::variableID::M_thick);//! \param M_thick (double) Thickness of thick ice [m]
     M_variables_elt.push_back(&M_thick);
     M_damage = ModelVariable(ModelVariable::variableID::M_damage);//! \param M_damage (double) Level of damage
@@ -10103,6 +10107,9 @@ FiniteElement::explicitSolve()
     std::vector<double> C_bu(M_num_nodes, 0.);
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
+        // Save M_conc to M_conc_M
+        M_conc_M[cpt] = M_conc[cpt];
+
         // We need to update the mesh every time step
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);

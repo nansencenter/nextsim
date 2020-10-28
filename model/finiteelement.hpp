@@ -736,6 +736,7 @@ private:
 
     // Prognostic variables
     ModelVariable M_conc;               // Ice concentration
+    ModelVariable M_conc_M;             // Ice concentration at previous time step
     ModelVariable M_thick;              // Effective ice thickness [m]
     ModelVariable M_damage;             // Ice damage
 #ifdef OASIS
