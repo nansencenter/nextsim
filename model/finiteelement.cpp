@@ -4686,16 +4686,15 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor;
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
         dcrit = 0.;
     }
 
-    D_multiplicator[cpt] = time_viscous/( time_viscous
-            + dt*( 1. - dcrit + time_viscous*damage_dot/(1.-M_damage[cpt])) - time_viscous*ridging_exponent*dAdt );
-    D_elasticity[cpt] = young*(1.-damage_tmp);
+    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+    D_elasticity[cpt] = (1-ridging_exponent*dAdt)*young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
