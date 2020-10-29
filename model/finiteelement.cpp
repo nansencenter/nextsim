@@ -4685,7 +4685,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor;
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
