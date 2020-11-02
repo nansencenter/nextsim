@@ -14336,17 +14336,32 @@ FiniteElement::checkFieldsFast()
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
                     << val << " < " << min << "\n";
             }
+
+            // check for NaN
+            if( std::isnan(val) )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " contains a NaN\n";
+            }
         }
     }
 
     // Check the velocity
     for ( int i=0; i<M_num_nodes; i++ )
     {
+        // Too high
         if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
         {
             crash = true;
             crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
                 << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+        }
+
+        // check for NaN
+        if ( std::isnan(M_VT[i]+M_VT[i+M_num_nodes]) )
+        {
+            crash = true;
+            crash_msg << "[" <<M_rank << "] ice velocity contains a NaN\n";
         }
     }
 
