@@ -4693,6 +4693,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     }
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
