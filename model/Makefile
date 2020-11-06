@@ -4,12 +4,7 @@ PROGNAME=nextsim.exec
 
 CXX = mpicxx
 
-# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
-ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
-	CXXFLAGS += -std=c++14
-else
-	CXXFLAGS += -std=c++11
-endif
+CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
@@ -63,9 +58,6 @@ endif
 # openmpi
 CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
 
-# petsc
-CXXFLAGS += -isystem $(PETSC_DIR)/include
-
 # boost
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
@@ -92,7 +84,6 @@ CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -isystem /opt/local/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
 	CXXFLAGS += -I /usr/include
 
 else
@@ -124,9 +115,6 @@ endif
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
-
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
