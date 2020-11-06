@@ -4706,10 +4706,13 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    // Thickness limit
+    const double min_h = vm["dynamics.min_h"].as<double>();
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
+        if ( M_thick[cpt] <= min_h )
         {
             for(int i=0;i<3;i++)
             {
@@ -4720,6 +4723,10 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
             M_damage[cpt] = 0.;
             M_divergence[cpt] = 0.;
             D_dcrit[cpt] = 0.;
+
+            if (update_sigma)
+                for ( int i=0; i<3; ++i )
+                    M_sigma[i][cpt] = 0.;
             continue;
         }
 
