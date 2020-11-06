@@ -4784,9 +4784,8 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
             td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const conc_dep = std::exp(ridging_exponent*(1.-M_conc[cpt]));
-        double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2])*conc_dep;
-        double const sigma_n = -          (sigma[0]+sigma[1])/2.*conc_dep;
+        double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
+        double const sigma_n = -          (sigma[0]+sigma[1])/2.;
 
         double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
         double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
@@ -10285,7 +10284,7 @@ FiniteElement::explicitSolve()
 
             case setup::DynamicsType::BMEB:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
-                    this->updateSigmaCoefs( cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
+                    this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
                 this->updateDamage(dte, M_disc_scheme, M_td_type, true);
                 break;
