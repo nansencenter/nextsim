@@ -4893,7 +4893,8 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
+        M_damage[cpt] = std::max( 0., M_damage[cpt]
+                - dt/M_time_relaxation_damage[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
 
     }//loop over elements
 }//updateDamage
