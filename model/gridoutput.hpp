@@ -147,6 +147,14 @@ public:
         age_d        = 18,
         age          = 19,
         conc_upd     = 20,
+        conc_myi     = 21,
+        melt_seconds = 22,
+        ridge_ratio_ht=23,
+        freeze_seconds=24,
+        melt_onset   = 25,
+        freeze_onset = 26,
+        conc_summer  = 27,
+        del_hi_tend  = 28,
 
         // Diagnostic variables
         Qa     = 100,
@@ -245,6 +253,13 @@ public:
                     name     = "ridge_ratio";
                     longName = "Sea Ice Ridge Ratio";
                     stdName  = "sea_ice_ridge_ratio";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::ridge_ratio_ht):
+                    name     = "ridge_ratio_ht";
+                    longName = "Sea Ice Ridge Ratio (involving thin ice)";
+                    stdName  = "sea_ice_ridge_ratio_ht";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -363,6 +378,55 @@ public:
                     longName = "conc_upd";
                     stdName  = "conc_upd";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_myi):
+                    name     = "conc_myi";
+                    longName = "Concentration of Multiyear Ice";
+                    stdName  = "conc_myi";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_summer):
+                    name     = "conc_summer";
+                    longName = "Concentration of ice at end of summer";
+                    stdName  = "conc_summer";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::melt_seconds):
+                    name     = "melt_seconds";
+                    longName = "Time (seconds) of ice melting";
+                    stdName  = "melt_seconds";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_seconds):
+                    name     = "freeze_seconds";
+                    longName = "Time (seconds) of ice freezing";
+                    stdName  = "freeze_seconds";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::melt_onset):
+                    name     = "melt_onset";
+                    longName = "Onset of ice melting has happened";
+                    stdName  = "melt_onset";
+                    Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_onset):
+                    name     = "freeze_onset";
+                    longName = "Onset of ice freezing has happened";
+                    stdName  = "freeze_onset";
+                    Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi_tend):
+                    name     = "del_hi_tend";
+                    longName = "Daily total ice volume tendency";
+                    stdName  = "del_hi_tend";
+                    Units    = "binary";
                     cell_methods = "area: mean";
                     break;
 

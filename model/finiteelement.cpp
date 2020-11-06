@@ -4516,6 +4516,10 @@ FiniteElement::update(std::vector<double> const & UM_P)
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
+    bool ridge_myi_and_fyi = vm["age.ridge_myi_and_fyi"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
+    int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
+    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -4535,6 +4539,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
+        double const conc_old = M_conc[cpt];
         M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
@@ -4544,7 +4549,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_snow_thick[cpt] *= surf_ratio;
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
-            M_ridge_ratio[cpt] *= surf_ratio;
+            // M_ridge_ratio[cpt] *= surf_ratio;
 
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
@@ -4556,6 +4561,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
+            if(ridge_myi_and_fyi==false)
+                M_conc_myi[cpt] *= surf_ratio;
+            else
+            {
+                double conc_ratio = std::min(1.,M_conc[cpt])/conc_old; // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
+                M_conc_myi[cpt] *= conc_ratio; // Adjusting myi rather than fyi as this is what we want to conserve. Using conc_ratio means M_conc_myi does not exceed 1
+            } 
         }
         // Ridge ratio capping (might not been performed later if ridging does not happen)
         M_ridge_ratio[cpt]=std::min(1., M_ridge_ratio[cpt]) ;
@@ -4614,7 +4626,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_snow_thick[cpt]   += newsnow;
 
                     if( newice>0. )
-                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
+                        M_ridge_ratio_ht[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio_ht[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
                 }
 
                 M_conc_thin[cpt] = new_conc_thin;
@@ -4650,6 +4662,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         else
         {
             M_ridge_ratio[cpt]=0.;
+            M_ridge_ratio_ht[cpt]=0.; //check this
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
@@ -4664,6 +4677,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+
+        if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_thin[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        else
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
 
     }//loop over elements
 }//update
@@ -5862,6 +5880,14 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
+    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_thin (this depends on use_thin_ice_in_myi_reset) 
+    bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
+    const std::string reset_by_freeze_or_melt = vm["age.reset_by_freeze_or_melt"].as<std::string>(); //! \param if reset_by_date = false, this determines reset myi by melt days or freeze days
+    double const melt_seconds_threshold = vm["age.reset_melt_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of melting to reset myi, if reset_by_date is false
+    double const freeze_seconds_threshold = vm["age.reset_freeze_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of freezeing to reset myi, if reset_by_date is false
+    bool melt_myi_and_fyi = vm["age.melt_myi_and_fyi"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
+    const std::string assign_by_time_or_integral = vm["age.assign_by_time_or_integral"].as<std::string>(); // decides if melt days should be based on just time, or integral of field 
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     M_timer.tick("fluxes");
@@ -6265,9 +6291,86 @@ FiniteElement::thermo(int dt)
                     throw std::logic_error("Wrong melt_type");
             }
         }
+        
+        // Keep track of melt/freeze days
+        if (assign_by_time_or_integral == "time")
+        {
+            if (del_hi > 0.) // freezing
+                M_del_hi_tend[i] = M_del_hi_tend[i] + ddt;
+            else if (del_hi < 0.) // melting
+                M_del_hi_tend[i] = M_del_hi_tend[i] - ddt;
+        }
+        else if (assign_by_time_or_integral == "integral")
+            M_del_hi_tend[i] = M_del_hi_tend[i] + del_hi*ddt;
+
+        const double day_seconds = 86400.;
+        //if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
+        if (M_fullday_counter >= day_seconds) // end of day 
+        //if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
+        {
+            if (M_del_hi_tend[i] > 0.) // It's freezing 
+            {   
+                M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
+                M_melt_seconds[i] = 0.;
+            }
+            else if (M_del_hi_tend[i] < 0.)     
+            {
+                M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
+                M_freeze_seconds[i] = 0.;
+                M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
+            }
+            M_del_hi_tend[i] = 0.;
+        }
+
+        //const double day_seconds = 86400.;
+        //if ( del_hi < 0. ) // Melting
+        //{
+        //    M_melt_seconds[i] = M_melt_seconds[i] + ddt;
+        //    M_freeze_seconds[i] = M_freeze_seconds[i] - ddt;
+        //}
+        //else // Freezing
+        //{
+        //    M_melt_seconds[i] = M_melt_seconds[i] - ddt;
+        //    M_freeze_seconds[i] = M_freeze_seconds[i] + ddt;
+        //}
+
+        ////if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
+        //if (M_fullday_counter > day_seconds) // end of day 
+        ////if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
+        //{
+        //    if (M_melt_seconds[i] > 0 && M_freeze_seconds[i] > 0) // Case 1: this is the nth day of freezing/melting (n>1)
+        //    {   
+        //        if (M_melt_seconds[i] < M_freeze_seconds[i]) // Case 1.1: it's now melting after some freeze days
+        //        {
+        //            M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
+        //            M_freeze_seconds[i] = 0.;
+        //            M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
+        //        }
+        //        else if (M_melt_seconds[i] > M_freeze_seconds[i]) // Case 1.2: it's now freezing after some melt days
+        //        {
+        //            M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
+        //            M_melt_seconds[i] = 0.;
+        //        }
+        //    }
+        //    else // Case 2: this is the 1st day of freezing/melting
+        //    {   
+        //        if (M_melt_seconds[i] < M_freeze_seconds[i]) // Case 2.1: it's a freeze day
+        //        {
+        //            M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
+        //            M_melt_seconds[i] = 0.;
+        //        }
+        //        else if (M_melt_seconds[i] > M_freeze_seconds[i]) // Case 2.2: it's a melt day
+        //        {
+        //            M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
+        //            M_freeze_seconds[i] = 0.;
+        //            M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
+        //        }
+        //    }
+        //}
 
         /* New concentration */
         M_conc[i] += del_c;
+
         /* New thickness */
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
@@ -6443,6 +6546,7 @@ FiniteElement::thermo(int dt)
             //M_damage[i] = M_damage[i]*old_vol/M_thick[i];
             //M_damage[i] = (M_damage[i]*old_vol + del_vi)/M_thick[i];
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
+            M_ridge_ratio_ht[i] = M_ridge_ratio_ht[i]*old_vol/M_thick[i];
         }
 
         if ( temp_dep_healing )
@@ -6548,6 +6652,9 @@ FiniteElement::thermo(int dt)
             M_fyi_fraction[i] = 0.;
             M_age_det[i] = 0.;
             M_age[i] =  0.;
+            M_conc_myi[i] = 0.;
+            M_melt_seconds[i] = 0.; // If there is no ice, the melt counter for myi should be reset as no myi to tag
+            M_freeze_seconds[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
         }
         else    //If there is ice
         {
@@ -6584,6 +6691,83 @@ FiniteElement::thermo(int dt)
             else //new ice
             {
                 M_age[i] =  dt;
+            }
+            // MYI should be reset to M_conc (or M_conc+M_conc_thin) on the reset date
+            bool reset_myi = false;
+
+            if (reset_by_date)
+            {
+                if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
+                    reset_myi = true;
+            }
+            else
+            {
+                if (reset_by_freeze_or_melt == "melt")
+                { 
+                    if (M_melt_seconds[i] >= melt_seconds_threshold) // if melting for n days
+                    {
+                        if (M_melt_onset[i] == 0.) // if not yet reset this season
+                        {
+                            reset_myi = true;
+                            M_melt_onset[i] = 1.;
+                        }
+                    }
+                }
+               else if (reset_by_freeze_or_melt == "freeze")
+                { 
+                    if (M_freeze_seconds[i] >= freeze_seconds_threshold) // if freezing for n days
+                    {
+                        if (M_freeze_onset[i] == 0.) // if not yet reset this season
+                        {
+                                reset_myi = true;
+                                M_freeze_onset[i] = 1.;
+                        }
+                    }
+                }
+
+            }
+
+            // Only reset if we have not already reset this season. So need to check if this is the case 
+            if (date_string_md == "0101" && std::fmod(M_current_time, 1.) == 0.)
+                M_melt_onset[i] = 0.;
+            if (date_string_md == "0629" && std::fmod(M_current_time, 1.) == 0.)
+            {
+                M_freeze_onset[i] = 0.;
+                M_conc_summer[i] = M_conc[i] + M_conc_thin[i]; // initialise here, for case where no melting occurs
+            }
+
+            if (reset_myi)
+            {
+                if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+                {
+                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
+                        M_conc_myi[i] = M_conc_summer[i]; // reset to sea ice summer low
+                    else
+                        M_conc_myi[i] = M_conc[i] + M_conc_thin[i]; // include thin ice in reset: all ice on reset date is myi
+                }
+                else
+                {
+                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
+                        M_conc_myi[i] = M_conc_summer[i]; // reset to sea ice summer low
+                    else
+                        M_conc_myi[i] = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
+                }
+                M_conc_myi[i] = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
+            }
+            else // on a non-reset day, myi is only modified by melting, not freezing
+            {
+                if (del_c < 0.)
+                {    
+                    double fyi_melt = 1.;  
+                    if (melt_myi_and_fyi)
+                    {    
+                        double fyi_melt = del_c/(old_conc+old_conc_thin); // Here i need a scaling factor to multiply the ice by
+                    }
+                    if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
+                        M_conc_myi[i] = std::max(0.,std::min(M_conc[i]+M_conc_thin[i],M_conc_myi[i]*fyi_melt)); // if del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
+                    else
+                        M_conc_myi[i] = std::max(0.,std::min(M_conc[i],M_conc_myi[i]*fyi_melt)); // if del_c removes all fyi, take some from myi. Preferentially removes fyi. Don't include thin ice in total ice conc
+                }
             }
         }
 
@@ -7302,6 +7486,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_snow_thick);
     M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);//! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_variables_elt.push_back(&M_ridge_ratio);
+    M_ridge_ratio_ht = ModelVariable(ModelVariable::variableID::M_ridge_ratio_ht);//! \param M_ridge_ratio_ht (double) Ratio of ridged vs unridged ice
+    M_variables_elt.push_back(&M_ridge_ratio_ht);
     M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
     M_variables_elt.push_back(&M_conc_upd);
     M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
@@ -7377,6 +7563,20 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_age_det);
     M_age = ModelVariable(ModelVariable::variableID::M_age);//! \param M_age (double) Sea ice age (volumetric) [s]
     M_variables_elt.push_back(&M_age);
+    M_conc_myi = ModelVariable(ModelVariable::variableID::M_conc_myi);//! \param M_conc_myi (double) Concentration of MYI
+    M_variables_elt.push_back(&M_conc_myi);
+    M_melt_seconds = ModelVariable(ModelVariable::variableID::M_melt_seconds);//! \param M_melt_seconds (double) Counter of time (seconds) of ice melting for myi reset
+    M_variables_elt.push_back(&M_melt_seconds);
+    M_freeze_seconds = ModelVariable(ModelVariable::variableID::M_freeze_seconds);//! \param M_freeze_seconds (double) Counter of time (seconds) of ice freezeing for myi reset
+    M_variables_elt.push_back(&M_freeze_seconds);
+    M_conc_summer = ModelVariable(ModelVariable::variableID::M_conc_summer);//! \param M_conc_summer (double) Counter of time (seconds) of ice melting for myi reset
+    M_variables_elt.push_back(&M_conc_summer);
+    M_melt_onset = ModelVariable(ModelVariable::variableID::M_melt_onset);//! \param M_melt_onset (double) Counter of time (onset) of ice melting for myi reset
+    M_variables_elt.push_back(&M_melt_onset);
+    M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Counter of time (onset) of ice freezing for myi reset
+    M_variables_elt.push_back(&M_freeze_onset);
+    M_del_hi_tend = ModelVariable(ModelVariable::variableID::M_del_hi_tend);//! \param M_del_hi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
+    M_variables_elt.push_back(&M_del_hi_tend);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -8361,7 +8561,12 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
-
+    if (M_fullday_counter >= 86400.)
+        M_fullday_counter = 0.;
+    else
+        M_fullday_counter = M_fullday_counter + dtime_step; 
+    //std::cout << "M_fullday_counter= " << M_fullday_counter << "\n";
+    //std::cout << "M_current_time= " << M_current_time << "\n";
 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
@@ -8636,6 +8841,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::ridge_ratio_ht):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ridge_ratio_ht[i]*time_factor;
+                break;
+
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_snow_thick[i]*time_factor;
@@ -8704,6 +8914,35 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::conc_upd):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::conc_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::melt_seconds):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_melt_seconds[i]*time_factor;
+                break;
+            case (GridOutput::variableID::freeze_seconds):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_freeze_seconds[i]*time_factor;
+                break;
+            case (GridOutput::variableID::conc_summer):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc_summer[i]*time_factor;
+                break;
+            case (GridOutput::variableID::melt_onset):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_melt_onset[i]*time_factor;
+                break;
+            case (GridOutput::variableID::freeze_onset):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_freeze_onset[i]*time_factor;
+                break;
+            case (GridOutput::variableID::del_hi_tend):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_del_hi_tend[i]*time_factor;
                 break;
 
             // Diagnostic variables
@@ -8970,6 +9209,7 @@ FiniteElement::initMoorings()
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
+            ("ridge_ratio_ht", GridOutput::variableID::ridge_ratio_ht)
             ("tsurf", GridOutput::variableID::tsurf)
             ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
@@ -9013,6 +9253,13 @@ FiniteElement::initMoorings()
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
             ("wspeed", GridOutput::variableID::wspeed)
+            ("conc_myi", GridOutput::variableID::conc_myi)
+            ("melt_seconds", GridOutput::variableID::melt_seconds)
+            ("freeze_seconds", GridOutput::variableID::freeze_seconds)
+            ("conc_summer", GridOutput::variableID::conc_summer)
+            ("melt_onset", GridOutput::variableID::melt_onset)
+            ("freeze_onset", GridOutput::variableID::freeze_onset)
+            ("del_hi_tend", GridOutput::variableID::del_hi_tend)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -11339,6 +11586,13 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_age_det);
     vars_to_zero.push_back(&M_age);
     vars_to_zero.push_back(&M_conc_upd);
+    vars_to_zero.push_back(&M_conc_myi);
+    vars_to_zero.push_back(&M_melt_seconds);
+    vars_to_zero.push_back(&M_freeze_seconds);
+    vars_to_zero.push_back(&M_conc_summer);
+    vars_to_zero.push_back(&M_melt_onset);
+    vars_to_zero.push_back(&M_freeze_onset);
+    vars_to_zero.push_back(&M_del_hi_tend);
     for (int k=0; k<3; k++)
         vars_to_zero.push_back(&(M_sigma[k]));
     for (auto ptr: vars_to_zero)
@@ -11383,6 +11637,7 @@ FiniteElement::checkConsistency()
             M_snow_thick[i]=0.;
             M_damage[i]=0.;
             M_ridge_ratio[i]=0.;
+            M_ridge_ratio_ht[i]=0.;
             for (int k=0; k<M_tice.size(); k++)
                 M_tice[k][i] = M_tice[k].valueNoThickIce();
         }
@@ -11530,6 +11785,7 @@ FiniteElement::constantIce()
     std::vector<ModelVariable*> vars_to_zero;
     vars_to_zero.push_back(&M_damage);
     vars_to_zero.push_back(&M_ridge_ratio);
+    vars_to_zero.push_back(&M_ridge_ratio_ht);
     for (auto ptr: vars_to_zero)
         std::fill(ptr->begin(), ptr->end(), 0.);
 
