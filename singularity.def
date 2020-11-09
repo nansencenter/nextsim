@@ -1,0 +1,39 @@
+Bootstrap: docker
+From: nansencenter/nextsim_base_dev
+
+%files
+Makefile /tmp/nextsim/Makefile
+contrib /tmp/nextsim/contrib
+
+%post
+# compile contrib and copy mapx and bamg to /opt/local
+export NEXTSIMDIR=/tmp/nextsim && \
+   cd $NEXTSIMDIR && \
+   make contrib -j8 && \
+   mkdir -p /opt/local/mapx/lib && \
+   cp -d $NEXTSIMDIR/lib/libmapx* /opt/local/mapx/lib/ && \
+   cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx && \
+   mkdir -p /opt/local/bamg/lib && \
+   cp -d $NEXTSIMDIR/lib/libbamg* /opt/local/bamg/lib/ && \
+   cp -r $NEXTSIMDIR/contrib/bamg/include /opt/local/bamg && \
+   rm -r $NEXTSIMDIR
+
+%environment
+MAPXDIR=/opt/local/mapx
+export MAPXDIR
+BAMGDIR=/opt/local/bamg
+export BAMGDIR
+NEXTSIM_MESH_DIR=/mesh
+export NEXTSIM_MESH_DIR
+NEXTSIM_DATA_DIR=/data
+export NEXTSIM_DATA_DIR
+NEXTSIMDIR=/nextsim
+export NEXTSIMDIR
+LD_LIBRARY_PATH=/nextsim/lib
+export LD_LIBRARY_PATH
+PATH=/nextsim/model/bin:$PATH
+export PATH
+
+%help
+Environment for compiling and running neXtSIM. Use the SINGULARITY_BINDPATH variable to mount directories
+(eg the nextsim source code). Use SINGULARITYENV_VARNAME to set VARNAME inside the container.
