@@ -8115,7 +8115,7 @@ DataSet::DataSet(char const *DatasetName)
             dirname:"",
             prefix: "breakup_march2013_r" + spatial_res + "_ctrl_Q2_y",
             postfix:".nc",
-            gridfile: "",
+            gridfile: "wrf_grid_" + spatial_res + "km.nc",
             reference_date:"2013-02-10",
 
             latitude: latitude,
@@ -8124,8 +8124,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
-            //mpp_file: "NpsWRF.mpp",
+            //mpp_file: projfilename,
+            mpp_file: "NpsWRF.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -8375,7 +8375,7 @@ DataSet::DataSet(char const *DatasetName)
             dirname:"",
             prefix: "breakup_march2013_r" + spatial_res + "_ctrl_U10_y",
             postfix:".nc",
-            gridfile: "",
+            gridfile: "wrf_grid_" + spatial_res + "km.nc",
             reference_date:"2013-02-10",
 
             latitude: latitude,
@@ -8384,8 +8384,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
-            //mpp_file: "NpsWRF.mpp",
+            //mpp_file: projfilename,
+            mpp_file: "NpsWRF.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
