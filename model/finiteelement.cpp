@@ -6576,8 +6576,9 @@ FiniteElement::init()
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
     t_damage = M_res_root_mesh*1.3429*std::pow(young/(2.0*(1.0+nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
-    if (dtime_step/t_damage > 10.0)
-        LOG(WARNING) << "For best deformation scaling results, the ratio simul.timestep/t_damage should be < 10. (Currently it is " << dtime_step/t_damage << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
+    double const diag_ratio = dtime_step/(t_damage*vm["dynamics.substeps"].as<int>());
+    if (diag_ratio > 10.0)
+        LOG(WARNING) << "For best deformation scaling results, the ratio of the dynamic time step to t_damage should be < 10. (Currently it is " << diag_ratio << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
 
     if ( M_use_restart )
     {
