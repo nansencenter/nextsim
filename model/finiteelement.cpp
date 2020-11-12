@@ -769,7 +769,7 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
-        case setup::AtmosphereType::WRF_ENSEMBLE:
+        case setup::AtmosphereType::WRF:
             M_atmosphere_nodes_dataset=DataSet("wrf_ensemble_nodes");
             M_atmosphere_elements_dataset=DataSet("wrf_ensemble_elements");
             break;
@@ -1277,7 +1277,7 @@ FiniteElement::initOptAndParam()
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME)
         ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE)
-        ("wrf_ensemble", setup::AtmosphereType::WRF_ENSEMBLE);
+        ("wrf", setup::AtmosphereType::WRF);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1295,7 +1295,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
         case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
-        case setup::AtmosphereType::WRF_ENSEMBLE:
+        case setup::AtmosphereType::WRF:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
 
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
@@ -10200,7 +10200,7 @@ FiniteElement::forcingAtmosphere()
                     time_init, 0, 0, M_ensemble_member);
         break;
 
-        case setup::AtmosphereType::WRF_ENSEMBLE:
+        case setup::AtmosphereType::WRF:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);

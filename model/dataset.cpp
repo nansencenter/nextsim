@@ -8110,12 +8110,10 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type : -1,
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type : BilinearInterpEnum,
             dirname:"",
-            prefix: "breakup_march2013_r" + spatial_res + "_ctrl_Q2_y",
+            prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
             postfix:".nc",
-            gridfile: "wrf_grid_" + spatial_res + "km.nc",
+            gridfile: "",
             reference_date:"2013-02-10",
 
             latitude: latitude,
@@ -8144,7 +8142,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_time[0] = dimension_time;
 
         Variable time_tmp={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_Q2_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
             name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -8162,7 +8160,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable tair={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_T2_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_T2_y",
             name:"T2",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8179,7 +8177,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // T2M
         Variable sphuma={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_Q2_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
             name:"Q2",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8197,7 +8195,7 @@ DataSet::DataSet(char const *DatasetName)
         }; // Q2M: 2 m specific humidity 
 
         Variable mslp={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_PSFC_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_PSFC_y",
             name:"PSFC",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8215,7 +8213,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //PSFC, a=1.
 
         Variable Qsw_in={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_SWDOWN_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_SWDOWN_y",
             name:"SWDOWN",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8233,7 +8231,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable Qlw_in={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_LWDNB_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_LWDNB_y",
             name:"LWDNB",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8251,7 +8249,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable precip={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_RAINNC_hourly_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_RAINNC_hourly_y",
             name:"RAINNC",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8269,7 +8267,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable snowfall={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_SNOWNC_hourly_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_SNOWNC_hourly_y",
             name:"SNOWNC",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8368,14 +8366,12 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
-            interp_type : -1,
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type : BilinearInterpEnum,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            interp_type : BilinearInterpEnum,
             dirname:"",
-            prefix: "breakup_march2013_r" + spatial_res + "_ctrl_U10_y",
+            prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             postfix:".nc",
-            gridfile: "wrf_grid_" + spatial_res + "km.nc",
+            gridfile: "",
             reference_date:"2013-02-10",
 
             latitude: latitude,
@@ -8410,7 +8406,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_U10_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -8429,7 +8425,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // conversion factors: xnew = a*x + b
         Variable u={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_U10_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             name: "U10", //U10M
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8447,7 +8443,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable v={
-            filename_prefix: "breakup_march2013_r" + spatial_res + "_ctrl_V10_y",
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_V10_y",
             name: "V10", //V10M
             dimensions: dimensions,
             land_mask_defined: false,
