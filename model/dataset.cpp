@@ -9039,16 +9039,20 @@ DataSet::DataSet(char const *DatasetName)
 //! Get filename
 //! - simple interface
 //! \note do replace ${INITTIME} here - mainly for forecasts
-//! \note don't replace ${VARSTRING} yet
-//! called from ExternalData::loadData
+//! \note if var_num == -1, don't replace ${VARSTRING} yet
+//! called from ExternalData::loadData and loadGrid
 std::string
-DataSet::getFilename(double const& init_time, double const& current_time) const
+DataSet::getFilename(double const& init_time, double const& current_time,
+        int const& var_num) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
     std::string fmask = grid.filename_mask;
+    //if a forecast, filename can depend on start date
     boost::replace_all(fmask, "${INITTIME}",
             datenumToString(init_time, "%Y%m%d"));
+    //filename can depend on variable name
+    fmask = this->getFilenameVariable(fmask, var_num);
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
             % Environment::nextsimDataDir().string()
             % grid.dirname
@@ -9067,13 +9071,13 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
 //! called from ExternalData::loadData
 std::string
 DataSet::getFilename(double const& init_time0, double const& current_time,
-        int const& jump) const
+        int const& var_num, int const& jump) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
     double init_time, ftime;
     this->shiftDates(init_time0, current_time, jump, init_time, ftime);
-    return this->getFilename(init_time, ftime);
+    return this->getFilename(init_time, ftime, var_num);
 }//getFilename
 
 
@@ -9135,6 +9139,9 @@ DataSet::shiftDates(double const& init_time, double const& current_time,
 std::string
 DataSet::getFilenameVariable(std::string const &filename_template, int const &var_num) const
 {
+    if(var_num<0 || this->variables[0].filename_string == "")
+        //don't need to do anything
+        return filename_template;
     //for safety, we don't try to replace inside the parent directory
     auto const fpath = boost::filesystem::path(filename_template);
     auto const basedir = fpath.parent_path();
@@ -9246,7 +9253,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
                 % grid_ptr->gridfile
                 ).str();
     else
-        filename = this->getFilename(init_time, init_time);
+        filename = this->getFilename(init_time, init_time, 0);
 
     LOG(DEBUG)<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -9495,7 +9502,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             netCDF::NcVar VTHETA;
 
             // Open the datafile
-            std::string filename = this->getFilename(init_time, init_time);
+            std::string filename = this->getFilename(init_time, init_time, 0);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
@@ -9551,7 +9558,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             netCDF::NcDim tmpDim;
 
             // Open the datafile
-            std::string filename = this->getFilename(init_time, init_time);
+            std::string filename = this->getFilename(init_time, init_time, 0);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 

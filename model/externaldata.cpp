@@ -673,10 +673,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                     // NB jump is in days for these datasets
                     init_time_jump = std::floor(ftime+jump);
             }
-            std::string const filename_mask = dataset->getFilename(init_time_jump, ftime, jump);
-            std::string filename = filename_mask;
-            if(dataset->variables[0].filename_string != "")
-                filename = dataset->getFilenameVariable(filename_mask, 0);
+            std::string const filename_mask = dataset->getFilename(init_time_jump, ftime, -1, jump);
+            // filename may depend on variable - save mask for later
+            std::string filename = dataset->getFilenameVariable(filename_mask, 0);
 
             LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
                 << ". Exists? " << boost::filesystem::exists(filename)
@@ -835,10 +834,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             std::string const filename_mask=filename_fstep[fstep];
             index=index_fstep[fstep];
 
-            // Replace the "prefix" if we have one variable per file
-            std::string filename = filename_mask;
-            if ( dataset->variables[j].filename_string != "" )
-                filename = dataset->getFilenameVariable(filename_mask, j);
+            // filename may depend on variable
+            std::string filename = dataset->getFilenameVariable(filename_mask, j);
 
             LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )

@@ -218,8 +218,10 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    std::string getFilename(double const& init_time, double const& current_time) const;
-    std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
+    std::string getFilename(double const& init_time, double const& current_time,
+            int const& var_num) const;
+    std::string getFilename(double const& init_time, double const& current_time,
+            int const& var_num, int const& jump) const;
     void shiftDates(double const& init_time, double const& current_time, int const& jump,
             double& new_init_time, double& ftime) const;
     std::string
