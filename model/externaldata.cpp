@@ -817,7 +817,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         double const f= std::floor(M_current_time);
         if(dataset->grid.dataset_frequency=="nearest_daily")
             dataset->ftime_range = {f+.5};
-        std::string const filename_mask = dataset->getFilename(f, f);
+        std::string const filename_mask = dataset->getFilename(f, f, 0);
         filename_fstep.push_back(filename_mask);
         index_fstep.push_back(0);
     }
