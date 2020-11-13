@@ -222,6 +222,8 @@ public:
     std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
     void shiftDates(double const& init_time, double const& current_time, int const& jump,
             double& new_init_time, double& ftime) const;
+    std::string
+    getFilenameVariable(std::string const &filename_template, int const &var_num) const;
 
     void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time);
 

@@ -614,7 +614,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // Define variables for this scope
     double ftime, time_prev, time_next;
-    std::string filename;
     std::string filename_prev="";
     std::string filename_next="";
     std::vector<int> file_jump;
@@ -663,20 +662,21 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         for (int jump: file_jump)
         {
+            double init_time_jump = init_time;
             if(is_atm_fc||is_ocn_fc)
             {
-                double init_time_fc = init_time;
                 if(!true_forecast)
                     // * if(!true_forecast), take the forecast that started at the start of
                     //   the "current day" (ftime+jump)
                     // * also can't have init_time before start of
                     //   the "current day" (ftime+jump)
                     // NB jump is in days for these datasets
-                    init_time_fc = std::floor(ftime+jump);
-                filename = dataset->getFilename(init_time_fc, ftime, jump);
+                    init_time_jump = std::floor(ftime+jump);
             }
-            else
-                filename = dataset->getFilename(init_time, ftime, jump);
+            std::string const filename_mask = dataset->getFilename(init_time_jump, ftime, jump);
+            std::string filename = filename_mask;
+            if(dataset->variables[0].filename_string != "")
+                filename = dataset->getFilenameVariable(filename_mask, 0);
 
             LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
                 << ". Exists? " << boost::filesystem::exists(filename)
@@ -741,7 +741,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                     time_prev = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                     index_prev = indx_floor;
-                    filename_prev = filename;
+                    filename_prev = filename_mask;
                 }
 
                 // The index above the current time
@@ -755,7 +755,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                     time_next = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                     index_next = indx_ceil;
-                    filename_next = filename;
+                    filename_next = filename_mask;
                 }
             }
             // If there's only one time step per file
@@ -766,13 +766,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 {
                     time_next=f;
                     index_next = 0;
-                    filename_next = filename;
+                    filename_next = filename_mask;
                 }
                 if(f<=M_current_time)
                 {
                     time_prev=f;
                     index_prev = 0;
-                    filename_prev = filename;
+                    filename_prev = filename_mask;
                 }
             }
             // WTF?
@@ -818,8 +818,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         double const f= std::floor(M_current_time);
         if(dataset->grid.dataset_frequency=="nearest_daily")
             dataset->ftime_range = {f+.5};
-        filename = dataset->getFilename(f, f);
-        filename_fstep.push_back(filename);
+        std::string const filename_mask = dataset->getFilename(f, f);
+        filename_fstep.push_back(filename_mask);
         index_fstep.push_back(0);
     }
 
@@ -832,22 +832,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
-            filename=filename_fstep[fstep];
+            std::string const filename_mask=filename_fstep[fstep];
             index=index_fstep[fstep];
 
             // Replace the "prefix" if we have one variable per file
+            std::string filename = filename_mask;
             if ( dataset->variables[j].filename_string != "" )
-            {
-                //for safety, we don't try to replace inside the parent directory
-                auto fpath = boost::filesystem::path(filename);
-                auto basedir = fpath.parent_path();
-                auto basename = fpath.filename().string();
-                boost::replace_all(basename, variables[0].filename_string,
-                        variables[j].filename_string);
-                filename = (boost::format( "%1%/%2%" )
-                            % basedir.string()
-                            % basename).str();
-            }
+                filename = dataset->getFilenameVariable(filename_mask, j);
 
             LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
             if ( ! boost::filesystem::exists(filename) )

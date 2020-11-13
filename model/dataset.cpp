@@ -9034,17 +9034,21 @@ DataSet::DataSet(char const *DatasetName)
     }
 }
 
+
+//------------------------------------------------------------------------------------------------------
+//! Get filename
+//! - simple interface
+//! \note do replace ${INITTIME} here - mainly for forecasts
+//! \note don't replace ${VARSTRING} yet
+//! called from ExternalData::loadData
 std::string
 DataSet::getFilename(double const& init_time, double const& current_time) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
-
     std::string fmask = grid.filename_mask;
     boost::replace_all(fmask, "${INITTIME}",
             datenumToString(init_time, "%Y%m%d"));
-    boost::replace_all(fmask, "${VARSTRING}", variables[0].filename_string);
-
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
             % Environment::nextsimDataDir().string()
             % grid.dirname
@@ -9054,19 +9058,29 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
 }//getFilename
 
 
+//------------------------------------------------------------------------------------------------------
+//! Get filename
+//! - interface for if there is a "jump"
+//!   - when you need the previous or next file
+//! \note do replace ${INITTIME} here - mainly for forecasts
+//! \note don't replace ${VARSTRING} yet
+//! called from ExternalData::loadData
 std::string
 DataSet::getFilename(double const& init_time0, double const& current_time,
         int const& jump) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
-
     double init_time, ftime;
     this->shiftDates(init_time0, current_time, jump, init_time, ftime);
     return this->getFilename(init_time, ftime);
 }//getFilename
 
 
+//------------------------------------------------------------------------------------------------------
+//! Calculate shifted filedates if there is a "jump"
+//! - when need to determine the previous or next filename
+//! Called from getFilename
 void
 DataSet::shiftDates(double const& init_time, double const& current_time,
         int const& jump, double& new_init_time, double& ftime) const
@@ -9112,6 +9126,24 @@ DataSet::shiftDates(double const& init_time, double const& current_time,
             "This option for grid_ptr->dataset_frequency is not implemented: "
             + grid.dataset_frequency);
 }//shiftDates()
+
+
+//------------------------------------------------------------------------------------------------------
+//! Get final filename
+//! - replace ${VARSTRING} here
+//! called from ExternalData::loadData
+std::string
+DataSet::getFilenameVariable(std::string const &filename_template, int const &var_num) const
+{
+    //for safety, we don't try to replace inside the parent directory
+    auto const fpath = boost::filesystem::path(filename_template);
+    auto const basedir = fpath.parent_path();
+    auto basename = fpath.filename().string();
+    boost::replace_all(basename, "${VARSTRING}", this->variables[var_num].filename_string);
+    return (boost::format( "%1%/%2%" )
+                % basedir.string()
+                % basename).str();
+}//getFilenameVariable
 
 
 //! get longitude range from the netcdf file
