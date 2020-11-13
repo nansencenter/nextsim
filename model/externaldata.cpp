@@ -454,7 +454,7 @@ ExternalData::getVector()
         }
     }
     return vector_tmp;
-}
+}//getVector()
 
 #ifdef OASIS
 void
@@ -509,125 +509,36 @@ ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator c
 
         dataset->nb_forcing_step=1;
         dataset->loaded=true;
-}
+}//receiveCouplingData
 #endif
 
-void
-//ExternalData::loadDataset(Dataset *dataset, GmshMesh const& mesh)//(double const& u, double const& v)
-ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
-        std::vector<double> const& RY_in)//(double const& u, double const& v)
+
+//! ---------------------------------
+//! Automatic identification of the file and time index
+//! Called from loadDataset()
+void ExternalData::getFilenamesTimeIndices(Dataset *dataset, double & init_time,
+    std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep)
 {
-    // ---------------------------------
-    // Define the mapping and rotation_angle
-    mapx_class *mapNextsim;
-    std::string configfileNextsim = Environment::nextsimMppfile();
-    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-    strNextsim.push_back('\0');
-    mapNextsim = init_mapx(&strNextsim[0]);
-
-    if(dataset->grid.mpp_file!="")
-    {
-        mapx_class *map;
-        std::string configfile = (boost::format( "%1%/%2%" )
-                          % Environment::nextsimMeshDir().string()
-                          % dataset->grid.mpp_file
-                          ).str();
-
-        std::vector<char> str(configfile.begin(), configfile.end());
-        str.push_back('\0');
-        map = init_mapx(&str[0]);
-        dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-
-        close_mapx(map);
-    }
-    else
-    {
-        dataset->rotation_angle=0.;
-    }
-
     // ---------------------------------
     bool const is_ocn_fc = (dataset->grid.dataset_frequency=="daily_ocn_forecast");//topaz forecast
     bool const is_atm_fc = (dataset->grid.dataset_frequency=="daily_atm_forecast");//ec2,ec2_arome_ensemble forecast
     bool const true_forecast = ( (is_atm_fc||is_ocn_fc)
                && Environment::vm()["forecast.true_forecast"].as<bool>());
 
-    // ---------------------------------
-    // Load grid if unloaded
-    if(!dataset->grid.loaded)
-    {
-        double init_time = M_StartingTime;
-        if(true_forecast)
-        {
-            if (is_atm_fc)
-            {
-                // use forecast.time_init_atm_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-            else
-            {
-                // use forecast.time_init_ocean_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-        }
-        //only need init_time to get grid
-        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
-    }
 
-    // closing maps
-    close_mapx(mapNextsim);
-
-    // ---------------------------------
+    // Define variables for this scope
     std::vector<double> XTIME(1);
     std::vector<size_t> index_start(1);
     std::vector<size_t> index_count(1);
-
-    // size of the data
-    int M        = dataset->grid.dimension_y_count;
-    int N        = dataset->grid.dimension_x_count;
-    int MN       = M*N;
-    int final_MN = MN;
-
-    if(dataset->grid.reduced_nodes_ind.size()!=0)
-    {
-        if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
-            throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
-
-    	final_MN=dataset->grid.reduced_nodes_ind.size();
-    }
-
-    // initialization of the tmp data vector
-    std::vector<double> data_in_tmp(MN);
-
-    // netcdf objects
-    // Attributes (scaling and offset)
-    netCDF::NcVarAtt att;
-    double scale_factor;
-    double add_offset;
-
-    std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
-
-    // ---------- Automatic identification of the file and time index
-
-    // Define variables for this scope
     double ftime, time_prev, time_next;
     std::string filename_prev="";
     std::string filename_next="";
     std::vector<int> file_jump;
-
+    //
+    init_time = M_StartingTime;
     int index = 0;
     int index_prev=-1;
     int index_next=-1;
-
-    std::vector<std::string> filename_fstep;
-    std::vector<int> index_fstep;
-
-    std::string f_timestr;
-    double init_time = M_StartingTime;
-        // - for forecasts, filename depends on start time
 
     // Filename depends on the date for time varying data
     if(dataset->grid.dataset_frequency!="constant"
@@ -643,21 +554,20 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         if(true_forecast)
         {
             // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
+            std::string init_time_str;
             if (is_atm_fc)
             {
                 // - one file for all records
                 // - ftime not used (only init_time)
                 file_jump ={0};
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
+                init_time_str = Environment::vm()
+                        ["forecast.time_init_atm_fc"].as<std::string>();
             }
             else
-            {
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
+                init_time_str = Environment::vm()
+                        ["forecast.time_init_ocean_fc"].as<std::string>();
+            if(init_time_str != "")
+                init_time = Nextsim::stringToDatenum(init_time_str);
         }//forecasts
 
         for (int jump: file_jump)
@@ -821,6 +731,78 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         filename_fstep.push_back(filename_mask);
         index_fstep.push_back(0);
     }
+}//getFilenamesTimeIndices()
+
+
+void
+ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
+        std::vector<double> const& RY_in)//(double const& u, double const& v)
+{
+
+    //get init_time, filenames and record indices from time info
+    double init_time;
+    std::vector<std::string> filename_fstep;
+    std::vector<int> index_fstep;
+    this->getFilenamesTimeIndices(dataset, init_time, filename_fstep, index_fstep);
+
+    // ---------------------------------
+    // Define the mapping and rotation_angle
+    mapx_class *mapNextsim;
+    std::string configfileNextsim = Environment::nextsimMppfile();
+    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+    strNextsim.push_back('\0');
+    mapNextsim = init_mapx(&strNextsim[0]);
+
+    dataset->rotation_angle = 0.;
+    if(dataset->grid.mpp_file!="")
+    {
+        mapx_class *map;
+        std::string configfile = (boost::format( "%1%/%2%" )
+                          % Environment::nextsimMeshDir().string()
+                          % dataset->grid.mpp_file
+                          ).str();
+
+        std::vector<char> str(configfile.begin(), configfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+        dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+
+        close_mapx(map);
+    }
+    // closing maps
+    close_mapx(mapNextsim);
+
+    // ---------------------------------
+    // Load grid if unloaded (only need init_time)
+    if(!dataset->grid.loaded)
+        //only need init_time to get grid
+        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
+
+    // size of the data
+    int M        = dataset->grid.dimension_y_count;
+    int N        = dataset->grid.dimension_x_count;
+    int MN       = M*N;
+    int final_MN = MN;
+
+    if(dataset->grid.reduced_nodes_ind.size()!=0)
+    {
+        if((dataset->grid.dimension_y.cyclic) || (dataset->grid.dimension_x.cyclic))
+            throw std::runtime_error("Using reduced grid and cyclic grid at the same time is not yet implemented");
+
+    	final_MN=dataset->grid.reduced_nodes_ind.size();
+    }
+
+    // initialization of the tmp data vector
+    std::vector<double> data_in_tmp(MN);
+
+    // netcdf objects
+    // Attributes (scaling and offset)
+    netCDF::NcVarAtt att;
+    double scale_factor;
+    double add_offset;
+
+    std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
+
 
     // Initialise counters etc.
     int nb_forcing_step =filename_fstep.size();
@@ -831,9 +813,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         // Load each variable and copy its data into loaded_data
         for(int j=0; j<dataset->variables.size(); ++j)
         {
-            std::string const filename_mask=filename_fstep[fstep];
-            index=index_fstep[fstep];
-
+            std::string const filename_mask = filename_fstep[fstep];
+            int const index = index_fstep[fstep];
             // filename may depend on variable
             std::string filename = dataset->getFilenameVariable(filename_mask, j);
 
@@ -858,11 +839,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             NcVars[j] = dataFile.getVar(dataset->variables[j].name);
-            index_start.resize(dataset->variables[j].dimensions.size());
-            index_count.resize(index_start.size());
+            int const ndims = dataset->variables[j].dimensions.size();
+            std::vector<size_t> index_start(ndims);
+            std::vector<size_t> index_count(ndims);
 
             // here we find the start and count index for each dimensions
-            for(int k=0; k<index_start.size(); ++k)
+            for(int k=0; k<ndims; ++k)
             {
                 std::string const dimension_name=dataset->variables[j].dimensions[k].name;
                 std::string const dn_lower=boost::algorithm::to_lower_copy(dimension_name);

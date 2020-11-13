@@ -76,17 +76,18 @@ public:
 
     ~ExternalData();
 
-    void check_and_reload(std::vector<double> const& RX,
-            std::vector<double> const& RY, const double current_time );
-
     value_type operator[] (const size_type i);
     value_type get(const size_type i);
     size_type size();
 
     std::vector<double> getVector();
     void clear();
+    void getFilenamesTimeIndices(Dataset *dataset, double & init_time,
+    std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep);
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
+    void check_and_reload(std::vector<double> const& RX,
+            std::vector<double> const& RY, const double current_time );
 
 #if defined OASIS
     void check_and_reload(std::vector<double> const& RX_in,
