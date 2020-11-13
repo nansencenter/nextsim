@@ -519,12 +519,14 @@ ExternalData::receiveCouplingData(Dataset *dataset, int cpl_time, Communicator c
 void ExternalData::getFilenamesTimeIndices(Dataset *dataset, double & init_time,
     std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep)
 {
-    // ---------------------------------
+    // init some variables
     bool const is_ocn_fc = (dataset->grid.dataset_frequency=="daily_ocn_forecast");//topaz forecast
     bool const is_atm_fc = (dataset->grid.dataset_frequency=="daily_atm_forecast");//ec2,ec2_arome_ensemble forecast
     bool const true_forecast = ( (is_atm_fc||is_ocn_fc)
                && Environment::vm()["forecast.true_forecast"].as<bool>());
-
+    init_time = M_StartingTime;
+    int index_prev = -1;
+    int index_next = -1;
 
     // Define variables for this scope
     std::vector<double> XTIME(1);
@@ -534,11 +536,6 @@ void ExternalData::getFilenamesTimeIndices(Dataset *dataset, double & init_time,
     std::string filename_prev="";
     std::string filename_next="";
     std::vector<int> file_jump;
-    //
-    init_time = M_StartingTime;
-    int index = 0;
-    int index_prev=-1;
-    int index_next=-1;
 
     // Filename depends on the date for time varying data
     if(dataset->grid.dataset_frequency!="constant"
