@@ -693,7 +693,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             netCDF::NcVar FVTIME = dataFile.getVar(dataset->time.name);
             netCDF::NcDim timeDim = dataFile.getDim(dataset->time.name);
 
-            // Read first two or the only time coordinates
+            // For forecast we don't always want the whole file
+            // - eg for a free run we just take the 1st day in the file
             int n_times = timeDim.getSize();
             if(is_atm_fc && (!true_forecast))
             {
@@ -701,6 +702,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 n_times = 24/ftime_res;// just use the first day of each file
             }
 
+            // Read first two or the only time coordinates
             index_start[0] = 0;
             index_count[0] = std::min(2, n_times);
             XTIME.resize(index_count[0]);
