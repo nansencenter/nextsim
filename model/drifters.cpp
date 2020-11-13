@@ -23,33 +23,24 @@ namespace Nextsim
 //! Main drifter interface to FiniteElement
 //! Called from FiniteElement::checkUpdateDrifters()
 void
-Drifters::updateDrifters(
-        GmshMeshSeq const& mesh_root,
-        GmshMeshSeq const& movedmesh_root,
-        std::vector<double> & conc_root,
-        std::vector<double> const& UT_root,
-        double const& current_time)
+Drifters::updateDrifters(GmshMeshSeq const& movedmesh_root,
+        std::vector<double> & conc_root, double const& current_time)
 {
     std::vector<double> conc_drifters(0);
 
-    //! 1) Move the drifters (if needed)
-    // TODO M_UT is relative to the fixed mesh - should be relative to mesh at time
-    // of last update to drfiters (moving, initialising, regridding)
-    this->move(mesh_root, UT_root);
-
-    //! 2) Reset temporary (i.e. OSISAF) drifters if needed
+    //! 1) Reset temporary (i.e. OSISAF) drifters if needed
     //! \note this does outputting so needs conc_root
     if(this->resetting(current_time))
         this->reset(movedmesh_root, conc_root, current_time);
 
-    //! 3) Initialize if needed
+    //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
     if(this->initialising(current_time))
         this->initialise(movedmesh_root, conc_root,
                 conc_drifters);
 
-    //! 4) Add/remove drifters if needed
+    //! 3) Add/remove drifters if needed
     //!    \note do this after moving
     if (this->isInputTime(current_time))
     {
@@ -67,7 +58,7 @@ Drifters::updateDrifters(
         this->maskXY(conc_drifters, current_buoys);
     }
 
-    //! 5) Add/remove drifters if needed
+    //! 4) Add/remove drifters if needed
     if (this->isOutputTime(current_time))
     {
         if(conc_drifters.size()==0)
@@ -231,10 +222,16 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
+    LOG(DEBUG) << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
     if(M_ignore_restart)
-        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    {
+        LOG(DEBUG)<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    }
     else
+    {
         in_restart = readFromRestart(field_map_int, field_map_dbl);
+    }
+    LOG(DEBUG) << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
 
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
@@ -265,7 +262,6 @@ Drifters::initFromRestart(
         this->selectRecordsFromBackup(backup, restart_time);
         std::remove(backup.c_str());
     }
-        
 }//initFromRestart()
 
 
@@ -400,7 +396,7 @@ Drifters::readFromRestart(
     std::string const key = "Drifter_ID_" + M_tag;
     if(field_map_int.count(key) == 0)
     {
-        std::cout << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
+        LOG(DEBUG) << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
             << " Drifter positions will be initialised as if there was no restart.\n";
         return false;
     }
@@ -419,7 +415,7 @@ Drifters::readFromRestart(
 void
 Drifters::fixInitTimeAtRestart(double const& restart_time)
 {
-    // if we are restarting before sceduled init time, there is no problem
+    // if we are restarting before scheduled init time, there is no problem
     // - they will be initialised at that time
     if(restart_time<=M_time_init)
         return;
@@ -778,7 +774,7 @@ Drifters::selectRecordsFromBackupNetCDF(
     if ( dim.isNull() )
     {
         M_nc_step = 0;
-        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
+        LOG(DEBUG) << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
         return;
     }
     size_t ntime = dim.getSize();

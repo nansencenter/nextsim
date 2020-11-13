@@ -43,7 +43,6 @@ namespace Nextsim
             ("simul.duration", po::value<double>()->default_value( -1. ),
                 "Length of simulation in days.")
             ("simul.timestep", po::value<int>()->default_value( 200 ), "Model timestep in seconds.")
-            ("simul.thermo_timestep", po::value<int>()->default_value( 3600 ), "Thermodynamic timestep in seconds.")
             ("simul.spinup_duration", po::value<double>()->default_value( 1. ), "Spinup duration in days over which the forcing is linearly increased from 0 to its correct value.")
 
              //-----------------------------------------------------------------------------------
@@ -69,6 +68,8 @@ namespace Nextsim
                 "print out fields during checkFields() at this element number (local to M_rank = debugging.test_proc_number) (do nothing if <0)")
             ("debugging.check_velocity_fields", po::value<bool>()->default_value( false ),
                 "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
+            ("debugging.check_fields_fast", po::value<bool>()->default_value( true ),
+                "Do a quick sanity check on select fields. Export binary files and stop model if the check fails.")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
@@ -80,6 +81,8 @@ namespace Nextsim
                 "Options for regridding: No-regridding or bamg")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
+            ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
+                "Number of iterations taken to smooth velocity into open water (only for explicit solver)")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
@@ -110,9 +113,10 @@ namespace Nextsim
             ("setup.ocean-type", po::value<std::string>()->default_value( "constant" ), "which oceanic forcing?")
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
+            ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
-            ("setup.dynamics-type", po::value<std::string>()->default_value( "default" ), "type of dynamics")
+            ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
 
             // mesh
@@ -156,7 +160,7 @@ namespace Nextsim
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
             ("moorings.grid_latitude", po::value<std::string>()->default_value( "latitude" ), "The name of the latitude variable in the mooring_grid_file")
             ("moorings.grid_longitude", po::value<std::string>()->default_value( "longitude" ), "The name of the longitude variable in the mooring_grid_file")
-            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If false we assume the first dimension is y and the second x.")
+            ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is x and the second y (non-standard ordering).")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
                 "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
@@ -199,6 +203,8 @@ namespace Nextsim
             // -- inputs
             ("restart.start_from_restart", po::value<bool>()->default_value( false ),
                 "are we starting from a restart file?")
+            ("restart.check_restart", po::value<bool>()->default_value( false ),
+                "check restart file at init time?")
             ("restart.input_path", po::value<std::string>()->default_value( "" ),
                     "where to find restart files")
             ("restart.basename", po::value<std::string>()->default_value( "" ),
@@ -352,18 +358,35 @@ namespace Nextsim
             ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
             ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
-            ("dynamics.pressure_nu", po::value<int>()->default_value( 0. ),
+            ("dynamics.pressure_nu", po::value<double>()->default_value( 0. ),
              "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
 
+            ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
+
             // - Damage equation discretization
-            //   disc_scheme is either : explicit, implicit, recursive
+            //   disc_scheme is either : explicit, implicit, or recursive
             //   td_type is either : fixed or damage_dependent
             //   clip : float
-            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "which discretization scheme for the damage equation?")
-            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "is the char. time for damage fixed or damage dependent?")
+            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "Discretization scheme for the damage equation [ explicit (default) | implicit | recursive ]")
+            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
             ("damage.clip", po::value<double>()->default_value( 0 ),
              "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
+            // - EVP!
+            ("dynamics.substeps", po::value<int>()->default_value( 120 ),
+             "Nuber of explicit sub-steps (default 120)")
+            ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
+             "Ellipse ratio (default 2)")
+            ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
+             "P* (default 27.5e3)")
+            ("dynamics.evp.C", po::value<double>()->default_value( 20 ),
+             "Compaction parameter (C, default 20)")
+            ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
+             "Minimum delta (default 1e-9)")
+
+            // - mEVP!
+            ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
+            ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
 
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
@@ -408,8 +431,10 @@ namespace Nextsim
                 "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
 
             // -- assimilation compensating flux
+            ("thermo.use_assim_flux", po::value<bool>()->default_value(true),
+             "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
-             "Exponent of factor for heat flux that compensates assimilation of concentration")
+             "Exponent of factor for heat flux that compensates for assimilation of concentration")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
@@ -461,10 +486,14 @@ namespace Nextsim
 #if defined(OASIS)
             ("coupler.component_name", po::value<std::string>()->default_value( "nxtsim" ), "Component name (6 characters) same as in the namcouple")
             ("coupler.timestep", po::value<int>()->default_value( 3600 ), "Coupling time step")
-            ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ), "File containing neccesary grid information for coupling.")
+            ("coupler.exchange_grid_file", po::value<std::string>()->default_value( "coupler/NEMO.nc" ),
+                 "File containing neccesary grid information for coupling. Name is relative to $NEXTSIM_DATA_DIR")
             // ("coupler.with_ocean", po::value<bool>()->default_value( false ), "Do we couple with an ocean model?")
             ("coupler.with_waves", po::value<bool>()->default_value( false ), "Do we couple with a wave model?")
             // ("coupler.with_atm", po::value<bool>()->default_value( false ), "Do we couple with an atmospheric model?")
+            ("coupler.BGC_active", po::value<bool>()->default_value( false ), "Activate sending of MSLP and wind speed for the BGC model.")
+            ("coupler.rcv_first_layer_depth", po::value<bool>()->default_value( false ), "Activate/deactivate (default) receiving of the depth of the first ocean layer (I_MLD in namcouple).")
+
 
             //-----------------------------------------------------------------------------------
             //!wave_coupling

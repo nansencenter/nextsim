@@ -337,8 +337,6 @@ ModelVariable::initElemental()
             M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
-            M_has_max = true;
-            M_max_val = 0.;
             break;
 
         case (variableID::M_conc_upd):
@@ -493,6 +491,14 @@ ModelVariable::initElemental()
             // Freshwater flux at the surface due to ice processes [kg/m^2/s]
             M_name = "D_fwflux_ice";
             M_export_name = "D_fwflux_ice";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_vice_melt):
+            // ice volume gain/loss by freezing/melt
+            M_name = "D_vice_melt";
+            M_export_name = "D_vice_melt";
             M_prognostic = false;
             M_exporting = false;
             break;
