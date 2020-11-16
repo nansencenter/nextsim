@@ -763,17 +763,16 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         str.push_back('\0');
         map = init_mapx(&str[0]);
         dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-
         close_mapx(map);
     }
-    // closing maps
-    close_mapx(mapNextsim);
 
     // ---------------------------------
     // Load grid if unloaded (only need init_time)
     if(!dataset->grid.loaded)
         //only need init_time to get grid
         dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
+    // closing maps
+    close_mapx(mapNextsim);
 
     // size of the data
     int M        = dataset->grid.dimension_y_count;
