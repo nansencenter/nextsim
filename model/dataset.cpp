@@ -6041,8 +6041,8 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thickness={
             filename_string: "", // All variables are in the same (grid) file
-     	    name: "Th",
-     	    dimensions: dimensions_latlon,
+            name: "Th",
+            dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
