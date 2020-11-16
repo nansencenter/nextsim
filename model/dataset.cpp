@@ -9040,7 +9040,7 @@ DataSet::DataSet(char const *DatasetName)
 //! - simple interface
 //! \note do replace ${INITTIME} here - mainly for forecasts
 //! \note if var_num == -1, don't replace ${VARSTRING} yet
-//! called from ExternalData::loadData and loadGrid
+//! called from getFilenamesTimeIndices and loadGrid
 std::string
 DataSet::getFilename(double const& init_time, double const& current_time,
         int const& var_num) const
@@ -9068,7 +9068,7 @@ DataSet::getFilename(double const& init_time, double const& current_time,
 //!   - when you need the previous or next file
 //! \note do replace ${INITTIME} here - mainly for forecasts
 //! \note don't replace ${VARSTRING} yet
-//! called from ExternalData::loadData
+//! called from getFilenamesTimeIndices
 std::string
 DataSet::getFilename(double const& init_time0, double const& current_time,
         int const& var_num, int const& jump) const
@@ -9135,7 +9135,7 @@ DataSet::shiftDates(double const& init_time, double const& current_time,
 //------------------------------------------------------------------------------------------------------
 //! Get final filename
 //! - replace ${VARSTRING} here
-//! called from ExternalData::loadData
+//! called from getFilenamesTimeIndices
 std::string
 DataSet::getFilenameVariable(std::string const &filename_template, int const &var_num) const
 {
@@ -9146,11 +9146,225 @@ DataSet::getFilenameVariable(std::string const &filename_template, int const &va
     auto const fpath = boost::filesystem::path(filename_template);
     auto const basedir = fpath.parent_path();
     auto basename = fpath.filename().string();
-    boost::replace_all(basename, "${VARSTRING}", this->variables[var_num].filename_string);
+    boost::replace_all(basename, "${VARSTRING}", variables[var_num].filename_string);
     return (boost::format( "%1%/%2%" )
                 % basedir.string()
                 % basename).str();
 }//getFilenameVariable
+
+
+//! ---------------------------------
+//! Automatic identification of the file and time index
+//! Called from ExternalData::loadDataset()
+void DataSet::getFilenamesTimeIndices(double const& current_time, double & init_time,
+    std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep)
+{
+    if(grid.dataset_frequency=="constant"
+        || grid.dataset_frequency=="nearest_daily")
+    {
+        double const f = std::floor(current_time);
+        ftime_range.resize(0);
+        if(grid.dataset_frequency=="nearest_daily")
+            ftime_range = {f+.5};
+        std::string const filename_mask = this->getFilename(f, f, 0);
+        filename_fstep = {filename_mask};
+        index_fstep = {0};
+        return;
+    }
+
+    // Filename depends on the date for time varying data
+    // init some variables
+    bool const is_ocn_fc = (grid.dataset_frequency=="daily_ocn_forecast");//topaz forecast
+    bool const is_atm_fc = (grid.dataset_frequency=="daily_atm_forecast");//ec2,ec2_arome_ensemble forecast
+    bool const true_forecast = ( (is_atm_fc||is_ocn_fc)
+               && Environment::vm()["forecast.true_forecast"].as<bool>());
+
+    double const ftime = current_time-averaging_period/2.;
+    std::vector<int> file_jump ={-1,0,1};
+    int index_prev = -1;
+    int index_next = -1;
+
+    double time_prev, time_next;
+    std::string filename_prev="";
+    std::string filename_next="";
+
+    std::vector<double> xtime(1);
+    std::vector<size_t> index_start(1);
+    std::vector<size_t> index_count(1);
+
+    LOG(DEBUG)<<"LOAD DATASET TIMES:\n";
+    LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<datenumToString(init_time)<<"\n";
+    LOG(DEBUG)<<"current_time = "<<current_time<<" = "<<datenumToString(current_time)<<"\n";
+    LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<datenumToString(ftime)<<"\n";
+    if(true_forecast)
+    {
+        // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
+        std::string init_time_str;
+        if (is_atm_fc)
+        {
+            // - one file for all records
+            // - ftime not used (only init_time)
+            file_jump ={0};
+            init_time_str = Environment::vm()
+                    ["forecast.time_init_atm_fc"].as<std::string>();
+        }
+        else
+            init_time_str = Environment::vm()
+                    ["forecast.time_init_ocean_fc"].as<std::string>();
+        if(init_time_str != "")
+            init_time = Nextsim::stringToDatenum(init_time_str);
+    }//forecasts
+
+    for (int jump: file_jump)
+    {
+        double init_time_jump = init_time;
+        if(is_atm_fc||is_ocn_fc)
+        {
+            if(!true_forecast)
+                // * if(!true_forecast), take the forecast that started at the start of
+                //   the "current day" (ftime+jump)
+                // * also can't have init_time before start of
+                //   the "current day" (ftime+jump)
+                // NB jump is in days for these datasets
+                init_time_jump = std::floor(ftime+jump);
+        }
+        std::string const filename_mask = this->getFilename(init_time_jump, ftime, -1, jump);
+        // filename may depend on variable - save mask for later
+        std::string filename = this->getFilenameVariable(filename_mask, 0);
+
+        LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
+            << ". Exists? " << boost::filesystem::exists(filename)
+            <<"\n";
+        if ( ! boost::filesystem::exists(filename) )
+            continue;
+
+        index_start.resize(1);
+        index_count.resize(1);
+
+        // Open the netcdf file
+        netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+
+        netCDF::NcVar fvtime = dataFile.getVar(time.name);
+        netCDF::NcDim timeDim = dataFile.getDim(time.name);
+
+        // For forecast we don't always want the whole file
+        // - eg for a free run we just take the 1st day in the file
+        int n_times = timeDim.getSize();
+        if(is_atm_fc && (!true_forecast))
+        {
+            int ftime_res = time.a*(xtime[1] - xtime[0]);//forcing resolution in hours
+            n_times = 24/ftime_res;// just use the first day of each file
+        }
+
+        // Read first two or the only time coordinates
+        index_start[0] = 0;
+        index_count[0] = std::min(2, n_times);
+        xtime.resize(index_count[0]);
+
+        fvtime.getVar(index_start, index_count, &xtime[0]);
+
+        double const t_ref = stringToDatenum(grid.reference_date);
+
+        // If we have two time indices we calculate a delta t and derive the correct index
+        if ( index_count[0] == 2 )
+        {
+            double const t0 = (xtime[0]*time.a+time.b)/24.0 + t_ref;
+            double const t1 = (xtime[1]*time.a+time.b)/24.0 + t_ref;
+            double const dt = t1 - t0;
+
+            // This is a double because we're most likely in between integer indices
+            double const indx = (current_time - t0)/dt;
+
+            /* There is an extremely small chance that this procedure puts
+             * us in the wrong interval. It can only happen if the rounding
+             * error on indx results in indx_floor being smaller than the
+             * correct value. But we know that current_time > ftime_range[1],
+             * so this is almost certainly not going to happen. */
+            int const indx_floor = std::floor(indx);
+            int const indx_ceil  = indx_floor + 1;
+
+            // The index below the current time
+            if ( indx_floor >= 0 && indx_floor < n_times )
+            {
+                index_start[0] = indx_floor;
+                index_count[0] = 1;
+                xtime.resize(index_count[0]);
+
+                fvtime.getVar(index_start, index_count, &xtime[0]);
+
+                time_prev = (xtime[0]*time.a+time.b)/24.0 + t_ref;
+                index_prev = indx_floor;
+                filename_prev = filename_mask;
+            }
+
+            // The index above the current time
+            if ( indx_ceil >= 0 && indx_ceil < timeDim.getSize() )
+            {
+                index_start[0] = indx_ceil;
+                index_count[0] = 1;
+                xtime.resize(index_count[0]);
+
+                fvtime.getVar(index_start, index_count, &xtime[0]);
+
+                time_next = (xtime[0]*time.a+time.b)/24.0 + t_ref;
+                index_next = indx_ceil;
+                filename_next = filename_mask;
+            }
+        }
+        // If there's only one time step per file
+        else if ( index_count[0] == 1 )
+        {
+            double const f = (xtime[0]*time.a+time.b)/24.0 + t_ref;
+            if(f>current_time && index_next==-1)
+            {
+                time_next=f;
+                index_next = 0;
+                filename_next = filename_mask;
+            }
+            if(f<=current_time)
+            {
+                time_prev=f;
+                index_prev = 0;
+                filename_prev = filename_mask;
+            }
+        }
+        // WTF?
+        else
+        {
+            throw std::runtime_error("ExternalData::loadData: Empty time variable in dataset " + name + "\n");
+        }
+    }//loop over jump
+
+    if(filename_prev!="")
+    {
+        filename_fstep.push_back(filename_prev);
+        index_fstep.push_back(index_prev);
+    }
+    else
+    {
+        std::stringstream msg;
+        msg << "Dataset " << name
+            << ": file for before " << datenumToString(current_time)
+            << " not found";
+        throw std::runtime_error(msg.str());
+    }
+
+    if(filename_next!="")
+    {
+        filename_fstep.push_back(filename_next);
+        index_fstep.push_back(index_next);
+    }
+    else
+    {
+        std::stringstream msg;
+        msg << "Dataset " << name
+            << ": file for after " << datenumToString(current_time)
+            << " not found";
+        throw std::runtime_error(msg.str());
+    }
+
+    ftime_range = {time_prev,time_next};
+}//getFilenamesTimeIndices()
 
 
 //! get longitude range from the netcdf file
