@@ -218,8 +218,6 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    void getFilenamesTimeIndices(double const& current_time, double & init_time,
-            std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep);
     std::string getFilename(double const& init_time, double const& current_time,
             int const& var_num) const;
     std::string getFilename(double const& init_time, double const& current_time,

@@ -82,6 +82,8 @@ public:
 
     std::vector<double> getVector();
     void clear();
+    void getFilenamesTimeIndices(Dataset *dataset, double & init_time,
+    std::vector<std::string> & filename_fstep, std::vector<int> & index_fstep);
     void loadDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
     void check_and_reload(std::vector<double> const& RX,
