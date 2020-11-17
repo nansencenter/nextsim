@@ -13290,8 +13290,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->gatherNodalField(M_wind.getVector(),M_wind_root);
 
     std::vector<double> M_UM_root;
-    if (apply_displacement)
-        this->gatherNodalField(M_UM, M_UM_root);
+    this->gatherNodalField(M_UM, M_UM_root);
 
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
@@ -13682,6 +13681,8 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                     << val << " > " << max << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
 
             // check if it is too low for common sense
@@ -13690,6 +13691,8 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
                     << val << " < " << min << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
 
             // check for NaN
@@ -13697,6 +13700,8 @@ FiniteElement::checkFieldsFast()
             {
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " contains a NaN\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
         }
     }
@@ -13710,6 +13715,8 @@ FiniteElement::checkFieldsFast()
             crash = true;
             crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
                 << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
         }
 
         // check for NaN
@@ -13717,13 +13724,15 @@ FiniteElement::checkFieldsFast()
         {
             crash = true;
             crash_msg << "[" <<M_rank << "] ice velocity contains a NaN\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
         }
     }
 
     // Export everything and crash
     if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
     {
-        this->exportResults("crash", true, true, true);
+        this->exportResults("crash", true, true, false);
         this->writeRestart("crash");
 
         M_comm.barrier();
