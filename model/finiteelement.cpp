@@ -4147,12 +4147,15 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
     // Thickness limit
-    const double min_h = vm["dynamics.min_h"].as<double>();
+    /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
+     * already in use in another place so we neet to check first what effect
+     * changing the default of min_c from 0.01 to 0.1 would have there */
+    const double min_c = 0.1;
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] <= min_h )
+        if ( M_conc[cpt] <= min_c )
         {
             for(int i=0;i<3;i++)
             {
