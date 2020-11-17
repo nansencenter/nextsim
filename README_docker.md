@@ -35,7 +35,7 @@ command:
 ```
 docker build . -t nextsim
 ```
-It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and
+It will pull the Docker image with Ubuntu, Boost and GMSH and
 compile BAMG and MAPX libraries and compile the core and the model itself.
 
 Now you can run the model code which is inside the image:
