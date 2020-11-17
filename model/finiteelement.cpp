@@ -770,8 +770,8 @@ FiniteElement::initDatasets()
             break;
 
         case setup::AtmosphereType::WRF:
-            M_atmosphere_nodes_dataset=DataSet("wrf_ensemble_nodes");
-            M_atmosphere_elements_dataset=DataSet("wrf_ensemble_elements");
+            M_atmosphere_nodes_dataset=DataSet("wrf_nodes");
+            M_atmosphere_elements_dataset=DataSet("wrf_elements");
             break;
 
 

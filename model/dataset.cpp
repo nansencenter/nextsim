@@ -8040,7 +8040,7 @@ DataSet::DataSet(char const *DatasetName)
 #endif
     }
     
-    else if (strcmp (DatasetName, "wrf_ensemble_elements") == 0)
+    else if (strcmp (DatasetName, "wrf_elements") == 0)
     {
         std::string const spatial_res = Environment::vm()
             ["setup.atmosphere-resolution"].as<std::string>();
@@ -8306,7 +8306,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "wrf_ensemble_nodes") == 0)
+    else if (strcmp (DatasetName, "wrf_nodes") == 0)
     {
         std::string const spatial_res = Environment::vm()
             ["setup.atmosphere-resolution"].as<std::string>();
@@ -8366,8 +8366,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromGridToMesh,
-            interp_type : BilinearInterpEnum,
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type : -1,
             dirname:"",
             prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             postfix:".nc",
@@ -9489,6 +9489,10 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "etopo_elements\n");
         fprintf (stderr, "ERAi_nodes\n");
         fprintf (stderr, "ERAi_elements\n");
+        fprintf (stderr, "ERA5_nodes\n");
+        fprintf (stderr, "ERA5_elements\n");
+        fprintf (stderr, "wrf_nodes\n");
+        fprintf (stderr, "wrf_elements\n");
         fprintf (stderr, "ww3a_elements\n");
         fprintf (stderr, "erai_waves_1deg_elements\n");
         fprintf (stderr, "ice_cs2_smos_elements\n");
