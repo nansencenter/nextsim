@@ -5851,8 +5851,6 @@ FiniteElement::thermo(int dt)
         //    old_vol=0.;
         if ( M_thick[i] > old_vol )
         {
-            //M_damage[i] = M_damage[i]*old_vol/M_thick[i];
-            //M_damage[i] = (M_damage[i]*old_vol + del_vi)/M_thick[i];
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
