@@ -18,10 +18,6 @@ Environment::Environment( int& argc, char** &argv )
     mpicomm = Communicator::commSelf();
 
     this->setEnvironmentVariables();
-
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
 }
 
 Environment::Environment( int& argc, char** &argv, po::options_description desc )
@@ -101,7 +97,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         throw std::runtime_error("...");
     }
 
-    //! -3) Initialise communicator, PETSc, and OASIS (if compiled in)
+    //! -3) Initialise communicator and OASIS (if compiled in)
 #ifdef OASIS
     // For OASIS we need to get the local communicator first
 
@@ -127,9 +123,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
     // create a Nextsim::Communicator from the OASIS communicator
     mpicomm = Communicator(localComm);
 
-    // Tell PETSc to use the right communicator
-    PETSC_COMM_WORLD = localComm;
-
     // Create the coupler communicator - only root communicates with the coupler
     ierror = OASIS3::create_couplcomm(mpicomm.rank()==0, &localComm, &cplComm);
     if (ierror != 0) {
@@ -139,10 +132,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
 #else
     mpicomm = Communicator::commSelf();
 #endif
-
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
 
     //! -4) set other useful variables it would be convenient to have access to
     //! across multiple classes
@@ -167,10 +156,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
 
 
 Environment::~Environment()
-{
-    int ierr = 0;
-    ierr = PetscFinalize();
-}
+{}
 
 
 void
@@ -208,45 +194,5 @@ std::string Environment::nextsim_mppfile;
 std::vector<std::string> Environment::configFiles;
 LogLevel Environment::log_level;
 bool Environment::log_all;
-
-MemoryUsage
-Environment::logMemoryUsage(std::string const& message)
-{
-    MemoryUsage mem;
-
-    PetscMemoryGetCurrentUsage( &mem.memory_usage );
-    std::cout << message
-              << " PETSC get current memory usage (resident memory): ["
-              << mem.memory_usage/1e3
-              << " KB]  ["
-              << mem.memory_usage/1e6
-              << " MB]  ["
-              << mem.memory_usage/1e9
-              << " GB]\n" ;
-    //PetscMemoryGetMaximumUsage( &mem );
-    //LOG(INFO) << logMessage << " PETSC get maximum memory usag (resident memory): " << mem/1e6 << "  MB " << mem/1e9 << " GB" ;
-
-    PetscMallocGetCurrentUsage( &mem.petsc_malloc_usage );
-    std::cout << message
-              << " PETSC get current PETSC Malloc usage: ["
-              << mem.petsc_malloc_usage/1e3
-              << " KB]  ["
-              << mem.petsc_malloc_usage/1e6
-              << " MB]  ["
-              << mem.petsc_malloc_usage/1e9
-              << " GB]\n" ;
-
-    PetscMallocGetMaximumUsage( &mem.petsc_malloc_maximum_usage );
-    std::cout << message
-              << " PETSC get maximum PETSC Malloc usage(largest memory ever used so far): ["
-              << mem.petsc_malloc_maximum_usage/1e3
-              << " KB]  ["
-              << mem.petsc_malloc_maximum_usage/1e6
-              << " MB]  ["
-              << mem.petsc_malloc_maximum_usage/1e9
-              << " GB]\n" ;
-
-    return mem;
-}//logMemoryUsage
 
 } // Nextsim
