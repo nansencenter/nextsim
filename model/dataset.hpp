@@ -231,7 +231,7 @@ public:
 
     // name of the dataSet
     std::string name;
-    std::string projfilename;
+    std::string mppfile_nextsim;
 
 #if defined OASIS
     bool coupled;

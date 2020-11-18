@@ -33,7 +33,7 @@ DataSet::DataSet(char const *DatasetName)
     M_comm(Environment::comm())
 {
     name = std::string(DatasetName);
-    projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
+    mppfile_nextsim = Environment::vm()["mesh.mppfile"].as<std::string>();
 
     ftime_range.resize(2,0.);
 #ifdef OASIS
@@ -1512,7 +1512,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -1717,7 +1718,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -1925,7 +1927,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2144,7 +2146,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2330,7 +2332,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2532,7 +2534,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2689,7 +2691,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2924,7 +2927,8 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                mpp_file: projfilename,
+                // for determining rotation angle for vectors
+                mpp_file: "NpsNextsim.mpp",
                 interpolation_in_latlon: false,
 
                 loaded: false,
@@ -3107,7 +3111,8 @@ DataSet::DataSet(char const *DatasetName)
               dimension_x: dimension_x,
               dimension_y: dimension_y,
 
-              mpp_file: projfilename,
+              // for determining rotation angle for vectors
+              mpp_file: "NpsNextsim.mpp",
               interpolation_in_latlon: false,
 
               loaded: false,
@@ -3312,8 +3317,6 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
@@ -3328,7 +3331,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3479,8 +3483,6 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
@@ -3495,7 +3497,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3610,7 +3613,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3723,7 +3727,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3913,7 +3918,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4170,7 +4176,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4366,7 +4373,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4548,7 +4556,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4725,7 +4734,7 @@ DataSet::DataSet(char const *DatasetName)
                 dirname:"",
                 prefix: "current_",
                 postfix:".nc",
-            gridfile: "",
+                gridfile: "",
                 reference_date: "1950-01-01",
 
                 latitude: latitude,
@@ -4734,7 +4743,8 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                mpp_file: projfilename,
+                // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
+                mpp_file: "NpsNextsim.mpp",
                 interpolation_in_latlon: false,
 
                 loaded: false,
@@ -4887,7 +4897,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5049,7 +5059,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5194,7 +5204,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5338,7 +5348,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5474,7 +5484,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5636,7 +5646,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5798,7 +5808,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5960,7 +5970,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -6076,7 +6086,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -6226,7 +6236,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -8122,7 +8132,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            //mpp_file: projfilename,
+            //for determining vector rotation angle
             mpp_file: "NpsWRF.mpp",
             interpolation_in_latlon: false,
 
@@ -8380,7 +8390,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            //mpp_file: projfilename,
+            //for determining vector rotation angle
             mpp_file: "NpsWRF.mpp",
             interpolation_in_latlon: false,
 
@@ -9149,7 +9159,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
