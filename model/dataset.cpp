@@ -10721,8 +10721,8 @@ DataSet::convertTargetXY(Grid *grid_ptr,
     double const target_size = RX_in.size();
     assert(target_size==RY_in.size());
 
-    RX_out.resize(target_size);
-    RY_out.resize(target_size);
+    RX_out = RX_in;
+    RY_out = RY_in;
 
     if(grid_ptr->interpolation_in_latlon)
     {
@@ -10739,18 +10739,35 @@ DataSet::convertTargetXY(Grid *grid_ptr,
                 //this shouldn't matter here though?
             RX_out[i]=this->thetaInRange(lon,bc_lon,close_on_right);
         }
+        return;
     }
-    else
+    // If we are here the data is in stereographic projection,
+    // but if we are using FromMeshToMesh2dx then we are working in the nextsim
+    // projection
+    if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh) return;
+    // Also nothing to do if we are using the nextsim projection
+    if (grid_ptr->mpp_file != mppfile_nextsim) return;
+
+    // transform between different stereographic projections
+    mapx_class *mapData;
+    std::string fpath = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % grid_ptr->mpp_file
+            ).str();
+    std::vector<char> cpath(fpath.begin(), fpath.end());
+    cpath.push_back('\0');
+    mapData = init_mapx(&cpath[0]);
+    double lat, lon, x, y;
+    for (int i=0; i<target_size; ++i)
     {
-        double cos_rotangle = std::cos(rotation_angle);
-        double sin_rotangle = std::sin(rotation_angle);
-        //rotate to coord sys of dataset
-        for (int i=0; i<target_size; ++i)
-        {
-            RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
-            RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
-        }
+        //convert to lon,lat
+        inverse_mapx(mapNextsim, RX_in[i], RY_in[i], &lat, &lon);
+        //convert to new x,y
+        forward_mapx(mapData, lat, lon, &x, &y);
+        RX_out[i] = x;
+        RY_out[i] = y;
     }
+    close_mapx(mapData);
 }//convertTargetXY
 
 void
