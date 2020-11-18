@@ -9804,8 +9804,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-    netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-    netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
         std::vector<double> X(grid_ptr->dimension_x_count);
