@@ -263,7 +263,8 @@ private:
 
     void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYLatLonFromLatLon(mapx_class *map, double* X, double* Y,
+            double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     void getMinMax(mapx_class *mapNextsim, Grid *grid_ptr,

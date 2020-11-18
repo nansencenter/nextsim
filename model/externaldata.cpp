@@ -530,6 +530,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
 
+    dataset->rotation_angle = 0.;
     if(dataset->grid.mpp_file!="")
     {
         mapx_class *map;
@@ -545,10 +546,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
         close_mapx(map);
     }
-    else
-    {
-        dataset->rotation_angle=0.;
-    }
+    LOG(DEBUG) << "rotation_angle = " << M_dataset->rotation_angle << "\n";
 
     // ---------------------------------
     // Load grid if unloaded
@@ -1454,38 +1452,13 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    // Define the mapping and rotation_angle
+    // Define the mapping
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
 
-#if 0
-    auto RX = mesh.coordX(dataset->rotation_angle);
-    auto RY = mesh.coordY(dataset->rotation_angle);
-
-    if(dataset->target_size==mesh.numTriangles())
-    {
-    	RX = mesh.bCoordX(dataset->rotation_angle);
-        RY = mesh.bCoordY(dataset->rotation_angle);
-    }
-
-	if(dataset->grid.interpolation_in_latlon)
-	{
-		double lat, lon;
-
-		for (int i=0; i<dataset->target_size; ++i)
-		{
-			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
-			RY[i]=lat;
-			RX[i]=lon;
-			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			//RY[i]=tmp_latlon[0];
-			//RX[i]=tmp_latlon[1];
-		}
-	}
-#endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
     dataset->convertTargetXY(&(dataset->grid), RX_in, RY_in, RX, RY,mapNextsim);
 

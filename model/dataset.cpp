@@ -9871,7 +9871,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
         std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
 #if 0
         // Then, we determine the reduced dimension
@@ -9970,7 +9970,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 #if defined OASIS
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -10238,7 +10238,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
         std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -10566,7 +10566,8 @@ DataSet::getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
 
 
 void
-DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getXYLatLonFromLatLon(mapx_class *map, double* X, double* Y,
+        double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -10616,16 +10617,6 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     }
 
     // projection
-    mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % grid.mpp_file
-                              ).str();
-
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
     double x;
     double y;
 
@@ -10638,8 +10629,6 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
             Y[index_count[1]*i+j]=y;
         }
     }
-
-    close_mapx(map);
 }//getXYLatLonFromLatLon
 
 
