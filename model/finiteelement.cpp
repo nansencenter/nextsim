@@ -4148,7 +4148,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
 
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
-     * already in use in another place so we neet to check first what effect
+     * already in use in another place so we need to check first what effect
      * changing the default of min_c from 0.01 to 0.1 would have there */
     const double min_c = 0.1;
 
