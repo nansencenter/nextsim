@@ -4146,7 +4146,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
-    // Thickness limit
+    // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
      * already in use in another place so we neet to check first what effect
      * changing the default of min_c from 0.01 to 0.1 would have there */
