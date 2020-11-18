@@ -4133,17 +4133,18 @@ FiniteElement::update(std::vector<double> const & UM_P)
 //! sigma_n left optional for backwards compatability with the semi-implicit MEB
 //! Called from explicitSolve() and updateDamage()
 void inline
-FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
+FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const min_c, double const sigma_n, double const damage_dot)
 {
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
+    double const conc = std::max(min_c, M_conc[cpt]);
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-conc)),exponent_relaxation_sigma-1.);
 
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-conc));
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
@@ -4152,7 +4153,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
     D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
-    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-conc));
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
@@ -4164,16 +4165,14 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
-    // Thickness limit
-    /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
-     * already in use in another place so we neet to check first what effect
-     * changing the default of min_c from 0.01 to 0.1 would have there */
-    const double min_c = 0.1;
+    // Concentration and thickness limit
+    const double min_c = vm["dynamics.min_c"].as<double>();
+    const double min_h = vm["dynamics.min_h"].as<double>();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_conc[cpt] <= min_c )
+        if ( M_thick[cpt] <= min_h )
         {
             for(int i=0;i<3;i++)
             {
@@ -4326,7 +4325,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                     // Time rate of change in damage over the time step
                     double const damage_dot = (M_damage[cpt] - old_damage)/dt;
 
-                    this->updateSigmaCoefs(cpt, dt, sigma_n*dcrit, damage_dot);
+                    this->updateSigmaCoefs(cpt, dt, min_c, sigma_n*dcrit, damage_dot);
                     for(int i=0;i<3;i++)
                     {
                         double sigma_dot_i = 0.0;
@@ -9664,6 +9663,7 @@ FiniteElement::explicitSolve()
 
     // It's the minimum _slab_ thickness times ice density
     double const min_m = physical::rhoi*vm["dynamics.min_h"].as<double>();
+    const double min_c = vm["dynamics.min_c"].as<double>();
 
 #ifdef OASIS
     bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
@@ -9869,7 +9869,7 @@ FiniteElement::explicitSolve()
 
             case setup::DynamicsType::BBM:
                 for (int cpt=0; cpt < M_num_elements; ++cpt)
-                    this->updateSigmaCoefs(cpt, dte, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+                    this->updateSigmaCoefs(cpt, dte, min_c, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
                 this->updateDamage(dte, M_disc_scheme, M_td_type, true);
                 break;
