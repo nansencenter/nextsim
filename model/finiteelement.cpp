@@ -9577,7 +9577,7 @@ FiniteElement::initStateVector()
     {
         // Read the grid in from file
         GridOutput::Grid grid( Environment::vm()["statevector.grid_file"].as<std::string>(),
-                Environment::vm()["statevector.grid_latitute"].as<std::string>(),
+                Environment::vm()["statevector.grid_latitude"].as<std::string>(),
                 Environment::vm()["statevector.grid_longitude"].as<std::string>(),
                 Environment::vm()["statevector.grid_transpose"].as<bool>() );
 
@@ -9776,7 +9776,7 @@ FiniteElement::exportStateVector(bool const& at_init_time)
         }
 
         // - interpolate to the grid and write them to the netcdf file 
-     //   this->stateVectorAppendNetcdf(M_current_time); it is included in updateStateVector；
+     //   this->stateVectorAppendNetcdf(M_current_time); remove, since it is included in updateStateVector；
      }
 }//exportStateVector
 
@@ -9785,7 +9785,7 @@ FiniteElement::readStateVector()
 {
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-    
+
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
 //    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
 

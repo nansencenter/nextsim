@@ -5509,12 +5509,12 @@ DataSet::DataSet(char const *DatasetName)
     {   // structure is similar to ice_amsr2_elements
         // Definition of topaz grid and datasets
         Dimension dimension_x={
-            name:"y",    // this setting works!   dimension_x <-> y, while dimension_y <-> x
+            name:"x",    
             cyclic:false
         };
 
         Dimension dimension_y={
-            name:"x",
+            name:"y",
             cyclic:false
         };
 
@@ -9551,12 +9551,12 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-	netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-	netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+	    netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+	    netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
     	std::vector<double> X(grid_ptr->dimension_x_count);
-	std::vector<double> Y(grid_ptr->dimension_y_count);
+	    std::vector<double> Y(grid_ptr->dimension_y_count);
 
         this->getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
         // Get the proc specific boundaries
