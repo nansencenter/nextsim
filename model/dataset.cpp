@@ -1512,7 +1512,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            // wrong projection but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
@@ -1718,8 +1719,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection but same central lon so OK for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2691,8 +2691,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2927,8 +2926,7 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                // for determining rotation angle for vectors
-                mpp_file: "NpsNextsim.mpp",
+                mpp_file: "",//only used for vectors if FromMeshToMesh2dx
                 interpolation_in_latlon: false,
 
                 loaded: false,
@@ -3111,8 +3109,7 @@ DataSet::DataSet(char const *DatasetName)
               dimension_x: dimension_x,
               dimension_y: dimension_y,
 
-              // for determining rotation angle for vectors
-              mpp_file: "NpsNextsim.mpp",
+              mpp_file: "",//only used for vectors if FromMeshToMesh2dx
               interpolation_in_latlon: false,
 
               loaded: false,
@@ -3331,7 +3328,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // for determining rotation angle for vectors
+            // for determining rotation angle for vectors with FromMeshToMesh2dx
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
@@ -3497,7 +3494,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // for determining rotation angle for vectors
+            // for determining rotation angle for vectors with FromMeshToMesh2dx
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
@@ -3613,8 +3610,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3727,8 +3723,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3918,7 +3913,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection but same central lon so OK for determining rotation angle for vectors
+            // wrong projection but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
@@ -4176,8 +4172,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection but same central lon so OK for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4373,8 +4368,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection but same central lon so OK for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4556,8 +4550,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
-            mpp_file: "NpsNextsim.mpp",
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4743,7 +4736,8 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
+                // wrong projection but same central lon so OK for determining
+                // rotation angle for vectors with FromMeshToMesh2dx
                 mpp_file: "NpsNextsim.mpp",
                 interpolation_in_latlon: false,
 
@@ -9159,7 +9153,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            // wrong projection (?) but same central lon so OK for determining rotation angle for vectors
+            // wrong mppfile but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
             mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
