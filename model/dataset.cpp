@@ -8473,7 +8473,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Vectorial_Variable uv={
             components_Id: uv_tmp,
-            east_west_oriented: true
+            east_west_oriented: false
         };
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
