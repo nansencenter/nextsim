@@ -10706,11 +10706,11 @@ DataSet::convertTargetXY(Grid *grid_ptr,
 
     RX_out = RX_in;
     RY_out = RY_in;
+    double lat, lon;
 
     if(grid_ptr->interpolation_in_latlon)
     {
         LOG(DEBUG) << "Transforming target points to lon, lat for interpolation\n";
-        double lat, lon;
         for (int i=0; i<target_size; ++i)
         {
             //convert to lon,lat
@@ -10726,8 +10726,8 @@ DataSet::convertTargetXY(Grid *grid_ptr,
         return;
     }
     // If we are here the data is in stereographic projection,
-    // but if we are using FromMeshToMesh2dx then we are working in the nextsim
-    // projection
+    // but if we are using FromMeshToMesh2dx then we are already working
+    // in the nextsim projection
     // Also nothing to do if we are using the nextsim projection already
     if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh
             || grid_ptr->mpp_file != mppfile_nextsim)
@@ -10746,15 +10746,12 @@ DataSet::convertTargetXY(Grid *grid_ptr,
     std::vector<char> cpath(fpath.begin(), fpath.end());
     cpath.push_back('\0');
     mapData = init_mapx(&cpath[0]);
-    double lat, lon, x, y;
     for (int i=0; i<target_size; ++i)
     {
         //convert to lon,lat
         inverse_mapx(mapNextsim, RX_in[i], RY_in[i], &lat, &lon);
         //convert to new x,y
-        forward_mapx(mapData, lat, lon, &x, &y);
-        RX_out[i] = x;
-        RY_out[i] = y;
+        forward_mapx(mapData, lat, lon, &RX_out[i], &RY_out[i]);
     }
     close_mapx(mapData);
 }//convertTargetXY
