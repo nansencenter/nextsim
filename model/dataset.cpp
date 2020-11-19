@@ -10709,6 +10709,7 @@ DataSet::convertTargetXY(Grid *grid_ptr,
 
     if(grid_ptr->interpolation_in_latlon)
     {
+        LOG(DEBUG) << "Transforming target points to lon, lat for interpolation\n";
         double lat, lon;
         for (int i=0; i<target_size; ++i)
         {
@@ -10727,10 +10728,15 @@ DataSet::convertTargetXY(Grid *grid_ptr,
     // If we are here the data is in stereographic projection,
     // but if we are using FromMeshToMesh2dx then we are working in the nextsim
     // projection
-    if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh) return;
-    // Also nothing to do if we are using the nextsim projection
-    if (grid_ptr->mpp_file != mppfile_nextsim) return;
+    // Also nothing to do if we are using the nextsim projection already
+    if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh
+            || grid_ptr->mpp_file != mppfile_nextsim)
+    {
+        LOG(DEBUG) << "Not transforming target points before interpolation\n";
+        return;
+    }
 
+    LOG(DEBUG) << "Transforming target points to stereographic projection of data for interpolation\n";
     // transform between different stereographic projections
     mapx_class *mapData;
     std::string fpath = (boost::format( "%1%/%2%" )

@@ -203,7 +203,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     std::vector<char> str(configfile.begin(), configfile.end());
                     str.push_back('\0');
                     map = init_mapx(&str[0]);
-                    M_dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+                    M_dataset->rotation_angle = (mapNextsim->rotation-map->rotation)*PI/180.;
 
                     close_mapx(map);
                 }
@@ -542,7 +542,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
-        dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+        dataset->rotation_angle = (mapNextsim->rotation - map->rotation)*PI/180.;
 
         close_mapx(map);
     }
@@ -1030,9 +1030,9 @@ ExternalData::transformData(Dataset *dataset)
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
 
-    double cos_m_diff_angle, sin_m_diff_angle;
-    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
-    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
+    double cos_rot_angle, sin_rot_angle;
+    cos_rot_angle = std::cos(dataset->rotation_angle);
+    sin_rot_angle = std::sin(dataset->rotation_angle);
 
     // size of the data
     int M        = dataset->grid.dimension_y_count;
@@ -1310,15 +1310,15 @@ ExternalData::transformData(Dataset *dataset)
 
             if(dataset->rotation_angle!=0.)
             {
-                // rotate using cos_m_diff_angle and sin_m_diff_angle
+                // rotate using cos_rot_angle and sin_rot_angle
                 // - if dataset & nextsim use different stereographic projections
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
                     tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
-                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+                    new_tmp_data0= cos_rot_angle*tmp_data0+sin_rot_angle*tmp_data1;
+                    new_tmp_data1=-sin_rot_angle*tmp_data0+cos_rot_angle*tmp_data1;
 
                     dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
@@ -1327,18 +1327,18 @@ ExternalData::transformData(Dataset *dataset)
 #ifdef OASIS
             else if(dataset->grid.gridded_rotation_angle)
             {
-                double rotation_angle = mapNextsim->rotation*PI/180.;
+                double lonc = mapNextsim->rotation*PI/180.;
                 // rotate using the rotation angle "Theta" read from the grid file
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
                     tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
-                    cos_m_diff_angle=std::cos(rotation_angle - dataset->grid.gridTheta[i]);
-                    sin_m_diff_angle=std::sin(rotation_angle - dataset->grid.gridTheta[i]);
+                    cos_rot_angle=std::cos(lonc - dataset->grid.gridTheta[i]);
+                    sin_rot_angle=std::sin(lonc - dataset->grid.gridTheta[i]);
 
-                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+                    new_tmp_data0= cos_rot_angle*tmp_data0+sin_rot_angle*tmp_data1;
+                    new_tmp_data1=-sin_rot_angle*tmp_data0+cos_rot_angle*tmp_data1;
 
                     dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
