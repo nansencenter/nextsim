@@ -8126,8 +8126,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            //for determining vector rotation angle
-            mpp_file: "NpsWRF.mpp",
+            mpp_file: "",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -8384,7 +8383,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            //for determining vector rotation angle
+            //for determining vector rotation angle with FromMeshToMesh2dx
             mpp_file: "NpsWRF.mpp",
             interpolation_in_latlon: false,
 
