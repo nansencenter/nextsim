@@ -8126,7 +8126,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: "",
+            mpp_file: "",// only needed for vectors with FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
