@@ -4119,7 +4119,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
 {
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
 
     // Plastic failure
     double dcrit;
@@ -4133,6 +4133,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     }
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
@@ -4145,10 +4146,16 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    // Concentration limit
+    /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
+     * already in use in another place so we need to check first what effect
+     * changing the default of min_c from 0.01 to 0.1 would have there */
+    const double min_c = 0.1;
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
+        if ( M_conc[cpt] <= min_c )
         {
             for(int i=0;i<3;i++)
             {
@@ -4159,6 +4166,10 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
             M_damage[cpt] = 0.;
             M_divergence[cpt] = 0.;
             D_dcrit[cpt] = 0.;
+
+            if (update_sigma)
+                for ( int i=0; i<3; ++i )
+                    M_sigma[i][cpt] = 0.;
             continue;
         }
 
@@ -4325,7 +4336,8 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
+        M_damage[cpt] = std::max( 0., M_damage[cpt]
+                - dt/M_time_relaxation_damage[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
 
     }//loop over elements
 }//updateDamage
@@ -5838,7 +5850,6 @@ FiniteElement::thermo(int dt)
         //    old_vol=0.;
         if ( M_thick[i] > old_vol )
         {
-            M_damage[i] = M_damage[i]*old_vol/M_thick[i];
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
@@ -13276,8 +13287,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->gatherNodalField(M_wind.getVector(),M_wind_root);
 
     std::vector<double> M_UM_root;
-    if (apply_displacement)
-        this->gatherNodalField(M_UM, M_UM_root);
+    this->gatherNodalField(M_UM, M_UM_root);
 
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
@@ -13668,6 +13678,8 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                     << val << " > " << max << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
 
             // check if it is too low for common sense
@@ -13676,6 +13688,17 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
                     << val << " < " << min << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
+            }
+
+            // check for NaN
+            if( std::isnan(val) )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " contains a NaN\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
         }
     }
@@ -13683,18 +13706,30 @@ FiniteElement::checkFieldsFast()
     // Check the velocity
     for ( int i=0; i<M_num_nodes; i++ )
     {
+        // Too high
         if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
         {
             crash = true;
             crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
                 << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
+        }
+
+        // check for NaN
+        if ( std::isnan(M_VT[i]+M_VT[i+M_num_nodes]) )
+        {
+            crash = true;
+            crash_msg << "[" <<M_rank << "] ice velocity contains a NaN\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
         }
     }
 
     // Export everything and crash
     if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
     {
-        this->exportResults("crash", true, true, true);
+        this->exportResults("crash", true, true, false);
         this->writeRestart("crash");
 
         M_comm.barrier();
