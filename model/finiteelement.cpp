@@ -769,6 +769,12 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
+        case setup::AtmosphereType::WRF:
+            M_atmosphere_nodes_dataset=DataSet("wrf_nodes");
+            M_atmosphere_elements_dataset=DataSet("wrf_elements");
+            break;
+
+
         default:
             std::cout << "invalid atmospheric forcing"<<"\n";throw std::logic_error("invalid atmospheric forcing");
     }
@@ -1270,7 +1276,8 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME)
-        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
+        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE)
+        ("wrf", setup::AtmosphereType::WRF);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1288,7 +1295,9 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
         case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::WRF:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
@@ -4119,7 +4128,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
 {
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow(1.-damage_tmp,exponent_relaxation_sigma-1.);
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
 
     // Plastic failure
     double dcrit;
@@ -4133,6 +4142,7 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     }
 
     D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
     D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
@@ -4145,10 +4155,16 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
+    // Concentration limit
+    /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
+     * already in use in another place so we need to check first what effect
+     * changing the default of min_c from 0.01 to 0.1 would have there */
+    const double min_c = 0.1;
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] == 0. )
+        if ( M_conc[cpt] <= min_c )
         {
             for(int i=0;i<3;i++)
             {
@@ -4159,6 +4175,10 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
             M_damage[cpt] = 0.;
             M_divergence[cpt] = 0.;
             D_dcrit[cpt] = 0.;
+
+            if (update_sigma)
+                for ( int i=0; i<3; ++i )
+                    M_sigma[i][cpt] = 0.;
             continue;
         }
 
@@ -4325,7 +4345,8 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
          * otherwise, it will never heal completely.
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
-        M_damage[cpt] = std::max(0., M_damage[cpt]-dt/M_time_relaxation_damage[cpt]);
+        M_damage[cpt] = std::max( 0., M_damage[cpt]
+                - dt/M_time_relaxation_damage[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
 
     }//loop over elements
 }//updateDamage
@@ -5838,7 +5859,6 @@ FiniteElement::thermo(int dt)
         //    old_vol=0.;
         if ( M_thick[i] > old_vol )
         {
-            M_damage[i] = M_damage[i]*old_vol/M_thick[i];
             M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
         }
 
@@ -6566,8 +6586,9 @@ FiniteElement::init()
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
     t_damage = M_res_root_mesh*1.3429*std::pow(young/(2.0*(1.0+nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
-    if (dtime_step/t_damage > 10.0)
-        LOG(WARNING) << "For best deformation scaling results, the ratio simul.timestep/t_damage should be < 10. (Currently it is " << dtime_step/t_damage << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
+    double const diag_ratio = dtime_step/(t_damage*vm["dynamics.substeps"].as<int>());
+    if (diag_ratio > 10.0)
+        LOG(WARNING) << "For best deformation scaling results, the ratio of the dynamic time step to t_damage should be < 10. (Currently it is " << diag_ratio << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
 
     if ( M_use_restart )
     {
@@ -10189,6 +10210,21 @@ FiniteElement::forcingAtmosphere()
                     time_init, 0, 0, M_ensemble_member);
         break;
 
+        case setup::AtmosphereType::WRF:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
+
         default:
             std::cout << "invalid atmospheric forcing"<<"\n";
             throw std::logic_error("invalid atmospheric forcing");
@@ -13276,8 +13312,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->gatherNodalField(M_wind.getVector(),M_wind_root);
 
     std::vector<double> M_UM_root;
-    if (apply_displacement)
-        this->gatherNodalField(M_UM, M_UM_root);
+    this->gatherNodalField(M_UM, M_UM_root);
 
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
@@ -13668,6 +13703,8 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                     << val << " > " << max << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
 
             // check if it is too low for common sense
@@ -13676,6 +13713,17 @@ FiniteElement::checkFieldsFast()
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is lower than it should be: "
                     << val << " < " << min << "\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
+            }
+
+            // check for NaN
+            if( std::isnan(val) )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " contains a NaN\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
             }
         }
     }
@@ -13683,18 +13731,30 @@ FiniteElement::checkFieldsFast()
     // Check the velocity
     for ( int i=0; i<M_num_nodes; i++ )
     {
+        // Too high
         if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
         {
             crash = true;
             crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
                 << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
+        }
+
+        // check for NaN
+        if ( std::isnan(M_VT[i]+M_VT[i+M_num_nodes]) )
+        {
+            crash = true;
+            crash_msg << "[" <<M_rank << "] ice velocity contains a NaN\n";
+            crash_msg << " ... skipping further tests.\n";
+            break;
         }
     }
 
     // Export everything and crash
     if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
     {
-        this->exportResults("crash", true, true, true);
+        this->exportResults("crash", true, true, false);
         this->writeRestart("crash");
 
         M_comm.barrier();

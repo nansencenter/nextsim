@@ -198,7 +198,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     std::vector<char> str(configfile.begin(), configfile.end());
                     str.push_back('\0');
                     map = init_mapx(&str[0]);
-                    M_dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+                    M_dataset->rotation_angle = (mapNextsim->rotation-map->rotation)*PI/180.;
 
                     close_mapx(map);
                 }
@@ -545,9 +545,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<char> str(configfile.begin(), configfile.end());
         str.push_back('\0');
         map = init_mapx(&str[0]);
-        dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
+        dataset->rotation_angle = (mapNextsim->rotation - map->rotation)*PI/180.;
         close_mapx(map);
     }
+    LOG(DEBUG) << "rotation_angle = " << M_dataset->rotation_angle << "\n";
 
     // ---------------------------------
     // Load grid if unloaded (only need init_time)
@@ -626,11 +627,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             for(int k=0; k<ndims; ++k)
             {
                 std::string const dimension_name=dataset->variables[j].dimensions[k].name;
-                std::string const dn_lower=boost::algorithm::to_lower_copy(dimension_name);
-                bool is_time = false;
-                if(dn_lower.size()>=4)
-                    // so far we have time, Time, time0 so this should work
-                    is_time = dn_lower.substr(0, 4) == "time";
+                // We assume the time dimension is unlimited (and the only unlimited dimension)
+                bool const is_time = dataFile.getDim(dimension_name).isUnlimited();
 
                 // dimension_x case
                 if ((dimension_name).find(dataset->grid.dimension_x.name) != std::string::npos)
@@ -766,9 +764,9 @@ ExternalData::transformData(Dataset *dataset)
     strNextsim.push_back('\0');
     mapNextsim = init_mapx(&strNextsim[0]);
 
-    double cos_m_diff_angle, sin_m_diff_angle;
-    cos_m_diff_angle=std::cos(-dataset->rotation_angle);
-    sin_m_diff_angle=std::sin(-dataset->rotation_angle);
+    double cos_rot_angle, sin_rot_angle;
+    cos_rot_angle = std::cos(dataset->rotation_angle);
+    sin_rot_angle = std::sin(dataset->rotation_angle);
 
     // size of the data
     int M        = dataset->grid.dimension_y_count;
@@ -1046,15 +1044,15 @@ ExternalData::transformData(Dataset *dataset)
 
             if(dataset->rotation_angle!=0.)
             {
-                // rotate using cos_m_diff_angle and sin_m_diff_angle
+                // rotate using cos_rot_angle and sin_rot_angle
                 // - if dataset & nextsim use different stereographic projections
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
                     tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
-                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+                    new_tmp_data0= cos_rot_angle*tmp_data0+sin_rot_angle*tmp_data1;
+                    new_tmp_data1=-sin_rot_angle*tmp_data0+cos_rot_angle*tmp_data1;
 
                     dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
@@ -1063,18 +1061,18 @@ ExternalData::transformData(Dataset *dataset)
 #ifdef OASIS
             else if(dataset->grid.gridded_rotation_angle)
             {
-                double rotation_angle = mapNextsim->rotation*PI/180.;
+                double lonc = mapNextsim->rotation*PI/180.;
                 // rotate using the rotation angle "Theta" read from the grid file
                 for (int i=0; i<final_MN; ++i)
                 {
                     tmp_data0=dataset->variables[j0].loaded_data[fstep][i];
                     tmp_data1=dataset->variables[j1].loaded_data[fstep][i];
 
-                    cos_m_diff_angle=std::cos(rotation_angle - dataset->grid.gridTheta[i]);
-                    sin_m_diff_angle=std::sin(rotation_angle - dataset->grid.gridTheta[i]);
+                    cos_rot_angle=std::cos(lonc - dataset->grid.gridTheta[i]);
+                    sin_rot_angle=std::sin(lonc - dataset->grid.gridTheta[i]);
 
-                    new_tmp_data0= cos_m_diff_angle*tmp_data0+sin_m_diff_angle*tmp_data1;
-                    new_tmp_data1=-sin_m_diff_angle*tmp_data0+cos_m_diff_angle*tmp_data1;
+                    new_tmp_data0= cos_rot_angle*tmp_data0+sin_rot_angle*tmp_data1;
+                    new_tmp_data1=-sin_rot_angle*tmp_data0+cos_rot_angle*tmp_data1;
 
                     dataset->variables[j0].loaded_data[fstep][i]= new_tmp_data0;
                     dataset->variables[j1].loaded_data[fstep][i]= new_tmp_data1;
@@ -1188,38 +1186,13 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
     // (either the lat,lon projection or a polar stereographic projection with another rotaion angle (for ASR))
     // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
 
-    // Define the mapping and rotation_angle
+    // Define the mapping
 	mapx_class *mapNextsim;
 	std::string configfileNextsim = Environment::nextsimMppfile();
 	std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
 	strNextsim.push_back('\0');
 	mapNextsim = init_mapx(&strNextsim[0]);
 
-#if 0
-    auto RX = mesh.coordX(dataset->rotation_angle);
-    auto RY = mesh.coordY(dataset->rotation_angle);
-
-    if(dataset->target_size==mesh.numTriangles())
-    {
-    	RX = mesh.bCoordX(dataset->rotation_angle);
-        RY = mesh.bCoordY(dataset->rotation_angle);
-    }
-
-	if(dataset->grid.interpolation_in_latlon)
-	{
-		double lat, lon;
-
-		for (int i=0; i<dataset->target_size; ++i)
-		{
-			inverse_mapx(mapNextsim,RX[i],RY[i],&lat,&lon);
-			RY[i]=lat;
-			RX[i]=lon;
-			//tmp_latlon = XY2latLon(RX[i], RY[i], map, configfile);
-			//RY[i]=tmp_latlon[0];
-			//RX[i]=tmp_latlon[1];
-		}
-	}
-#endif
     std::vector<double> RX,RY;//size set in convertTargetXY;
     dataset->convertTargetXY(&(dataset->grid), RX_in, RY_in, RX, RY,mapNextsim);
 

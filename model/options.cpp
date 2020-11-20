@@ -118,6 +118,7 @@ namespace Nextsim
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
             ("setup.thermo-type", po::value<std::string>()->default_value( "winton" ), "which thermodynamics model")
+            ("setup.atmosphere-resolution", po::value<std::string>()->default_value( "10" ), "spatial resolution of atmospheric forcing in km (for WRF filename)")
 
             // mesh
             // -- input
