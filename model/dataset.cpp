@@ -10730,7 +10730,7 @@ DataSet::convertTargetXY(Grid *grid_ptr,
     // in the nextsim projection
     // Also nothing to do if we are using the nextsim projection already
     if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh
-            || grid_ptr->mpp_file != mppfile_nextsim)
+            || grid_ptr->mpp_file == mppfile_nextsim)
     {
         LOG(DEBUG) << "Not transforming target points before interpolation\n";
         return;
