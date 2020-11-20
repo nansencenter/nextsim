@@ -2036,7 +2036,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable mld={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "I_MLD",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -8061,7 +8061,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[2] = dimension_x;        
 
         Variable latitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // Not used for lon,lat,time
             name: "XLAT",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -8079,7 +8079,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable longitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // Not used for lon,lat,time
             name: "XLONG",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -8129,7 +8129,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_time[0] = dimension_time;
 
         Variable time_tmp={
-            filename_string: "Q2",
+            filename_string: "", // not used for lon, lat, time
             name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
@@ -8319,7 +8319,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_latlon[1] = dimension_x; 
 
         Variable latitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // not used for lon, lat, time
             name: "XLAT",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -8336,7 +8336,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Variable longitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // not used for lon, lat, time
             name: "XLONG",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
@@ -8392,7 +8392,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[2] = dimension_x;
 
         Variable time_tmp={
-            filename_prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
+            filename_string: "", // not used for lon, lat, time
             name: "XTIME",
             dimensions: dimensions_time,
             land_mask_defined: false,
