@@ -9479,13 +9479,13 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
     // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-    grid_ptr->dimension_y_count_netcdf  =  tmpDim.getSize();
-    grid_ptr->dimension_y_count  = grid_ptr->dimension_y_count_netcdf;
+    grid_ptr->dimension_y_count_netcdf =  tmpDim.getSize();
+    grid_ptr->dimension_y_count = grid_ptr->dimension_y_count_netcdf;
     grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
 	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
-    grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
+    grid_ptr->dimension_x_count = grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
     if(grid_ptr->interpolation_in_latlon)

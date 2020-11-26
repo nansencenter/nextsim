@@ -9832,58 +9832,77 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
             std::string filename_root;
             if(import_or_export)
             {
-                int i;                
-                // dimensional forcing fields
-                // todo M_id_statevector is unknow,  only output from master processor
-                filename_root = M_export_path + "/synforc_" + M_id_statevector;
-                ifstream iofile(filename_root); //ios::out | ios::binary
-                i=0;
-                while( ! iofile.eof() ) {    
-                    iofile>> dataset->synforc[i];
-                    i++;
-                }
-                iofile.close();       
+                // int i;                
+                // // dimensional forcing fields
+                // // todo M_id_statevector is unknow,  only output from master processor
+                // filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // ifstream iofile(filename_root); //ios::out | ios::binary
+                // i=0;
+                // while( ! iofile.eof() ) {    
+                //     iofile>> dataset->synforc[i];
+                //     i++;
+                // }
+                // iofile.close();       
                 
-                // nondimensional forcing fields
-                filename_root = M_export_path + "/randfld_" + M_id_statevector;
-                ifstream iofile2(filename_root); 
-                i=0;         
-                while( ! iofile2.eof() ) {    
-                    iofile2>> dataset->randfld[i];
-                    i++;
-                }
-                iofile2.close();
-                
+                // // nondimensional forcing fields
+                // filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                // ifstream iofile2(filename_root); 
+                // i=0;         
+                // while( ! iofile2.eof() ) {    
+                //     iofile2>> dataset->randfld[i];
+                //     i++;
+                // }
+                // iofile2.close();
+
+                // Create the netCDF file.
+                filename_root = M_export_path + "/WindPerturbation_" + M_id_statevector +".nc";
+                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
+                netCDF::NcVar data;
+                netCDF::NcDim dim;
+                int index,count;
+                LOG(DEBUG)<<"%%% read windperturbation.nc\n";
+                // load data
+                data = dataFile.getVar("synforc");
+                dim  = dataFile.getDim("synforc");
+                index = 0; 
+                count = int(dim.getSize());
+                data.getVar(&dataset->synforc[0]);
+                LOG(DEBUG)<<dataset->synforc[10000]<<"\n";
+                // load data
+                data = dataFile.getVar("randfld");
+                dim  = dataFile.getDim("randfld");
+                index = 0; 
+                count = int(dim.getSize());
+                data.getVar(&dataset->randfld[0]);
+                LOG(DEBUG)<<dataset->randfld[100000]<<"\n";
             }
             else
             {   
-                filename_root = M_export_path + "/synforc_" + M_id_statevector;
-                // dimensional forcing fields
-                ofstream iofile(filename_root);
-                for(int i = 0; i < dataset->synforc.size(); i++)
-                {    iofile<< dataset->synforc[i]<<"\n";}
-                iofile.close();       
+                // filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // // dimensional forcing fields
+                // ofstream iofile(filename_root);
+                // for(int i = 0; i < dataset->synforc.size(); i++)
+                // {    iofile<< dataset->synforc[i]<<"\n";}
+                // iofile.close();       
                 
-                // nondimensional forcing fields
-                filename_root = M_export_path + "/randfld_" + M_id_statevector;
-                ofstream iofile2(filename_root);          
-                for(int i = 0; i < dataset->randfld.size(); i++) 
-                {    iofile2<< dataset->randfld[i]<<"\n";}
-                iofile2.close();   
+                // // nondimensional forcing fields
+                // filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                // ofstream iofile2(filename_root);          
+                // for(int i = 0; i < dataset->randfld.size(); i++) 
+                // {    iofile2<< dataset->randfld[i]<<"\n";}
+                // iofile2.close();   
 
                 // // see GridOutput::appendNetCDF()
                 // Create the netCDF file.
-                
-                // Open the netCDF file
                 filename_root = M_export_path + "/WindPerturbation_" + M_id_statevector +".nc";
-                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::write);
+                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
                 // Create the data dimension
-                netCDF::NcDim dim1 = dataFile.addDim("synforc"); 
-                netCDF::NcDim dim2 = dataFile.addDim("randfld"); 
+                netCDF::NcDim dim_synforc = dataFile.addDim("synforc",dataset->synforc.size()); 
+                netCDF::NcDim dim_randfld = dataFile.addDim("randfld",dataset->randfld.size()); 
                 // Save to file
-                netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim1);
+                netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
                 synforc.putVar(&dataset->synforc[0]);
-                netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim2);
+                netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
                 randfld.putVar(&dataset->randfld[0]);
             }           
         }
