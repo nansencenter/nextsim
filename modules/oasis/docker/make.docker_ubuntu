@@ -10,10 +10,10 @@ CHAN            = MPI1
 # Paths for libraries, object files and binaries
 #
 # COUPLE	: path for oasis3-mct main directory
-COUPLE          = /docker_io/oasis3-mct
+COUPLE          = /tmp/oasis3-mct
 #
 # ARCHDIR       : directory created when compiling
-ARCHDIR         = $(COUPLE)/../compile_oa3-mct
+ARCHDIR         = $(OASIS_DIR)
 #
 # MPI library
 MPIDIR      = /usr
