@@ -16,6 +16,8 @@
 #include <exporter.hpp>
 #include <redistribute.hpp>
 #include <numeric>
+#include <iostream>
+#include <fstream>
 
 #define GMSH_EXECUTABLE gmsh
 
@@ -7281,7 +7283,8 @@ FiniteElement::init()
     }
     if (M_restart_from_analysis){
         LOG(DEBUG) <<"readStateVector\n";
-        this->readStateVector();       
+        this->readStateVector();  
+        this->import_export_WindPerturbations(true);     
     }
 #endif
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
@@ -8636,8 +8639,10 @@ FiniteElement::run()
         this->writeRestart("final");
 #ifdef ENSEMBLE
     if (M_use_statevector)
+    {
         this->exportStateVector(false);
-//    this->exportWindPerturbations(&M_wind);
+        this->import_export_WindPerturbations(false);
+    }
 #endif
 
     // **********************************************************************
@@ -9774,9 +9779,6 @@ FiniteElement::exportStateVector(bool const& at_init_time)
             this->updateMeans(M_statevector, 1.);
 
         }
-
-        // - interpolate to the grid and write them to the netcdf file 
-     //   this->stateVectorAppendNetcdf(M_current_time); remove, since it is included in updateStateVector；
      }
 }//exportStateVector
 
@@ -9815,29 +9817,78 @@ FiniteElement::readStateVector()
 
 }//readStateVector
 
-// void
-// FiniteElement::exportWindPerturbations(Dataset *M_wind)
-// {
-//     // include < fstream.h>
-//     // export dimensional and nondimensional stochastic forcing of wind fields for restart 
-//     int MN_full = M_wind->synforc.size()/2;
-//     // // dimensional forcing fields
-//     // ofstream fout("synforc.01");
-//     // for(int i = 0; i < MN_full; i++) {
-//     //     for(int j = 0; j < 6; j++){
-//     //         fout<< M_wind->synforc[i]<<"    "<<M_wind->synforc[j*MN_full+i];
-//     //     }
-//     //     fout<<"\n";    
-//     // }    
-//     ofstream fout("randfld.01");
-//     // nondimensional forcing fields
-//     for(int i = 0; i < MN_full; i++) {
-//         for(int j = 0; j < 10; j++) {  //output 10 variables
-//             fout<< M_wind->randfld[j*MN_full+i]<<"    ";
-//         }
-//         fout<<"\n";
-//     }
-// }//exportWindPerturbations
+void
+FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
+{
+    // export dimensional and nondimensional stochastic forcing of wind fields for restart 
+    // Import_or_export =TRUE: import data from file;  False: export data to file
+    if (M_comm.rank() > 0) return;
+    for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
+    {
+        if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)
+        {   
+            Dataset *dataset;
+            dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp        
+            std::string filename_root;
+            if(import_or_export)
+            {
+                int i;                
+                // dimensional forcing fields
+                // todo M_id_statevector is unknow,  only output from master processor
+                filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                ifstream iofile(filename_root); //ios::out | ios::binary
+                i=0;
+                while( ! iofile.eof() ) {    
+                    iofile>> dataset->synforc[i];
+                    i++;
+                }
+                iofile.close();       
+                
+                // nondimensional forcing fields
+                filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                ifstream iofile2(filename_root); 
+                i=0;         
+                while( ! iofile2.eof() ) {    
+                    iofile2>> dataset->randfld[i];
+                    i++;
+                }
+                iofile2.close();
+                
+            }
+            else
+            {   
+                filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // dimensional forcing fields
+                ofstream iofile(filename_root);
+                for(int i = 0; i < dataset->synforc.size(); i++)
+                {    iofile<< dataset->synforc[i]<<"\n";}
+                iofile.close();       
+                
+                // nondimensional forcing fields
+                filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                ofstream iofile2(filename_root);          
+                for(int i = 0; i < dataset->randfld.size(); i++) 
+                {    iofile2<< dataset->randfld[i]<<"\n";}
+                iofile2.close();   
+
+                // // see GridOutput::appendNetCDF()
+                // Create the netCDF file.
+                
+                // Open the netCDF file
+                filename_root = M_export_path + "/WindPerturbation_" + M_id_statevector +".nc";
+                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::write);
+                // Create the data dimension
+                netCDF::NcDim dim1 = dataFile.addDim("synforc"); 
+                netCDF::NcDim dim2 = dataFile.addDim("randfld"); 
+                // Save to file
+                netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim1);
+                synforc.putVar(&dataset->synforc[0]);
+                netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim2);
+                randfld.putVar(&dataset->randfld[0]);
+            }           
+        }
+    }
+}//import_export_WindPerturbations
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
@@ -11391,7 +11442,7 @@ FiniteElement::forcingAtmosphere()
     if(!M_wind.isInitialized())
         throw std::logic_error("M_wind is not initialised");
 
-    int i = M_external_data_elements.size();
+    int i = M_external_data_elements.size();  //todo: delete this line
     M_external_data_elements_names.push_back("M_tair");
     M_external_data_elements.push_back(&M_tair);
     M_external_data_elements_names.push_back("M_mslp");

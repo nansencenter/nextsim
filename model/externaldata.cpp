@@ -268,11 +268,17 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";                             
                                            
-                M_dataset->synforc.resize(2*MN_full);  // synforc saves dimensional perturbation, and randfld saves nondimensional perturbation
+                M_dataset->synforc.resize(2*MN_full);  // synforc/randfld saves dimensional/nondimensional fields
                 M_dataset->randfld.resize(10*MN_full);
                 LOG(DEBUG) << "### Add perturbations to previous wind fields\n";
                 perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
                 if (M_comm.rank() == 0) {                    
+                    // std::cout << "%%%%%%%%%%%%%show previous synforc %%%%%%\n"; 
+                    // for(int i = 0; i < M_dataset->synforc.size(); i++) 
+                    //    std::cout<<M_dataset->synforc[i]<<"   "; 
+                    // std::cout << "%%%%%%%%%%%%%show previous randfld %%%%%%\n"; 
+                    // for(int i = 0; i < M_dataset->randfld.size(); i++) 
+                    //    std::cout<<M_dataset->randfld[i]<<"   "; 
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
                     perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->perturbation_count); 
                     M_dataset->perturbation_count++;

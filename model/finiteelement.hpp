@@ -953,7 +953,7 @@ private:
     void exportStateVector(bool const& init_time);
     void readStateVector();
     
-    void exportWindPerturbations(); // export dimensional and nondimensional stochastic forcing for restart 
+    void import_export_WindPerturbations(bool const& import_or_export); // export dimensional and nondimensional stochastic forcing for restart wind perturbations
 #endif
 };
 } // Nextsim
