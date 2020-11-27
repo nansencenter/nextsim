@@ -8,19 +8,21 @@ RUN apt-get update --fix-missing && apt-get install -y \
 &&  rm -rf /var/lib/apt/lists/* \
 &&  ln -s /usr/bin/make /usr/bin/gmake
 
-ENV OASIS_DIR=/opt/local/oasis3-mct
+ENV OASIS_DIR=/opt/local/oasis3-mct \
+    USE_OASIS=1
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$OASIS_DIR/lib
 
 # get our compilation settings
-COPY modules/oasis/docker /nextsim
+COPY make.inc make.docker_ubuntu /tmp/
 
 # download OASIS
 WORKDIR /tmp
 RUN git clone https://gitlab.com/cerfacs/oasis3-mct.git
 # compile OASIS
 WORKDIR /tmp/oasis3-mct/util/make_dir
-RUN cp /nextsim/make.* . \
+RUN cp /tmp/make.* . \
 &&  ln -s TopMakefileOasis3 Makefile \
 &&  make
 
 WORKDIR $NEXTSIMDIR
-RUN rm -r * /tmp/* $OASIS_DIR/build
+RUN rm -r /tmp/* $OASIS_DIR/build
