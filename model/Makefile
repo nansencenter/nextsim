@@ -17,10 +17,10 @@ endif
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.${CHAN} -lmct -lmpeu -lscrip
+	LDFLAGS += -lgfortran
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
@@ -51,8 +51,8 @@ endif
 # include with -isystem instead of -I to suppress warnings and to not
 # add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
-		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
-		CXXFLAGS += -DAEROBULK
+	CXXFLAGS += -isystem $(AEROBULK_DIR)/include
+	CXXFLAGS += -DAEROBULK
 endif
 
 # openmpi
@@ -118,9 +118,7 @@ LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
-#LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
-#LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
@@ -133,7 +131,6 @@ ifdef USE_AEROBULK
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L /opt/local/lib -lprofiler
