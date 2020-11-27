@@ -25,4 +25,4 @@ RUN cp /tmp/make.* . \
 &&  make
 
 WORKDIR $NEXTSIMDIR
-RUN rm -r /tmp/* $OASIS_DIR/build
+RUN rm -r /tmp/*
