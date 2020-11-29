@@ -1,7 +1,5 @@
 FROM nansencenter/boost_petsc_gmsh:0.0.6
 
-RUN sed -i s@/archive.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list 
-RUN sed -i s@/security.ubuntu.com/@/mirrors.aliyun.com/@g /etc/apt/sources.list 
 RUN apt-get clean \
 &&  apt-get update && apt-get install -yq --no-install-recommends \
     libnetcdf-dev \

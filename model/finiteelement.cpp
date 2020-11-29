@@ -1482,6 +1482,7 @@ FiniteElement::initOptAndParam()
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
     M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
+    M_statevector_restart_path = vm["statevector.restart_path"].as<std::string>(); //! 
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -7283,7 +7284,8 @@ FiniteElement::init()
     }
     if (M_restart_from_analysis){
         LOG(DEBUG) <<"readStateVector\n";
-        this->readStateVector();  
+        this->readStateVector(); 
+         LOG(DEBUG) <<"%%%%% 7287\n";
         this->import_export_WindPerturbations(true);     
     }
 #endif
@@ -8641,6 +8643,7 @@ FiniteElement::run()
     if (M_use_statevector)
     {
         this->exportStateVector(false);
+        std::cout<<"import_8644\n";
         this->import_export_WindPerturbations(false);
     }
 #endif
@@ -9787,17 +9790,18 @@ FiniteElement::readStateVector()
 {
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-
+    LOG(DEBUG)<<"-------9793\n";
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
+    LOG(DEBUG)<<"-------9795\n";
 //    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
 //    external_data_tmp.push_back(&M_analysis_conc);
-
+    LOG(DEBUG)<<"-------9801\n";
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    
+    LOG(DEBUG)<<"-------9804\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 //    external_data_tmp.resize(0);
 
@@ -9812,6 +9816,7 @@ FiniteElement::readStateVector()
 //        M_conc[i]   = (M_analysis_conc[i] >1e-14) ? M_analysis_conc[i] : 0.;
 
         LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
+        LOG(DEBUG)<<"M_num_elements:"<<M_num_elements<<"  "<<i<<"\n";        
 //        LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
     }
 
@@ -9822,20 +9827,25 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
 {
     // export dimensional and nondimensional stochastic forcing of wind fields for restart 
     // Import_or_export =TRUE: import data from file;  False: export data to file
+    LOG(DEBUG)<<"-------------------M_comm.rank() : "<< M_comm.rank() <<"\n";
     if (M_comm.rank() > 0) return;
+    LOG(DEBUG)<<"---after if -------M_comm.rank() : "<< M_comm.rank() <<"\n";
     for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
     {
-        if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)
+        std::cout<<" import_9829\n";
+        if (strcmp((*it)->getVariableName().c_str(), "U10M") == 0)  //"10U"
         {   
+            std::cout<<"import_9832\n";
             Dataset *dataset;
-            dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp        
+            // dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp      
+            std::cout<<"import_9832\n";  
             std::string filename_root;
             if(import_or_export)
             {
                 // int i;                
                 // // dimensional forcing fields
                 // // todo M_id_statevector is unknow,  only output from master processor
-                // filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // filename_root = M_statevector_restart_path + "/synforc_" + M_id_statevector;
                 // ifstream iofile(filename_root); //ios::out | ios::binary
                 // i=0;
                 // while( ! iofile.eof() ) {    
@@ -9845,7 +9855,7 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
                 // iofile.close();       
                 
                 // // nondimensional forcing fields
-                // filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                // filename_root = M_statevector_restart_path + "/randfld_" + M_id_statevector;
                 // ifstream iofile2(filename_root); 
                 // i=0;         
                 // while( ! iofile2.eof() ) {    
@@ -9855,7 +9865,8 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
                 // iofile2.close();
 
                 // Create the netCDF file.
-                filename_root = M_export_path + "/WindPerturbation_" + M_id_statevector +".nc";
+                filename_root = M_statevector_restart_path + "/WindPerturbation_" + M_id_statevector +".nc";
+                std::cout<<filename_root<<"_\n";
                 netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
                 netCDF::NcVar data;
                 netCDF::NcDim dim;
@@ -9878,19 +9889,20 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
             }
             else
             {   
-                // filename_root = M_export_path + "/synforc_" + M_id_statevector;
-                // // dimensional forcing fields
-                // ofstream iofile(filename_root);
-                // for(int i = 0; i < dataset->synforc.size(); i++)
-                // {    iofile<< dataset->synforc[i]<<"\n";}
-                // iofile.close();       
+                std::cout<<"%%%%%% export synforc randfld\n";
+                filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // dimensional forcing fields
+                ofstream iofile(filename_root);
+                for(int i = 0; i < dataset->synforc.size(); i++)
+                {    iofile<< dataset->synforc[i]<<"\n";}
+                iofile.close();       
                 
-                // // nondimensional forcing fields
-                // filename_root = M_export_path + "/randfld_" + M_id_statevector;
-                // ofstream iofile2(filename_root);          
-                // for(int i = 0; i < dataset->randfld.size(); i++) 
-                // {    iofile2<< dataset->randfld[i]<<"\n";}
-                // iofile2.close();   
+                // nondimensional forcing fields
+                filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                ofstream iofile2(filename_root);          
+                for(int i = 0; i < dataset->randfld.size(); i++) 
+                {    iofile2<< dataset->randfld[i]<<"\n";}
+                iofile2.close();   
 
                 // // see GridOutput::appendNetCDF()
                 // Create the netCDF file.

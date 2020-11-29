@@ -534,6 +534,7 @@ namespace Nextsim
 #if defined(ENSEMBLE)
             ("statevector.use_statevector", po::value<bool>()->default_value( false ), "do we use statevector (netcdf output to grid)?")
             ("statevector.restart_from_analysis", po::value<bool>()->default_value( false ), "do we read statevector (netcdf output to grid)?")
+            ("statevector.restart_path", po::value<std::string>()->default_value( "" ), "where to find restart files mem???.nc.analysis")
             ("statevector.id", po::value<std::string>()->default_value( "001" ), "id of ensemble member")//TODO merge with ensemble_member
             ("statevector.grid_type", po::value<std::string>()->default_value( "reference" ), "[reference|regular|from_file] for regular spaced grid or grid read in from the file statevector.grid_file (default: reference)")
             ("statevector.snapshot", po::value<bool>()->default_value( true ), "do we output snapshots in time or do we use time-averaging?")
