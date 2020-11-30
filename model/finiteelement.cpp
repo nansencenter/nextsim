@@ -8643,7 +8643,7 @@ FiniteElement::run()
     if (M_use_statevector)
     {
         this->exportStateVector(false);
-        std::cout<<"import_8644\n";
+        LOG(DEBUG)<<"import_8644\n";
         this->import_export_WindPerturbations(false);
     }
 #endif
@@ -9831,13 +9831,12 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
     LOG(DEBUG)<<"---after if -------M_comm.rank() : "<< M_comm.rank() <<"\n";
     for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
     {
-        std::cout<<" import_9829\n";
+        LOG(DEBUG)<<" import_9829\n";
         if (strcmp((*it)->getVariableName().c_str(), "U10M") == 0)  //"10U"
         {   
-            std::cout<<"import_9832\n";
             Dataset *dataset;
             // dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp      
-            std::cout<<"import_9832\n";  
+            LOG(DEBUG)<<"import_9832\n";  
             std::string filename_root;
             if(import_or_export)
             {
@@ -9865,7 +9864,7 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
 
                 // Create the netCDF file.
                 filename_root = M_statevector_restart_path + "/WindPerturbation_" + M_id_statevector +".nc";
-                std::cout<<filename_root<<"_\n";
+                LOG(DEBUG)<<filename_root<<"\n";
                 netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
                 netCDF::NcVar data;
                 netCDF::NcDim dim;
@@ -9873,22 +9872,25 @@ FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
                 LOG(DEBUG)<<"%%% read windperturbation.nc\n";
                 // load data
                 data = dataFile.getVar("synforc");
-                dim  = dataFile.getDim("synforc");
-                index = 0; 
-                count = int(dim.getSize());
-                data.getVar(&dataset->synforc[0]);
-                LOG(DEBUG)<<dataset->synforc[10000]<<"\n";
-                // load data
-                data = dataFile.getVar("randfld");
-                dim  = dataFile.getDim("randfld");
-                index = 0; 
-                count = int(dim.getSize());
-                data.getVar(&dataset->randfld[0]);
-                LOG(DEBUG)<<dataset->randfld[100000]<<"\n";
+                LOG(DEBUG)<<"%%% 9875\n";
+                std::vector<double> synforc(259200);
+                // dim  = dataFile.getDim("synforc");
+                // index = 0; 
+                // count = int(dim.getSize());
+                data.getVar(0,259200,&synforc[0]);
+                LOG(DEBUG)<<"%%% 9880\n";
+                LOG(DEBUG)<<synforc[10000]<<"\n";
+                // // load data
+                // data = dataFile.getVar("randfld");
+                // dim  = dataFile.getDim("randfld");
+                // index = 0; 
+                // count = int(dim.getSize());
+                // data.getVar(&dataset->randfld[0]);
+                // LOG(DEBUG)<<dataset->randfld[100000]<<"\n";
             }
             else
             {   
-                std::cout<<"%%%%%% export synforc randfld\n";
+                LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
                 filename_root = M_export_path + "/synforc_" + M_id_statevector;
                 // dimensional forcing fields
                 ofstream iofile(filename_root);
