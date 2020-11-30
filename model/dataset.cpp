@@ -5681,9 +5681,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(2);
+        // std::vector<Variable> variables_tmp(2);
+        // variables_tmp[0] = thickness;
+        // variables_tmp[1] = conc;
+        std::vector<Variable> variables_tmp(1);
         variables_tmp[0] = thickness;
-        variables_tmp[1] = conc;
 
         variables= variables_tmp;
         grid= grid_tmp;

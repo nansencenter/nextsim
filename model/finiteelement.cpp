@@ -9780,7 +9780,6 @@ FiniteElement::exportStateVector(bool const& at_init_time)
         {
             // - set the fields on the mesh
             this->updateMeans(M_statevector, 1.);
-
         }
      }
 }//exportStateVector
