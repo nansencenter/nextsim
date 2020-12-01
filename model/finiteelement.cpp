@@ -1478,6 +1478,7 @@ FiniteElement::initOptAndParam()
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
     M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
+    M_statevector_restart_path = vm["statevector.restart_path"].as<std::string>(); //! todo
     M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
@@ -9782,17 +9783,17 @@ FiniteElement::readStateVector()
 {
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-    
+    LOG(DEBUG)<<"-------9787\n";
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
 //    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-
+    LOG(DEBUG)<<"-------9790\n";
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
 //    external_data_tmp.push_back(&M_analysis_conc);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    
+    LOG(DEBUG)<<"-------9797\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 //    external_data_tmp.resize(0);
 
@@ -11364,7 +11365,7 @@ FiniteElement::forcingAtmosphere()
     if(!M_wind.isInitialized())
         throw std::logic_error("M_wind is not initialised");
 
-    int i = M_external_data_elements.size();
+    int i = M_external_data_elements.size(); //todo: delete i, i is not used
     M_external_data_elements_names.push_back("M_tair");
     M_external_data_elements.push_back(&M_tair);
     M_external_data_elements_names.push_back("M_mslp");
