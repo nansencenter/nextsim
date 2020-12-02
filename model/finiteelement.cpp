@@ -9986,7 +9986,14 @@ FiniteElement::writeRestart(std::string const& name_str)
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-
+#ifdef ENSEMBLE
+        // todo, by adding these fields in restart, the code reports error when reading restart files from old files.
+        LOG(DEBUG)<<"9990\n";
+        exporter.writeField(outbin, M_wind.synforc, "synforc");
+        LOG(DEBUG)<<"9992\n";
+        exporter.writeField(outbin, M_wind.randfld, "randfld");
+        LOG(DEBUG)<<"9994\n";
+#endif
         // loop over the elemental variables that have been
         // gathered to elt_values_root
         int const nb_var_element = M_restart_names_elt.size();
@@ -10124,7 +10131,10 @@ FiniteElement::readRestart(std::string const& name_str)
         // read time and misc_int
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
-
+#ifdef ENSEMBLE
+        M_wind.synforc = field_map_dbl["synforc"];
+        M_wind.randfld = field_map_dbl["randfld"];
+#endif
         // Fix boundaries
         M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
@@ -10158,7 +10168,10 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // mesh partitioning
     this->partitionMeshRestart();
-
+#ifdef ENSEMBLE
+    boost::mpi::broadcast(M_comm, &M_wind.synforc[0], M_wind.synforc.size(), 0); 
+    boost::mpi::broadcast(M_comm, &M_wind.randfld[0], M_wind.randfld.size(), 0); 
+#endif
     //set time and counters
     if(M_rank==0)
     {
