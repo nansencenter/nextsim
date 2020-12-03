@@ -16,6 +16,8 @@
 #include <exporter.hpp>
 #include <redistribute.hpp>
 #include <numeric>
+#include <iostream>
+#include <fstream>
 
 #define GMSH_EXECUTABLE gmsh
 
@@ -1478,7 +1480,6 @@ FiniteElement::initOptAndParam()
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
     M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
-    M_statevector_restart_path = vm["statevector.restart_path"].as<std::string>(); //! todo
     M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
@@ -7282,7 +7283,9 @@ FiniteElement::init()
     }
     if (M_restart_from_analysis){
         LOG(DEBUG) <<"readStateVector\n";
-        this->readStateVector();       
+        this->readStateVector();   
+         LOG(DEBUG) <<"%%%%% 7287\n";
+        this->import_export_WindPerturbations(true);       
     }
 #endif
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
@@ -8637,7 +8640,12 @@ FiniteElement::run()
         this->writeRestart("final");
 #ifdef ENSEMBLE
     if (M_use_statevector)
+    {
         this->exportStateVector(false);
+        LOG(DEBUG)<<"import_8644\n";
+        LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size() << "\n";
+        this->import_export_WindPerturbations(false);
+    }
 #endif
 
     // **********************************************************************
@@ -9812,6 +9820,105 @@ FiniteElement::readStateVector()
     }
 
 }//readStateVector
+
+void
+FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
+{
+    // export dimensional and nondimensional stochastic forcing of wind fields for restart 
+    // Import_or_export =TRUE: import data from file;  False: export data to file
+    if (M_comm.rank() > 0) return;
+    
+    LOG(DEBUG)<<"---after if -------M_comm.rank() : "<< M_comm.rank() <<"\n";
+    for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
+    {
+        LOG(DEBUG)<<" import_9829\n";
+        if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
+        {   
+            Dataset *dataset;
+            dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp      
+            LOG(DEBUG)<<"import_9832\n";  
+            std::string filename_root;
+            if(import_or_export)
+            {
+                std::string restart_path = vm["restart.input_path"].as<std::string>();
+                // int i;                
+                // // dimensional forcing fields
+                // // todo M_id_statevector is unknow,  only output from master processor
+                // filename_root = restart_path + "/synforc_" + M_id_statevector;
+                // ifstream iofile(filename_root); //ios::out | ios::binary
+                // i=0;
+                // while( ! iofile.eof() ) {    
+                //     iofile>> dataset->synforc[i];
+                //     i++;
+                // }
+                // iofile.close();       
+                
+                // // nondimensional forcing fields
+                // filename_root = restart_path + "/randfld_" + M_id_statevector;
+                // ifstream iofile2(filename_root); 
+                // i=0;         
+                // while( ! iofile2.eof() ) {    
+                //     iofile2>> dataset->randfld[i];
+                //     i++;
+                // }
+                // iofile2.close();
+
+                // Create the netCDF file.
+                filename_root = restart_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+                LOG(DEBUG)<<filename_root<<"\n";
+                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
+                netCDF::NcVar data;
+                netCDF::NcDim dim;
+                int index,count;
+                LOG(DEBUG)<<"%%% read windperturbation.nc\n";
+                // load data
+                data = dataFile.getVar("synforc");
+                LOG(DEBUG)<<"%%% 9875\n";
+                //std::vector<double> synforc(259200); this vector works to read .nc
+                // data.getVar(&synforc[0]);
+                data.getVar(&M_wind.synforc[0]);
+                LOG(DEBUG)<<"%%% 9879  M_wind.synforc.size()="<<M_wind.synforc.size()<<"\n";
+                if(!M_wind.isInitialized())
+                    throw std::logic_error("M_wind is not initialised");
+                // load data
+                data = dataFile.getVar("randfld");
+                data.getVar(&M_wind.randfld[0]);
+            }
+            else
+            {   
+                LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
+                // filename_root = M_export_path + "/synforc_" + M_id_statevector;
+                // // dimensional forcing fields
+                // ofstream iofile(filename_root);
+                // for(int i = 0; i < M_wind.synforc.size(); i++)
+                // {    iofile<< M_wind.synforc[i]<<"\n";}
+                // iofile.close();       
+                
+                // // nondimensional forcing fields
+                // filename_root = M_export_path + "/randfld_" + M_id_statevector;
+                // ofstream iofile2(filename_root);          
+                // for(int i = 0; i < M_wind.randfld.size(); i++) 
+                // {    iofile2<< M_wind.randfld[i]<<"\n";}
+                // iofile2.close();   
+
+                // // see GridOutput::appendNetCDF()
+                // Create the netCDF file.
+                filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
+                // Create the data dimension
+
+                LOG(DEBUG) <<"import_export 9907  synforc.size(): "<< dataset->synforc.size() << "\n";
+                netCDF::NcDim dim_synforc = dataFile.addDim("synforc",dataset->synforc.size()); 
+                netCDF::NcDim dim_randfld = dataFile.addDim("randfld",dataset->randfld.size()); 
+                // Save to file
+                netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
+                synforc.putVar(&dataset->synforc[0]);
+                netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+                randfld.putVar(&dataset->randfld[0]);
+            }           
+        }
+    }
+}//import_export_WindPerturbations
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
@@ -9986,14 +10093,15 @@ FiniteElement::writeRestart(std::string const& name_str)
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-#ifdef ENSEMBLE
-        // todo, by adding these fields in restart, the code reports error when reading restart files from old files.
-        LOG(DEBUG)<<"9990\n";
-        exporter.writeField(outbin, M_wind.synforc, "synforc");
-        LOG(DEBUG)<<"9992\n";
-        exporter.writeField(outbin, M_wind.randfld, "randfld");
-        LOG(DEBUG)<<"9994\n";
-#endif
+// #ifdef ENSEMBLE
+//         // todo, by adding these fields in restart, the code reports error when reading restart files from old files.
+//         LOG(DEBUG)<<"9990\n";
+//         LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size() << "\n";
+//         exporter.writeField(outbin, M_wind.synforc, "synforc");
+//         LOG(DEBUG)<<"9992\n";
+//         exporter.writeField(outbin, M_wind.randfld, "randfld");
+//         LOG(DEBUG)<<"9994\n";
+// #endif
         // loop over the elemental variables that have been
         // gathered to elt_values_root
         int const nb_var_element = M_restart_names_elt.size();
@@ -10060,7 +10168,7 @@ FiniteElement::readRestart(std::string const& name_str)
         //! - Reads in the mesh restart files,
         std::string restart_path = vm["restart.input_path"].as<std::string>();
         if ( restart_path.empty() )
-            throw std::runtime_error("need to define restart.input option if starting from restart");
+            throw std::runtime_error("need to define restart.input_path option if starting from restart");
 
         //! - Starts with the record,
         filename = (boost::format( "%1%/mesh_%2%.dat" )
@@ -10132,6 +10240,7 @@ FiniteElement::readRestart(std::string const& name_str)
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
 #ifdef ENSEMBLE
+        // todo, add if-statement to check if restart file includes the two variables
         M_wind.synforc = field_map_dbl["synforc"];
         M_wind.randfld = field_map_dbl["randfld"];
 #endif

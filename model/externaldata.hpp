@@ -114,7 +114,23 @@ public:
             return "constant";
         return M_dataset->variables[M_VariableId].name;
     }
-
+    std::vector<double> export_synforc(){ 
+        return M_dataset->synforc;
+    }
+    std::vector<double> export_randfld(){
+        return M_dataset->randfld;
+    }
+        
+    void import_synforc(std::vector<double> &X) {
+        M_dataset->synforc = X;
+    }
+    void import_randfld(std::vector<double> &X) {
+        M_dataset->randfld = X;
+    }
+    Dataset* get_Mwind(){ 
+        return M_dataset;
+    }
+    
 private:
     double fdt;
     std::vector<double> fcoeff;
