@@ -3975,6 +3975,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
+        double const old_vol = M_thick[cpt];
         M_surface[cpt] = this->measure(M_elements[cpt], M_mesh, M_UM);
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
@@ -3984,7 +3985,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_snow_thick[cpt] *= surf_ratio;
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
-            M_ridge_ratio[cpt] *= surf_ratio;
 
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
@@ -3997,8 +3997,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
         }
-        // Ridge ratio capping (might not been performed later if ridging does not happen)
-        M_ridge_ratio[cpt]=std::min(1., M_ridge_ratio[cpt]) ;
 
         /*======================================================================
         //! - Performs the mechanical redistribution (after the advection the concentration can be higher than 1, meaning that ridging should have occured)
@@ -4052,9 +4050,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
-
-                    if( newice>0. )
-                        M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]*(M_thick[cpt]-newice)+newice)/M_thick[cpt]));
                 }
 
                 M_conc_thin[cpt] = new_conc_thin;
@@ -4073,11 +4068,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
         if((new_conc+conc_thin)>1.)
             new_conc=1.-conc_thin;
 
-        if(new_conc<M_conc[cpt])
-        {
-            //need to do ridging
-            M_ridge_ratio[cpt]=std::max(0.,std::min(1.,(M_ridge_ratio[cpt]+(1.-M_ridge_ratio[cpt])*(M_conc[cpt]-new_conc)/M_conc[cpt])));
-        }
         M_conc[cpt]=new_conc;
 
         double max_true_thickness = 50.;
@@ -4093,6 +4083,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
+
+        // Conserve non-ridged ice volume
+        if ( M_thick[cpt] > old_vol )
+            M_ridge_ratio[cpt] = 1. - M_thick[cpt]/old_vol*(1.-M_ridge_ratio[cpt]);
+
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
@@ -5838,20 +5833,17 @@ FiniteElement::thermo(int dt)
 #endif
             M_sss[i] += delsss;
 
+        // Conserve ridged ice volume
+        if ( old_vol > 0. )
+            M_ridge_ratio[i] = std::min(1., M_thick[i]/old_vol * M_ridge_ratio[i]);
+        else
+            M_ridge_ratio[i] = 0.;
+
         // -------------------------------------------------
         //! 9) Damage manipulation
 
         // local variables
         double deltaT;      // Temperature difference between ice bottom and the snow-ice interface
-
-        //! * Newly formed ice is undamaged and unridged: Hence calculates damage and ridge ratio as a weighted average of the old damage - ridge ratio and 0, weighted with volume.
-        //(Guillaume -> it can happen that old_vol=-1e-20, so little patch)
-        //if (old_vol<0.)
-        //    old_vol=0.;
-        if ( M_thick[i] > old_vol )
-        {
-            M_ridge_ratio[i] = M_ridge_ratio[i]*old_vol/M_thick[i];
-        }
 
         if ( temp_dep_healing )
         {
