@@ -1,10 +1,10 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& perturbation_count) 
+void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& synforc_exist) 
 {
     // M_full = ydim is size of y domain, N_full = xdim is size of x domain
     // Call fortran library for synoptic perturbation
-    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&perturbation_count);    
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&synforc_exist);    
 }    
 
 
@@ -50,7 +50,7 @@ void ensemble::getpath(std::string iopath){
      M_ranpath = iopath;
 };
 
-// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p) 
+// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& synforc_exist, double *synforc_p) 
 // {
 //     double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
 //     //
@@ -66,7 +66,7 @@ void ensemble::getpath(std::string iopath){
 //         }
 //     } 
 //     //
-//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&perturbation_count);
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&synforc_exist);
 //     //
     
 //     for(int col = 0; col < Ncol; col++) {
@@ -82,7 +82,7 @@ void ensemble::getpath(std::string iopath){
 //     } 
 // }    
 
-// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count) 
+// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& synforc_exist) 
 // {
 //     std::cout<< "t1\n";
 //     int rows,cols, id;
@@ -130,9 +130,9 @@ void ensemble::getpath(std::string iopath){
 //             randfld_p[k][id] = randfld[k][id];
 //         }    
 //     }    
-//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&perturbation_count);
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&synforc_exist);
 //     //
-//    // std::cout<<ydim<<", "<<xdim<<","<<perturbation_count<<"\n";
+//    // std::cout<<ydim<<", "<<xdim<<","<<synforc_exist<<"\n";
 //  //   return;
 //     //std::cout<< "t5\n";
     

@@ -251,7 +251,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             this->loadDataset(M_dataset, RX_in, RY_in);                                           
 #ifdef ENSEMBLE 
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
-            // remove perturbation_count,                                        
+
             M_comm.barrier();
             if (do_perturbation)  
             {
@@ -266,22 +266,33 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
                 LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-                LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";                             
-                                           
+                LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
+                LOG(DEBUG) << "### M_dataset->synforc_exist : " << M_dataset->synforc_exist <<", M_dataset->synforc.size="<<M_dataset->synforc.size()<<"\n";                          
+
                 M_dataset->synforc.resize(2*MN_full);  // synforc/randfld saves dimensional/nondimensional fields
-                M_dataset->randfld.resize(10*MN_full);
-                LOG(DEBUG) << "### Add perturbations to previous wind fields\n";
-                perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
+                M_dataset->randfld.resize(10*MN_full);   
+                if (M_dataset->synforc_exist==-1) {
+                    M_comm.barrier();
+                    LOG(DEBUG) << "### Broadcast previous perturbations loaded from restart file to all processors\n";  
+                    boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
+                    // no need to broadcast randfld at previous time is only used in root processor for generating next synforc. 
+                    LOG(DEBUG) << "### Add perturbations to previous wind fields, which (I assume)is loaded from wind dataset\n";  
+                    // where the previous wind field is used? //If previous perturbed wind field is not used, then it is no needs to broadcast synforc and add previous perturbation to wind field in the previous time step
+                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
+                    // mark previous perturbation is existent.
+                    M_dataset->synforc_exist=1; 
+                }
+                
                 if (M_comm.rank() == 0) {                    
-                    // std::cout << "%%%%%%%%%%%%%show previous synforc %%%%%%\n"; 
-                    // for(int i = 0; i < M_dataset->synforc.size(); i++) 
-                    //    std::cout<<M_dataset->synforc[i]<<"   "; 
-                    // std::cout << "%%%%%%%%%%%%%show previous randfld %%%%%%\n"; 
-                    // for(int i = 0; i < M_dataset->randfld.size(); i++) 
-                    //    std::cout<<M_dataset->randfld[i]<<"   "; 
+                    // std::cout << "%%%%%%%%%%%%%show previous synforc %%%%%%\n";
+                    if (M_dataset->synforc_exist == 1)
+                    {
+                        for(int i = 0; i < MN_full; i++) 
+                            std::cout<<i<<", "<<M_dataset->synforc[i]<<"\n"; 
+                    } 
                     LOG(DEBUG) << "### Generate perturbations based on the loaded wind inputs\n"; 
-                    perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->perturbation_count); 
-                    M_dataset->perturbation_count++;
+                    perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->synforc_exist); 
+                    M_dataset->synforc_exist=1;
                     // for(int i = 0; i < MN_full; i++) 
                     //    std::cout<<"x0  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
                 }

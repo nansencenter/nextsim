@@ -251,7 +251,7 @@ public:
 #endif
 
 #if defined (ENSEMBLE)  
-    int perturbation_count; // count times of perturbation applied in the whole simulation
+    int synforc_exist=-1; // synforc_exist indicates whether previous perturbations exist // -1 indicates get perturbations from restart file. 0 (default value) indicates the need of creating previous perturbations. 1 indicates previous perturbation exist online. The later two values are used in fortran code
     std::vector<double> synforc, randfld;
 #endif
 private:

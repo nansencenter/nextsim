@@ -15,8 +15,8 @@ Header file for ensemble.cpp
 #include <boost/program_options.hpp>
 
 extern "C" {
-//	void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, int const *perturbation_count );   
-  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *perturbation_count);
+//	void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, int const *synforc_exist );   
+  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *synforc_exist);
 /* Other subroutines in libpseudo2D.dylib fortran library
     void init_fvars_();
         void m_set_random_seed_();
@@ -88,11 +88,11 @@ class ensemble
 
         // void synopticPerturbation(int);
 
-        // void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, int const& perturbation_count);
+        // void synopticPerturbation(int const& ydim, int const& xdim,std::vector<std::vector<double>>& synforc,std::vector<std::vector<double>>& randfld, int const& synforc_exist);
 
-        // void synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& perturbation_count, double *synforc_p);
+        // void synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& synforc_exist, double *synforc_p);
 
-        void synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld,int const& ydim, int const& xdim, int const& perturbation_count); 
+        void synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld,int const& ydim, int const& xdim, int const& synforc_exist); 
 
         // void addPerturbation();
 

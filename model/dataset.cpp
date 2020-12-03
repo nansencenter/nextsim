@@ -8685,7 +8685,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<double> tmp1,tmp2;
         synforc = tmp1;
         randfld = tmp2;
-        perturbation_count=0;
+        synforc_exist=0;
 #endif
 #ifdef OASIS
         coupled = false;

@@ -116,10 +116,10 @@ module mod_random_forcing
 
 contains
       
-   subroutine init_rand_update(synforc01,randfld01,perturbation_count)
+   subroutine init_rand_update(synforc01,randfld01,synforc_exist)
       use mod_pseudo
       implicit none
-      integer:: perturbation_count
+      integer:: synforc_exist
       real :: dx
       real*8, dimension(idm*jdm, 2) :: synforc00, synforc01
       real*8, dimension(idm*jdm,10) :: randfld00, randfld01
@@ -147,17 +147,20 @@ contains
       !-- CHeCK: a conditional here to check ranfld_next exists \
       !-- IF exists, load and move to ranfld_prev, IF NOT run ranfields(ran,rh) --!
       
-      if (perturbation_count==0 ) then                 
-         INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
-         if (file_exists) then          
-            if (debug) print*, 'loading random field from previous perturbation, only for restart forecast'
-            call randfld_rd('01')
-            !call synforc_rd('01') ! Todo: ensure syn*** variables are not used in code.
-         else
-            if (debug) print*, 'generating initial random field...'
-            call ranfields(ran,rh)
-            call rand_update('00',randfld00, synforc00)   ! TODO: delete time index later
-         endif
+      if (synforc_exist==0 ) then                 
+         ! INQUIRE(FILE=trim(iopath)//"/randfld.01", EXIST=file_exists)
+         ! if (file_exists) then          
+         !    if (debug) print*, 'loading random field from previous perturbation, only for restart forecast'
+         !    call randfld_rd('01')
+         !    !call synforc_rd('01') ! Todo: ensure syn*** variables are not used in code.
+         ! else
+         !    if (debug) print*, 'generating initial random field...'
+         !    call ranfields(ran,rh)
+         !    call rand_update('00',randfld00, synforc00)   ! TODO: delete time index later
+         ! endif
+         if (debug) print*, 'generating initial random field...'
+         call ranfields(ran,rh)
+         call rand_update('00',randfld00, synforc00)   ! TODO: delete time index later
       else
          if (debug) print*,  'set perturbations as previous one'
          call load_randfld_synforc(randfld01,synforc01)
