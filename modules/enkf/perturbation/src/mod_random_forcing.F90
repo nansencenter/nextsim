@@ -240,7 +240,7 @@ contains
       end if
 
       CALL getcwd(cwd)
-      WRITE(*,*) "read ",TRIM(cwd),"/pseudo2D.nml"
+      if (debug) WRITE(*,*) "read ",TRIM(cwd),"/pseudo2D.nml"
       nmlfile ='pseudo2D.nml'    ! name of general configuration namelist file
       open (99,file=nmlfile, status='old', action='read')
       read (99,NML=setup)

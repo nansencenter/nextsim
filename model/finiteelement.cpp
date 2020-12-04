@@ -7283,9 +7283,7 @@ FiniteElement::init()
     }
     if (M_restart_from_analysis){
         LOG(DEBUG) <<"readStateVector\n";
-        this->readStateVector();   
-        LOG(DEBUG) <<"%%%%% 7287\n"; 
-        this->import_export_WindPerturbations(true);       
+        this->readStateVector();        
     }
 #endif
     //! - 9) Checks if anything has to be output now using the checkOutputs() function.
@@ -8642,8 +8640,7 @@ FiniteElement::run()
     if (M_use_statevector)
     {
         this->exportStateVector(false);
-        LOG(DEBUG)<<"import_8644\n";
-        this->import_export_WindPerturbations(false);
+        this->export_WindPerturbations();
     }
 #endif
 
@@ -9821,97 +9818,46 @@ FiniteElement::readStateVector()
 }//readStateVector
 
 void
-FiniteElement::import_export_WindPerturbations(bool const& import_or_export)
+FiniteElement::export_WindPerturbations()
 {
-    // export dimensional and nondimensional stochastic forcing of wind fields for restart 
-    // Import_or_export =TRUE: import data from file;  False: export data to file
+    LOG(DEBUG) << "export perturbations of wind fields to file\n";
     if (M_comm.rank() > 0) return;
-    LOG(DEBUG)<<"---after if -------M_comm.rank() : "<< M_comm.rank() <<"\n";
     // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
     // {
-    //     LOG(DEBUG)<<" import_9829\n";
     //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
     //     {   
     //         Dataset *dataset;
     //         dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp      
-            Dataset *dataset = M_external_data_nodes[0]->get_Mwind();  // function is defined in externaldata.hpp      
-            std::string filename_root;
-            if(import_or_export)
-            {
-                std::string restart_path = vm["restart.input_path"].as<std::string>();
-                // int i;                
-                // // dimensional forcing fields
-                // // todo M_id_statevector is unknow,  only output from master processor
-                // filename_root = restart_path + "/synforc_" + M_id_statevector;
-                // ifstream iofile(filename_root); //ios::out | ios::binary
-                // i=0;
-                // while( ! iofile.eof() ) {    
-                //     iofile>> dataset->synforc[i];
-                //     i++;
-                // }
-                // iofile.close();       
-                
-                // // nondimensional forcing fields
-                // filename_root = restart_path + "/randfld_" + M_id_statevector;
-                // ifstream iofile2(filename_root); 
-                // i=0;         
-                // while( ! iofile2.eof() ) {    
-                //     iofile2>> dataset->randfld[i];
-                //     i++;
-                // }
-                // iofile2.close();
+    Dataset *dataset = M_external_data_nodes[0]->get_Mwind();  // function is defined in externaldata.hpp      
+    std::string filename_root;
+    // LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
+    // filename_root = M_export_path + "/synforc_mem" + M_id_statevector;
+    // // dimensional forcing fields
+    // ofstream iofile(filename_root);
+    // for(int i = 0; i < dataset->synforc.size(); i++)
+    // {    iofile<< dataset->synforc[i]<<"\n";}
+    // iofile.close();       
 
-                // // Create the netCDF file.
-                // filename_root = restart_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
-                // LOG(DEBUG)<<filename_root<<"\n";
-                // netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
-                // netCDF::NcVar data;
-                // netCDF::NcDim dim;
-                // int index,count;
-                // LOG(DEBUG)<<"%%% read windperturbation.nc\n";
-                // // load data
-                // data = dataFile.getVar("synforc");
-                // LOG(DEBUG)<<"%%% 9875\n";
-                // data.getVar(&M_wind.synforc[0]); // this doesn't work, but this function may be deleted as long as synforc, randfld are loaded from restart file.
-                // LOG(DEBUG)<<"%%% 9879  M_wind.synforc.size()="<<M_wind.synforc.size()<<"\n";
-                // if(!M_wind.isInitialized())
-                //     throw std::logic_error("M_wind is not initialised");
-                // // load data
-                // data = dataFile.getVar("randfld");
-                // data.getVar(&M_wind.randfld[0]);
-            }
-            else
-            {   
-                LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
-                filename_root = M_export_path + "/synforc_" + M_id_statevector;
-                // dimensional forcing fields
-                ofstream iofile(filename_root);
-                for(int i = 0; i < dataset->synforc.size(); i++)
-                {    iofile<< dataset->synforc[i]<<"\n";}
-                iofile.close();       
+    // // nondimensional forcing fields
+    // filename_root = M_export_path + "/randfld_mem" + M_id_statevector;
+    // ofstream iofile2(filename_root);          
+    // for(int i = 0; i < dataset->randfld.size(); i++) 
+    // {    iofile2<< dataset->randfld[i]<<"\n";}
+    // iofile2.close();  
 
-                // nondimensional forcing fields
-                filename_root = M_export_path + "/randfld_" + M_id_statevector;
-                ofstream iofile2(filename_root);          
-                for(int i = 0; i < dataset->randfld.size(); i++) 
-                {    iofile2<< dataset->randfld[i]<<"\n";}
-                iofile2.close();   
-                // // Create the netCDF file.
-                // filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
-                // netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
-                // // Create the data dimension
-                // LOG(DEBUG) <<"import_export 9907  synforc.size(): "<< dataset->synforc.size() << "\n";
-                // netCDF::NcDim dim_synforc = dataFile.addDim("synforc",dataset->synforc.size()); 
-                // netCDF::NcDim dim_randfld = dataFile.addDim("randfld",dataset->randfld.size()); 
-                // // Save to file
-                // netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
-                // synforc.putVar(&dataset->synforc[0]);
-                // netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-                // randfld.putVar(&dataset->randfld[0]);
-            }           
-    //     }
-    // }
-}//import_export_WindPerturbations
+    // Create the netCDF file.
+    filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+    netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
+    // Create the data dimension
+    netCDF::NcDim dim_synforc = dataFile.addDim("synforc",dataset->synforc.size()); 
+    netCDF::NcDim dim_randfld = dataFile.addDim("randfld",dataset->randfld.size()); 
+    // Save to file
+    netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
+    synforc.putVar(&dataset->synforc[0]);
+    netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+    randfld.putVar(&dataset->randfld[0]);
+
+}//export_WindPerturbations
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
@@ -10086,16 +10032,16 @@ FiniteElement::writeRestart(std::string const& name_str)
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-#ifdef ENSEMBLE
-        // be sure that M_external_data_nodes[0]->getVariableName().c_str()=="10U" pointing to the wind field: ec2_nodes
-        Dataset *dataset=M_external_data_nodes[0]->get_Mwind(); 
-        LOG(DEBUG) <<" 10079, name check: "<< M_wind.name<<", "<<M_external_data_nodes[0]->name<<","<<dataset->name<< "\n";
-        LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size()<<", "<<dataset->synforc.size() << "\n";
-        exporter.writeField(outbin, dataset->synforc, "synforc");
-        exporter.writeField(outbin, dataset->randfld, "randfld");      
-        // exporter.writeField(outbin, M_wind.synforc, "synforc");
-        // exporter.writeField(outbin, M_wind.randfld, "randfld");
-#endif
+// #ifdef ENSEMBLE
+//         // be sure that M_external_data_nodes[0]->getVariableName().c_str()=="10U" pointing to the wind field: ec2_nodes
+//         Dataset *dataset=M_external_data_nodes[0]->get_Mwind(); 
+//         LOG(DEBUG) <<" 10079, name check: "<< M_wind.name<<", "<<M_external_data_nodes[0]->name<<","<<dataset->name<< "\n";
+//         LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size()<<", "<<dataset->synforc.size() << "\n";
+//         exporter.writeField(outbin, dataset->synforc, "synforc");
+//         exporter.writeField(outbin, dataset->randfld, "randfld");      
+//         // exporter.writeField(outbin, M_wind.synforc, "synforc");
+//         // exporter.writeField(outbin, M_wind.randfld, "randfld");
+// #endif
         // loop over the elemental variables that have been
         // gathered to elt_values_root
         int const nb_var_element = M_restart_names_elt.size();
@@ -10233,21 +10179,24 @@ FiniteElement::readRestart(std::string const& name_str)
         // read time and misc_int
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
-#ifdef ENSEMBLE
-        LOG(DEBUG) <<"102324 \n";
-        if ( field_map_dbl.count("synforc") * field_map_dbl.count("randfld") > 0. )
-        {
-            // M_wind.synforc = field_map_dbl["synforc"];
-            // M_wind.randfld = field_map_dbl["randfld"];
-            M_external_data_nodes[0]->put_Mwind(field_map_dbl["synforc"], field_map_dbl["randfld"]);
-        }
-        else{
-            // Initialise M_wind.synforc and M_wind.randfld differently in externaldata.cpp
-        }
-        LOG(DEBUG) <<"10235 M_wind.synforc_exist: "<< M_wind.synforc_exist << "\n";
-        LOG(DEBUG) <<"10236 load synforc,randfld, sizes: "<< M_wind.synforc.size()<<", "<<M_wind.randfld.size() << "\n";
+// #ifdef ENSEMBLE
+//         LOG(DEBUG) <<"10183 \n";
+//         if ( field_map_dbl.count("synforc") * field_map_dbl.count("randfld") > 0. )
+//         {
+//             //M_external_data_nodes, M_wind are not defined yet, which are defined in step(5) 
+//             // if(!M_wind.isInitialized())
+//                 //     throw std::logic_error("M_wind is not initialised");
+//             // M_wind.synforc = field_map_dbl["synforc"];
+//             // M_wind.randfld = field_map_dbl["randfld"];
+//             M_external_data_nodes[0]->put_Mwind(field_map_dbl["synforc"], field_map_dbl["randfld"]);
+//         }
+//         else{
+//             // Initialise M_wind.synforc and M_wind.randfld differently in externaldata.cpp
+//         }
+//         LOG(DEBUG) <<"10235 M_wind.synforc_exist: "<< M_wind.synforc_exist << "\n";
+//         LOG(DEBUG) <<"10236 load synforc,randfld, sizes: "<< M_wind.synforc.size()<<", "<<M_wind.randfld.size() << "\n";
 
-#endif
+// #endif
         // Fix boundaries
         M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
