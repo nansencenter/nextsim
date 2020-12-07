@@ -4166,7 +4166,8 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
     // Concentration and thickness limit
-    const double min_c = vm["dynamics.min_c"].as<double>();
+    //const double min_c = vm["dynamics.min_c"].as<double>();
+    const double min_c = 0.1;
     const double min_h = vm["dynamics.min_h"].as<double>();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
