@@ -604,11 +604,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::vector<double> data_in_tmp(MN);
 
     // netcdf objects
-    // Attributes (scaling and offset)
-    //netCDF::NcVarAtt att;
-    //double scale_factor;
-    //double add_offset;
-
     std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
 
     // ---------- Automatic identification of the file and time index
@@ -949,38 +944,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             // Reading the netcdf
             data_in_tmp = M_dataset -> getNcVarData(NcVars[j], index_start, index_count);
-#if 0
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
-
-            //----------- Unit transformation ------------
-            // scale factor and add offset are stored as variable attributes
-            scale_factor=1.;
-            try
-            {
-                att = NcVars[j].getAtt("scale_factor");
-                att.getValues(&scale_factor);
-            }
-            catch(netCDF::exceptions::NcException& e)
-            {}
-
-            add_offset=0.;
-            try
-            {
-                att = NcVars[j].getAtt("add_offset");
-                att.getValues(&add_offset);
-            }
-            catch(netCDF::exceptions::NcException& e)
-            {}
-
-            // The factor and b are defined for each variables to get the right units for the neXtSIM model
-            for(double& d : data_in_tmp)
-                d=(d*scale_factor + add_offset)*dataset->variables[j].a+dataset->variables[j].b;
-#endif
-
 
             // Check Nan and store the loaded data
             dataset->variables[j].loaded_data[fstep].resize(final_MN);
-
             double tmp_data_i;
             int reduced_i;
             for (int i=0; i<(final_MN); ++i)
