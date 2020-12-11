@@ -605,9 +605,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     // netcdf objects
     // Attributes (scaling and offset)
-    netCDF::NcVarAtt att;
-    double scale_factor;
-    double add_offset;
+    //netCDF::NcVarAtt att;
+    //double scale_factor;
+    //double add_offset;
 
     std::vector<netCDF::NcVar> NcVars(dataset->variables.size());
 
@@ -948,6 +948,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // Reading the netcdf
+            data_in_tmp = M_dataset -> getNcVarData(NcVars[j], index_start, index_count);
+#if 0
             NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
 
             //----------- Unit transformation ------------
@@ -973,6 +975,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             // The factor and b are defined for each variables to get the right units for the neXtSIM model
             for(double& d : data_in_tmp)
                 d=(d*scale_factor + add_offset)*dataset->variables[j].a+dataset->variables[j].b;
+#endif
 
 
             // Check Nan and store the loaded data
