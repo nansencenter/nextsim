@@ -9856,7 +9856,6 @@ FiniteElement::export_WindPerturbations()
     synforc.putVar(&dataset->synforc[0]);
     netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
     randfld.putVar(&dataset->randfld[0]);
-
 }//export_WindPerturbations
 #endif // ENSEMBLE
 
