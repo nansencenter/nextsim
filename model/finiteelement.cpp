@@ -5717,6 +5717,7 @@ FiniteElement::thermo(int dt)
             //M_tsurf_thin[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
+            M_ridge_ratio[i] = 0.;
 
 #ifdef OASIS
             // If FSD : Don't change its shape. Remove all ice if no thin ice
@@ -5837,11 +5838,10 @@ FiniteElement::thermo(int dt)
 #endif
             M_sss[i] += delsss;
 
-        // Conserve ridged ice volume (cap to 1 during melting)
-        if ( M_thick[i] > 0. )
-            M_ridge_ratio[i] = std::min( 1., M_ridge_ratio[i]*old_vol/M_thick[i] );
-        else
-            M_ridge_ratio[i] = 0.;
+        // Conserve ridged ice volume on growth and ridge ratio on melt
+        // R^n H^n = R^{n+1} H^{n+1}
+        if ( M_thick[i] > old_vol )
+            M_ridge_ratio[i] *= old_vol/M_thick[i];
 
         // -------------------------------------------------
         //! 9) Damage manipulation
