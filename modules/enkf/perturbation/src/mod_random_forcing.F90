@@ -1,4 +1,10 @@
 module mod_random_forcing
+! log 15-12-2020
+! The wind perturbations are spatiotemporally correlated in both options but they are “non-divergent” in rf_prsflag = 2. 
+! temporal correlate all 7 atmospheric variables.
+! lognormal precipitation is retrieved from 
+! 
+! 
 ! ----------------------------------------------------------------------------
 ! ToDO:
 ! - generate grid from ASR and ECMWF forcing files
@@ -50,7 +56,7 @@ module mod_random_forcing
    real   , save :: rf_tradius  ! Temporal decorr length for rand forc
    real   , save :: rh          ! Horizontal decorr length for rand forc [grid cells]
    real   , save :: rv
-   integer, save :: rf_prsflg=2 ! initial value
+   integer, save :: rf_prsflg=2 ! random forcing pressure flag
    integer, save :: xdim, ydim
    integer, save :: idm=360, jdm=360
    character(150) :: iopath = '/docker_io' ! modified in namelist
@@ -121,8 +127,8 @@ contains
       implicit none
       integer:: synforc_exist
       real :: dx
-      real*8, dimension(idm*jdm, 2) :: synforc00, synforc01
-      real*8, dimension(idm*jdm,10) :: randfld00, randfld01
+      real*8, dimension(idm*jdm, 7) :: synforc01
+      real*8, dimension(idm*jdm,10) :: randfld01
       if(.not.randf) then
         if(debug) write(*,'("perturbation is switched off in pseudo2D.nml")')
         return
@@ -160,12 +166,11 @@ contains
          ! endif
          if (debug) print*, 'generating initial random field...'
          call ranfields(ran,rh)
-         call rand_update('00',randfld00, synforc00)   ! TODO: delete time index later
+         call rand_update('00',randfld01, synforc01)   ! TODO: delete randfld00, synforc00, but keep variables saved in them
       else
-         if (debug) print*,  'set perturbations as previous one'
+         if (debug) print*,  'load previous perturbations'
+         ! load previous perturbations - synforc01 has been added to the wind fields outside p_pseudo2D_fld()
          call load_randfld_synforc(randfld01,synforc01)
-         !randfld00 = randfld01
-         !synforc00 = synforc01   ! previous perturbations - synforc01 has added to the previous wind fields outside p_pseudo2D_fld()
       end if
       call rand_update('01',randfld01, synforc01)
    end subroutine
@@ -297,7 +302,7 @@ contains
       real, parameter :: wlat=60.
       integer i,j
       real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
-      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,7)
 
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
@@ -387,27 +392,33 @@ contains
    !            min(abs(plat(ix,jy)),wlat) / wlat * pi * 0.5)
             wcor=sin(wlat) / wlat * pi * 0.5
 
-            synuwind(ix,jy) = wcor*ucor + (1.-wcor)*ueq
-            synvwind(ix,jy) = wcor*vcor + (1.-wcor)*veq
+            synuwind(ix,jy) = synuwind(ix,jy) + wcor*ucor + (1.-wcor)*ueq
+            synvwind(ix,jy) = synvwind(ix,jy) + wcor*vcor + (1.-wcor)*veq
 
             synwndspd(ix,jy) = sqrt(  &
                synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
 
-            ! The rest use uncorrelated fields
-            synairtmp(ix,jy) = ran1%airtmp(ix,jy)
-            synrelhum(ix,jy) = ran1%relhum(ix,jy)
-            synslp   (ix,jy) = ran1%slp   (ix,jy)
-            synprecip(ix,jy) = ran1%precip(ix,jy) 
+            ! The rest use uncorrelated fields, from TOPAZ, lognormal: The rest use fields independent of slp
+            synairtmp(ix,jy) = synairtmp(ix,jy) + ran1%airtmp(ix,jy)
+            synrelhum(ix,jy) = synrelhum(ix,jy) + ran1%relhum(ix,jy)
+            synslp   (ix,jy) = synslp   (ix,jy) + ran1%slp   (ix,jy)
+            synprecip(ix,jy) = synprecip(ix,jy) + ran1%precip(ix,jy) 
+            synclouds(ix,jy) = synclouds(ix,jy) + ran1%clouds(ix,jy)
+            synclouds(ix,jy) = min(max(synclouds(ix,jy),0.0),1.0) ! restricted between 0 and 100%
             synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
-            synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
-            synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0) 
+            synprecip(ix,jy) = synprecip(ix,jy) & ! lognormal precip
+                           *exp(ran1%precip(ix,jy) - 0.5*vars%precip**2)
+            ! ran1 are the time-correlated random fields, 
+            ! the -0.5 var^2 term is a bias correction. 
+            ! and the variance vars%precip is set to 1.0, which means relative errors of 100%. 
+            !synprecip(ix,jy) = max(synprecip(ix,jy),0.0) 
          end do
          end do
    ! todo
    !      synuwind = synuwind - compute_mean(synuwind)
    !      synvwind = synvwind - compute_mean(synvwind)
 
-         ! Drag
+         ! Drag,  New drag - Computed directly from winds now
          do jy=2,jdm-1
          do ix=2,idm-1
             wndfac=(1.+sign(1.,synwndspd(ix,jy)-11.))*.5
@@ -422,8 +433,7 @@ contains
             w4   =.25*( &
                synuwind(ix  ,jy-1)+synuwind(ix+1,jy-1)+ &
                synuwind(ix+1,jy  )+synuwind(ix  ,jy  ))
-            wfact=sqrt( &
-                  synvwind(ix,jy)*synvwind(ix,jy)+w4*w4)* airdns*cd_new
+            wfact=sqrt( synvwind(ix,jy)*synvwind(ix,jy)+w4*w4)* airdns*cd_new
             syntauy(ix,jy)=synvwind(ix,jy)*wfact
          end do
          end do
@@ -447,10 +457,13 @@ contains
             synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
             synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
             synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
-            synprecip(ix,jy) = synprecip(ix,jy)+ran1%precip(ix,jy)
+            synclouds(ix,jy) = synclouds(ix,jy)+ran1%clouds(ix,jy)
+            synprecip(ix,jy) = synprecip(ix,jy) & ! Lognormal precipitation
+                    *exp(ran1%precip(ix,jy) - 0.5*vars%precip**2) 
             synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
             synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
             synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
+            synclouds(ix,jy) = min(max(synclouds(ix,jy),0.0),1.0)
          !end if
          end do
          end do
@@ -467,9 +480,9 @@ contains
       call ranfields(ran1,rh)
       !ran= alpha*ran + sqrt(1-alpha*alpha)* ran
       call ran_update_ran1(ran,ran1,alpha)
-      call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
-      !call synforc_wr(time_index)
-      !call randfld_wr(time_index)
+      if( time_index=='01' ) then
+         call save_randfld_synforc(randfld, synforc) ! save fields to variables, final file output is moved to function exportWindPerturbation
+      endif
       
    end subroutine rand_update
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -597,7 +610,7 @@ contains
 !------------------------------------------
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
-      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,7)
       do jy=1,jdm
       do ix=1,idm            
          id = (jy-1)*idm + ix  ! the order of x,y and id is related to the order of loading wind data in loadDataset() in externaldata.cpp
@@ -613,10 +626,13 @@ contains
          ran%sst(ix,jy)    = randfld(id,10)
       
          ! Todo: no need to load synforc if its varialbes are not used in calculating new random forcings.
-         synuwind(ix,jy) = synforc(id,1)
-         synvwind(ix,jy) = synforc(id,2)! only perturbtions wind speeds at the moment, the unused variables are commented.
-         !synairtmp(ix,jy), synslp(ix,jy), &
-         !synprecip(ix,jy), synrelhum(ix,jy) /)
+         synuwind(ix,jy)  = synforc(id,1)
+         synvwind(ix,jy)  = synforc(id,2)! only perturbtions wind speeds at the moment, the unused variables are commented.
+         synairtmp(ix,jy) = synforc(id,3)
+         synslp(ix,jy)    = synforc(id,4)
+         synprecip(ix,jy) = synforc(id,5)
+         synrelhum(ix,jy) = synforc(id,6)
+         synclouds(ix,jy) = synforc(id,7)
       end do 
       end do 
    end subroutine
@@ -624,7 +640,7 @@ contains
    !------------------------------------------
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
-      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,2)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,7)
       
       do jy=1,jdm      
       do ix=1,idm
@@ -634,9 +650,9 @@ contains
          ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
          
          ! only perturbtions wind speeds at the moment, the unused variables are commented. In externaldata.cpp, set synforc_size=2.
-         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy) /) 
-         !synairtmp(ix,jy), synslp(ix,jy), &
-         !synprecip(ix,jy), synrelhum(ix,jy) /)
+         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy), &
+                            synairtmp(ix,jy), synslp(ix,jy),  &
+                            synprecip(ix,jy), synrelhum(ix,jy), synclouds(ix,jy) /)
       end do 
       end do 
    end subroutine

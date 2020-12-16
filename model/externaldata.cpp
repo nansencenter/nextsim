@@ -277,7 +277,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 if (M_dataset->synforc.size()==0){ 
                 //For the 1st perturbation of the simulation
                     //initialize vectors of dimensional/nondimensional perturbation fields
-                    M_dataset->synforc.resize(2*MN_full);  
+                    // the size is consistent with mod_random_forcing.f90:save_randfld_synforc()
+                    M_dataset->synforc.resize(7*MN_full);  
                     M_dataset->randfld.resize(10*MN_full);                   
                 
                     // load perturbation from 'restart' file 
