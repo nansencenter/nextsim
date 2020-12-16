@@ -3987,7 +3987,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_sigma[k][cpt] *= surf_ratio;
 
             // Ridging of thick ice - conserve level ice volume per ice covered area
-            // (1-R^n) H^n A^n / C^n = (1-R^{n+1}) H^{n+1} A^{n+1} / C^{n+1}
+            // (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
 
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
