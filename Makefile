@@ -5,7 +5,7 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: core modules contrib
+all: modules core contri
 	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
 contrib:
