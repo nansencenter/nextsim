@@ -12747,10 +12747,11 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifter to the list of drifters
+        bool const ignore_restart = vm["drifters.equally_spaced_ignore_restart"].as<bool>();
         M_drifters.push_back(
                 Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
-                    drifters_conc_lim, timing_info, false)
+                    drifters_conc_lim, timing_info, ignore_restart)
                 );
     }
 
@@ -12828,9 +12829,10 @@ FiniteElement::instantiateDrifters()
                 0.,                 //lifetime before re-initialising
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
+        bool const ignore_restart = vm["drifters.iabp_ignore_restart"].as<bool>();
         M_drifters.push_back(
                 Drifters("IABP", outfile_prefix, infile,
-                    drifters_conc_lim, timing_info, false)
+                    drifters_conc_lim, timing_info, ignore_restart)
                 );
     }
 
