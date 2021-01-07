@@ -979,14 +979,6 @@ void
 FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
-    // - mesh elements
-    M_timer.tick("bCoord");
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
-    M_timer.tock("bCoord");
-    LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
-
     // - mesh nodes
     M_timer.tick("Coord");
     RX = M_mesh.coordX();
@@ -994,6 +986,14 @@ FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer
     M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
+
+    // - mesh elements
+    M_timer.tick("bCoord");
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    M_timer.tock("bCoord");
+    LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
 }//checkReloadMainDatasets
 
 
@@ -9827,9 +9827,9 @@ FiniteElement::export_WindPerturbations()
     //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
     //     {   
     //         Dataset *dataset;
-    //         dataset=(*it)->get_Mwind();  // function is defined in externaldata.hpp      
-    Dataset *dataset = M_external_data_nodes[0]->get_Mwind();  // function is defined in externaldata.hpp      
-    std::string filename_root;
+    //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
+    // Dataset *dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp      
+    // std::string filename_root;
     // LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
     // filename_root = M_export_path + "/synforc_mem" + M_id_statevector;
     // // dimensional forcing fields
@@ -9846,16 +9846,35 @@ FiniteElement::export_WindPerturbations()
     // iofile2.close();  
 
     // Create the netCDF file.
+    std::string filename_root;
     filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
     netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
-    // Create the data dimension
-    netCDF::NcDim dim_synforc = dataFile.addDim("synforc",dataset->synforc.size()); 
-    netCDF::NcDim dim_randfld = dataFile.addDim("randfld",dataset->randfld.size()); 
-    // Save to file
-    netCDF::NcVar synforc=dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
-    synforc.putVar(&dataset->synforc[0]);
-    netCDF::NcVar randfld=dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-    randfld.putVar(&dataset->randfld[0]);
+    Dataset *M_dataset;
+    netCDF::NcDim dim;
+    netCDF::NcVar data;
+    // nodes
+    M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
+    // write nondimensional perturbations
+    dim_randfld = dataFile.addDim("x",M_dataset->randfld.size()); 
+    data        = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+    data.putVar(&M_wind_uv->randfld[0]);  
+    // write wind speeds u,v     
+    dim       = dataFile.addDim("x",M_wind_uv->synforc.size()); 
+    data      = dataFile.addVar("wind_uv",netCDF::ncFloat, dim_synwind_uv);
+    data.putVar(&M_wind_uv->synforc[0]);
+
+    //elements
+    //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
+    //write clouds cover fraction
+    M_dataset = M_external_data_elements[5]->get_M_dataset(); //tcc 
+    dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
+    data      = dataFile.addVar("tcc",netCDF::ncFloat, dim);
+    data.putVar(&M_dataset->synforc[0]);
+    // write precipitation
+    M_dataset = M_external_data_elements[6]->get_M_dataset(); //precip
+    dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
+    data      = dataFile.addVar("precip",netCDF::ncFloat, dim);
+    data.putVar(&M_dataset->synforc[0]);
 }//export_WindPerturbations
 #endif // ENSEMBLE
 
@@ -10033,7 +10052,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, timevec, "Time");
 // #ifdef ENSEMBLE
 //         // be sure that M_external_data_nodes[0]->getVariableName().c_str()=="10U" pointing to the wind field: ec2_nodes
-//         Dataset *dataset=M_external_data_nodes[0]->get_Mwind(); 
+//         Dataset *dataset=M_external_data_nodes[0]->get_M_dataset(); 
 //         LOG(DEBUG) <<" 10079, name check: "<< M_wind.name<<", "<<M_external_data_nodes[0]->name<<","<<dataset->name<< "\n";
 //         LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size()<<", "<<dataset->synforc.size() << "\n";
 //         exporter.writeField(outbin, dataset->synforc, "synforc");
@@ -10182,7 +10201,7 @@ FiniteElement::readRestart(std::string const& name_str)
 //         LOG(DEBUG) <<"10183 \n";
 //         if ( field_map_dbl.count("synforc") * field_map_dbl.count("randfld") > 0. )
 //         {
-//             //M_external_data_nodes, M_wind are not defined yet, which are defined in step(5) 
+//             //@@@M_external_data_nodes, M_wind are not defined yet, which are defined in step(5) @@@
 //             // if(!M_wind.isInitialized())
 //                 //     throw std::logic_error("M_wind is not initialised");
 //             // M_wind.synforc = field_map_dbl["synforc"];
@@ -10192,8 +10211,6 @@ FiniteElement::readRestart(std::string const& name_str)
 //         else{
 //             // Initialise M_wind.synforc and M_wind.randfld differently in externaldata.cpp
 //         }
-//         LOG(DEBUG) <<"10235 M_wind.synforc_exist: "<< M_wind.synforc_exist << "\n";
-//         LOG(DEBUG) <<"10236 load synforc,randfld, sizes: "<< M_wind.synforc.size()<<", "<<M_wind.randfld.size() << "\n";
 
 // #endif
         // Fix boundaries
@@ -13973,10 +13990,11 @@ FiniteElement::instantiateDrifters()
                 );
 
         // add drifter to the list of drifters
+        bool const ignore_restart = vm["drifters.equally_spaced_ignore_restart"].as<bool>();
         M_drifters.push_back(
                 Drifters("Equally_Spaced", output_prefix,
                     1e3*vm["drifters.spacing"].as<double>(),
-                    drifters_conc_lim, timing_info, false)
+                    drifters_conc_lim, timing_info, ignore_restart)
                 );
     }
 
@@ -14054,9 +14072,10 @@ FiniteElement::instantiateDrifters()
                 0.,                 //lifetime before re-initialising
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
+        bool const ignore_restart = vm["drifters.iabGp_ignore_restart"].as<bool>();
         M_drifters.push_back(
                 Drifters("IABP", outfile_prefix, infile,
-                    drifters_conc_lim, timing_info, false)
+                    drifters_conc_lim, timing_info, ignore_restart)
                 );
     }
 

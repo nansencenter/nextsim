@@ -51,7 +51,7 @@ module mod_random_forcing
 
    logical, save :: randf ! Switches on/off random forcing
    logical, save :: debug ! Switches on/off verbose
-   logical       :: file_exists ! Check if file exists
+   !logical       :: file_exists ! Check if file exists
    real   , save :: rf_hradius  ! Horizontal decorr length for rand forc [m]
    real   , save :: rf_tradius  ! Temporal decorr length for rand forc
    real   , save :: rh          ! Horizontal decorr length for rand forc [grid cells]
@@ -127,7 +127,7 @@ contains
       implicit none
       integer:: synforc_exist
       real :: dx
-      real*8, dimension(idm*jdm, 7) :: synforc01
+      real*8, dimension(idm*jdm, 4) :: synforc01
       real*8, dimension(idm*jdm,10) :: randfld01
       if(.not.randf) then
         if(debug) write(*,'("perturbation is switched off in pseudo2D.nml")')
@@ -166,7 +166,7 @@ contains
          ! endif
          if (debug) print*, 'generating initial random field...'
          call ranfields(ran,rh)
-         call rand_update('00',randfld01, synforc01)   ! TODO: delete randfld00, synforc00, but keep variables saved in them
+         call rand_update('00',randfld01, synforc01)   ! note: different from the previous version, no perturbation will be added to the previous wind fields in externaldata.cpp.
       else
          if (debug) print*,  'load previous perturbations'
          ! load previous perturbations - synforc01 has been added to the wind fields outside p_pseudo2D_fld()
@@ -302,7 +302,7 @@ contains
       real, parameter :: wlat=60.
       integer i,j
       real*8, save :: rdtime=8.d0/24.d0    ! Time step of forcing update
-      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,7)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,4)
 
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
@@ -321,10 +321,11 @@ contains
       !write(lp,*) 'Rand_update -- Random forcing field update'
       ! Add new random forcing field to the newly read
       ! fields from ecmwf or ncep (:,:,4)
-      !ran1=sqrt(vars)*ran
-
-      call calc_forc_update(ran1,ran,sqrt(vars)) ! note: 3ran is only used in subroutine ran_update_ran1
-
+      !ran1=sqrt(vars)*ran !c --- Calculate dimensionalized random perturbations 
+      ! QQ:
+      call calc_forc_update(ran1,ran,sqrt(vars)) ! todo: replace with ran1=sqrt(vars)*ran,  note: ran is only used in subroutine ran_update_ran1
+      
+ 
       if (rf_prsflg .eq. 1 .or. rf_prsflg .eq.2 ) then
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! rf_prsflag=1 : wind perturbations calculated from slp, using coriolis
@@ -395,15 +396,20 @@ contains
             synuwind(ix,jy) = synuwind(ix,jy) + wcor*ucor + (1.-wcor)*ueq
             synvwind(ix,jy) = synvwind(ix,jy) + wcor*vcor + (1.-wcor)*veq
 
-            synwndspd(ix,jy) = sqrt(  &
-               synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
+            synwndspd(ix,jy) = sqrt(synuwind(ix,jy)**2 + synvwind(ix,jy)**2)
 
-            ! The rest use uncorrelated fields, from TOPAZ, lognormal: The rest use fields independent of slp
-            synairtmp(ix,jy) = synairtmp(ix,jy) + ran1%airtmp(ix,jy)
-            synrelhum(ix,jy) = synrelhum(ix,jy) + ran1%relhum(ix,jy)
-            synslp   (ix,jy) = synslp   (ix,jy) + ran1%slp   (ix,jy)
-            synprecip(ix,jy) = synprecip(ix,jy) + ran1%precip(ix,jy) 
-            synclouds(ix,jy) = synclouds(ix,jy) + ran1%clouds(ix,jy)
+            ! QQ: The rest use uncorrelated fields, 
+            ! from TOPAZ, lognormal: The rest use fields independent of slp
+            synairtmp(ix,jy) = ran1%airtmp(ix,jy)
+            synrelhum(ix,jy) = ran1%relhum(ix,jy)
+            synslp   (ix,jy) = ran1%slp   (ix,jy)
+            synprecip(ix,jy) = ran1%precip(ix,jy) 
+            synclouds(ix,jy) = ran1%clouds(ix,jy)
+            ! synairtmp(ix,jy) = synairtmp(ix,jy) + ran1%airtmp(ix,jy)
+            ! synrelhum(ix,jy) = synrelhum(ix,jy) + ran1%relhum(ix,jy)
+            ! synslp   (ix,jy) = synslp   (ix,jy) + ran1%slp   (ix,jy)
+            ! synprecip(ix,jy) = synprecip(ix,jy) + ran1%precip(ix,jy) 
+            ! synclouds(ix,jy) = synclouds(ix,jy) + ran1%clouds(ix,jy)
             synclouds(ix,jy) = min(max(synclouds(ix,jy),0.0),1.0) ! restricted between 0 and 100%
             synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
             synprecip(ix,jy) = synprecip(ix,jy) & ! lognormal precip
@@ -441,32 +447,32 @@ contains
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! rf_prsflag=0 : wind and slp are uncorrelated
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      else  ! rf_prsflg .eq. 0
-         do jy=2,jdm-1
-         do ix=2,idm-1
-         !if (ip(ix,jy)==1) then
-            syntaux  (ix,jy) = syntaux  (ix,jy) + ran1%taux(ix,jy)
-            syntauy  (ix,jy) = syntauy  (ix,jy) + ran1%tauy(ix,jy)
+      ! else  ! rf_prsflg .eq. 0
+         ! do jy=2,jdm-1
+         ! do ix=2,idm-1
+         ! !if (ip(ix,jy)==1) then
+         !    syntaux  (ix,jy) = syntaux  (ix,jy) + ran1%taux(ix,jy)
+         !    syntauy  (ix,jy) = syntauy  (ix,jy) + ran1%tauy(ix,jy)
 
-            ! KAL -- winds are nonlinear functions of tau and mainly
-            ! KAL -- used for sea ice
-            wspd = sqrt(syntaux(ix,jy)**2 + syntauy(ix,jy)**2)
-            wspd = max(sqrt(wspd / (cdfac*rhoa)),0.1)
-            synuwind(ix,jy) = syntaux (ix,jy) / (wspd*cdfac*rhoa)
-            synvwind(ix,jy) = syntauy (ix,jy) / (wspd*cdfac*rhoa)
-            synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
-            synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
-            synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
-            synclouds(ix,jy) = synclouds(ix,jy)+ran1%clouds(ix,jy)
-            synprecip(ix,jy) = synprecip(ix,jy) & ! Lognormal precipitation
-                    *exp(ran1%precip(ix,jy) - 0.5*vars%precip**2) 
-            synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
-            synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
-            synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
-            synclouds(ix,jy) = min(max(synclouds(ix,jy),0.0),1.0)
-         !end if
-         end do
-         end do
+         !    ! KAL -- winds are nonlinear functions of tau and mainly
+         !    ! KAL -- used for sea ice
+         !    wspd = sqrt(syntaux(ix,jy)**2 + syntauy(ix,jy)**2)
+         !    wspd = max(sqrt(wspd / (cdfac*rhoa)),0.1)
+         !    synuwind(ix,jy) = syntaux (ix,jy) / (wspd*cdfac*rhoa)
+         !    synvwind(ix,jy) = syntauy (ix,jy) / (wspd*cdfac*rhoa)
+         !    synairtmp(ix,jy) = synairtmp(ix,jy)+ran1%airtmp(ix,jy)
+         !    synwndspd(ix,jy) = synwndspd(ix,jy)+ran1%wndspd(ix,jy)
+         !    synrelhum(ix,jy) = synrelhum(ix,jy)+ran1%relhum(ix,jy)
+         !    synclouds(ix,jy) = synclouds(ix,jy)+ran1%clouds(ix,jy)
+         !    synprecip(ix,jy) = synprecip(ix,jy) & ! Lognormal precipitation
+         !            *exp(ran1%precip(ix,jy) - 0.5*vars%precip**2) 
+         !    synrelhum(ix,jy) = min(max(synrelhum(ix,jy),0.0),1.0)
+         !    synprecip(ix,jy) = max(synprecip(ix,jy),0.0)
+         !    synwndspd(ix,jy) = max(synwndspd(ix,jy),0.0)
+         !    synclouds(ix,jy) = min(max(synclouds(ix,jy),0.0),1.0)
+         ! !end if
+         ! end do
+         ! end do
       end if ! rf_prsflg
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! end if rf_prsflag=0
@@ -610,7 +616,7 @@ contains
 !------------------------------------------
    subroutine load_randfld_synforc(randfld, synforc) ! todo, check if it is necessary to read synforc
       integer :: ix,jy,id
-      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,7)
+      real*8  :: randfld(idm*jdm, 10), synforc(idm*jdm,4)
       do jy=1,jdm
       do ix=1,idm            
          id = (jy-1)*idm + ix  ! the order of x,y and id is related to the order of loading wind data in loadDataset() in externaldata.cpp
@@ -627,12 +633,13 @@ contains
       
          ! Todo: no need to load synforc if its varialbes are not used in calculating new random forcings.
          synuwind(ix,jy)  = synforc(id,1)
-         synvwind(ix,jy)  = synforc(id,2)! only perturbtions wind speeds at the moment, the unused variables are commented.
-         synairtmp(ix,jy) = synforc(id,3)
-         synslp(ix,jy)    = synforc(id,4)
-         synprecip(ix,jy) = synforc(id,5)
-         synrelhum(ix,jy) = synforc(id,6)
-         synclouds(ix,jy) = synforc(id,7)
+         synvwind(ix,jy)  = synforc(id,2)         
+         synclouds(ix,jy) = synforc(id,3)
+         synprecip(ix,jy) = synforc(id,4)
+         !! the unused variables are commented.
+         ! synairtmp(ix,jy) = synforc(id,3)
+         ! synslp(ix,jy)    = synforc(id,4)
+         ! synrelhum(ix,jy) = synforc(id,6)
       end do 
       end do 
    end subroutine
@@ -640,7 +647,7 @@ contains
    !------------------------------------------
    subroutine save_randfld_synforc(randfld, synforc)
       integer :: ix,jy,id
-      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,7)
+      real*8  :: randfld(idm*jdm,10), synforc(idm*jdm,4) ! same dimension size as defined in externaldata.cpp
       
       do jy=1,jdm      
       do ix=1,idm
@@ -649,10 +656,10 @@ contains
          ran%wndspd(ix,jy),ran%airtmp(ix,jy),ran%relhum(ix,jy), &
          ran%clouds(ix,jy),ran%precip(ix,jy),ran%sss(ix,jy),ran%sst(ix,jy) /)              
          
-         ! only perturbtions wind speeds at the moment, the unused variables are commented. In externaldata.cpp, set synforc_size=2.
-         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy), &
-                            synairtmp(ix,jy), synslp(ix,jy),  &
-                            synprecip(ix,jy), synrelhum(ix,jy), synclouds(ix,jy) /)
+         ! only perturbtions wind speeds at the moment, the unused variables are commented. 
+         synforc(id,:) = (/ synuwind(ix,jy), synvwind(ix,jy), synclouds(ix,jy), synprecip(ix,jy) /)
+                           !  synairtmp(ix,jy), synslp(ix,jy),  &
+                           !  synprecip(ix,jy), synrelhum(ix,jy), synclouds(ix,jy) /)
       end do 
       end do 
    end subroutine

@@ -8497,6 +8497,14 @@ DataSet::DataSet(char const *DatasetName)
 
          averaging_period=0.;
          time= time_tmp;
+
+#if defined (ENSEMBLE) 
+        // save dimensional perturbations for variables saved on elements specified in externaldata.cpp
+        std::vector<double> tmp1, tmp2;
+        synforc = tmp1;
+        synwind_uv = tmp2;
+#endif
+
 #ifdef OASIS
         coupled = false;
 #endif
@@ -8641,7 +8649,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable v={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "10V", // U10M
+            name: "10V", // name in ec2_start.. dataset.
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8660,7 +8668,7 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = u;
         variables_tmp[1] = v;
-
+        // variables: precip(TP)/cloud_area_fraction(longwave?), snow depth (not in ecmwf), air_temperature are defined in ec2_elements
         std::vector<int> uv_tmp(2);
             uv_tmp[0] = 0;
             uv_tmp[1] = 1;
@@ -8682,11 +8690,13 @@ DataSet::DataSet(char const *DatasetName)
         time= time_tmp;
         
 #if defined (ENSEMBLE) 
-        std::vector<double> tmp1,tmp2;
-        synforc = tmp1;
-        randfld = tmp2;
-        synforc_exist=0;
+        // Save dimensional and nondimensional perturbations for variables specified in externaldata.cpp
+        std::vector<double> tmp1,tmp2,tmp3;
+        randfld = tmp1;
+        synforc = tmp2;
+        synwind_uv = tmp3;
 #endif
+
 #ifdef OASIS
         coupled = false;
 #endif
