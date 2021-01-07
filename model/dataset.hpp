@@ -229,9 +229,11 @@ public:
         std::vector<double> & RX_out, std::vector<double> & RY_out,
         mapx_class *mapNextsim);
 
+    std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
+
     // name of the dataSet
     std::string name;
-    std::string projfilename;
+    std::string mppfile_nextsim;
 
 #if defined OASIS
     bool coupled;
@@ -256,14 +258,14 @@ private:
     bool M_log_all;
     Communicator M_comm;
 
-    std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
     void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);
     void getLatLonRegularLatLon(double* LAT, double* LON,
                                   netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
     void getXYRegularXY(double* X, double* Y,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
 
-    void getXYLatLonFromLatLon(double* X, double* Y,double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
+    void getXYLatLonFromLatLon(mapx_class *map, double* X, double* Y,
+            double* LAT, double* LON, netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr);
     double thetaInRange(double const& th_, double const& th1, bool const& close_on_right=false);
 
     void getMinMax(mapx_class *mapNextsim, Grid *grid_ptr,

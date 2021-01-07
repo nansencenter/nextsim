@@ -769,6 +769,12 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
             break;
 
+        case setup::AtmosphereType::WRF:
+            M_atmosphere_nodes_dataset=DataSet("wrf_nodes");
+            M_atmosphere_elements_dataset=DataSet("wrf_elements");
+            break;
+
+
         default:
             std::cout << "invalid atmospheric forcing"<<"\n";throw std::logic_error("invalid atmospheric forcing");
     }
@@ -1270,7 +1276,8 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ec2_arome", setup::AtmosphereType::EC2_AROME)
-        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
+        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE)
+        ("wrf", setup::AtmosphereType::WRF);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1288,7 +1295,9 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
         case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::WRF:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
+
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
     M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
@@ -6573,8 +6582,9 @@ FiniteElement::init()
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
     t_damage = M_res_root_mesh*1.3429*std::pow(young/(2.0*(1.0+nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
-    if (dtime_step/t_damage > 10.0)
-        LOG(WARNING) << "For best deformation scaling results, the ratio simul.timestep/t_damage should be < 10. (Currently it is " << dtime_step/t_damage << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
+    double const diag_ratio = dtime_step/(t_damage*vm["dynamics.substeps"].as<int>());
+    if (diag_ratio > 10.0)
+        LOG(WARNING) << "For best deformation scaling results, the ratio of the dynamic time step to t_damage should be < 10. (Currently it is " << diag_ratio << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
 
     if ( M_use_restart )
     {
@@ -10195,6 +10205,21 @@ FiniteElement::forcingAtmosphere()
             M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
                     time_init, 0, 0, M_ensemble_member);
         break;
+
+        case setup::AtmosphereType::WRF:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
 
         default:
             std::cout << "invalid atmospheric forcing"<<"\n";

@@ -33,7 +33,7 @@ DataSet::DataSet(char const *DatasetName)
     M_comm(Environment::comm())
 {
     name = std::string(DatasetName);
-    projfilename = Environment::vm()["mesh.mppfile"].as<std::string>();
+    mppfile_nextsim = Environment::vm()["mesh.mppfile"].as<std::string>();
 
     ftime_range.resize(2,0.);
 #ifdef OASIS
@@ -1512,7 +1512,9 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -1717,7 +1719,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -1925,7 +1927,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2144,7 +2146,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2330,7 +2332,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2532,7 +2534,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: mppfile_nextsim,
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2689,7 +2691,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -2924,7 +2926,7 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                mpp_file: projfilename,
+                mpp_file: "",//only used for vectors if FromMeshToMesh2dx
                 interpolation_in_latlon: false,
 
                 loaded: false,
@@ -3107,7 +3109,7 @@ DataSet::DataSet(char const *DatasetName)
               dimension_x: dimension_x,
               dimension_y: dimension_y,
 
-              mpp_file: projfilename,
+              mpp_file: "",//only used for vectors if FromMeshToMesh2dx
               interpolation_in_latlon: false,
 
               loaded: false,
@@ -3312,8 +3314,6 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
@@ -3328,7 +3328,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors with FromMeshToMesh2dx
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3479,8 +3480,6 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            //interpolation_method: InterpolationType::FromGridToMesh,
-            //interp_type: BilinearInterpEnum,
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
@@ -3495,7 +3494,8 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // for determining rotation angle for vectors with FromMeshToMesh2dx
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3610,7 +3610,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3723,7 +3723,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -3913,7 +3913,9 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong projection but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4170,7 +4172,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4366,7 +4368,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4548,7 +4550,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -4725,7 +4727,7 @@ DataSet::DataSet(char const *DatasetName)
                 dirname:"",
                 prefix: "current_",
                 postfix:".nc",
-            gridfile: "",
+                gridfile: "",
                 reference_date: "1950-01-01",
 
                 latitude: latitude,
@@ -4734,7 +4736,9 @@ DataSet::DataSet(char const *DatasetName)
                 dimension_x: dimension_x,
                 dimension_y: dimension_y,
 
-                mpp_file: projfilename,
+                // wrong projection but same central lon so OK for determining
+                // rotation angle for vectors with FromMeshToMesh2dx
+                mpp_file: "NpsNextsim.mpp",
                 interpolation_in_latlon: false,
 
                 loaded: false,
@@ -4887,7 +4891,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5049,7 +5053,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5194,7 +5198,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5338,7 +5342,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5474,7 +5478,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5636,7 +5640,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5798,7 +5802,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -5960,7 +5964,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -6076,7 +6080,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -6226,7 +6230,7 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            mpp_file: "",//only used for vectors if FromMeshToMesh2dx
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -8039,6 +8043,454 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
+    
+    else if (strcmp (DatasetName, "wrf_elements") == 0)
+    {
+        std::string const spatial_res = Environment::vm()
+            ["setup.atmosphere-resolution"].as<std::string>();
+
+        // Definition of dimensions
+        Dimension dimension_x={
+             name:"west_east",
+             cyclic:false
+        };
+
+        Dimension dimension_y={
+             name:"south_north",
+             cyclic:false
+        };
+
+        Dimension dimension_time={
+             name:"XTIME",
+             cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;        
+
+        Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "XLAT",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "XLONG",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type : -1,
+            dirname:"",
+            prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
+            postfix:".nc",
+            gridfile: "",
+            reference_date:"2013-02-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",// only needed for vectors with FromMeshToMesh2dx
+            interpolation_in_latlon: false,
+
+            loaded: false,
+            dataset_frequency:"yearly", // 'yearly' because data spans multiple months
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+        grid= grid_tmp;
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable time_tmp={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
+            name: "XTIME",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1./60.,//convert minutes to hours
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable tair={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_T2_y",
+            name:"T2",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:-273.15,
+            Units:"C",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // T2M
+        Variable sphuma={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
+            name:"Q2",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0,
+            Units:"kg/kg",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // Q2M: 2 m specific humidity 
+
+        Variable mslp={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_PSFC_y",
+            name:"PSFC",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"Pa",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; //PSFC, a=1.
+
+        Variable Qsw_in={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_SWDOWN_y",
+            name:"SWDOWN",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable Qlw_in={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_LWDNB_y",
+            name:"LWDNB",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable precip={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_RAINNC_hourly_y",
+            name:"RAINNC",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:physical::rhow/1000./(3600), // Convert from mm/h to kg/m2/s
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable snowfall={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_SNOWNC_hourly_y",
+            name:"SNOWNC",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:physical::rhos/1000./(3600), // convert from mm/h to kg/m2/s, assuming rho_snow=330 kg/m3
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp
+        };
+
+        std::vector<Variable> variables_tmp(7);
+        variables_tmp[0] = tair;
+        variables_tmp[1] = sphuma;
+        variables_tmp[2] = mslp;
+        variables_tmp[3] = Qsw_in;
+        variables_tmp[4] = Qlw_in;
+        variables_tmp[5] = precip;
+        variables_tmp[6] = snowfall;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+
+         loaded=false;
+         interpolated=false;
+
+         averaging_period=0.;
+         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "wrf_nodes") == 0)
+    {
+        std::string const spatial_res = Environment::vm()
+            ["setup.atmosphere-resolution"].as<std::string>();
+
+        // Definition of dimensions
+        Dimension dimension_x={
+            name:"west_east",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"south_north",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"XTIME",
+            cyclic:false};
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x; 
+
+        Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "XLAT",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "XLONG",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interp_type : -1,
+            dirname:"",
+            prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
+            postfix:".nc",
+            gridfile: "",
+            reference_date:"2013-02-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            //for determining vector rotation angle with FromMeshToMesh2dx
+            mpp_file: "NpsWRF.mpp",
+            interpolation_in_latlon: false,
+
+            loaded: false,
+
+            dataset_frequency:"yearly",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+        grid= grid_tmp;
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        Variable time_tmp={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
+            name: "XTIME",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1./60.,//convert minutes to hours
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        // conversion factors: xnew = a*x + b
+        Variable u={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
+            name: "U10", //U10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+            filename_prefix: "wrf_r" + spatial_res + "_ctrl_V10_y",
+            name: "V10", //V10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp(2);
+        variables_tmp[0] = u;
+        variables_tmp[1] = v;
+
+        std::vector<int> uv_tmp(2);
+            uv_tmp[0] = 0;
+            uv_tmp[1] = 1;
+
+        Vectorial_Variable uv={
+            components_Id: uv_tmp,
+            east_west_oriented: false
+        };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+        vectorial_variables_tmp[0] = uv;
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
     else if (strcmp (DatasetName, "ec2_elements") == 0)
     {
         // Definition of dimensions
@@ -8700,7 +9152,9 @@ DataSet::DataSet(char const *DatasetName)
             dimension_x: dimension_x,
             dimension_y: dimension_y,
 
-            mpp_file: projfilename,
+            // wrong mppfile but same central lon so OK for determining
+            // rotation angle for vectors with FromMeshToMesh2dx
+            mpp_file: "NpsNextsim.mpp",
             interpolation_in_latlon: false,
 
             loaded: false,
@@ -9040,6 +9494,10 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "etopo_elements\n");
         fprintf (stderr, "ERAi_nodes\n");
         fprintf (stderr, "ERAi_elements\n");
+        fprintf (stderr, "ERA5_nodes\n");
+        fprintf (stderr, "ERA5_elements\n");
+        fprintf (stderr, "wrf_nodes\n");
+        fprintf (stderr, "wrf_elements\n");
         fprintf (stderr, "ww3a_elements\n");
         fprintf (stderr, "erai_waves_1deg_elements\n");
         fprintf (stderr, "ice_cs2_smos_elements\n");
@@ -9351,8 +9809,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-    netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-    netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
         std::vector<double> X(grid_ptr->dimension_x_count);
@@ -9407,7 +9865,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
         std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
 #if 0
         // Then, we determine the reduced dimension
@@ -9506,7 +9964,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         Y.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
         // Then we load the reduced grid
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 #if defined OASIS
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -9774,7 +10232,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> X(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
         std::vector<double> Y(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);
 
-        this->getXYLatLonFromLatLon(&X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
+        this->getXYLatLonFromLatLon(mapNextsim, &X[0],&Y[0],&LAT[0],&LON[0],&VLAT,&VLON);
 
         // Read in the gridded rotation angle, if requested
         std::vector<double> Theta;
@@ -10102,7 +10560,8 @@ DataSet::getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
 
 
 void
-DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
+DataSet::getXYLatLonFromLatLon(mapx_class *map, double* X, double* Y,
+        double* LAT, double* LON,netCDF::NcVar* VLAT_ptr,netCDF::NcVar* VLON_ptr)
 {
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
@@ -10152,16 +10611,6 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
     }
 
     // projection
-    mapx_class *map;
-    std::string configfile = (boost::format( "%1%/%2%" )
-                              % Environment::nextsimMeshDir().string()
-                              % grid.mpp_file
-                              ).str();
-
-    std::vector<char> str(configfile.begin(), configfile.end());
-    str.push_back('\0');
-    map = init_mapx(&str[0]);
-
     double x;
     double y;
 
@@ -10174,8 +10623,6 @@ DataSet::getXYLatLonFromLatLon(double* X, double* Y, double* LAT, double* LON,ne
             Y[index_count[1]*i+j]=y;
         }
     }
-
-    close_mapx(map);
 }//getXYLatLonFromLatLon
 
 
@@ -10257,12 +10704,13 @@ DataSet::convertTargetXY(Grid *grid_ptr,
     double const target_size = RX_in.size();
     assert(target_size==RY_in.size());
 
-    RX_out.resize(target_size);
-    RY_out.resize(target_size);
+    RX_out = RX_in;
+    RY_out = RY_in;
+    double lat, lon;
 
     if(grid_ptr->interpolation_in_latlon)
     {
-        double lat, lon;
+        LOG(DEBUG) << "Transforming target points to lon, lat for interpolation\n";
         for (int i=0; i<target_size; ++i)
         {
             //convert to lon,lat
@@ -10275,18 +10723,37 @@ DataSet::convertTargetXY(Grid *grid_ptr,
                 //this shouldn't matter here though?
             RX_out[i]=this->thetaInRange(lon,bc_lon,close_on_right);
         }
+        return;
     }
-    else
+    // If we are here the data is in stereographic projection,
+    // but if we are using FromMeshToMesh2dx then we are already working
+    // in the nextsim projection
+    // Also nothing to do if we are using the nextsim projection already
+    if (grid_ptr->interpolation_method != InterpolationType::FromGridToMesh
+            || grid_ptr->mpp_file == mppfile_nextsim)
     {
-        double cos_rotangle = std::cos(rotation_angle);
-        double sin_rotangle = std::sin(rotation_angle);
-        //rotate to coord sys of dataset
-        for (int i=0; i<target_size; ++i)
-        {
-            RX_out[i] =  cos_rotangle*RX_in[i]+sin_rotangle*RY_in[i];
-            RY_out[i] = -sin_rotangle*RX_in[i]+cos_rotangle*RY_in[i];
-        }
+        LOG(DEBUG) << "Not transforming target points before interpolation\n";
+        return;
     }
+
+    LOG(DEBUG) << "Transforming target points to stereographic projection of data for interpolation\n";
+    // transform between different stereographic projections
+    mapx_class *mapData;
+    std::string fpath = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % grid_ptr->mpp_file
+            ).str();
+    std::vector<char> cpath(fpath.begin(), fpath.end());
+    cpath.push_back('\0');
+    mapData = init_mapx(&cpath[0]);
+    for (int i=0; i<target_size; ++i)
+    {
+        //convert to lon,lat
+        inverse_mapx(mapNextsim, RX_in[i], RY_in[i], &lat, &lon);
+        //convert to new x,y
+        forward_mapx(mapData, lat, lon, &RX_out[i], &RY_out[i]);
+    }
+    close_mapx(mapData);
 }//convertTargetXY
 
 void
