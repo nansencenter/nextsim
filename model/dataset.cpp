@@ -8118,7 +8118,7 @@ DataSet::DataSet(char const *DatasetName)
             prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
             postfix:".nc",
             gridfile: "",
-            reference_date:"2013-02-10",
+            reference_date:"2013-02-01",
 
             latitude: latitude,
             longitude: longitude,
@@ -8375,7 +8375,7 @@ DataSet::DataSet(char const *DatasetName)
             prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             postfix:".nc",
             gridfile: "",
-            reference_date:"2013-02-10",
+            reference_date:"2013-02-01",
 
             latitude: latitude,
             longitude: longitude,
