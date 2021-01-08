@@ -276,142 +276,151 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### MN_FULL: " << MN_full << "\n";
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
-                LOG(DEBUG) << "### M_dataset->previous_perturbation_exist:"<< M_dataset->previous_perturbation_exist<<"\n";                         
+                                     
                 if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                     strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0 )
                 {                    
-                    if (M_dataset->synforc.size()==0){ 
+                    int  previous_perturbation_exist=1;
                     //For the 1st perturbation of the simulation
-                    //initialize vectors of dimensional/nondimensional perturbation fields
-                        // the size is consistent with mod_random_forcing.f90:save_randfld_synforc()
-                        M_dataset->synforc.resize(4*MN_full);  
-                        M_dataset->randfld.resize(10*MN_full);                   
-                    
-                        // load perturbation from 'restart' file 
+                    if (M_dataset->randfld.size()==0){ 
+                        //initialize dimensional/nondimensional perturbation fields as 0.
+                        // sizes are consistent with mod_random_forcing.f90:save_randfld_synforc()
+                        M_dataset->randfld.resize(10*MN_full,0.); 
+                        M_dataset->synforc.resize(4*MN_full,0.); 
+
+                        // load perturbation from 'restart' file by root processor
                         if (M_comm.rank() == 0) {                          
-                            std::string filename_root = "WindPerturbation_pre_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
+                            std::string filename_root = "WindPerturbation_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
                             ifstream iofile(filename_root.c_str());
                             LOG(DEBUG) << "### existence of "<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
-                            //M_dataset->previous_perturbation_exist = iofile.good();
+                            previous_perturbation_exist = iofile.good();
                             if ( iofile.good() ) {
                                 netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
                                 netCDF::NcVar data;
-                                data = dataFile.getVar("synforc");
-                                data.getVar(&M_dataset->synforc[0]); 
-                                data = dataFile.getVar("randfld");
+                                data = dataFile.getVar("randfld"); 
                                 data.getVar(&M_dataset->randfld[0]);
-                                M_dataset->previous_perturbation_exist = 1;
+                                data = dataFile.getVar("synforc");
+                                data.getVar(&M_dataset->synforc[0]);
+                                // for(int i = 0; i < M_dataset->synwindspeed_uv.size(); i++)
+                                //     M_dataset->synwindspeed_uv[i] = M_dataset->synforc[i];
                             }
-                            else{
-                                // fresh start, create previous perturbation in synopticPerturbation() below
-                                M_dataset->previous_perturbation_exist = 0;
-                            }
+                            // save previous element perturbations to a temporal file 
+                            // filename_root = "synforc_elements.nc";
+                            // netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
+                            // netCDF::NcDim dim = dataFile.addDim("x",MN_full); 
+                            // netCDF::NcVar data;
+                            // data = dataFile.addVar("tcc_previous",netCDF::ncFloat, dim);
+                            // data.putVar(&M_dataset->synforc[2*MN_full],MN_full);;                    
+                            // data = dataFile.addVar("precipitation_previous",netCDF::ncFloat, dim);
+                            // data.putVar(&M_dataset->synforc[2*MN_full],MN_full);
                         }
-                        
-                        M_comm.barrier();
-                        boost::mpi::broadcast(M_comm, &M_dataset->previous_perturbation_exist,1, 0); 
-                        if (M_dataset->previous_perturbation_exist){
-                            LOG(DEBUG) << "### Broadcast previous perturbations loaded from restart file to all processors\n";  
-                            boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
-                            // no need to broadcast previous randfld, which is only used in root processor for generating current perturbation. 
-                        }
-                    }
-
-                    LOG(DEBUG) << "### Add perturbations to previous wind fields, which (I assume)is loaded from wind dataset\n";  
-                    // where the previous wind field is used? //If previous perturbed wind field is not used, then it is no needs to broadcast synforc and add previous perturbation to wind field in the previous time step
-                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
-                    perturbation.addPerturbation(M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
-                    LOG(DEBUG) << "### Generate current perturbations based on randfld at previous time\n"; 
-                    if (M_comm.rank() == 0) {                    
-                        // // LOG(DEBUG)  << "%%%%%%%%%%%%%show previous synforc %%%%%%\n";
-                        // if (M_dataset->previous_perturbation_exist == 1)
-                        // {
-                        //     for(int i = 0; i < MN_full; i++) 
-                        //         LOG(DEBUG) <<i<<", "<<M_dataset->synforc[i]<<"\n"; 
-                        // }
-                        perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->previous_perturbation_exist); 
-                        M_dataset->previous_perturbation_exist=1;
-                        // for(int i = 0; i < MN_full; i++) 
-                        //    std::cout<<"x0  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
-                    }
-                    
+                    }                      
+                    // where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
                     M_comm.barrier();
-                    LOG(DEBUG) << "### Broadcast perturbations to all processors\n";  
+                    LOG(DEBUG) << "### Broadcast previous perturbations to all processors\n";  
                     boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
 
-                    // if (M_comm.rank() == 10) {  
-                    //     for(int i = 0; i < MN_full; i++)
-                    //        std::cout<<"x1  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
-                    // }
-                    LOG(DEBUG) << "### Add perturbations to current wind fields\n";  
-                    M_comm.barrier();      
-                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
-                    perturbation.addPerturbation(M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
-                    // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
-                    // double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
-                    // LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
-                }
-                else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                         strcmp (M_dataset->name.c_str(), "ec2_elements") == 0 )
-                {
-                    //  As time-dependant elements is checked first by checkReloadDatasets. perturbation is firstly called here rather than  time-dependant nodes
-                    if (M_dataset->synforc.size()==0){ 
-                    //For the 1st perturbation of the simulation
-                        //initialize vectors of dimensional/nondimensional perturbation fields
-                        // the size is consistent with mod_random_forcing.f90:save_randfld_synforc()
-                        M_dataset->synforc.resize(4*MN_full);  
-                        M_dataset->randfld.resize(10*MN_full);                   
-                    
-                        // load perturbation from 'restart' file 
-                        if (M_comm.rank() == 0) {                          
-                            std::string filename_root = "WindPerturbation_pre_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
-                            ifstream iofile(filename_root.c_str());
-                            LOG(DEBUG) << "### existence of "<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
-                            //M_dataset->previous_perturbation_exist = iofile.good();
-                            if ( iofile.good() ) {
-                                netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
-                                netCDF::NcVar data;
-                                data = dataFile.getVar("synforc");
-                                data.getVar(&M_dataset->synforc[0]); 
-                                data = dataFile.getVar("randfld");
-                                data.getVar(&M_dataset->randfld[0]);
-                                M_dataset->previous_perturbation_exist = 1;
-                            }
-                            else{
-                            // create previous perturbation in synopticPerturbation() 
-                                M_dataset->previous_perturbation_exist = 0;
-                            }
+                        bool do_perturbation_nodes = true;
+                        if(do_perturbation_nodes)
+                        {
+                            LOG(DEBUG) << "### Add previous perturbations to wind fields\n";  
+                            perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1);  // synwindspeed_uv
+                            perturbation.addPerturbation(M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
                         }
-                        
-                        M_comm.barrier();
-                        boost::mpi::broadcast(M_comm, &M_dataset->previous_perturbation_exist,1, 0); 
-                        if (M_dataset->previous_perturbation_exist){
-                            LOG(DEBUG) << "### Broadcast previous perturbations loaded from restart file to all processors\n";  
-                            boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
-                            // no need to broadcast randfld, which is only used in root processor for generating next synforc. 
-                        }
-                    }
 
-                    LOG(DEBUG) << "### Add perturbations to previous wind fields, which (I assume)is loaded from wind dataset\n";  
-                    // where the previous wind field is used? //If previous perturbed wind field is not used, then it is no needs to broadcast synforc and add previous perturbation to wind field in the previous time step
-                    // indexes defined in ec2_elements, asr2_elements 
-                    perturbation.addPerturbation(M_dataset->variables[5].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 3); //tcc defined in dataset.cpp
-                    perturbation.addPerturbation(M_dataset->variables[6].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 4); //precip
-
-                    LOG(DEBUG) << "### Generate current perturbations based on randfld at previous time\n"; 
-                    if (M_comm.rank() == 0) {      
-                        perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, M_dataset->previous_perturbation_exist); 
-                        M_dataset->previous_perturbation_exist=1;
-                    }
-                    
+                    LOG(DEBUG) << "### Generate current perturbations based on randfld at previous randfld \n"; 
+                    if (M_comm.rank() == 0) {   
+                        perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full,previous_perturbation_exist); 
+                    }                   
                     M_comm.barrier();
-                    LOG(DEBUG) << "### Broadcast perturbations to all processors\n";  
-                    boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
-
-                    LOG(DEBUG) << "### Add perturbations to current wind fields\n";  
-                    M_comm.barrier();      
-                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count,M_comm.rank()); 
+                    LOG(DEBUG) << "### Broadcast current perturbations to all processors\n";  
+                    boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0);
+                    
+                        if(do_perturbation_nodes)
+                        {                
+                            perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                            perturbation.addPerturbation(M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
+                            // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                            // double M_max=*std::max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                            // LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
+                        }
                 }
+                // else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
+                //          strcmp (M_dataset->name.c_str(), "ec2_elements") == 0 )
+                // {
+                // //perturbation is called in  time-dependant elements
+                //     if (tcc or precip)
+                //         bool do_perturbation_elements=true;
+                    
+                //     // load perturbation from file 
+                //     if (M_comm.rank() == 0) {                          
+                //         std::string filename_root = "synforc_elements.nc";  // 
+                //         ifstream iofile(filename_root.c_str());
+                //         LOG(DEBUG) << "### existence of "<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
+                //         if ( iofile.good() ) {
+                //             netCDF::NcFile dataFile(filename_root, netCDF::NcFile::read);
+                //             netCDF::NcVar data;
+                //             if (tcc??)
+                //             {
+                //                 data = dataFile.getVar("tcc_previous");
+                //                 data.getVar(&M_dataset->synwind_previous[0]);
+                //                 data = dataFile.getVar("tcc_current");
+                //                 data.getVar(&M_dataset->synwind_current[0]);
+                //             }
+                //             else if(precip??)
+                //             {
+                //                 data = dataFile.getVar("precip_previous");
+                //                 data.getVar(&M_dataset->synwind_previous[0]);
+                //                 data = dataFile.getVar("precip_current");
+                //                 data.getVar(&M_dataset->synwind_current[0]);
+                //             }
+                //         }
+                //     }
+                //         // where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
+                //         M_comm.barrier(); 
+                //         LOG(DEBUG) << "### Broadcast previous perturbations loaded from restart file to all processors\n"; 
+                //         if (previous_perturbation_exist==1 && do_perturbation_elements){
+                             
+                //             boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
+                //             // no need to broadcast previous randfld, which is only used in root processor for generating current perturbation.  
+                //         }
+                //     }
+
+                //     if (do_perturbation_elements)
+                //     {
+                //         LOG(DEBUG) << "### Add perturbations to previous wind fields loaded from wind dataset\n";  
+                //         // where is the previous wind field used? If it is not used, then it is no need to broadcast and add previous perturbation to previous wind field
+                //         // indexes defined in ec2_elements, asr2_elements
+                //         perturbation.addPerturbation(M_dataset->variables[5].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 3); //tcc, i in variables[i]  defined in dataset.cpp
+                //         perturbation.addPerturbation(M_dataset->variables[6].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 4); //precip, last parameter defined in save_randfld_synforc() in mod_random_forcing.f90
+                //     }
+
+                //     LOG(DEBUG) << "### Generate current perturbations based on randfld at previous time\n"; 
+                //     if (M_comm.rank() == 0) {      
+                //         perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full, previous_perturbation_exist);
+                //     }
+
+                //     LOG(DEBUG) << "### Broadcast perturbations\n";  
+                //     M_comm.barrier();
+                //     boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
+                //     // if (M_comm.rank() == 10) {  
+                //     //     for(int i = 0; i < MN_full; i++)
+                //     //        std::cout<<"x1  "<< i<< ",  "<<M_dataset->synforc[i]<<", "<<M_dataset->synforc[MN_full+i]<<"\n";  
+                //     // }
+                //      //save prevous wind speed to temporal file 
+                //     filename_root = "synwind_node.nc";
+                //     netCDF::NcFile dataFile(filename_root, netCDF::NcFile::add@@@@@@);
+                //     netCDF::NcDim dim_synforc = dataFile.addDim("synwind_current",2*MN_full) 
+                //     netCDF::NcVar data=dataFile.addVar("synwind_current",netCDF::ncFloat, dim_synforc);
+                //     data.putVar(&dataset->synforc[0],2*MN_full);
+                //     if (do_perturbation_elements)
+                //     {
+                //         LOG(DEBUG) << "### Add perturbations to current wind fields\n";  
+                //         M_comm.barrier();      
+                //         perturbation.addPerturbation(M_dataset->variables[5].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 3); //tcc defined in dataset.cpp
+                //         perturbation.addPerturbation(M_dataset->variables[6].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 4); //precip
+                //     }
+                // }
                 M_comm.barrier();
             }
 #endif

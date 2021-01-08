@@ -981,16 +981,16 @@ FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh nodes
     M_timer.tick("Coord");
-    RX = M_mesh.coordX();
-    RY = M_mesh.coordY();
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
     M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
 
     // - mesh elements
     M_timer.tick("bCoord");
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
+    RX = M_mesh.bCoordX();
+    RY = M_mesh.bCoordY();
     M_timer.tock("bCoord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
     this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
@@ -9850,31 +9850,40 @@ FiniteElement::export_WindPerturbations()
     filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
     netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
     Dataset *M_dataset;
-    netCDF::NcDim dim;
-    netCDF::NcVar data;
-    // nodes
+    //
     M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-    // write nondimensional perturbations
-    dim_randfld = dataFile.addDim("x",M_dataset->randfld.size()); 
-    data        = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-    data.putVar(&M_wind_uv->randfld[0]);  
-    // write wind speeds u,v     
-    dim       = dataFile.addDim("x",M_wind_uv->synforc.size()); 
-    data      = dataFile.addVar("wind_uv",netCDF::ncFloat, dim_synwind_uv);
-    data.putVar(&M_wind_uv->synforc[0]);
+    LOG(DEBUG) << "write dimensional fields\n";
+    netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
+    netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
+    synforc.putVar(&M_dataset->synforc[0]);
+    //
+    LOG(DEBUG) << "write nondimensional fields\n";
+    netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
+    netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+    randfld.putVar(&M_dataset->randfld[0]);
+    // // nodes
+    // M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
+    // // write nondimensional perturbations
+    // netCDF::NcDim dim_randfld  = dataFile.addDim("x",M_dataset->randfld.size()); 
+    // netCDF::NcVar data_randfld = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+    // data_randfld.putVar(&M_dataset->randfld[0]);  
+    // // write domensional perturbations: wind speeds u,v, tcc, precip //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
+    // netCDF::NcDim dim_synforc  = dataFile.addDim("x",M_dataset->synforc.size()); 
+    // netCDF::NcVar data_synforc = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc); //wind_uv
+    // data_synforc.putVar(&M_dataset->synforc[0]);
 
-    //elements
-    //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
-    //write clouds cover fraction
-    M_dataset = M_external_data_elements[5]->get_M_dataset(); //tcc 
-    dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
-    data      = dataFile.addVar("tcc",netCDF::ncFloat, dim);
-    data.putVar(&M_dataset->synforc[0]);
-    // write precipitation
-    M_dataset = M_external_data_elements[6]->get_M_dataset(); //precip
-    dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
-    data      = dataFile.addVar("precip",netCDF::ncFloat, dim);
-    data.putVar(&M_dataset->synforc[0]);
+    // //elements
+    // //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
+    // //write clouds cover fraction
+    // M_dataset = M_external_data_elements[5]->get_M_dataset(); //tcc 
+    // dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
+    // data      = dataFile.addVar("tcc",netCDF::ncFloat, dim);
+    // data.putVar(&M_dataset->synforc[0]);
+    // // write precipitation
+    // M_dataset = M_external_data_elements[6]->get_M_dataset(); //precip
+    // dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
+    // data      = dataFile.addVar("precip",netCDF::ncFloat, dim);
+    // data.putVar(&M_dataset->synforc[0]);
 }//export_WindPerturbations
 #endif // ENSEMBLE
 
@@ -14072,7 +14081,7 @@ FiniteElement::instantiateDrifters()
                 0.,                 //lifetime before re-initialising
                 false               //fixed init time? (like RGPS, SIDFEX)
                 );
-        bool const ignore_restart = vm["drifters.iabGp_ignore_restart"].as<bool>();
+        bool const ignore_restart = vm["drifters.iabp_ignore_restart"].as<bool>();
         M_drifters.push_back(
                 Drifters("IABP", outfile_prefix, infile,
                     drifters_conc_lim, timing_info, ignore_restart)

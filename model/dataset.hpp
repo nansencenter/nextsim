@@ -251,7 +251,7 @@ public:
 #endif
 
 #if defined (ENSEMBLE)  
-    std::vector<double> randfld, synforc, synwind_uv;
+    std::vector<double> randfld, synforc;
 #endif
 private:
 

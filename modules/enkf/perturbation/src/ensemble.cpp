@@ -8,21 +8,21 @@ void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<dou
 }    
 
 
-void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
-{   // submesh size is y_count*x_count; =velocity_u.size()     
-    // full mesh size M_full(y domain)*N_full(x domain)
-    // outer loop rows indicated by y direction. j is index in submesh
-    // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
-    int start_tmp,n = 0;
-    for(int j = 0; j <y_count; j++) {  
-        start_tmp = x_start + (y_start + j)*N_full;
-        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {    
-            velocity_u[n] += synforc[i];
-            velocity_v[n] += synforc[i+M_full*N_full];       
-            n++; 
-        }
-    }        
-};
+// void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
+// {   // submesh size is y_count*x_count; =velocity_u.size()     
+//     // full mesh size M_full(y domain)*N_full(x domain)
+//     // outer loop rows indicated by y direction. j is index in submesh
+//     // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
+//     int start_tmp,n = 0;
+//     for(int j = 0; j <y_count; j++) {  
+//         start_tmp = x_start + (y_start + j)*N_full;
+//         for(int i = start_tmp; i < start_tmp + x_count; i++ ) {    
+//             velocity_u[n] += synforc[i];
+//             velocity_v[n] += synforc[i+M_full*N_full];       
+//             n++; 
+//         }
+//     }        
+// };
 
 
 void ensemble::addPerturbation(std::vector<double>& forcefield, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index)
@@ -30,6 +30,7 @@ void ensemble::addPerturbation(std::vector<double>& forcefield, std::vector<doub
     // full mesh size M_full(y domain)*N_full(x domain)
     // outer loop rows indicated by y direction. j is index in submesh
     // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
+    
     // index of forcing field defined in save_randfld_synforc() of mod_random_forcing.f90, starting from 1
     int start_tmp,n = 0;
     for(int j = 0; j <y_count; j++) {  

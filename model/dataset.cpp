@@ -8498,12 +8498,11 @@ DataSet::DataSet(char const *DatasetName)
          averaging_period=0.;
          time= time_tmp;
 
-#if defined (ENSEMBLE) 
-        // save dimensional perturbations for variables saved on elements specified in externaldata.cpp
-        std::vector<double> tmp1, tmp2;
-        synforc = tmp1;
-        synwind_uv = tmp2;
-#endif
+// #if defined (ENSEMBLE) 
+//         // save dimensional perturbations for variables saved on elements specified in externaldata.cpp
+//         std::vector<double> tmp1;
+//         synforc = tmp1;
+// #endif
 
 #ifdef OASIS
         coupled = false;
@@ -8691,10 +8690,9 @@ DataSet::DataSet(char const *DatasetName)
         
 #if defined (ENSEMBLE) 
         // Save dimensional and nondimensional perturbations for variables specified in externaldata.cpp
-        std::vector<double> tmp1,tmp2,tmp3;
+        std::vector<double> tmp1,tmp2;
         randfld = tmp1;
         synforc = tmp2;
-        synwind_uv = tmp3;
 #endif
 
 #ifdef OASIS
