@@ -8741,7 +8741,6 @@ DataSet::DataSet(char const *DatasetName)
         variables_tmp[3] = precip;
         variables_tmp[4] = Qsw_in;
         variables_tmp[5] = Qlw_in;
-        variables_tmp[6] = tcc;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 

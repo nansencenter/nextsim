@@ -427,10 +427,6 @@ namespace Nextsim
             ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
                 "relaxation time of slab ocean salinity to ocean forcing")
 
-            // -- relating to thermodynamic forcing
-            ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
-                "True: use total cloud cover parameterisation of long wave incoming radiation - only works if dataset has QLW_IN. False: use forcing from atmospheric datasets - only works if dataset has TCC")
-
             // -- assimilation compensating flux
             ("thermo.use_assim_flux", po::value<bool>()->default_value(true),
              "Add a heat flux that compensates for assimilation of concentration")
