@@ -8282,14 +8282,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        std::vector<Variable> variables_tmp(7);
+        std::vector<Variable> variables_tmp(6);
         variables_tmp[0] = tair;
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
         variables_tmp[3] = precip;
         variables_tmp[4] = Qsw_in;
-        variables_tmp[5] = Qlw_in;
-        variables_tmp[6] = tcc;
+        if (Environment::vm()["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+            variables_tmp[5] = tcc;
+        else
+            variables_tmp[5] = Qlw_in;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 

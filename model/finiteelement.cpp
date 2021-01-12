@@ -10128,7 +10128,7 @@ FiniteElement::forcingAtmosphere()
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
                 M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             else
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
         break;
 
         case setup::AtmosphereType::EC_ERAi:
