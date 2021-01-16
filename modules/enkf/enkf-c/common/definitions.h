@@ -89,8 +89,8 @@
 #define ENSOBSTYPE float
 #define MPIENSOBSTYPE MPI_FLOAT
 
-#define STATE_BIGNUM 1.0e15
-#define STD_BIG 1.0e15
+#define STATE_BIGNUM 1.0e14   //adjust the value to be filtered out _FillValue defined in neXtSIM:
+#define STD_BIG 1.0e14
 
 #define ALLOCTYPE_NONE -1
 #define ALLOCTYPE_1D    0

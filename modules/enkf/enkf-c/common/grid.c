@@ -1044,7 +1044,7 @@ grid* grid_create(void* p, int id)
     ncw_inq_varndims(ncid, varid_x, &ndims_x);
     ncw_inq_varid(ncid, prm->yvarname, &varid_y);
     ncw_inq_varndims(ncid, varid_y, &ndims_y);
-
+    
     /*
      * set horizontal grid
      */
@@ -1083,7 +1083,7 @@ grid* grid_create(void* p, int id)
         ncw_get_var_double(ncid, varid_x, x[0]);
         ncw_get_var_double(ncid, varid_y, y[0]);
 
-        grid_sethgrid(g, GRIDHTYPE_CURVILINEAR, NT_COR, ni, nj, x, y);
+        grid_sethgrid(g, GRIDHTYPE_CURVILINEAR, NT_COR, ni, nj, x, y);        
 #endif
     } else
         enkf_quit("%s: could not determine the horizontal grid type", fname);
@@ -1605,10 +1605,6 @@ int grid_xy2fij(grid* g, double x, double y, double* fi, double* fj)
         else if (x >= g->lonbase + 360.0)
             x -= 360.0;
     }
-
-    // if (y<84)  // csk set latitudes of observations >N85
-    //     return STATUS_OUTSIDEGRID;
-
     if (g->htype == GRIDHTYPE_LATLON)
         gs_xy2fij(g, x, y, fi, fj);
 #if !defined(NO_GRIDUTILS)

@@ -43,6 +43,7 @@ static void interpolate_2d_obs(model* m, observations* allobs, int nobs, int obs
     int i;
 
     model_getvargriddims(m, mvid, &ni, &nj, NULL);
+    printf("line 46 model2obs.c \n");
     for (i = 0; i < nobs; ++i) {
         int ii = obsids[i];
         observation* o = &allobs->data[ii];
@@ -109,7 +110,17 @@ void H_surf_standard(dasystem* das, int nobs, int obsids[], char fname[], int me
     model_getvargriddims(m, mvid, &ni, &nj, NULL);
     src = alloc2d(nj, ni, sizeof(float));
     model_readfield(m, fname, ot->varnames[0], ksurf, src[0]);
-
+//csk  printf("line 113 model2obs.c  %s  %8d  %8d  %8d  %s %8d\n",fname, mvid, ni,nj,ot->varnames[0], ksurf);
+/*** csk  Numerical values near the ice edge corresponding to the observations’ locations could be overestimated. It causes errors in calculating in das_calcinnandspread(das); 
+ The issue is resolved by set fillvalue as 0 for ice thickness/concentration.
+ //todo: src0, offset0 should be deleted if they are not used.
+***/
+    for (int j = 0; j < nj ; ++j){
+        for (int i = 0; i < ni; ++i){
+            if(src[j][i]<0)  // detect fillvalue=-1.e14 in nextsim's output: prior.nc
+                src[j][i] = 0;  //set as ice free
+        }
+    }
     snprintf(tag_offset, MAXSTRLEN, "%s:OFFSET", ot->name);
     offset = model_getdata(m, tag_offset);
     if (offset != NULL) {

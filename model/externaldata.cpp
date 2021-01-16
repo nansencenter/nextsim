@@ -245,24 +245,22 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";   
 #ifdef ENSEMBLE     
-        //because ftime_range is changed in loadDataset(), the if-statement must be used. do_perturbation is to avoid perturbation due to remesh.  
+        //because ftime_range is changed in loadDataset(), the if-statement below is used to avoid unexpected perturbation due to remesh process.  
             bool do_perturbation=false;      
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                strcmp (M_dataset->name.c_str(), "ec2_elements") == 0 )
-                
-            { 
+                strcmp (M_dataset->name.c_str(), "ec2_elements") == 0 )                
                 do_perturbation = ((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp));         
-            }
 #endif            
 
             this->loadDataset(M_dataset, RX_in, RY_in);                                           
 
 #ifdef ENSEMBLE 
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
+            // do_perturbation_nodes, do_perturbation_elements are needed to be set
             M_comm.barrier();
-            if (do_perturbation)  
+            if (do_perturbation)    
             {
                 ensemble perturbation; 
                 int M_full  = M_dataset->grid.dimension_y_count_netcdf;
@@ -283,12 +281,11 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     int  previous_perturbation_exist=1;
                     //For the 1st perturbation of the simulation
                     if (M_dataset->randfld.size()==0){ 
-                        //initialize dimensional/nondimensional perturbation fields as 0.
-                        // sizes are consistent with mod_random_forcing.f90:save_randfld_synforc()
+                        //initialize dimensional/nondimensional perturbation fields as 0. Sizes are consistent with mod_random_forcing.f90:save_randfld_synforc()
                         M_dataset->randfld.resize(10*MN_full,0.); 
                         M_dataset->synforc.resize(4*MN_full,0.); 
 
-                        // load perturbation from 'restart' file by root processor
+                        // load perturbation from a file by the root processor
                         if (M_comm.rank() == 0) {                          
                             std::string filename_root = "WindPerturbation_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
                             ifstream iofile(filename_root.c_str());
@@ -301,8 +298,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                                 data.getVar(&M_dataset->randfld[0]);
                                 data = dataFile.getVar("synforc");
                                 data.getVar(&M_dataset->synforc[0]);
-                                // for(int i = 0; i < M_dataset->synwindspeed_uv.size(); i++)
-                                //     M_dataset->synwindspeed_uv[i] = M_dataset->synforc[i];
                             }
                             // save previous element perturbations to a temporal file 
                             // filename_root = "synforc_elements.nc";
@@ -315,7 +310,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                             // data.putVar(&M_dataset->synforc[2*MN_full],MN_full);
                         }
                     }                      
-                    // where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
+                    //Q: where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
                     M_comm.barrier();
                     LOG(DEBUG) << "### Broadcast previous perturbations to all processors\n";  
                     boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
@@ -324,14 +319,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         if(do_perturbation_nodes)
                         {
                             LOG(DEBUG) << "### Add previous perturbations to wind fields\n";  
-                            perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1);  // synwindspeed_uv
+                            perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
                             perturbation.addPerturbation(M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
                         }
 
                     LOG(DEBUG) << "### Generate current perturbations based on randfld at previous randfld \n"; 
-                    if (M_comm.rank() == 0) {   
+                    if (M_comm.rank() == 0)   
                         perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full,previous_perturbation_exist); 
-                    }                   
+                                    
                     M_comm.barrier();
                     LOG(DEBUG) << "### Broadcast current perturbations to all processors\n";  
                     boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0);

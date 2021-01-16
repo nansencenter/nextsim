@@ -44,11 +44,11 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     int varid_lon, varid_lat, varid_sit, varid_error, varid_sic, varid_time;
     int   sit_fill_value,  estd_fill_value,  sic_fill_value;
     float sit_scale_factor,estd_scale_factor,sic_scale_factor;
-    float** lon;
-    float** lat;
-    int*** sit;
-    int*** error_std;
-    int*** sic;
+    float** lon = NULL;
+    float** lat = NULL;
+    int*** sit = NULL;
+    int*** error_std = NULL;
+    int*** sic = NULL;
     double* time = NULL;
     int year, month, day;
     char tunits[MAXSTRLEN];
