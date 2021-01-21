@@ -7711,7 +7711,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable tair={
-            filename_prefix: "ERA5_t2m_y",
+            filename_prefix: "ERA5_t2m_drwnd_y",
             name:"t2m",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7728,7 +7728,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // T2M
         Variable sphuma={
-            filename_prefix: "ERA5_q2m_y", // All variables are in the same (grid) file
+            filename_prefix: "ERA5_q2m_drwnd_y", // All variables are in the same (grid) file
             name:"q2m",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7745,7 +7745,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // Q2M
         Variable mslp={
-            filename_prefix: "ERA5_msl_y",
+            filename_prefix: "ERA5_msl_drwnd_y",
             name:"msl",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7763,7 +7763,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //PSFC, a=1.
 
         Variable Qsw_in={
-            filename_prefix: "ERA5_msdwswrf_y",
+            filename_prefix: "ERA5_msdwswrf_drwnd_y",
             name:"msdwswrf",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7781,7 +7781,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable Qlw_in={
-            filename_prefix: "ERA5_msdwlwrf_y",
+            filename_prefix: "ERA5_msdwlwrf_drwnd_y",
             name:"msdwlwrf",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7799,7 +7799,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable precip={
-            filename_prefix: "ERA5_mtpr_y",
+            filename_prefix: "ERA5_mtpr_drwnd_y",
             name:"mtpr",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7817,7 +7817,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable snowfall={
-            filename_prefix: "ERA5_msr_y",
+            filename_prefix: "ERA5_msr_drwnd_y",
             name:"msr",
             dimensions: dimensions,
             land_mask_defined: false,
