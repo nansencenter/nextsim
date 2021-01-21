@@ -7711,7 +7711,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable tair={
-            filename_prefix: "ERA5_t2m_y",
+            filename_prefix: "ERA5_t2m_drwnd_y",
             name:"t2m",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7727,9 +7727,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; // T2M
-        Variable dair={
-            filename_prefix: "ERA5_d2m_y",
-            name:"d2m",
+        Variable sphuma={
+            filename_prefix: "ERA5_q2m_drwnd_y", // All variables are in the same (grid) file
+            name:"q2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -7738,15 +7738,14 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a:1.,
-            b:-273.15,
-            Units:"C",
+            b:0.,
+            Units:"kg/kg",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; // Q2M
-
         Variable mslp={
-            filename_prefix: "ERA5_msl_y",
+            filename_prefix: "ERA5_msl_drwnd_y",
             name:"msl",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7764,7 +7763,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //PSFC, a=1.
 
         Variable Qsw_in={
-            filename_prefix: "ERA5_msdwswrf_y",
+            filename_prefix: "ERA5_msdwswrf_drwnd_y",
             name:"msdwswrf",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7782,7 +7781,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable Qlw_in={
-            filename_prefix: "ERA5_msdwlwrf_y",
+            filename_prefix: "ERA5_msdwlwrf_drwnd_y",
             name:"msdwlwrf",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7800,7 +7799,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable precip={
-            filename_prefix: "ERA5_mtpr_y",
+            filename_prefix: "ERA5_mtpr_drwnd_y",
             name:"mtpr",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7818,7 +7817,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable snowfall={
-            filename_prefix: "ERA5_msr_y",
+            filename_prefix: "ERA5_msr_drwnd_y",
             name:"msr",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7836,7 +7835,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Variable> variables_tmp(7);
         variables_tmp[0] = tair;
-        variables_tmp[1] = dair;
+        variables_tmp[1] = sphuma;
         variables_tmp[2] = mslp;
         variables_tmp[3] = Qsw_in;
         variables_tmp[4] = Qlw_in;
@@ -8282,14 +8281,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        std::vector<Variable> variables_tmp(7);
+        std::vector<Variable> variables_tmp(6);
         variables_tmp[0] = tair;
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
-        variables_tmp[3] = Qsw_in;
-        variables_tmp[4] = Qlw_in;
-        variables_tmp[5] = tcc;
-        variables_tmp[6] = precip;
+        variables_tmp[3] = precip;
+        variables_tmp[4] = Qsw_in;
+        if (Environment::vm()["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+            variables_tmp[5] = tcc;
+        else
+            variables_tmp[5] = Qlw_in;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
@@ -9313,7 +9314,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> LAT(grid_ptr->dimension_y_count);
         std::vector<double> LON(grid_ptr->dimension_x_count);
         this->getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
-#if 1
+
         // Get the proc speciffic boundaries
         double RX_min, RX_max, RY_min, RY_max;
         this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
@@ -9334,9 +9335,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // Then we load the reduced grid
         LAT.resize(grid_ptr->dimension_y_count);
         LON.resize(grid_ptr->dimension_x_count);
-
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
-#endif
         grid_ptr->gridY=LAT;
         grid_ptr->gridX=LON;
 
@@ -9351,8 +9350,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // regular x,y grid
         // - interp from grid to mesh
         // - need grid.mpp_file to be correct .mpp file
-    netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
-    netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
+        netCDF::NcVar VLAT = dataFile.getVar(grid_ptr->latitude.name);
+        netCDF::NcVar VLON = dataFile.getVar(grid_ptr->longitude.name);
 
         // We load the full grid
         std::vector<double> X(grid_ptr->dimension_x_count);
@@ -9379,7 +9378,6 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // Then we load the reduced grid
         Y.resize(grid_ptr->dimension_y_count);
         X.resize(grid_ptr->dimension_x_count);
-
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
         grid_ptr->gridX=X;
         grid_ptr->gridY=Y;
