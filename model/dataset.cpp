@@ -7658,7 +7658,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "ERA5_t2m_y",
+            prefix: "ERA5_t2m_drwnd_y",
             postfix:".nc",
             gridfile: "",
             reference_date:"1900-01-01",
@@ -7920,7 +7920,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            prefix: "ERA5_u10_y",
+            prefix: "ERA5_u10_drwnd_y",
             postfix:".nc",
             gridfile: "",
             reference_date:"1900-01-01",
@@ -7975,7 +7975,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // conversion factors: xnew = a*x + b
         Variable u={
-            filename_prefix: "ERA5_u10_y",
+            filename_prefix: "ERA5_u10_drwnd_y",
             name: "u10", //U10M
             dimensions: dimensions,
             land_mask_defined: false,
@@ -7993,7 +7993,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable v={
-            filename_prefix: "ERA5_v10_y",
+            filename_prefix: "ERA5_v10_drwnd_y",
             name: "v10", //V10M
             dimensions: dimensions,
             land_mask_defined: false,
