@@ -5158,12 +5158,11 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
                 Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
         const std::vector<double> Lv = aerobulk::lvap(sst);
 
-        // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
+        // Post process: Change sign on the fluxes and calculate evaporation
         for ( int i=0; i<M_num_elements; ++i )
         {
             Qlh[i] *= -1;
             Qsh[i] *= -1;
-            tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
             evap[i] = Qlh[i]/Lv[i];
         }
     } else {
@@ -8253,17 +8252,17 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     {
                         case (GridOutput::variableID::taux):
                         tau_i = D_tau_w[i];
-                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        wind2 = M_wind[i];
                         break;
 
                         case (GridOutput::variableID::tauy):
                         tau_i = D_tau_w[i+M_num_nodes];
-                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        wind2 = M_wind[i+M_num_nodes];
                         break;
 
                         case (GridOutput::variableID::taumod):
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
-                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                        wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
                     }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
