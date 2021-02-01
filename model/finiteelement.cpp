@@ -8245,24 +8245,24 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    double tau_i, wind2;
+                    double tau_i, wind_sign;
 
                     // Select between taux, tauy, and taumod
                     switch (it->varID)
                     {
                         case (GridOutput::variableID::taux):
                         tau_i = D_tau_w[i];
-                        wind2 = M_wind[i];
+                        wind_sign = std::copysign(1., M_wind[i]);
                         break;
 
                         case (GridOutput::variableID::tauy):
                         tau_i = D_tau_w[i+M_num_nodes];
-                        wind2 = M_wind[i+M_num_nodes];
+                        wind_sign = std::copysign(1., M_wind[i+M_num_nodes]);
                         break;
 
                         case (GridOutput::variableID::taumod):
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
-                        wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
+                        wind_sign = 1.;
                     }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
@@ -8283,7 +8283,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     tau_a /= surface;
                     conc  /= surface;
 
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind_sign*(1.-conc) )*time_factor;
                 }
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
