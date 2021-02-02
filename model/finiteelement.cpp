@@ -9591,7 +9591,7 @@ FiniteElement::explicitSolve()
         node_mass[i] *= rlmass_matrix[i];
         rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
 
-        // For the mEVP
+        // For the mEVP and drag
         M_VTM[u_indx] = M_VT[u_indx];
         M_VTM[v_indx] = M_VT[v_indx];
     }
@@ -9600,7 +9600,6 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Starting sub-time stepping\n";
     M_timer.tick("sub-time stepping");
 
-    std::vector<double> c_prime(M_num_nodes); // Saved for the ice-ocean drag to send to coupler
     // Do the sub-time stepping itself
     for ( int s=0; s<steps; s++ )
     {
@@ -9691,15 +9690,15 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            c_prime[i] = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
-            double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
+            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
+            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime[i]*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
@@ -9780,9 +9779,12 @@ FiniteElement::explicitSolve()
         int const u_indx = i;
         int const v_indx = i+M_num_nodes;
 
-        // Save ice-ocean drag
-        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
-        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
+        // Save ice-ocean drag based on the mean ice speed
+        double const uice = 0.5*(M_VT[u_indx] + M_VTM[u_indx]);
+        double const vice = 0.5*(M_VT[v_indx] + M_VTM[v_indx]);
+        double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+        D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
 
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
