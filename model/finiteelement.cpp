@@ -8495,7 +8495,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    double tau_i
+                    double tau_i;
                     double wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
 
                     // Select between taux, tauy, and taumod
