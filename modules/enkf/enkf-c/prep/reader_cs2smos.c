@@ -145,7 +145,8 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 o->batch = 0;
                 if (strcmp(meta->type,"sea_ice_thickness") == 0) {
                     o->value = (double) (sit[it][i][j]*sit_scale_factor);
-                    o->std   = (double) (error_std[it][i][j]*estd_scale_factor);
+                    // o->std   = (double) (error_std[it][i][j]*estd_scale_factor);
+                    o->std   = (double) (fmin(0.5, 0.1 + 0.15*sit[it][i][j])*estd_scale_factor);
                 }
                 else if (strcmp(meta->type,"sea_ice_concentration") == 0) {
                     o->value = (double) (sic[it][i][j]*sic_scale_factor*0.01);

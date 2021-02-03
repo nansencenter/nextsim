@@ -43,7 +43,6 @@ static void interpolate_2d_obs(model* m, observations* allobs, int nobs, int obs
     int i;
 
     model_getvargriddims(m, mvid, &ni, &nj, NULL);
-    printf("line 46 model2obs.c \n");
     for (i = 0; i < nobs; ++i) {
         int ii = obsids[i];
         observation* o = &allobs->data[ii];

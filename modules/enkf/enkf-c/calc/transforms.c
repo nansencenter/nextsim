@@ -132,9 +132,9 @@ static void nc_writediag(dasystem* das, char fname[], int nobstypes, int nj, int
     int ncid;
     int dimids[3];
     int varid_nlobs, varid_dfs, varid_srf, varid_pnlobs, varid_pdfs, varid_psrf;
-
+    // enkf_printf(" line 135  %d\n", rank);
     assert(rank == 0);
-
+    // enkf_printf(" line 137  %d\n", rank);
     enkf_printf("    writing stats to \"%s\":\n", fname);
     ncw_create(fname, NC_CLOBBER | das->ncformat, &ncid);
     ncw_def_dim(ncid, "nobstypes", nobstypes, &dimids[0]);
@@ -624,11 +624,13 @@ void das_calctransforms(dasystem* das)
 
         enkf_flush();
 
+        // enkf_printf(" line 627\n");
 #if defined(MPI)
         /*
          * collect stats on master 
          */
         if (rank > 0) {
+            // enkf_printf(" line 633\n");
             if (my_number_of_iterations > 0) {
                 int ierror;
 
@@ -653,6 +655,7 @@ void das_calctransforms(dasystem* das)
             float*** buffer_pdfs;       /* also used for psrf */
             int r;
 
+        // enkf_printf(" line 658\n");
             for (r = 1; r < nprocesses; ++r) {
                 if (number_of_iterations[r] == 0)
                     continue;
@@ -715,14 +718,15 @@ void das_calctransforms(dasystem* das)
             }
         }                       /* rank == 0 */
 #endif                          /* MPI */
+        // enkf_printf(" line 721 %d\n", rank);
         if (rank == 0) {
             char fname_stats[MAXSTRLEN];
-
+            // enkf_printf(" line 724\n");
             das_getfname_stats(das, grid, fname_stats);
-
+            // enkf_printf(" line 726\n");
             nc_writediag(das, fname_stats, obs->nobstypes, nj, ni, stride, nlobs, dfs, srf, pnlobs, pdfs, psrf);
         }
-
+        // enkf_printf(" line 729\n");
         if (das->mode == MODE_ENKF) {
             free(X5j);
             free(X5);
