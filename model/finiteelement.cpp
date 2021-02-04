@@ -5479,6 +5479,7 @@ FiniteElement::thermo(int dt)
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
+        double newice_stored = newice;
 
         /* Decide the change in ice fraction (del_c) */
         /* Initialise to be safe */
@@ -5943,14 +5944,16 @@ FiniteElement::thermo(int dt)
         D_rain[i] = rain;
 
         // Ice volume melt rate per day per element area  [m/day]
-        D_vice_melt[i] = del_vi*86400/ddt;
+        D_vice_melt[i]   = del_vi*86400/ddt;
 
         // Ice growth/melt rate [m/day]
         D_del_hi[i]      = del_hi*86400/ddt;
+
         // New thin ice growth/melt rate [m/day]
         D_del_hi_thin[i] = del_hi_thin*86400/ddt;
+
         // thin ice volume per surface area rate [m/day]
-        D_newice[i]      = newice*86400/ddt;
+        D_newice[i]      = newice_stored*86400/ddt;
 
 
 
