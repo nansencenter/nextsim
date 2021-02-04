@@ -110,6 +110,9 @@ public:
         D_dcrit      = 123,
         D_sigma_p    = 124,
         D_vice_melt  = 125,
+        D_newice     = 126,
+        D_del_hi     = 127,
+        D_del_hi_thin= 128,
     };
 
 

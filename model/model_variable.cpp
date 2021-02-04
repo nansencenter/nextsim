@@ -496,9 +496,33 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_vice_melt):
-            // ice volume gain/loss by freezing/melt
+            // ice volume gain/loss by freezing/mel [m/day]
             M_name = "D_vice_melt";
             M_export_name = "D_vice_melt";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_hi):
+            // ice growth/melt rate [m/day]
+            M_name = "D_del_hi";
+            M_export_name = "D_del_hi";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_hi_thin):
+            //thin ice growth/melt rate [m/day]
+            M_name = "D_del_hi_thin";
+            M_export_name = "D_del_hi_thin";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_newice):
+            // ice growth in open water [m/day]
+            M_name = "D_newice";
+            M_export_name = "D_newice";
             M_prognostic = false;
             M_exporting = false;
             break;
