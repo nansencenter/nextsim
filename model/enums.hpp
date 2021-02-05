@@ -126,7 +126,8 @@ namespace setup
     enum class FreezingPointType
     {
         LINEAR     = 0,
-        NON_LINEAR = 1
+        NON_LINEAR = 1,
+        UNESCO     = 2
     };
 
 
