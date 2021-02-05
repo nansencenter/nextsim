@@ -6164,14 +6164,14 @@ FiniteElement::freezingPoint(const double sss)
         case setup::FreezingPointType::LINEAR:
             return_value = -physical::mu*sss;
 
+        case setup::FreezingPointType::UNESCO:
+            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
+
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
             return_value = ptf*sss;
-        
-    //    case setup::FreezingPointType::UNESCO:
-    //        return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
     }
 
     return return_value;
