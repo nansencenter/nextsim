@@ -169,6 +169,10 @@ public:
         rain   = 107,
         evap   = 108,
         d_crit = 109,
+        vice_melt  = 110,
+        del_hi     = 111,
+        del_hi_thin= 112,
+        newice     = 113,
 
         // Forcing variables
         tair     = 200,
@@ -199,7 +203,6 @@ public:
         QSwOcean   = 906,
         saltflux   = 907,
         fwflux_ice = 908,
-        vice_melt  = 909,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -517,6 +520,34 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::vice_melt):
+                    name     = "vice_melt";
+                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi):
+                    name     = "del_hi";
+                    longName = "Growth-melt rate of (thick) ice";
+                    stdName  = "growth_melt_rate_of_thick_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi_thin):
+                    name     = "del_hi_thin";
+                    longName = "Growth-melt rate of new (thin) ice";
+                    stdName  = "growth_melt_rate_of_thin_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::newice):
+                    name     = "newice";
+                    longName = "Ice formed in open water by supercooling";
+                    stdName  = "ice_formed_in_open_water_by_supercooling";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
 
                 // Coupling variables
                 case (variableID::taux):
@@ -552,13 +583,6 @@ public:
                     longName = "Surface Ice Originating Downward Ocean Freshwater Flux";
                     stdName  = "surface_ice_originating_downward_ocean_freshwater_flux";
                     Units    = "kg m-2 s-1";
-                    cell_methods = "area: mean";
-                    break;
-                case (variableID::vice_melt):
-                    name     = "vice_melt";
-                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
-                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
-                    Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::QNoSw):

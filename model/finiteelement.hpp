@@ -799,7 +799,10 @@ private:
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
-    ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m]
+    ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
+    ModelVariable D_del_hi_thin; // thin ice growth/melt rate [m/day]
+    ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
