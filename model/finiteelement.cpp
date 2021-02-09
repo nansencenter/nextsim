@@ -6146,7 +6146,7 @@ FiniteElement::thermo(int dt)
                 //if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
                 //{
                 //    M_conc_summer += M_conc_thin[i];
-                //    M_thick_summer+= M_thick_thin[i];
+                //    M_thick_summer+= M_h_thin[i];
                 //}
 
             }
@@ -6156,20 +6156,28 @@ FiniteElement::thermo(int dt)
                 if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_thin_ice_in_myi_reset == true) 
                 {
                     if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
+                    {
                         M_conc_myi[i]  = M_conc_summer[i] ; // reset to sea ice summer low
                         M_thick_myi[i] = M_thick_summer[i]; // reset to sea ice summer low
+                    }
                     else
+                    {
                         M_conc_myi[i]  = M_conc[i] + M_conc_thin[i] ; // include thin ice in reset: all ice on reset date is myi
-                        M_thick_myi[i] = M_thick[i]+ M_thick_thin[i];
+                        M_thick_myi[i] = M_thick[i]+ M_h_thin[i];
+                    }
                 }
                 else
                 {
                     if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
+                    {
                         M_conc_myi[i]  = M_conc_summer[i]; // reset to sea ice summer low
                         M_thick_myi[i] = M_thick_summer[i]; // reset to sea ice summer low
+                    }
                     else
+                    {
                         M_conc_myi[i] = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
                         M_thick_myi[i] = M_thick[i];
+                    }
                 }
                 M_conc_myi[i] = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]); //make sure it doesn't exceed 1 (it shouldn't)
@@ -6180,11 +6188,12 @@ FiniteElement::thermo(int dt)
                 {    
                     double conc_loss_ratio  = 1.;  
                     double thick_loss_ratio = 1.;
-                    double ctot = M_conc[i]  ;
+                    double ctot = M_conc[i]   ;
+                    double vtot = M_thick[i]  ;
                     if (  M_ice_cat_type==setup::IceCategoryType::THIN_ICE  && use_thin_ice_in_myi_reset == true)
                     { 
                         ctot+=M_conc_thin[i] ;
-                        vtot+=M_thick_thin[i];
+                        vtot+=M_h_thin[i];
                     }
                     if (melt_myi_and_fyi)
                     {    
