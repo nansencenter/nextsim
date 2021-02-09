@@ -12,7 +12,6 @@
 #define __FiniteElement_HPP 1
 
 #include "version.hpp"
-#include <solverpetsc.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
@@ -70,12 +69,6 @@ public:
 
     typedef GmshMesh mesh_type;
     typedef GmshMeshSeq mesh_type_root;
-    typedef SolverPetsc solver_type;
-    typedef boost::shared_ptr<solver_type> solver_ptrtype;
-    typedef MatrixPetsc matrix_type;
-    typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
-    typedef VectorPetsc vector_type;
-    typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
@@ -102,16 +95,6 @@ public:
     // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
-
-    solver_ptrtype const& solverPtr() const {return M_solver;}
-    matrix_ptrtype const& matrixPtr() const {return M_matrix;}
-    vector_ptrtype const& rhsPtr() const {return M_vector;}
-    vector_ptrtype const& solutionPtr() const {return M_solution;}
-
-    solver_type const& solver() const {return *M_solver;}
-    matrix_type const& matrix() const {return *M_matrix;}
-    vector_type const& rhs() const {return *M_vector;}
-    vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
     void initExternalData();
@@ -179,13 +162,12 @@ public:
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
-    void assemble(int pcpt);
-    void solve();
     void init();
     void step();
     void run();
 
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
+    inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
 
     void nestingIce();
@@ -301,16 +283,10 @@ public:
     void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
-    void FETensors();
-    void compute_B0_Dunit_B0T(std::vector<double>& Dunit,
-                               std::vector<double>& B0T,
-                               std::vector<double>& B0_Dunit_B0T);
 
     void calcCohesion();
-    void updateVelocity();
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
-    void scalingVelocity();
     void update(std::vector<double> const & UM_P);
     void inline updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
             bool const update_sigma);
@@ -404,11 +380,6 @@ private:
     graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
-    solver_ptrtype M_solver;
-    matrix_ptrtype M_matrix;
-    vector_ptrtype M_vector;
-    vector_ptrtype M_solution;
-    vector_ptrtype M_exact;
 
     std::map<int, point_type > M_nodes;
     //std::vector<point_type> M_nodes;
@@ -546,8 +517,6 @@ private:
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<std::vector<double>> M_B0_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
@@ -584,7 +553,6 @@ private:
     int restart_time_step;
     int time_step;
     double dtime_step;
-    int thermo_timestep;
     double duration;
     double divergence_min;
     double compression_factor;
@@ -761,11 +729,13 @@ private:
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
     ModelVariable M_conc_myi;           // Concentration of multiyear ice
+    ModelVariable M_thick_myi;          // Thickness of multiyear ice
     ModelVariable M_melt_seconds;       // Seconds of melting
     ModelVariable M_freeze_seconds;     // Seconds of freezing
     ModelVariable M_melt_onset;         // Onset of melting
     ModelVariable M_freeze_onset;       // Onset of freezing
     ModelVariable M_conc_summer;        // Concentration at end of summer
+    ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_hi_tend;        // Daily sum of ice volume tendency
 
 #ifdef OASIS
@@ -829,6 +799,7 @@ private:
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
+    ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -861,6 +832,7 @@ private:
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
     std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_thick_myi_mean;  // Mean thickness of multiyear ice (MYI) (on the mesh)
     std::vector<double> M_melt_seconds_mean;  // Mean number of seconds melting has been occurring (on the mesh)
     std::vector<double> M_freeze_seconds_mean;  // Mean number of seconds freezing has been occurring (on the mesh)
     std::vector<double> M_melt_onset_mean;  // 1 if melting has been occurring (on the mesh)
@@ -874,6 +846,7 @@ private:
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
     std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_thick_myi_grid;  // Mean thickness of multiyear ice (MYI) (on the grid)
     std::vector<double> M_melt_seconds_grid;  // Mean number of seconds melting has been occurring (on the grid)
     std::vector<double> M_freeze_seconds_grid;  // Mean number of seconds freezing has been occurring (on the grid)
     std::vector<double> M_melt_onset_grid;  // 1 if melting has been occurring (on the grid)
@@ -944,6 +917,7 @@ private:
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
     void checkFields();
+    void checkFieldsFast();
     void checkVelocityFields();
 
 };

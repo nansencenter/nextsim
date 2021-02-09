@@ -144,8 +144,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt)
 #endif
 {
-    M_current_time = current_time;
     M_target_size = RX_in.size();
+
+    // Don't need to do nothing more for a constant dataset
+    if (M_is_constant) return;
+
+    M_current_time = current_time;
 
     double current_time_tmp=M_current_time;
 
@@ -153,78 +157,87 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     if((M_current_time-M_StartingTime)<M_SpinUpDuration)
         M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
 
-    if(!M_is_constant)
-    {
-        bool to_be_reloaded=false;
+    bool to_be_reloaded=false;
 
-        if(M_dataset->grid.dataset_frequency=="constant")
-            to_be_reloaded=!M_dataset->loaded;
-        else if(M_dataset->grid.dataset_frequency=="nearest_daily")
-            to_be_reloaded=(
-                    Nextsim::datenumToString(current_time, "%Y%m%d") != Nextsim::datenumToString(M_dataset->ftime_range[0], "%Y%m%d")
-                    || !M_dataset->loaded);
+    if(M_dataset->grid.dataset_frequency=="constant")
+        to_be_reloaded=!M_dataset->loaded;
+    else if(M_dataset->grid.dataset_frequency=="nearest_daily")
+        to_be_reloaded=(
+                Nextsim::datenumToString(current_time, "%Y%m%d") != Nextsim::datenumToString(M_dataset->ftime_range[0], "%Y%m%d")
+                || !M_dataset->loaded);
 #ifdef OASIS
-        else if(M_dataset->grid.dataset_frequency=="coupled")
-            to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
+    else if(M_dataset->grid.dataset_frequency=="coupled")
+        to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
 #endif
-        else
-            to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
+    else
+        to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
-        if (to_be_reloaded)
-        {
+    if (to_be_reloaded)
+    {
 #ifdef OASIS
-            // We call oasis_get every time step, but only actually recieve data at coupling times
-            if (M_dataset->coupled)
+        // We call oasis_get every time step, but only actually receive data at coupling times
+        if (M_dataset->coupled)
+        {
+            if(!M_dataset->grid.loaded)
             {
-                if(!M_dataset->grid.loaded)
+                // ---------------------------------
+                // Define the mapping and rotation_angle
+                mapx_class *mapNextsim;
+                std::string configfileNextsim = (boost::format( "%1%/%2%" )
+                                          % Environment::nextsimMeshDir().string()
+                                          % Environment::vm()["mesh.mppfile"].as<std::string>()
+                                          ).str();
+
+                std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
+                strNextsim.push_back('\0');
+                mapNextsim = init_mapx(&strNextsim[0]);
+
+                if(M_dataset->grid.mpp_file!="")
                 {
-                    // ---------------------------------
-                    // Define the mapping and rotation_angle
-                    mapx_class *mapNextsim;
-                    std::string configfileNextsim = (boost::format( "%1%/%2%" )
-                                              % Environment::nextsimMeshDir().string()
-                                              % Environment::vm()["mesh.mppfile"].as<std::string>()
-                                              ).str();
+                    mapx_class *map;
+                    std::string configfile = (boost::format( "%1%/%2%" )
+                                          % Environment::nextsimMeshDir().string()
+                                          % M_dataset->grid.mpp_file
+                                          ).str();
 
-                    std::vector<char> strNextsim(configfileNextsim.begin(), configfileNextsim.end());
-                    strNextsim.push_back('\0');
-                    mapNextsim = init_mapx(&strNextsim[0]);
+                    std::vector<char> str(configfile.begin(), configfile.end());
+                    str.push_back('\0');
+                    map = init_mapx(&str[0]);
+                    M_dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
 
-                    if(M_dataset->grid.mpp_file!="")
-                    {
-                        mapx_class *map;
-                        std::string configfile = (boost::format( "%1%/%2%" )
-                                              % Environment::nextsimMeshDir().string()
-                                              % M_dataset->grid.mpp_file
-                                              ).str();
-
-                        std::vector<char> str(configfile.begin(), configfile.end());
-                        str.push_back('\0');
-                        map = init_mapx(&str[0]);
-                        M_dataset->rotation_angle = -(mapNextsim->rotation-map->rotation)*PI/180.;
-
-                        close_mapx(map);
-                    }
-                    else
-                    {
-                        M_dataset->rotation_angle=0.;
-                    }
-
-                    // ---------------------------------
-                    // Load grid if unloaded
-                    // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
-                    M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                    close_mapx(map);
+                }
+                else
+                {
+                    M_dataset->rotation_angle=0.;
                 }
 
-                this->receiveCouplingData(M_dataset, cpl_time, comm);
-                transformData(M_dataset);
-                M_dataset->interpolated = false;
-                M_dataset->itime_range[0] = cpl_time;
-                M_dataset->itime_range[1] = cpl_time + cpl_dt;
-                M_dataset->ftime_range[0] = M_current_time;
-                M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
+                // ---------------------------------
+                // Projection of the mesh positions into the coordinate system of the data before the interpolation
+                // (either the lat,lon projection or a polar stereographic projection with another rotation angle (for ASR))
+                // we should need to that also for the TOPAZ native grid, so that we could use a gridtomesh, now we use the latlon of the TOPAZ grid
+
+                std::vector<double> RX,RY;//size set in convertTargetXY
+                M_dataset->convertTargetXY(&(M_dataset->grid), RX_in, RY_in, RX, RY,mapNextsim);
+
+                // ---------------------------------
+                // Load grid if unloaded
+                // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
+                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+
+                // closing maps
+                close_mapx(mapNextsim);
             }
-            else {
+
+            this->receiveCouplingData(M_dataset, cpl_time, comm);
+            this->transformData(M_dataset);
+            M_dataset->interpolated = false;
+            M_dataset->itime_range[0] = cpl_time;
+            M_dataset->itime_range[1] = cpl_time + cpl_dt;
+            M_dataset->ftime_range[0] = M_current_time;
+            M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
+        }
+        else {
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";
             this->loadDataset(M_dataset, RX_in, RY_in);
@@ -273,16 +286,25 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             //need to interpolate again if reloading
             M_dataset->interpolated = false;
 #ifdef OASIS
-            }
+        }
 #endif
-        }
+    }
 
-        if (!M_dataset->interpolated)
-        {
-            LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
-            this->interpolateDataset(M_dataset, RX_in, RY_in);
-            LOG(DEBUG) << "Done\n";
-        }
+#ifdef OASIS
+    if ( M_dataset->calc_nodal_weights )
+    {
+        LOG(DEBUG) << "set nodal weights for " << M_dataset->name << "\n";
+        M_dataset->setNodalWeights(RX_in, RY_in);
+        M_dataset->calc_nodal_weights = false;
+        M_dataset->interpolated = false;
+    }
+#endif
+
+    if (!M_dataset->interpolated)
+    {
+        LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
+        this->interpolateDataset(M_dataset, RX_in, RY_in);
+        LOG(DEBUG) << "Done\n";
     }
 }
 
@@ -692,6 +714,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double const t0 = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const dt = t1 - t0;
+                int ntimes = timeDim.getSize();
+                if(is_ec_fc && !true_forecast)
+                    ntimes = std::round(1/dt);//only use 1st day of file
 
                 // This is a double because we're most likely in between integer indices
                 double const indx = (M_current_time - t0)/dt;
@@ -706,7 +731,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 int const indx_ceil  = indx_floor + 1;
 
                 // The index below the current time
-                if ( indx_floor >= 0 && indx_floor < timeDim.getSize() )
+                if ( indx_floor >= 0 && indx_floor < ntimes )
                 {
                     index_start[0] = indx_floor;
                     index_count[0] = 1;
@@ -720,7 +745,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 }
 
                 // The index above the current time
-                if ( indx_ceil >= 0 && indx_ceil < timeDim.getSize() )
+                if ( indx_ceil >= 0 && indx_ceil < ntimes )
                 {
                     index_start[0] = indx_ceil;
                     index_count[0] = 1;
@@ -1501,6 +1526,14 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                  dataset->variables.size()*dataset->nb_forcing_step,
                                  M_target_size,
                                  dataset->M_gridP, dataset->M_triangles, dataset->M_weights);
+        break;
+        case InterpolationType::FromMeshToMeshQuick:
+            InterpFromMeshToMesh2dx_apply(&data_out,
+                                 dataset->M_areacoord, dataset->M_vertex, dataset->M_it,
+                                 dataset->grid.gridX.size(),dataset->grid.pfnels,
+                                 &data_in[0],
+                                 dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
+                                 &RX[0], &RY[0]);
         break;
 #endif
         default:
