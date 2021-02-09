@@ -6245,7 +6245,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        Qlh[i] = std::max(0.,drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma ));
         double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
