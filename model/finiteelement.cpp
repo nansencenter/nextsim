@@ -5518,6 +5518,7 @@ FiniteElement::thermo(int dt)
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
+        double newice_stored = newice;
 
         /* Decide the change in ice fraction (del_c) */
         /* Initialise to be safe */
@@ -6017,7 +6018,18 @@ FiniteElement::thermo(int dt)
         D_rain[i] = rain;
 
         // Ice volume melt rate per day per element area  [m/day]
-        D_vice_melt[i] = del_vi*86400/ddt;
+        D_vice_melt[i]   = del_vi*86400/ddt;
+
+        // Ice growth/melt rate [m/day]
+        D_del_hi[i]      = del_hi*86400/ddt;
+
+        // New thin ice growth/melt rate [m/day]
+        D_del_hi_thin[i] = del_hi_thin*86400/ddt;
+
+        // thin ice volume per surface area rate [m/day]
+        D_newice[i]      = newice_stored*86400/ddt;
+
+
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -6993,8 +7005,14 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
-    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m]
+    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m/day]
     M_variables_elt.push_back(&D_vice_melt);
+    D_newice = ModelVariable(ModelVariable::variableID::D_newice);//! \param D_newice (double) Ice volume formed in open water  per element area [m/day]
+    M_variables_elt.push_back(&D_newice);
+    D_del_hi_thin = ModelVariable(ModelVariable::variableID::D_del_hi_thin);//! \param D_del_hi_thin (double) Thin growth/melt rate [m/day]
+    M_variables_elt.push_back(&D_del_hi_thin);
+    D_del_hi = ModelVariable(ModelVariable::variableID::D_del_hi);//! \param D_del_hi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_hi);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -8382,6 +8400,18 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_vice_melt[i]*time_factor;
                 break;
+            case (GridOutput::variableID::del_hi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_hi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::del_hi_thin):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_hi_thin[i]*time_factor;
+                break;
+            case (GridOutput::variableID::newice):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_newice[i]*time_factor;
+                break;
             case (GridOutput::variableID::wspeed):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
@@ -8570,6 +8600,9 @@ FiniteElement::initMoorings()
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
+            ("del_hi", GridOutput::variableID::del_hi)
+            ("del_hi_thin", GridOutput::variableID::del_hi_thin)
+            ("newice", GridOutput::variableID::newice)
             ("fwflux", GridOutput::variableID::fwflux)
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
