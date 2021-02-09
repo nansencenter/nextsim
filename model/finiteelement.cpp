@@ -5714,6 +5714,7 @@ FiniteElement::thermo(int dt)
             }
         }
         
+        // ICE AGE HEATHER
         // Keep track of melt/freeze days
         if (assign_by_time_or_integral == "time")
         {
@@ -5739,56 +5740,13 @@ FiniteElement::thermo(int dt)
             {
                 M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
                 M_freeze_seconds[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
+                M_conc_summer[i] = M_conc[i] + del_c; // melting occurring, so need to adjust to new onset
+                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                    M_conc_summer[i]+=M_conc_thin[i];
             }
             M_del_hi_tend[i] = 0.;
         }
 
-        //const double day_seconds = 86400.;
-        //if ( del_hi < 0. ) // Melting
-        //{
-        //    M_melt_seconds[i] = M_melt_seconds[i] + ddt;
-        //    M_freeze_seconds[i] = M_freeze_seconds[i] - ddt;
-        //}
-        //else // Freezing
-        //{
-        //    M_melt_seconds[i] = M_melt_seconds[i] - ddt;
-        //    M_freeze_seconds[i] = M_freeze_seconds[i] + ddt;
-        //}
-
-        ////if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
-        //if (M_fullday_counter > day_seconds) // end of day 
-        ////if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
-        //{
-        //    if (M_melt_seconds[i] > 0 && M_freeze_seconds[i] > 0) // Case 1: this is the nth day of freezing/melting (n>1)
-        //    {   
-        //        if (M_melt_seconds[i] < M_freeze_seconds[i]) // Case 1.1: it's now melting after some freeze days
-        //        {
-        //            M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
-        //            M_freeze_seconds[i] = 0.;
-        //            M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
-        //        }
-        //        else if (M_melt_seconds[i] > M_freeze_seconds[i]) // Case 1.2: it's now freezing after some melt days
-        //        {
-        //            M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
-        //            M_melt_seconds[i] = 0.;
-        //        }
-        //    }
-        //    else // Case 2: this is the 1st day of freezing/melting
-        //    {   
-        //        if (M_melt_seconds[i] < M_freeze_seconds[i]) // Case 2.1: it's a freeze day
-        //        {
-        //            M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
-        //            M_melt_seconds[i] = 0.;
-        //        }
-        //        else if (M_melt_seconds[i] > M_freeze_seconds[i]) // Case 2.2: it's a melt day
-        //        {
-        //            M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
-        //            M_freeze_seconds[i] = 0.;
-        //            M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
-        //        }
-        //    }
-        //}
 
         /* New concentration */
         M_conc[i] += del_c;
@@ -6149,7 +6107,9 @@ FiniteElement::thermo(int dt)
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + M_conc_thin[i]; // initialise here, for case where no melting occurs
+                M_conc_summer[i] = M_conc[i]; // initialise here, for case where no melting occurs
+                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                    M_conc_summer[i]+=M_conc_thin[i];
             }
 
             if (reset_myi)
@@ -6159,7 +6119,9 @@ FiniteElement::thermo(int dt)
                     if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
                         M_conc_myi[i] = M_conc_summer[i]; // reset to sea ice summer low
                     else
-                        M_conc_myi[i] = M_conc[i] + M_conc_thin[i]; // include thin ice in reset: all ice on reset date is myi
+                        M_conc_myi[i] = M_conc[i]; // include thin ice in reset: all ice on reset date is myi
+                        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                            M_conc_myi[i]+=M_conc_thin[i];
                 }
                 else
                 {
@@ -6359,14 +6321,15 @@ FiniteElement::freezingPoint(const double sss)
         case setup::FreezingPointType::LINEAR:
             return_value = -physical::mu*sss;
 
+        case setup::FreezingPointType::UNESCO:
+            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
+
         case setup::FreezingPointType::NON_LINEAR:
             double zs  = std::sqrt(sss/35.16504);         // square root salinity
             double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
                         - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
             return_value = ptf*sss;
         
-    //    case setup::FreezingPointType::UNESCO:
-    //        return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
     }
 
     return return_value;
@@ -6697,7 +6660,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs = std::min(Qia-Qic,0.)*dt/qs - subl*dt/physical::rhos;
+        del_hs = std::min(Qia-Qic,0.)*dt/qs - std::max(0.,subl)*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs+del_hs,0.)*qs/qi;
         /* Can't have negative hs! */
