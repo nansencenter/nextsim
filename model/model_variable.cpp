@@ -383,6 +383,18 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
+        case (variableID::M_thick_myi):
+            M_name = "M_thick_myi";
+            M_export_name = "Thickness_myi";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
         case (variableID::M_conc_summer):
             M_name = "M_conc_summer";
             M_export_name = "Concentration_summer";
@@ -395,6 +407,18 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             M_has_max = true;
             M_max_val = 1.;
+            break;
+
+        case (variableID::M_thick_summer):
+            M_name = "M_thick_summer";
+            M_export_name = "Thickness_summer";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
             break;
 
         case (variableID::M_melt_seconds):
