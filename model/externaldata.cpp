@@ -255,10 +255,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 #endif            
 
             this->loadDataset(M_dataset, RX_in, RY_in);                                           
-
+            this->transformData(M_dataset);
 #ifdef ENSEMBLE 
             //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
             // do_perturbation_nodes, do_perturbation_elements are needed to be set
+
+            //perturbations are added before rotation of the winds
             M_comm.barrier();
             if (do_perturbation)    
             {
@@ -419,7 +421,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 M_comm.barrier();
             }
 #endif
-            this->transformData(M_dataset);
+
             LOG(DEBUG) << "Done\n";
 
             //need to interpolate again if reloading

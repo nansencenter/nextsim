@@ -9821,69 +9821,37 @@ void
 FiniteElement::export_WindPerturbations()
 {
     LOG(DEBUG) << "export perturbations of wind fields to file\n";
-    if (M_comm.rank() > 0) return;
-    // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
-    // {
-    //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
-    //     {   
-    //         Dataset *dataset;
-    //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
-    // Dataset *dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp      
-    // std::string filename_root;
-    // LOG(DEBUG)<<"%%%%%% export synforc randfld\n";
-    // filename_root = M_export_path + "/synforc_mem" + M_id_statevector;
-    // // dimensional forcing fields
-    // ofstream iofile(filename_root);
-    // for(int i = 0; i < dataset->synforc.size(); i++)
-    // {    iofile<< dataset->synforc[i]<<"\n";}
-    // iofile.close();       
-
-    // // nondimensional forcing fields
-    // filename_root = M_export_path + "/randfld_mem" + M_id_statevector;
-    // ofstream iofile2(filename_root);          
-    // for(int i = 0; i < dataset->randfld.size(); i++) 
-    // {    iofile2<< dataset->randfld[i]<<"\n";}
-    // iofile2.close();  
-
-    // Create the netCDF file.
-    std::string filename_root;
-    filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
-    netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
-    Dataset *M_dataset;
-    //
-    M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-    LOG(DEBUG) << "write dimensional fields\n";
-    netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
-    netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
-    synforc.putVar(&M_dataset->synforc[0]);
-    //
-    LOG(DEBUG) << "write nondimensional fields\n";
-    netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
-    netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-    randfld.putVar(&M_dataset->randfld[0]);
-    // // nodes
-    // M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-    // // write nondimensional perturbations
-    // netCDF::NcDim dim_randfld  = dataFile.addDim("x",M_dataset->randfld.size()); 
-    // netCDF::NcVar data_randfld = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-    // data_randfld.putVar(&M_dataset->randfld[0]);  
-    // // write domensional perturbations: wind speeds u,v, tcc, precip //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
-    // netCDF::NcDim dim_synforc  = dataFile.addDim("x",M_dataset->synforc.size()); 
-    // netCDF::NcVar data_synforc = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc); //wind_uv
-    // data_synforc.putVar(&M_dataset->synforc[0]);
-
-    // //elements
-    // //Indexes are defined in finiteelement.cpp, searching AtmosphereType::EC2:
-    // //write clouds cover fraction
-    // M_dataset = M_external_data_elements[5]->get_M_dataset(); //tcc 
-    // dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
-    // data      = dataFile.addVar("tcc",netCDF::ncFloat, dim);
-    // data.putVar(&M_dataset->synforc[0]);
-    // // write precipitation
-    // M_dataset = M_external_data_elements[6]->get_M_dataset(); //precip
-    // dim       = dataFile.addDim("x",M_dataset->synforc.size()); 
-    // data      = dataFile.addVar("precip",netCDF::ncFloat, dim);
-    // data.putVar(&M_dataset->synforc[0]);
+    if (M_comm.rank() == 0) {
+        // assume M_external_data_nodes[0] with index 0 is related ot wind field.
+        // thus, M_dataset = M_external_data_nodes[0]->get_M_dataset(); 
+        // data coordinates are ecmwf grid: 3600x501, also defined in pseudo.nml
+        // otherwise, search the dataset by the following commented loop
+        
+        // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
+        // {
+        //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
+        //     {   
+        //         Dataset *dataset;
+        //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
+  
+        // Create the netCDF file.
+        std::string filename_root;
+        filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+        netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
+        Dataset *M_dataset;
+        // write data to the file
+        M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
+        LOG(DEBUG) << "write dimensional fields\n";
+        netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
+        netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
+        synforc.putVar(&M_dataset->synforc[0]);
+        //
+        LOG(DEBUG) << "write nondimensional fields\n";
+        netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
+        netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+        randfld.putVar(&M_dataset->randfld[0]);
+        
+    }
 }//export_WindPerturbations
 #endif // ENSEMBLE
 

@@ -102,7 +102,7 @@ class ensemble
 
         void addPerturbation(std::vector<double>&, std::vector<double>&, std::vector<double>& synforc, int M_full, int N_full, int, int, int, int);
 
-        void addPerturbation(std::vector<double>& forcefield, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index);
+        void addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index);
 
         //void addPerturbation(Dataset *dataset, std::vector<std::vector<double> >&, std::vector<std::vector<double> >&);
 

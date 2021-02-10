@@ -13,7 +13,7 @@ contains
 
 subroutine pseudo2D(Amat,nx,ny,nens,rh,n1,n2) bind(C,name="pseudo2D")
 ! This routine calculates the pseudo random 2D fields using
-! the spectral procedure outlined in Evensen (1994) \cite{eve94a}.
+! the spectral procedure outlined in Evensen (1994).
 
    use sangoma_base, only : REALPREC, INTPREC 
    implicit none

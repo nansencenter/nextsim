@@ -68,7 +68,17 @@
         "utility": "cpp",
         "vector": "cpp",
         "__memory": "cpp",
-        "memory_resource": "cpp"
+        "memory_resource": "cpp",
+        "*.tcc": "cpp",
+        "clocale": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "random": "cpp",
+        "ranges": "cpp",
+        "cinttypes": "cpp",
+        "observations.h": "c",
+        "utils.h": "c",
+        "prep_utils.h": "c"
     },
     "C_Cpp.dimInactiveRegions": false
 }

@@ -13,8 +13,8 @@ contains
     !
     integer(c_int), intent(in):: xdim, ydim, synforc_exist 
     ! synforc_exist indicates whether previous perturbations exist (=1 exist, =0 inexist)
-    !real(c_double), intent(inout):: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
-    real*8 :: synforc01(xdim*ydim, 2), randfld01(xdim*ydim, 10) !
+    !real(c_double), intent(inout):: synforc01(xdim*ydim,4), randfld01(xdim*ydim, 10)   ! variables need to be saved in memory
+    real*8 :: synforc01(xdim*ydim,4), randfld01(xdim*ydim, 10) !
   
     call limits_randf(xdim,ydim)  ! read in setting from pseudo2D.nml
     call init_fvars               ! init field variables

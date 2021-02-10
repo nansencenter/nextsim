@@ -157,8 +157,10 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 o->depth = 0.0;
                 o->fk = (double) ksurf;
                 o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
-    //            enkf_printf("   lon = %f lat = %f\n val= %f\n std = %f\n", o->lon, o->lat, o->value, o->std);
-    //            enkf_printf("   sit = %f\n", o->value);
+                if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
+                    continue;
+                //@@@
+                o->status = obs_distance2coast(g, o->lon, o->lat); 
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
                 o->model_depth = NAN;   // set in obs_add()
@@ -180,4 +182,40 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
         free(sic);
     
     free(time);
+}
+
+/**
+ * @brief      filter out observations near coast (min_distance2coast_km)
+ * 
+ * @param g    grid object, containing coast coordinates.
+ * @param lon  longtitude of observation
+ * @param lat  latitude of observation
+ * @return int return status
+ */
+int obs_distance2coast(grid* g, int lon, int lat){ 
+    int min_distance2coast_km = 30;
+    double ll[2] = { lon, lat }; //observation coordinates
+    double xyz[3];
+    grid_tocartesian(g, ll, xyz);
+    // distance filter
+    for (j = 0; j < g->nj; ++j) {
+        for (i = 0; i < g->ni; ++i) {
+            if (g->DEPTH(i,j)==0) 
+                continue;
+            double ll2[2] = { g->lon[j], g->lat[j] };
+            double xyz2[3];    
+            grid_tocartesian(g, ll2, xyz2);
+            // reject observation, borrow STATUS_OUTSIDEGRID.
+            if (distance(xyz, xyz2)<=min_distance2coast_km) 
+                return STATUS_OUTSIDEGRID; 
+        }
+    }
+    // accept the observation.
+    return 0;  
+}
+// /**
+//  */
+// static double distance(double xyz1[3], double xyz2[3])
+// {
+//     return sqrt((xyz1[0] - xyz2[0]) * (xyz1[0] - xyz2[0]) + (xyz1[1] -  xyz2[1]) * (xyz1[1] - xyz2[1]) + (xyz1[2] - xyz2[2]) * (xyz1[2] - xyz2[2]));
 }
