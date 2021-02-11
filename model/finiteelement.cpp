@@ -6060,7 +6060,10 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
         /* Sublimation */
-        subl[i] = Qlh[i]/Lsub;
+        subl[i] = std::max(0.,-Qlh[i]/Lsub); 
+        // GB: making sure it is always positive to avoid deposition of snow/ice from ambiant humidity
+        // In NEMO, LIM3 constrains Qlh to be always positive downwards (negative for us), but I feel like it is quite a violent way of proceeding.
+        // Sublimation however should not add snow, or it is not the right name for it ;)
 
         // Shortwave is modulated by the albedo
         double hs;
