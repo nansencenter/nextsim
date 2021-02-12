@@ -5727,7 +5727,9 @@ FiniteElement::thermo(int dt)
             {
                 M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
                 M_freeze_seconds[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + M_conc_thin[i] + del_c; // melting occurring, so need to adjust to new onset
+                M_conc_summer[i] = M_conc[i] + del_c; // melting occurring, so need to adjust to new onset
+                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                    M_conc_summer[i]+=M_conc_thin[i];
             }
             M_del_hi_tend[i] = 0.;
         }
@@ -6162,8 +6164,13 @@ FiniteElement::thermo(int dt)
                     }
                     else
                     {
-                        M_conc_myi[i]  = M_conc[i] + M_conc_thin[i] ; // include thin ice in reset: all ice on reset date is myi
-                        M_thick_myi[i] = M_thick[i]+ M_h_thin[i];
+                        M_thick_myi[i] = M_thick[i];
+                        M_conc_myi[i]  = M_conc[i] ; // include thin ice in reset: all ice on reset date is myi
+                        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                        {
+                            M_conc_myi[i] +=M_conc_thin[i];
+                            M_thick_myi[i]+=M_h_thin[i];
+                        }
                     }
                 }
                 else
@@ -6175,7 +6182,7 @@ FiniteElement::thermo(int dt)
                     }
                     else
                     {
-                        M_conc_myi[i] = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
+                        M_conc_myi[i]  = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
                         M_thick_myi[i] = M_thick[i];
                     }
                 }
@@ -7010,6 +7017,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_freeze_seconds);
     M_conc_summer = ModelVariable(ModelVariable::variableID::M_conc_summer);//! \param M_conc_summer (double) Counter of time (seconds) of ice melting for myi reset
     M_variables_elt.push_back(&M_conc_summer);
+    M_thick_summer = ModelVariable(ModelVariable::variableID::M_thick_summer);//! \param M_thick_summer (double) Counter of time (seconds) of ice melting for myi reset
+    M_variables_elt.push_back(&M_thick_summer);
     M_melt_onset = ModelVariable(ModelVariable::variableID::M_melt_onset);//! \param M_melt_onset (double) Counter of time (onset) of ice melting for myi reset
     M_variables_elt.push_back(&M_melt_onset);
     M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Counter of time (onset) of ice freezing for myi reset
