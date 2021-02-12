@@ -729,11 +729,13 @@ private:
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
     ModelVariable M_conc_myi;           // Concentration of multiyear ice
+    ModelVariable M_thick_myi;          // Thickness of multiyear ice
     ModelVariable M_melt_seconds;       // Seconds of melting
     ModelVariable M_freeze_seconds;     // Seconds of freezing
     ModelVariable M_melt_onset;         // Onset of melting
     ModelVariable M_freeze_onset;       // Onset of freezing
     ModelVariable M_conc_summer;        // Concentration at end of summer
+    ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_hi_tend;        // Daily sum of ice volume tendency
 
 #ifdef OASIS
@@ -833,6 +835,7 @@ private:
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
     std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_thick_myi_mean;  // Mean thickness of multiyear ice (MYI) (on the mesh)
     std::vector<double> M_melt_seconds_mean;  // Mean number of seconds melting has been occurring (on the mesh)
     std::vector<double> M_freeze_seconds_mean;  // Mean number of seconds freezing has been occurring (on the mesh)
     std::vector<double> M_melt_onset_mean;  // 1 if melting has been occurring (on the mesh)
@@ -846,6 +849,7 @@ private:
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
     std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_thick_myi_grid;  // Mean thickness of multiyear ice (MYI) (on the grid)
     std::vector<double> M_melt_seconds_grid;  // Mean number of seconds melting has been occurring (on the grid)
     std::vector<double> M_freeze_seconds_grid;  // Mean number of seconds freezing has been occurring (on the grid)
     std::vector<double> M_melt_onset_grid;  // 1 if melting has been occurring (on the grid)

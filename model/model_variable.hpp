@@ -90,6 +90,8 @@ public:
         M_melt_onset    = 29,
         M_freeze_onset  = 30,
         M_del_hi_tend   = 31,
+        M_thick_myi     = 32,
+        M_thick_summer  = 33,
 
         // Diagnostic variables
         D_conc       = 100,

@@ -155,6 +155,8 @@ public:
         freeze_onset = 26,
         conc_summer  = 27,
         del_hi_tend  = 28,
+        thick_myi    = 29,
+        thick_summer = 30,
 
         // Diagnostic variables
         Qa     = 100,
@@ -390,11 +392,25 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::thick_myi):
+                    name     = "thick_myi";
+                    longName = "Cell-average thickness of Multiyear Ice";
+                    stdName  = "thick_myi";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
                 case (variableID::conc_summer):
                     name     = "conc_summer";
                     longName = "Concentration of ice at end of summer";
                     stdName  = "conc_summer";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::thick_summer):
+                    name     = "thick_summer";
+                    longName = "Cell-average thickness of ice at end of summer";
+                    stdName  = "thick_summer";
+                    Units    = "m";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::melt_seconds):
