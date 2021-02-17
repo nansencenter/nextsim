@@ -2244,15 +2244,13 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            // check the total conc is <= 1
-            double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
-            double h_thin_new = 0.;
-            if(M_conc_thin[i]>0.)
-                h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
-
-            M_thick[i] += M_h_thin[i] - h_thin_new;
-            M_h_thin[i] = h_thin_new;
-            M_conc_thin[i] = conc_thin_new;
+            if ((M_conc[i] + M_conc_thin[i]) > 1)
+            {
+                // if total concentration > 1 (precision issues) recompute young ice C, H
+                double c_thin_new = 1 - M_conc[i];
+                M_h_thin[i] = std::max(0, M_h_thin[i]*c_thin_new/M_conc_thin[i]);
+                M_conc_thin[i] = std::max(0, c_thin_new);
+            }
         }
     }//loop over i
 }//redistributeVariables
