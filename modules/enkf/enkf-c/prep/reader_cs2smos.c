@@ -39,13 +39,15 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
 {
     int ksurf = grid_getsurflayerid(g);
     int ncid;
-    int x_dimid, y_dimid, t_dimid;
-    size_t nobslen, xlen, ylen, tlen;
+    int x_dimid, y_dimid, t_dimid, lon_dimid, lat_dimid;
+    size_t nobslen, xlen, ylen, tlen, lonlen, latlen;
     int varid_lon, varid_lat, varid_sit, varid_error, varid_sic, varid_time;
     int   sit_fill_value,  estd_fill_value,  sic_fill_value;
     float sit_scale_factor,estd_scale_factor,sic_scale_factor;
     float** lon = NULL;
     float** lat = NULL;
+    float* coast_lon = NULL;
+    float* coast_lat = NULL;
     int*** sit = NULL;
     int*** error_std = NULL;
     int*** sic = NULL;
@@ -71,15 +73,12 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     ncw_inq_dimlen(ncid, t_dimid, &tlen);
     nobslen = xlen * ylen;
     enkf_printf("        x = %u\n y = %u\n t = %u\n nobs = %u\n", xlen, ylen, tlen, nobslen);
-
     ncw_inq_varid(ncid, "lat", &varid_lat);
     lat = alloc2d(ylen, xlen, sizeof(float));  // use 2d array. sit[i*j+j]] in standard2 is a bug to be fixed 
     ncw_get_var_float(ncid, varid_lat, lat[0]);
-
     ncw_inq_varid(ncid, "lon", &varid_lon);
     lon = alloc2d(ylen, xlen, sizeof(float));
     ncw_get_var_float(ncid, varid_lon, lon[0]);
-
     error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
     sit = alloc3d(tlen, ylen, xlen, sizeof(int));
     sic = alloc3d(tlen, ylen, xlen, sizeof(int));
@@ -127,6 +126,22 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
 
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
+    // load coast data from 'reference_grid_coast.nc
+    fname='reference_grid_coast.nc';
+    ncw_open(fname, NC_NOWRITE, &ncid);
+    // longitude
+    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "lon")) ? "lon" : "length", &lon_dimid);
+    ncw_inq_dimlen(ncid, lon_dimid, &lonlen);
+    ncw_inq_varid(ncid, "lon", &varid_lon);
+    coast_lon = malloc(lonlen * sizeof(float));
+    // latitude
+    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "lat")) ? "lat" : "length", &lat_dimid);
+    ncw_inq_dimlen(ncid, lat_dimid, &latlen);
+    ncw_inq_varid(ncid, "lat", &varid_lat);
+    coast_lat = malloc(latlen * sizeof(float));
+    ncw_close(ncid);
+    
+    //
     for (int it= 0; it< (int) tlen; ++it) {
         for (int i = 0; i < (int) ylen; ++i) {
             for (int j = 0; j < (int) xlen; ++j) {
@@ -159,8 +174,8 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
-                //@@@
-                o->status = obs_distance2coast(g, o->lon, o->lat); 
+                // check distance between the observation the closest coast
+                o->status = obs_distance2coast(g, coast_lon, coast_lat, o->lon, o->lat); 
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
                 o->model_depth = NAN;   // set in obs_add()
@@ -192,30 +207,21 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
  * @param lat  latitude of observation
  * @return int return status
  */
-int obs_distance2coast(grid* g, int lon, int lat){ 
+int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat){ 
     int min_distance2coast_km = 30;
     double ll[2] = { lon, lat }; //observation coordinates
-    double xyz[3];
-    grid_tocartesian(g, ll, xyz);
+    double xyz1[3];
+    grid_tocartesian(g, ll, xyz1);
     // distance filter
-    for (j = 0; j < g->nj; ++j) {
-        for (i = 0; i < g->ni; ++i) {
-            if (g->DEPTH(i,j)==0) 
-                continue;
-            double ll2[2] = { g->lon[j], g->lat[j] };
-            double xyz2[3];    
-            grid_tocartesian(g, ll2, xyz2);
-            // reject observation, borrow STATUS_OUTSIDEGRID.
-            if (distance(xyz, xyz2)<=min_distance2coast_km) 
-                return STATUS_OUTSIDEGRID; 
-        }
+    for (int j = 0; j < sizeof(coast_lon); ++j) {
+        double ll2[2] = { coast_lon[j], coast_lat[j] };
+        double xyz2[3];    
+        grid_tocartesian(g, ll2, xyz2);
+        // reject observation, borrow STATUS_OUTSIDEGRID.
+        double distance = sqrt((xyz1[0] - xyz2[0]) * (xyz1[0] - xyz2[0]) + (xyz1[1] -  xyz2[1]) * (xyz1[1] - xyz2[1]) + (xyz1[2] - xyz2[2]) * (xyz1[2] - xyz2[2]));
+        if (distance<=min_distance2coast_km) 
+            return STATUS_OUTSIDEGRID; 
     }
     // accept the observation.
     return 0;  
-}
-// /**
-//  */
-// static double distance(double xyz1[3], double xyz2[3])
-// {
-//     return sqrt((xyz1[0] - xyz2[0]) * (xyz1[0] - xyz2[0]) + (xyz1[1] -  xyz2[1]) * (xyz1[1] - xyz2[1]) + (xyz1[2] - xyz2[2]) * (xyz1[2] - xyz2[2]));
 }
