@@ -622,8 +622,8 @@ DataSet::DataSet(char const *DatasetName)
                 interp_type : BilinearInterpEnum,
                 //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                prefix: "ec2_start",
+                dirname:"GENERIC_ATM",
+                prefix: "generic_atm_",
                 postfix:".nc",
                 gridfile: "",
                 reference_date: "1970-01-01",
@@ -762,8 +762,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
-            prefix:"ec2_start",
+            dirname:"GENERIC_ATM",
+            prefix:"generic_atm_",
             postfix:".nc",
             gridfile: "",
             reference_date: "1970-01-01",
