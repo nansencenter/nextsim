@@ -571,7 +571,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./3600.,//convert seconds to hours
+            a: 24.,//convert days to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -626,7 +626,7 @@ DataSet::DataSet(char const *DatasetName)
                 prefix: "generic_atm_",
                 postfix:".nc",
                 gridfile: "",
-                reference_date: "1970-01-01",
+                reference_date: "1900-01-01",
 
                 latitude: latitude,
                 longitude: longitude,
@@ -747,7 +747,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1./3600.,//convert seconds to hours
+            a: 24.,//convert days to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -766,7 +766,7 @@ DataSet::DataSet(char const *DatasetName)
             prefix:"generic_atm_",
             postfix:".nc",
             gridfile: "",
-            reference_date: "1970-01-01",
+            reference_date: "1900-01-01",
 
             latitude: latitude,
             longitude: longitude,
@@ -815,8 +815,8 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a:1.,
-            b:0.,
-            Units:"",
+            b:-273.15,
+            Units:"C",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
