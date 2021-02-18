@@ -2244,13 +2244,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            if ((M_conc[i] + M_conc_thin[i]) > 1)
-            {
-                // if total concentration > 1 (precision issues) recompute young ice C, H
-                double c_thin_new = 1 - M_conc[i];
-                M_h_thin[i] = std::max(0, M_h_thin[i]*c_thin_new/M_conc_thin[i]);
-                M_conc_thin[i] = std::max(0, c_thin_new);
-            }
+            if ((M_conc[i] + M_conc_thin[i]) > 1.) M_conc_thin[i] = 1. - M_conc[i];
         }
     }//loop over i
 }//redistributeVariables
@@ -4114,24 +4108,31 @@ FiniteElement::update(std::vector<double> const & UM_P)
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
-    // clip damage
-    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
-
-    // Plastic failure
-    double dcrit;
-    if ( sigma_n > 0. )
+    if (M_damage[cpt] == 1)
     {
-        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-        // dcrit must be capped at 1 to get an elastic response
-        dcrit = std::min(1., Pmax/sigma_n);
-    } else {
-        dcrit = 0.;
+        D_multiplicator[cpt] = 0.;
+        D_elasticity[cpt] = 0.;
     }
+    else
+    {
+        // clip damage
+        double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+        double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
+        // Plastic failure
+        double dcrit;
+        if ( sigma_n > 0. )
+        {
+            double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+            // dcrit must be capped at 1 to get an elastic response
+            dcrit = std::min(1., Pmax/sigma_n);
+        } else {
+            dcrit = 0.;
+        }
 
-    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
-    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
-    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+        D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
+        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    }
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
