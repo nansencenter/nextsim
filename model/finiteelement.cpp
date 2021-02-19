@@ -4108,31 +4108,23 @@ FiniteElement::update(std::vector<double> const & UM_P)
 void inline
 FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sigma_n, double const damage_dot)
 {
-    if (M_damage[cpt] == 1)
+    // clip damage
+    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
+    // Plastic failure
+    double dcrit;
+    if ( sigma_n > 0. )
     {
-        D_multiplicator[cpt] = 0.;
-        D_elasticity[cpt] = 0.;
+        double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        // dcrit must be capped at 1 to get an elastic response
+        dcrit = std::min(1., Pmax/sigma_n);
+    } else {
+        dcrit = 0.;
     }
-    else
-    {
-        // clip damage
-        double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-        double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
-        // Plastic failure
-        double dcrit;
-        if ( sigma_n > 0. )
-        {
-            double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-            // dcrit must be capped at 1 to get an elastic response
-            dcrit = std::min(1., Pmax/sigma_n);
-        } else {
-            dcrit = 0.;
-        }
 
-        D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
-        D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
-        D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
-    }
+    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
+    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
+    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 }//updateSigmaCoefs
 
 //------------------------------------------------------------------------------------------------------
@@ -4299,7 +4291,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                 double const old_damage = M_damage[cpt];
-                M_damage[cpt] = std::min(tmp, 1.0);
+                M_damage[cpt] = std::min(tmp, 1.0 - 1e-10);
 
                 if (update_sigma)
                 {
