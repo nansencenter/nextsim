@@ -3997,8 +3997,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
              * Strictly speaking conc_ratio is min(1., M_conc)/old_conc, but
              * this (equivelent) formulation is needed to prevent round-off
              * errors from giving a negative ridge ratio. */
-            double const conc_ratio = std::min(surf_ratio, M_conc[cpt]/old_conc);
-            M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*conc_ratio/surf_ratio;
+            M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
 
             /* Ridging does not affect mean snow thickness: Do snow-to-ice
              * conversion to compensate */
