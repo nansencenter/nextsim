@@ -833,14 +833,13 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             if ( dataset->variables[j].filename_string != "" )
             {
                 //for safety, we don't try to replace inside the parent directory
-                auto fpath = boost::filesystem::path(filename);
-                auto basedir = fpath.parent_path();
+                auto const fpath = boost::filesystem::path(filename);
+                auto const basedir = fpath.parent_path().string();
                 auto basename = fpath.filename().string();
                 boost::replace_all(basename, variables[0].filename_string,
                         variables[j].filename_string);
                 filename = (boost::format( "%1%/%2%" )
-                            % basedir.string()
-                            % basename).str();
+                            % basedir % basename).str();
             }
 
             LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";
