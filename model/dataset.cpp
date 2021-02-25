@@ -8048,6 +8048,10 @@ DataSet::DataSet(char const *DatasetName)
     {
         std::string const spatial_res = Environment::vm()
             ["setup.atmosphere-resolution"].as<std::string>();
+        std::string const refdate = Environment::vm()
+            ["setup.atmosphere-refdate"].as<std::string>();
+        if ( refdate == "" )
+            throw std::runtime_error("Please provide the reference date for WRF (start date of the simulation)\n");
 
         // Definition of dimensions
         Dimension dimension_x={
@@ -8114,11 +8118,11 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type : -1,
-            dirname:"",
+            dirname:"WRF",
             prefix: "wrf_r" + spatial_res + "_ctrl_Q2_y",
             postfix:".nc",
             gridfile: "",
-            reference_date:"2013-02-01",
+            reference_date: refdate,
 
             latitude: latitude,
             longitude: longitude,
@@ -8313,6 +8317,10 @@ DataSet::DataSet(char const *DatasetName)
     {
         std::string const spatial_res = Environment::vm()
             ["setup.atmosphere-resolution"].as<std::string>();
+        std::string const refdate = Environment::vm()
+            ["setup.atmosphere-refdate"].as<std::string>();
+        if ( refdate == "" )
+            throw std::runtime_error("Please provide the reference date for WRF (start date of the simulation)\n");
 
         // Definition of dimensions
         Dimension dimension_x={
@@ -8371,11 +8379,11 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type : -1,
-            dirname:"",
+            dirname:"WRF",
             prefix: "wrf_r" + spatial_res + "_ctrl_U10_y",
             postfix:".nc",
             gridfile: "",
-            reference_date:"2013-02-01",
+            reference_date: refdate,
 
             latitude: latitude,
             longitude: longitude,
@@ -8734,14 +8742,16 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        std::vector<Variable> variables_tmp(7);
+        std::vector<Variable> variables_tmp(6);
         variables_tmp[0] = tair;
         variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
-        variables_tmp[3] = Qsw_in;
-        variables_tmp[4] = Qlw_in;
-        variables_tmp[5] = tcc;
-        variables_tmp[6] = precip;
+        variables_tmp[3] = precip;
+        variables_tmp[4] = Qsw_in;
+        if (Environment::vm()["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+            variables_tmp[5] = tcc;
+        else
+            variables_tmp[5] = Qlw_in;
 
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
