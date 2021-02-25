@@ -52,7 +52,7 @@ namespace Nextsim
             ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
             ("debugging.gmsh_verbose", po::value<int>()->default_value( 0 ),
-                 "Gmsh verbose mode: 0 is not verbose, 6 is very verbose")
+                 "Gmsh verbose mode: 0: silent except for fatal errors, 1: +errors, 2: +warnings, 3: +direct, 4: +information, 5: +status, 99: +debug")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
                 "Nextsim printouts. Options: debug, info, warning, error")
             ("debugging.log-all", po::value<bool>()->default_value( false ),
@@ -175,6 +175,8 @@ namespace Nextsim
             ("drifters.use_iabp_drifters", po::value<bool>()->default_value( false), "Use IABP drifters or not")
             ("drifters.iabp_drifters_output_time_step", po::value<double>()->default_value( .5 ),
                  "interval between IABP drifter outputs (days): 0.5/2n, n=1,2,... down to timestep")
+            ("drifters.iabp_ignore_restart", po::value<bool>()->default_value( false),
+                "do not load IABP drifters from restart even if present")
 
             ("drifters.use_osisaf_drifters", po::value<bool>()->default_value( false ), "Use OSISAF drifters?")
             ("drifters.osisaf_drifters_output_time_step", po::value<double>()->default_value( 2. ),
@@ -186,6 +188,8 @@ namespace Nextsim
             ("drifters.equally_spaced_drifters_output_time_step", po::value<double>()->default_value( .5 ),
                  "interval between equally-spaced drifter outputs (days): integer multiple of timestep")
             ("drifters.spacing", po::value<double>()->default_value( 10 ), "spacing of equally spaced drifters in km")
+            ("drifters.equally_spaced_ignore_restart", po::value<bool>()->default_value( false),
+                "do not load equally spaced drifters from restart even if present")
 
             ("drifters.use_rgps_drifters", po::value<bool>()->default_value( false), "")
             ("drifters.rgps_drifters_output_time_step", po::value<double>()->default_value( 0.5 ),

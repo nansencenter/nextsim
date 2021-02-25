@@ -9781,7 +9781,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         std::vector<double> LAT(grid_ptr->dimension_y_count);
         std::vector<double> LON(grid_ptr->dimension_x_count);
         this->getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
-#if 1
+
         // Get the proc speciffic boundaries
         double RX_min, RX_max, RY_min, RY_max;
         this->getMinMax(mapNextsim, grid_ptr, RX_in, RY_in, RX_min, RX_max, RY_min, RY_max);
@@ -9802,9 +9802,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // Then we load the reduced grid
         LAT.resize(grid_ptr->dimension_y_count);
         LON.resize(grid_ptr->dimension_x_count);
-
         getLatLonRegularLatLon(&LAT[0],&LON[0],&VLAT,&VLON);
-#endif
         grid_ptr->gridY=LAT;
         grid_ptr->gridX=LON;
 
@@ -9847,7 +9845,6 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
         // Then we load the reduced grid
         Y.resize(grid_ptr->dimension_y_count);
         X.resize(grid_ptr->dimension_x_count);
-
         getXYRegularXY(&X[0],&Y[0],&VLAT,&VLON);
         grid_ptr->gridX=X;
         grid_ptr->gridY=Y;

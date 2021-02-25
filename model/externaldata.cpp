@@ -712,6 +712,9 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double const t0 = (XTIME[0]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const dt = t1 - t0;
+                int ntimes = timeDim.getSize();
+                if(is_ec_fc && !true_forecast)
+                    ntimes = std::round(1/dt);//only use 1st day of file
 
                 // This is a double because we're most likely in between integer indices
                 double const indx = (M_current_time - t0)/dt;
@@ -726,7 +729,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 int const indx_ceil  = indx_floor + 1;
 
                 // The index below the current time
-                if ( indx_floor >= 0 && indx_floor < timeDim.getSize() )
+                if ( indx_floor >= 0 && indx_floor < ntimes )
                 {
                     index_start[0] = indx_floor;
                     index_count[0] = 1;
@@ -740,7 +743,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 }
 
                 // The index above the current time
-                if ( indx_ceil >= 0 && indx_ceil < timeDim.getSize() )
+                if ( indx_ceil >= 0 && indx_ceil < ntimes )
                 {
                     index_start[0] = indx_ceil;
                     index_count[0] = 1;
