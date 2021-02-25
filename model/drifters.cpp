@@ -510,7 +510,7 @@ Drifters::move(GmshMeshSeq const& mesh,
 //! interp conc onto drifter positions
 //! called by updateDrifters(), reset() and initialise()
 void
-Drifters::updateConc(GmshMeshSeq const& movedmesh,
+Drifters::updateConc(GmshMeshSeq const& moved_mesh,
         std::vector<double> & conc, std::vector<double> &conc_drifters)
 {
     // Do nothing if we don't have to
@@ -520,14 +520,14 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
     conc_drifters.resize(num_drifters);
 
     // move the mesh before interpolating
-    int const numNodes = movedmesh.numNodes();
-    int const numElements = movedmesh.numTriangles();
+    int const numNodes = moved_mesh.numNodes();
+    int const numElements = moved_mesh.numTriangles();
 
     // Interpolate the concentration onto the drifter positions
     int nb_var=1;
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                            &moved_mesh.indexTr()[0], &moved_mesh.coordX()[0], &moved_mesh.coordY()[0],
                             numNodes, numElements,
                             &conc[0],
                             numElements, nb_var,

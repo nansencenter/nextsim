@@ -201,7 +201,7 @@ private:
 
         void initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
                 std::vector<double> & conc_drifters);
-        void initFromSpacing(GmshMeshSeq const& movedmesh);
+        void initFromSpacing(GmshMeshSeq const& moved_mesh);
         void initFromTextFile();
         void initFromNetCDF();
         bool readFromRestart(
