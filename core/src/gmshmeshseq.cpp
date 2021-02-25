@@ -532,7 +532,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
             << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
             << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
             << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-            << " -string " << "\"General.Verbosity=0;\""
+            << " -string " << "\"General.Verbosity="<< Environment::vm()["debugging.gmsh_verbose"].as<int>() << ";\""
             << " " << mshfile;
 
     LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
@@ -935,5 +935,32 @@ GmshMeshSeq::id() const
 
     return node_id;
 }
+
+
+// ------------------------------------------------
+//! return the vertices for a given list of indices
+//! called by FiniteElement::shapeCoeff() and FiniteElement::jacobian()
+std::vector<std::vector<double>>
+GmshMeshSeq::vertices(std::vector<int> const& indices) const
+{
+    int const nv = indices.size();
+    std::vector<std::vector<double>> vertices(nv);
+    for(int i=0; i<nv; i++)
+        vertices[i] = M_nodes[indices[i]-1].coords;
+    return vertices;
+}
+
+
+std::vector<std::vector<double>>
+GmshMeshSeq::vertices(std::vector<int> const& indices,
+        std::vector<double> const& um, double factor) const
+{
+    int const nv = indices.size();
+    auto vertices = this->vertices(indices);
+    for(int i=0; i<nv; i++)
+        for(int k=0; k<2; k++)
+            vertices[i][k] += factor*um[indices[i]-1+k*M_num_nodes];
+    return vertices;
+}//vertices
 
 } // Nextsim

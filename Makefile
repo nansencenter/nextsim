@@ -5,7 +5,8 @@
 .PHONY: all contrib modules model core clean cleanmodel mrproper fresh
 
 
-all: contrib modules core model
+all: modules core contrib
+	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
 contrib:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
@@ -18,9 +19,6 @@ endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
-
-model: core modules
-	@cd $(NEXTSIMDIR)/model; $(MAKE);
 
 core: contrib
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)

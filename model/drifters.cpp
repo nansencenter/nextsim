@@ -24,10 +24,8 @@ namespace Nextsim
 //! Called from FiniteElement::checkUpdateDrifters()
 //! \note call after moving
 void
-Drifters::updateDrifters(
-        MeshInfo & mesh_info,
-        std::vector<double> & conc_root,
-        double const& current_time)
+Drifters::updateDrifters(GmshMeshSeq const& movedmesh_root,
+        std::vector<double> & conc_root, double const& current_time)
 {
     std::vector<double> conc_drifters(0);
 
@@ -225,10 +223,16 @@ Drifters::initFromRestart(
 {
     double const restart_time = field_map_dbl["Time"][0];
     bool in_restart = false;
+    LOG(DEBUG) << M_tag << " drifters: restart time = " << restart_time << " = " << datenumToString(restart_time) << "\n";
     if(M_ignore_restart)
-        std::cout<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    {
+        LOG(DEBUG)<< M_tag<<" drifters: ignoring restart and initialising from scratch\n";
+    }
     else
+    {
         in_restart = readFromRestart(field_map_int, field_map_dbl);
+    }
+    LOG(DEBUG) << M_tag << " drifters: init time = " << M_time_init << " = " << datenumToString(M_time_init) << "\n";
 
     if( !in_restart )
         //drifters are not in restart file - check init time and init output file
@@ -259,7 +263,6 @@ Drifters::initFromRestart(
         this->selectRecordsFromBackup(backup, restart_time);
         std::remove(backup.c_str());
     }
-        
 }//initFromRestart()
 
 
@@ -394,7 +397,7 @@ Drifters::readFromRestart(
     std::string const key = "Drifter_ID_" + M_tag;
     if(field_map_int.count(key) == 0)
     {
-        std::cout << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
+        LOG(DEBUG) << "Warning: Couldn't read " << M_tag << " drifter positions from restart file."
             << " Drifter positions will be initialised as if there was no restart.\n";
         return false;
     }
@@ -413,7 +416,7 @@ Drifters::readFromRestart(
 void
 Drifters::fixInitTimeAtRestart(double const& restart_time)
 {
-    // if we are restarting before sceduled init time, there is no problem
+    // if we are restarting before scheduled init time, there is no problem
     // - they will be initialised at that time
     if(restart_time<=M_time_init)
         return;
@@ -777,7 +780,7 @@ Drifters::selectRecordsFromBackupNetCDF(
     if ( dim.isNull() )
     {
         M_nc_step = 0;
-        std::cout << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
+        LOG(DEBUG) << "Drifters::selectRecordsFromBackupNetCDF: Empty dimension time: nothing to do\n";
         return;
     }
     size_t ntime = dim.getSize();

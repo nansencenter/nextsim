@@ -11,8 +11,6 @@
 #define Environment_HPP 1
 
 #include <communicator.hpp>
-#include <petscsys.h>
-#include <petsc.h>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/program_options.hpp>
@@ -28,39 +26,6 @@ namespace Nextsim
 {
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
-
-struct MemoryUsage
-{
-    MemoryUsage()
-        :
-        memory_usage(0),
-        petsc_malloc_usage(0),
-        petsc_malloc_maximum_usage(0)
-    {}
-
-    MemoryUsage(MemoryUsage const& m )
-        :
-        memory_usage(m.memory_usage),
-        petsc_malloc_usage(m.petsc_malloc_usage),
-        petsc_malloc_maximum_usage(m.petsc_malloc_maximum_usage)
-    {}
-
-    MemoryUsage& operator=(MemoryUsage const& m )
-    {
-        if ( this != &m )
-        {
-            memory_usage = m.memory_usage;
-            petsc_malloc_usage = m.petsc_malloc_usage;
-            petsc_malloc_maximum_usage = m.petsc_malloc_maximum_usage;
-        }
-        return *this;
-    }
-
-    PetscLogDouble memory_usage;
-    PetscLogDouble petsc_malloc_usage;
-    PetscLogDouble petsc_malloc_maximum_usage;
-
-};
 
 class Environment
 {
@@ -97,8 +62,6 @@ public:
     //! get $NEXTSIM_DATA_DIR and $NEXTSIM_MESH_DIR variables,
     //! and some sub-directories
     void setEnvironmentVariables();
-
-    static MemoryUsage logMemoryUsage(std::string const& message);
 
 private:
 

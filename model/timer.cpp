@@ -47,7 +47,7 @@ void Timer::tick(const std::string & name)
     if ( M_timer.count(name) == 0 )
     {
         if ( name == M_global_timer )
-            throw std::runtime_error("Timer::tick: Illegal use of reserved timer name '" + M_global_timer + "'\n");
+            throw std::logic_error("Timer::tick: Illegal use of reserved timer name '" + M_global_timer + "'\n");
 
         M_names.push_back(name);
         M_timer[name].elapsed = 0.;
@@ -73,7 +73,7 @@ void Timer::tock(const std::string & name)
 {
     // Check for consistency
     if ( !M_timer[name].running )
-        throw std::runtime_error("Timer:tock: Timer "+name+" is not running.");
+        throw std::logic_error("Timer:tock: Timer "+name+" is not running.");
 
     M_timer[name].lap = M_timer[name].timer.elapsed();
 

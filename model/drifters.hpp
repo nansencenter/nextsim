@@ -9,6 +9,7 @@
 #ifndef __Drifters_H
 #define __Drifters_H 1
 
+#include <environment.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -17,7 +18,7 @@
 #include <exporter.hpp>
 #include <environment.hpp>
 #include "debug.hpp"
-
+#include <numeric>
 
 /**
  * @class GridOutput
@@ -210,10 +211,9 @@ public:
         bool isInitialised() { return M_is_initialised; }
 
         //main interface to FiniteElement
-        void updateDrifters( MeshInfo & mesh_info,
-                std::vector<double> & conc_root,
-                double const& current_time);
-        void move(MeshInfo & mesh_info, std::vector<double> const& UT);
+        void updateDrifters(GmshMeshSeq const& movedmesh_root,
+                std::vector<double> & conc_root, double const& current_time);
+        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
 
 private:
         //initialising
@@ -221,10 +221,18 @@ private:
                 double const& climit,
                 Drifters::TimingInfo const& timing_info,
                 bool const& ignore_restart) : 
-            M_tag(tag), M_output_prefix(output_prefix),
-            M_conc_lim(climit), M_ignore_restart(ignore_restart)
-        { this->setTimingInfo(timing_info); }
-        void initialise(MeshInfo & moved_mesh, std::vector<double> & conc,
+            M_tag(tag),
+            M_output_prefix(output_prefix),
+            M_conc_lim(climit),
+            M_ignore_restart(ignore_restart),
+            M_log_level(Environment::logLevel()),
+            M_log_all(Environment::logAll()),
+            M_comm(Environment::comm())
+        {
+            this->setTimingInfo(timing_info);
+        }
+
+        void initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
                 std::vector<double> & conc_drifters);
         void initFromSpacing(MeshInfo const& moved_mesh);
         void initFromTextFile();
@@ -237,8 +245,7 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
-        void reset(MeshInfo & mesh_info, std::vector<double> & conc_root,
+        void reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
                 double const& current_time);
         void updateConc( MeshInfo & mesh_info,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
@@ -339,6 +346,11 @@ private:
         std::vector<double> M_X;//x coordinates of drifters
         std::vector<double> M_Y;//y coordinates of drifters
         std::vector<int> M_i;//buoy ID of drifters
+
+        //for LOG
+        LogLevel M_log_level;
+        bool M_log_all;
+        Communicator M_comm;
     };
 } // Nextsim
 
