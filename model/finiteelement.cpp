@@ -3997,6 +3997,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
              * Strictly speaking conc_ratio is min(1., M_conc)/old_conc, but
              * this (equivelent) formulation is needed to prevent round-off
              * errors from giving a negative ridge ratio. */
+            double const conc_ratio = std::min(surf_ratio, M_conc[cpt]/old_conc);
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
 
             /* Ridging does not affect mean snow thickness: Do snow-to-ice
@@ -5883,6 +5884,7 @@ FiniteElement::thermo(int dt)
             del_hs_thin = M_hs_thin[i] - old_hs_thin;
         }
         del_vi = M_thick[i] - old_vol + del_h_thin;
+        /// It ignores the fact that sublimated snow should not be accounted for here?
         del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + del_hs_thin);
 
         // Rain falling on ice falls straight through. We need to calculate the
