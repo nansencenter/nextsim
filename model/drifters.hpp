@@ -110,39 +110,6 @@ public:
             bool transient = false;// can drifters be added/removed after init?
         } TimingInfo;
 
-        //info about mesh needed for interpolation
-        typedef struct MeshInfo
-        {
-            MeshInfo() {}
-
-            //construct from GmshMeshSeq object eg M_mesh_root 
-            //- used in FiniteElement::assignVariables(),
-            //  FiniteElement::checkUpdateDrifters()
-            MeshInfo(GmshMeshSeq const& mesh)
-            {
-                x_nodes = mesh.coordX();
-                y_nodes = mesh.coordY();
-                elements = mesh.indexTr();
-            }
-
-            //contruct from vectors
-            //- used in FiniteElement::readRestart()
-            MeshInfo(
-                    std::vector<double> const& xn,
-                    std::vector<double> const& yn,
-                    std::vector<int> const& el
-                    )
-            {
-                x_nodes = xn;
-                y_nodes = yn;
-                elements = el;
-            }
-
-            std::vector<double> x_nodes;
-            std::vector<double> y_nodes;
-            std::vector<int> elements;
-        } MeshInfo;
-
         //! Constructors and destructors
         //! * We have one constructor for regularly spaced drifters and two for
         //!   drifter positions read in from file
@@ -234,7 +201,7 @@ private:
 
         void initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
                 std::vector<double> & conc_drifters);
-        void initFromSpacing(MeshInfo const& moved_mesh);
+        void initFromSpacing(GmshMeshSeq const& movedmesh);
         void initFromTextFile();
         void initFromNetCDF();
         bool readFromRestart(
@@ -245,9 +212,9 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+        void reset(GmshMeshSeq const& moved_mesh, std::vector<double> & conc_root,
                 double const& current_time);
-        void updateConc( MeshInfo & mesh_info,
+        void updateConc( GmshMeshSeq const& moved_mesh,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
         {

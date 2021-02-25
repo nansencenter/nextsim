@@ -8877,14 +8877,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(outbin, M_VTM_root, "M_VTM");
         exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
         exporter.writeField(outbin, M_UM_root, "M_UM");
-
         exporter.writeField(outbin, M_UT_root, "M_UT");
-        exporter.writeField(outbin,
-                M_drifters_mesh_info.x_nodes, "Drifters_mesh_x");
-        exporter.writeField(outbin,
-                M_drifters_mesh_info.y_nodes, "Drifters_mesh_y");
-        exporter.writeField(outbin,
-                M_drifters_mesh_info.elements, "Drifters_mesh_elements");
 
         // Add the drifters if they are initialised
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -9153,11 +9146,6 @@ FiniteElement::readRestart(std::string const& name_str)
                 throw std::runtime_error("Restart file does not contain Drifters_mesh_y");
             if(field_map_int.count("Drifters_mesh_elements")==0)
                 throw std::runtime_error("Restart file does not contain Drifters_mesh_elements");
-            M_drifters_mesh_info = Drifters::MeshInfo(
-                    field_map_dbl["Drifters_mesh_x"],
-                    field_map_dbl["Drifters_mesh_y"],
-                    field_map_int["Drifters_mesh_elements"]
-                    );
         }
     }//M_rank==0
 

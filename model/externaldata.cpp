@@ -297,7 +297,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
     if (!M_dataset->interpolated)
     {
-        LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
+        LOG(DEBUG) << "Interpolate " << M_dataset->name << "\n";
         this->interpolateDataset(M_dataset, RX_in, RY_in);
         LOG(DEBUG) << "Done\n";
     }
@@ -517,6 +517,12 @@ void
 ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<double> const& RY_in)//(double const& u, double const& v)
 {
+    // forecasts are special cases
+    bool const is_ocn_fc = (dataset->grid.dataset_frequency=="daily_ocn_forecast");//topaz forecast
+    bool const is_atm_fc = (dataset->grid.dataset_frequency=="daily_atm_forecast");//ec2,ec2_arome_ensemble forecast
+    bool const true_forecast = ( (is_atm_fc||is_ocn_fc)
+           && Environment::vm()["forecast.true_forecast"].as<bool>());
+
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
@@ -703,7 +709,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const dt = t1 - t0;
                 int ntimes = timeDim.getSize();
-                if(is_ec_fc && !true_forecast)
+                if(is_atm_fc && !true_forecast)
                     ntimes = std::round(1/dt);//only use 1st day of file
 
                 // This is a double because we're most likely in between integer indices
