@@ -7876,10 +7876,6 @@ void FiniteElement::checkUpdateDrifters()
     // Move any active drifters
     this->checkMoveDrifters();
 
-    // Move any active drifters
-    this->checkMoveDrifters();
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
-
     // Gather the fields needed by the drifters
     std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
@@ -9130,23 +9126,10 @@ FiniteElement::readRestart(std::string const& name_str)
         }
 
         //! add drifters
-        bool using_drifters;
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        {
             it->initFromRestart(field_map_int, field_map_dbl);
-            using_drifters = using_drifters || it->isInitialised();
-        }
         if(M_osisaf_drifters_indices.size()>0)
             this->synchroniseOsisafDrifters();
-        if(using_drifters)
-        {
-            if(field_map_dbl.count("Drifters_mesh_x")==0)
-                throw std::runtime_error("Restart file does not contain Drifters_mesh_x");
-            if(field_map_dbl.count("Drifters_mesh_y")==0)
-                throw std::runtime_error("Restart file does not contain Drifters_mesh_y");
-            if(field_map_int.count("Drifters_mesh_elements")==0)
-                throw std::runtime_error("Restart file does not contain Drifters_mesh_elements");
-        }
     }//M_rank==0
 
     // Scatter elemental fields from root and put them in M_prognostic_variables_elt
