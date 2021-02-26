@@ -4291,7 +4291,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                 double const old_damage = M_damage[cpt];
-                M_damage[cpt] = std::min(tmp, 1.0 - 1e-10);
+                M_damage[cpt] = tmp;
 
                 if (update_sigma)
                 {
