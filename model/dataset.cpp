@@ -5041,7 +5041,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "ice_conc_nh_polstere%Y%m%d1200.nc",
+            filename_mask: "ice_conc_nh_polstere-100_multi_%Y%m%d1200.nc",
             gridfile: "",
             reference_date: "1978-01-01",
 
