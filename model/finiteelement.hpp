@@ -12,7 +12,6 @@
 #define __FiniteElement_HPP 1
 
 #include "version.hpp"
-#include <solverpetsc.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
@@ -70,12 +69,6 @@ public:
 
     typedef GmshMesh mesh_type;
     typedef GmshMeshSeq mesh_type_root;
-    typedef SolverPetsc solver_type;
-    typedef boost::shared_ptr<solver_type> solver_ptrtype;
-    typedef MatrixPetsc matrix_type;
-    typedef boost::shared_ptr<matrix_type> matrix_ptrtype;
-    typedef VectorPetsc vector_type;
-    typedef boost::shared_ptr<vector_type> vector_ptrtype;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
@@ -102,16 +95,6 @@ public:
     // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
-
-    solver_ptrtype const& solverPtr() const {return M_solver;}
-    matrix_ptrtype const& matrixPtr() const {return M_matrix;}
-    vector_ptrtype const& rhsPtr() const {return M_vector;}
-    vector_ptrtype const& solutionPtr() const {return M_solution;}
-
-    solver_type const& solver() const {return *M_solver;}
-    matrix_type const& matrix() const {return *M_matrix;}
-    vector_type const& rhs() const {return *M_vector;}
-    vector_type const& solution() const {return *M_solution;}
 
     void initMesh();
     void initExternalData();
@@ -179,8 +162,6 @@ public:
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
-    void assemble(int pcpt);
-    void solve();
     void init();
     void step();
     void run();
@@ -305,16 +286,10 @@ public:
     void sortPrognosticVars();
     void initModelState();
     void DataAssimilation();
-    void FETensors();
-    void compute_B0_Dunit_B0T(std::vector<double>& Dunit,
-                               std::vector<double>& B0T,
-                               std::vector<double>& B0_Dunit_B0T);
 
     void calcCohesion();
-    void updateVelocity();
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
-    void scalingVelocity();
     void update(std::vector<double> const & UM_P);
     void inline updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
             bool const update_sigma);
@@ -408,11 +383,6 @@ private:
     graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
-    solver_ptrtype M_solver;
-    matrix_ptrtype M_matrix;
-    vector_ptrtype M_vector;
-    vector_ptrtype M_solution;
-    vector_ptrtype M_exact;
 
     std::map<int, point_type > M_nodes;
     //std::vector<point_type> M_nodes;
@@ -550,8 +520,6 @@ private:
     std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<std::vector<double>> M_B0_Dunit_B0T;
-    std::vector<std::vector<double>> M_B0_Dunit_comp_B0T;
     std::vector<double> M_Cohesion;
     std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;

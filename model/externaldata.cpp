@@ -149,11 +149,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             std::vector<double> const& RY_in, const double current_time, Communicator comm, const int cpl_time, const int cpl_dt)
 #endif
 {
-    // Don't need to do nothing for a constant dataset
+    M_target_size = RX_in.size();
+
+    // Don't need to do nothing more for a constant dataset
     if (M_is_constant) return;
 
     M_current_time = current_time;
-    M_target_size = RX_in.size();
 
     double current_time_tmp=M_current_time;
 

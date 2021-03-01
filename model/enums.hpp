@@ -15,16 +15,17 @@ namespace setup
 
     enum class AtmosphereType
     {
-        CONSTANT  = 0,
-        ASR       = 1,
-        ERAi      = 2,
-        EC2       = 3,
-        EC_ERAi   = 4,
-        CFSR      = 5,
-        CFSR_HI   = 6,
-        EC2_AROME = 7,
-        EC2_AROME_ENSEMBLE = 8,
-        ERA5      = 9
+        CONSTANT           = 0,
+        GENERIC            = 1,
+        ASR                = 2,
+        ERAi               = 3,
+        EC2                = 4,
+        EC_ERAi            = 5,
+        CFSR               = 6,
+        CFSR_HI            = 7,
+        EC2_AROME          = 8,
+        EC2_AROME_ENSEMBLE = 9,
+        ERA5               = 10
     };
 
 	enum class OceanType
@@ -138,12 +139,11 @@ namespace setup
 
     enum class DynamicsType
     {
-        MEBi       = 0,
+        BBM        = 0,
         NO_MOTION  = 1,
         FREE_DRIFT = 2,
         EVP        = 3,
-        mEVP       = 4,
-        BMEB       = 5
+        mEVP       = 4
     };
 
 } // setup

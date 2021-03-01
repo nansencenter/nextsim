@@ -14,12 +14,7 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 CXX = mpicxx
 
-# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
-ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
-	CXXFLAGS += -std=c++14
-else
-	CXXFLAGS += -std=c++11
-endif
+CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -fpermissive
@@ -50,11 +45,10 @@ endif
 
 # add include paths
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(PETSC_DIR)/include -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread #-MMD -MP
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
 else
 	ifeq ($(CXX),clang)
@@ -73,14 +67,6 @@ LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
 #boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
-
-# petsc
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
-#ifeq ($(KERNEL),Linux)
-#	LDFLAGS += -L $(PETSC_DIR)/lib -lparmetis
-#	LDFLAGS += -L $(PETSC_DIR)/lib -lmetis
-#endif
 
 # gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
