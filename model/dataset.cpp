@@ -620,7 +620,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"EC2_AROME",
             filename_mask: "ec2_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -759,7 +759,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"EC2_AROME",
             filename_mask: "ec2_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1046,7 +1046,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"EC2_AROME_ENSEMBLE",
             filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1182,7 +1182,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname:"EC2_AROME_ENSEMBLE",
             filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
             gridfile: "",
             reference_date: "1970-01-01",
