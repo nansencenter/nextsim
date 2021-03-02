@@ -6266,7 +6266,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
         /* Sublimation */
-        subl[i] = std::max(0.,-Qlh[i]/Lsub);
+        subl[i] = std::max(0.,Qlh[i]/Lsub);
 
         // Shortwave is modulated by the albedo
         double hs;
