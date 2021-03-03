@@ -5090,12 +5090,11 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     // The ice model needs to know d(sphumi)/dT to calculate d(Qia)/dT
     if ( scheme == schemes::specificHumidity::ICE )
     {
-        double dsphumdest = alpha/(M_mslp[i]-beta*f*est)*( 1. + beta*f*est/(M_mslp[i]-beta*f*est) );
-        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
-        double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
+        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
+        double dsphumdT   = alpha*M_mslp[i]*( f*destdT + est*dfdT )/std::pow(M_mslp[i]-beta*est*f,2);
 
-        return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
+        return std::make_pair(sphum, dsphumdT);
     } else {
         return std::make_pair(sphum, 0.);
     }
