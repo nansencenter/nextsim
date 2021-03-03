@@ -5126,7 +5126,8 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
         double dsphumdest = alpha/(M_mslp[i]-beta*f*est)*( 1. + beta*f*est/(M_mslp[i]-beta*f*est) );
         double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
-        double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
+        //double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);// NANUK context: Einar said it's not right
+        double dsphumdT   = alpha*M_mslp[i]*( f*destdT + est*dfdT )/std::pow(M_mslp[i]-beta*est*f,2);
 
         return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
     } else {
@@ -6267,6 +6268,7 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
 
         /* Sublimation */
         subl[i] = std::max(0.,Qlh[i]/Lsub);
+        // It is positive as we decide to remove snow/ice deposition, as in NEMO-LIM3. Otherwise, with ERA5, it leads to very high snow depth.
 
         // Shortwave is modulated by the albedo
         double hs;
