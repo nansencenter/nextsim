@@ -249,9 +249,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         //because ftime_range is changed in loadDataset(), the if-statement below is used to avoid unexpected perturbation due to remesh process.  
             bool do_perturbation=false;      
             if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                strcmp (M_dataset->name.c_str(), "ec2_elements") == 0 )                
+                strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )                
                 do_perturbation = ((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp));         
 #endif            
 
@@ -279,7 +279,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
                                      
                 if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                    strcmp (M_dataset->name.c_str(), "ec2_nodes") == 0 )
+                    strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
                 {                    
                     int  previous_perturbation_exist=1;
                     

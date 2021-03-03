@@ -9927,13 +9927,8 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
     grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-<<<<<<< HEAD
 	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
     grid_ptr->dimension_x_count = grid_ptr->dimension_x_count_netcdf;
-=======
-    grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
-    grid_ptr->dimension_x_count =  grid_ptr->dimension_x_count_netcdf;
->>>>>>> issue510-generic-atm
     grid_ptr->dimension_x_start = 0;
 
     if(grid_ptr->interpolation_in_latlon)
