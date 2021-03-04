@@ -2244,15 +2244,7 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            // check the total conc is <= 1
-            double conc_thin_new = ( (M_conc[i]+M_conc_thin[i])>1.) ? 1.-M_conc[i] : M_conc_thin[i];
-            double h_thin_new = 0.;
-            if(M_conc_thin[i]>0.)
-                h_thin_new = M_h_thin[i]*conc_thin_new/M_conc_thin[i];
-
-            M_thick[i] += M_h_thin[i] - h_thin_new;
-            M_h_thin[i] = h_thin_new;
-            M_conc_thin[i] = conc_thin_new;
+            if ((M_conc[i] + M_conc_thin[i]) > 1.) M_conc_thin[i] = 1. - M_conc[i];
         }
     }//loop over i
 }//redistributeVariables
@@ -4119,7 +4111,6 @@ FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const sig
     // clip damage
     double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
-
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
@@ -4300,7 +4291,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                 M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
                 double const old_damage = M_damage[cpt];
-                M_damage[cpt] = std::min(tmp, 1.0);
+                M_damage[cpt] = tmp;
 
                 if (update_sigma)
                 {
