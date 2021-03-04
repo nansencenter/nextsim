@@ -2034,7 +2034,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable mld={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "I_MLD",
             dimensions: dimensions,
             land_mask_defined: false,
