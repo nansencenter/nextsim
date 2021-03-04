@@ -57,7 +57,7 @@ namespace Nextsim
             ("simul_in.interp_forcing_every_timestep", po::value<bool>()->default_value( false ), "")
             ("simul_in.use_bathymetry", po::value<bool>()->default_value( true ), "")
             ("simul_in.scale_coef", po::value<double>()->default_value( 0.1 ), "")
-            ("simul_in.alea_factor", po::value<double>()->default_value( 0. ), "")
+            ("simul_in.C_perturb", po::value<double>()->default_value( 0. ), "")
             ("simul_in.ridging_exponent", po::value<double>()->default_value( -40. ), "")
             ("simul_in.fixed_cohesion", po::value<bool>()->default_value( true ), "")
             ("simul_in.divergence_min", po::value<double>()->default_value( 0.01 ), "")

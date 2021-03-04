@@ -1193,7 +1193,7 @@ FiniteElement::initOptAndParam()
     compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strength as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
-    alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
+    C_perturb = vm["dynamics.C_perturb"].as<double>(); //! \param C_perturb (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
@@ -6618,7 +6618,7 @@ FiniteElement::init()
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(0.1/M_res_root_mesh);
     C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
-    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    C_alea   = C_perturb*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
     // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
     t_damage = M_res_root_mesh*1.3429*std::pow(young/(2.0*(1.0+nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
@@ -9168,17 +9168,14 @@ FiniteElement::readStateVector()
 {
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-    LOG(DEBUG)<<"-------9787\n";
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
 //    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-    LOG(DEBUG)<<"-------9790\n";
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
 //    external_data_tmp.push_back(&M_analysis_conc);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    LOG(DEBUG)<<"-------9797\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
 //    external_data_tmp.resize(0);
 
@@ -9222,12 +9219,12 @@ FiniteElement::export_WindPerturbations()
         Dataset *M_dataset;
         // write data to the file
         M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-        LOG(DEBUG) << "write dimensional fields\n";
+        LOG(DEBUG) << "write perturbations that are added to fields\n";
         netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
         netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
         synforc.putVar(&M_dataset->synforc[0]);
         //
-        LOG(DEBUG) << "write nondimensional fields\n";
+        LOG(DEBUG) << "write math-perturbed fields\n";
         netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
         netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
         randfld.putVar(&M_dataset->randfld[0]);
@@ -9556,7 +9553,6 @@ FiniteElement::readRestart(std::string const& name_str)
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
 // #ifdef ENSEMBLE
-//         LOG(DEBUG) <<"10183 \n";
 //         if ( field_map_dbl.count("synforc") * field_map_dbl.count("randfld") > 0. )
 //         {
 //             //@@@M_external_data_nodes, M_wind are not defined yet, which are defined in step(5) @@@

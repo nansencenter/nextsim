@@ -1,11 +1,52 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& synforc_exist) 
+void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& previous_perturbation_exist) 
 {
-    // M_full = ydim is size of y domain, N_full = xdim is size of x domain
-    // Call fortran library for synoptic perturbation
-    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&synforc_exist);    
+    // generate perturbations for atmospheric variables by calling fortran library for synoptic perturbation
+    // input: xdim, ydim, randfld, previous_perturbation_exist
+    // return: synforc, randfld
+    // M_full = ydim is size of y domain, N_full = xdim is size of x domain    
+    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&previous_perturbation_exist);    
 }    
+
+
+void ensemble::addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index, int opr)
+{   // submesh size is y_count*x_count; =velocity_u.size()     
+    // full mesh size M_full(y domain)*N_full(x domain)
+    // outer loop rows indicated by y direction. j is index in submesh
+    // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
+    
+    // index of forcing field defined in save_randfld_synforc() of mod_random_forcing.f90, starting from 1
+    // for element, index is defined in synforc_element.nc 
+    // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
+    int start_tmp,n = 0;
+    for(int j = 0; j <y_count; j++) {  
+        start_tmp = x_start + (y_start + j)*N_full;
+        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {   
+            if (opr==1) 
+                perturbed_field[n] += synforc[i+(index-1)*M_full*N_full];
+            else if (opr==2)
+                perturbed_field[n] *= synforc[i+(index-1)*M_full*N_full];       
+            n++; 
+        }
+    }        
+};
+
+// void ensemble::computeMinMax(const std::vector<double> &ivector, const char* iname){
+//     double max = *max_element(ivector.begin(), ivector.end());
+//     double min = *min_element(ivector.begin(), ivector.end());
+// };
+
+// void ensemble::computeVecMean(const std::vector<double> &ivector, const char* iname){
+//     float average = std::accumulate(ivector.begin(), ivector.end(), 0.0)/ivector.size();
+// };
+
+
+// void ensemble::getpath(std::string iopath){
+//      M_ranpath = iopath;
+// };
+
+
 
 
 // void ensemble::addPerturbation(std::vector<double>& velocity_u, std::vector<double>& velocity_v, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count)
@@ -25,38 +66,7 @@ void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<dou
 // };
 
 
-void ensemble::addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index)
-{   // submesh size is y_count*x_count; =velocity_u.size()     
-    // full mesh size M_full(y domain)*N_full(x domain)
-    // outer loop rows indicated by y direction. j is index in submesh
-    // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
-    
-    // index of forcing field defined in save_randfld_synforc() of mod_random_forcing.f90, starting from 1
-    int start_tmp,n = 0;
-    for(int j = 0; j <y_count; j++) {  
-        start_tmp = x_start + (y_start + j)*N_full;
-        for(int i = start_tmp; i < start_tmp + x_count; i++ ) {    
-            perturbed_field[n] += synforc[i+(index-1)*M_full*N_full];       
-            n++; 
-        }
-    }        
-};
-
-void ensemble::computeMinMax(const std::vector<double> &ivector, const char* iname){
-    double max = *max_element(ivector.begin(), ivector.end());
-    double min = *min_element(ivector.begin(), ivector.end());
-};
-
-void ensemble::computeVecMean(const std::vector<double> &ivector, const char* iname){
-    float average = std::accumulate(ivector.begin(), ivector.end(), 0.0)/ivector.size();
-};
-
-
-void ensemble::getpath(std::string iopath){
-     M_ranpath = iopath;
-};
-
-// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& synforc_exist, double *synforc_p) 
+// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& previous_perturbation_exist, double *synforc_p) 
 // {
 //     double *randfld_p = (double *)malloc(randfld.size()*randfld[0].size()*sizeof(double));
 //     //
@@ -72,7 +82,7 @@ void ensemble::getpath(std::string iopath){
 //         }
 //     } 
 //     //
-//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&synforc_exist);
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0], &randfld_p[0],&previous_perturbation_exist);
 //     //
     
 //     for(int col = 0; col < Ncol; col++) {
@@ -88,7 +98,7 @@ void ensemble::getpath(std::string iopath){
 //     } 
 // }    
 
-// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& synforc_exist) 
+// void ensemble::synopticPerturbation(int const& ydim, int const& xdim, std::vector<std::vector<double> > &synforc,std::vector<std::vector<double> > &randfld, int const& previous_perturbation_exist) 
 // {
 //     std::cout<< "t1\n";
 //     int rows,cols, id;
@@ -136,9 +146,9 @@ void ensemble::getpath(std::string iopath){
 //             randfld_p[k][id] = randfld[k][id];
 //         }    
 //     }    
-//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&synforc_exist);
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc_p[0][0], &randfld_p[0][0],&previous_perturbation_exist);
 //     //
-//    // std::cout<<ydim<<", "<<xdim<<","<<synforc_exist<<"\n";
+//    // std::cout<<ydim<<", "<<xdim<<","<<previous_perturbation_exist<<"\n";
 //  //   return;
 //     //std::cout<< "t5\n";
     
