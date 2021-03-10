@@ -473,12 +473,6 @@ namespace Nextsim
 
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
-            ("forecast.true_forecast", po::value<bool>()->default_value( false ),
-                "if false, use <<analysis/best est>> - forecast that started on the same day as the model time; else use the one that began on simul.time_init, or  forecast.time_init_atm_fc/forecast.time_init_ocean_fc (if provided)")
-            ("forecast.time_init_atm_fc", po::value<std::string>()->default_value( "" ),
-                "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
-            ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
-                "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
                 "specify the time resolution in hours here if want to change from 6")
 
