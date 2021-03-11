@@ -892,7 +892,7 @@ DataSet::DataSet(char const *DatasetName)
         };
         Variable precip={
             filename_prefix: "", // All variables are in the same (grid) file
-            name:"derivative_of_precipitation_amount_wrt_time",
+            name:"total_precipitation_rate",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
