@@ -841,7 +841,7 @@ DataSet::DataSet(char const *DatasetName)
         // conversion factors: xnew = a*x + b
         Variable Qsw_in={
             filename_prefix: "", // All variables are in the same (grid) file
-            name:"instantanious_downwelling_shortwave_radiation",
+            name:"instantaneous_downwelling_shortwave_radiation",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
