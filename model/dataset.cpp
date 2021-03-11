@@ -622,7 +622,7 @@ DataSet::DataSet(char const *DatasetName)
                 interp_type : BilinearInterpEnum,
                 //interp_type : NearestInterpEnum,
 
-                dirname:"GENERIC_ATM",
+                dirname:"GENERIC_PS_ATM",
                 prefix: "generic_atm_",
                 postfix:".nc",
                 gridfile: "",
