@@ -723,9 +723,9 @@ FiniteElement::initDatasets()
         case setup::AtmosphereType::CONSTANT:
             break;
 
-        case setup::AtmosphereType::GENERIC:
-            M_atmosphere_nodes_dataset=DataSet("generic_atm_nodes");
-            M_atmosphere_elements_dataset=DataSet("generic_atm_elements");
+        case setup::AtmosphereType::GENERIC_PS:
+            M_atmosphere_nodes_dataset=DataSet("generic_ps_atm_nodes");
+            M_atmosphere_elements_dataset=DataSet("generic_ps_atm_elements");
             break;
 
         case setup::AtmosphereType::ASR:
@@ -1267,7 +1267,7 @@ FiniteElement::initOptAndParam()
     //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
-        ("generic", setup::AtmosphereType::GENERIC)
+        ("generic_ps", setup::AtmosphereType::GENERIC_PS)
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
@@ -1290,7 +1290,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::GENERIC:
+        case setup::AtmosphereType::GENERIC_PS:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
@@ -10069,7 +10069,7 @@ FiniteElement::forcingAtmosphere()
             M_dair=ExternalData(vm["ideal_simul.constant_dair"].as<double>());
         break;
 
-        case setup::AtmosphereType::GENERIC:
+        case setup::AtmosphereType::GENERIC_PS:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
