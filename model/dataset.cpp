@@ -623,7 +623,7 @@ DataSet::DataSet(char const *DatasetName)
                 //interp_type : NearestInterpEnum,
 
                 dirname:"GENERIC_PS_ATM",
-                prefix: "generic_atm_",
+                prefix: "generic_ps_atm_",
                 postfix:".nc",
                 gridfile: "",
                 reference_date: "1900-01-01",
