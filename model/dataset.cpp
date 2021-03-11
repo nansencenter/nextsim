@@ -858,7 +858,7 @@ DataSet::DataSet(char const *DatasetName)
         };
         Variable Qlw_in={
             filename_prefix: "", // All variables are in the same (grid) file
-            name:"instantanious_downwelling_longwave_radiation",
+            name:"instantaneous_downwelling_longwave_radiation",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
