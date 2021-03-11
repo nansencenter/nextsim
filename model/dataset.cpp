@@ -495,7 +495,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "generic_atm_nodes") == 0)
+    else if (strcmp (DatasetName, "generic_ps_atm_nodes") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
