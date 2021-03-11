@@ -875,7 +875,7 @@ DataSet::DataSet(char const *DatasetName)
         };
         Variable snowfall={
             filename_prefix: "", // All variables are in the same (grid) file
-            name:"derivative_of_snowfall_amount_wrt_time",
+            name:"snowfall_rate",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
