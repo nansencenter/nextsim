@@ -823,7 +823,7 @@ DataSet::DataSet(char const *DatasetName)
         }; // Q2M
         Variable mslp={
             filename_prefix: "", // All variables are in the same (grid) file
-            name:"air_pressure_at_sea_level",
+            name:"atm_pressure",       
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
