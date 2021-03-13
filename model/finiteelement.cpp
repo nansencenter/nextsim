@@ -8238,6 +8238,10 @@ FiniteElement::initMoorings()
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
+    // Remove duplicates
+    std::sort( names.begin(), names.end() );
+    names.erase( std::unique( names.begin(), names.end() ), names.end() );
+
     //error checking
     std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
 
