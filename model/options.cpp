@@ -368,13 +368,8 @@ namespace Nextsim
             ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
 
             // - Damage equation discretization
-            //   disc_scheme is either : explicit, implicit, or recursive
             //   td_type is either : fixed or damage_dependent
-            //   clip : float
-            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "Discretization scheme for the damage equation [ explicit (default) | implicit | recursive ]")
             ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
-            ("damage.clip", po::value<double>()->default_value( 0 ),
-             "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
