@@ -759,8 +759,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            filename_mask: "generic_ps_atm_%Y%m%d.nc",
             dirname:"GENERIC_PS_ATM",
+            filename_mask: "generic_ps_atm_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1900-01-01",
 
