@@ -28,11 +28,11 @@ namespace setup
         ERA5               = 10
     };
 
-	enum class OceanType
-	{
-		CONSTANT           = 0,
-		TOPAZR             = 1,
-		TOPAZF             = 2,
+    enum class OceanType
+    {
+        CONSTANT           = 0,
+        TOPAZR             = 1,
+        TOPAZF             = 2,
         MITGCM             = 3,
         TOPAZR_atrest      = 4,
         TOPAZR_ALTIMETER   = 5,
@@ -40,11 +40,11 @@ namespace setup
     };
 
     enum class IceType
-	{
-		CONSTANT                    = 0,
-		CONSTANT_PARTIAL            = 1,
-		AMSRE                       = 2,
-		TOPAZ4                      = 3,
+    {
+        CONSTANT                    = 0,
+        CONSTANT_PARTIAL            = 1,
+        AMSRE                       = 2,
+        TOPAZ4                      = 3,
         ARBITRARY                   = 5,
         AMSR2                       = 6,
         TOPAZ4F                     = 7,
@@ -63,7 +63,7 @@ namespace setup
         TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
         CREG                        = 21,
         AMSR2CSTTHICK               = 22
-	};
+    };
 
     enum class WaveType
     {
