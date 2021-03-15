@@ -4063,13 +4063,12 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
 //------------------------------------------------------------------------------------------------------
 //! Update the multiplicator and elasticity coefficients given cpt (index).
-//! Optional parameters for BBM are sigma_n and damage_dot.
-//! damage_dot > 0 only when calculating sigma after a change in damage
-//! sigma_n left optional for backwards compatability with the semi-implicit MEB
+//! Optional parameters for BBM are sigma_n and del_damage.
+//! del_damage > 0 only when calculating sigma after a change in damage
 //! Called from explicitSolve() and updateSigmaDamage()
 void inline
 FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
-        int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const damage_dot)
+        int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const del_damage)
 {
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
     // Plastic failure
@@ -4084,7 +4083,7 @@ FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
     }
 
     double const multiplicator = std::min( 1. - 1e-12,
-            time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt]))) );
+            time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
 
     elasticity = young*(1.-M_damage[cpt])*std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
@@ -4162,17 +4161,17 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Calculate the characteristic time for damage */
-        double const delta_x = std::sqrt(4.*M_surface[cpt]/std::sqrt(3.));
-        double const td = delta_x*std::sqrt( 2.*(1.+nu0)*physical::rhoi/elasticity );
+        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
+        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        double const sigma_n = -          (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
 
-        double const sigma_c = 2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
+        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
         double const sigma_t = -sigma_c/q;
 
         double dcrit = 0;
@@ -4184,18 +4183,15 @@ FiniteElement::updateSigmaDamage(double const dt)
         /* Calculate the adjusted level of damage */
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
         {
-            double const old_damage = M_damage[cpt];
-            M_damage[cpt] += (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            M_damage[cpt] += del_damage;
 
 #ifdef OASIS
-            M_cum_damage[cpt] += M_damage[cpt] - old_damage;
+            M_cum_damage[cpt] += del_damage;
 #endif
 
-            // Time rate of change in damage over the time step
-            double const damage_dot = (M_damage[cpt] - old_damage)/dt;
-
             //Calculating the new state of stress
-            this->updateSigma(sigma, elasticity, cpt, dt, epsilon_veloc, sigma_n*dcrit, damage_dot);
+            this->updateSigma(sigma, elasticity, cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
             for(int i=0;i<3;i++)
                 M_sigma[i][cpt] = sigma[i];
         }

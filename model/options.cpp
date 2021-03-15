@@ -82,7 +82,7 @@ namespace Nextsim
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
-                "Number of iterations taken to smooth velocity into open water (only for explicit solver)")
+                "Number of iterations taken to smooth velocity into open water")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
@@ -93,19 +93,9 @@ namespace Nextsim
             // ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
             //     "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
-            // solver
-            ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
-            ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
-            ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
-            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
-
-
-             //-----------------------------------------------------------------------------------
-             //! - Setup
-             //-----------------------------------------------------------------------------------
+            //-----------------------------------------------------------------------------------
+            //! - Setup
+            //-----------------------------------------------------------------------------------
 
 
             // - Setup

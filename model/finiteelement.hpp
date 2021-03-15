@@ -288,7 +288,7 @@ public:
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
     void updateSigma(std::vector<double> &sigma, double &elasticity,
-        int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const damage_dot=0.);
+        int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const del_damage=0.);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
