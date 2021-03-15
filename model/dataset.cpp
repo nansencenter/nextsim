@@ -493,6 +493,437 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
+    else if (strcmp (DatasetName, "generic_ps_atm_nodes") == 0)
+    {
+        // Definition of asr grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable time_tmp={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,//convert days to hours
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        // conversion factors: xnew = a*x + b
+        Variable u={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "x_wind_10m", // U10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "y_wind_10m", // V10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+                interpolation_method: InterpolationType::FromGridToMesh,
+                //interp_type : TriangleInterpEnum,  // slower
+                interp_type : BilinearInterpEnum,
+                //interp_type : NearestInterpEnum,
+
+                dirname:"GENERIC_PS_ATM",
+                prefix: "generic_ps_atm_",
+                postfix:".nc",
+                gridfile: "",
+                reference_date: "1900-01-01",
+
+                latitude: latitude,
+                longitude: longitude,
+
+                dimension_x: dimension_x,
+                dimension_y: dimension_y,
+
+                mpp_file: "NpsNextsim.mpp",
+                interpolation_in_latlon: false,
+
+                loaded: false,
+                dataset_frequency:"daily",
+
+                waveOptions: wavopt_none,
+
+                masking: false
+        };
+
+        std::vector<Variable> variables_tmp = { u, v };
+        std::vector<int> uv_tmp(2);
+        uv_tmp[0] = 0;
+        uv_tmp[1] = 1;
+
+        Vectorial_Variable uv={
+            components_Id: uv_tmp,
+            east_west_oriented: false // if false, then we assume it is oriented following the input grid
+        };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+        vectorial_variables_tmp[0] = uv;
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "generic_ps_atm_elements") == 0)
+    {
+        // Definition of asr grid and datasets
+        Dimension dimension_x={
+            name:"x",
+            cyclic:false
+        };
+
+        Dimension dimension_y={
+            name:"y",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false
+        };
+
+        std::vector<Dimension> dimensions_latlon(2);
+        dimensions_latlon[0] = dimension_y;
+        dimensions_latlon[1] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable latitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "latitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "longitude",
+            dimensions: dimensions_latlon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable time_tmp={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 24.,//convert days to hours
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum,  // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+
+            dirname:"GENERIC_PS_ATM",
+            prefix:"generic_ps_atm_",
+            postfix:".nc",
+            gridfile: "",
+            reference_date: "1900-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "NpsNextsim.mpp",
+            interpolation_in_latlon: false,
+
+            loaded: false,
+            dataset_frequency:"daily",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+
+        // conversion factors: xnew = a*x + b
+        Variable tair={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"air_temperature_2m",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:-273.15,
+            Units:"C",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // T2M
+        Variable dair={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"dew_point_temperature_2m",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:-273.15,
+            Units:"C",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // Q2M
+        Variable mslp={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"atm_pressure",       
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"Pa",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; //PSFC, a=1.
+        // conversion factors: xnew = a*x + b
+        Variable Qsw_in={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"instantaneous_downwelling_shortwave_radiation",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,//integrated for 1 hour - convert from total to rate
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable Qlw_in={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"instantaneous_downwelling_longwave_radiation",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,//integrated for 1 hour - convert from total to rate
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable snowfall={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"snowfall_rate",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,//integrated for 1 hour - convert from total to rate
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+        Variable precip={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name:"total_precipitation_rate",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,//integrated for 1 hour - convert from total to rate
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp
+            = { tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
     else if (strcmp (DatasetName, "ec2_arome_nodes") == 0)
     {
         // Definition of asr grid and datasets
