@@ -527,6 +527,30 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_mlt_bot):
+            // ice growth in open water [m/day]
+            M_name = "D_mlt_bot";
+            M_export_name = "D_mlt_bot";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_mlt_top):
+            // ice growth in open water [m/day]
+            M_name = "D_mlt_top";
+            M_export_name = "D_mlt_top";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_snow2ice):
+            // ice growth in open water [m/day]
+            M_name = "D_snow2ice";
+            M_export_name = "D_snow2ice";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_brine):
             // Brine release - kg/m^2/s
             M_name = "D_brine";

@@ -163,6 +163,9 @@ public:
         del_hi     = 111,
         del_hi_thin= 112,
         newice     = 113,
+        snow2ice   = 114,
+        mlt_top    = 115,
+        mlt_bot    = 116,
 
         // Forcing variables
         tair     = 200,
@@ -465,6 +468,27 @@ public:
                     name     = "newice";
                     longName = "Ice formed in open water by supercooling";
                     stdName  = "ice_formed_in_open_water_by_supercooling";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_bot):
+                    name     = "mlt_bot";
+                    longName = "Ice melted at top";
+                    stdName  = "ice_melted_at_top";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_top):
+                    name     = "mlt_top";
+                    longName = "Ice melted at bottom";
+                    stdName  = "ice_melted_at_bottom";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::snow2ice):
+                    name     = "snow2ice";
+                    longName = "Ice formed from snow by flooding";
+                    stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
