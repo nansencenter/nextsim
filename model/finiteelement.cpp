@@ -4070,12 +4070,14 @@ void inline
 FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
         int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const del_damage)
 {
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*std::exp(ridging_exponent*(1.-M_conc[cpt])),exponent_relaxation_sigma-1.);
+    double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = std::pow(M_thick[cpt], 1.5)*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = std::pow(M_thick[cpt], 1.5)*compression_factor*expC;
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
@@ -4085,7 +4087,7 @@ FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
     double const multiplicator = std::min( 1. - 1e-12,
             time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
 
-    elasticity = young*(1.-M_damage[cpt])*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    elasticity = young*(1.-M_damage[cpt])*expC;
 
     sigma.resize(3);
     for(int i=0;i<3;i++)
