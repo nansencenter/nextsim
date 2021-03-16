@@ -5423,26 +5423,28 @@ FiniteElement::thermo(int dt)
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
+        double del_hs_mlt = 0;
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
                 this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi,
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
+        double del_hs_thin_mlt = 0;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             this->thermoIce0(ddt, M_conc_thin[i], M_h_thin[i], M_hs_thin[i],
                     mld, tmp_snowfall, Qia_thin[i], dQiadT_thin[i], subl_thin[i], tfrw,//end of inputs - rest are outputs or in/out
-                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, M_tsurf_thin[i]);
+                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, del_hs_thin_mlt, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -5478,6 +5480,17 @@ FiniteElement::thermo(int dt)
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
         double newice_stored = newice;
+
+        //! * Calculates changes in ice and snow volumes to calculate salt rejection and fresh water balance
+        // del_vi     Change in ice volume
+        // del_vs_mlt Change in snow volume due to melt
+        double del_vi     = newice + del_hi*old_conc;
+        double del_vs_mlt = del_hs_mlt*old_conc;
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            del_vi     += del_hi_thin*old_conc_thin;
+            del_vs_mlt += del_hs_thin_mlt*old_conc_thin;
+        }
 
         /* Decide the change in ice fraction (del_c) */
         /* Initialise to be safe */
@@ -5791,28 +5804,13 @@ FiniteElement::thermo(int dt)
         //! 8) Applies slab Ocean model
         // (slabOcean in matlab)
 
-        // local variables
-        double del_vi;      // Change in ice volume
-        double del_vs_mlt;  // Change in snow volume due to melt
-        double rain;        // Liquid precipitation
-        double emp;         // Evaporation minus liquid precipitation
-
-        //! * Calculates changes in ice and snow volumes to calculate salt rejection
-        double del_h_thin = 0; // change in thin ice volume
-        double del_hs_thin = 0; // change in snow-on-thin-ice volume
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            del_h_thin = M_h_thin[i] - old_h_thin;
-            del_hs_thin = M_hs_thin[i] - old_hs_thin;
-        }
-        del_vi = M_thick[i] - old_vol + del_h_thin;
-        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + del_hs_thin);
-
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
-        emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
+        // rain Liquid precipitation
+        // emp  Evaporation minus liquid precipitation
+        double rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
+        double emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -6253,7 +6251,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 inline void
 FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt,
         double &Tsurf, double &T1, double &T2)
 {
     // Useful volumetric quantities
@@ -6361,6 +6359,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
+        del_hs_mlt = 0; // Record snow melt
         if ( Mbot <= 0. )
         {
             // Growth
@@ -6372,28 +6371,28 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             // Melt
             double delh2 = -std::min(          -  Mbot*dt/E2,                        h2); // (31) - with added division with rhoi
             double delh1 = -std::min(std::max( -( Mbot*dt + E2*h2 )/E1,         0.), h1); // (32) - with added division with rhoi
-            double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
+            del_hs_mlt   = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
-            if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+            if ( h2+h1+hs -delh2-delh1-del_hs_mlt <= 0. )
                 Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
 
-            hs += delhs;
+            hs += del_hs_mlt;
             h1 += delh1;
             h2 += delh2;
         }
 
         // Melting at the surface
         assert(Msurf >= 0); // Sanity check
-        double delhs = -std::min(             Msurf*dt/qs,                          hs); // (27) - with division of rhos
+        del_hs_mlt  -=  std::min(             Msurf*dt/qs,                          hs); // (27) - with division of rhos
         double delh1 = -std::min(std::max( -( Msurf*dt - qs*hs )/E1,           0.), h1); // (28) - with division of rhoi and rhos
         double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+        if ( h2+h1+hs -delh2-delh1-del_hs_mlt <= 0. )
             Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
-        hs += delhs;
+        hs += del_hs_mlt;
         h1 += delh1;
         h2 += delh2;
         hi  = h1 + h2;
@@ -6465,7 +6464,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 inline void
 FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &Tsurf)
 {
     // Constants
     double const qi = physical::Lf * physical::rhoi;
@@ -6487,7 +6486,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         hs     = vols/conc;
 
         /* Local variables */
-        double Qic, del_hs, del_ht, del_hb, draft;
+        double Qic, del_ht, del_hb, draft;
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6508,11 +6507,12 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs = std::min(Qia-Qic,0.)*dt/qs - subl*dt/physical::rhos;
+        del_hs_mlt = std::min(Qia-Qic,0.)*dt/qs;
+        hs += del_hs_mlt - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
-        del_ht = std::min(hs+del_hs,0.)*qs/qi;
+        del_ht = std::min(hs, 0.)*qs/qi;
         /* Can't have negative hs! */
-        hs = std::max(0., hs + del_hs);
+        hs = std::max(0., hs);
         // snowfall in kg/m^2/s
         hs  += snowfall/physical::rhos*dt;
 
