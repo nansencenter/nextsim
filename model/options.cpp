@@ -357,10 +357,6 @@ namespace Nextsim
 
             ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
 
-            // - Damage equation discretization
-            //   td_type is either : fixed or damage_dependent
-            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
-
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
              "Nuber of explicit sub-steps (default 120)")
