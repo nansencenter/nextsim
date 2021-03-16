@@ -94,7 +94,7 @@ ModelVariable::initElemental()
             M_has_min = true;
             M_min_val = 0.;
             M_has_max = true;
-            M_max_val = 1.;
+            M_max_val = 1.0 - 1e-10;
             break;
 
         case (variableID::M_cum_damage):
