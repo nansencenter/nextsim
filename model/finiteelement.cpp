@@ -5423,18 +5423,23 @@ FiniteElement::thermo(int dt)
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
+    
+        /* Tracking ice melt/formation components */
         double del_hs_mlt = 0;
+        double mlt_hi_top = 0;
+        double mlt_hi_bot = 0;
+        double snow2ice = 0;
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, M_tice[0][i]);
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, snow2ice, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
                 this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt,
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, snow2ice,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
@@ -6251,7 +6256,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 inline void
 FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt,
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &snow2ice, 
         double &Tsurf, double &T1, double &T2)
 {
     // Useful volumetric quantities
@@ -6354,6 +6359,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             h1 = 0.;
             hs = 0.;
         }
+        // TODO Should it be considered as top melt for the ice? Should I differentiate it?
+        mlt_hi_top += std::max(0,h1+h2-hi_old); 
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -6380,6 +6387,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             hs += del_hs_mlt;
             h1 += delh1;
             h2 += delh2;
+            mlt_hi_bot +=delh1+delh2;
         }
 
         // Melting at the surface
@@ -6396,7 +6404,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         h1 += delh1;
         h2 += delh2;
         hi  = h1 + h2;
-
+        mlt_hi_top +=delh1+delh2;
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
         if ( M_flooding && freeboard < 0)
@@ -6411,6 +6419,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
             h1 += delh1;
+            snow2ice +=delh1;
         }
 
         // Even out the layer structure and temperatures
@@ -6464,7 +6473,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 inline void
 FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &Tsurf)
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &snow2ice,
+        double &Tsurf)
 {
     // Constants
     double const qi = physical::Lf * physical::rhoi;
@@ -6486,7 +6496,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         hs     = vols/conc;
 
         /* Local variables */
-        double Qic, del_ht, del_hb, draft;
+        double Qic, del_hb, del_ht, draft;
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6522,6 +6532,9 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Combine top and bottom */
         del_hi = del_ht+del_hb;
         hi     = hi + del_hi;
+        /* Track top and bottom */
+        mlt_hi_top+=del_ht;
+        mlt_hi_bot+=del_hb;
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
@@ -6530,6 +6543,8 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
             hi = draft;
+            /* Keep track of ice formed by snow conversion */
+            snow2ice += draft-hi
         }
 
         /* Make sure we don't get too small hi_new */
