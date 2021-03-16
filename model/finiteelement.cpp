@@ -5428,7 +5428,7 @@ FiniteElement::thermo(int dt)
         double del_hs_mlt = 0;
         double mlt_hi_top = 0;
         double mlt_hi_bot = 0;
-        double snow2ice = 0;
+        double snow2ice   = 0;
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
@@ -5445,11 +5445,14 @@ FiniteElement::thermo(int dt)
         }
 
         double del_hs_thin_mlt = 0;
+        double mlt_hi_top_thin = 0;
+        double mlt_hi_bot_thin = 0;
+        double snow2ice_thin   = 0;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             this->thermoIce0(ddt, M_conc_thin[i], M_h_thin[i], M_hs_thin[i],
                     mld, tmp_snowfall, Qia_thin[i], dQiadT_thin[i], subl_thin[i], tfrw,//end of inputs - rest are outputs or in/out
-                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, del_hs_thin_mlt, M_tsurf_thin[i]);
+                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, del_hs_thin_mlt, mlt_hi_top_thin, mlt_hi_bot_thin, snow2ice_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -5494,6 +5497,8 @@ FiniteElement::thermo(int dt)
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             del_vi     += del_hi_thin*old_conc_thin;
+            mlt_vi_top += del_hi_thin_mlt*old_conc_thin;
+            mlt_vi_bot += del_hi_thin_mlt*old_conc_thin;
             del_vs_mlt += del_hs_thin_mlt*old_conc_thin;
         }
 
@@ -6360,7 +6365,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             hs = 0.;
         }
         // TODO Should it be considered as top melt for the ice? Should I differentiate it?
-        mlt_hi_top += std::max(0,h1+h2-hi_old); 
+        mlt_hi_top += std::max(0.,h1+h2-hi_old); 
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -6540,11 +6545,11 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
         if ( M_flooding && draft > hi )
         {
+            /* Keep track of ice formed by snow conversion */
+            snow2ice += draft-hi;
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
             hi = draft;
-            /* Keep track of ice formed by snow conversion */
-            snow2ice += draft-hi
         }
 
         /* Make sure we don't get too small hi_new */
