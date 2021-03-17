@@ -9477,11 +9477,13 @@ FiniteElement::explicitSolve()
         // Walk through all the elements to build the gradient terms of the RHS
         M_timer.tick("gradient terms");
         std::vector<double> grad_terms(2*M_num_nodes, 0.);
+        double const g3rd = physical::gravity/3.;
         for ( int cpt=0; cpt<M_num_elements; ++cpt )
         {
             // Loop over the nodes of the element to build the gradient terms themselves
-            double const m_g_A3rd = element_mass[cpt]*physical::gravity*M_surface[cpt]/3.;
+            double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
             std::vector<double> const dxN = M_shape_coeff[cpt];
+            double const volume = M_thick[cpt]*M_surface[cpt];
             for (int i=0; i<3; ++i)
             {
                 int const i_indx = (M_elements[cpt]).indices[i]-1;
@@ -9495,8 +9497,8 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] )*M_surface[cpt];
+                grad_terms[u_indx] -= volume*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] );
+                grad_terms[v_indx] -= volume*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] );
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
@@ -12914,7 +12916,7 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 
     for (int i=0; i<M_extract_local_index.size(); i++)
     {
-        int srl = M_extract_local_index[i].size();
+        int const srl = M_extract_local_index[i].size();
         extract_local_values[i].resize(2*srl);
 
         for (int j=0; j<M_extract_local_index[i].size(); j++)
@@ -12936,7 +12938,7 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
     {
         for (int j=0; j<M_local_ghosts_local_index[i].size(); j++)
         {
-            int srl = M_local_ghosts_local_index[i].size();
+            int const srl = M_local_ghosts_local_index[i].size();
             mesh_nodal_vec[M_local_ghosts_local_index[i][j]] = ghost_update_values[i][j];
             mesh_nodal_vec[M_local_ghosts_local_index[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
         }
