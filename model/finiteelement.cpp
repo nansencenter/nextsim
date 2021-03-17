@@ -4062,13 +4062,12 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 //------------------------------------------------------------------------------------------------------
-//! Update the multiplicator and elasticity coefficients given cpt (index).
-//! Optional parameters for BBM are sigma_n and del_damage.
-//! del_damage > 0 only when calculating sigma after a change in damage
+//! Update M_sigma and return elasticity for a given cpt (index).
+//! Optional parameters for BBM is del_damage, with del_damage > 0 only when
+//! calculating sigma after a change in damage.
 //! Called from explicitSolve() and updateSigmaDamage()
-void inline
-FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
-        int const cpt, double const dt, std::vector<double> const epsilon_veloc, double const sigma_n, double const del_damage)
+double inline
+FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
 {
     double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
@@ -4087,17 +4086,17 @@ FiniteElement::updateSigma(std::vector<double> &sigma, double &elasticity,
     double const multiplicator = std::min( 1. - 1e-12,
             time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
 
-    elasticity = young*(1.-M_damage[cpt])*expC;
+    double const elasticity = young*(1.-M_damage[cpt])*expC;
 
-    sigma.resize(3);
     for(int i=0;i<3;i++)
     {
-        sigma[i] = M_sigma[i][cpt];
         for(int j=0;j<3;j++)
-            sigma[i] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+            M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
 
-        sigma[i] *= multiplicator;
+        M_sigma[i][cpt] *= multiplicator;
     }
+
+    return elasticity;
 
 }//updateSigma
 
@@ -4151,11 +4150,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        std::vector<double> sigma;
-        double elasticity;
-        this->updateSigma(sigma, elasticity, cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
-        for(int i=0;i<3;i++)
-            M_sigma[i][cpt] = sigma[i];
+        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4193,9 +4188,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 #endif
 
             //Calculating the new state of stress
-            this->updateSigma(sigma, elasticity, cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
-            for(int i=0;i<3;i++)
-                M_sigma[i][cpt] = sigma[i];
+            this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
         }
 
         /*======================================================================
