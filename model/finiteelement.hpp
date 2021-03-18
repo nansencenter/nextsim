@@ -175,10 +175,10 @@ public:
     void thermo(int dt);
     inline void thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
             const double Qia, const double dQiadT, const double subl, const double Tbot,
-            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &Tsurf);
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, double &Tsurf);
     inline void thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
             double const Qia, double const dQiadT, const double Qsw, const double subl, const double Tbot,
-            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt,
+            double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
@@ -803,6 +803,9 @@ private:
     ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
     ModelVariable D_del_hi_thin; // thin ice growth/melt rate [m/day]
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
+    ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
+    ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
