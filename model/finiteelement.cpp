@@ -3987,6 +3987,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
             double const surf_ratio = surface_old/M_surface[cpt];
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
+            M_snow_thick[cpt] *= surf_ratio;
             M_thick_myi[cpt]  *= surf_ratio;
 
             for(int k=0; k<3; k++)
@@ -3999,12 +4000,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
              * errors from giving a negative ridge ratio. */
             double const conc_ratio = std::min(surf_ratio, M_conc[cpt]/old_conc);
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
-
-            /* Ridging does not affect mean snow thickness: Do snow-to-ice
-             * conversion to compensate */
-            double const del_hs = M_snow_thick[cpt]*(surf_ratio - conc_ratio);
-            M_snow_thick[cpt] *= conc_ratio;
-            M_thick[cpt] += del_hs*physical::rhoi/physical::rhos;
 
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
             {
@@ -4080,9 +4075,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_conc[cpt]         += del_c;
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
-                    /* Ridging does not affect mean snow thickness: Do snow-to-ice
-                     * conversion to compensate */
-                    M_thick[cpt]   += newsnow*physical::rhoi/physical::rhos;
+                    M_snow_thick[cpt]   += newsnow;
+
                 }
 
                 M_conc_thin[cpt] = new_conc_thin;
