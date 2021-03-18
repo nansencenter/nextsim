@@ -22,6 +22,7 @@
 #include <environment.hpp>
 #include <entities.hpp>
 #include <meshpartition.hpp>
+#include "debug.hpp"
 
 extern "C"
 {
@@ -56,7 +57,6 @@ public:
 
     //~GmshMeshSeq();
 
-    void setMppFile();
     void readFromFile(std::string const& filename);
     void writeToFile(std::string const& filename);
 
@@ -116,6 +116,12 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices) const;
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices,
+                std::vector<double> const& um, double factor) const;
+
     std::vector<double> lat() const;
     std::vector<double> lon() const;
 
@@ -148,6 +154,10 @@ private:
     int M_num_nodes;
     int M_num_triangles;
     int M_num_edges;
+
+    Communicator M_comm;
+    LogLevel M_log_level;
+    bool M_log_all;
 
     // container for storing the mesh marker names
     std::map<std::string, std::vector<int> > M_marker_names;

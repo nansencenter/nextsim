@@ -81,40 +81,6 @@ sudo apt-get install cmake \
 
 
 # =============================================================
-PETSC
-1) download v3.6.4 from:
-http://www.mcs.anl.gov/petsc/download/
-- After extraction of files, make two copies
-- one for normal running and one for debugging
-2) copy scripts/petsc/pconfigure.sh to this dir
-3) unset PETSC_DIR
-   unset PETSC_ARCH
-4) sh pconfigure.sh
-5) follow instructions for compilation/installation
-eg:
-a) make PETSC_DIR=/home/timill/Packages/cpp/petsc-3.6.4 PETSC_ARCH=arch-linux2-c-opt all
-b) sudo make PETSC_DIR=/home/timill/Packages/cpp/petsc-3.6.4 PETSC_ARCH=arch-linux2-c-opt install
-5) In .bash_profile, add:
-export PETSC_ARCH=arch-linux2-c-opt
-export PETSC_DIR=/opt/local/petsc
-
-PETSC-DEBUG
-1) copy scripts/petsc/pconfigure_debug.sh to this dir
-2) unset PETSC_DIR
-   unset PETSC_ARCH
-3) edit this file if necessary, then do
-   sh pconfigure_debug.sh
-4) follow instructions for compilation/installation
-eg
-a) make PETSC_DIR=/home/timill/Packages/cpp/petsc-3.6.4-debug PETSC_ARCH=arch-linux2-c-debug all
-b) sudo make PETSC_DIR=/home/timill/Packages/cpp/petsc-3.6.4-debug PETSC_ARCH=arch-linux2-c-debug install
-5) in .bash_profile add
-export PETSC_ARCH=arch-linux2-c-debug
-export PETSC_DIR=/opt/local/petsc-debug
-# =============================================================
-
-
-# =============================================================
 GMSH
 1) svn --username=gmsh co https://onelab.info/svn/gmsh/trunk gmsh
       password: gmsh
@@ -171,11 +137,6 @@ export NEXTSIMDIR=$HOME/Developer/nextsim/
 export GMSH_DIR=/opt/local/gmsh
 
 export NETCDF_DIR=/opt/local/netcdf-cxx
-
-export PETSC_DIR=/opt/local/petsc
-export PETSC_ARCH=arch-linux2-c-opt
-# export PETSC_DIR=/opt/local/petsc-debug
-# export PETSC_ARCH=arch-linux2-c-debug
 
 export BOOST_INCDIR=/usr/include/boost
 export BOOST_LIBDIR=/usr/lib/x86_64-linux-gnu
