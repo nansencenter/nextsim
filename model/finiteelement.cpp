@@ -6382,7 +6382,6 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         hs += delhs;
         h1 += delh1;
         h2 += delh2;
-        hi  = h1 + h2;
 
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
@@ -6399,6 +6398,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
             h1 += delh1;
         }
+        // All processes done, getting back to hi
+        hi  = h1 + h2;
 
         // Even out the layer structure and temperatures
         if ( h2 > h1 )
