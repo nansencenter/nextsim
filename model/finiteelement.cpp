@@ -5051,7 +5051,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
      //We need the same constants for ATMOSPHERE and WATER
     double A=7.2e-4,   B=3.20e-6, C=5.9e-10;
     double a=6.1121e2, b=18.729,  c=257.87, d=227.3;
-    double alpha=0.62197, beta=0.37803;
+    double const alpha=0.62197, beta=0.37803;
     double salinity;
 
     switch (scheme)
@@ -5074,7 +5074,6 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
-            alpha=0.62197, beta=0.37803;
             // Here temp can be either M_tice[0][i] or M_tsurf_thin so the user must suply its value
             assert( temp > -physical::tfrwK );
             salinity = 0;
@@ -5088,12 +5087,11 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     // The ice model needs to know d(sphumi)/dT to calculate d(Qia)/dT
     if ( scheme == schemes::specificHumidity::ICE )
     {
-        double dsphumdest = alpha/(M_mslp[i]-beta*f*est)*( 1. + beta*f*est/(M_mslp[i]-beta*f*est) );
-        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
-        double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
+        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
+        double dsphumdT   = alpha*M_mslp[i]*( f*destdT + est*dfdT )/std::pow(M_mslp[i]-beta*est*f,2);
 
-        return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
+        return std::make_pair(sphum, dsphumdT);
     } else {
         return std::make_pair(sphum, 0.);
     }
