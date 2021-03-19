@@ -6464,6 +6464,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
                 // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
                 // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
                 // so we just write it out:
+                mlt_hi_top -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
+                mlt_hi_bot -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 T2  = Tfr_ice;
             }
@@ -6477,6 +6479,13 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         {
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
+            del_hi_s2i =0. ;
+            
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
@@ -6571,6 +6580,15 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
+
+            del_hi_s2i =0. ;
+
+
             del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/dt + hs*qs/dt;
 
