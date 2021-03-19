@@ -166,6 +166,7 @@ public:
         snow2ice   = 114,
         mlt_top    = 115,
         mlt_bot    = 116,
+        del_vi_thin= 117,
 
         // Forcing variables
         tair     = 200,
@@ -441,6 +442,13 @@ public:
                     longName = "Distance_To_Yield_Criterion";
                     stdName  = "distance_to_yield_criterion";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_vi_thin):
+                    name     = "del_vi_thin";
+                    longName = "Thin ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "thin_ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::vice_melt):
