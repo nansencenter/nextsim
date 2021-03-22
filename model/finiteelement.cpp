@@ -5532,8 +5532,10 @@ FiniteElement::thermo(int dt)
         double mlt_vi_bot = mlt_hi_bot*old_conc;
         double del_vs_mlt = del_hs_mlt*old_conc;
         double snow2ice   = del_hi_s2i*old_conc;
+        double del_vi_thin = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
+            del_vi_thin+= del_hi_thin*old_conc_thin;
             del_vi     += del_hi_thin*old_conc_thin;
             mlt_vi_top += mlt_hi_top_thin*old_conc_thin;
             mlt_vi_bot += mlt_hi_bot_thin*old_conc_thin;
@@ -6025,6 +6027,9 @@ FiniteElement::thermo(int dt)
 
         // Ice volume melt rate per day per element area  [m/day]
         D_vice_melt[i]   = del_vi*86400/ddt;
+
+        // Thin Ice volume melt rate per day per element area  [m/day]
+        D_del_vi_thin[i]  = del_vi_thin*86400/ddt;
 
         // Ice growth/melt rate [m/day]
         D_del_hi[i]      = del_hi*86400/ddt;
@@ -6665,6 +6670,10 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         {
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
+            mlt_hi_top*=-hi_old/del_hi;
+            mlt_hi_bot*=-hi_old/del_hi;
+            del_hi_s2i =0. ;
+            
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
@@ -7071,6 +7080,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qsw_ocean);
     D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m/day]
     M_variables_elt.push_back(&D_vice_melt);
+    D_del_vi_thin = ModelVariable(ModelVariable::variableID::D_del_vi_thin);//! \param D_del_vi_thin (double) Thin Ice volume formed/melted per element area [m/day]
+    M_variables_elt.push_back(&D_del_vi_thin);
     D_newice = ModelVariable(ModelVariable::variableID::D_newice);//! \param D_newice (double) Ice volume formed in open water  per element area [m/day]
     M_variables_elt.push_back(&D_newice);
     D_mlt_top = ModelVariable(ModelVariable::variableID::D_mlt_top);//! \param D_mlt_top (double) Ice volume melted at top  per element area [m/day]
@@ -8470,6 +8481,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
+            case (GridOutput::variableID::del_vi_thin):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_thin[i]*time_factor;
+                break;
             case (GridOutput::variableID::vice_melt):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_vice_melt[i]*time_factor;
@@ -8686,6 +8701,7 @@ FiniteElement::initMoorings()
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
+            ("del_vi_thin", GridOutput::variableID::del_vi_thin)
             ("del_hi", GridOutput::variableID::del_hi)
             ("del_hi_thin", GridOutput::variableID::del_hi_thin)
             ("newice", GridOutput::variableID::newice)

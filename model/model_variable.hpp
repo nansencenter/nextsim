@@ -124,8 +124,9 @@ public:
         D_del_hi     = 127,
         D_del_hi_thin= 128,
         D_mlt_bot    = 129,
-        D_mlt_top   = 130,
+        D_mlt_top    = 130,
         D_snow2ice   = 131,
+        D_del_vi_thin= 132,
     };
 
 

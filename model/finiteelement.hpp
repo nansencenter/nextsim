@@ -800,6 +800,7 @@ private:
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_vi_thin; // thin ice volume (/element_area) melted/formed [m/day]
     ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
     ModelVariable D_del_hi_thin; // thin ice growth/melt rate [m/day]
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
