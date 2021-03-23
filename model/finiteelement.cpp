@@ -6211,7 +6211,8 @@ FiniteElement::thermo(int dt)
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*old_conc + newice )/M_conc[i]; // TODO: Is it still valid with thin ice ?
+            // Spread newly formed ice or ridged thin ice on top of the old ice
+            hi += newice/M_conc[i];
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
