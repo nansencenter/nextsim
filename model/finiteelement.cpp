@@ -1142,7 +1142,7 @@ FiniteElement::initOptAndParam()
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
-    ridging_exponent = vm["dynamics.ridging_exponent"].as<double>(); //! \param ridging_exponent (double) Ridging exponent
+    compaction_param = vm["dynamics.compaction_param"].as<double>(); //! \param compaction_param (double) Ridging exponent
     undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
     exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
@@ -4029,14 +4029,14 @@ FiniteElement::update(std::vector<double> const & UM_P)
 double inline
 FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
 {
-    double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
+    double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
 
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
     {
-        double const Pmax = std::pow(M_thick[cpt], 1.5)*compression_factor*expC;
+        double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
@@ -4163,7 +4163,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          * time_recovery_damage still depends on the temperature when themodynamics is activated.
          */
         M_damage[cpt] = std::max( 0., M_damage[cpt]
-                - dt/M_time_relaxation_damage[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
+                - dt/M_time_relaxation_damage[cpt]*std::exp(compaction_param*(1.-M_conc[cpt])) );
 
     }//loop over elements
 }//updateSigmaDamage
@@ -12120,7 +12120,7 @@ FiniteElement::cs2SmosIce()
             if(M_type[i]>4.)
                 M_ridge_ratio[i]=ratio_Mixed;
 
-            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(compaction_param*(1.-M_conc[i]));
         }
         else
             M_ridge_ratio[i]=0.;
@@ -12230,7 +12230,7 @@ FiniteElement::cs2SmosAmsr2Ice()
             if(M_type[i]>4.)
                 M_ridge_ratio[i]=ratio_Mixed;
 
-            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(ridging_exponent*(1.-M_conc[i]));
+            M_ridge_ratio[i]=M_ridge_ratio[i]*std::exp(compaction_param*(1.-M_conc[i]));
         }
         else
             M_ridge_ratio[i]=0.;

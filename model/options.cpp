@@ -307,7 +307,7 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("dynamics.compaction_param", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
             ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
