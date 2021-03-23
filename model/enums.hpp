@@ -151,19 +151,6 @@ namespace setup
 
 namespace schemes
 {
-    enum class damageDiscretisation
-    {
-        EXPLICIT    = 0,
-        IMPLICIT    = 1,
-        RECURSIVE   = 2
-    };
-
-    enum class tdType
-    {
-        FIXED            = 0,
-        DAMAGE_DEPENDENT = 1,
-    };
-
     enum class specificHumidity
     {
         ATMOSPHERE = 0,

@@ -21,16 +21,6 @@ namespace Nextsim
 {
 
 //------------------------------------------------------------------------------------------------------
-//! Clip damage. All values of input <damage> below a given <threshold> are turned into zero.
-//! Called by the assemble() and update() methods of FiniteElement.
-inline double
-clip_damage(double damage, double damage_min){
-    return damage > damage_min ? damage : 0;
-    //double damage_tanh_factor = 1000;
-    //return damage * (0.5 + 0.5 * std::tanh(damage_tanh_factor * (damage - damage_min)));
-}
-
-//------------------------------------------------------------------------------------------------------
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
 FiniteElement::FiniteElement(Communicator const& comm)
     :
@@ -632,15 +622,11 @@ FiniteElement::assignVariables()
     // }
 
     M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
-    M_Compressive_strength.resize(M_num_elements); // \param M_Compressive_strength (double) Ice maximum compressive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
     // root
     // M_UM_root.assign(2*M_mesh.numGlobalNodes(),0.);
 
-    D_multiplicator.resize(M_num_elements);
-    D_elasticity.resize(M_num_elements);
-    D_coef_sigma_p.resize(M_num_elements);
 }//assignVariables
 
 
@@ -1163,7 +1149,6 @@ FiniteElement::initOptAndParam()
 #endif
         ocean_turning_angle_rad = (PI/180.)*vm["dynamics.oceanic_turning_angle"].as<double>();
     ridging_exponent = vm["dynamics.ridging_exponent"].as<double>(); //! \param ridging_exponent (double) Ridging exponent
-    damage_min = vm["damage.clip"].as<double>(); //threshold for clipping damage
     undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
     exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
 
@@ -1185,30 +1170,10 @@ FiniteElement::initOptAndParam()
 
 
     //! Sets mechanical parameter values
-    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
-    tract_coef = vm["dynamics.tract_coef"].as<double>(); //! \param tract_coef (double) Coefficient to set the maximum tensile strength as a function of the cohesive strength
     // scale_coef is now set after initialising the mesh
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
-
-    //! Sets the damage evolution parameter values
-    const boost::unordered_map<const std::string, schemes::damageDiscretisation> str2disc_scheme = boost::assign::map_list_of
-        ("explicit", schemes::damageDiscretisation::EXPLICIT)
-        ("implicit", schemes::damageDiscretisation::IMPLICIT)
-        ("recursive", schemes::damageDiscretisation::RECURSIVE);
-    M_disc_scheme = this->getOptionFromMap("damage.disc_scheme", str2disc_scheme);
-        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
-    LOG(DEBUG)<<"Disc_scheme= "<< (int)M_disc_scheme <<"\n";
-
-    const boost::unordered_map<const std::string, schemes::tdType> str2td_type = boost::assign::map_list_of
-        ("fixed", schemes::tdType::FIXED)
-        ("damage_dependent", schemes::tdType::DAMAGE_DEPENDENT);
-    M_td_type = this->getOptionFromMap("damage.td_type", str2td_type);
-        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
-        //! \param M_td_type Characteristic time for damage (fixed or damage-dependent)
-    LOG(DEBUG)<<"td_type = "<< (int)M_td_type <<"\n";
-
 
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
@@ -3923,10 +3888,7 @@ void
 FiniteElement::calcCohesion()
 {
     for (int i=0; i<M_num_elements; ++i)
-    {
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
-        M_Compressive_strength[i] = compr_strength*scale_coef;
-    }
 
 }//calcCohesion
 
@@ -4133,41 +4095,48 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 //------------------------------------------------------------------------------------------------------
-//! Update the D_multiplicator and D_elasticity coefficients given cpt (index).
-//! Optional parameters for BBM are sigma_n and damage_dot.
-//! damage_dot > 0 only when calculating sigma after a change in damage
-//! sigma_n left optional for backwards compatability with the semi-implicit MEB
-//! Called from explicitSolve() and updateDamage()
-void inline
-FiniteElement::updateSigmaCoefs(int const cpt, double const dt, double const min_c, double const sigma_n, double const damage_dot)
+//! Update M_sigma and return elasticity for a given cpt (index).
+//! Optional parameters for BBM is del_damage, with del_damage > 0 only when
+//! calculating sigma after a change in damage.
+//! Called from explicitSolve() and updateSigmaDamage()
+double inline
+FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
 {
-    // clip damage
-    double const damage_tmp = clip_damage(M_damage[cpt], damage_min);
-    double const conc = std::max(min_c, M_conc[cpt]);
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-damage_tmp)*std::exp(ridging_exponent*(1.-conc)),exponent_relaxation_sigma-1.);
+    double const expC = std::exp(ridging_exponent*(1.-M_conc[cpt]));
 
+    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
     // Plastic failure
     double dcrit;
     if ( sigma_n > 0. )
     {
-        //double const Pmax = M_thick[cpt]*M_thick[cpt]*compression_factor*std::exp(ridging_exponent*(1.-conc));
-        double const Pmax = std::pow(M_thick[cpt],1.5)*compression_factor*std::exp(ridging_exponent*(1.-M_conc[cpt]));
+        double const Pmax = std::pow(M_thick[cpt], 1.5)*compression_factor*expC;
         // dcrit must be capped at 1 to get an elastic response
         dcrit = std::min(1., Pmax/sigma_n);
     } else {
         dcrit = 0.;
     }
 
-    D_multiplicator[cpt] = time_viscous/(time_viscous+dt*(1.-dcrit+time_viscous*damage_dot/(1.-M_damage[cpt])));
-    D_multiplicator[cpt] = std::min(D_multiplicator[cpt], 1.-1e-12);
-    D_elasticity[cpt] = young*(1.-damage_tmp)*std::exp(ridging_exponent*(1.-conc));
-}//updateSigmaCoefs
+    double const multiplicator = std::min( 1. - 1e-12,
+            time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
+
+    double const elasticity = young*(1.-M_damage[cpt])*expC;
+
+    for(int i=0;i<3;i++)
+    {
+        for(int j=0;j<3;j++)
+            M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+        M_sigma[i][cpt] *= multiplicator;
+    }
+
+    return elasticity;
+
+}//updateSigma
 
 //------------------------------------------------------------------------------------------------------
-//! Calculate M_sigma for the current time step and update M_damage. If update_sigma==true then we recalculate M_sigma using the new damage value - this is only needed for the explicit solver
-void inline
-FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
-        bool const update_sigma)
+//! Calculate M_sigma for the current time step and update M_damage.
+void
+FiniteElement::updateSigmaDamage(double const dt)
 {
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
@@ -4182,19 +4151,11 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
         // There's no ice so we set sigma to 0 and carry on
         if ( M_thick[cpt] <= min_h )
         {
-            for(int i=0;i<3;i++)
-            {
-                M_sigma[i][cpt] = 0.;
-                D_sigma_p[i][cpt] = 0.;
-            }
-
             M_damage[cpt] = 0.;
-            M_divergence[cpt] = 0.;
-            D_dcrit[cpt] = 0.;
 
-            if (update_sigma)
-                for ( int i=0; i<3; ++i )
-                    M_sigma[i][cpt] = 0.;
+            for(int i=0;i<3;i++)
+                M_sigma[i][cpt] = 0.;
+
             continue;
         }
 
@@ -4214,8 +4175,6 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                 epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
         }
-        M_divergence[cpt] = (epsilon_veloc[0]+epsilon_veloc[1]);
-
 
         /*======================================================================
          //! - Updates the internal stress
@@ -4223,20 +4182,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
          */
 
         //Calculating the new state of stress
-        std::vector<double> sigma(3);       //Storing M_sigma into temporary array for distance to damage criterion calculation
-        for(int i=0;i<3;i++)
-        {
-            double sigma_dot_i = 0.0;
-            double sigma_p_i = 0.;
-            for(int j=0;j<3;j++)
-            {
-                sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
-                sigma_p_i += D_coef_sigma_p[cpt]*M_Dunit_comp[3*i + j]*epsilon_veloc[j];
-            }
-
-            sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
-            D_sigma_p[i][cpt] = sigma_p_i;//diagnostic
-        }
+        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4244,111 +4190,38 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
          */
 
         /* Calculate the characteristic time for damage */
-        auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
-        double const delta_x = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
-
-        double td = delta_x/std::sqrt(young/(2.*(1.+nu0)*physical::rhoi));
-        if ( td_type == schemes::tdType::DAMAGE_DEPENDENT )
-            td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
+        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
+        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        double const sigma_n = -          (sigma[0]+sigma[1])/2.;
+        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
 
-        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        double const sigma_t   = -sigma_c/q;
-        double const tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
+        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
+        double const sigma_t = -sigma_c/q;
 
-        // to test for compressive failure
-        // - slope of line between origin and the intersection of the
-        // compressive failure line and the upper Coulomb branch
-        double const slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
-        // to test for tensile failure
-        // - slope of line between origin and the intersection of the
-        // tensile failure line and the upper Coulomb branch
-        double const slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
-
-        double sigma_target;
-        double dcrit;
-
-        if( sigma_1 > 0 && sigma_2 > 0
-            && sigma_2 < slope_compr_upper*sigma_1
-            && sigma_1 < slope_compr_upper*sigma_2 )
-        {
-            // compressive failure region
-            sigma_target = compr_strength;
-            dcrit = sigma_target/sigma_n;
-        }
-        else if( sigma_1 < 0 && sigma_2 < 0
-            && sigma_2 < slope_tens_upper*sigma_1
-            && sigma_1 < slope_tens_upper*sigma_2 )
-        {
-            // tensile failure region
-            sigma_target = tract_max;
-            dcrit = sigma_target/sigma_n;
-        }
+        double dcrit = 0;
+        if ( sigma_2 > 0. )
+            dcrit = sigma_c/(sigma_1-q*sigma_2);
         else
-        {
-            // Mohr-Coulomb failure region
-            sigma_target = sigma_c;
-            dcrit = sigma_target/(sigma_1-q*sigma_2);
-        }
-        D_dcrit[cpt] = dcrit;//save diagnostic NB >1 if inside the envelope
+            dcrit = sigma_t/sigma_2;
 
         /* Calculate the adjusted level of damage */
-        if (dcrit < 1)
+        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
         {
-            double tmp;
-            double tmp_factor;
-            switch (disc_scheme)
-            {
-                case (schemes::damageDiscretisation::EXPLICIT):
-                tmp=(1.0-M_damage[cpt])*(1.0-dcrit)*dt/td + M_damage[cpt];
-                break;
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            M_damage[cpt] += del_damage;
 
-                case (schemes::damageDiscretisation::IMPLICIT):
-                tmp_factor=1.0/((1.0-dcrit)*dt/td + 1.0);
-                tmp=tmp_factor*(1.0-dcrit)*dt/td + M_damage[cpt];
-                break;
-
-                case (schemes::damageDiscretisation::RECURSIVE):
-                tmp=1.0-(1.0-M_damage[cpt])*pow(dcrit,dt/td);
-                break;
-            }
-
-            // TODO: Check if this if clause is needed (I think maybe it's always true)
-            if(tmp>M_damage[cpt])
-            {
 #ifdef OASIS
-                M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
+            M_cum_damage[cpt] += del_damage;
 #endif
-                double const old_damage = M_damage[cpt];
-                M_damage[cpt] = tmp;
 
-                if (update_sigma)
-                {
-                    // Time rate of change in damage over the time step
-                    double const damage_dot = (M_damage[cpt] - old_damage)/dt;
-
-                    this->updateSigmaCoefs(cpt, dt, min_c, sigma_n*dcrit, damage_dot);
-                    for(int i=0;i<3;i++)
-                    {
-                        double sigma_dot_i = 0.0;
-                        for(int j=0;j<3;j++)
-                            sigma_dot_i += D_elasticity[cpt]*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-                        sigma[i] = (M_sigma[i][cpt] + dt*sigma_dot_i)*D_multiplicator[cpt];
-                    }
-                }
-            }
+            //Calculating the new state of stress
+            this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
         }
-
-        // Update sigma
-        for(int i=0;i<3;i++)
-            M_sigma[i][cpt]   = sigma[i];
 
         /*======================================================================
          * Check:
@@ -4365,7 +4238,7 @@ FiniteElement::updateDamage(double const dt, schemes::damageDiscretisation const
                 - dt/M_time_relaxation_damage[cpt]*std::exp(ridging_exponent*(1.-M_conc[cpt])) );
 
     }//loop over elements
-}//updateDamage
+}//updateSigmaDamage
 
 #ifdef OASIS
 //------------------------------------------------------------------------------------------------------
@@ -6814,10 +6687,6 @@ FiniteElement::init()
     C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
-    // The constant factor converts between M_res_root_mesh and the node spacing (it is approximate)
-    t_damage = M_res_root_mesh*1.3429*std::pow(young/(2.0*(1.0+nu0)*physical::rhoi),-0.5);  //Characteristic time for the propagation of damage
-    if (dtime_step/t_damage > 10.0)
-        LOG(WARNING) << "For best deformation scaling results, the ratio simul.timestep/t_damage should be < 10. (Currently it is " << dtime_step/t_damage << ").  THE SPIRIT OF VERO IS WATCHING YOU\n";
 
     if ( M_use_restart )
     {
@@ -6953,8 +6822,6 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_ridge_ratio_ht);
     M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
     M_variables_elt.push_back(&M_conc_upd);
-    M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
-    M_variables_elt.push_back(&M_divergence);
 
     switch (M_thermo_type)
     {
@@ -7108,14 +6975,6 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
-    D_dcrit = ModelVariable(ModelVariable::variableID::D_dcrit);//! \param D_dcrit (double) How far outside the M-C envelope are we?
-    M_variables_elt.push_back(&D_dcrit);
-    D_sigma_p.resize(3);//! \param D_sigma_p (double) Tensor components of the pressure term [Pa]
-    for(int k=0; k<D_sigma_p.size(); k++)
-    {
-        D_sigma_p[k] = ModelVariable(ModelVariable::variableID::D_sigma_p, k);
-        M_variables_elt.push_back(&(D_sigma_p[k]));
-    }
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -8427,10 +8286,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
-            case (GridOutput::variableID::d_crit):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_dcrit[i]*time_factor;
-                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8744,6 +8599,10 @@ FiniteElement::initMoorings()
             ("del_hi_tend", GridOutput::variableID::del_hi_tend)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
+
+    // Remove duplicates
+    std::sort( names.begin(), names.end() );
+    names.erase( std::unique( names.begin(), names.end() ), names.end() );
 
     //error checking
     std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
@@ -9981,10 +9840,7 @@ FiniteElement::explicitSolve()
                 break;
 
             case setup::DynamicsType::BBM:
-                for (int cpt=0; cpt < M_num_elements; ++cpt)
-                    this->updateSigmaCoefs(cpt, dte, min_c, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
-
-                this->updateDamage(dte, M_disc_scheme, M_td_type, true);
+                this->updateSigmaDamage(dte);
                 break;
         }
         M_timer.tock("updateSigma");
@@ -9992,11 +9848,13 @@ FiniteElement::explicitSolve()
         // Walk through all the elements to build the gradient terms of the RHS
         M_timer.tick("gradient terms");
         std::vector<double> grad_terms(2*M_num_nodes, 0.);
+        double const g3rd = physical::gravity/3.;
         for ( int cpt=0; cpt<M_num_elements; ++cpt )
         {
             // Loop over the nodes of the element to build the gradient terms themselves
-            double const m_g_A3rd = element_mass[cpt]*physical::gravity*M_surface[cpt]/3.;
+            double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
             std::vector<double> const dxN = M_shape_coeff[cpt];
+            double const volume = M_thick[cpt]*M_surface[cpt];
             for (int i=0; i<3; ++i)
             {
                 int const i_indx = (M_elements[cpt]).indices[i]-1;
@@ -10010,8 +9868,8 @@ FiniteElement::explicitSolve()
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
-                grad_terms[u_indx] -= M_thick[cpt]*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] )*M_surface[cpt];
-                grad_terms[v_indx] -= M_thick[cpt]*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] )*M_surface[cpt];
+                grad_terms[u_indx] -= volume*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] );
+                grad_terms[v_indx] -= volume*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] );
 
                 // Gradient of m*g*SSH
                 for ( int j=0; j<3; ++j )
@@ -11204,11 +11062,6 @@ FiniteElement::checkConsistency()
         M_cum_damage[i]=M_damage[i];
         M_cum_wave_damage[i]=M_damage[i];
 #endif
-
-        //initialise this to 0 (water value)
-        D_dcrit[i] = 0;
-        for(int j=0; j<3; j++)
-            D_sigma_p[j][i] = 0;
     }
 
 #ifdef OASIS
@@ -11385,7 +11238,6 @@ FiniteElement::topazIce()
         }
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
     }
 }//topazIce
 
@@ -11513,7 +11365,6 @@ FiniteElement::topazIceOsisafIcesat()
         }
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
     }
 }//topazIceOsisafIcesat
 
@@ -12116,7 +11967,6 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i]=0.;
             M_ridge_ratio[i]=0.;
             M_damage[i]=0.;
-            M_divergence[i]=0.;
         }
         else
         {
@@ -12125,7 +11975,6 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_snow_thick[i] = M_conc[i]*hs;
             M_thick[i] = M_conc[i]*hi;
             M_damage[i]=0.;
-            M_divergence[i]=0.;
         }
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -12338,7 +12187,6 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         }//use NIC
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
     }//loop over elements
 }//topazForecastAmsr2OsisafNicIce
 
@@ -12382,7 +12230,6 @@ FiniteElement::piomasIce()
         }
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
     }
 }//piomasIce
 
@@ -12435,7 +12282,6 @@ FiniteElement::cregIce()
             M_snow_thick[i]=0.;
         }
         M_damage[i]=0.;
-        M_divergence[i]=0.;
     }
 }//cregIce
 
@@ -12504,7 +12350,6 @@ FiniteElement::topazAmsreIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
-        M_divergence[i]=0.;
     }
 }//topazAmsreIce TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -12582,7 +12427,6 @@ FiniteElement::topazAmsr2Ice()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
-        M_divergence[i]=0.;
     }
 }//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
 
@@ -12745,7 +12589,6 @@ FiniteElement::cs2SmosIce()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -12856,7 +12699,6 @@ FiniteElement::cs2SmosAmsr2Ice()
         M_snow_thick[i]=correction_factor_warren*M_snow_thick[i]*M_conc[i];
 
         M_damage[i]=0.;
-        M_divergence[i]=0.;
 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -12925,7 +12767,6 @@ FiniteElement::smosIce()
 
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
-        M_divergence[i]=0.;
     }
 }//smosIce
 
@@ -13476,7 +13317,7 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 
     for (int i=0; i<M_extract_local_index.size(); i++)
     {
-        int srl = M_extract_local_index[i].size();
+        int const srl = M_extract_local_index[i].size();
         extract_local_values[i].resize(2*srl);
 
         for (int j=0; j<M_extract_local_index[i].size(); j++)
@@ -13498,7 +13339,7 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
     {
         for (int j=0; j<M_local_ghosts_local_index[i].size(); j++)
         {
-            int srl = M_local_ghosts_local_index[i].size();
+            int const srl = M_local_ghosts_local_index[i].size();
             mesh_nodal_vec[M_local_ghosts_local_index[i][j]] = ghost_update_values[i][j];
             mesh_nodal_vec[M_local_ghosts_local_index[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
         }

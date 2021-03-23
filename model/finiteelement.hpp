@@ -57,8 +57,6 @@ extern "C"
 namespace Nextsim
 {
 
-inline double clip_damage(double damage, double damage_min);
-
 class FiniteElement
 {
 public:
@@ -288,9 +286,8 @@ public:
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
     void update(std::vector<double> const & UM_P);
-    void inline updateDamage(double const dt, schemes::damageDiscretisation const disc_scheme, schemes::tdType const td_type,
-            bool const update_sigma);
-    void inline updateSigmaCoefs(int const cpt, double const dte, double const min_c, double const sigma_n=0., double const damage_dot=0.);
+    void updateSigmaDamage(double const dt);
+    double inline updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage=0.);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
@@ -483,9 +480,6 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
-    schemes::damageDiscretisation M_disc_scheme;
-    schemes::tdType M_td_type;
-
 #ifdef OASIS
     ExternalData M_tau_wi;
 //    ExternalData M_str_var;
@@ -560,7 +554,6 @@ private:
     double exponent_cohesion;
     double ocean_turning_angle_rad;
     double ridging_exponent;
-    double damage_min;
     double undamaged_time_relaxation_sigma;
     double exponent_relaxation_sigma;
     double quad_drag_coef_air;
@@ -569,7 +562,6 @@ private:
     double lin_drag_coef_water;
     double time_relaxation_damage;
     double deltaT_relaxation_damage;
-    double t_damage;
 
     double basal_k2;
     double basal_drag_coef_air;
@@ -816,17 +808,10 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
-    ModelVariable D_dcrit; // How far outside the Mohr-Coulomb criterion are we?
-    std::vector<ModelVariable> D_sigma_p; // Visco-plastic stress term ("pressure term")
-                                          //   that is turned on in convergent conditions
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
-    std::vector<double> D_elasticity; // Elasticity
-    std::vector<double> D_multiplicator; // lambda/(lambda + Dt)
-    std::vector<double> D_coef_sigma_p; // D_sigma_p = D_coef_sigma_p*M_Dunit_comp*epsilon_veloc
-                                        // - for visco-plastic stress term ("pressure term")
 
 private:
     // Variables for the moorings
