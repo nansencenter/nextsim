@@ -8158,9 +8158,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; // T2M
-        Variable dair={
-            filename_prefix: "ERA5_d2m_y",
-            name:"d2m",
+        Variable sphuma={
+            filename_prefix: "ERA5_q2m_y", // All variables are in the same (grid) file
+            name:"q2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8169,8 +8169,8 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a:1.,
-            b:-273.15,
-            Units:"C",
+            b:0.,
+            Units:"kg/kg",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -8267,7 +8267,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Variable> variables_tmp(7);
         variables_tmp[0] = tair;
-        variables_tmp[1] = dair;
+        variables_tmp[1] = sphuma;
         variables_tmp[2] = mslp;
         variables_tmp[3] = Qsw_in;
         variables_tmp[4] = Qlw_in;

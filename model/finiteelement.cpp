@@ -1234,7 +1234,8 @@ FiniteElement::initOptAndParam()
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
-        ("non-linear", setup::FreezingPointType::NON_LINEAR);
+        ("non-linear", setup::FreezingPointType::NON_LINEAR)
+        ("unesco", setup::FreezingPointType::UNESCO);
     M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
 
@@ -5069,7 +5070,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We know temp = M_sst[i]
             temp     = M_sst[i];
             salinity = M_sss[i];
-            break;
+            return std::make_pair(640380./physical::rhoa*std::exp(-5107.4/temp),0.);
         case schemes::specificHumidity::ICE:
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
@@ -5188,7 +5189,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
-            Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+            Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.); // CREG NEMO-LIM3 expects a negative value
 
             /* Evaporation */
             evap[i] = Qlh[i]/Lv;
@@ -5474,6 +5475,26 @@ FiniteElement::thermo(int dt)
         {
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
+        }
+        double newice_stored = newice;
+
+        //! * Calculates changes in ice and snow volumes to calculate salt rejection and fresh water balance
+        // del_vi     Change in ice volume
+        // del_vs_mlt Change in snow volume due to melt
+        double del_vi     = newice + del_hi*old_conc;
+        double mlt_vi_top = mlt_hi_top*old_conc; 
+        double mlt_vi_bot = mlt_hi_bot*old_conc;
+        double del_vs_mlt = del_hs_mlt*old_conc;
+        double snow2ice   = del_hi_s2i*old_conc;
+        double del_vi_thin = 0.;
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            del_vi_thin+= del_hi_thin*old_conc_thin;
+            del_vi     += del_hi_thin*old_conc_thin;
+            mlt_vi_top += mlt_hi_top_thin*old_conc_thin;
+            mlt_vi_bot += mlt_hi_bot_thin*old_conc_thin;
+            snow2ice   += del_hi_s2i_thin*old_conc_thin;
+            del_vs_mlt += del_hs_thin_mlt*old_conc_thin;
         }
 
         /* Decide the change in ice fraction (del_c) */
