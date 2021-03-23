@@ -506,13 +506,9 @@ private:
     std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
-    std::vector<double> M_Dunit_comp;
-    std::vector<double> M_Mass;
-    std::vector<double> M_Diag;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
     std::vector<double> M_Cohesion;
-    std::vector<double> M_Compressive_strength;
     std::vector<double> M_time_relaxation_damage;
 
     // =============================================================================

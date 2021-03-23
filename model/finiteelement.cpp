@@ -1046,7 +1046,6 @@ FiniteElement::initOptAndParam()
     //! Sets parameters for the pressure term coefficient
     compression_factor = vm["dynamics.compression_factor"].as<double>(); //! \param Max pressure for damaged converging ice
     exponent_compression_factor = vm["dynamics.exponent_compression_factor"].as<double>(); //! \param Power of ice thickness in the pressure coefficient
-    divergence_min = vm["dynamics.divergence_min"].as<double>() / days_in_sec; //! \param Minimum divergence at which pressure term is activated
 
     //! Sets various time steps (init, thermo, output, mooring, restart) and options on data assimilation and restarts
     if (vm["simul.time_init"].as<std::string>() == "")
@@ -1435,15 +1434,11 @@ FiniteElement::initOptAndParam()
 
 
 //------------------------------------------------------------------------------------------------------
-//! Initialise M_Dunit, M_Dunit_comp, M_Mass, and M_Diag, all of which are
-//! constants used by the Finite Element Method
+//! Initialise M_Dunit of which is a constant used to calculate elasticity
 void
 FiniteElement::initFETensors()
 {
     M_Dunit.assign(9,0);
-    M_Dunit_comp.assign(9,0);
-    M_Mass.assign(9,0);
-    M_Diag.assign(9,0);
 
     double Dunit_factor=1./(1.-nu0*nu0);
     /* Stiffness matrix
@@ -1456,41 +1451,6 @@ FiniteElement::initFETensors()
     M_Dunit[3]= Dunit_factor * nu0;
     M_Dunit[4]= Dunit_factor * 1.;
     M_Dunit[8]= Dunit_factor * (1.-nu0)/2.;
-
-    // 'Stifness' for the pressure term
-    double const pressure_nu = vm["dynamics.pressure_nu"].as<double>();
-    Dunit_factor=1./(1.-std::pow(pressure_nu, 2.));
-    M_Dunit_comp[0]= Dunit_factor * 1.;
-    M_Dunit_comp[1]= Dunit_factor * pressure_nu;
-    M_Dunit_comp[3]= Dunit_factor * pressure_nu;
-    M_Dunit_comp[4]= Dunit_factor * 1.;
-    M_Dunit_comp[8]= Dunit_factor * (1.- pressure_nu)/2.;
-
-    /* Select the quadrature scheme for the FEM integrals
-     * - see mloc below:
-     *   \int[N_i*f].dS \approx \sum_{j=1}^3f_j\int[N_i*N_j].dS
-     *      = \sum_{j=1}^3M_{ij}S_ef_j,
-     *      where S_e is the element area (surface_e below),
-     *      and M_ij=M_mass[i,j]
-     *   This is exact for linear f.
-     * - see dloc below:
-     *   \int[N_i*f].dS \approx \frac{S_i}{3}\sum_{j=1}^3f_jN_i(x_j)
-     *      = \frac{S_e}{3}\sum_{j=1}^3\delta_{ij}f_j
-     *      = \frac{S_e}{3}f_i
-     *      = S_e*D_ii*f_i,
-     *   where D_{ij} = M_diag[i,j].
-     *   This is exact for constant f (ie will fail for \int[N_i*N_j].dS)
-     *   I might be remembering incorrectly, but I think Sylvain had better results
-     *   round coasts when this was used for the drag terms
-     *   */
-    for (int i=0; i<3; ++i)
-    {
-        for (int j=0; j<3; ++j)
-        {
-            M_Mass[3*i+j] = ((i == j) ? 2.0 : 1.0)/12.0;
-            M_Diag[3*i+j] = ((i == j) ? 1.0 : 0.0)/3.0;
-        }
-    }
 
 }//initFETensors
 

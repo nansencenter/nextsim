@@ -307,16 +307,11 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
             ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
             ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
-
-            // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
-            ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
@@ -349,25 +344,20 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             // - Pressure term parameters
-            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
             ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
-            ("dynamics.pressure_nu", po::value<double>()->default_value( 0. ),
-             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
-
-            ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
-             "Nuber of explicit sub-steps (default 120)")
+                "Nuber of explicit sub-steps (default 120)")
             ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
-             "Ellipse ratio (default 2)")
+                "Ellipse ratio (default 2)")
             ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
-             "P* (default 27.5e3)")
+                "P* (default 27.5e3)")
             ("dynamics.evp.C", po::value<double>()->default_value( 20 ),
-             "Compaction parameter (C, default 20)")
+                "Compaction parameter (C, default 20)")
             ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
-             "Minimum delta (default 1e-9)")
+                "Minimum delta (default 1e-9)")
 
             // - mEVP!
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
