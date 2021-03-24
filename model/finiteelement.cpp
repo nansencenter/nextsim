@@ -5485,7 +5485,7 @@ FiniteElement::thermo(int dt)
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
         }
-        double newice_stored = newice;
+        double const newice_stored = newice;
 
         //! * Calculates changes in ice and snow volumes to calculate salt rejection and fresh water balance
         // del_vi     Change in ice volume
