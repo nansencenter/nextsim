@@ -552,7 +552,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_snow2ice):
-            // ice growth in open water [m/day]
+            // ice formed from snow by flooding [m/day]
             M_name = "D_snow2ice";
             M_export_name = "D_snow2ice";
             M_prognostic = false;
