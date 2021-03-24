@@ -549,7 +549,7 @@ private:
     double exponent_compression_factor;
     double exponent_cohesion;
     double ocean_turning_angle_rad;
-    double ridging_exponent;
+    double compaction_param;
     double undamaged_time_relaxation_sigma;
     double exponent_relaxation_sigma;
     double quad_drag_coef_air;
