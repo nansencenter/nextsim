@@ -536,7 +536,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_mlt_bot):
-            // ice growth in open water [m/day]
+            // ice melt at bottom [m/day]
             M_name = "D_mlt_bot";
             M_export_name = "D_mlt_bot";
             M_prognostic = false;
