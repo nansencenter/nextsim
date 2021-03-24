@@ -6379,7 +6379,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             hs = 0.;
         }
         // We consider sublimation as part of the top melt
-        mlt_hi_top += std::max(0.,h1+h2-hi_old); 
+        mlt_hi_top = std::max(0.,h1+h2-hi_old); 
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
