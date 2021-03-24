@@ -1234,9 +1234,9 @@ FiniteElement::initOptAndParam()
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
-        ("non-linear", setup::FreezingPointType::NON_LINEAR);
+        ("unesco", setup::FreezingPointType::UNESCO);
     M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
-        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
+        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear or unesco)
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -1244,7 +1244,7 @@ FiniteElement::initOptAndParam()
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
-        M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
+        M_freezingpoint_type = setup::FreezingPointType::UNESCO;
 #endif
     LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
@@ -6195,11 +6195,8 @@ FiniteElement::freezingPoint(const double sss)
         case setup::FreezingPointType::LINEAR:
             return_value = -physical::mu*sss;
 
-        case setup::FreezingPointType::NON_LINEAR:
-            double zs  = std::sqrt(sss/35.16504);         // square root salinity
-            double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
-                        - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return_value = ptf*sss;
+        case setup::FreezingPointType::UNESCO:
+            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
     }
 
     return return_value;
