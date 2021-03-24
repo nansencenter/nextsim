@@ -481,8 +481,8 @@ public:
                     break;
                 case (variableID::mlt_bot):
                     name     = "mlt_bot";
-                    longName = "Ice melted at top";
-                    stdName  = "ice_melted_at_top";
+                    longName = "Ice melted at bottom";
+                    stdName  = "ice_melted_at_bottom";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
