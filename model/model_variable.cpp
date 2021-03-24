@@ -504,7 +504,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_del_vi_thin):
-            // Thin ice volume gain/loss by freezing/mel [m/day]
+            // Thin ice volume gain/loss by freezing/melt [m/day]
             M_name = "D_del_vi_thin";
             M_export_name = "D_del_vi_thin";
             M_prognostic = false;
