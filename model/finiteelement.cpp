@@ -6378,7 +6378,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             h1 = 0.;
             hs = 0.;
         }
-        // TODO Should it be considered as top melt for the ice? Should I differentiate it?
+        // We consider sublimation as part of the top melt
         mlt_hi_top += std::max(0.,h1+h2-hi_old); 
 
         // Bottom melt/freezing
