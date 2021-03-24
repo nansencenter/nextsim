@@ -4952,7 +4952,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
      //We need the same constants for ATMOSPHERE and WATER
     double A=7.2e-4,   B=3.20e-6, C=5.9e-10;
     double a=6.1121e2, b=18.729,  c=257.87, d=227.3;
-    double alpha=0.62197, beta=0.37803;
+    double const alpha=0.62197, beta=0.37803;
     double salinity;
 
     switch (scheme)
@@ -4975,7 +4975,6 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
-            alpha=0.62197, beta=0.37803;
             // Here temp can be either M_tice[0][i] or M_tsurf_thin so the user must suply its value
             assert( temp > -physical::tfrwK );
             salinity = 0;
@@ -4989,11 +4988,11 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     // The ice model needs to know d(sphumi)/dT to calculate d(Qia)/dT
     if ( scheme == schemes::specificHumidity::ICE )
     {
-        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
+        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dsphumdT   = alpha*M_mslp[i]*( f*destdT + est*dfdT )/std::pow(M_mslp[i]-beta*est*f,2);
 
-        return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
+        return std::make_pair(sphum, dsphumdT);
     } else {
         return std::make_pair(sphum, 0.);
     }
@@ -6490,7 +6489,6 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         hs += del_hs_mlt;
         h1 += delh1;
         h2 += delh2;
-        hi  = h1 + h2;
         mlt_hi_top +=delh1+delh2;
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
@@ -6508,6 +6506,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             h1 += delh1;
             del_hi_s2i +=delh1;
         }
+        // All processes done, getting back to hi
+        hi  = h1 + h2;
 
         // Even out the layer structure and temperatures
         if ( h2 > h1 )
@@ -6530,6 +6530,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
                 // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
                 // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
                 // so we just write it out:
+                mlt_hi_top -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
+                mlt_hi_bot -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 T2  = Tfr_ice;
             }
@@ -6543,8 +6545,11 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         {
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
-            mlt_hi_top*=-hi_old/del_hi;
-            mlt_hi_bot*=-hi_old/del_hi;
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
             del_hi_s2i =0. ;
             
             del_hi = -hi_old;
@@ -6624,8 +6629,8 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         del_hi = del_ht+del_hb;
         hi     = hi + del_hi;
         /* Track top and bottom */
-        mlt_hi_top+=del_ht;
-        mlt_hi_bot+=del_hb;
+        mlt_hi_top+=std::min(del_ht,0.);
+        mlt_hi_bot+=std::min(del_hb,0.);
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
@@ -6641,6 +6646,15 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
+
+            del_hi_s2i =0. ;
+
+
             del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/dt + hs*qs/dt;
 
