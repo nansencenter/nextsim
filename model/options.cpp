@@ -82,7 +82,7 @@ namespace Nextsim
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
-                "Number of iterations taken to smooth velocity into open water (only for explicit solver)")
+                "Number of iterations taken to smooth velocity into open water")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.
             // advection scheme
@@ -93,19 +93,9 @@ namespace Nextsim
             // ("numerics.ALE_smoothing_step_nb", po::value<int>()->default_value( 2 ),
             //     "Number of time steps to average over when smoothing in ALE scheme. 0: pure Lagrangian; <0: pure Eulerian")
 
-            // solver
-            ("solver.ksp-type", po::value<std::string>()->default_value( "preonly" ), "")
-            ("solver.pc-type", po::value<std::string>()->default_value( "cholesky" ), "")
-            ("solver.mat-package-type", po::value<std::string>()->default_value( "cholmod" ), "")
-            ("solver.ksp-view", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-convergence-info", po::value<bool>()->default_value( true ), "")
-            ("solver.ksp-reuse-prec", po::value<bool>()->default_value( false ), "")
-            ("solver.ksp-monitor", po::value<bool>()->default_value( false ), "")
-
-
-             //-----------------------------------------------------------------------------------
-             //! - Setup
-             //-----------------------------------------------------------------------------------
+            //-----------------------------------------------------------------------------------
+            //! - Setup
+            //-----------------------------------------------------------------------------------
 
 
             // - Setup
@@ -317,16 +307,11 @@ namespace Nextsim
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
-            ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("dynamics.compaction_param", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
             ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
-
-            // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
-            ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
@@ -359,34 +344,20 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             // - Pressure term parameters
-            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
-            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
             ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
-            ("dynamics.pressure_nu", po::value<double>()->default_value( 0. ),
-             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
-
-            ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
-
-            // - Damage equation discretization
-            //   disc_scheme is either : explicit, implicit, or recursive
-            //   td_type is either : fixed or damage_dependent
-            //   clip : float
-            ("damage.disc_scheme", po::value<std::string>()->default_value( "explicit" ), "Discretization scheme for the damage equation [ explicit (default) | implicit | recursive ]")
-            ("damage.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
-            ("damage.clip", po::value<double>()->default_value( 0 ),
-             "Threshold for clipping damage. All values below <damage.clip> will be treated as zero when calculating how elastic modulus and stress relaxation time depend on damage.")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
-             "Nuber of explicit sub-steps (default 120)")
+                "Nuber of explicit sub-steps (default 120)")
             ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
-             "Ellipse ratio (default 2)")
+                "Ellipse ratio (default 2)")
             ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
-             "P* (default 27.5e3)")
+                "P* (default 27.5e3)")
             ("dynamics.evp.C", po::value<double>()->default_value( 20 ),
-             "Compaction parameter (C, default 20)")
+                "Compaction parameter (C, default 20)")
             ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
-             "Minimum delta (default 1e-9)")
+                "Minimum delta (default 1e-9)")
 
             // - mEVP!
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
