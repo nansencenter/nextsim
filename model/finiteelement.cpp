@@ -6562,8 +6562,8 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         del_hi = del_ht+del_hb;
         hi     = hi + del_hi;
         /* Track top and bottom */
-        mlt_hi_top+=std::min(del_ht,0.);
-        mlt_hi_bot+=std::min(del_hb,0.);
+        mlt_hi_top=std::min(del_ht,0.);
+        mlt_hi_bot=std::min(del_hb,0.);
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
