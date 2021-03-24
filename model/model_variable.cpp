@@ -625,7 +625,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_vice_melt):
-            // ice volume gain/loss by freezing/mel [m/day]
+            // ice volume gain/loss by freezing/melt [m/day]
             M_name = "D_vice_melt";
             M_export_name = "D_vice_melt";
             M_prognostic = false;
@@ -633,7 +633,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_del_vi_thin):
-            // Thin ice volume gain/loss by freezing/mel [m/day]
+            // Thin ice volume gain/loss by freezing/melt [m/day]
             M_name = "D_del_vi_thin";
             M_export_name = "D_del_vi_thin";
             M_prognostic = false;
@@ -665,7 +665,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_mlt_bot):
-            // ice growth in open water [m/day]
+            // ice melt at bottom [m/day]
             M_name = "D_mlt_bot";
             M_export_name = "D_mlt_bot";
             M_prognostic = false;
@@ -673,7 +673,7 @@ ModelVariable::initElemental()
             break;
         
         case (variableID::D_mlt_top):
-            // ice growth in open water [m/day]
+            // ice melt at top [m/day]
             M_name = "D_mlt_top";
             M_export_name = "D_mlt_top";
             M_prognostic = false;
@@ -681,7 +681,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_snow2ice):
-            // ice growth in open water [m/day]
+            // ice formed from snow by flooding [m/day]
             M_name = "D_snow2ice";
             M_export_name = "D_snow2ice";
             M_prognostic = false;
