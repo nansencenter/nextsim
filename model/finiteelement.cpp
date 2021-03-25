@@ -3598,8 +3598,9 @@ FiniteElement::regrid(bool step)
     int substep = 0;
 
     std::vector<double> um_root;
+
     M_timer.tick("gatherNodalField");
-    this->gatherNodalField(M_UM, um_root);
+    this->gatherNodalField(M_UM,um_root);
     M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
@@ -3952,12 +3953,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
 
-            /* Ridging of thick ice - conserve level ice volume per ice covered area
-             * (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
-             * Strictly speaking conc_ratio is min(1., M_conc)/old_conc, but
-             * this (equivelent) formulation is needed to prevent round-off
-             * errors from giving a negative ridge ratio. */
-            double const conc_ratio = std::min(surf_ratio, M_conc[cpt]/old_conc);
+            // Ridging of thick ice - conserve level ice volume per ice covered area
+            // (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
 
             if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -4035,7 +4032,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
-
                 }
 
                 M_conc_thin[cpt] = new_conc_thin;
@@ -4139,15 +4135,16 @@ FiniteElement::updateSigmaDamage(double const dt)
     // Slope of the MC enveloppe
     const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
 
-    // Concentration and thickness limit
-    //const double min_c = vm["dynamics.min_c"].as<double>();
+    // Concentration limit
+    /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
+     * already in use in another place so we need to check first what effect
+     * changing the default of min_c from 0.01 to 0.1 would have there */
     const double min_c = 0.1;
-    const double min_h = vm["dynamics.min_h"].as<double>();
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
-        if ( M_thick[cpt] <= min_h )
+        if ( M_conc[cpt] <= min_c )
         {
             M_damage[cpt] = 0.;
 
