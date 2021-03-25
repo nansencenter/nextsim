@@ -8347,24 +8347,25 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    double tau_i, wind2;
+                    double tau_i;
+                    double wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
 
                     // Select between taux, tauy, and taumod
                     switch (it->varID)
                     {
                         case (GridOutput::variableID::taux):
                         tau_i = D_tau_w[i];
-                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        wind2 *= M_wind[i];
                         break;
 
                         case (GridOutput::variableID::tauy):
                         tau_i = D_tau_w[i+M_num_nodes];
-                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        wind2 *= M_wind[i+M_num_nodes];
                         break;
 
                         case (GridOutput::variableID::taumod):
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
-                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                        wind2 *= wind2;
                     }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
@@ -9698,7 +9699,7 @@ FiniteElement::explicitSolve()
         node_mass[i] *= rlmass_matrix[i];
         rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
 
-        // For the mEVP
+        // For the mEVP and drag
         M_VTM[u_indx] = M_VT[u_indx];
         M_VTM[v_indx] = M_VT[v_indx];
     }
@@ -9798,15 +9799,15 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            c_prime[i] = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
-            double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
+            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
+            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime[i]*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
@@ -9887,9 +9888,12 @@ FiniteElement::explicitSolve()
         int const u_indx = i;
         int const v_indx = i+M_num_nodes;
 
-        // Save ice-ocean drag
-        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
-        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
+        // Save ice-ocean drag based on the mean ice speed
+        double const uice = 0.5*(M_VT[u_indx] + M_VTM[u_indx]);
+        double const vice = 0.5*(M_VT[v_indx] + M_VTM[v_indx]);
+        double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+        D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
 
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
@@ -10226,7 +10230,7 @@ FiniteElement::forcingAtmosphere()
                 time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
