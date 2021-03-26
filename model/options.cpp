@@ -349,7 +349,7 @@ namespace Nextsim
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
-                "Nuber of explicit sub-steps (default 120)")
+                "Number of explicit sub-steps (default 120)")
             ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
                 "Ellipse ratio (default 2)")
             ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
