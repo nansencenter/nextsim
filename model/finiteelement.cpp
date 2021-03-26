@@ -709,6 +709,11 @@ FiniteElement::initDatasets()
         case setup::AtmosphereType::CONSTANT:
             break;
 
+        case setup::AtmosphereType::GENERIC_PS:
+            M_atmosphere_nodes_dataset=DataSet("generic_ps_atm_nodes");
+            M_atmosphere_elements_dataset=DataSet("generic_ps_atm_elements");
+            break;
+
         case setup::AtmosphereType::ASR:
             M_atmosphere_nodes_dataset=DataSet("asr_nodes");
             M_atmosphere_elements_dataset=DataSet("asr_elements");
@@ -1193,9 +1198,9 @@ FiniteElement::initOptAndParam()
     //! Sets options on the freezing point scheme
     const boost::unordered_map<const std::string, setup::FreezingPointType> str2fpt= boost::assign::map_list_of
         ("linear", setup::FreezingPointType::LINEAR)
-        ("non-linear", setup::FreezingPointType::NON_LINEAR);
+        ("unesco", setup::FreezingPointType::UNESCO);
     M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
-        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear)
+        //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear or unesco)
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -1203,7 +1208,7 @@ FiniteElement::initOptAndParam()
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
     if ( M_ocean_type == setup::OceanType::COUPLED )
-        M_freezingpoint_type = setup::FreezingPointType::NON_LINEAR;
+        M_freezingpoint_type = setup::FreezingPointType::UNESCO;
 #endif
     LOG(DEBUG)<< "M_freezingpoint_type: "<< (int)M_freezingpoint_type <<"\n";
 
@@ -1226,6 +1231,7 @@ FiniteElement::initOptAndParam()
     //! Sets options on the atmospheric and ocean forcing, initialization of ice, type of dynamics, bathymetry and on the use of nested meshes
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
+        ("generic_ps", setup::AtmosphereType::GENERIC_PS)
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
@@ -1248,6 +1254,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::GENERIC_PS:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::EC2_AROME:
@@ -3551,9 +3558,8 @@ FiniteElement::regrid(bool step)
     int substep = 0;
 
     std::vector<double> um_root;
-
     M_timer.tick("gatherNodalField");
-    this->gatherNodalField(M_UM,um_root);
+    this->gatherNodalField(M_UM, um_root);
     M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
@@ -4880,7 +4886,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
      //We need the same constants for ATMOSPHERE and WATER
     double A=7.2e-4,   B=3.20e-6, C=5.9e-10;
     double a=6.1121e2, b=18.729,  c=257.87, d=227.3;
-    double alpha=0.62197, beta=0.37803;
+    double const alpha=0.62197, beta=0.37803;
     double salinity;
 
     switch (scheme)
@@ -4888,7 +4894,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
         case schemes::specificHumidity::ATMOSPHERE:
             if ( M_sphuma.isInitialized() )
                 return std::make_pair(std::max(0., M_sphuma[i]), 0.);
-            else if ( M_mixrat.isInitialized() )
+            if ( M_mixrat.isInitialized() )
                 return std::make_pair(M_mixrat[i]/(1.+M_mixrat[i]), 0.);
             // We know temp = M_dair[i]
             temp     = M_dair[i];
@@ -4903,7 +4909,6 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
-            alpha=0.62197, beta=0.37803;
             // Here temp can be either M_tice[0][i] or M_tsurf_thin so the user must suply its value
             assert( temp > -physical::tfrwK );
             salinity = 0;
@@ -4917,12 +4922,11 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
     // The ice model needs to know d(sphumi)/dT to calculate d(Qia)/dT
     if ( scheme == schemes::specificHumidity::ICE )
     {
-        double dsphumdest = alpha/(M_mslp[i]-beta*f*est)*( 1. + beta*f*est/(M_mslp[i]-beta*f*est) );
-        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
         double dfdT       = 2.*C*B*temp;
-        double dsphumdT   = dsphumdest*(f*destdT+est*dfdT);
+        double destdT     = ( b*c*d-temp*( 2.*c+temp ) )/( d*std::pow(c+temp,2) )*est;
+        double dsphumdT   = alpha*M_mslp[i]*( f*destdT + est*dfdT )/std::pow(M_mslp[i]-beta*est*f,2);
 
-        return std::make_pair(alpha*f*est/(M_mslp[i]-beta*f*est), dsphumdT);
+        return std::make_pair(sphum, dsphumdT);
     } else {
         return std::make_pair(sphum, 0.);
     }
@@ -5252,26 +5256,36 @@ FiniteElement::thermo(int dt)
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
+    
+        /* Tracking ice melt/formation components */
+        double del_hs_mlt = 0;
+        double mlt_hi_top = 0;
+        double mlt_hi_bot = 0;
+        double del_hi_s2i = 0;
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, M_tice[0][i]);
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
                 this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi,
+                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
 
+        double del_hs_thin_mlt = 0;
+        double mlt_hi_top_thin = 0;
+        double mlt_hi_bot_thin = 0;
+        double del_hi_s2i_thin = 0;
         if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
         {
             this->thermoIce0(ddt, M_conc_thin[i], M_h_thin[i], M_hs_thin[i],
                     mld, tmp_snowfall, Qia_thin[i], dQiadT_thin[i], subl_thin[i], tfrw,//end of inputs - rest are outputs or in/out
-                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, M_tsurf_thin[i]);
+                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, del_hs_thin_mlt, mlt_hi_top_thin, mlt_hi_bot_thin, del_hi_s2i_thin, M_tsurf_thin[i]);
             M_h_thin[i]  = hi_thin * old_conc_thin;
             M_hs_thin[i] = hs_thin * old_conc_thin;
         }
@@ -5305,6 +5319,26 @@ FiniteElement::thermo(int dt)
         {
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
+        }
+        double const newice_stored = newice;
+
+        //! * Calculates changes in ice and snow volumes to calculate salt rejection and fresh water balance
+        // del_vi     Change in ice volume
+        // del_vs_mlt Change in snow volume due to melt
+        double del_vi     = newice + del_hi*old_conc;
+        double mlt_vi_top = mlt_hi_top*old_conc; 
+        double mlt_vi_bot = mlt_hi_bot*old_conc;
+        double del_vs_mlt = del_hs_mlt*old_conc;
+        double snow2ice   = del_hi_s2i*old_conc;
+        double del_vi_thin = 0.;
+        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        {
+            del_vi_thin+= del_hi_thin*old_conc_thin;
+            del_vi     += del_hi_thin*old_conc_thin;
+            mlt_vi_top += mlt_hi_top_thin*old_conc_thin;
+            mlt_vi_bot += mlt_hi_bot_thin*old_conc_thin;
+            snow2ice   += del_hi_s2i_thin*old_conc_thin;
+            del_vs_mlt += del_hs_thin_mlt*old_conc_thin;
         }
 
         /* Decide the change in ice fraction (del_c) */
@@ -5619,28 +5653,13 @@ FiniteElement::thermo(int dt)
         //! 8) Applies slab Ocean model
         // (slabOcean in matlab)
 
-        // local variables
-        double del_vi;      // Change in ice volume
-        double del_vs_mlt;  // Change in snow volume due to melt
-        double rain;        // Liquid precipitation
-        double emp;         // Evaporation minus liquid precipitation
-
-        //! * Calculates changes in ice and snow volumes to calculate salt rejection
-        double del_h_thin = 0; // change in thin ice volume
-        double del_hs_thin = 0; // change in snow-on-thin-ice volume
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        {
-            del_h_thin = M_h_thin[i] - old_h_thin;
-            del_hs_thin = M_hs_thin[i] - old_hs_thin;
-        }
-        del_vi = M_thick[i] - old_vol + del_h_thin;
-        del_vs_mlt = std::min(0., M_snow_thick[i] - old_snow_vol + del_hs_thin);
-
         // Rain falling on ice falls straight through. We need to calculate the
         // bulk freshwater input into the entire cell, i.e. everything in the
         // open-water part plus rain in the ice-covered part.
-        rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
-        emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
+        // rain Liquid precipitation
+        // emp  Evaporation minus liquid precipitation
+        double rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
+        double emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
@@ -5770,8 +5789,29 @@ FiniteElement::thermo(int dt)
         D_rain[i] = rain;
 
         // Ice volume melt rate per day per element area  [m/day]
-        D_vice_melt[i] = del_vi*86400/ddt;
+        D_vice_melt[i]   = del_vi*86400/ddt;
 
+        // Thin Ice volume melt rate per day per element area  [m/day]
+        D_del_vi_thin[i]  = del_vi_thin*86400/ddt;
+
+        // Ice growth/melt rate [m/day]
+        D_del_hi[i]      = del_hi*86400/ddt;
+
+        // New thin ice growth/melt rate [m/day]
+        D_del_hi_thin[i] = del_hi_thin*86400/ddt;
+
+        // thin ice volume per surface area rate [m/day]
+        D_newice[i]      = newice_stored*86400/ddt;
+
+        // top melt  volume per surface area rate [m/day]
+        D_mlt_top[i]      = mlt_vi_top*86400/ddt;
+        
+        // top melt  volume per surface area rate [m/day]
+        D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
+
+        // ice from snow volume per surface area rate [m/day]
+        D_snow2ice[i]     = snow2ice*86400/ddt;
+        
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -5990,11 +6030,8 @@ FiniteElement::freezingPoint(const double sss)
         case setup::FreezingPointType::LINEAR:
             return_value = -physical::mu*sss;
 
-        case setup::FreezingPointType::NON_LINEAR:
-            double zs  = std::sqrt(sss/35.16504);         // square root salinity
-            double ptf = ((((1.46873e-03*zs-9.64972e-03)*zs+2.28348e-02)*zs
-                        - 3.12775e-02)*zs+2.07679e-02)*zs-5.87701e-02;
-            return_value = ptf*sss;
+        case setup::FreezingPointType::UNESCO:
+            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
     }
 
     return return_value;
@@ -6070,7 +6107,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 inline void
 FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi,
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, 
         double &Tsurf, double &T1, double &T2)
 {
     // Useful volumetric quantities
@@ -6173,11 +6210,14 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             h1 = 0.;
             hs = 0.;
         }
+        // We consider sublimation as part of the top melt
+        mlt_hi_top = std::max(0.,h1+h2-hi_old); 
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
+        del_hs_mlt = 0; // Record snow melt
         if ( Mbot <= 0. )
         {
             // Growth
@@ -6189,32 +6229,32 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             // Melt
             double delh2 = -std::min(          -  Mbot*dt/E2,                        h2); // (31) - with added division with rhoi
             double delh1 = -std::min(std::max( -( Mbot*dt + E2*h2 )/E1,         0.), h1); // (32) - with added division with rhoi
-            double delhs = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
+            del_hs_mlt   = -std::min(std::max(  ( Mbot*dt + E2*h2 + E1*h1 )/qs, 0.), hs); // (32) - with added division with rhoi and rhos
 
             // If everyting melts we need to give back to the ocean
-            if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+            if ( h2+h1+hs -delh2-delh1-del_hs_mlt <= 0. )
                 Qio -= std::max(Mbot*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (34) - with added multiplication of rhoi and rhos and division with dt
 
-            hs += delhs;
+            hs += del_hs_mlt;
             h1 += delh1;
             h2 += delh2;
+            mlt_hi_bot +=delh1+delh2;
         }
 
         // Melting at the surface
         assert(Msurf >= 0); // Sanity check
-        double delhs = -std::min(             Msurf*dt/qs,                          hs); // (27) - with division of rhos
+        del_hs_mlt  -=  std::min(             Msurf*dt/qs,                          hs); // (27) - with division of rhos
         double delh1 = -std::min(std::max( -( Msurf*dt - qs*hs )/E1,           0.), h1); // (28) - with division of rhoi and rhos
         double delh2 = -std::min(std::max( -( Msurf*dt - qs*hs + E1*h1 ) / E2, 0.), h2); // (29) - with division of rhoi and rhos
 
         // If everyting melts we need to give back to the ocean
-        if ( h2+h1+hs -delh2-delh1-delhs <= 0. )
+        if ( h2+h1+hs -delh2-delh1-del_hs_mlt <= 0. )
             Qio -= std::max(Msurf*dt - qs*hs + E1*h1 + E2*h2, 0.)/dt; // (30) - with multiplication of rhoi and rhos and division with dt
 
-        hs += delhs;
+        hs += del_hs_mlt;
         h1 += delh1;
         h2 += delh2;
-        hi  = h1 + h2;
-
+        mlt_hi_top +=delh1+delh2;
         // Snow-to-ice conversion
         double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
         if ( M_flooding && freeboard < 0)
@@ -6229,7 +6269,10 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
             h1 += delh1;
+            del_hi_s2i +=delh1;
         }
+        // All processes done, getting back to hi
+        hi  = h1 + h2;
 
         // Even out the layer structure and temperatures
         if ( h2 > h1 )
@@ -6252,6 +6295,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
                 // hi -= h2*C*(T2-Tfr_ice) / ( E1 + Ebot );
                 // But h2 hasn't been updated, E1 may have changed and Ebot is not in this scope
                 // so we just write it out:
+                mlt_hi_top -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
+                mlt_hi_bot -=hi/4*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 hi -= hi/2*Crho*(T2-Tfr_ice)*T1/( qi*T1 + (Crho*T1-qi)*(Tfr_ice-T1) );
                 T2  = Tfr_ice;
             }
@@ -6265,6 +6310,13 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         {
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
+            del_hi_s2i =0. ;
+            
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
@@ -6282,7 +6334,8 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 inline void
 FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &Tsurf)
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
+        double &Tsurf)
 {
     // Constants
     double const qi = physical::Lf * physical::rhoi;
@@ -6304,7 +6357,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         hs     = vols/conc;
 
         /* Local variables */
-        double Qic, del_hs, del_ht, del_hb, draft;
+        double Qic, del_hb, del_ht, draft;
 
         // -------------------------------------------------
         /* Calculate Tsurf */
@@ -6325,11 +6378,12 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs = std::min(Qia-Qic,0.)*dt/qs - subl*dt/physical::rhos;
+        del_hs_mlt = std::min(Qia-Qic,0.)*dt/qs;
+        hs += del_hs_mlt - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
-        del_ht = std::min(hs+del_hs,0.)*qs/qi;
+        del_ht = std::min(hs, 0.)*qs/qi;
         /* Can't have negative hs! */
-        hs = std::max(0., hs + del_hs);
+        hs = std::max(0., hs);
         // snowfall in kg/m^2/s
         hs  += snowfall/physical::rhos*dt;
 
@@ -6339,11 +6393,16 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Combine top and bottom */
         del_hi = del_ht+del_hb;
         hi     = hi + del_hi;
+        /* Track top and bottom */
+        mlt_hi_top=std::min(del_ht,0.);
+        mlt_hi_bot=std::min(del_hb,0.);
 
         /* Snow-to-ice conversion */
         draft = ( hi*physical::rhoi + hs*physical::rhos ) / physical::rhow;
         if ( M_flooding && draft > hi )
         {
+            /* Keep track of ice formed by snow conversion */
+            del_hi_s2i += draft-hi;
             /* Subtract the mass of snow converted to ice from hs_new */
             hs = hs - ( draft - hi )*physical::rhoi/physical::rhos;
             hi = draft;
@@ -6352,6 +6411,15 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Make sure we don't get too small hi_new */
         if ( hi < physical::hmin )
         {
+            if (del_hi < 0.)
+            {   
+                mlt_hi_top*=-hi_old/del_hi;
+                mlt_hi_bot*=-hi_old/del_hi;
+            }
+
+            del_hi_s2i =0. ;
+
+
             del_hi  = -hi_old; //del_hi-hi;
             Qio     = Qio + hi*qi/dt + hs*qs/dt;
 
@@ -6636,8 +6704,22 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qnosun);
     D_Qsw_ocean = ModelVariable(ModelVariable::variableID::D_Qsw_ocean);//! \param D_Qsw_ocean (double) SW flux out of the ocean [W/m2]
     M_variables_elt.push_back(&D_Qsw_ocean);
-    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m]
+    D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m/day]
     M_variables_elt.push_back(&D_vice_melt);
+    D_del_vi_thin = ModelVariable(ModelVariable::variableID::D_del_vi_thin);//! \param D_del_vi_thin (double) Thin Ice volume formed/melted per element area [m/day]
+    M_variables_elt.push_back(&D_del_vi_thin);
+    D_newice = ModelVariable(ModelVariable::variableID::D_newice);//! \param D_newice (double) Ice volume formed in open water  per element area [m/day]
+    M_variables_elt.push_back(&D_newice);
+    D_mlt_top = ModelVariable(ModelVariable::variableID::D_mlt_top);//! \param D_mlt_top (double) Ice volume melted at top  per element area [m/day]
+    M_variables_elt.push_back(&D_mlt_top);
+    D_mlt_bot = ModelVariable(ModelVariable::variableID::D_mlt_bot);//! \param D_mlt_bot (double) Ice volume melted at bottom  per element area [m/day]
+    M_variables_elt.push_back(&D_mlt_bot);
+    D_snow2ice = ModelVariable(ModelVariable::variableID::D_snow2ice);//! \param D_snow2ice (double) Ice volume formed in from snow flooding per element area [m/day]
+    M_variables_elt.push_back(&D_snow2ice);
+    D_del_hi_thin = ModelVariable(ModelVariable::variableID::D_del_hi_thin);//! \param D_del_hi_thin (double) Thin growth/melt rate [m/day]
+    M_variables_elt.push_back(&D_del_hi_thin);
+    D_del_hi = ModelVariable(ModelVariable::variableID::D_del_hi);//! \param D_del_hi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_hi);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -7970,9 +8052,37 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
+            case (GridOutput::variableID::del_vi_thin):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_thin[i]*time_factor;
+                break;
             case (GridOutput::variableID::vice_melt):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_vice_melt[i]*time_factor;
+                break;
+            case (GridOutput::variableID::del_hi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_hi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::del_hi_thin):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_hi_thin[i]*time_factor;
+                break;
+            case (GridOutput::variableID::newice):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_newice[i]*time_factor;
+                break;
+            case (GridOutput::variableID::snow2ice):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_snow2ice[i]*time_factor;
+                break;
+            case (GridOutput::variableID::mlt_top):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_mlt_top[i]*time_factor;
+                break;
+            case (GridOutput::variableID::mlt_bot):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_mlt_bot[i]*time_factor;
                 break;
             case (GridOutput::variableID::wspeed):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8055,24 +8165,25 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taumod):
                 for (int i=0; i<M_num_nodes; i++)
                 {
-                    double tau_i, wind2;
+                    double tau_i;
+                    double wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
 
                     // Select between taux, tauy, and taumod
                     switch (it->varID)
                     {
                         case (GridOutput::variableID::taux):
                         tau_i = D_tau_w[i];
-                        wind2 = M_wind[i] * std::abs(M_wind[i]);
+                        wind2 *= M_wind[i];
                         break;
 
                         case (GridOutput::variableID::tauy):
                         tau_i = D_tau_w[i+M_num_nodes];
-                        wind2 = M_wind[i+M_num_nodes] * std::abs(M_wind[i+M_num_nodes]);
+                        wind2 *= M_wind[i+M_num_nodes];
                         break;
 
                         case (GridOutput::variableID::taumod):
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
-                        wind2 = M_wind[i]*M_wind[i] + M_wind[i+M_num_nodes]*M_wind[i+M_num_nodes];
+                        wind2 *= wind2;
                     }
 
                     // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
@@ -8160,6 +8271,13 @@ FiniteElement::initMoorings()
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
+            ("del_vi_thin", GridOutput::variableID::del_vi_thin)
+            ("del_hi", GridOutput::variableID::del_hi)
+            ("del_hi_thin", GridOutput::variableID::del_hi_thin)
+            ("newice", GridOutput::variableID::newice)
+            ("mlt_bot", GridOutput::variableID::mlt_bot)
+            ("mlt_top", GridOutput::variableID::mlt_top)
+            ("snow2ice", GridOutput::variableID::snow2ice)
             ("fwflux", GridOutput::variableID::fwflux)
             ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
@@ -9403,7 +9521,7 @@ FiniteElement::explicitSolve()
         node_mass[i] *= rlmass_matrix[i];
         rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
 
-        // For the mEVP
+        // For the mEVP and drag
         M_VTM[u_indx] = M_VT[u_indx];
         M_VTM[v_indx] = M_VT[v_indx];
     }
@@ -9502,15 +9620,15 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            c_prime[i] = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
-            double const alpha  = 1. + dte_over_mass*( c_prime[i]*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime[i]*sin_ocean_turning_angle;
+            double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
+            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime[i]*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime[i]*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
+            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
@@ -9591,9 +9709,12 @@ FiniteElement::explicitSolve()
         int const u_indx = i;
         int const v_indx = i+M_num_nodes;
 
-        // Save ice-ocean drag
-        D_tau_w[u_indx] = c_prime[i]*( M_VT[u_indx] - M_ocean[u_indx] );
-        D_tau_w[v_indx] = c_prime[i]*( M_VT[v_indx] - M_ocean[v_indx] );
+        // Save ice-ocean drag based on the mean ice speed
+        double const uice = 0.5*(M_VT[u_indx] + M_VTM[u_indx]);
+        double const vice = 0.5*(M_VT[v_indx] + M_VTM[v_indx]);
+        double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+        D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
+        D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
 
         // Skip ice and boundary nodes
         if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
@@ -9872,6 +9993,22 @@ FiniteElement::forcingAtmosphere()
             M_snowfr=ExternalData(vm["ideal_simul.constant_snowfr"].as<double>());
             M_precip=ExternalData(vm["ideal_simul.constant_precip"].as<double>());
             M_dair=ExternalData(vm["ideal_simul.constant_dair"].as<double>());
+        break;
+
+        case setup::AtmosphereType::GENERIC_PS:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, air_temperature_correction);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
         case setup::AtmosphereType::ASR:
