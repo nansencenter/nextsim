@@ -492,8 +492,6 @@ FiniteElement::initVariables()
 
     //nodal var's
     M_VT.resize(2*M_num_nodes); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
-    M_VTM.resize(2*M_num_nodes); //! \param M_VTM (double) Instantaneous velocity vector at the nth t-step [m/s]
-    M_VTMM.resize(2*M_num_nodes); //! \param M_VTMM (double) Instantaneous velocity vector at the (n-1)th t-step [m/s]
     M_UM.resize(2*M_num_nodes); //! \param M_UM (double) Total mesh displacement [m]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
@@ -3094,7 +3092,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
-    M_nb_var_node = 10;
+    M_nb_var_node = 6;
     std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
 
     chrono.restart();
@@ -3103,25 +3101,28 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     for (int i=0; i<M_prv_local_ndof; ++i)
     {
+        int tmp_nb_var = 0;
+
         // VT
         interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        interp_node_in_local[M_nb_var_node*i+1] = M_VT[i+M_prv_num_nodes];
-
-        // VTM
-        interp_node_in_local[M_nb_var_node*i+2] = M_VTM[i];
-        interp_node_in_local[M_nb_var_node*i+3] = M_VTM[i+M_prv_num_nodes];
-
-        // VTMM
-        interp_node_in_local[M_nb_var_node*i+4] = M_VTMM[i];
-        interp_node_in_local[M_nb_var_node*i+5] = M_VTMM[i+M_prv_num_nodes];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+6] = M_UM[i];
-        interp_node_in_local[M_nb_var_node*i+7] = M_UM[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
+        tmp_nb_var++;
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+8] = M_UT[i];
-        interp_node_in_local[M_nb_var_node*i+9] = M_UT[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
+        tmp_nb_var++;
+
+        if ( tmp_nb_var != M_nb_var_node )
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
     }
 
     std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
@@ -3198,28 +3199,17 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
 
     M_VT.resize(2*M_num_nodes);
-    M_VTM.resize(2*M_num_nodes);
-    M_VTMM.resize(2*M_num_nodes);
     M_UM.resize(2*M_num_nodes);
     M_UT.resize(2*M_num_nodes);
 
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.);
 
-
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
         M_VT[i] = out_nd_values[M_nb_var_node*i];
         M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
-
-        // VTM
-        M_VTM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_VTM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
-
-        // VTMM
-        M_VTMM[i] = out_nd_values[M_nb_var_node*i+4];
-        M_VTMM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
 
         // UM
         M_UM[i] = out_nd_values[M_nb_var_node*i+6];
@@ -8660,8 +8650,6 @@ FiniteElement::writeRestart(std::string const& name_str)
     this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
 
     std::vector<double> M_VT_root;
-    std::vector<double> M_VTM_root;
-    std::vector<double> M_VTMM_root;
     std::vector<double> M_UM_root;
     std::vector<double> M_UT_root;
 
@@ -8670,8 +8658,6 @@ FiniteElement::writeRestart(std::string const& name_str)
     if (M_rank == 0)
     {
         M_VT_root.resize(2*M_ndof);
-        M_VTM_root.resize(2*M_ndof);
-        M_VTMM_root.resize(2*M_ndof);
         M_UM_root.resize(2*M_ndof);
         M_UT_root.resize(2*M_ndof);
 
@@ -8685,22 +8671,6 @@ FiniteElement::writeRestart(std::string const& name_str)
 
             // VT_Y
             M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTM_X
-            M_VTM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTM_Y
-            M_VTM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTMM_X
-            M_VTMM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VTMM_Y
-            M_VTMM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
             tmp_nb_var++;
 
             // UM_X
@@ -8802,8 +8772,6 @@ FiniteElement::writeRestart(std::string const& name_str)
         }
 
         exporter.writeField(outbin, M_VT_root, "M_VT");
-        exporter.writeField(outbin, M_VTM_root, "M_VTM");
-        exporter.writeField(outbin, M_VTMM_root, "M_VTMM");
         exporter.writeField(outbin, M_UM_root, "M_UM");
         exporter.writeField(outbin, M_UT_root, "M_UT");
 
@@ -9036,8 +9004,6 @@ FiniteElement::readRestart(std::string const& name_str)
 
         // Pre-processing
         M_VT   = field_map_dbl["M_VT"];
-        M_VTM  = field_map_dbl["M_VTM"];
-        M_VTMM = field_map_dbl["M_VTMM"];
         M_UM   = field_map_dbl["M_UM"];
         M_UT   = field_map_dbl["M_UT"];
         if(vm["restart.restart_at_rest"].as<bool>())
@@ -9051,8 +9017,6 @@ FiniteElement::readRestart(std::string const& name_str)
             for (int i=0; i < M_VT.size(); i++)
             {
                 M_VT[i]   = 0.;
-                M_VTM[i]  = 0.;
-                M_VTMM[i] = 0.;
                 M_UM[i]   = 0.;
             }
         }
@@ -9229,7 +9193,7 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
     // * output: interp_nd_out is vector containing all the variables
     //   on the nodes to be scattered from root during readRestart
 
-    M_nb_var_node = 10;
+    M_nb_var_node = 6;
     if (M_rank == 0)
     {
         int num_nodes_root = M_mesh_root.numNodes();
@@ -9246,20 +9210,6 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
             tmp_nb_var++;
 
             interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTM[i+num_nodes_root];
-            tmp_nb_var++;
-
-            // VTMM
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i];
-            tmp_nb_var++;
-
-            interp_nd_out[M_nb_var_node*i+tmp_nb_var] = M_VTMM[i+num_nodes_root];
             tmp_nb_var++;
 
             // UM
@@ -9290,9 +9240,6 @@ FiniteElement::collectNodesRestart(std::vector<double>& interp_nd_out)
 void
 FiniteElement::updateFreeDriftVelocity()
 {
-    M_VTMM = M_VTM;
-    M_VTM  = M_VT;
-
     int index_u, index_v;
     double norm_Voce_ice, coef_Voce, norm_Vair_ice, coef_Vair;
 
@@ -9489,6 +9436,7 @@ FiniteElement::explicitSolve()
     std::vector<double> fcor(M_num_nodes);
     std::vector<double> ssh(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
+    std::vector<double> VTM(2*M_num_nodes);
     for ( int i=0; i<M_num_nodes; ++i )
     {
         const int u_indx = i;
@@ -9522,8 +9470,8 @@ FiniteElement::explicitSolve()
         rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
 
         // For the mEVP and drag
-        M_VTM[u_indx] = M_VT[u_indx];
-        M_VTM[v_indx] = M_VT[v_indx];
+        VTM[u_indx] = M_VT[u_indx];
+        VTM[v_indx] = M_VT[v_indx];
     }
 
     M_timer.tock("prep nodes");
@@ -9605,8 +9553,8 @@ FiniteElement::explicitSolve()
             if ( M_dynamics_type == setup::DynamicsType::mEVP )
             {
                 double const b_mevp = beta_mevp + 1.;
-                delu = (M_VTM[u_indx]-M_VT[u_indx])/b_mevp;
-                delv = (M_VTM[v_indx]-M_VT[v_indx])/b_mevp;
+                delu = (VTM[u_indx]-M_VT[u_indx])/b_mevp;
+                delv = (VTM[v_indx]-M_VT[v_indx])/b_mevp;
                 dtep = dte/b_mevp;
             } else {
                 delu = 0.;
@@ -9710,8 +9658,8 @@ FiniteElement::explicitSolve()
         int const v_indx = i+M_num_nodes;
 
         // Save ice-ocean drag based on the mean ice speed
-        double const uice = 0.5*(M_VT[u_indx] + M_VTM[u_indx]);
-        double const vice = 0.5*(M_VT[v_indx] + M_VTM[v_indx]);
+        double const uice = 0.5*(M_VT[u_indx] + VTM[u_indx]);
+        double const vice = 0.5*(M_VT[v_indx] + VTM[v_indx]);
         double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
         D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
         D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
@@ -10635,8 +10583,6 @@ FiniteElement::initIce()
     // init velocities, displacements to 0.
     std::vector<std::vector<double>*> vecs_to_zero;
     vecs_to_zero.push_back(&M_VT);
-    vecs_to_zero.push_back(&M_VTM);
-    vecs_to_zero.push_back(&M_VTMM);
     vecs_to_zero.push_back(&M_UT);
     vecs_to_zero.push_back(&M_UM);
     for (auto ptr: vecs_to_zero)
