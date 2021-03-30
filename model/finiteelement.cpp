@@ -6055,26 +6055,20 @@ FiniteElement::thermo(int dt)
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
-                if (del_c < 0.)
+                if (del_hi < 0.)
                 {    
                     double conc_loss_ratio  = 1.;  
                     double thick_loss_ratio = 1.;
-                    double ctot = M_conc[i]   ;
-                    double vtot = M_thick[i]  ;
-                    if (  M_ice_cat_type==setup::IceCategoryType::THIN_ICE  && use_thin_ice_in_myi_reset == true)
-                    { 
-                        ctot+=M_conc_thin[i] ;
-                        vtot+=M_h_thin[i];
-                    }
+                    // We ignore the thin ice
                     if (melt_myi_and_fyi)
                     {    
-                        conc_loss_ratio  = std::abs( (ctot-old_conc-old_conc_thin)/(old_conc+old_conc_thin)); // Here i need a scaling factor to multiply the ice by
-                        thick_loss_ratio = std::abs( (vtot-old_h_thin-old_vol)    /(old_vol+old_h_thin)    ); // could use already defined del_vi
+                        conc_loss_ratio  = std::max(0., M_conc[i]/old_conc); // Here i need a scaling factor to multiply the ice by
+                        thick_loss_ratio = std::max(0., M_thick[i]/old_vol); // could use already defined del_vi
                     }
-                        //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
-                    M_conc_myi[i]  = std::max(0.,std::min(ctot,M_conc_myi[i]  *conc_loss_ratio));                  
+                    //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
+                    M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
-                    M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]*thick_loss_ratio)); //
+                    M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
                 }
             }
         }
