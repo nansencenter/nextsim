@@ -17,7 +17,7 @@
 # and add /usr/lib64/mpi/gcc/openmpi/bin to $PATH.
 
 LD_PATH = -L/opt/netcdf/lib -L/opt/hdf5/1.8.15/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial -L../gridutils-c
-LD_PATH += -L/cluster/software/LAPACK/3.8.0-foss-2018b/lib -L/cluster/software/OpenBLAS/0.2.20-GCC-6.4.0-2.28/lib
+LD_PATH += -L/cluster/software/LAPACK/3.8.0-foss-2018b/lib -L/cluster/software/OpenBLAS/0.3.1-GCC-7.3.0-2.30/lib
 
 LIB_NC = -lnetcdf -lhdf5 -lhdf5_hl
 #LIB_LAPACK = -llapack -lblas -lgfortran

@@ -53,6 +53,7 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     int*** sic = NULL;
     double* time = NULL;
     int year, month, day;
+    char* filename;
     char tunits[MAXSTRLEN];
     size_t tunits_len;
     double tunits_multiple, tunits_offset;
@@ -72,7 +73,8 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     ncw_inq_dimlen(ncid, y_dimid, &ylen);
     ncw_inq_dimlen(ncid, t_dimid, &tlen);
     nobslen = xlen * ylen;
-    enkf_printf("        x = %u\n y = %u\n t = %u\n nobs = %u\n", xlen, ylen, tlen, nobslen);
+    enkf_printf(" reader_cs2smos.c:\n");
+    printf(" x = %lu\n y = %lu\n t = %lu\n nobs = %lu\n", xlen, ylen, tlen, nobslen);
     ncw_inq_varid(ncid, "lat", &varid_lat);
     lat = alloc2d(ylen, xlen, sizeof(float));  // use 2d array. sit[i*j+j]] in standard2 is a bug to be fixed 
     ncw_get_var_float(ncid, varid_lat, lat[0]);
@@ -127,8 +129,8 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
     // load coast data from 'reference_grid_coast.nc
-    fname='reference_grid_coast.nc';
-    ncw_open(fname, NC_NOWRITE, &ncid);
+    filename="reference_grid_coast.nc";
+    ncw_open(filename, NC_NOWRITE, &ncid);
     // longitude
     ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "lon")) ? "lon" : "length", &lon_dimid);
     ncw_inq_dimlen(ncid, lon_dimid, &lonlen);

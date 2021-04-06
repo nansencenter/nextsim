@@ -1185,7 +1185,6 @@ static void das_assemblespread(dasystem* das)
                 getfieldfname(das->mode == MODE_ENKF ? das->ensdir : das->bgdir, "spread", varname, k, fname_src);
             else
                 getfieldfname(das->mode == MODE_ENKF ? das->ensdir : das->bgdir, "spread", varname, grid_getsurflayerid(model_getvargrid(m, i)), fname_src);
-            printf('line 1188  %s',fname_src);
             ncw_open(fname_src, NC_NOWRITE, &ncid_src);
 
             ncw_inq_varid(ncid_src, varname, &vid);
@@ -1200,7 +1199,6 @@ static void das_assemblespread(dasystem* das)
                     getfieldfname(das->ensdir, "spread", varname_an, k, fname_src);
                 else
                     getfieldfname(das->ensdir, "spread", varname_an, grid_getsurflayerid(model_getvargrid(m, i)), fname_src);
-                printf('line 1202  %s',fname_src);
                 ncw_open(fname_src, NC_NOWRITE, &ncid_src);
                 ncw_inq_varid(ncid_src, varname_an, &vid);
                 ncw_get_var_float(ncid_src, vid, v);
