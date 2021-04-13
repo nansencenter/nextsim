@@ -1301,6 +1301,7 @@ FiniteElement::initOptAndParam()
         ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
         ("creg", setup::IceType::CREG)
+        ("cice", setup::IceType::CICE)
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
@@ -10528,6 +10529,9 @@ FiniteElement::initIce()
         case setup::IceType::CREG:
             this->cregIce();
             break;
+        case setup::IceType::CICE:
+            this->ciceIce();
+            break;
         case setup::IceType::AMSRE:
             this->topazAmsreIce();
             break;
@@ -11875,7 +11879,6 @@ FiniteElement::piomasIce()
     }
 }//piomasIce
 
-
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CREG outputs.
 //! Called by the initIce() function.
@@ -11926,6 +11929,57 @@ FiniteElement::cregIce()
         M_damage[i]=0.;
     }
 }//cregIce
+
+// -----------------------------------------------------------------------------------------------------------
+//! Initializes the ice state from HYCOM-CICE outputs.
+//! Called by the initIce() function.
+void
+FiniteElement::ciceIce()
+{
+    Dataset cice = DataSet("ice_cice_elements");
+    external_data init_conc=ExternalData(&cice,M_mesh,0,false,time_init);
+    external_data init_thick=ExternalData(&cice,M_mesh,1,false,time_init);
+    external_data init_snow_thick=ExternalData(&cice,M_mesh,2,false,time_init);
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - CICE ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+    // Surface temperature over which we consider there is no ice when init.
+    // There is only ice if sst <= t_freez + sst_limit (tunable)
+    double const SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
+    // In nemo code default value is 2, just like in neXtSIM.
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1.,init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = init_snow_thick[i];
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if (M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
+        {
+            M_thick[i]=0.;
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        M_damage[i]=0.;
+    }
+}//ciceIce
 
 
 // -----------------------------------------------------------------------------------------------------------
