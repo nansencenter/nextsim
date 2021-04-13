@@ -127,20 +127,20 @@ typedef struct {
 
 /**
  */
-static void nc_writediag(dasystem* das, char fname[], int nobstypes, int nj, int ni, int stride, int** nlobs, float** dfs, float** srf, int*** pnlobs, float*** pdfs, float*** psrf)
+static void nc_writediag(dasystem* das, char fname[], int nobstypes, int nj, int ni, int stride, int** nlobs, float** dfs, float** srf, int*** pnlobs, float*** pdfs, float*** psrf, float** lon, float** lat)
 {
     int ncid;
     int dimids[3];
-    int varid_nlobs, varid_dfs, varid_srf, varid_pnlobs, varid_pdfs, varid_psrf;
-    // enkf_printf(" line 135  %d\n", rank);
+    int varid_nlobs, varid_dfs, varid_srf, varid_pnlobs, varid_pdfs, varid_psrf, varid_lon, varid_lat;
     assert(rank == 0);
-    // enkf_printf(" line 137  %d\n", rank);
     enkf_printf("    writing stats to \"%s\":\n", fname);
     ncw_create(fname, NC_CLOBBER | das->ncformat, &ncid);
     ncw_def_dim(ncid, "nobstypes", nobstypes, &dimids[0]);
     ncw_def_dim(ncid, "nj", nj, &dimids[1]);
     ncw_def_dim(ncid, "ni", ni, &dimids[2]);
     ncw_put_att_int(ncid, NC_GLOBAL, "stride", 1, &stride);
+    ncw_def_var(ncid, "lon", NC_FLOAT, 2, &dimids[1], &varid_lon);
+    ncw_def_var(ncid, "lat", NC_FLOAT, 2, &dimids[1], &varid_lat);
     ncw_def_var(ncid, "nlobs", NC_INT, 2, &dimids[1], &varid_nlobs);
     ncw_def_var(ncid, "dfs", NC_FLOAT, 2, &dimids[1], &varid_dfs);
     ncw_def_var(ncid, "srf", NC_FLOAT, 2, &dimids[1], &varid_srf);
@@ -151,6 +151,8 @@ static void nc_writediag(dasystem* das, char fname[], int nobstypes, int nj, int
         ncw_def_deflate(ncid, 0, 1, das->nccompression);
     ncw_enddef(ncid);
 
+    ncw_put_var_float(ncid, varid_lon, lon[0]);
+    ncw_put_var_float(ncid, varid_lat, lat[0]);
     ncw_put_var_int(ncid, varid_nlobs, nlobs[0]);
     ncw_put_var_float(ncid, varid_dfs, dfs[0]);
     ncw_put_var_float(ncid, varid_srf, srf[0]);
@@ -273,10 +275,12 @@ void das_calctransforms(dasystem* das)
         float*** pdfs = NULL;
         float** srf = NULL;
         float*** psrf = NULL;
-
+        float** lon = NULL;
+        float** lat = NULL;
+        double ll[2];   // temporary variable for converting double to float for lon, lat
         int* jpool = NULL;
         int i, j, ii, jj, ot, jjj;
-
+        
         /*
          * skip this grid if there are no model variables associated with it
          */
@@ -322,6 +326,8 @@ void das_calctransforms(dasystem* das)
         distribute_iterations(0, nj - 1, nprocesses, rank, "      ");
 
         if (rank == 0) {
+            lon = alloc2d(nj, ni, sizeof(float));
+            lat = alloc2d(nj, ni, sizeof(float));
             nlobs = alloc2d(nj, ni, sizeof(int));
             dfs = alloc2d(nj, ni, sizeof(float));
             srf = alloc2d(nj, ni, sizeof(float));
@@ -329,6 +335,8 @@ void das_calctransforms(dasystem* das)
             pdfs = alloc3d(obs->nobstypes, nj, ni, sizeof(float));
             psrf = alloc3d(obs->nobstypes, nj, ni, sizeof(float));
         } else if (my_number_of_iterations > 0) {
+            lon = alloc2d(my_number_of_iterations, ni, sizeof(float));
+            lat = alloc2d(my_number_of_iterations, ni, sizeof(float));
             nlobs = alloc2d(my_number_of_iterations, ni, sizeof(int));
             dfs = alloc2d(my_number_of_iterations, ni, sizeof(float));
             srf = alloc2d(my_number_of_iterations, ni, sizeof(float));
@@ -347,6 +355,7 @@ void das_calctransforms(dasystem* das)
         MPI_Barrier(MPI_COMM_WORLD);
 #endif
         jpool = malloc(nj * sizeof(int));
+
         if (rank == 0) {
             for (j = 0; j < nj; ++j)
                 jpool[j] = j;
@@ -408,6 +417,10 @@ void das_calctransforms(dasystem* das)
 #else
                 obs_findlocal(obs, m, grid, i, j, &ploc, &lobs, &lcoeffs);
 #endif
+
+                grid_ij2xy(grid, i, j, &ll[0], &ll[1]); // grid indices are changed in grid from the order in reference_grid.nc, although the dimension size is the same.
+                lon[jjj][ii] = (float) ll[0];
+                lat[jjj][ii] = (float) ll[1];
                 assert(ploc >= 0 && ploc <= obs->nobs);
 
                 if (ploc > stats.nlobs_max)
@@ -624,13 +637,11 @@ void das_calctransforms(dasystem* das)
 
         enkf_flush();
 
-        // enkf_printf(" line 627\n");
 #if defined(MPI)
         /*
          * collect stats on master 
          */
         if (rank > 0) {
-            // enkf_printf(" line 633\n");
             if (my_number_of_iterations > 0) {
                 int ierror;
 
@@ -655,7 +666,6 @@ void das_calctransforms(dasystem* das)
             float*** buffer_pdfs;       /* also used for psrf */
             int r;
 
-        // enkf_printf(" line 658\n");
             for (r = 1; r < nprocesses; ++r) {
                 if (number_of_iterations[r] == 0)
                     continue;
@@ -718,15 +728,12 @@ void das_calctransforms(dasystem* das)
             }
         }                       /* rank == 0 */
 #endif                          /* MPI */
-        // enkf_printf(" line 721 %d\n", rank);
+
         if (rank == 0) {
             char fname_stats[MAXSTRLEN];
-            // enkf_printf(" line 724\n");
             das_getfname_stats(das, grid, fname_stats);
-            // enkf_printf(" line 726\n");
-            nc_writediag(das, fname_stats, obs->nobstypes, nj, ni, stride, nlobs, dfs, srf, pnlobs, pdfs, psrf);
+            nc_writediag(das, fname_stats, obs->nobstypes, nj, ni, stride, nlobs, dfs, srf, pnlobs, pdfs, psrf, lon, lat);
         }
-        // enkf_printf(" line 729\n");
         if (das->mode == MODE_ENKF) {
             free(X5j);
             free(X5);
