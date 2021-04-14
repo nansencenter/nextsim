@@ -218,14 +218,13 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    std::string getFilename(double const& init_time, double const& current_time) const;
-    std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
-    void shiftDates(double const& init_time, double const& current_time, int const& jump,
-            double& new_init_time, double& ftime) const;
+    std::string getFilename(double const& current_time) const;
+    std::string getFilename(double const& current_time, int const& jump) const;
+    void shiftDates(double const& current_time, int const& jump, double& ftime) const;
 
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time);
-
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time,
+            std::vector<double> const& RX_in, std::vector<double> const& RY_in);
 
     void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
         std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);
