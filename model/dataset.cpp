@@ -1476,7 +1476,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"EC2_AROME_ENSEMBLE",
-            filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
+            filename_mask: "ec2_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1490,7 +1490,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_atm_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -1612,7 +1612,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
 
             dirname:"EC2_AROME_ENSEMBLE",
-            filename_mask: "ec2_arome_blended_ensemble_${INITTIME}.nc",
+            filename_mask: "ec2_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1626,7 +1626,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_atm_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -4340,7 +4340,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b${INITTIME}-fv02.0.nc",
+            filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4354,7 +4354,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_ocn_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -4596,7 +4596,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b${INITTIME}-fv02.0.nc",
+            filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4610,7 +4610,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: false,
 
             loaded: false,
-            dataset_frequency:"daily_ocn_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -8701,7 +8701,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ec2_start${INITTIME}.nc",
+            filename_mask: "ecmwf_forecast_%Y%m%d.nc",
             gridfile: "",
             reference_date:"1950-01-01",//"2008-01-01";
 
@@ -8715,7 +8715,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: true,
 
             loaded: false,
-            dataset_frequency:"daily_atm_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -8967,7 +8967,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ec2_start${INITTIME}.nc",
+            filename_mask: "ecmwf_forecast_%Y%m%d.nc",
             gridfile: "",
             reference_date:"1950-01-01",
 
@@ -8982,7 +8982,7 @@ DataSet::DataSet(char const *DatasetName)
 
             loaded: false,
 
-            dataset_frequency:"daily_atm_forecast",
+            dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
 
@@ -9647,14 +9647,12 @@ DataSet::DataSet(char const *DatasetName)
 }
 
 std::string
-DataSet::getFilename(double const& init_time, double const& current_time) const
+DataSet::getFilename(double const& current_time) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
 
     std::string fmask = grid.filename_mask;
-    boost::replace_all(fmask, "${INITTIME}",
-            datenumToString(init_time, "%Y%m%d"));
     boost::replace_all(fmask, "${VARSTRING}", variables[0].filename_string);
     
     std::string const filename = (boost::format( "%1%/%2%/%3%" )
@@ -9667,35 +9665,22 @@ DataSet::getFilename(double const& init_time, double const& current_time) const
 
 
 std::string
-DataSet::getFilename(double const& init_time0, double const& current_time,
+DataSet::getFilename(double const& current_time,
         int const& jump) const
 {
     if ( current_time < 0 )
         throw std::runtime_error("getFilename: current time < 0");
 
-    double init_time, ftime;
-    this->shiftDates(init_time0, current_time, jump, init_time, ftime);
-    return this->getFilename(init_time, ftime);
+    double ftime;
+    this->shiftDates(current_time, jump, ftime);
+    return this->getFilename(ftime);
 }//getFilename
 
 
 void
-DataSet::shiftDates(double const& init_time, double const& current_time,
-        int const& jump, double& new_init_time, double& ftime) const
+DataSet::shiftDates(double const& current_time, int const& jump, double& ftime) const
 {
     ftime = current_time + jump;//daily files
-    new_init_time = init_time;
-
-    if(grid.dataset_frequency == "daily_atm_forecast"
-        || grid.dataset_frequency == "daily_ocn_forecast")
-    {
-        //forecast files depend on start date of forecast
-        //but can't have init time after current time
-        //eg in case of jump=-1
-        if(ftime<init_time)
-            new_init_time = std::floor(ftime);
-        return;
-    }
 
     // can just quit now for these dataset_frequency options
     std::vector<std::string> namelist = {
@@ -9796,18 +9781,18 @@ DataSet::getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, st
 }//getNcVarData
 
 void
-DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time)
+DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time)
 {
     // Empty RXY vector is needed for the coupling so that all the domain is considered.
     /* TODO: Check if we really need to do this, or if the coupling can be made
      * more efficient by only considering a sub-domain */
     std::vector<double> RXY(0);
-    loadGrid(mapNextsim, grid_ptr, init_time, current_time, RXY, RXY);
+    loadGrid(mapNextsim, grid_ptr, current_time, RXY, RXY);
 
 }//loadGrid
 
 void
-DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in)
+DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in)
 {
     /* We make the loaded domain a bit larger to avoid problems.
      * This is now done by adding a "halo" of one grid cell around the grid
@@ -9826,7 +9811,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
                 % grid_ptr->gridfile
                 ).str();
     else
-        filename = this->getFilename(init_time, init_time);
+        filename = this->getFilename(current_time);
 
     LOG(DEBUG)<<"GRID : FILENAME = "<< filename <<"\n";
 
@@ -10072,7 +10057,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             netCDF::NcVar VTHETA;
 
             // Open the datafile
-            std::string filename = this->getFilename(init_time, init_time);
+            std::string filename = this->getFilename(current_time);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
@@ -10128,7 +10113,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             netCDF::NcDim tmpDim;
 
             // Open the datafile
-            std::string filename = this->getFilename(init_time, init_time);
+            std::string filename = this->getFilename(current_time);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";
 
