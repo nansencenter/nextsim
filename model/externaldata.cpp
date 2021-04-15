@@ -218,7 +218,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // ---------------------------------
                 // Load grid if unloaded
                 // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
-                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_current_time); //, RX_min, RX_max, RY_min, RY_max);
 
                 // closing maps
                 close_mapx(mapNextsim);
