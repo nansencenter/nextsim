@@ -4106,7 +4106,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4115,9 +4115,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
         /* Calculate the characteristic time for damage */
         double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
-        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/young );
-        // if ( false )
-        //     td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
+        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
