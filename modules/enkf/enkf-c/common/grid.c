@@ -1074,12 +1074,12 @@ grid* grid_create(void* p, int id)
 
         ncw_inq_vardims(ncid, varid_x, 2, &dummy, dimlen);
         ncw_check_vardims(ncid, varid_y, 2, dimlen);
-        nj = dimlen[1];
-        ni = dimlen[0];
+        nj = dimlen[0];
+        ni = dimlen[1];
 
         x = alloc2d(nj, ni, sizeof(double));
         y = alloc2d(nj, ni, sizeof(double));
-
+        
         ncw_get_var_double(ncid, varid_x, x[0]);
         ncw_get_var_double(ncid, varid_y, y[0]);
 
@@ -1092,7 +1092,7 @@ grid* grid_create(void* p, int id)
      * set vertical grid
      */
     if (prm->depthvarname != NULL) {
-        size_t dimlen[2] = { ni, nj };
+        size_t dimlen[2] = { nj, ni };
 
         g->depth = alloc2d(nj, ni, sizeof(float));
         ncw_inq_varid(ncid, prm->depthvarname, &varid_depth);
@@ -1217,13 +1217,14 @@ grid* grid_create(void* p, int id)
         enkf_quit("not implemented");
 
     if (prm->levelvarname != NULL) {
-        size_t dimlen[2] = { ni, nj };
+        size_t dimlen[2] = { nj, ni };
 
         g->numlevels = alloc2d(nj, ni, sizeof(int));
         ncw_inq_varid(ncid, prm->levelvarname, &varid_numlevels);
         ncw_check_varndims(ncid, varid_numlevels, 2);
         ncw_check_vardims(ncid, varid_numlevels, 2, dimlen);
         ncw_get_var_int(ncid, varid_numlevels, g->numlevels[0]);
+
         if (g->vtype == GRIDVTYPE_SIGMA || g->vtype == GRIDVTYPE_HYBRID) {
             int* numlevels = g->numlevels[0];
             int i;
