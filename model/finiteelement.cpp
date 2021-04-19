@@ -4114,12 +4114,10 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Calculate the characteristic time for damage */
-        auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
-        double const delta_x = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
-
-        double td = delta_x/std::sqrt(young/(2.*(1.+nu0)*physical::rhoi));
-        if ( false )
-            td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
+        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
+        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/young );
+        // if ( false )
+        //     td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
