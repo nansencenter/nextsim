@@ -4168,24 +4168,15 @@ FiniteElement::updateSigmaDamage(double const dt)
         /* Calculate the adjusted level of damage */
         if (dcrit < 1)
         {
-            double tmp;
-            double tmp_factor;
-            tmp=(1.0-M_damage[cpt])*(1.0-dcrit)*dt/td + M_damage[cpt];
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            M_damage[cpt] += del_damage;
 
-            // TODO: Check if this if clause is needed (I think maybe it's always true)
-            if(tmp>M_damage[cpt])
-            {
 #ifdef OASIS
-                M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
+            M_cum_damage[cpt] += del_damage;
 #endif
-                double const old_damage = M_damage[cpt];
-                M_damage[cpt] = tmp;
 
-                // Time rate of change in damage over the time step
-                double const del_damage = M_damage[cpt] - old_damage;
-
-                this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
-            }
+            //Calculating the new state of stress
+            this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
         }
 
         /*======================================================================
