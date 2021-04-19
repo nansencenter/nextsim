@@ -4106,7 +4106,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4114,37 +4114,82 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Calculate the characteristic time for damage */
-        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
-        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
+        auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
+        double const delta_x = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
+
+        double td = delta_x/std::sqrt(young/(2.*(1.+nu0)*physical::rhoi));
+        if ( false )
+            td = std::min(td/std::sqrt(1.-M_damage[cpt]), dt);
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_n = -          (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
+        double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
 
-        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
-        double const sigma_t = -sigma_c/q;
+        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
+        double const sigma_t   = -sigma_c/q;
+        double const tract_coef = 5./6;
+        double const tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-        double dcrit = 0;
-        if ( sigma_2 > 0. )
-            dcrit = sigma_c/(sigma_1-q*sigma_2);
+        // to test for compressive failure
+        // - slope of line between origin and the intersection of the
+        // compressive failure line and the upper Coulomb branch
+        double const compr_strength = 1.28371875e+8;
+        double const slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
+        // to test for tensile failure
+        // - slope of line between origin and the intersection of the
+        // tensile failure line and the upper Coulomb branch
+        double const slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
+
+        double sigma_target;
+        double dcrit;
+
+        if( sigma_1 > 0 && sigma_2 > 0
+            && sigma_2 < slope_compr_upper*sigma_1
+            && sigma_1 < slope_compr_upper*sigma_2 )
+        {
+            // compressive failure region
+            sigma_target = compr_strength;
+            dcrit = sigma_target/sigma_n;
+        }
+        else if( sigma_1 < 0 && sigma_2 < 0
+            && sigma_2 < slope_tens_upper*sigma_1
+            && sigma_1 < slope_tens_upper*sigma_2 )
+        {
+            // tensile failure region
+            sigma_target = tract_max;
+            dcrit = sigma_target/sigma_n;
+        }
         else
-            dcrit = sigma_t/sigma_2;
+        {
+            // Mohr-Coulomb failure region
+            sigma_target = sigma_c;
+            dcrit = sigma_target/(sigma_1-q*sigma_2);
+        }
 
         /* Calculate the adjusted level of damage */
-        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
+        if (dcrit < 1)
         {
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
-            M_damage[cpt] += del_damage;
+            double tmp;
+            double tmp_factor;
+            tmp=(1.0-M_damage[cpt])*(1.0-dcrit)*dt/td + M_damage[cpt];
 
+            // TODO: Check if this if clause is needed (I think maybe it's always true)
+            if(tmp>M_damage[cpt])
+            {
 #ifdef OASIS
-            M_cum_damage[cpt] += del_damage;
+                M_cum_damage[cpt]+=tmp-M_damage[cpt] ;
 #endif
+                double const old_damage = M_damage[cpt];
+                M_damage[cpt] = tmp;
 
-            //Calculating the new state of stress
-            this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
+                // Time rate of change in damage over the time step
+                double const del_damage = M_damage[cpt] - old_damage;
+
+                this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
+            }
         }
 
         /*======================================================================
