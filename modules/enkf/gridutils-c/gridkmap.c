@@ -129,6 +129,8 @@ int gridkmap_xy2ij(gridkmap* gm, double x, double y, int* iout, int* jout)
     j1 = (j > 0) ? j - 1 : j;
     j2 = (j < gm->nce2) ? j + 1 : j;
 
+    double gx_tmp[4], x_tmp;
+    int i_tmp;
     /*
      * TODO?: looks a bit heavyweight
      */
@@ -136,13 +138,36 @@ int gridkmap_xy2ij(gridkmap* gm, double x, double y, int* iout, int* jout)
         for (i = i1; i <= i2 - 1; ++i) {
             if (!isfinite(gm->gx[j][i]) || !isfinite(gm->gx[j][i + 1]) || !isfinite(gm->gx[j + 1][i + 1]) || !isfinite(gm->gx[j + 1][i]))
                 continue;
-            poly_addpoint(p, gm->gx[j][i], gm->gy[j][i]);
-            poly_addpoint(p, gm->gx[j][i + 1], gm->gy[j][i + 1]);
-            poly_addpoint(p, gm->gx[j + 1][i + 1], gm->gy[j + 1][i + 1]);
-            poly_addpoint(p, gm->gx[j + 1][i], gm->gy[j + 1][i]);
-            poly_addpoint(p, gm->gx[j][i], gm->gy[j][i]);
+            gx_tmp[0] = gm->gx[j][i];
+            gx_tmp[1] = gm->gx[j][i+1];
+            gx_tmp[2] = gm->gx[j+1][i+1];
+            gx_tmp[3] = gm->gx[j+1][i];
+            x_tmp = x;
+            // move longitudes around -180 to 360 
+            for (i_tmp = 0; i_tmp <= 2; i_tmp++){
+                if (abs(gx_tmp[i_tmp+1] - gx_tmp[i_tmp]) > 180){
+                    if (gx_tmp[i_tmp+1] > gx_tmp[i_tmp])
+                        gx_tmp[i_tmp] += 360;
+                    else
+                        gx_tmp[i_tmp+1] += 360;
+                }
+            }
+            if (abs(gx_tmp[0] - gx_tmp[3]) > 180){
+                if (gx_tmp[0] > gx_tmp[3])
+                    gx_tmp[3] += 360;
+                else
+                    gx_tmp[0] += 360;
+            }
+            if ((gx_tmp[0] - x_tmp > 180) & (gx_tmp[0] > x_tmp))
+                    x_tmp += 360;
 
-            if (poly_containspoint(p, x, y)) {
+            poly_addpoint(p, gx_tmp[0], gm->gy[j][i]);
+            poly_addpoint(p, gx_tmp[1], gm->gy[j][i + 1]);
+            poly_addpoint(p, gx_tmp[2], gm->gy[j + 1][i + 1]);
+            poly_addpoint(p, gx_tmp[3], gm->gy[j + 1][i]);
+            poly_addpoint(p, gx_tmp[0], gm->gy[j][i]);
+
+            if (poly_containspoint(p, x_tmp, y)) {
                 success = 1;
                 *iout = i;
                 *jout = j;
