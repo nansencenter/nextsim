@@ -1080,8 +1080,20 @@ grid* grid_create(void* p, int id)
         x = alloc2d(nj, ni, sizeof(double));
         y = alloc2d(nj, ni, sizeof(double));
 
-        ncw_get_var_double(ncid, varid_x, x[0]);
-        ncw_get_var_double(ncid, varid_y, y[0]);
+        double tmp_x[ni][nj], tmp_y[ni][nj];
+        int i_tmp, j_tmp;
+
+        ncw_get_var_double(ncid, varid_x, tmp_x[0]);
+        ncw_get_var_double(ncid, varid_y, tmp_y[0]);
+        for (j_tmp = 0; j_tmp < nj; ++j_tmp) {
+            for (i_tmp = 0; i_tmp < ni; ++i_tmp) {
+                x[j_tmp][i_tmp] = tmp_x[i_tmp][j_tmp];
+                y[j_tmp][i_tmp] = tmp_y[i_tmp][j_tmp];
+            }
+        }
+        
+        // ncw_get_var_double(ncid, varid_x, x[0]);
+        // ncw_get_var_double(ncid, varid_y, y[0]);
 
         grid_sethgrid(g, GRIDHTYPE_CURVILINEAR, NT_COR, ni, nj, x, y);        
 #endif
@@ -1097,7 +1109,16 @@ grid* grid_create(void* p, int id)
         g->depth = alloc2d(nj, ni, sizeof(float));
         ncw_inq_varid(ncid, prm->depthvarname, &varid_depth);
         ncw_check_vardims(ncid, varid_depth, 2, dimlen);
-        ncw_get_var_float(ncid, varid_depth, g->depth[0]);
+        // ncw_get_var_float(ncid, varid_depth, g->depth[0]);
+        float tmp_depth[ni][nj];
+        int i_tmp, j_tmp;
+
+        ncw_get_var_float(ncid, varid_depth, tmp_depth[0]);
+        for (j_tmp = 0; j_tmp < nj; ++j_tmp) {
+            for (i_tmp = 0; i_tmp < ni; ++i_tmp) {
+                g->depth[j_tmp][i_tmp] = tmp_depth[i_tmp][j_tmp];
+            }
+        }
     }
     if (g->vtype == GRIDVTYPE_Z) {
         int varid;
@@ -1223,7 +1244,18 @@ grid* grid_create(void* p, int id)
         ncw_inq_varid(ncid, prm->levelvarname, &varid_numlevels);
         ncw_check_varndims(ncid, varid_numlevels, 2);
         ncw_check_vardims(ncid, varid_numlevels, 2, dimlen);
-        ncw_get_var_int(ncid, varid_numlevels, g->numlevels[0]);
+        // ncw_get_var_int(ncid, varid_numlevels, g->numlevels[0]);
+
+        int tmp_levels[ni][nj];
+        int i_tmp, j_tmp;
+
+        ncw_get_var_int(ncid, varid_numlevels, tmp_levels[0]);
+        for (j_tmp = 0; j_tmp < nj; ++j_tmp) {
+            for (i_tmp = 0; i_tmp < ni; ++i_tmp) {
+                g->numlevels[j_tmp][i_tmp] = tmp_levels[i_tmp][j_tmp];
+            }
+        }
+
         if (g->vtype == GRIDVTYPE_SIGMA || g->vtype == GRIDVTYPE_HYBRID) {
             int* numlevels = g->numlevels[0];
             int i;

@@ -176,6 +176,8 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
+                if (o->status == STATUS_LAND)
+                    continue;
                 // check distance between the observation the closest coast
                 o->status = obs_distance2coast(g, coast_lon, coast_lat, o->lon, o->lat); 
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
