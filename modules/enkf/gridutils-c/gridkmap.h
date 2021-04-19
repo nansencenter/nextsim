@@ -28,5 +28,4 @@ int gridkmap_getnce2(gridkmap* gm);
 double** gridkmap_getxnodes(gridkmap* gm);
 double** gridkmap_getynodes(gridkmap* gm);
 void _ll2xyz(double in[2], double out[3]);
-void* _alloc2d(size_t nj, size_t ni, size_t unitsize);
 #endif
