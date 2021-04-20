@@ -121,7 +121,9 @@ namespace Nextsim
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
-                "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
+                "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
+            ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
+                "ordering: 'gmsh' or 'bamg'")
 
 
             // -- moorings
