@@ -56,7 +56,7 @@ FiniteElement::distributedMeshProcessing(bool start)
         M_mesh = mesh_type();
     }
 
-    M_mesh.setOrdering(M_mesh_ordering);
+    M_mesh.setOrdering("gmsh");
 
     LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
@@ -1513,7 +1513,7 @@ FiniteElement::getAllowedOption(std::string const &opt_name,
                 + opt_name+"\n");
 
     option_type const option = vm[opt_name].as<option_type>();
-    if(std::count(options.begin(), options.end(), option)>0)
+    if(std::count(options.begin(), options.end(), option) == 0)
     {
         LOG(ERROR)<< "FiniteElement::getAllowedOption: Unknown option for "
                 << opt_name << ": " << option << "\n";
