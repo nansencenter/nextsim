@@ -4125,35 +4125,12 @@ FiniteElement::updateSigmaDamage(double const dt)
         double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
 
         double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
-        double const sigma_t = -sigma_c/q;
-        double const tract_coef = 5./6;
-        double const tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-        // to test for tensile failure
-        // - slope of line between origin and the intersection of the
-        // tensile failure line and the upper Coulomb branch
-        double const slope_tens_upper = q+sigma_c*(1+q)/(2*tract_max - sigma_c);
-
-        double sigma_target;
-        double dcrit;
-
-        if( sigma_1 < 0 && sigma_2 < 0
-            && sigma_2 < slope_tens_upper*sigma_1
-            && sigma_1 < slope_tens_upper*sigma_2 )
-        {
-            // tensile failure region
-            sigma_target = tract_max;
-            dcrit = sigma_target/sigma_n;
-        }
-        else
-        {
-            // Mohr-Coulomb failure region
-            sigma_target = sigma_c;
-            dcrit = sigma_target/(sigma_1-q*sigma_2);
-        }
+        // Mohr-Coulomb failure
+        double const dcrit = sigma_c/(sigma_1-q*sigma_2);
 
         /* Calculate the adjusted level of damage */
-        if (dcrit < 1)
+        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
         {
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
             M_damage[cpt] += del_damage;
