@@ -6532,12 +6532,12 @@ DataSet::DataSet(char const *DatasetName)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
-            name:"ni",
+            name:"x",
             cyclic:false
         };
 
         Dimension dimension_y={
-            name:"nj",
+            name:"y",
             cyclic:false
         };
 
@@ -6560,7 +6560,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable latitude={
             filename_string: "", // All variables are in the same (grid) file
-            name: "TLAT",
+            name: "lat",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -6577,7 +6577,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable longitude={
             filename_string: "", // All variables are in the same (grid) file
-            name: "TLON",
+            name: "lon",
             dimensions: dimensions_latlon,
             land_mask_defined: false,
             land_mask_value: 0.,
