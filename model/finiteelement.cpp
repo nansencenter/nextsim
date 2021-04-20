@@ -1400,7 +1400,7 @@ FiniteElement::initOptAndParam()
     order_opts[1] = "bamg";
     //= {"gmsh", "bamg"};
     //M_mesh_ordering = "gmsh";
-    M_mesh_ordering = this->checkOptionAllowed("mesh.ordering", order_opts);
+    M_mesh_ordering = this->getAllowedOption("mesh.ordering", order_opts);
         //! \param M_mesh_ordering (std::string) Mesh ordering ("gmsh" or "bamg")
     LOG(DEBUG) <<"MESH_ORDERING = "<< M_mesh_ordering <<"\n";
 
@@ -1507,7 +1507,7 @@ FiniteElement::getOptionFromMap(std::string const &opt_name,
 //! Called by initOptAndParam()
 template<typename option_type>
 option_type
-FiniteElement::checkOptionAllowed(std::string const &opt_name,
+FiniteElement::getAllowedOption(std::string const &opt_name,
         const std::vector<option_type> &options)
 {
 
@@ -1519,7 +1519,7 @@ FiniteElement::checkOptionAllowed(std::string const &opt_name,
     option_type const option = vm[opt_name].as<option_type>();
     if(std::count(options.begin(), options.end(), option)>0)
     {
-        LOG(ERROR)<< "FiniteElement::checkOptionAllowed: Unknown option for "
+        LOG(ERROR)<< "FiniteElement::getAllowedOption: Unknown option for "
                 << opt_name << ": " << option << "\n";
         LOG(ERROR)<<"Valid options are:\n";
         for (auto opt : options)
@@ -1528,7 +1528,7 @@ FiniteElement::checkOptionAllowed(std::string const &opt_name,
                 +opt_name + ": " + option+"\n");
     }
     return option;
-}//checkOptionAllowed
+}//getAllowedOption
 
 
 //------------------------------------------------------------------------------------------------------

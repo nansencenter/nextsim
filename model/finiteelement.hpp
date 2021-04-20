@@ -253,7 +253,7 @@ public:
     option_type getOptionFromMap(std::string const &opt_name,
         boost::unordered_map<const std::string, option_type> map);
     template<typename option_type>
-    option_type checkOptionAllowed(std::string const &opt_name,
+    option_type getAllowedOption(std::string const &opt_name,
         const std::vector<option_type> &options);
     void forcing();
     void forcingAtmosphere();
