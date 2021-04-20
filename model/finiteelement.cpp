@@ -551,6 +551,7 @@ FiniteElement::surface(FEMeshType const& mesh)
 void
 FiniteElement::assignVariables()
 {
+    M_delta_x.resize(M_num_nodes);
     M_surface = this->surface(M_mesh);
 
     M_UM.assign(2*M_num_nodes,0.);
@@ -4114,8 +4115,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Calculate the characteristic time for damage */
-        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
-        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
+        double const td = M_delta_x[cpt]*std::sqrt( 2.*(1.+nu0)*physical::rhoi/elasticity );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
@@ -4125,9 +4125,13 @@ FiniteElement::updateSigmaDamage(double const dt)
         double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
 
         double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
+        double const sigma_t = -sigma_c/q;
 
-        // Mohr-Coulomb failure
-        double const dcrit = sigma_c/(sigma_1-q*sigma_2);
+        double dcrit = 0;
+        if ( sigma_2 > 0. )
+            dcrit = sigma_c/(sigma_1-q*sigma_2);
+        else
+            dcrit = sigma_t/sigma_2;
 
         /* Calculate the adjusted level of damage */
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
@@ -9316,6 +9320,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
     M_timer.tick("prep elements");
 
+    M_delta_x.resize(M_num_elements);
     M_surface.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
     M_B0T.resize(M_num_elements);
@@ -9327,6 +9332,8 @@ FiniteElement::explicitSolve()
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
         // We need to update the mesh every time step
+        auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
+        M_delta_x[cpt] = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);
         // TODO: Put the B0T code in a seperate function

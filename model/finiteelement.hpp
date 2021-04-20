@@ -464,6 +464,7 @@ private:
     std::vector<double> M_diffusivity_parameters;
 
     std::vector<double> M_surface;
+    std::vector<double> M_delta_x;
 
     std::vector<double> M_UM;
     std::vector<double> M_UT;
