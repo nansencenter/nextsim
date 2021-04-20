@@ -4118,22 +4118,17 @@ FiniteElement::updateSigmaDamage(double const dt)
         double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        double const sigma_n = -          (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // max principal component following convention (positive sigma_n=pressure)
+        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
 
-        double const sigma_c   = 2.*M_Cohesion[cpt]/(std::pow(std::pow(tan_phi,2.)+1,.5)-tan_phi);
-        double const sigma_t   = -sigma_c/q;
+        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
+        double const sigma_t = -sigma_c/q;
         double const tract_coef = 5./6;
         double const tract_max = -tract_coef*M_Cohesion[cpt]/tan_phi; /* maximum normal stress */
 
-        // to test for compressive failure
-        // - slope of line between origin and the intersection of the
-        // compressive failure line and the upper Coulomb branch
-        double const compr_strength = 1.28371875e+8;
-        double const slope_compr_upper = q+sigma_c*(1+q)/(2*compr_strength - sigma_c);
         // to test for tensile failure
         // - slope of line between origin and the intersection of the
         // tensile failure line and the upper Coulomb branch
@@ -4142,15 +4137,7 @@ FiniteElement::updateSigmaDamage(double const dt)
         double sigma_target;
         double dcrit;
 
-        if( sigma_1 > 0 && sigma_2 > 0
-            && sigma_2 < slope_compr_upper*sigma_1
-            && sigma_1 < slope_compr_upper*sigma_2 )
-        {
-            // compressive failure region
-            sigma_target = compr_strength;
-            dcrit = sigma_target/sigma_n;
-        }
-        else if( sigma_1 < 0 && sigma_2 < 0
+        if( sigma_1 < 0 && sigma_2 < 0
             && sigma_2 < slope_tens_upper*sigma_1
             && sigma_1 < slope_tens_upper*sigma_2 )
         {
