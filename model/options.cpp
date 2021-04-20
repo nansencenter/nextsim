@@ -123,7 +123,7 @@ namespace Nextsim
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
                 "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
             ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
-                "ordering: 'gmsh' or 'bamg'")
+                "ordering: gmsh (default) or bamg - try bamg if you get negative areas")
 
 
             // -- moorings
