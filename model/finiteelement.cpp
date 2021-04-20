@@ -1395,11 +1395,7 @@ FiniteElement::initOptAndParam()
     // mesh ordering
     M_mesh.setOrdering("bamg");//TODO needed?
     // use trivial identity map here just so we get error checking in getOptionFromMap
-    std::vector<std::string> order_opts(2);
-    order_opts[0] = "gmsh";
-    order_opts[1] = "bamg";
-    //= {"gmsh", "bamg"};
-    //M_mesh_ordering = "gmsh";
+    std::vector<std::string> order_opts = {"gmsh", "bamg"};
     M_mesh_ordering = this->getAllowedOption("mesh.ordering", order_opts);
         //! \param M_mesh_ordering (std::string) Mesh ordering ("gmsh" or "bamg")
     LOG(DEBUG) <<"MESH_ORDERING = "<< M_mesh_ordering <<"\n";
