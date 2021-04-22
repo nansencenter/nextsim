@@ -68,7 +68,7 @@ void grid_tocartesian(grid* g, double in[2], double out[3]);
 
 int grid_isperiodic_i(grid* g);
 // 
-int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat);
+int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat, int status);
 /*
  * stuff to handle an array of grids
  */
