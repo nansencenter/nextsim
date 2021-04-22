@@ -1173,6 +1173,14 @@ FiniteElement::initOptAndParam()
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
+    const boost::unordered_map<const std::string, schemes::tdType> str2td_type = boost::assign::map_list_of
+        ("fixed", schemes::tdType::FIXED)
+        ("damage_dependent", schemes::tdType::DAMAGE_DEPENDENT);
+    M_td_type = this->getOptionFromMap("dynamics.td_type", str2td_type);
+        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
+        //! \param M_td_type Characteristic time for damage (fixed or damage-dependent)
+    LOG(DEBUG)<<"td_type = "<< (int)M_td_type <<"\n";
+
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (thin ice or "classic")
@@ -4107,7 +4115,16 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        double elasticity;
+        if ( M_td_type == schemes::tdType::DAMAGE_DEPENDENT )
+        {
+            elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        }
+        else
+        {
+            this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+            elasticity = young;
+        }
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4127,11 +4144,8 @@ FiniteElement::updateSigmaDamage(double const dt)
         double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
         double const sigma_t = -sigma_c/q;
 
-        double dcrit = 0;
-        if ( sigma_2 > 0. )
-            dcrit = sigma_c/(sigma_1-q*sigma_2);
-        else
-            dcrit = sigma_t/sigma_2;
+        // Mohr-Coulomb failure
+        double const dcrit = sigma_c/(sigma_1-q*sigma_2);
 
         /* Calculate the adjusted level of damage */
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0

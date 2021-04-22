@@ -479,6 +479,9 @@ private:
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
 
+    schemes::tdType M_td_type;
+
+
 #ifdef OASIS
     ExternalData M_tau_wi;
 //    ExternalData M_str_var;
