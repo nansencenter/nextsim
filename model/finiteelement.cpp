@@ -1173,14 +1173,6 @@ FiniteElement::initOptAndParam()
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
-    const boost::unordered_map<const std::string, schemes::tdType> str2td_type = boost::assign::map_list_of
-        ("fixed", schemes::tdType::FIXED)
-        ("damage_dependent", schemes::tdType::DAMAGE_DEPENDENT);
-    M_td_type = this->getOptionFromMap("dynamics.td_type", str2td_type);
-        //! \param M_disc_scheme Type of discretization scheme for the damage equation, set in options.cpp
-        //! \param M_td_type Characteristic time for damage (fixed or damage-dependent)
-    LOG(DEBUG)<<"td_type = "<< (int)M_td_type <<"\n";
-
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
         M_ice_cat_type = setup::IceCategoryType::THIN_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (thin ice or "classic")
@@ -4031,7 +4023,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 //! Optional parameters for BBM is del_damage, with del_damage > 0 only when
 //! calculating sigma after a change in damage.
 //! Called from explicitSolve() and updateSigmaDamage()
-double inline
+void inline
 FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
 {
     double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
@@ -4060,8 +4052,6 @@ FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> c
 
         M_sigma[i][cpt] *= multiplicator;
     }
-
-    return elasticity;
 
 }//updateSigma
 
@@ -4115,16 +4105,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double elasticity;
-        if ( M_td_type == schemes::tdType::DAMAGE_DEPENDENT )
-        {
-            elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
-        }
-        else
-        {
-            this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
-            elasticity = young;
-        }
+        this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4132,7 +4113,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Calculate the characteristic time for damage */
-        double const td = M_delta_x[cpt]*std::sqrt( 2.*(1.+nu0)*physical::rhoi/elasticity );
+        double const td = M_delta_x[cpt]*std::sqrt( 2.*(1.+nu0)*physical::rhoi/young );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);

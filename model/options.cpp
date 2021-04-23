@@ -347,8 +347,6 @@ namespace Nextsim
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
             ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
 
-            ("dynamics.td_type", po::value<std::string>()->default_value( "fixed" ), "Value used for charcteristic time for damage [ fixed (default) | damage_dependent ]")
-
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
                 "Number of explicit sub-steps (default 120)")

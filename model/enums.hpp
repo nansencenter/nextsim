@@ -150,12 +150,6 @@ namespace setup
 
 namespace schemes
 {
-    enum class tdType
-    {
-        FIXED            = 0,
-        DAMAGE_DEPENDENT = 1,
-    };
-
     enum class specificHumidity
     {
         ATMOSPHERE = 0,
