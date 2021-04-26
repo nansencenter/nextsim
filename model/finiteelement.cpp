@@ -1169,6 +1169,7 @@ FiniteElement::initOptAndParam()
 
     //! Sets mechanical parameter values
     // scale_coef is now set after initialising the mesh
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
@@ -4031,11 +4032,11 @@ FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> c
     double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
     // Plastic failure
     double dcrit;
-    if ( sigma_n > 0. )
+    if ( sigma_n < 0. )
     {
         double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
         // dcrit must be capped at 1 to get an elastic response
-        dcrit = std::min(1., Pmax/sigma_n);
+        dcrit = std::min(1., -Pmax/sigma_n);
     } else {
         dcrit = 0.;
     }
@@ -4060,9 +4061,6 @@ FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> c
 void
 FiniteElement::updateSigmaDamage(double const dt)
 {
-    // Slope of the MC enveloppe
-    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
-
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
      * already in use in another place so we need to check first what effect
@@ -4105,7 +4103,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        this->updateSigma(cpt, dt, epsilon_veloc, (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4116,20 +4114,18 @@ FiniteElement::updateSigmaDamage(double const dt)
         double const td = M_delta_x[cpt]*std::sqrt( 2.*(1.+nu0)*physical::rhoi/young );
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_n =            (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
-        double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
-
-        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
-        double const sigma_t = -sigma_c/q;
-
-        // Mohr-Coulomb failure
-        double const dcrit = sigma_c/(sigma_1-q*sigma_2);
+        // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
+        double dcrit;
+        if ( sigma_n < -compr_strength )
+            dcrit = -compr_strength/sigma_n;
+        else
+            dcrit = M_Cohesion[cpt]/(sigma_s+tan_phi*sigma_n);
 
         /* Calculate the adjusted level of damage */
-        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
+        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
             M_damage[cpt] += del_damage;
@@ -6444,12 +6440,13 @@ FiniteElement::init()
     LOG(INFO) <<"TIMESTEP= "<< time_step <<" s\n";
     LOG(INFO) <<"DURATION= "<< duration/days_in_sec <<" day(s)\n";
 
-    // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    // We need to set the scale_coef et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(0.1/M_res_root_mesh);
     C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    compr_strength *= scale_coef;
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
 
     if ( M_use_restart )
@@ -7223,7 +7220,6 @@ FiniteElement::updateIceDiagnostics()
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
-    double sigma_s, sigma_n;
     std::vector<double> sigma(3);
     for(int i=0; i<M_num_elements; i++)
     {
@@ -7241,12 +7237,8 @@ FiniteElement::updateIceDiagnostics()
         D_tsurf[i] += (1-D_conc[i])*M_sst[i];
 
         // principal stresses
-        for(int k=0; k<3; k++)
-            sigma[k] = M_sigma[k][i];
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2., sigma[2]);
-        sigma_n =          - (sigma[0]+sigma[1])/2.;
-        D_sigma[0][i] = sigma_n+sigma_s;
-        D_sigma[1][i] = sigma_n-sigma_s;
+        D_sigma[0][i] =            (M_sigma[0][i]+M_sigma[1][i])/2.;
+        D_sigma[1][i] = std::hypot((M_sigma[0][i]-M_sigma[1][i])/2.,M_sigma[2][i]);
         // FSD relative parameters
         D_dmean[i] = 0. ;
         D_dmax[i]  = 0. ;
