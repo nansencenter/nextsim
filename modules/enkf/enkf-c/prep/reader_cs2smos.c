@@ -179,7 +179,7 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 if (o->status == STATUS_LAND)
                     continue;
                 // check distance between the observation the closest coast
-                o->status = obs_distance2coast(g, coast_lon, coast_lat, o->lon, o->lat); 
+                o->status = obs_distance2coast(g, coast_lon, coast_lat, o->lon, o->lat, o->status); 
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
                 o->model_depth = NAN;   // set in obs_add()
@@ -211,7 +211,7 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
  * @param lat  latitude of observation
  * @return int return status
  */
-int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat){ 
+int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat, int status){ 
     int min_distance2coast_km = 30;
     double ll[2] = { lon, lat }; //observation coordinates
     double xyz1[3];
@@ -227,5 +227,5 @@ int obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, f
             return STATUS_OUTSIDEGRID; 
     }
     // accept the observation.
-    return 0;  
+    return status;  
 }
