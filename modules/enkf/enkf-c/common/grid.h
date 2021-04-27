@@ -68,7 +68,8 @@ kdtree* grid_gettreeXYZ(grid* g, int createifnull);
 void grid_destroytreeXYZ(grid* g);
 #endif
 int grid_isperiodic_i(grid* g);
-
+// 
+void obs_distance2coast(grid* g, size_t coast_len, float* coast_lon, float* coast_lat, float lon, float lat, short int *status);
 /*
  * stuff to handle an array of grids
  */
@@ -78,8 +79,6 @@ void grids_destroy(int ngrid, void** grids);
 #if defined(ENKF_CALC)
 int grids_destroygxytrees(int ngrid, void** grids);
 #endif
-
-void obs_distance2coast(grid* g, float* coast_lon, float* coast_lat, float lon, float lat, short int* status);
 
 #define _GRID_H
 #endif

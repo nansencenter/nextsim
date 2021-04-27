@@ -551,7 +551,8 @@ void das_getmemberfname(dasystem* das, char varname[], int mem, char fname[])
     if (das->mode == MODE_HYBRID && das->nmem_dynamic >= 0 && mem > das->nmem_dynamic)
         snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
     else
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir, mem, varname);
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir, mem, varname); 
+        // snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", das->ensdir, mem);  //csk: how to define mem?.nc using varname, if one assimilates sit and sic together.
 }
 
 /**
