@@ -1,3 +1,4 @@
+
 /******************************************************************************
  *
  * File:        observations.h        
@@ -28,37 +29,36 @@
  */
 typedef struct {
     /*
-     * for primary observations - the number of the (compacted) primary
-     * observation; for super observations - the ordered number of the
-     * superobservation
+     * observation index
      */
     int id;
     /*
-     * for primary observations - the serial number of the primary observation
-     * during the reading of data files; for superobs - the original ID of the
-     * very first observation collated into this observation
+     * for primary observations - the sequential number of observation; for
+     * superobs - the original ID of the very first observation collated into
+     * this observation
      */
     int id_orig;
+    short int status;           /* 0 = OK */
     short int type;
     short int product;
     short int instrument;
     short int fid;
     int batch;
-    double value;
-    double std;
-    double lon;
-    double lat;
-    double depth;
-    double model_depth;
-    double fi;
-    double fj;
-    double fk;
-    double date;
-    int status;                 /* 0 = OK */
+    float value;
+    float estd;
+    float footprint;
+    float lon;
+    float lat;
+    float depth;
+    float model_depth;
+    float fi;
+    float fj;
+    float fk;
+    float time;
     /*
      * auxiliary information:
-     *  - # of obs for a sob
-     *  - sob id for the original ob
+     *  - for a superob -- # of obs collated
+     *  - for an original observation -- sob id
      */
     int aux;
 } observation;
@@ -72,23 +72,26 @@ typedef struct {
     obstype* obstypes;
 #if defined(ENKF_CALC)
     kdtree** loctrees;
-#endif
     int** obsids;
+#if defined(USE_SHMEM)
+    MPI_Win* sm_comm_wins_kd;
+    MPI_Win sm_comm_win_data;
+#endif
+#endif
 
-    double da_date;             /* fractional days since 00:00:00
+    double da_time;             /* fractional days since 00:00:00
                                  * BASEDAY-BASEMONTH-BASEYEAR */
     char* datestr;
 
     int allobs;                 /* flag - whether to keep obs outside model
                                  * grid */
     int nallocated;
-    int nobs_inc;
 
     int nobs;
     observation* data;
     int compacted;
+    int has_nonpointobs;
 
-    int hasstats;
     int ngood;
     int noutside_grid;
     int noutside_obsdomain;
@@ -98,6 +101,7 @@ typedef struct {
     int nbadbatch;
     int nrange;
     int nthinned;
+    int nexcluded;
     int nmodified;
 
     hashtable* badbatches;
@@ -123,18 +127,18 @@ void obs_markbadbatches(observations* obs);
 void obs_read(observations* obs, char fname[]);
 void obs_write(observations* obs, char fname[]);
 void obs_writeaux(observations* obs, char fname[]);
-int obs_modifiederrors_alreadywritten(observations* obs, char fname[]);
-void obs_superob(observations* obs, __compar_d_fn_t cmp_obs, observations** sobs, int sobid, int do_thin);
 void obs_find_bytype(observations* obs, int type, int* nobs, int** obsids);
 void obs_find_bytypeandtime(observations* obs, int type, int time, int* nobs, int** obsids);
 void obs_printob(observations* obs, int id);
-void obs_createkdtrees(observations* obs, model* m);
-void obs_destroykdtrees(observations* obs);
 
-#if defined(MINIMISE_ALLOC)
-void obs_findlocal(observations* obs, model* m, grid* g, int i, int j, int* n, int** ids, double** lcoeffs, int* ploc_allocated);
-#else
-void obs_findlocal(observations* obs, model* m, grid* g, int i, int j, int* n, int** ids, double** lcoeffs);
+#if defined(ENKF_PREP)
+void obs_superob(observations* obs, __compar_d_fn_t cmp_obs, observations** sobs, int sobid, int do_thin);
+#endif
+#if defined(ENKF_CALC)
+void obs_createkdtrees(observations* obs);
+void obs_destroykdtrees(observations* obs);
+void obs_findlocal(observations* obs, double lon, double lat, char* dimainname, int* n, int** ids, double** lcoeffs, int* ploc_allocated);
+int obs_modifiederrors_alreadywritten(observations* obs, char fname[]);
 #endif
 
 #define _OBSERVATIONS_H

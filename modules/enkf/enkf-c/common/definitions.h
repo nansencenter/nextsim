@@ -20,22 +20,22 @@
 #endif
 
 #define MAXSTRLEN 2048
+#define SMALLSTRLEN 128
 /*
  * Memory allocation increment for observations. One might increase it for
  * large systems and possibly reduce for small systems.
  */
 #define NOBS_INC 500000
 
-#define BASEYEAR 1990
+#define BASEYEAR 1970
 #define BASEMONTH 1
 #define BASEDAY 1
 
-#define NETCDF_FORMAT NC_64BIT_OFFSET
+#define NETCDF_FORMAT NC_NETCDF4
 
 #define FNAME_OBS "observations-orig.nc"
 #define FNAME_SOBS "observations.nc"
-#define FNAMEPREFIX_X5 "X5"
-#define FNAMEPREFIX_W "w"
+#define FNAMEPREFIX_TRANSFORMS "transforms"
 #define FNAMEPREFIX_DIAG "enkf_diag"
 #define FNAMEPREFIX_PLOG "pointlog"
 #define FNAME_SPREAD "spread.nc"
@@ -43,6 +43,7 @@
 #define FNAME_BADBATCHES "badbatches.out"
 #define FNAME_INFLATION "inflation.nc"
 #define FNAME_VERTCORR "vcorr.nc"
+#define FNAME_HE "HE.nc"
 
 #define DIRNAME_TMP ".enkftmp"
 
@@ -55,10 +56,12 @@
 #define STATUS_OUTSIDEOBSDOMAIN 6
 #define STATUS_OUTSIDEOBSWINDOW 7
 #define STATUS_THINNED 8
+#define STATUS_EXCLUDED 9
 
 #define MODE_NONE 0
 #define MODE_ENKF 1
 #define MODE_ENOI 2
+#define MODE_HYBRID 3
 
 #define ALPHA_DEFAULT 1.0
 
@@ -86,11 +89,8 @@
 #define OBS_SORTMODE_ID 0
 #define OBS_SORTMODE_IJ 1
 
-#define ENSOBSTYPE float
-#define MPIENSOBSTYPE MPI_FLOAT
-
-#define STATE_BIGNUM 1.0e14   //adjust the value to be filtered out _FillValue defined in neXtSIM:
-#define STD_BIG 1.0e14
+#define STATE_BIGNUM 1.0e3
+#define STD_BIG 1.0e10
 
 #define ALLOCTYPE_NONE -1
 #define ALLOCTYPE_1D    0
@@ -102,13 +102,16 @@
 #define UPDATE_DOANALYSISSPREAD (1 << 2)
 #define UPDATE_DOINFLATION      (1 << 3)
 #define UPDATE_DOVERTCORRS      (1 << 4)
-#define UPDATE_DOPLOGS          (1 << 5)
-#define UPDATE_LEAVETILES       (1 << 6)
-#define UPDATE_OUTPUTINC        (1 << 7)
-#define UPDATE_SEPARATEOUTPUT   (1 << 8)
-#define UPDATE_DIRECTWRITE      (1 << 9)
+#define UPDATE_DOPLOGSFC        (1 << 5)
+#define UPDATE_DOPLOGSAN        (1 << 6)
+#define UPDATE_LEAVETILES       (1 << 7)
+#define UPDATE_OUTPUTINC        (1 << 8)
+#define UPDATE_SEPARATEOUTPUT   (1 << 9)
+#define UPDATE_DIRECTWRITE      (1 << 10)
 #define UPDATE_DEFAULT          (UPDATE_DOFIELDS | UPDATE_DOPLOGS | UPDATE_SEPARATEOUTPUT)
-#define UPDATE_DOSPREAD (UPDATE_DOFORECASTSPREAD | UPDATE_DOANALYSISSPREAD)
+#define UPDATE_DOSPREAD         (UPDATE_DOFORECASTSPREAD | UPDATE_DOANALYSISSPREAD)
+#define UPDATE_DOPLOGS          (UPDATE_DOPLOGSFC | UPDATE_DOPLOGSAN)
+#define UPDATE_NEEDAN           (UPDATE_DOFIELDS | UPDATE_DOANALYSISSPREAD | UPDATE_DOINFLATION | UPDATE_DOPLOGSAN)
 
 /*
  * the default vertical split for 3D fields in obs stats
@@ -133,15 +136,39 @@
 extern int nprocesses;
 extern int rank;
 
+#if !defined(ENKF_CALC) || ! defined(MPI)
+#undef USE_SHMEM
+#undef TW_VIAFILE
+#undef SHUFFLE_ROWS
+#endif
+#if defined(TW_VIAFILE)
+#undef SHUFFLE_ROWS
+#endif
+
+#if defined(USE_SHMEM)
+extern MPI_Comm sm_comm;
+extern MPI_Win sm_comm_win_S;
+extern MPI_Win* sm_comm_win_gridnodesXY;
+extern int sm_comm_rank;
+extern int sm_comm_size;
+extern MPI_Comm node_comm;
+extern int* sm_comm_ranks;
+extern int node_comm_rank;
+extern int node_comm_size;
+extern int* node_comm_ranks;
+#endif
+
 extern int enkf_obstype;
 extern int enkf_exitaction;
 extern int enkf_verbose;
 extern int enkf_separateout;
 extern int enkf_directwrite;
-extern int enkf_nomeanupdate;
 extern int enkf_fstatsonly;
 extern int enkf_noobsdatecheck;
 extern int enkf_considersubgridvar;
+extern int enkf_doplogs;
+extern int enkf_allowenoilog;
+extern int print_mem;
 
 typedef struct {
     char* name;
@@ -149,19 +176,20 @@ typedef struct {
 } region;
 
 typedef struct {
-    int id;
-    int i, j;
-    double lon, lat;
-    char* gridname;
-    int gridid;
-} pointlog;
-
-typedef struct {
     char* obstype;
     double maxbias;
     double maxmad;
     int minnobs;
 } badbatchspec;
+
+typedef struct {
+    char* otname;
+    int otid;
+    double x1, x2, y1, y2;
+} obsregion;
+
+struct pointlog;
+typedef struct pointlog pointlog;
 
 struct enkfprm;
 typedef struct enkfprm enkfprm;

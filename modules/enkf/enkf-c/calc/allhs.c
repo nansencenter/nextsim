@@ -31,7 +31,16 @@ H_entry allhentries[] = {
     {1, "standard", H_surf_standard},
     {1, "biased", H_surf_biased},
     {0, "standard", H_subsurf_standard},
-    {0, "wsurfbias", H_subsurf_wsurfbias}
+    {0, "wsurfbias", H_subsurf_wsurfbias},
+    {0, "lowmem", H_subsurf_lowmem},
+    /*
+     * (the corresponding observation type can be entered either as
+     * "issurface = 1" or "issurface = 0")
+     */
+    {1, "vertsum", H_vertsum},
+    {0, "vertsum", H_vertsum},
+    {1, "vertwavg", H_vertwavg},
+    {0, "vertwavg", H_vertwavg}
 };
 
 /** List H-functions for all observation types (obstypename = NULL) or for

@@ -19,9 +19,11 @@ typedef struct {
     int id;
     char* name;
     int issurface;
+    int statsonly;
     int nvar;
     char** varnames;
     char* alias;                /* variable name used in file names */
+    int logapplied;
     char* offset_fname;
     char* offset_varname;
     char* mld_varname;
@@ -32,6 +34,7 @@ typedef struct {
     int isasync;
     double async_tstep;
     int async_centred;
+    char* async_tname;
     int nlocrad;
     double* locrad;
     double* locweight;
@@ -41,7 +44,18 @@ typedef struct {
 
     int vid;
     int gridid;
+
+    /*
+     * Stride for superobing. "0" means to use the common value defined in
+     * the top prm file (default = 1). 
+     */
     int sob_stride;
+
+    /*
+     * whether observations of this type with identical locations are allowed
+     * to be thinned (default = yes)
+     */
+    int can_thin;
 
     double xmin;
     double xmax;
@@ -61,19 +75,20 @@ typedef struct {
     int nrange;
     int nsubgrid;
     int nthinned;
+    int nexcluded;
     int nmodified;
 
     /*
      * allowed time range of observations 
      */
-    double windowmin;
-    double windowmax;
+    double obswindow_min;
+    double obswindow_max;
 
     /*
      * actual time range of observations 
      */
-    double date_min;
-    double date_max;
+    double time_min;
+    double time_max;
 
     /*
      * domains observations of this type are visible from

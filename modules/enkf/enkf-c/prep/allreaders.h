@@ -17,35 +17,28 @@
 
 typedef void (*obsread_fn) (char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 
-void describe_readers(void);
 obsread_fn get_obsreadfn(obsmeta* m);
 
 /*
  * generic readers
  */
-void reader_xy_scattered(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
+void reader_scattered(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_xyz_scattered(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_xyz_gridded(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_xyh_gridded(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
+void reader_z(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 
 /*
  * readers for particular products
  */
-void reader_rads_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_rads_standard2(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_navo_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_windsat_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_cars_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_amsr2_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_amsre_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_pathfinder_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_h8_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_viirs_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_smos_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
-void reader_smos_standard2(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs);
 
 #define _ALLREADERS_H

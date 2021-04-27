@@ -64,10 +64,13 @@ void ncw_inq_vartype(int ncid, int varid, nc_type* xtype);
 void ncw_inq_varndims(int ncid, int varid, int* ndims);
 void ncw_inq_vardimid(int ncid, int varid, int dimids[]);
 void ncw_inq_varnatts(int ncid, int varid, int* natts);
+void ncw_inq_varsize(int ncid, int varid, size_t* size);
+void ncw_inq_var_fill(int ncid, int varid, int* nofill, void* fillvalue);
 void ncw_rename_var(int ncid, const char oldname[], const char newname[]);
 void ncw_def_var_deflate(int ncid, int varid, int shuffle, int deflate, int deflate_level);
 void ncw_put_var(int ncid, int varid, const void* v);
 void ncw_put_var_text(int ncid, int varid, const char v[]);
+void ncw_put_var_schar(int ncid, int varid, const signed char v[]);
 void ncw_put_var_uchar(int ncid, int varid, const unsigned char v[]);
 void ncw_put_var_short(int ncid, int varid, const short int v[]);
 void ncw_put_var_ushort(int ncid, int varid, const unsigned short int v[]);
@@ -119,6 +122,7 @@ void ncw_get_att_text(int ncid, int varid, const char attname[], char v[]);
 void ncw_get_att_schar(int ncid, int varid, const char attname[], signed char v[]);
 void ncw_get_att_short(int ncid, int varid, const char attname[], short int v[]);
 void ncw_get_att_int(int ncid, int varid, const char attname[], int v[]);
+void ncw_get_att_uint(int ncid, int varid, const char attname[], unsigned int v[]);
 void ncw_get_att_float(int ncid, int varid, const char attname[], float v[]);
 void ncw_get_att_double(int ncid, int varid, const char attname[], double v[]);
 
@@ -148,6 +152,7 @@ int ncw_file_opens(const char fname[], int mode);
 int ncw_att_exists(int ncid, int varid, const char attname[]);
 int ncw_var_exists(int ncid, const char varname[]);
 int ncw_dim_exists(int ncid, const char dimname[]);
+int ncw_att_exists2(int ncid, int varid, const char attname[]);
 
 void ncw_def_var_as(int ncid, const char oldvarname[], const char newvarname[]);
 void ncw_get_var_double_record(int ncid, int varid, int r, double v[]);
@@ -159,6 +164,7 @@ void ncw_check_attlen(int ncid, int varid, const char attname[], size_t len);
 void ncw_check_dimlen(int ncid, const char dimname[], size_t len);
 void ncw_check_varndims(int ncid, int varid, int ndims);
 void ncw_check_vardims(int ncid, int varid, int ndims, size_t dimlen[]);
+void ncw_check_varsize(int ncid, int varid, size_t size);
 
 int ncw_var_hasunlimdim(int ncid, int varid);
 

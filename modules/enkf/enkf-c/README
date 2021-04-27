@@ -15,8 +15,6 @@ clang or gcc
 openmpi
 libnetcdf
 liblapack (or better the Intel's version -- libmkl_rt)
-libgu (default, optional, necessary for handling curvilinear grids only; 
-       available from https://github.com/sakov/gridutils-c)
 
 USER MANUAL
 
@@ -25,7 +23,6 @@ See doc/enkf-userguide.pdf.
 STARTING UP
 
 Run example 1 - see examples/1/README for details.
-Link enkf/enkf-c/make.inc to correct one in arch
 
 INDENTING
 
@@ -36,19 +33,18 @@ REFERRING
 
 Reference:
 
-  Sakov, P., 2015. EnKF-C user guide. arXiv:1410.1233.
+  Sakov, P., 2014: EnKF-C user guide. CoRR, abs/1410.1233. URL http://arxiv.org/abs/1410.1233
 
 BibTeX entry:
 
-  @online{enkf-c,
-    author = {Sakov, Pavel},
-    title = {{EnKF-C} user guide},
-    version = {3}, % update
-    year = {2015}, % update
-    eprinttype = {arxiv},
-    eprint = {1410.1233},
-    eprintclass = {cs.CE},
-  }
+@article{enkf-c,
+  author    = {Pavel Sakov},
+  title     = {{EnKF-C} user guide},
+  journal   = {CoRR},
+  volume    = {abs/1410.1233},
+  year      = {2014},
+  url       = {http://arxiv.org/abs/1410.1233}
+}
 
 CONTACT
 

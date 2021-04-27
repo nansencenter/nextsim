@@ -31,7 +31,7 @@
 #include <errno.h>
 #include "ncw.h"
 
-const char ncw_version[] = "2.23.2";
+const char ncw_version[] = "2.27.0";
 
 /* This macro is substituted in error messages instead of the name of a
  * variable in cases when the name could not be found by the variable id.
@@ -43,6 +43,8 @@ const char ncw_version[] = "2.23.2";
 #define NALLOCATED_START 10
 
 #define DIMNAME_NTRIES 100
+
+#define STRBUFSIZE 1024
 
 static void quit_def(char* format, ...);
 static ncw_quit_fn quit = quit_def;
@@ -84,8 +86,6 @@ static void _ncw_inq_varname(int ncid, int varid, char varname[])
     else if ((status = nc_inq_varname(ncid, varid, varname)) != NC_NOERR)
         quit("\"%s\": nc_inq_varname(): failed for varid = %d: %s", ncw_get_path(ncid), varid, nc_strerror(status));
 }
-
-#define STRBUFSIZE 1024
 
 /* Prints array of integers to a string. E.g., {1,2,5} will be printed as
  * "(1,2,5)".
@@ -462,10 +462,10 @@ void ncw_inq_var(int ncid, int varid, char varname[], nc_type* xtype, int* ndims
     int status = nc_inq_var(ncid, varid, varname, xtype, ndims, dimids, natts);
 
     if (status != NC_NOERR) {
-        char varname[NC_MAX_NAME] = STR_UNKNOWN;
+        char varname2[NC_MAX_NAME] = STR_UNKNOWN;
 
-        ncw_inq_varname(ncid, varid, varname);
-        quit("\"%s\": nc_inq_var(): failed for varid = %d (varname = \"%s\"): %s", ncw_get_path(ncid), varid, varname, nc_strerror(status));
+        ncw_inq_varname(ncid, varid, varname2);
+        quit("\"%s\": nc_inq_var(): failed for varid = %d (varname = \"%s\"): %s", ncw_get_path(ncid), varid, varname2, nc_strerror(status));
     }
 }
 
@@ -525,6 +525,34 @@ void ncw_inq_varnatts(int ncid, int varid, int* natts)
     }
 }
 
+void ncw_inq_varsize(int ncid, int varid, size_t* size)
+{
+    int ndims;
+    int dimids[NC_MAX_DIMS];
+    int i;
+
+    ncw_inq_varndims(ncid, varid, &ndims);
+    ncw_inq_vardimid(ncid, varid, dimids);
+    for (i = 0, *size = 1; i < ndims; ++i) {
+        size_t dimlen;
+
+        ncw_inq_dimlen(ncid, dimids[i], &dimlen);
+        *size *= dimlen;
+    }
+}
+
+void ncw_inq_var_fill(int ncid, int varid, int* nofill, void* fillvalue)
+{
+    int status = nc_inq_var_fill(ncid, varid, nofill, fillvalue);
+
+    if (status != NC_NOERR) {
+        char varname[NC_MAX_NAME] = STR_UNKNOWN;
+
+        ncw_inq_varname(ncid, varid, varname);
+        quit("\"%s\": nc_inq_var_fill(): failed for varid = %d (varname = \"%s\"): %s", ncw_get_path(ncid), varid, varname, nc_strerror(status));
+    }
+}
+
 void ncw_rename_var(int ncid, const char oldname[], const char newname[])
 {
     int varid;
@@ -570,6 +598,18 @@ void ncw_put_var_text(int ncid, int varid, const char v[])
 
         ncw_inq_varname(ncid, varid, varname);
         quit("\"%s\": nc_put_var_text(): failed for varid = %d (varname = \"%s\"): %s", ncw_get_path(ncid), varid, varname, nc_strerror(status));
+    }
+}
+
+void ncw_put_var_schar(int ncid, int varid, const signed char v[])
+{
+    int status = nc_put_var_schar(ncid, varid, v);
+
+    if (status != NC_NOERR) {
+        char varname[NC_MAX_NAME] = STR_UNKNOWN;
+
+        ncw_inq_varname(ncid, varid, varname);
+        quit("\"%s\": nc_put_var_schar(): failed for varid = %d (varname = \"%s\"): %s", ncw_get_path(ncid), varid, varname, nc_strerror(status));
     }
 }
 
@@ -1243,6 +1283,18 @@ void ncw_get_att_int(int ncid, int varid, const char attname[], int v[])
     }
 }
 
+void ncw_get_att_uint(int ncid, int varid, const char attname[], unsigned int v[])
+{
+    int status = nc_get_att_uint(ncid, varid, attname, v);
+
+    if (status != NC_NOERR) {
+        char varname[NC_MAX_NAME] = STR_UNKNOWN;
+
+        _ncw_inq_varname(ncid, varid, varname);
+        quit("\"%s\": nc_get_att_uint(): failed for varid = %d (varname = \"%s\"), attname = \"%s\": %s", ncw_get_path(ncid), varid, varname, attname, nc_strerror(status));
+    }
+}
+
 void ncw_get_att_float(int ncid, int varid, const char attname[], float v[])
 {
     int status = nc_get_att_float(ncid, varid, attname, v);
@@ -1422,7 +1474,7 @@ int ncw_copy_vardef(int ncid_src, int vid_src, int ncid_dst)
         else {
             int dimid_dst;
             size_t len_dst;
-            char dimname_dst[NC_MAX_NAME];
+            char dimname_dst[STRBUFSIZE];
             int format;
             int j;
 
@@ -1462,7 +1514,19 @@ int ncw_copy_vardef(int ncid_src, int vid_src, int ncid_dst)
              * the wrong length. We will define and use another dimension then.
              */
             for (j = 0; j < DIMNAME_NTRIES; ++j) {
-                snprintf(dimname_dst, NC_MAX_NAME, "%s%d", dimname, j);
+                {
+                    char buf[STRBUFSIZE];
+
+                    snprintf(buf, STRBUFSIZE, "%s%d", dimname, j);
+                    if (strlen(buf) < NC_MAX_NAME)
+                        strcpy(dimname_dst, buf);
+                    else {
+                        int diff = strlen(buf) - NC_MAX_NAME + 1;
+
+                        dimname[NC_MAX_NAME - diff] = 0;
+                        sprintf(dimname_dst, "%s%d", dimname, j);
+                    }
+                }
                 if (ncw_dim_exists(ncid_dst, dimname_dst)) {
                     ncw_inq_dimid(ncid_dst, dimname_dst, &dimid_dst);
                     ncw_inq_dimlen(ncid_dst, dimid_dst, &len_dst);
@@ -1477,7 +1541,7 @@ int ncw_copy_vardef(int ncid_src, int vid_src, int ncid_dst)
             if (j == DIMNAME_NTRIES) {  /* (error) */
                 char fname_dst[STRBUFSIZE];
 
-                strncpy(fname_dst, ncw_get_path(ncid_dst), STRBUFSIZE);
+                strncpy(fname_dst, ncw_get_path(ncid_dst), STRBUFSIZE - 1);
                 ncw_close(ncid_dst);    /* (to be able to examine the file) */
                 quit("\"%s\": ncw_copy_vardef(): technical problem while copying \"%s\" from \"%s\"\n", fname_dst, varname, ncw_get_path(ncid_src));
             }
@@ -1855,6 +1919,27 @@ int ncw_dim_exists(int ncid, const char dimname[])
         return 0;
 }
 
+/** Checks if specified attribute exists and is of the same type as its host
+ ** varible.
+ *
+ * @param ncid NetCDF file id
+ * @param varid Variable id (NC_GLOBAL for a global attribute)
+ * @param attname Attribute name
+ * @return 1 if attribute exists, 0 if not
+ */
+int ncw_att_exists2(int ncid, int varid, const char attname[])
+{
+    if (nc_inq_attid(ncid, varid, attname, NULL) == NC_NOERR) {
+        nc_type vartype, atttype;
+
+        ncw_inq_vartype(ncid, varid, &vartype);
+        ncw_inq_att(ncid, varid, attname, &atttype, NULL);
+
+        return (atttype == vartype);
+    } else
+        return 0;
+}
+
 /** Copies all attributes of a specified variable from one NetCDF file to
  * another.
  *
@@ -2090,7 +2175,8 @@ void ncw_check_varndims(int ncid, int varid, int ndims)
     }
 }
 
-/** Check that the variable has certain number of dimensions
+/** Check that the variable has a certain number and certain lengths of
+ ** dimensions.
  */
 void ncw_check_vardims(int ncid, int varid, int ndims, size_t dimlen[])
 {
@@ -2118,6 +2204,32 @@ void ncw_check_vardims(int ncid, int varid, int ndims, size_t dimlen[])
             ncw_inq_dimname(ncid, dimids[i], dimname);
             quit("\"%s\": ncw_check_vardims(): dimension %d of variable \"%s\" is supposed to have length %d; its actual length is %d", ncw_get_path(ncid), dimname, varname, dimlen[i], dimlen_actual);
         }
+    }
+}
+
+/** Check that the variable has a certain number of elements.
+ */
+void ncw_check_varsize(int ncid, int varid, size_t size)
+{
+    int ndims;
+    int dimids[NC_MAX_DIMS];
+    size_t size_actual = 1;
+    int i;
+
+    ncw_inq_varndims(ncid, varid, &ndims);
+    ncw_inq_vardimid(ncid, varid, dimids);
+    for (i = 0; i < ndims; ++i) {
+        size_t dimlen;
+
+        ncw_inq_dimlen(ncid, dimids[i], &dimlen);
+        size_actual *= dimlen;
+    }
+
+    if (size_actual != size) {
+        char varname[NC_MAX_NAME] = "STR_UNKNOWN";
+
+        ncw_inq_varname(ncid, varid, varname);
+        quit("\"%s\": ncw_check_varsize(): total size of variable \"%s\" is supposed to be %d; its actual size is %d", ncw_get_path(ncid), varname, size, size_actual);
     }
 }
 

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * File:        dasystem.c        
+ * File:        dasystem.c
  *
  * Created:     12/2012
  *
@@ -15,7 +15,8 @@
  *                update.c
  *              , just to reduce the size of dasystem.c.
  *
- * Revisions:
+ * Revisions:   06032020 PS: moved code for setting MPI communicators etc.
+ *                from das_create() to enkf_init()
  *
  *****************************************************************************/
 
@@ -25,18 +26,22 @@
 #include <assert.h>
 #include <math.h>
 #include <unistd.h>
+#include <limits.h>
 #include "ncw.h"
 #include "hash.h"
 #include "definitions.h"
 #include "utils.h"
+#include "ncutils.h"
 #include "distribute.h"
 #include "enkfprm.h"
 #include "observations.h"
 #include "dasystem.h"
+#include "pointlog.h"
 
 #define NPLOGS_INC 10
 #define NFIELDS_INC 100
 #define MPIIDOFFSET 10000
+#define TEPS 1.0e-3
 
 /** Determines ensemble size based on existence of forecast files for each
  ** variable. If das->nmem <= 0 then sets the ensemble size to the maximum
@@ -48,25 +53,32 @@ static void das_setnmem(dasystem* das)
     model* m = das->m;
     int nvar = model_getnvar(m);
     char fname[MAXSTRLEN];
+    int nmem_dynamic;
     int nmem;
 
-    if (das->mode == MODE_NONE)
-        enkf_quit("programming error");
+    assert(das->mode != MODE_NONE);
 
     if (das->mode == MODE_ENOI && enkf_fstatsonly) {
         das->nmem = 1;
         return;
     }
 
-    if (das->ensdir == NULL)
-        enkf_quit("programming error");
+    assert(das->ensdir != NULL);
+    if (das->mode == MODE_HYBRID)
+        assert(das->ensdir2 != NULL);
+
+    /*
+     * set das->nmem_dynamic to -1 to enable scanning of das->ensdir
+     */
+    nmem_dynamic = das->nmem_dynamic;
+    das->nmem_dynamic = -1;
 
     nmem = 0;
     while (1) {
         int i;
 
         for (i = 0; i < nvar; ++i) {
-            model_getmemberfname(m, das->ensdir, model_getvarname(m, i), nmem + 1, fname);
+            das_getmemberfname(das, model_getvarname(m, i), nmem + 1, fname);
             if (!file_exists(fname))
                 break;
         }
@@ -77,31 +89,112 @@ static void das_setnmem(dasystem* das)
     }
     if (nmem == 0)
         enkf_quit("das_setnmem(): could not find \"%s\"", fname);
-    if (das->nmem > 0) {
-        if (nmem < das->nmem)
-            enkf_quit("das_setnmem(): could not find \"%s\"", fname);
-        else if (nmem > das->nmem)
-            enkf_printf("[Warning]: %d members found on disk more than %d members specified in enkf.prm\n", nmem,das->nmem);
+
+    if (das->mode == MODE_ENOI || das->mode == MODE_ENKF) {
+        if (das->nmem > 0) {
+            if (nmem < das->nmem)
+                enkf_quit("das_setnmem(): could not find \"%s\"", fname);
+            if (nmem > das->nmem)
+                enkf_printf("    %d members found on disk; ignoring excess to specified ensemble size = %d\n", nmem, das->nmem);
+        } else
+            das->nmem = nmem;
+        if (nmem == 1)
+            enkf_quit("only 1 member found; need at least 2 members to continue");
+        if (das->mode == MODE_ENKF) {
+            das->nmem_dynamic = das->nmem;
+            das->nmem_static = 0;
+        }
+        if (das->mode == MODE_ENOI) {
+            das->nmem_static = das->nmem;
+            das->nmem_dynamic = 0;
+        }
+        return;
     }
-    das->nmem = nmem;
+
+    /*
+     * das->mode = MODE_HYBRID
+     */
+    if (nmem_dynamic >= 0 && nmem > nmem_dynamic)
+        enkf_printf("    %d dynamic members found on disk; ignoring excess to specified dynamic ensemble size = %d\n", nmem, nmem_dynamic);
+    if (nmem_dynamic >= 0 && nmem < nmem_dynamic)
+        enkf_quit("das_setnmem(): could not find \"%s\"", fname);
+    das->nmem_dynamic = (nmem_dynamic < 0) ? nmem : nmem_dynamic;
+    nmem = das->nmem_dynamic;
+
+    while (1) {
+        int i;
+
+        for (i = 0; i < nvar; ++i) {
+            das_getmemberfname(das, model_getvarname(m, i), nmem + 1, fname);
+            if (!file_exists(fname))
+                break;
+        }
+        if (i == nvar)
+            nmem++;
+        else
+            break;
+    }
+    if (nmem == das->nmem_dynamic)
+        enkf_quit("das_setnmem(): could not find \"%s\"", fname);
+    if (das->nmem_static >= 0 && nmem > das->nmem_dynamic + das->nmem_static)
+        enkf_printf("    %d static members found on disk; ignoring excess to specified static ensemble size = %d\n", nmem, das->nmem_static);
+    if (das->nmem_static >= 0 && nmem < das->nmem_dynamic + das->nmem_static)
+        enkf_quit("das_setnmem(): could not find \"%s\"", fname);
+    if (das->nmem_static < 0)
+        das->nmem_static = nmem - das->nmem_dynamic;
+    das->nmem = das->nmem_dynamic + das->nmem_static;
+
+    if (das->nmem == 1)
+        enkf_quit("only 1 member found; need at least 2 members to continue");
+    if (das->nmem_dynamic == 1)
+        enkf_printf("    only 1 dynamic member found; effectively the system will run in EnOI mode");
+    if (das->nmem_static == 1)
+        enkf_quit("only 1 static member found; need at least 2 to continue");
 }
+
+#if defined(ENKF_UPDATE)
+/**
+ */
+static void get_gridstr(dasystem* das, int gid, char str[])
+{
+    if (model_getngrid(das->m) == 1)
+        str[0] = 0;
+    else
+        sprintf(str, "-%d", gid);
+}
+#endif
 
 /**
  */
+#if defined(ENKF_UPDATE)
+dasystem* das_create(enkfprm* prm, int updatespec)
+#else
 dasystem* das_create(enkfprm* prm)
+#endif
 {
     dasystem* das = calloc(1, sizeof(dasystem));
+    int ngrid;
     int i;
 
+#if defined(ENKF_UPDATE)
+    das->updatespec = updatespec;
+#endif
     das->prmfname = strdup(prm->fname);
     das->mode = prm->mode;
     das->scheme = prm->scheme;
-    if (das->mode == MODE_ENKF || !enkf_fstatsonly)
+    if (!(das->mode == MODE_ENOI && enkf_fstatsonly))
         das->ensdir = strdup(prm->ensdir);
+    if (prm->ensdir2 != NULL)
+        das->ensdir2 = strdup(prm->ensdir2);
     if (prm->bgdir != NULL)
         das->bgdir = strdup(prm->bgdir);
     das->alpha = prm->alpha;
     das->nmem = prm->enssize;
+    if (das->mode == MODE_HYBRID) {
+        das->nmem_dynamic = prm->enssize_dynamic;
+        das->nmem_static = prm->enssize_static;
+        das->gamma = prm->gamma;
+    }
 #if defined(ENKF_CALC)
     das->obs = obs_create_fromprm(prm);
 #endif
@@ -120,58 +213,16 @@ dasystem* das_create(enkfprm* prm)
 
     enkf_printf("  setting the ensemble size:\n");
     das_setnmem(das);
-    enkf_printf("    %d member%s\n", das->nmem, das->nmem == 1 ? "" : "s");
-
-#if defined(HE_VIASHMEM)
-    {
-        int ierror;
-        int* recvcounts = NULL;
-        int* displs = NULL;
-
-        ierror = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &das->sm_comm);
-        assert(ierror == MPI_SUCCESS);
-        ierror = MPI_Comm_rank(das->sm_comm, &das->sm_comm_rank);
-        assert(ierror == MPI_SUCCESS);
-        das->sm_comm_ranks = malloc(nprocesses * sizeof(int));
-        /*
-         * build map of local (i.e. within the node the core belongs to) ranks
-         */
-        das->sm_comm_ranks[rank] = das->sm_comm_rank;
-        recvcounts = malloc(nprocesses * sizeof(int));
-        displs = malloc(nprocesses * sizeof(int));
-        for (i = 0; i < nprocesses; ++i) {
-            recvcounts[i] = 1;
-            displs[i] = i;
-        }
-        ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->sm_comm_ranks, recvcounts, displs, MPI_INT, MPI_COMM_WORLD);
-        assert(ierror == MPI_SUCCESS);
-        das->sm_comm_win = MPI_WIN_NULL;
-
-        /*
-         * create communicators based on local ranks
-         */
-        ierror = MPI_Comm_split(MPI_COMM_WORLD, das->sm_comm_rank, rank, &das->node_comm);
-        assert(ierror == MPI_SUCCESS);
-        ierror = MPI_Comm_rank(das->node_comm, &das->node_comm_rank);
-        assert(ierror == MPI_SUCCESS);
-        ierror = MPI_Comm_size(das->node_comm, &das->node_comm_size);
-        assert(ierror == MPI_SUCCESS);
-        /*
-         * Free communicators for local ranks other than 0. The communicator for
-         * local rank 0 will be used for gathering S and St.
-         */
-        if (das->sm_comm_rank != 0) {
-            MPI_Comm_free(&das->node_comm);
-            das->node_comm_rank = -1;
-        }
-        das->node_comm_ranks = malloc(nprocesses * sizeof(int));
-        das->node_comm_ranks[rank] = das->node_comm_rank;
-        ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->node_comm_ranks, recvcounts, displs, MPI_INT, MPI_COMM_WORLD);
-        assert(ierror == MPI_SUCCESS);
-
-        free(recvcounts);
-        free(displs);
+    if (das->mode != MODE_HYBRID)
+        enkf_printf("    %d member%s\n", das->nmem, das->nmem == 1 ? "" : "s");
+    else {
+        enkf_printf("    %d dynamic member%s\n", das->nmem_dynamic, das->nmem == 1 ? "" : "s");
+        enkf_printf("    %d static member%s\n", das->nmem_static, das->nmem_static == 1 ? "" : "s");
     }
+
+#if defined(ENKF_CALC)
+    if (das->nmem == 1 && !(das->mode == MODE_ENOI && enkf_fstatsonly))
+        enkf_quit("CALC is not supposed to be run with 1-member ensemble");
 #endif
 
 #if defined(ENKF_CALC)
@@ -181,9 +232,18 @@ dasystem* das_create(enkfprm* prm)
         das->kfactor = NAN;
     }
 #endif
+#if defined(USE_SHMEM)
+    das->sm_comm_win_S = MPI_WIN_NULL;
+    das->sm_comm_win_St = MPI_WIN_NULL;
+    das->S = NULL;
+    das->St = NULL;
+#endif
     if (!enkf_fstatsonly)
         das->fieldbufsize = prm->fieldbufsize;
 
+    /*
+     * initialise regions
+     */
 #if defined(ENKF_CALC)
     das->nregions = prm->nregions;
     if (das->nregions > 0)
@@ -202,40 +262,81 @@ dasystem* das_create(enkfprm* prm)
     }
 #endif
 
-    if (prm->nplogs > 0)
-        das->ht_plogs = ht_create_s4(prm->nplogs * 2);
-    das->plogs = malloc(sizeof(pointlog) * prm->nplogs);
-    das->nplogs = prm->nplogs;
-    for (i = 0; i < prm->nplogs; ++i) {
-        pointlog* src = &prm->plogs[i];
-        pointlog* dst = &das->plogs[i];
-        void* grid = NULL;
-        unsigned short key[4] = { src->i, src->j, 0, 0 };
+    /*
+     * initialise pointlogs
+     */
+    if (enkf_doplogs) {
+        enkf_printf("  initialising pointlogs:\n");
+        das->plogs = malloc(sizeof(pointlog) * prm->nplog);
+        das->nplog = prm->nplog;
+        ngrid = model_getngrid(das->m);
+        for (i = 0; i < prm->nplog; ++i) {
+            pointlog* src = &prm->plogs[i];
+            pointlog* dst = &das->plogs[i];
+            int gid;
 
-        dst->id = src->id;
-        dst->i = src->i;
-        dst->j = src->j;
-        if (src->gridname == NULL) {
-            dst->gridid = 0;
-            grid = model_getgridbyid(das->m, 0);
-            dst->gridname = strdup(grid_getname(grid));
-        } else {
-            dst->gridname = strdup(src->gridname);
-            grid = model_getgridbyname(das->m, src->gridname);
-            dst->gridid = grid_getid(grid);
+            enkf_printf("    pointlog (%.3f, %.3f):\n", src->lon, src->lat);
+
+            dst->id = src->id;
+            dst->lon = src->lon;
+            dst->lat = src->lat;
+            if (src->gridname != NULL) {
+                dst->gridname = strdup(src->gridname);
+                dst->gridid = grid_getid(model_getgridbyname(das->m, dst->gridname));
+            } else {
+                dst->gridname = NULL;
+                dst->gridid = -1;
+            }
+
+            dst->fi = malloc(ngrid * sizeof(double));
+            dst->fj = malloc(ngrid * sizeof(double));
+            for (gid = 0; gid < model_getngrid(das->m); ++gid) {
+                grid* g = model_getgridbyid(das->m, gid);
+
+                if (dst->gridid >= 0 && dst->gridid != gid) {
+                    dst->fi[gid] = NAN;
+                    dst->fj[gid] = NAN;
+                    continue;
+                }
+#if defined(ENKF_CALC)
+                if (grid_xy2fij(g, src->lon, src->lat, &dst->fi[gid], &dst->fj[gid]) != STATUS_OK && gid == dst->gridid)
+                    enkf_printf("  WARNING: %s: POINTLOG %f %f: point outside the grid \"%s\"\n", das->prmfname, dst->lon, dst->lat, dst->gridname);
+#elif defined(ENKF_UPDATE)
+                if (das->updatespec & UPDATE_DOPLOGSAN) {
+                    char fname[MAXSTRLEN];
+                    int ncid, varid;
+                    char gridstr[SMALLSTRLEN];
+                    char varname[NC_MAX_NAME];
+
+                    das_getfname_plog(das, dst, fname);
+                    assert(file_exists(fname));
+
+                    ncw_open(fname, NC_NOWRITE, &ncid);
+                    get_gridstr(das, gid, gridstr);
+                    snprintf(varname, NC_MAX_NAME, "grid%s", gridstr);
+                    ncw_inq_varid(ncid, varname, &varid);
+                    ncw_get_att_double(ncid, varid, "fi", &dst->fi[gid]);
+                    ncw_get_att_double(ncid, varid, "fj", &dst->fj[gid]);
+                    ncw_close(ncid);
+                    if (isnan(dst->fi[gid] + dst->fj[gid]) && gid == dst->gridid)
+                        enkf_printf("  WARNING: %s: POINTLOG %f %f: point outside the grid \"%s\"\n", das->prmfname, dst->lon, dst->lat, dst->gridname);
+                }
+#else
+                enkf_quit("programming error");
+#endif
+                enkf_printf("      %s: (i, j) = (%.3f, %.3f)\n", grid_getname(g), dst->fi[gid], dst->fj[gid]);
+            }
+            for (gid = 0; gid < model_getngrid(das->m); ++gid)
+                if (!isnan(dst->fi[gid] + dst->fj[gid]))
+                    break;
+            if (gid == model_getngrid(das->m))
+                enkf_quit("%s: POINTLOG %f %f: point outside all grids\n", das->prmfname, dst->lon, dst->lat);
         }
-        key[3] = dst->gridid;
-
-        grid_ij2xy(grid, dst->i, dst->j, &dst->lon, &dst->lat);
-
-        if (isnan(dst->lon + dst->lat)) {
-            enkf_printf("  WARNING: %s: POINTLOG %d %d: point outside the grid \"%s\"\n", das->prmfname, dst->i, dst->j, dst->gridname);
-            continue;
-        }
-
-        ht_insert(das->ht_plogs, key, dst);
     }
 
+    /*
+     * initialise badbatches
+     */
 #if defined(ENKF_CALC)
     das->nbadbatchspecs = prm->nbadbatchspecs;
     if (das->nbadbatchspecs > 0) {
@@ -251,10 +352,6 @@ dasystem* das_create(enkfprm* prm)
             dst->minnobs = src->minnobs;
         }
     }
-#endif
-
-#if defined(ENKF_UPDATE)
-    das->updatespec = UPDATE_DEFAULT;
 #endif
 
     das->ncformat = prm->ncformat;
@@ -273,11 +370,9 @@ void das_destroy(dasystem* das)
     free(das->ensdir);
     if (das->bgdir != NULL)
         free(das->bgdir);
-#if defined(ENKF_CALC)
-    obs_destroy(das->obs);
-#endif
     model_destroy(das->m);
 #if defined(ENKF_CALC)
+    obs_destroy(das->obs);
     if (das->S != NULL)
         free(das->S);
     if (das->s_f != NULL) {
@@ -289,17 +384,15 @@ void das_destroy(dasystem* das)
         free(das->std_a);
     }
 #endif
-#if defined (HE_VIASHMEM)
-    if (das->sm_comm_win != MPI_WIN_NULL)
-        MPI_Win_free(&das->sm_comm_win);
-    if (das->sm_comm != MPI_COMM_NULL)
-        MPI_Comm_free(&das->sm_comm);
-    if (das->sm_comm_ranks != NULL)
-        free(das->sm_comm_ranks);
-    if (das->node_comm != MPI_COMM_NULL)
-        MPI_Comm_free(&das->node_comm);
-    if (das->node_comm_ranks != NULL)
-        free(das->node_comm_ranks);
+#if defined (USE_SHMEM)
+    if (das->sm_comm_win_S != MPI_WIN_NULL) {
+        MPI_Win_free(&das->sm_comm_win_S);
+        assert(das->sm_comm_win_S == MPI_WIN_NULL);
+    }
+    if (das->sm_comm_win_St != MPI_WIN_NULL) {
+        MPI_Win_free(&das->sm_comm_win_St);
+        assert(das->sm_comm_win_St == MPI_WIN_NULL);
+    }
     if (das->St != NULL)
         free(das->St);
 #endif
@@ -308,12 +401,7 @@ void das_destroy(dasystem* das)
             free(das->regions[i].name);
         free(das->regions);
     }
-    if (das->nplogs > 0) {
-        ht_destroy(das->ht_plogs);
-        for (i = 0; i < das->nplogs; ++i)
-            free(das->plogs[i].gridname);
-        free(das->plogs);
-    }
+    plogs_destroy(das->nplog, das->plogs);
     if (das->nbadbatchspecs > 0) {
         for (i = 0; i < das->nbadbatchspecs; ++i)
             free(das->badbatchspecs[i].obstype);
@@ -322,6 +410,8 @@ void das_destroy(dasystem* das)
     }
     free(das);
     distribute_free();
+    if (rank == 0)
+        dir_rmifexists(DIRNAME_TMP);
 }
 
 /** Looks for all horizontal fields of the model to be updated.
@@ -330,21 +420,27 @@ void das_getfields(dasystem* das, int gridid, int* nfields, field** fields)
 {
     model* m = das->m;
     int nvar = model_getnvar(m);
+    int aliasid = (gridid >= 0) ? grid_getaliasid(model_getgridbyid(m, gridid)) : -1;
     int vid;
 
     assert(*nfields == 0);
     assert(*fields == NULL);
 
+    if (gridid >= 0 && aliasid >= 0)
+        return;
+
     for (vid = 0; vid < nvar; ++vid) {
+        int vargridid = model_getvargridid(m, vid);
+        int varaliasid = grid_getaliasid(model_getgridbyid(m, vargridid));
         char fname[MAXSTRLEN];
         char* varname = model_getvarname(m, vid);
         int nk, k;
 
-        if (gridid >= 0 && model_getvargridid(m, vid) != gridid)
+        if (gridid >= 0 && vargridid != gridid && varaliasid != gridid)
             continue;
 
-        model_getmemberfname(m, das->ensdir, varname, 1, fname);
-        nk = getnlevels(fname, varname);
+        das_getmemberfname(das, varname, 1, fname);
+        nk = ncu_getnlevels(fname, varname);
         for (k = 0; k < nk; ++k) {
             field* f;
 
@@ -365,42 +461,39 @@ void das_getfields(dasystem* das, int gridid, int* nfields, field** fields)
 
 /**
  */
-void das_getfname_X5(dasystem* das, void* grid, char fname[])
+void getfieldfname(char* dir, char* prefix, char* varname, int level, char* fname)
 {
-    if (model_getngrid(das->m) == 1)
-        snprintf(fname, MAXSTRLEN, "%s.nc", FNAMEPREFIX_X5);
-    else
-        snprintf(fname, MAXSTRLEN, "%s-%d.nc", FNAMEPREFIX_X5, grid_getid(grid));
+    snprintf(fname, MAXSTRLEN, "%s/%s_%s-%03d.nc", dir, prefix, varname, level);
 }
 
 /**
  */
-void das_getfname_w(dasystem* das, void* grid, char fname[])
+void das_getfname_transforms(dasystem* das, int gridid, char fname[])
 {
     if (model_getngrid(das->m) == 1)
-        snprintf(fname, MAXSTRLEN, "%s.nc", FNAMEPREFIX_W);
-    else
-        snprintf(fname, MAXSTRLEN, "%s-%d.nc", FNAMEPREFIX_W, grid_getid(grid));
+        snprintf(fname, MAXSTRLEN, "%s.nc", FNAMEPREFIX_TRANSFORMS);
+    else {
+        int aliasid = grid_getaliasid(model_getgridbyid(das->m, gridid));
+
+        snprintf(fname, MAXSTRLEN, "%s-%d.nc", FNAMEPREFIX_TRANSFORMS, (aliasid >= 0) ? aliasid : gridid);
+    }
 }
 
 /**
  */
-void das_getfname_stats(dasystem* das, void* grid, char fname[])
+void das_getfname_stats(dasystem* das, void* g, char fname[])
 {
     if (model_getngrid(das->m) == 1)
         snprintf(fname, MAXSTRLEN, "%s.nc", FNAMEPREFIX_DIAG);
     else
-        snprintf(fname, MAXSTRLEN, "%s-%d.nc", FNAMEPREFIX_DIAG, grid_getid(grid));
+        snprintf(fname, MAXSTRLEN, "%s-%d.nc", FNAMEPREFIX_DIAG, grid_getid(g));
 }
 
 /**
  */
 void das_getfname_plog(dasystem* das, pointlog* plog, char fname[])
 {
-    if (model_getngrid(das->m) == 1)
-        snprintf(fname, MAXSTRLEN, "%s_%d,%d.nc", FNAMEPREFIX_PLOG, plog->i, plog->j);
-    else
-        snprintf(fname, MAXSTRLEN, "%s_%d,%d-%d.nc", FNAMEPREFIX_PLOG, plog->i, plog->j, plog->gridid);
+    snprintf(fname, MAXSTRLEN, "%s_%.3f,%.3f.nc", FNAMEPREFIX_PLOG, plog->lon, plog->lat);
 }
 
 /** Calculates the mixed layer depth for consistent application of the SST bias
@@ -415,7 +508,7 @@ void das_calcmld(dasystem* das, obstype* ot, float*** src, float** dst)
     int ni, nj, nk, ksurf;
     int i, j, k, kk;
 
-    model_getvargriddims(m, mvid, &ni, &nj, &nk);
+    model_getvargridsize(m, mvid, &ni, &nj, &nk);
     ksurf = grid_getsurflayerid(model_getvargrid(m, mvid));
 
     for (j = 0; j < nj; ++j) {
@@ -449,4 +542,183 @@ void das_calcmld(dasystem* das, obstype* ot, float*** src, float** dst)
             dst[j][i] = (float) z;
         }
     }
+}
+
+/**
+ */
+void das_getmemberfname(dasystem* das, char varname[], int mem, char fname[])
+{
+    if (das->mode == MODE_HYBRID && das->nmem_dynamic >= 0 && mem > das->nmem_dynamic)
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+    else
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir, mem, varname);
+}
+
+/**
+ */
+void das_getbgfname(dasystem* das, char varname[], char fname[])
+{
+    snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", das->bgdir, varname);
+}
+
+#if defined(ENKF_CALC)
+/**
+ */
+int das_getmemberfname_async(dasystem* das, obstype* ot, int mem, int t, char fname[])
+{
+    char* alias = ot->alias;
+    char* varname = ot->varnames[0];
+    char* ensdir = das->ensdir;
+
+    if (das->mode == MODE_HYBRID && das->nmem_dynamic >= 0 && mem > das->nmem_dynamic) {
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+        return 0;
+    }
+
+    snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s_%d.nc", ensdir, mem, alias, t);
+    if (!file_exists(fname)) {
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", ensdir, mem, varname);
+        return 0;
+    }
+    /*
+     * if the time variable name has been specified for the obs. type -- verify
+     * that the time is right for the interval t
+     */
+    if (ot->async_tname != NULL) {
+        int ncid, vid;
+        size_t vsize;
+        double time, correcttime;
+
+        ncw_open(fname, NC_NOWRITE, &ncid);
+        if (!ncw_var_exists(ncid, ot->async_tname))
+            enkf_quit("%s: found no time variable \"%s\" specified for observation type \"%s\"", fname, ot->async_tname, ot->name);
+        ncw_inq_varid(ncid, ot->async_tname, &vid);
+        ncw_inq_varsize(ncid, vid, &vsize);
+        if (vsize != 1)
+            enkf_quit("%s: dimension of the time variable \"%s\" must be one", fname, ot->async_tname);
+        {
+            char tunits[MAXSTRLEN];
+            double tunits_multiple, tunits_offset;
+
+            ncw_get_var_double(ncid, vid, &time);
+            ncw_get_att_text(ncid, vid, "units", tunits);
+            tunits_convert(tunits, &tunits_multiple, &tunits_offset);
+            time = time * tunits_multiple + tunits_offset;
+            correcttime = das->obs->da_time + t * ot->async_tstep;
+            if (!ot->async_centred)
+                correcttime += 0.5 * ot->async_tstep;
+            if (fabs(time - correcttime) > TEPS)
+                enkf_quit("%s: \"s\" = %f; expected %f\n", fname, ot->async_tname, time, correcttime);
+        }
+    }
+    return 1;
+}
+
+/**
+ */
+int das_getbgfname_async(dasystem* das, obstype* ot, int t, char fname[])
+{
+    char* alias = ot->alias;
+    char* varname = ot->varnames[0];
+    char* bgdir = das->bgdir;
+
+    snprintf(fname, MAXSTRLEN, "%s/bg_%s_%d.nc", bgdir, alias, t);
+    if (!file_exists(fname)) {
+        snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", bgdir, varname);
+        return 0;
+    }
+    /*
+     * if the time variable name has been specified for the obs. type -- verify
+     * that the time is right for the interval t
+     */
+    if (ot->async_tname != NULL) {
+        int ncid, vid;
+        size_t vsize;
+        double time, correcttime;
+
+        ncw_open(fname, NC_NOWRITE, &ncid);
+        if (!ncw_var_exists(ncid, ot->async_tname))
+            enkf_quit("%s: found no time variable \"%s\" specified for observation type \"%s\"", fname, ot->async_tname, ot->name);
+        ncw_inq_varid(ncid, ot->async_tname, &vid);
+        ncw_inq_varsize(ncid, vid, &vsize);
+        if (vsize != 1)
+            enkf_quit("%s: dimension of the time variable \"%s\" must be one", fname, ot->async_tname);
+        {
+            char tunits[MAXSTRLEN];
+            double tunits_multiple, tunits_offset;
+
+            ncw_get_var_double(ncid, vid, &time);
+            ncw_get_att_text(ncid, vid, "units", tunits);
+            tunits_convert(tunits, &tunits_multiple, &tunits_offset);
+            time = time * tunits_multiple + tunits_offset;
+            correcttime = das->obs->da_time + t * ot->async_tstep;
+            if (!ot->async_centred)
+                correcttime += 0.5 * ot->async_tstep;
+            if (fabs(time - correcttime) > TEPS)
+                enkf_quit("%s: \"s\" = %f; expected %f\n", fname, ot->async_tname, time, correcttime);
+        }
+    }
+    return 1;
+}
+#endif
+
+/** Calculate dynamic ensemble mean; add it to static ensemble anomalies; scale
+ ** static ensemble anomalies.
+ *  Note that the allocated size of v should be v[das->nmem + 2][nij] to make it
+ *  possible calculating ensemble mean with double precision.
+ */
+void das_sethybridensemble(dasystem* das, int nij, float** v)
+{
+    double* vmean = (double*) v[das->nmem];
+    int nmem = das->nmem;
+    int nmem_d = das->nmem_dynamic;
+    int nmem_s = das->nmem_static;
+    double k_d = (nmem_d > 1) ? sqrt((double) (nmem - 1) / (double) (nmem_d - 1)) : 0.0;
+    double k_s = sqrt(das->gamma * (double) (nmem - 1) / (double) (nmem_s - 1));
+    int i, e;
+
+    assert(das->mode == MODE_HYBRID);
+
+    /*
+     * calculate dynamic ensemble mean
+     */
+    memset(vmean, 0, nij * sizeof(double));
+    for (e = 0; e < nmem_d; ++e) {
+        float* ve = v[e];
+
+        for (i = 0; i < nij; ++i)
+            vmean[i] += (double) ve[i];
+    }
+    for (i = 0; i < nij; ++i)
+        vmean[i] /= (double) nmem_d;
+
+    /*
+     * set dynamic members
+     */
+    for (e = 0; e < nmem_d; ++e) {
+        float* ve = v[e];
+
+        for (i = 0; i < nij; ++i)
+            ve[i] = (ve[i] - vmean[i]) * k_d + vmean[i];
+    }
+
+    /*
+     * set static members
+     */
+    for (e = nmem_d; e < nmem; ++e) {
+        float* ve = v[e];
+
+        for (i = 0; i < nij; ++i)
+            ve[i] = ve[i] * k_s + vmean[i];
+    }
+}
+
+/** Return 1 if this member is static anomaly, 0 otherwise.
+ * @param das - pointer to dasystem
+ * @param mem - member number, 1 <= mem <= ensemble size, and mem = -1 is used
+ *              for the background
+ */
+int das_isstatic(dasystem* das, int mem)
+{
+    return mem > das->nmem_dynamic;
 }

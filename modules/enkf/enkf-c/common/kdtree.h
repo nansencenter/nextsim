@@ -5,10 +5,11 @@
  * Created:     23/03/2016
  *
  * Author:      Pavel Sakov
- *              Derived from the code by John Tsiombikas (see the tail of the
- *              file)
  *
- * Description: KD-tree code
+ * Description: KD-tree code.  Initially derived from the code by John
+ *              Tsiombikas (see the tail of the file). The main changes concern
+ *              (1) using continuous block of memory and (2) making it possible
+ *              to pre-allocate memory externally to permit using shared memory.
  *
  * Revisions:   
  *
@@ -16,68 +17,48 @@
 
 #if !defined(_KDTREE_H_)
 
+extern long int seed_rand48;
+
 struct kdtree;
 typedef struct kdtree kdtree;
 
-struct kdnode;
-typedef struct kdnode kdnode;
+typedef struct {
+    size_t id;
+    double distsq;
+} kdresult;
 
-struct kdset;
-typedef struct kdset kdset;
-
-/* create a kd-tree for "k"-dimensional data
+/*
+ * basic procedures
  */
-kdtree* kd_create(int ndim);
-
-/* free the kdtree
- */
+kdtree* kd_create(char* name, size_t ndim);
 void kd_destroy(kdtree* tree);
+void kd_insertnode(kdtree* tree, const double* coords, size_t data);
+void kd_insertnodes(kdtree* tree, size_t n, double** src, size_t* data, int* mask, int randomise);
+void kd_finalise(kdtree* tree);
 
-/* insert a node, specifying its position, and optional data
+/*
+ * memory pre-allocation
  */
-void kd_insertnode(kdtree* tree, const double* coords, size_t id_orig);
+size_t kd_getstoragesize(const kdtree* tree, size_t nnodes);
+void kd_setstorage(kdtree* tree, size_t n, void* storage, int ismaster);
+void kd_syncsize(kdtree* tree);
 
-/* insert an array of nodes
+/*
+ * tree information
  */
-void kd_insertnodes(kdtree* tree, size_t n, double** src, int randomise);
-
-/* get the number of tree nodes
- */
+char* kd_getname(const kdtree* tree);
 size_t kd_getsize(kdtree* tree);
-
-/* find any nearest nodes from the specified point within a range
- */
-kdset* kd_findnodeswithinrange(const kdtree* tree, const double* coords, double range, int ordered);
-
-/* find the nearest node
- */
-size_t kd_findnearestnode(const kdtree* tree, const double* coords);
-
-/* get position of a node
- */
-double* kd_getnodecoords(const kdtree* tree, size_t id);
-
-/* get the original ID of the node (it is different to the current ID if the
- * input was shuffled)
- */
-size_t kd_getnodeorigid(const kdtree* tree, size_t id);
-
-/* get boundary rectangle
- */
+size_t kd_getnalloc(kdtree* tree);
+size_t kd_getndim(kdtree* tree);
 double* kd_getminmax(const kdtree* tree);
+double* kd_getnodecoords(const kdtree* tree, size_t id);
+size_t kd_getnodedata(const kdtree* tree, size_t id);
 
-/* read node id of the current result (SIZE_MAX if no more results are
- * available; advance the result set iterator)
+/*
+ * searches
  */
-size_t kdset_readnext(kdset* set, double* dist);
-
-/* get the size of the result set
- */
-size_t kdset_getsize(const kdset* set);
-
-/* free a result set
- */
-void kdset_free(kdset* set);
+void kd_findnodeswithinrange(kdtree* tree, const double* coords, double range, int ordered, size_t* n, kdresult** results);
+size_t kd_findnearestnode(const kdtree* tree, const double* coords);
 
 #define _KDTREE_H_
 #endif                          /* _KDTREE_H_ */

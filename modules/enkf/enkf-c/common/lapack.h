@@ -20,7 +20,7 @@ int dgemm_(char* transa, char* transb, int* m, int* n, int* k, double* alpha, do
 
 /* y = alpha * A * x + beta * y */
 int dgemv_(char* trans, int* m, int* n, double* alpha, double* A, int* lda, double* x, int* incx, double* beta, double* y, int* incy);
-int sgemv_(char* trans, int* m, int* n, float* alpha, float* A, int* lda, float* x, int* incx, float* beta, float* y, int* incy); // see blas sgemv https://www.math.utah.edu/software/lapack/lapack-blas/sgemv.html
+int sgemv_(char* trans, int* m, int* n, float* alpha, float* A, int* lda, float* x, int* incx, float* beta, float* y, int* incy);
 
 int dpotrf_(char* uplo, int* n, double* A, int* lda, int* info);
 int dpotri_(char* uplo, int* n, double* A, int* lda, int* info);

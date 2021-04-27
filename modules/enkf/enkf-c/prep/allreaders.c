@@ -34,31 +34,25 @@ typedef struct {
 } obsreader_entry;
 
 obsreader_entry allreaders[] = {
-    {"RADS", "standard", reader_rads_standard},
-    {"RADS", "standard2", reader_rads_standard2},
     {"NAVO", "standard", reader_navo_standard},
-    {"SMOS", "standard", reader_smos_standard},
-    {"SMOS", "standard2", reader_smos_standard2},
-    {"CS2SMOS", "standard", reader_cs2smos_standard},
     {"WINDSAT", "standard", reader_windsat_standard},
-    {"PATHFINDER", "standard", reader_pathfinder_standard},
     {"CARS", "standard", reader_cars_standard},
     {"MMT", "standard", reader_mmt_standard},
     {"AMSR2", "standard", reader_amsr2_standard},
     {"AMSRE", "standard", reader_amsre_standard},
     {"HIMAWARI8", "standard", reader_h8_standard},
-    {"VIIRS", "standard", reader_viirs_standard},
     {"CMEMS", "standard", reader_cmems_standard},
-    {"ALL", "xy_scattered", reader_xy_scattered},
-    {"ALL", "xy_gridded", reader_xy_gridded},
-    {"ALL", "xyz_scattered", reader_xyz_scattered},
-    {"ALL", "xyz_gridded", reader_xyz_gridded},
-    {"ALL", "xyh_gridded", reader_xyh_gridded},
+    {"ANY", "scattered", reader_scattered},
+    {"ANY", "xy_gridded", reader_xy_gridded},
+    {"ANY", "xyz_gridded", reader_xyz_gridded},
+    {"ANY", "xyh_gridded", reader_xyh_gridded},
+    {"ANY", "z", reader_z},
+    {"CS2SMOS", "standard", reader_cs2smos_standard},
 };
 
 /**
  */
-void describe_readers(void)
+static void describe_readers(void)
 {
     int nreaders = sizeof(allreaders) / sizeof(obsreader_entry);
     int i;
@@ -78,7 +72,7 @@ obsread_fn get_obsreadfn(obsmeta* m)
     int i;
 
     for (i = 0; i < nreaders; ++i)
-        if ((strcmp(allreaders[i].product, "ALL") == 0 || strcasecmp(m->product, allreaders[i].product) == 0) && strcmp(m->reader, allreaders[i].reader) == 0)
+        if ((strcmp(allreaders[i].product, "ANY") == 0 || strcasecmp(m->product, allreaders[i].product) == 0) && strcmp(m->reader, allreaders[i].reader) == 0)
             return allreaders[i].readfn;
 
     enkf_printf("\n\n  ERROR: no observation reader \"%s\" for product \"%s\"\n\n", m->reader, m->product);

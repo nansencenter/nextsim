@@ -29,13 +29,18 @@ static void usage()
 {
     enkf_printf("  Usage: enkf_update <prm file> [<options>]\n");
     enkf_printf("  Options:\n");
+    enkf_printf("  --allow-logspace-with-static-ens\n");
+    enkf_printf("      confirm that static ensemble is conditioned for using log space\n");
     enkf_printf("  --calculate-spread\n");
     enkf_printf("      calculate ensemble spread and write to %s\n", FNAME_SPREAD);
     enkf_printf("  --calculate-forecast-spread\n");
+    enkf_printf("  --calculate-forecast-spread-only\n");
     enkf_printf("      calculate forecast ensemble spread only and write to %s\n", FNAME_SPREAD);
     enkf_printf("  --calculate-vertical-correlations\n");
     enkf_printf("      calculate correlation coefficients between surface and other layers of\n");
     enkf_printf("      3D variables and write to %s\n", FNAME_VERTCORR);
+    enkf_printf("  --calculate-vertical-correlations-only\n");
+    enkf_printf("      as above, but exclude other (normally performed) jobs\n");
     enkf_printf("  --describe-prm-format [main|model|grid]\n");
     enkf_printf("      describe format of a parameter file and exit\n");
     enkf_printf("  --direct-write\n");
@@ -45,7 +50,9 @@ static void usage()
     enkf_printf("  --leave-tiles\n");
     enkf_printf("      do not delete tiles\n");
     enkf_printf("  --no-fields-write\n");
-    enkf_printf("      do not write analysis fields (only point logs and/or spread)\n");
+    enkf_printf("      do not write analysis fields (only diagnostic data)\n");
+    enkf_printf("  --no-update\n");
+    enkf_printf("      exclude tasks that require ensemble update\n");
     enkf_printf("  --output-increment\n");
     enkf_printf("      output analysis increment (default: output analysis)\n");
     enkf_printf("  --write-inflation\n");
@@ -60,6 +67,9 @@ static void usage()
  */
 static void parse_commandline(int argc, char* argv[], char** fname, int* updatespec)
 {
+    int no_update = 0;
+    int vcorrs_only = 0;
+    int fspread_only = 0;
     int i;
 
     if (argc < 2)
@@ -74,6 +84,10 @@ static void parse_commandline(int argc, char* argv[], char** fname, int* updates
                 continue;
             } else
                 usage();
+        } else if (strcmp(argv[i], "--allow-logspace-with-static-ens") == 0) {
+            enkf_allowenoilog = 1;
+            i++;
+            continue;
         } else if (strcmp(argv[i], "--calculate-spread") == 0) {
             *updatespec |= (UPDATE_DOFORECASTSPREAD | UPDATE_DOANALYSISSPREAD);
             i++;
@@ -82,8 +96,17 @@ static void parse_commandline(int argc, char* argv[], char** fname, int* updates
             *updatespec |= UPDATE_DOFORECASTSPREAD;
             i++;
             continue;
+        } else if (strcmp(argv[i], "--calculate-forecast-spread-only") == 0) {
+            *updatespec |= UPDATE_DOFORECASTSPREAD;
+            fspread_only = 1;
+            i++;
+            continue;
         } else if (strcmp(argv[i], "--calculate-vertical-correlations") == 0) {
             *updatespec |= UPDATE_DOVERTCORRS;
+            i++;
+        } else if (strcmp(argv[i], "--calculate-vertical-correlations-only") == 0) {
+            *updatespec |= UPDATE_DOVERTCORRS;
+            vcorrs_only = 1;
             i++;
         } else if (strcmp(argv[i], "--describe-prm-format") == 0) {
             if (i < argc - 1) {
@@ -114,6 +137,10 @@ static void parse_commandline(int argc, char* argv[], char** fname, int* updates
             *updatespec &= ~UPDATE_DOFIELDS;
             i++;
             continue;
+        } else if (strcmp(argv[i], "--no-update") == 0) {
+            no_update = 1;
+            i++;
+            continue;
         } else if (strcmp(argv[i], "--output-increment") == 0) {
             *updatespec |= UPDATE_OUTPUTINC;
             i++;
@@ -137,6 +164,13 @@ static void parse_commandline(int argc, char* argv[], char** fname, int* updates
 
     if (*fname == NULL)
         enkf_quit("command line: parameter file not specified");
+
+    if (no_update)
+        *updatespec &= ~UPDATE_NEEDAN;
+    if (vcorrs_only)
+        *updatespec = UPDATE_DOVERTCORRS;
+    if (fspread_only)
+        *updatespec = UPDATE_DOFORECASTSPREAD;
 }
 
 /**
@@ -184,7 +218,7 @@ int main(int argc, char* argv[])
         updatespec |= UPDATE_DIRECTWRITE;
     }
     if (updatespec & UPDATE_DOINFLATION) {
-        if (prm->mode != MODE_ENKF) {
+        if (prm->mode == MODE_ENOI) {
             enkf_printf("  prm: mode = EnOI -> cancelling writing of inflation\n");
             updatespec &= ~UPDATE_DOINFLATION;
         } else if (isnan(prm->inf_ratio)) {
@@ -192,23 +226,31 @@ int main(int argc, char* argv[])
             updatespec &= ~UPDATE_DOINFLATION;
         }
     }
-    if (prm->nplogs == 0)
+    if (prm->nplog == 0)
         updatespec &= ~UPDATE_DOPLOGS;
+    if (updatespec & UPDATE_DOPLOGS)
+        enkf_doplogs = 1;
 
     describe_updatespec(updatespec);
     if ((updatespec & (UPDATE_DOFIELDS | UPDATE_DOSPREAD | UPDATE_DOPLOGS | UPDATE_DOINFLATION | UPDATE_DOVERTCORRS)) == 0)
         enkf_quit("nothing to do");
 
     enkf_printf("  initialising the system:\n");
-    das = das_create(prm);
+    das = das_create(prm, updatespec);
     enkfprm_destroy(prm);
-    das->updatespec = updatespec;
 
-    if (updatespec & (UPDATE_DOFIELDS | UPDATE_DOSPREAD | UPDATE_DOPLOGS | UPDATE_DOINFLATION)) {
-        if (das->mode == MODE_ENKF)
-            enkf_printf("  updating the ensemble:\n");
-        else if (das->mode == MODE_ENOI)
-            enkf_printf("  updating the model state:\n");
+    if (das->updatespec & (UPDATE_DOFIELDS | UPDATE_DOSPREAD | UPDATE_DOPLOGS | UPDATE_DOINFLATION)) {
+        if (das->mode == MODE_ENKF) {
+            if (updatespec & UPDATE_NEEDAN)
+                enkf_printf("  updating the ensemble:\n");
+            else
+                enkf_printf("  processing the ensemble:\n");
+        } else if (das->mode == MODE_ENOI) {
+            if (updatespec & UPDATE_NEEDAN)
+                enkf_printf("  updating the model state:\n");
+            else
+                enkf_printf("  processing the model state and/or ensemble:\n");
+        }
         das_update(das);
         enkf_flush();
     }

@@ -21,16 +21,39 @@ struct enkfprm {
     int scheme;
     double alpha;
     char* date;
-    double windowmin;
-    double windowmax;
+    double obswindow_min;
+    double obswindow_max;
 
     char* modelprm;
     char* gridprm;
     char* obstypeprm;
     char* obsprm;
 
+    /*
+     * Ensemble directory for mode = MODE_ENKF or mode = MODE_ENOI. Directory of
+     * the dynamic ensemble for mode = MODE_HYBRID.
+     */
     char* ensdir;
+    /*
+     * directory of the static ensemble for mode = MODE_HYBRID
+     */
+    char* ensdir2;
+    /*
+     * total ensemble size
+     */
     int enssize;
+    /*
+     * size of the dynamic ensemble
+     */
+    int enssize_dynamic;
+    /*
+     * size of the static ensemble
+     */
+    int enssize_static;
+    /*
+     * mixing coefficient for hybrid covariance
+     */
+    double gamma;
     char* bgdir;
 
     double kfactor;
@@ -47,12 +70,12 @@ struct enkfprm {
     double* locweight;
     int nlobsmax;
     int stride;
+    int sob_stride;
     int fieldbufsize;
     int nregions;
     region* regions;
-    int nplogs;
+    int nplog;
     pointlog* plogs;
-    int sob_stride;
     int nbadbatchspecs;
     badbatchspec* badbatchspecs;
 

@@ -113,9 +113,10 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
     int ncid;
     int dimid_nprof, dimid_nz;
     size_t nprof, nz;
-    int varid, varid_qc = -1;
+    int* status;
     double* lon;
     double* lat;
+    int varid, varid_qc = -1;
     double** z;
     double** v;
     char** qcflag;
@@ -129,7 +130,7 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
     char buf[MAXSTRLEN];
     double tunits_multiple, tunits_offset;
     int npexcluded;
-    int p, i, nobs;
+    int p, i, nobs_read;
 
     for (i = 0; i < meta->npars; ++i) {
         if (strcasecmp(meta->pars[i].name, "EXCLUDEINST") == 0) {
@@ -169,7 +170,7 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
         st_printentries(st_exclude, " ");
     }
 
-    if (meta->nstds == 0)
+    if (meta->nestds == 0)
         enkf_quit("ERROR_STD is necessary but not specified for product \"%s\"", meta->product);
 
     ncw_open(fname, NC_NOWRITE, &ncid);
@@ -177,15 +178,12 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
     ncw_inq_dimid(ncid, "N_PROF", &dimid_nprof);
     ncw_inq_dimlen(ncid, dimid_nprof, &nprof);
     enkf_printf("        # profiles = %u\n", (unsigned int) nprof);
-
-    ncw_inq_dimid(ncid, "N_LEVELS", &dimid_nz);
-    ncw_inq_dimlen(ncid, dimid_nz, &nz);
     if (nprof == 0) {
         enkf_printf("        no profiles found\n");
         ncw_close(ncid);
         goto noprofiles;
     }
-    enkf_printf("        # levels = %u\n", (unsigned int) nz);
+    status = calloc(nprof, sizeof(int));
 
     ncw_inq_varid(ncid, "LONGITUDE", &varid);
     lon = malloc(nprof * sizeof(double));
@@ -195,6 +193,9 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
     lat = malloc(nprof * sizeof(double));
     ncw_get_var_double(ncid, varid, lat);
 
+    ncw_inq_dimid(ncid, "N_LEVELS", &dimid_nz);
+    ncw_inq_dimlen(ncid, dimid_nz, &nz);
+    enkf_printf("        # levels = %u\n", (unsigned int) nz);
     z = alloc2d(nprof, nz, sizeof(double));
     {
         double* zall[4] = { NULL, NULL, NULL, NULL };
@@ -289,7 +290,7 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
 
     npexcluded = 0;
     memset(qcflagcounts, 0, (QCFLAGVALMAX + 1) * sizeof(int));
-    nobs = 0;
+    nobs_read = 0;
     for (p = 0; p < (int) nprof; ++p) {
         char inststr[MAXSTRLEN];
         int instnum;
@@ -322,6 +323,7 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
                     continue;
             }
             qcflagcounts[qcflagint]++;
+            nobs_read++;
 
             obs_checkalloc(obs);
             o = &obs->data[obs->nobs];
@@ -334,58 +336,70 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
             o->fid = fid;
             o->batch = p;
             o->value = v[p][i];
-            o->std = 0.0;
+            o->estd = 0.0;
             o->lon = lon[p];
             o->lat = lat[p];
             o->depth = z[p][i];
-            o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+            o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
             if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                 break;
             if (o->status == STATUS_OK)
-                o->status = grid_z2fk(g, o->fi, o->fj, o->depth, &o->fk);
+                o->status = grid_z2fk_f(g, o->fi, o->fj, o->depth, &o->fk);
             else
                 o->fk = NAN;
             o->model_depth = NAN;       /* set in obs_add() */
-            o->date = time[p] * tunits_multiple + tunits_offset;
+            o->time = time[p] * tunits_multiple + tunits_offset;
             o->aux = -1;
+            if (o->status == STATUS_OK)
+                status[p] = 1;
 
             obs->nobs++;
-            nobs++;
         }
     }
     if (npexcluded > 0)
-        enkf_printf("        # profiles excluded = %d\n", npexcluded);
+        enkf_printf("        # profiles excluded by inst. type = %d\n", npexcluded);
 
     /*
      * get the number of unique profile locations
      */
-    if (nobs > 0) {
+    if (nobs_read > 0) {
         double* lonlat = malloc(nprof * sizeof(double) * 2);
-        int nunique = (nprof > 0) ? 1 : 0;
-        int ii;
+        int ngood, ii;
 
+        ngood = 0;
         for (i = 0; i < nprof; ++i) {
-            lonlat[i * 2] = lon[i];
-            lonlat[i * 2 + 1] = lat[i];
-        }
-        qsort(lonlat, nprof, sizeof(double) * 2, cmp_lonlat);
-        for (i = 1, ii = 0; i < nprof; ++i) {
-            if (lonlat[i * 2] == lonlat[ii * 2] && lonlat[i * 2 + 1] == lonlat[ii * 2 + 1])
+            if (status[i] == 0)
                 continue;
-            ii = i;
-            nunique++;
+            lonlat[ngood * 2] = lon[i];
+            lonlat[ngood * 2 + 1] = lat[i];
+            ngood++;
         }
-        enkf_printf("        # unique locations = %d\n", nunique);
+        enkf_printf("        # profiles with data to process = %d\n", ngood);
+        if (ngood > 1) {
+            int nunique = 1;
+
+            qsort(lonlat, ngood, sizeof(double) * 2, cmp_lonlat);
+            nunique = 1;
+            for (i = 1, ii = 0; i < ngood; ++i) {
+                if (lonlat[i * 2] == lonlat[ii * 2] && lonlat[i * 2 + 1] == lonlat[ii * 2 + 1])
+                    continue;
+                ii = i;
+                nunique++;
+            }
+            enkf_printf("        # unique locations = %d\n", nunique);
+        }
         free(lonlat);
     }
 
-    if (nobs > 0) {
+    enkf_printf("        nobs = %d\n", nobs_read);
+    if (nobs_read > 0) {
         enkf_printf("        # of processed obs by quality flags:\n");
         for (i = 0; i <= QCFLAGVALMAX; ++i)
             if (qcflagvals & (1 << i) && qcflagcounts[i] > 0)
                 enkf_printf("          %d: %d obs\n", i, qcflagcounts[i]);
     }
 
+    free(time);
     free(v);
     free(z);
     free(qcflag);
@@ -393,6 +407,7 @@ void reader_cmems_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
   nodata:
     free(lon);
     free(lat);
+    free(status);
   noprofiles:
     if (st_exclude != NULL)
         st_destroy(st_exclude);

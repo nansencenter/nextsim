@@ -48,7 +48,7 @@ void reader_h8_standard(char* fname, int fid, obsmeta* meta, grid* g, observatio
     double* time2;
     char tunits[MAXSTRLEN];
     double tunits_multiple, tunits_offset;
-    int i, nobs;
+    int i, nobs_read;
 
     ncw_open(fname, NC_NOWRITE, &ncid);
     if (ncw_dim_exists(ncid, "x") && ncw_dim_exists(ncid, "y")) {
@@ -63,7 +63,7 @@ void reader_h8_standard(char* fname, int fid, obsmeta* meta, grid* g, observatio
 
     for (i = 0; i < meta->npars; ++i)
         if (strcasecmp(meta->pars[i].name, "LLFNAME") == 0)
-            strncpy(llfname, meta->pars[i].value, MAXSTRLEN);
+            strncpy(llfname, meta->pars[i].value, MAXSTRLEN - 1);
         else
             enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
     if (!is1d) {
@@ -119,14 +119,14 @@ void reader_h8_standard(char* fname, int fid, obsmeta* meta, grid* g, observatio
     ncw_close(ncid);
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
-    nobs = 0;
+    nobs_read = 0;
     for (i = 0; i < (int) ni; ++i) {
         observation* o;
 
         if (!isfinite(sst[i]) || fabs(sst[i]) > MAXOBSVAL)
             continue;
 
-        nobs++;
+        nobs_read++;
         obs_checkalloc(obs);
         o = &obs->data[obs->nobs];
 
@@ -142,21 +142,21 @@ void reader_h8_standard(char* fname, int fid, obsmeta* meta, grid* g, observatio
          * temperature
          */
         o->value = sst[i] - 273.15 + 0.17;
-        o->std = ERRORSTD_DEF;
+        o->estd = ERRORSTD_DEF;
         o->lon = lon[i];
         o->lat = lat[i];
         o->depth = 0.0;
         o->fk = (double) ksurf;
-        o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+        o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
         if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
             continue;
         o->model_depth = NAN;   /* set in obs_add() */
-        o->date = (time[i] + time2[i]) / 2.0 * tunits_multiple + tunits_offset;
+        o->time = (time[i] + time2[i]) / 2.0 * tunits_multiple + tunits_offset;
         o->aux = -1;
 
         obs->nobs++;
     }
-    enkf_printf("        nobs = %d\n", nobs);
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     free(lon);
     free(lat);

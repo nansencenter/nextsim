@@ -60,7 +60,7 @@ void reader_amsre_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
     size_t tunits_len;
     double tunits_multiple, tunits_offset;
     char* basename;
-    int i, j;
+    int i, j, nobs_read;
     int channel;
 
     for (i = 0; i < meta->npars; ++i) {
@@ -152,6 +152,7 @@ void reader_amsre_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
 
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
+    nobs_read = 0;
     for (channel = 0; channel < 2; ++channel) {
         double** data = (channel == 0) ? sst_a : sst_d;
         double** wind = (channel == 0) ? wind_a : wind_d;
@@ -169,6 +170,7 @@ void reader_amsre_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
                 if (wind[j][i] > MAXOBSVAL || wind[j][i] < minwind)
                     continue;   /* (do not need fabs, as wind non-negative) */
 
+                nobs_read++;
                 obs_checkalloc(obs);
                 o = &obs->data[obs->nobs];
 
@@ -180,22 +182,23 @@ void reader_amsre_standard(char* fname, int fid, obsmeta* meta, grid* g, observa
                 o->fid = fid;
                 o->batch = channel;
                 o->value = data[j][i];
-                o->std = ERRORSTD_DEF;
+                o->estd = ERRORSTD_DEF;
                 o->lon = lon[i];
                 o->lat = lat[j];
                 o->depth = 0.0;
                 o->fk = (double) ksurf;
-                o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+                o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
                 o->model_depth = NAN;   /* set in obs_add() */
-                o->date = time[j][i] * tunits_multiple + tunits_offset;
+                o->time = time[j][i] * tunits_multiple + tunits_offset;
                 o->aux = -1;
 
                 obs->nobs++;
             }
         }
     }
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     free(lon);
     free(lat);

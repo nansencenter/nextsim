@@ -26,7 +26,8 @@
  *              from the default value (+). Some parameters are optional (-):
  *              - VARNAME (++)
  *              - GRIDNAME (++)
- *              - TIMENAME ("time") (+)
+ *              - TIMENAME ("*[tT][iI][mM][eE]*") (+)
+ *              - or TIMENAMES (when time = base_time + offset) (+)
  *              - NPOINTSNAME ("npoints") (-)
  *                  number of collated points for each datum; used basically as
  *                  a data mask n = 0
@@ -35,6 +36,8 @@
  *              - ESTDNAME ("error_std") (-)
  *                  error STD; if absent then needs to be specified externally
  *                  in the oobservation data parameter file
+ *              - BATCHNAME ("batch") (-)
+ *                  name of the variable used for batch ID
  *              - VARSHIFT (-)
  *                  data offset to be added
  *              - MINDEPTH (-)
@@ -44,6 +47,22 @@
  *              - INSTRUMENT (-)
  *                  instrument string that will be used for calculating
  *                  instrument stats
+ *              - QCFLAGNAME (-)
+ *                  name of the QC flag variable, 0 <= qcflag <= 31
+ *              - QCFLAGVALS (-)
+ *                  the list of allowed values of QC flag variable
+ *              Note: it is possible to have multiple entries of QCFLAGNAME and
+ *                QCFLAGVALS combination, e.g.:
+ *                  PARAMETER QCFLAGNAME = TEMP_quality_control
+ *                  PARAMETER QCFLAGVALS = 1
+ *                  PARAMETER QCFLAGNAME = DEPTH_quality_control
+ *                  PARAMETER QCFLAGVALS = 1
+ *                  PARAMETER QCFLAGNAME = LONGITUDE_quality_control
+ *                  PARAMETER QCFLAGVALS = 1,8
+ *                  PARAMETER QCFLAGNAME = LATITUDE_quality_control
+ *                  PARAMETER QCFLAGVALS = 1,8
+ *                An observation is considered valid if each of the specified
+ *                flags takes a permitted value.
  *
  * Revisions:   PS 6/7/2018
  *                Added parameters QCFLAGNAME and QCFLAGVALS. The latter is
@@ -57,6 +76,7 @@
 #include <math.h>
 #include <assert.h>
 #include "ncw.h"
+#include "ncutils.h"
 #include "definitions.h"
 #include "utils.h"
 #include "obsprm.h"
@@ -80,118 +100,87 @@ void reader_xyh_gridded(char* fname, int fid, obsmeta* meta, grid* gdst, observa
     char* npointsname = NULL;
     char* stdname = NULL;
     char* estdname = NULL;
-    char* timename = NULL;
-    char* qcflagname = NULL;
+    char* batchname = NULL;
+    char instrument[MAXSTRLEN] = "";
+
+    int nqcflagvars = 0;
+    char** qcflagvarnames = NULL;
+    uint32_t* qcflagmasks = 0;
+
+    int ni = 0, nj = 0, nk = 0;
+    size_t nij = 0, nijk = 0;
+
+    int instid = -1;
+    int productid = -1;
+    int typeid = -1;
+
     int ncid;
     int ndim;
-
-    uint32_t qcflagvals = 0;
-    float varshift = 0.0;
-    char instrument[MAXSTRLEN];
-
-    int ni = 0, nj = 0, nk = 0, nij = 0, nijk = 0;
-
-    int varid_var = -1, varid_npoints = -1, varid_std = -1, varid_estd = -1, varid_qcflag = -1, varid_time = -1;
     float* var = NULL;
-    float var_fill_value = NAN;
-    float var_add_offset = NAN, var_scale_factor = NAN;
     double var_estd = NAN;
     short* npoints = NULL;
     float* std = NULL;
-    float std_add_offset = NAN, std_scale_factor = NAN;
-    float std_fill_value = NAN;
     float* estd = NULL;
-    float estd_add_offset = NAN, estd_scale_factor = NAN;
-    float estd_fill_value = NAN;
-    int32_t* qcflag = NULL;
-    int have_time = 1;
-    int singletime = -1;
-    float* time = NULL;
-    float time_add_offset = NAN, time_scale_factor = NAN;
-    float time_fill_value = NAN;
-    char tunits[MAXSTRLEN];
-    double tunits_multiple = NAN, tunits_offset = NAN;
-    int i, j, k, nobs_read;
+    int* batch = NULL;
+    uint32_t** qcflag = NULL;
+    size_t ntime = 0;
+    double* time = NULL;
+    int varid;
+    size_t i, j, k, nobs_read;
 
-    strcpy(instrument, meta->product);
     for (i = 0; i < meta->npars; ++i) {
         if (strcasecmp(meta->pars[i].name, "VARNAME") == 0)
             varname = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "GRIDNAME") == 0)
             gridname = meta->pars[i].value;
-        else if (strcasecmp(meta->pars[i].name, "TIMENAME") == 0)
-            timename = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "NPOINTSNAME") == 0)
             npointsname = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "STDNAME") == 0)
             stdname = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "ESTDNAME") == 0)
             estdname = meta->pars[i].value;
-        else if (strcasecmp(meta->pars[i].name, "QCFLAGNAME") == 0)
-            qcflagname = meta->pars[i].value;
-        else if (strcasecmp(meta->pars[i].name, "QCFLAGVALS") == 0) {
-            char seps[] = " ,";
-            char* line = meta->pars[i].value;
-            char* token;
-            int val;
-
-            qcflagvals = 0;
-            while ((token = strtok(line, seps)) != NULL) {
-                if (!str2int(token, &val))
-                    enkf_quit("%s: could not convert QCFLAGVALS entry \"%s\" to integer", meta->prmfname, token);
-                if (val < 0 || val > 31)
-                    enkf_quit("%s: QCFLAGVALS entry = %d (supposed to be in [0,31] interval", meta->prmfname, val);
-                qcflagvals |= 1 << val;
-                line = NULL;
-            }
-            if (qcflagvals == 0)
-                enkf_quit("%s: no valid flag entries found after QCFLAGVALS\n", meta->prmfname);
-        } else if (strcasecmp(meta->pars[i].name, "VARSHIFT") == 0) {
-            if (!str2float(meta->pars[i].value, &varshift))
-                enkf_quit("%s: can not convert VARSHIFT = \"%s\" to float\n", meta->prmfname, meta->pars[i].value);
-            enkf_printf("        VARSHIFT = %s\n", meta->pars[i].value);
-        }
-        /*
-         * (MINDEPTH and MAXDEPTH are handled in obs_add() )
-         */
-        else if (strcasecmp(meta->pars[i].name, "MINDEPTH") == 0) {
-            double mindepth;
-
-            if (!str2double(meta->pars[i].value, &mindepth))
-                enkf_quit("observation prm file: can not convert MINDEPTH = \"%s\" to double\n", meta->pars[i].value);
-            enkf_printf("        MINDEPTH = %.0f\n", mindepth);
-            continue;
-        } else if (strcasecmp(meta->pars[i].name, "MAXDEPTH") == 0) {
-            double maxdepth;
-
-            if (!str2double(meta->pars[i].value, &maxdepth))
-                enkf_quit("observation prm file: can not convert MAXDEPTH = \"%s\" to double\n", meta->pars[i].value);
-            enkf_printf("        MAXDEPTH = %.0f\n", maxdepth);
-            continue;
-        } else if (strcasecmp(meta->pars[i].name, "INSTRUMENT") == 0) {
-            strncpy(instrument, meta->pars[i].value, MAXSTRLEN);
-        } else
+        else if (strcasecmp(meta->pars[i].name, "BATCHNAME") == 0)
+            batchname = meta->pars[i].value;
+        else if (strcasecmp(meta->pars[i].name, "INSTRUMENT") == 0)
+            strncpy(instrument, meta->pars[i].value, MAXSTRLEN - 1);
+        else if (strcasecmp(meta->pars[i].name, "TIMENAME") == 0 || strcasecmp(meta->pars[i].name, "TIMENAMES") == 0)
+            /*
+             * TIMENAME and TIMENAMES are dealt with separately
+             */
+            ;
+        else if (strcasecmp(meta->pars[i].name, "QCFLAGNAME") == 0 || strcasecmp(meta->pars[i].name, "QCFLAGVARNAME") == 0 || strcasecmp(meta->pars[i].name, "QCFLAGVALS") == 0)
+            /*
+             * QCFLAGNAME and QCFLAGVALS are dealt with separately
+             */
+            ;
+        else
             enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
     }
+
     if (varname == NULL)
         enkf_quit("reader_xyh_gridded(): %s: VARNAME not specified", fname);
+    else
+        enkf_printf("        VARNAME = %s\n", varname);
     if (gridname == NULL)
         enkf_quit("reader_xyh_gridded(): %s: GRIDNAME not specified", fname);
+    else
+        enkf_printf("        GRIDNAME = %s\n", gridname);
 
     gsrc = model_getgridbyname(obs->model, gridname);
 
-    grid_getdims(gsrc, &ni, &nj, &nk);
+    grid_getsize(gsrc, &ni, &nj, &nk);
     nij = ni * nj;
     nijk = nij * nk;
 
     ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid_var);
-    ncw_inq_varndims(ncid, varid_var, &ndim);
+
+    ncw_inq_varid(ncid, varname, &varid);
+    ncw_inq_varndims(ncid, varid, &ndim);
     {
         int dimid[4];
         size_t dimlen[4];
 
-        ncw_inq_vardimid(ncid, varid_var, dimid);
+        ncw_inq_vardimid(ncid, varid, dimid);
         for (i = 0; i < ndim; ++i)
             ncw_inq_dimlen(ncid, dimid[i], &dimlen[i]);
         if (ndim == 4) {
@@ -205,179 +194,164 @@ void reader_xyh_gridded(char* fname, int fid, obsmeta* meta, grid* gdst, observa
     }
 
     var = malloc(nijk * sizeof(float));
-    ncw_get_var_float(ncid, varid_var, var);
-    if (ncw_att_exists(ncid, varid_var, "add_offset")) {
-        ncw_get_att_float(ncid, varid_var, "add_offset", &var_add_offset);
-        ncw_get_att_float(ncid, varid_var, "scale_factor", &var_scale_factor);
-    }
-    if (ncw_att_exists(ncid, varid_var, "_FillValue"))
-        ncw_get_att_float(ncid, varid_var, "_FillValue", &var_fill_value);
+    ncu_readvarfloat(ncid, varid, nijk, var);
 
+    /*
+     * npoints
+     */
+    varid = -1;
     if (npointsname != NULL)
-        ncw_inq_varid(ncid, npointsname, &varid_npoints);
+        ncw_inq_varid(ncid, npointsname, &varid);
     else if (ncw_var_exists(ncid, "npoints"))
-        ncw_inq_varid(ncid, "npoints", &varid_npoints);
-    if (varid_npoints >= 0) {
+        ncw_inq_varid(ncid, "npoints", &varid);
+    if (varid >= 0) {
         npoints = malloc(nijk * sizeof(short));
-        ncw_get_var_short(ncid, varid_npoints, npoints);
+        ncw_get_var_short(ncid, varid, npoints);
     }
 
+    /*
+     * std
+     */
+    varid = -1;
     if (stdname != NULL)
-        ncw_inq_varid(ncid, stdname, &varid_std);
+        ncw_inq_varid(ncid, stdname, &varid);
     else if (ncw_var_exists(ncid, "std"))
-        ncw_inq_varid(ncid, "std", &varid_std);
-    if (varid_std >= 0) {
+        ncw_inq_varid(ncid, "std", &varid);
+    if (varid >= 0) {
         std = malloc(nijk * sizeof(float));
-        ncw_get_var_float(ncid, varid_std, std);
-        if (ncw_att_exists(ncid, varid_std, "_FillValue"))
-            ncw_get_att_float(ncid, varid_std, "_FillValue", &std_fill_value);
-        if (ncw_att_exists(ncid, varid_std, "add_offset")) {
-            ncw_get_att_float(ncid, varid_std, "add_offset", &std_add_offset);
-            ncw_get_att_float(ncid, varid_std, "scale_factor", &std_scale_factor);
-        }
+        ncu_readvarfloat(ncid, varid, nijk, std);
     }
 
+    /*
+     * etsd
+     */
+    varid = -1;
     if (estdname != NULL)
-        ncw_inq_varid(ncid, estdname, &varid_estd);
+        ncw_inq_varid(ncid, estdname, &varid);
     else if (ncw_var_exists(ncid, "error_std"))
-        ncw_inq_varid(ncid, "error_std", &varid_estd);
-    if (varid_estd >= 0) {
+        ncw_inq_varid(ncid, "error_std", &varid);
+    if (varid >= 0) {
         estd = malloc(nijk * sizeof(float));
-        ncw_get_var_float(ncid, varid_estd, estd);
-        if (ncw_att_exists(ncid, varid_estd, "_FillValue"))
-            ncw_get_att_float(ncid, varid_estd, "_FillValue", &estd_fill_value);
-        if (ncw_att_exists(ncid, varid_estd, "add_offset")) {
-            ncw_get_att_float(ncid, varid_estd, "add_offset", &estd_add_offset);
-            ncw_get_att_float(ncid, varid_estd, "scale_factor", &estd_scale_factor);
+        ncu_readvarfloat(ncid, varid, nijk, estd);
+    }
+
+    if (std == NULL && estd == NULL) {
+        ncw_inq_varid(ncid, varname, &varid);
+        if (ncw_att_exists(ncid, varid, "error_std")) {
+            ncw_check_attlen(ncid, varid, "error_std", 1);
+            ncw_get_att_double(ncid, varid, "error_std", &var_estd);
         }
     }
 
-    if (std == NULL && estd == NULL)
-        if (ncw_att_exists(ncid, varid_var, "error_std")) {
-            ncw_check_attlen(ncid, varid_var, "error_std", 1);
-            ncw_get_att_double(ncid, varid_var, "error_std", &var_estd);
-        }
-
-    if (qcflagname != NULL) {
-        ncw_inq_varid(ncid, qcflagname, &varid_qcflag);
-        qcflag = malloc(nijk * sizeof(int32_t));
-        ncw_get_var_int(ncid, varid_qcflag, qcflag);
+    /*
+     * batch
+     */
+    varid = -1;
+    if (batchname != NULL)
+        ncw_inq_varid(ncid, batchname, &varid);
+    else if (ncw_var_exists(ncid, "batch"))
+        ncw_inq_varid(ncid, "batch", &varid);
+    if (varid >= 0) {
+        ncw_check_varsize(ncid, varid, nijk);
+        batch = malloc(nijk * sizeof(int));
+        ncw_get_var_int(ncid, varid, batch);
     }
 
-    if (timename != NULL)
-        ncw_inq_varid(ncid, timename, &varid_time);
-    else if (ncw_var_exists(ncid, "time"))
-        ncw_inq_varid(ncid, "time", &varid_time);
-    else {
-        enkf_printf("        reader_xyh_gridded(): %s: no TIME variable\n", fname);
-        have_time = 0;
+    /*
+     * qcflag
+     */
+    get_qcflags(meta, &nqcflagvars, &qcflagvarnames, &qcflagmasks);
+    if (nqcflagvars > 0) {
+        qcflag = alloc2d(nqcflagvars, nijk, sizeof(int32_t));
+        for (i = 0; i < nqcflagvars; ++i) {
+            ncw_inq_varid(ncid, qcflagvarnames[i], &varid);
+            ncw_get_var_uint(ncid, varid, qcflag[i]);
+        }
     }
 
-    if (have_time) {
-        int timendims;
-        int timedimids[NC_MAX_DIMS];
-        size_t timelen = 1;
+    /*
+     * time
+     */
+    get_time(meta, ncid, &ntime, &time);
+    assert(ntime == nijk || ntime <= 1);
 
-        ncw_inq_varndims(ncid, varid_time, &timendims);
-        ncw_inq_vardimid(ncid, varid_time, timedimids);
-        for (i = 0; i < timendims; ++i) {
-            size_t dimlen;
-
-            ncw_inq_dimlen(ncid, timedimids[i], &dimlen);
-            timelen *= dimlen;
-        }
-
-        if (timelen == 1) {
-            singletime = 1;
-            time = malloc(sizeof(float));
-        } else {
-            singletime = 0;
-            assert(timelen == nijk);
-            time = malloc(nijk * sizeof(float));
-        }
-
-        ncw_get_var_float(ncid, varid_time, time);
-        if (ncw_att_exists(ncid, varid_time, "_FillValue"))
-            ncw_get_att_float(ncid, varid_time, "_FillValue", &time_fill_value);
-        if (ncw_att_exists(ncid, varid_time, "add_offset")) {
-            ncw_get_att_float(ncid, varid_time, "add_offset", &time_add_offset);
-            ncw_get_att_float(ncid, varid_time, "scale_factor", &time_scale_factor);
-        }
-        ncw_get_att_text(ncid, varid_time, "units", tunits);
-        tunits_convert(tunits, &tunits_multiple, &tunits_offset);
-    }
+    /*
+     * instrument
+     */
+    if (strlen(instrument) == 0 && !get_insttag(ncid, varname, instrument))
+        strncpy(instrument, meta->product, MAXSTRLEN - 1);
 
     ncw_close(ncid);
 
+    instid = st_add_ifabsent(obs->instruments, instrument, -1);
+    productid = st_findindexbystring(obs->products, meta->product);
+    assert(productid >= 0);
+    typeid = obstype_getid(obs->nobstypes, obs->obstypes, meta->type, 1);
     nobs_read = 0;
     for (i = 0; i < ni; ++i) {
         for (j = 0; j < nj; ++j) {
             for (k = 0; k < nk; ++k) {
                 int ii = k * nij + j * ni + i;
                 observation* o;
+                int qcid;
 
-                if ((npoints != NULL && npoints[ii] == 0) || var[ii] == var_fill_value || (std != NULL && (std[ii] == std_fill_value || isnan(std[ii]))) || (estd != NULL && (estd[ii] == estd_fill_value || isnan(estd[ii]))) || (have_time && !singletime && (time[ii] == time_fill_value || isnan(time[ii]))))
+                if ((npoints != NULL && npoints[ii] == 0) || isnan(var[ii]) || (std != NULL && isnan(std[ii])) || (estd != NULL && isnan(estd[ii])) || (ntime == nijk && isnan(time[ii])))
                     continue;
-                if (qcflag != NULL && !(qcflag[ii] | qcflagvals))
-                    continue;
+                for (qcid = 0; qcid < nqcflagvars; ++qcid)
+                    if (!((1 << qcflag[qcid][ii]) & qcflagmasks[qcid]))
+                        goto nextob;
 
                 nobs_read++;
                 obs_checkalloc(obs);
                 o = &obs->data[obs->nobs];
 
-                o->product = st_findindexbystring(obs->products, meta->product);
-                assert(o->product >= 0);
-                o->type = obstype_getid(obs->nobstypes, obs->obstypes, meta->type, 1);
-                o->instrument = st_add_ifabsent(obs->instruments, instrument, -1);
+                o->product = productid;
+                o->type = typeid;
+                o->instrument = instid;
                 o->id = obs->nobs;
                 o->fid = fid;
-                o->batch = 0;
-                if (!isnan(var_add_offset))
-                    o->value = (double) (var[ii] * var_scale_factor + var_add_offset + varshift);
-                else
-                    o->value = (double) (var[ii] + varshift);
+                o->batch = (batch == NULL) ? 0 : batch[ii];
+                o->value = (double) var[ii];
                 if (estd == NULL)
-                    o->std = var_estd;
+                    o->estd = var_estd;
                 else {
                     if (std == NULL)
-                        o->std = 0.0;
-                    else {
-                        if (!isnan(std_add_offset))
-                            o->std = (double) (std[ii] * std_scale_factor + std_add_offset);
-                        else
-                            o->std = (double) std[ii];
-                    }
-                    if (!isnan(estd_add_offset)) {
-                        double std2 = (double) (estd[ii] * estd_scale_factor + estd_add_offset);
-
-                        o->std = (o->std > std2) ? o->std : std2;
-                    } else
-                        o->std = (o->std > estd[ii]) ? o->std : estd[ii];
+                        o->estd = estd[ii];
+                    else
+                        o->estd = (std[ii] > estd[ii]) ? std[ii] : estd[ii];
                 }
-                grid_ij2xy(gsrc, i, j, &o->lon, &o->lat);
+                {
+                    double lon_d, lat_d;
+
+                    grid_ij2xy(gsrc, i, j, &lon_d, &lat_d);
+                    o->lon = (float) lon_d;
+                    o->lat = (float) lat_d;
+                }
                 assert(isfinite(o->lon + o->lat));
-                o->status = grid_xy2fij(gdst, o->lon, o->lat, &o->fi, &o->fj);
+                o->status = grid_xy2fij_f(gdst, o->lon, o->lat, &o->fi, &o->fj);
                 if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                     continue;
-                o->status = grid_fk2z(gsrc, i, j, (double) k, &o->depth);
+                {
+                    double depth_d;
+
+                    o->status = grid_fk2z(gsrc, i, j, (double) k, &depth_d);
+                    o->depth = (float) depth_d;
+                }
                 if (o->status == STATUS_OK)
-                    o->status = grid_z2fk(gdst, o->fi, o->fj, o->depth, &o->fk);
+                    o->status = grid_z2fk_f(gdst, o->fi, o->fj, o->depth, &o->fk);
                 else
                     o->fk = NAN;
                 o->model_depth = NAN;   /* set in obs_add() */
-                if (have_time) {
-                    float t = (singletime) ? time[0] : time[ii];
-
-                    if (!isnan(time_add_offset))
-                        o->date = (double) (t * time_scale_factor + time_add_offset) * tunits_multiple + tunits_offset;
-                    else
-                        o->date = (double) t* tunits_multiple + tunits_offset;
-                } else
-                    o->date = NAN;
+                if (ntime > 0)
+                    o->time = (ntime == 1) ? time[0] : time[ii];
+                else
+                    o->time = NAN;
 
                 o->aux = -1;
 
                 obs->nobs++;
+              nextob:
+                ;
             }
         }
     }
@@ -388,10 +362,15 @@ void reader_xyh_gridded(char* fname, int fid, obsmeta* meta, grid* gdst, observa
         free(std);
     if (estd != NULL)
         free(estd);
+    if (batch != NULL)
+        free(batch);
     if (npoints != NULL)
         free(npoints);
     if (time != NULL)
         free(time);
-    if (qcflag != NULL)
+    if (nqcflagvars > 0) {
+        free(qcflagvarnames);
+        free(qcflagmasks);
         free(qcflag);
+    }
 }

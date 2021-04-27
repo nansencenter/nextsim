@@ -15,7 +15,8 @@
  *              specified if they differ from the default value (+). Some
  *              parameters are optional (-):
  *              - VARNAME (++)
- *              - TIMENAME ("time") (+)
+ *              - TIMENAME ("*[tT][iI][mM][eE]*") (+)
+ *              - or TIMENAMES (when time = base_time + offset) (+)
  *              - NPOINTSNAME ("npoints") (-)
  *                  number of collated points for each datum; used basically as
  *                  a data mask n = 0
@@ -26,8 +27,12 @@
  *              - ESTDNAME ("error_std") (-)
  *                  error STD; if absent then needs to be specified externally
  *                  in the observation data parameter file
+ *              - BATCHNAME ("batch") (-)
+ *                  name of the variable used for batch ID
  *              - VARSHIFT (-)
  *                  data offset to be added
+ *              - FOOTRPINT (-)
+ *                  footprint of observations in km
  *              - MINDEPTH (-)
  *                  minimal allowed depth
  *              - MAXDEPTH (-)
@@ -39,6 +44,8 @@
  *                  name of the QC flag variable, 0 <= qcflag <= 31
  *              - QCFLAGVALS (-)
  *                  the list of allowed values of QC flag variable
+ *              - THIN (-)
+ *                  data thinning ratio
  *              Note: it is possible to have multiple entries of QCFLAGNAME and
  *                QCFLAGVALS combination, e.g.:
  *                  PARAMETER QCFLAGNAME = TEMP_quality_control
@@ -64,6 +71,7 @@
 #include <math.h>
 #include <assert.h>
 #include "ncw.h"
+#include "ncutils.h"
 #include "definitions.h"
 #include "utils.h"
 #include "obsprm.h"
@@ -87,50 +95,38 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
     char* npointsname = NULL;
     char* stdname = NULL;
     char* estdname = NULL;
-    char* timename = NULL;
+    char* batchname = NULL;
+    char instrument[MAXSTRLEN] = "";
     int ndim_var, ndim_xy;
     size_t dimlen_var[3], dimlen_xy[2];
-    int nqcflags = 0;
-    char** qcflagname = NULL;
-    uint32_t* qcflagvals = 0;
+    int nqcflagvars = 0;
+    char** qcflagvarnames = NULL;
+    uint32_t* qcflagmasks = NULL;
+
+    int instid = -1;
+    int productid = -1;
+    int typeid = -1;
 
     int ncid;
-    float varshift = 0.0;
-    char instrument[MAXSTRLEN];
-
     int iscurv = -1;
-    size_t ni = 0, nj = 0, n = 0, n_var = 0;
-    int varid_lon = -1, varid_lat = -1;
+    size_t ni = 0, nj = 0, nij = 0;
     double* lon = NULL;
     double* lat = NULL;
-    int varid_var = -1, varid_npoints = -1, varid_std = -1, varid_estd = -1, varid_time = -1;
     float* var = NULL;
-    float var_fill_value = NAN;
-    float var_add_offset = NAN, var_scale_factor = NAN;
     double var_estd = NAN;
     short* npoints = NULL;
     float* std = NULL;
-    float std_add_offset = NAN, std_scale_factor = NAN;
-    float std_fill_value = NAN;
     float* estd = NULL;
-    float estd_add_offset = NAN, estd_scale_factor = NAN;
-    float estd_fill_value = NAN;
+    int* batch = NULL;
     uint32_t** qcflag = NULL;
-    int have_time = 1;
-    int singletime = -1;
-    float* time = NULL;
-    float time_add_offset = NAN, time_scale_factor = NAN;
-    float time_fill_value = NAN;
-    char tunits[MAXSTRLEN];
-    double tunits_multiple = NAN, tunits_offset = NAN;
-    int i, nobs_read;
+    size_t ntime = 0;
+    double* time = NULL;
+    int varid;
+    size_t i, nobs_read;
 
-    strcpy(instrument, meta->product);
     for (i = 0; i < meta->npars; ++i) {
         if (strcasecmp(meta->pars[i].name, "VARNAME") == 0)
             varname = meta->pars[i].value;
-        else if (strcasecmp(meta->pars[i].name, "TIMENAME") == 0)
-            timename = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "NPOINTSNAME") == 0)
             npointsname = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "LONNAME") == 0)
@@ -141,31 +137,16 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
             stdname = meta->pars[i].value;
         else if (strcasecmp(meta->pars[i].name, "ESTDNAME") == 0)
             estdname = meta->pars[i].value;
-        else if (strcasecmp(meta->pars[i].name, "VARSHIFT") == 0) {
-            if (!str2float(meta->pars[i].value, &varshift))
-                enkf_quit("%s: can not convert VARSHIFT = \"%s\" to float\n", meta->prmfname, meta->pars[i].value);
-            enkf_printf("        VARSHIFT = %s\n", meta->pars[i].value);
-        }
-        /*
-         * (MINDEPTH and MAXDEPTH are handled in obs_add() )
-         */
-        else if (strcasecmp(meta->pars[i].name, "MINDEPTH") == 0) {
-            double mindepth;
-
-            if (!str2double(meta->pars[i].value, &mindepth))
-                enkf_quit("observation prm file: can not convert MINDEPTH = \"%s\" to double\n", meta->pars[i].value);
-            enkf_printf("        MINDEPTH = %.0f\n", mindepth);
-            continue;
-        } else if (strcasecmp(meta->pars[i].name, "MAXDEPTH") == 0) {
-            double maxdepth;
-
-            if (!str2double(meta->pars[i].value, &maxdepth))
-                enkf_quit("observation prm file: can not convert MAXDEPTH = \"%s\" to double\n", meta->pars[i].value);
-            enkf_printf("        MAXDEPTH = %.0f\n", maxdepth);
-            continue;
-        } else if (strcasecmp(meta->pars[i].name, "INSTRUMENT") == 0)
-            strncpy(instrument, meta->pars[i].value, MAXSTRLEN);
-        else if (strcasecmp(meta->pars[i].name, "QCFLAGNAME") == 0 || strcasecmp(meta->pars[i].name, "QCFLAGVALS") == 0)
+        else if (strcasecmp(meta->pars[i].name, "BATCHNAME") == 0)
+            batchname = meta->pars[i].value;
+        else if (strcasecmp(meta->pars[i].name, "INSTRUMENT") == 0)
+            strncpy(instrument, meta->pars[i].value, MAXSTRLEN - 1);
+        else if (strcasecmp(meta->pars[i].name, "TIMENAME") == 0 || strcasecmp(meta->pars[i].name, "TIMENAMES") == 0)
+            /*
+             * TIMENAME and TIMENAMES are dealt with separately
+             */
+            ;
+        else if (strcasecmp(meta->pars[i].name, "QCFLAGNAME") == 0 || strcasecmp(meta->pars[i].name, "QCFLAGVARNAME") == 0 || strcasecmp(meta->pars[i].name, "QCFLAGVALS") == 0)
             /*
              * QCFLAGNAME and QCFLAGVALS are dealt with separately
              */
@@ -173,7 +154,6 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
         else
             enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
     }
-    get_qcflags(meta, &nqcflags, &qcflagname, &qcflagvals);
 
     if (varname == NULL)
         enkf_quit("reader_xy_gridded(): %s: VARNAME not specified", fname);
@@ -181,28 +161,36 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
         enkf_printf("        VARNAME = %s\n", varname);
 
     ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid_var);
-    ncw_inq_vardims(ncid, varid_var, 3, &ndim_var, dimlen_var);
+
+    /*
+     * main variable
+     */
+    ncw_inq_varid(ncid, varname, &varid);
+    ncw_inq_vardims(ncid, varid, 3, &ndim_var, dimlen_var);
     if (ndim_var == 3) {
-        if (!ncw_var_hasunlimdim(ncid, varid_var))
-            enkf_quit("reader_xy_gridded(): %s: %s: depends on 3 dimensions, but has no unlimited dimension", fname, varname);
         if (dimlen_var[0] != 1)
             enkf_quit("reader_xy_gridded(): %s: %s: %d records (currently only one is allowed)", fname, varname, dimlen_var[0]);
-        n_var = dimlen_var[1] * dimlen_var[2];
+        nij = dimlen_var[1] * dimlen_var[2];
     } else if (ndim_var == 2) {
-        if (ncw_var_hasunlimdim(ncid, varid_var))
+        if (ncw_var_hasunlimdim(ncid, varid))
             enkf_quit("reader_xy_gridded(): %s: %s: not enough spatial dimensions (must be 2)", fname, varname);
-        n_var = dimlen_var[0] * dimlen_var[1];
+        nij = dimlen_var[0] * dimlen_var[1];
     } else if (ndim_var != 2)
-        enkf_quit("reader_xy_gridded(): %s: %s: %d dimensions (must be 2 or 3 with only one record)", fname, varname, ndim_var);
+        enkf_quit("reader_xy_gridded(): %s: %s: %d dimensions (must be either 2 or 3 with only one record)", fname, varname, ndim_var);
 
+    var = malloc(nij * sizeof(float));
+    ncu_readvarfloat(ncid, varid, nij, var);
+
+    /*
+     * longitude
+     */
     lonname = get_lonname(ncid, lonname);
     if (lonname != NULL) {
         enkf_printf("        LONNAME = %s\n", lonname);
-        ncw_inq_varid(ncid, lonname, &varid_lon);
+        ncw_inq_varid(ncid, lonname, &varid);
     } else
         enkf_quit("reader_xy_gridded(): %s: could not find longitude variable", fname);
-    ncw_inq_vardims(ncid, varid_lon, 2, &ndim_xy, dimlen_xy);
+    ncw_inq_vardims(ncid, varid, 2, &ndim_xy, dimlen_xy);
     if (ndim_xy == 1) {
         iscurv = 0;
         ni = dimlen_xy[0];
@@ -213,190 +201,164 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
     } else
         enkf_quit("reader_xy_gridded(): %s: coordinate variable \"%s\" has neither 1 or 2 dimensions", fname, lonname);
 
+    if (iscurv == 0) {
+        lon = malloc(ni * sizeof(double));
+        ncu_readvardouble(ncid, varid, ni, lon);
+    } else {
+        lon = malloc(nij * sizeof(double));
+        ncu_readvardouble(ncid, varid, nij, lon);
+    }
+
+    /*
+     * latitude
+     */
     latname = get_latname(ncid, latname);
     if (latname != NULL) {
         enkf_printf("        LATNAME = %s\n", latname);
-        ncw_inq_varid(ncid, latname, &varid_lat);
+        ncw_inq_varid(ncid, latname, &varid);
     } else
         enkf_quit("reader_xyz_gridded(): %s: could not find latitude variable", fname);
-    if (ndim_xy == 1)
-        ncw_inq_vardims(ncid, varid_lat, 1, &ndim_xy, &nj);
-
     if (iscurv == 0) {
-        ncw_check_varndims(ncid, varid_lat, 1);
-        ncw_inq_vardims(ncid, varid_lat, 1, NULL, &nj);
+        ncw_check_varndims(ncid, varid, 1);
+        ncw_inq_vardims(ncid, varid, 1, NULL, &nj);
     } else
-        ncw_check_vardims(ncid, varid_lat, 2, dimlen_xy);
+        ncw_check_vardims(ncid, varid, 2, dimlen_xy);
 
     enkf_printf("        (ni, nj) = (%u, %u)\n", ni, nj);
-    n = ni * nj;
-    if (n != n_var)
+    if (ni * nj != nij)
         enkf_quit("reader_xy_gridded(): %s: dimensions of variable \"%s\" do not match coordinate dimensions", fname, varname);
     if (dimlen_var[ndim_var - 1] != ni)
         enkf_quit("reader_xy_gridded(): %s: %s: longitude must be the inner coordinate", fname, varname);
 
     if (iscurv == 0) {
-        lon = malloc(ni * sizeof(double));
         lat = malloc(nj * sizeof(double));
+        ncu_readvardouble(ncid, varid, nj, lat);
     } else {
-        lon = malloc(n * sizeof(double));
-        lat = malloc(n * sizeof(double));
+        lat = malloc(nij * sizeof(double));
+        ncu_readvardouble(ncid, varid, nij, lat);
     }
-    ncw_get_var_double(ncid, varid_lon, lon);
-    ncw_get_var_double(ncid, varid_lat, lat);
 
-    var = malloc(n * sizeof(float));
-    ncw_get_var_float(ncid, varid_var, var);
-    if (ncw_att_exists(ncid, varid_var, "add_offset")) {
-        ncw_get_att_float(ncid, varid_var, "add_offset", &var_add_offset);
-        ncw_get_att_float(ncid, varid_var, "scale_factor", &var_scale_factor);
-    }
-    if (ncw_att_exists(ncid, varid_var, "_FillValue"))
-        ncw_get_att_float(ncid, varid_var, "_FillValue", &var_fill_value);
-
+    /*
+     * npoints
+     */
+    varid = -1;
     if (npointsname != NULL)
-        ncw_inq_varid(ncid, npointsname, &varid_npoints);
+        ncw_inq_varid(ncid, npointsname, &varid);
     else if (ncw_var_exists(ncid, "npoints"))
-        ncw_inq_varid(ncid, "npoints", &varid_npoints);
-    if (varid_npoints >= 0) {
-        npoints = malloc(n * sizeof(short));
-        ncw_get_var_short(ncid, varid_npoints, npoints);
+        ncw_inq_varid(ncid, "npoints", &varid);
+    if (varid >= 0) {
+        npoints = malloc(nij * sizeof(short));
+        ncw_get_var_short(ncid, varid, npoints);
     }
 
+    /*
+     * std
+     */
+    varid = -1;
     if (stdname != NULL)
-        ncw_inq_varid(ncid, stdname, &varid_std);
+        ncw_inq_varid(ncid, stdname, &varid);
     else if (ncw_var_exists(ncid, "std"))
-        ncw_inq_varid(ncid, "std", &varid_std);
-    if (varid_std >= 0) {
-        std = malloc(n * sizeof(float));
-        ncw_get_var_float(ncid, varid_std, std);
-        if (ncw_att_exists(ncid, varid_std, "_FillValue"))
-            ncw_get_att_float(ncid, varid_std, "_FillValue", &std_fill_value);
-        if (ncw_att_exists(ncid, varid_std, "add_offset")) {
-            ncw_get_att_float(ncid, varid_std, "add_offset", &std_add_offset);
-            ncw_get_att_float(ncid, varid_std, "scale_factor", &std_scale_factor);
-        }
+        ncw_inq_varid(ncid, "std", &varid);
+    if (varid >= 0) {
+        std = malloc(nij * sizeof(float));
+        ncu_readvarfloat(ncid, varid, nij, std);
     }
 
+    /*
+     * estd
+     */
+    varid = -1;
     if (estdname != NULL)
-        ncw_inq_varid(ncid, estdname, &varid_estd);
+        ncw_inq_varid(ncid, estdname, &varid);
     else if (ncw_var_exists(ncid, "error_std"))
-        ncw_inq_varid(ncid, "error_std", &varid_estd);
-    if (varid_estd >= 0) {
-        estd = malloc(n * sizeof(float));
-        ncw_get_var_float(ncid, varid_estd, estd);
-        if (ncw_att_exists(ncid, varid_estd, "_FillValue"))
-            ncw_get_att_float(ncid, varid_estd, "_FillValue", &estd_fill_value);
-        if (ncw_att_exists(ncid, varid_estd, "add_offset")) {
-            ncw_get_att_float(ncid, varid_estd, "add_offset", &estd_add_offset);
-            ncw_get_att_float(ncid, varid_estd, "scale_factor", &estd_scale_factor);
+        ncw_inq_varid(ncid, "error_std", &varid);
+    if (varid >= 0) {
+        estd = malloc(nij * sizeof(float));
+        ncu_readvarfloat(ncid, varid, nij, estd);
+    }
+
+    if (std == NULL && estd == NULL) {
+        ncw_inq_varid(ncid, varname, &varid);
+        if (ncw_att_exists(ncid, varid, "error_std")) {
+            ncw_check_attlen(ncid, varid, "error_std", 1);
+            ncw_get_att_double(ncid, varid, "error_std", &var_estd);
         }
     }
 
-    if (std == NULL && estd == NULL)
-        if (ncw_att_exists(ncid, varid_var, "error_std")) {
-            ncw_check_attlen(ncid, varid_var, "error_std", 1);
-            ncw_get_att_double(ncid, varid_var, "error_std", &var_estd);
-        }
+    /*
+     * batch
+     */
+    varid = -1;
+    if (batchname != NULL)
+        ncw_inq_varid(ncid, batchname, &varid);
+    else if (ncw_var_exists(ncid, "batch"))
+        ncw_inq_varid(ncid, "batch", &varid);
+    if (varid >= 0) {
+        ncw_check_varsize(ncid, varid, nij);
+        batch = malloc(nij * sizeof(int));
+        ncw_get_var_int(ncid, varid, batch);
+    }
 
-    if (nqcflags > 0) {
-        int varid = -1;
-
-        qcflag = alloc2d(nqcflags, n, sizeof(int32_t));
-        for (i = 0; i < nqcflags; ++i) {
-            ncw_inq_varid(ncid, qcflagname[i], &varid);
+    /*
+     * qcflags
+     */
+    get_qcflags(meta, &nqcflagvars, &qcflagvarnames, &qcflagmasks);
+    if (nqcflagvars > 0) {
+        qcflag = alloc2d(nqcflagvars, nij, sizeof(int32_t));
+        for (i = 0; i < nqcflagvars; ++i) {
+            ncw_inq_varid(ncid, qcflagvarnames[i], &varid);
+            ncw_check_varsize(ncid, varid, nij);
             ncw_get_var_uint(ncid, varid, qcflag[i]);
         }
     }
 
-    timename = get_timename(ncid, timename);
-    if (timename != NULL) {
-        enkf_printf("        TIMENAME = %s\n", timename);
-        ncw_inq_varid(ncid, timename, &varid_time);
-    } else {
-        enkf_printf("        reader_xy_gridded(): %s: no TIME variable\n", fname);
-        have_time = 0;
-    }
+    /*
+     * time
+     */
+    get_time(meta, ncid, &ntime, &time);
+    assert(ntime == nij || ntime <= 1);
 
-    if (have_time) {
-        int timendims;
-        int timedimids[NC_MAX_DIMS];
-        size_t timelen = 1;
-
-        ncw_inq_varndims(ncid, varid_time, &timendims);
-        ncw_inq_vardimid(ncid, varid_time, timedimids);
-        for (i = 0; i < timendims; ++i) {
-            size_t dimlen;
-
-            ncw_inq_dimlen(ncid, timedimids[i], &dimlen);
-            timelen *= dimlen;
-        }
-
-        if (timelen == 1) {
-            singletime = 1;
-            time = malloc(sizeof(float));
-        } else {
-            singletime = 0;
-            assert(timelen == n);
-            time = malloc(n * sizeof(float));
-        }
-
-        ncw_get_var_float(ncid, varid_time, time);
-        if (ncw_att_exists(ncid, varid_time, "_FillValue"))
-            ncw_get_att_float(ncid, varid_time, "_FillValue", &time_fill_value);
-        if (ncw_att_exists(ncid, varid_time, "add_offset")) {
-            ncw_get_att_float(ncid, varid_time, "add_offset", &time_add_offset);
-            ncw_get_att_float(ncid, varid_time, "scale_factor", &time_scale_factor);
-        }
-        ncw_get_att_text(ncid, varid_time, "units", tunits);
-        tunits_convert(tunits, &tunits_multiple, &tunits_offset);
-    }
+    /*
+     * instrument
+     */
+    if (strlen(instrument) == 0 && !get_insttag(ncid, varname, instrument))
+        strncpy(instrument, meta->product, MAXSTRLEN - 1);
 
     ncw_close(ncid);
 
+    instid = st_add_ifabsent(obs->instruments, instrument, -1);
+    productid = st_findindexbystring(obs->products, meta->product);
+    assert(productid >= 0);
+    typeid = obstype_getid(obs->nobstypes, obs->obstypes, meta->type, 1);
     nobs_read = 0;
-    for (i = 0; i < (int) n; ++i) {
+    for (i = 0; i < nij; ++i) {
         observation* o;
         int ii;
 
-        if ((npoints != NULL && npoints[i] == 0) || var[i] == var_fill_value || isnan(var[i]) || (std != NULL && (std[i] == std_fill_value || isnan(std[i]))) || (estd != NULL && (estd[i] == estd_fill_value || isnan(estd[i]))) || (have_time && !singletime && (time[i] == time_fill_value || isnan(time[i]))))
+        if ((npoints != NULL && npoints[i] == 0) || isnan(var[i]) || (std != NULL && isnan(std[i])) || (estd != NULL && isnan(estd[i])) || (ntime == nij && isnan(time[i])))
             continue;
-        for (ii = 0; ii < nqcflags; ++ii)
-            if (!(qcflag[ii][i] | qcflagvals[ii]))
-                continue;
+        for (ii = 0; ii < nqcflagvars; ++ii)
+            if (!((1 << qcflag[ii][i]) & qcflagmasks[ii]))
+                goto nextob;
 
         nobs_read++;
         obs_checkalloc(obs);
         o = &obs->data[obs->nobs];
 
-        o->product = st_findindexbystring(obs->products, meta->product);
-        assert(o->product >= 0);
-        o->type = obstype_getid(obs->nobstypes, obs->obstypes, meta->type, 1);
-        o->instrument = st_add_ifabsent(obs->instruments, instrument, -1);
+        o->product = productid;
+        o->type = typeid;
+        o->instrument = instid;
         o->id = obs->nobs;
         o->fid = fid;
-        o->batch = 0;
-        if (!isnan(var_add_offset))
-            o->value = (double) (var[i] * var_scale_factor + var_add_offset + varshift);
-        else
-            o->value = (double) (var[i] + varshift);
+        o->batch = (batch == NULL) ? 0 : batch[i];
+        o->value = (double) var[i];
         if (estd == NULL)
-            o->std = var_estd;
+            o->estd = var_estd;
         else {
             if (std == NULL)
-                o->std = 0.0;
-            else {
-                if (!isnan(std_add_offset))
-                    o->std = (double) (std[i] * std_scale_factor + std_add_offset);
-                else
-                    o->std = (double) std[i];
-            }
-            if (!isnan(estd_add_offset)) {
-                double std2 = (double) (estd[i] * estd_scale_factor + estd_add_offset);
-
-                o->std = (o->std > std2) ? o->std : std2;
-            } else
-                o->std = (o->std > estd[i]) ? o->std : estd[i];
+                o->estd = estd[i];
+            else
+                o->estd = (std[i] > estd[i]) ? std[i] : estd[i];
         }
         if (iscurv == 0) {
             o->lon = lon[i % ni];
@@ -407,23 +369,20 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
         }
         o->depth = 0.0;
         o->fk = (double) ksurf;
-        o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+        o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
         if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
             continue;
         o->model_depth = NAN;   /* set in obs_add() */
-        if (have_time) {
-            float t = (singletime) ? time[0] : time[i];
-
-            if (!isnan(time_add_offset))
-                o->date = (double) (t * time_scale_factor + time_add_offset) * tunits_multiple + tunits_offset;
-            else
-                o->date = (double) t* tunits_multiple + tunits_offset;
-        } else
-            o->date = NAN;
+        if (ntime > 0)
+            o->time = (ntime == 1) ? time[0] : time[i];
+        else
+            o->time = NAN;
 
         o->aux = -1;
 
         obs->nobs++;
+      nextob:
+        ;
     }
     enkf_printf("        nobs = %d\n", nobs_read);
 
@@ -434,13 +393,15 @@ void reader_xy_gridded(char* fname, int fid, obsmeta* meta, grid* g, observation
         free(std);
     if (estd != NULL)
         free(estd);
+    if (batch != NULL)
+        free(batch);
     if (npoints != NULL)
         free(npoints);
     if (time != NULL)
         free(time);
-    if (nqcflags > 0) {
-        free(qcflagname);
-        free(qcflagvals);
+    if (nqcflagvars > 0) {
+        free(qcflagvarnames);
+        free(qcflagmasks);
         free(qcflag);
     }
 }

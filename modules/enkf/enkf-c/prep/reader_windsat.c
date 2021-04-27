@@ -47,7 +47,7 @@ void reader_windsat_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
     size_t tunits_len;
     double tunits_multiple, tunits_offset;
     char* basename;
-    int i;
+    int i, nobs_read;
 
     for (i = 0; i < meta->npars; ++i)
         enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
@@ -112,9 +112,11 @@ void reader_windsat_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
         for (i = 0; i < (int) nobs_local; ++i)
             time[i] = 0.5;
 
+    nobs_read = 0;
     for (i = 0; i < (int) nobs_local; ++i) {
         observation* o;
 
+        nobs_read++;
         obs_checkalloc(obs);
         o = &obs->data[obs->nobs];
 
@@ -126,20 +128,21 @@ void reader_windsat_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
         o->fid = fid;
         o->batch = 0;
         o->value = sst[i];
-        o->std = error_std[i];
+        o->estd = error_std[i];
         o->lon = lon[i];
         o->lat = lat[i];
         o->depth = 0.0;
         o->fk = (double) ksurf;
-        o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+        o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
         if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
             continue;
         o->model_depth = NAN;   /* set in obs_add() */
-        o->date = time[i] * tunits_multiple + tunits_offset;
+        o->time = time[i] * tunits_multiple + tunits_offset;
         o->aux = -1;
 
         obs->nobs++;
     }
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     free(lon);
     free(lat);

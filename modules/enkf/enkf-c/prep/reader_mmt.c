@@ -62,20 +62,20 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
     int dimid_nprof, dimid_nz;
     size_t nprof, nz;
     int varid;
+    int* status = NULL;
     double* lon;
     double* lat;
     double** z;
     double** v;
+    double* time;
+    char tunits[MAXSTRLEN];
     int** qc = NULL;
     double missval;
     double validmin = DBL_MAX;
     double validmax = -DBL_MAX;
     char* type;
-    char buf[MAXSTRLEN];
-    int len;
-    int year, month, day;
     double tunits_multiple, tunits_offset;
-    int p, i;
+    int p, i, nobs_read;
 
     for (i = 0; i < meta->npars; ++i) {
         if (strcasecmp(meta->pars[i].name, "EXCLUDEINST") == 0) {
@@ -86,7 +86,7 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
             enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
     }
 
-    if (meta->nstds == 0)
+    if (meta->nestds == 0)
         enkf_quit("ERROR_STD is necessary but not specified for product \"%s\"", meta->product);
 
     ncw_open(fname, NC_NOWRITE, &ncid);
@@ -98,9 +98,12 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
     ncw_inq_dimlen(ncid, dimid_nz, &nz);
     enkf_printf("        # profiles = %u\n", (unsigned int) nprof);
     if (nprof == 0) {
+        enkf_printf("        no profiles found\n");
         ncw_close(ncid);
-        return;
+        goto noprofiles;
     }
+    status = calloc(nprof, sizeof(int));
+
     enkf_printf("        # z levels = %u\n", (unsigned int) nz);
 
     ncw_inq_varid(ncid, "LONGITUDE", &varid);
@@ -129,6 +132,12 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
     ncw_get_var_double(ncid, varid, v[0]);
     ncw_get_att_double(ncid, varid, "_FillValue", &missval);
 
+    ncw_inq_varid(ncid, "JULD", &varid);
+    time = malloc(nprof * sizeof(double));
+    ncw_get_var_double(ncid, varid, time);
+    ncw_get_att_text(ncid, varid, "units", tunits);
+    tunits_convert(tunits, &tunits_multiple, &tunits_offset);
+
     varid = -1;
     if (strncmp(meta->type, "TEM", 3) == 0) {
         if (ncw_var_exists(ncid, "TEMP_BLUELINK_QC"))
@@ -152,21 +161,7 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
 
     ncw_close(ncid);
 
-    strcpy(buf, fname);
-    len = strlen(buf);
-    buf[len - 10] = 0;          /* _mmt_qc.nc */
-    if (!str2int(&buf[len - 12], &day))
-        enkf_quit("MMT reader: could not convert file name \"%s\" to date", fname);
-    buf[len - 12] = 0;
-    if (!str2int(&buf[len - 14], &month))
-        enkf_quit("MMT reader: could not convert file name \"%s\" to date", fname);
-    buf[len - 14] = 0;
-    if (!str2int(&buf[len - 18], &year))
-        enkf_quit("MMT reader: could not convert file name \"%s\" to date", fname);
-    snprintf(buf, MAXSTRLEN, "days since %4d-%02d-%02d", year, month, day);
-
-    tunits_convert(buf, &tunits_multiple, &tunits_offset);
-
+    nobs_read = 0;
     for (p = 0; p < (int) nprof; ++p) {
         char inststr[MAXSTRLEN];
         int instnum;
@@ -190,6 +185,7 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
             if (qc != NULL && qc[p][i] != 0)
                 continue;
 
+            nobs_read++;
             obs_checkalloc(obs);
             o = &obs->data[obs->nobs];
 
@@ -201,55 +197,68 @@ void reader_mmt_standard(char* fname, int fid, obsmeta* meta, grid* g, observati
             o->fid = fid;
             o->batch = p;
             o->value = v[p][i];
-            o->std = 0.0;
+            o->estd = 0.0;
             o->lon = lon[p];
             o->lat = lat[p];
             o->depth = z[p][i];
-            o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+            o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
             if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                 break;
             if (o->status == STATUS_OK)
-                o->status = grid_z2fk(g, o->fi, o->fj, o->depth, &o->fk);
+                o->status = grid_z2fk_f(g, o->fi, o->fj, o->depth, &o->fk);
             else
                 o->fk = NAN;
             o->model_depth = NAN;       /* set in obs_add() */
-            o->date = tunits_offset + 0.5;
+            o->time = time[p] * tunits_multiple + tunits_offset;
             o->aux = -1;
+            if (o->status == STATUS_OK)
+                status[p] = 1;
 
             obs->nobs++;
         }
     }
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     /*
      * get the number of unique profile locations
      */
     {
         double* lonlat = malloc(nprof * sizeof(double) * 2);
-        int nunique = (nprof > 0) ? 1 : 0;
-        int ii;
+        int ngood, ii;
 
+        ngood = 0;
         for (i = 0; i < nprof; ++i) {
-            lonlat[i * 2] = lon[i];
-            lonlat[i * 2 + 1] = lat[i];
-        }
-        qsort(lonlat, nprof, sizeof(double) * 2, cmp_lonlat);
-        for (i = 1, ii = 0; i < nprof; ++i) {
-            if (lonlat[i * 2] == lonlat[ii * 2] && lonlat[i * 2 + 1] == lonlat[ii * 2 + 1])
+            if (status[i] == 0)
                 continue;
-            ii = i;
-            nunique++;
+            lonlat[ngood * 2] = lon[i];
+            lonlat[ngood * 2 + 1] = lat[i];
+            ngood++;
         }
-        enkf_printf("        # unique locations = %d\n", nunique);
+        enkf_printf("        # profiles with data to process = %d\n", ngood);
+        if (ngood > 1) {
+            int nunique = 1;
+
+            qsort(lonlat, ngood, sizeof(double) * 2, cmp_lonlat);
+            for (i = 1, ii = 0; i < ngood; ++i) {
+                if (lonlat[i * 2] == lonlat[ii * 2] && lonlat[i * 2 + 1] == lonlat[ii * 2 + 1])
+                    continue;
+                ii = i;
+                nunique++;
+            }
+            enkf_printf("        # unique locations = %d\n", nunique);
+        }
         free(lonlat);
     }
 
     free(lon);
     free(lat);
+    free(status);
     free(v);
     free(z);
     if (qc != NULL)
         free(qc);
     free(type);
+  noprofiles:
     if (st_exclude != NULL)
         st_destroy(st_exclude);
 }

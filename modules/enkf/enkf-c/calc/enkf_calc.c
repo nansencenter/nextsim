@@ -28,11 +28,13 @@
 observation* singleob = NULL;
 int singleob_ijk = 1;
 char* singleobtype = NULL;
-int printbatchstats = 0;
+int print_batchstats = 0;
 int ignorenoobs = 0;
 int use_rmsd = 0;
 int plogs_only = 0;
 int skip_transforms = 0;
+int print_mem = 0;
+int write_HE = 0;
 
 /**
  */
@@ -40,25 +42,26 @@ static void usage()
 {
     enkf_printf("  Usage: enkf_calc <prm file> [<options>]\n");
     enkf_printf("  Options:\n");
+    enkf_printf("  --allow-logspace-with-static-ens\n");
+    enkf_printf("      confirm that static ensemble is conditioned for using log space\n");
     enkf_printf("  --describe-prm-format [main|model|grid|obstypes]\n");
     enkf_printf("      describe format of a parameter file and exit\n");
     enkf_printf("  --forecast-stats-only\n");
     enkf_printf("      calculate and print forecast observation stats only\n");
     enkf_printf("  --ignore-no-obs\n");
     enkf_printf("      proceed even if there are no observations\n");
-    enkf_printf("  --no-mean-update\n");
-    enkf_printf("      update ensemble anomalies only\n");
     enkf_printf("  --point-logs-only\n");
     enkf_printf("      skip calculating transforms for the whole grid and observation stats\n");
     enkf_printf("  --print-batch-stats\n");
     enkf_printf("      calculate and print global biases for each batch of observations\n");
+    enkf_printf("  --print-memory-usage\n");
+    enkf_printf("      print memory usage by each process\n");
     enkf_printf("  --single-observation-xyz <lon> <lat> <depth> <type> <inn> <std>\n");
     enkf_printf("      assimilate single observation with these parameters\n");
     enkf_printf("  --single-observation-ijk <fi> <fj> <fk> <type> <inn> <std>\n");
     enkf_printf("      assimilate single observation with these parameters\n");
     enkf_printf("  --use-existing-transforms\n");
-    enkf_printf("      skip calculating ensemble transforms; use existing X5-*.nc \n");
-    enkf_printf("      files\n");
+    enkf_printf("      skip calculating ensemble transforms; use existing X5*.nc files\n");
     enkf_printf("  --use-rmsd-for-obsstats\n");
     enkf_printf("      use RMSD instead of MAD when printing observation stats\n");
     enkf_printf("  --use-these-obs <obs file>\n");
@@ -66,6 +69,8 @@ static void usage()
     enkf_printf("      with that of observations.nc produced by `enkf_prep'\n");
     enkf_printf("  --version\n");
     enkf_printf("      print version and exit\n");
+    enkf_printf("  --write-HE\n");
+    enkf_printf("      write ensemble observations to file \"%s\"\n", FNAME_HE);
 
     exit(0);
 }
@@ -88,6 +93,10 @@ static void parse_commandline(int argc, char* argv[], char** fname_prm, char** f
                 continue;
             } else
                 usage();
+        } else if (strcmp(argv[i], "--allow-logspace-with-static-ens") == 0) {
+            enkf_allowenoilog = 1;
+            i++;
+            continue;
         } else if (strcmp(argv[i], "--describe-prm-format") == 0) {
             if (i < argc - 1) {
                 if (strcmp(argv[i + 1], "main") == 0)
@@ -107,12 +116,12 @@ static void parse_commandline(int argc, char* argv[], char** fname_prm, char** f
             ignorenoobs = 1;
             i++;
             continue;
-        } else if (strcmp(argv[i], "--no-mean-update") == 0) {
-            enkf_nomeanupdate = 1;
+        } else if (strcmp(argv[i], "--print-batch-stats") == 0) {
+            print_batchstats = 1;
             i++;
             continue;
-        } else if (strcmp(argv[i], "--print-batch-stats") == 0) {
-            printbatchstats = 1;
+        } else if (strcmp(argv[i], "--print-memory-usage") == 0) {
+            print_mem = 1;
             i++;
             continue;
         } else if (strcmp(argv[i], "--point-logs-only") == 0) {
@@ -130,18 +139,18 @@ static void parse_commandline(int argc, char* argv[], char** fname_prm, char** f
             i++;
             if (i >= argc)
                 usage();
-            if (!str2double(argv[i], &singleob->lon))
-                enkf_quit("command line: could not convert \"%s\" to double\n", argv[i]);
+            if (!str2float(argv[i], &singleob->lon))
+                enkf_quit("command line: could not convert \"%s\" to float\n", argv[i]);
             i++;
             if (i >= argc)
                 usage();
-            if (!str2double(argv[i], &singleob->lat))
-                enkf_quit("command line: could not convert \"%s\" to double\n", argv[i]);
+            if (!str2float(argv[i], &singleob->lat))
+                enkf_quit("command line: could not convert \"%s\" to float\n", argv[i]);
             i++;
             if (i >= argc)
                 usage();
-            if (!str2double(argv[i], &singleob->depth))
-                enkf_quit("command line: could not convert \"%s\" to double", argv[i]);
+            if (!str2float(argv[i], &singleob->depth))
+                enkf_quit("command line: could not convert \"%s\" to float", argv[i]);
             i++;
             if (i >= argc)
                 usage();
@@ -149,13 +158,13 @@ static void parse_commandline(int argc, char* argv[], char** fname_prm, char** f
             i++;
             if (i >= argc)
                 usage();
-            if (!str2double(argv[i], &singleob->value))
-                enkf_quit("command line: could not convert \"%s\" to double", argv[i]);
+            if (!str2float(argv[i], &singleob->value))
+                enkf_quit("command line: could not convert \"%s\" to float", argv[i]);
             i++;
             if (i >= argc)
                 usage();
-            if (!str2double(argv[i], &singleob->std))
-                enkf_quit("command line: could not convert \"%s\" to double", argv[i]);
+            if (!str2float(argv[i], &singleob->estd))
+                enkf_quit("command line: could not convert \"%s\" to float", argv[i]);
             i++;
             continue;
         } else if (strcmp(argv[i], "--use-existing-transforms") == 0) {
@@ -184,6 +193,10 @@ static void parse_commandline(int argc, char* argv[], char** fname_prm, char** f
         } else if (strcmp(argv[i], "--version") == 0) {
             enkf_printversion();
             exit(0);
+        } else if (strcmp(argv[i], "--write-HE") == 0) {
+            write_HE = 1;
+            i++;
+            continue;
         } else
             enkf_quit("command line: option \"%s\" not recognised", argv[i]);
     }
@@ -209,18 +222,18 @@ static observations* obs_create_fromsingleob(enkfprm* prm, dasystem* das)
     observations* obs = obs_create();
     observation* o = singleob;
     int vid = -1;
-    void* grid = NULL;
+    void* g = NULL;
 
     enkf_printf("  reading observation type specs from \"%s\":\n", prm->obstypeprm);
     obstypes_read(prm, prm->obstypeprm, &obs->nobstypes, &obs->obstypes);
 
-    obs->da_date = date_str2dbl(prm->date);
+    obs->da_time = date2day(prm->date);
     obs->datestr = strdup(prm->date);
 
     o->type = obstype_getid(obs->nobstypes, obs->obstypes, singleobtype, 1);
 
     vid = model_getvarid(m, obs->obstypes[o->type].varnames[0], 1);
-    grid = model_getvargrid(m, vid);
+    g = model_getvargrid(m, vid);
 
     obs->obstypes[o->type].gridid = model_getvargridid(das->m, vid);
 
@@ -236,13 +249,13 @@ static observations* obs_create_fromsingleob(enkfprm* prm, dasystem* das)
         if (!singleob_ijk)
             o->depth = 0.0;
         else
-            o->depth = grid_getsurflayerid(grid);
+            o->depth = grid_getsurflayerid(g);
     }
 
     if (!singleob_ijk) {
-        o->status = model_xy2fij(m, vid, o->lon, o->lat, &o->fi, &o->fj);
+        o->status = model_xy2fij_f(m, vid, o->lon, o->lat, &o->fi, &o->fj);
         if (o->status == STATUS_OK)
-            o->status = model_z2fk(m, vid, o->fi, o->fj, o->depth, &o->fk);
+            o->status = model_z2fk_f(m, vid, o->fi, o->fj, o->depth, &o->fk);
         else
             o->fk = NAN;
     } else {
@@ -251,15 +264,25 @@ static observations* obs_create_fromsingleob(enkfprm* prm, dasystem* das)
 
         o->fi = o->lon;
         o->fj = o->lat;
-        model_ij2xy(m, vid, (int) (o->fi + EPS_IJ), (int) (o->fj + EPS_IJ), &o->lon, &o->lat);
+        {
+            double lon_d, lat_d;
+
+            model_ij2xy(m, vid, (int) (o->fi + EPS_IJ), (int) (o->fj + EPS_IJ), &lon_d, &lat_d);
+            o->lon = (float) lon_d;
+            o->lat = (float) lat_d;
+        }
         o->fk = o->depth;
-        if (o->fk != 0.0)
-            model_fk2z(m, vid, (int) (o->fi + EPS_IJ), (int) (o->fj + EPS_IJ), o->fk, &o->depth);
+        if (o->fk != 0.0) {
+            double depth_d;
+
+            model_fk2z(m, vid, (int) (o->fi + EPS_IJ), (int) (o->fj + EPS_IJ), o->fk, &depth_d);
+            o->depth = (float) depth_d;
+        }
 
         o->status = STATUS_OK;
-        grid_getdims(grid, &ni, &nj, &nk);
+        grid_getsize(g, &ni, &nj, &nk);
 
-        if (o->fi < 0.0 || o->fi > (double) (ni - 1) || o->fj < 0.0 || o->fj > (double) (nj - 1) || o->fk < 0.0 || o->fk > (double) (nk - 1))
+        if (o->fi < 0.0 || o->fi > (float) (ni - 1) || o->fj < 0.0 || o->fj > (float) (nj - 1) || o->fk < 0.0 || o->fk > (float) (nk - 1))
             o->status = STATUS_OUTSIDEGRID;
         else {
             int i1 = floor(o->fi);
@@ -279,7 +302,7 @@ static observations* obs_create_fromsingleob(enkfprm* prm, dasystem* das)
     enkf_printf("  assimilating single observation:\n");
     enkf_printf("    type = %s\n", singleobtype);
     enkf_printf("    inn  = %.3f\n", singleob->value);
-    enkf_printf("    std  = %.3f\n", singleob->std);
+    enkf_printf("    estd = %.3f\n", singleob->estd);
     enkf_printf("    lon  = %.3f\n", o->lon);
     enkf_printf("    lon  = %.3f\n", o->lat);
     enkf_printf("    i    = %.3f\n", o->fi);
@@ -312,8 +335,14 @@ int main(int argc, char* argv[])
     prm = enkfprm_read(fname_prm);
     enkfprm_print(prm, "    ");
 
+    if (enkf_fstatsonly)
+        enkf_doplogs = 0;
+
     enkf_printf("  initialising the system:\n");
     das = das_create(prm);
+
+    if (print_mem)
+        print_memory_usage();
 
     if (singleob == NULL) {
         if (fname_obs == NULL)
@@ -327,18 +356,38 @@ int main(int argc, char* argv[])
     }
     enkfprm_destroy(prm);
 
+    if (print_mem)
+        print_memory_usage();
+
+    if (model_destroygxytrees(das->m))
+        if (print_mem) {
+            enkf_printf("  (destroyed grid kd-trees)\n");
+            print_memory_usage();
+        }
+
+    enkf_printf("    creating kd-trees for observations:\n");
+    obs_createkdtrees(das->obs);
+
+    if (print_mem)
+        print_memory_usage();
+
     if (das->obs->nobs == 0 && !ignorenoobs)
         enkf_quit("nothing to do! (nobs = 0). Use \"--ignore-no-obs\" to proceed cleanly");
 
     enkf_printf("  calculating ensemble observations:\n");
     enkf_printtime("  ");
     das_getHE(das);
+    if (write_HE)
+        das_writeHE(das);
     das_calcinnandspread(das);
 
+    if (print_mem)
+        print_memory_usage();
+
     if (singleob == NULL) {
-        enkf_printf("  adding forecast innovations and spread to \"%s\":\n", fname_obs);
+        enkf_printf("  writing forecast innovations and spread to \"%s\":\n", fname_obs);
         enkf_printtime("  ");
-        das_addforecast(das, fname_obs);
+        das_writeforecastobs(das, fname_obs);
     }
 
     if (!enkf_fstatsonly) {
@@ -359,7 +408,7 @@ int main(int argc, char* argv[])
                 das_moderateobs(das);
                 enkf_printf("  writing modified obs errors to \"%s\":\n", fname_obs);
                 if (rank == 0)
-                    das_addmodifiederrors(das, fname_obs);
+                    das_writemoderatedobs(das, fname_obs);
             }
         }
 
@@ -370,10 +419,17 @@ int main(int argc, char* argv[])
         } else
             das_standardise(das);
 
+        if (das->nplog > 0 && das->obs->loctrees == NULL)
+            obs_createkdtrees(das->obs);
         if (rank == 0) {
             enkf_printf("  writing point logs:\n");
-            das_dopointlogs(das);
+            das_calcpointlogtransforms(das);
         }
+
+        if (print_mem)
+            print_memory_usage();
+
+        obs_destroykdtrees(das->obs);
 
         if (!plogs_only) {
             /*
@@ -386,7 +442,7 @@ int main(int argc, char* argv[])
 
             if (singleob == NULL) {
                 enkf_printf("  adding analysis innovations and spread to \"%s\":\n", fname_obs);
-                das_addanalysis(das, fname_obs);
+                das_writeanalysisobs(das, fname_obs);
             }
 
             enkf_printf("  printing observation statistics:\n");
@@ -397,8 +453,8 @@ int main(int argc, char* argv[])
         das_printfobsstats(das, use_rmsd);
     }
 
-    if (printbatchstats || das->nbadbatchspecs > 0)
-        das_calcbatchstats(das, printbatchstats);
+    if (print_batchstats || das->nbadbatchspecs > 0)
+        das_calcbatchstats(das, print_batchstats);
 
     das_destroy(das);
     free(fname_obs);

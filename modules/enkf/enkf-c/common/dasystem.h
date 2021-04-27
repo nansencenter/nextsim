@@ -9,7 +9,7 @@
  *
  * Description:
  *
- * Revisions:
+ * Revisions:   06032020 PS: moved MPI communicators etc. to global.c
  *
  *****************************************************************************/
 
@@ -40,9 +40,13 @@ typedef struct {
     int scheme;
     double alpha;               /* moderating multiple */
     char* ensdir;
+    char* ensdir2;              /* static ens. for mode = MODE_STATIC */
     char* bgdir;
 
-    int nmem;
+    int nmem;                   /* total size of the ensemble */
+    int nmem_dynamic;           /* size of the dynamic ensemble */
+    int nmem_static;            /* size of the static ensemble */
+    double gamma;               /* mixing coefficient: P = P_d + gamma P_s */
 
     model* m;
 
@@ -74,7 +78,7 @@ typedef struct {
      * S_MODE_HA_a         no                yes          no
      * S_MODE_S_a          yes               yes          no
      */
-    ENSOBSTYPE** S;             /* HE or HA or S [mem][obs] */
+    float** S;                  /* HE or HA or S [mem][obs] */
     double* s_f;                /* innovation */
     double* std_f;              /* ensemble spread */
     double* s_a;                /* innovation */
@@ -83,37 +87,18 @@ typedef struct {
 
     double kfactor;
 #endif
-#if defined(HE_VIASHMEM)
-#if !defined(MPI)
-#undef HE_VIASHMEM
-#else
-    ENSOBSTYPE** St;            /* (S transposed) */
-    /*
-     * "sm" below stands for "shared memory". The shared memory is allocated
-     * on each node to hold HE (S) and (HE)^T (S^T) objects.
-     */
-    MPI_Comm sm_comm;
-    MPI_Win sm_comm_win;
-    int sm_comm_rank;
-    int* sm_comm_ranks;
-    /*
-     * The node communicator includes the first core on each node. It is created
-     * to gather S and S^T.
-     */
-    MPI_Comm node_comm;
-    int node_comm_rank;
-    int node_comm_size;
-    int* node_comm_ranks;
-#endif
+#if defined(USE_SHMEM)
+    MPI_Win sm_comm_win_S;
+    MPI_Win sm_comm_win_St;
+    float** St;                 /* (S transposed) */
 #endif
     int fieldbufsize;
 
     int nregions;
     region* regions;
 
-    int nplogs;
+    int nplog;
     pointlog* plogs;
-    hashtable* ht_plogs;
 
     int nbadbatchspecs;
     badbatchspec* badbatchspecs;
@@ -124,18 +109,24 @@ typedef struct {
     int nccompression;
 } dasystem;
 
+#if defined(ENKF_UPDATE)
+dasystem* das_create(enkfprm* prm, int updatespec);
+#else
 dasystem* das_create(enkfprm* prm);
+#endif
 void das_destroy(dasystem* das);
 
 void das_getHE(dasystem* das);
-void das_addanalysis(dasystem* das, char fname[]);
-void das_addforecast(dasystem* das, char fname[]);
-void das_addmodifiederrors(dasystem* das, char fname[]);
+void das_writeHE(dasystem* das);
+void das_writeanalysisobs(dasystem* das, char fname[]);
+void das_writeforecastobs(dasystem* das, char fname[]);
+void das_writemoderatedobs(dasystem* das, char fname[]);
 void das_writevcorrs(dasystem* das);
 void das_calcinnandspread(dasystem* das);
 void das_calctransforms(dasystem* das);
-void das_dopointlogs(dasystem* das);
+void das_calcpointlogtransforms(dasystem* das);
 void das_getfields(dasystem* das, int gridid, int* nfield, field** fields);
+void getfieldfname(char* dir, char* prefix, char* varname, int level, char* fname);
 void das_moderateobs(dasystem* das);
 void das_calcbatchstats(dasystem* das, int doprint);
 void das_printobsstats(dasystem* das, int use_rmsd);
@@ -146,12 +137,24 @@ void das_destandardise(dasystem* das);
 void das_update(dasystem* das);
 void das_updateHE(dasystem* das);
 
-void das_getfname_X5(dasystem* das, void* grid, char fname[]);
-void das_getfname_w(dasystem* das, void* grid, char fname[]);
+void das_getfname_transforms(dasystem* das, int gridid, char fname[]);
 void das_getfname_stats(dasystem* das, void* grid, char fname[]);
 void das_getfname_plog(dasystem* das, pointlog* plog, char fname[]);
 
 void das_calcmld(dasystem* das, obstype* ot, float*** src, float** dst);
+
+void plog_create(dasystem* das, int plogid, int ploc, int* lobs, double* lcoeffs);
+void plog_writetransform(dasystem* das, int plogid, int gid, int ploc, double* s, double* S, double* transform);
+void plog_definestatevars(dasystem* das);
+void plog_writestatevars(dasystem* das, int nfields, void** fieldbuffer, field* fields, int isanalysis);
+void plog_assemblestatevars(dasystem* das);
+
+void das_getmemberfname(dasystem* das, char varname[], int mem, char fname[]);
+int das_getmemberfname_async(dasystem* das, obstype* ot, int mem, int t, char fname[]);
+void das_getbgfname(dasystem* das, char varname[], char fname[]);
+int das_getbgfname_async(dasystem* das, obstype* ot, int t, char fname[]);
+void das_sethybridensemble(dasystem* das, int nij, float** v);
+int das_isstatic(dasystem* das, int mem);
 
 #define _DASYSTEM_H
 #endif

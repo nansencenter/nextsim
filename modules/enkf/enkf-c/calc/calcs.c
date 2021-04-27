@@ -29,61 +29,68 @@ static char doT = 'T';
 static char noT = 'N';
 
 /** Calculates trace of the product of two matrices.
- * A - n x m  (A[m][n])
- * B - m x n  (B[n][m])
+ * @param transposeA - flag: whether to transpose A
+ * @param transposeB - flag: whether to transpose B
+ * @param m          - number of rows/columns in A/B (after transposition)
+ * @param n          - number of columns/rows in A/B (after transposition)
+ * @param A          - n x m matrix (A[m][n]) (after transposition)
+ * @param B          - m x n matrix (B[n][m]) (after transposition)
+ * @param iscompact  - whether A and B are allocated as continuous blocks
  */
-double traceprod(int transposeA, int transposeB, int m, int n, double** A, double** B)
+double traceprod(int transposeA, int transposeB, int m, int n, double** A, double** B, int iscompact)
 {
     double trace = 0.0;
     int i, j;
 
-#if 0
-    if (!transposeA && !transposeB) {
-        for (i = 0; i < n; ++i) {
-            double* Bi = B[i];
+    if (!iscompact) {
+        if (!transposeA && !transposeB) {
+            for (i = 0; i < n; ++i) {
+                double* Bi = B[i];
 
-            for (j = 0; j < m; ++j)
-                trace += A[j][i] * Bi[j];
+                for (j = 0; j < m; ++j)
+                    trace += A[j][i] * Bi[j];
+            }
+        } else if (transposeA && transposeB) {
+            for (i = 0; i < n; ++i) {
+                double* Ai = A[i];
+
+                for (j = 0; j < m; ++j)
+                    trace += Ai[j] * B[j][i];
+            }
+        } else if (transposeA || transposeB) {
+            for (j = 0; j < m; ++j) {
+                double* Aj = A[j];
+                double* Bj = B[j];
+
+                for (i = 0; i < n; ++i)
+                    trace += Aj[i] * Bj[i];
+            }
         }
-    } else if (transposeA && transposeB) {
-        for (i = 0; i < n; ++i) {
-            double* Ai = A[i];
+    } else {
+        if (!transposeA && !transposeB) {
+            for (i = 0; i < n; ++i) {
+                double* Aji = &A[0][i];
+                double* Bij = &B[i][0];
 
-            for (j = 0; j < m; ++j)
-                trace += Ai[j] * B[j][i];
+                for (j = 0; j < m; ++j, Aji += n, Bij++)
+                    trace += *Aji * *Bij;
+            }
+        } else if (transposeA && transposeB) {
+            for (i = 0; i < n; ++i) {
+                double* Bji = &B[0][i];
+                double* Aij = &A[i][0];
+
+                for (j = 0; j < m; ++j, Bji += n, Aij++)
+                    trace += *Bji * *Aij;
+            }
+        } else if (transposeA || transposeB) {
+            double* Aij = &A[0][0];
+            double* Bij = &B[0][0];
+
+            for (i = 0; i < n * m; ++i, Aij++, Bij++)
+                trace += *Aij * *Bij;
         }
-    } else if (transposeA || transposeB) {
-        double* A0 = A[0];
-        double* B0 = B[0];
-
-        for (i = 0; i < n * m; ++i)
-            trace += A0[i] * B0[i];
     }
-#else
-    if (!transposeA && !transposeB) {
-        for (i = 0; i < n; ++i) {
-            double* Aji = &A[0][i];
-            double* Bij = &B[i][0];
-
-            for (j = 0; j < m; ++j, Aji += n, Bij++)
-                trace += *Aji * *Bij;
-        }
-    } else if (transposeA && transposeB) {
-        for (i = 0; i < n; ++i) {
-            double* Bji = &B[0][i];
-            double* Aij = &A[i][0];
-
-            for (j = 0; j < m; ++j, Bji += n, Aij++)
-                trace += *Bji * *Aij;
-        }
-    } else if (transposeA || transposeB) {
-        double* Aij = &A[0][0];
-        double* Bij = &B[0][0];
-
-        for (i = 0; i < n * m; ++i, Aij++, Bij++)
-            trace += *Aij * *Bij;
-    }
-#endif
 
     return trace;
 }
@@ -118,54 +125,6 @@ static int invm(int m, double** S)
             *rowj_coli = *colj_rowi;
     }
 #endif
-    return 0;
-}
-
-/** Calculates inverse square root of a square matrix via SVD.
- * @param m - matrix size
- * @param S - input: matrix; output: S^-1
- * @return lapack_info from dgesvd_() (0 = success)
- */
-int invsqrtm(int m, double** S)
-{
-    double** U = alloc2d(m, m, sizeof(double));
-    double** Us = alloc2d(m, m, sizeof(double));
-    double* sigmas = malloc(m * sizeof(double));
-    int lwork = 10 * m;
-    double* work = malloc(lwork * sizeof(double));
-    char specU = 'A';           /* "all M columns of U are returned in array
-                                 * * U" */
-    char specV = 'N';           /* "no rows of V**T are computed" */
-    int lapack_info;
-    double a = 1.0;
-    double b = 0.0;
-    int i, j;
-
-    dgesvd_(&specU, &specV, &m, &m, S[0], &m, sigmas, U[0], &m, NULL, &m, work, &lwork, &lapack_info);
-    if (lapack_info != 0) {
-        free(U);
-        free(Us);
-        free(sigmas);
-        free(work);
-
-        return lapack_info;
-    }
-
-    for (i = 0; i < m; ++i) {
-        double* Ui = U[i];
-        double* Usi = Us[i];
-        double si_sqrt = sqrt(sigmas[i]);
-
-        for (j = 0; j < m; ++j)
-            Usi[j] = Ui[j] / si_sqrt;
-    }
-    dgemm_(&noT, &doT, &m, &m, &m, &a, Us[0], &m, U[0], &m, &b, S[0], &m);
-
-    free(U);
-    free(Us);
-    free(sigmas);
-    free(work);
-
     return 0;
 }
 
@@ -225,15 +184,15 @@ static int calc_M(int p, int m, int transpose, double** S, double** M)
  * @param S - input: matrix; output: S^-1
  * @param D - output: S^-1/2
  * @return lapack_info from dgesvd_() (0 = success)
+ * Note: the actual space allocated for S is [2 * m + 11][m]; the surplus is
+ * used for work arrays and matrices.
  */
-static int invsqrtm2(int m, double alpha, double** S, double** D)
+static int invsqrtm2(int m, double** S, double** D)
 {
-    double** U = alloc2d(m, m, sizeof(double));
-    double** Us1 = alloc2d(m, m, sizeof(double));
-    double** Us2 = alloc2d(m, m, sizeof(double));
-    double* sigmas = malloc(m * sizeof(double));
+    double** U = &S[m];
+    double* sigmas = S[2 * m];
+    double* work = S[2 * m + 1];
     int lwork = 10 * m;
-    double* work = malloc(lwork * sizeof(double));
     char specU = 'A';           /* all M columns of U are returned in array U 
                                  */
     char specV = 'N';           /* no rows of V**T are computed */
@@ -243,43 +202,33 @@ static int invsqrtm2(int m, double alpha, double** S, double** D)
     int i, j;
 
     dgesvd_(&specU, &specV, &m, &m, S[0], &m, sigmas, U[0], &m, NULL, &m, work, &lwork, &lapack_info);
-    if (lapack_info != 0) {
-        free(U);
-        free(Us1);
-        free(Us2);
-        free(sigmas);
-        free(work);
-
+    if (lapack_info != 0)
         return lapack_info;
-    }
 
     for (i = 0; i < m; ++i) {
         double* Ui = U[i];
-        double* Us1i = Us1[i];
-        double* Us2i = Us2[i];
-        double si = sigmas[i];
-        double si_sqrt = sqrt(1.0 - alpha + alpha * sigmas[i]);
+        double s = sqrt(sqrt(sigmas[i]));
 
-        for (j = 0; j < m; ++j) {
-            Us1i[j] = Ui[j] / si;
-            Us2i[j] = Ui[j] / si_sqrt;
-        }
+        for (j = 0; j < m; ++j)
+            Ui[j] /= s;
     }
-    dgemm_(&noT, &doT, &m, &m, &m, &a, Us1[0], &m, U[0], &m, &b, S[0], &m);
-    dgemm_(&noT, &doT, &m, &m, &m, &a, Us2[0], &m, U[0], &m, &b, D[0], &m);
+    dgemm_(&noT, &doT, &m, &m, &m, &a, U[0], &m, U[0], &m, &b, D[0], &m);
 
-    free(U);
-    free(Us1);
-    free(Us2);
-    free(sigmas);
-    free(work);
+    for (i = 0; i < m; ++i) {
+        double* Ui = U[i];
+        double s = sqrt(sqrt(sigmas[i]));
+
+        for (j = 0; j < m; ++j)
+            Ui[j] /= s;
+    }
+    dgemm_(&noT, &doT, &m, &m, &m, &a, U[0], &m, U[0], &m, &b, S[0], &m);
 
     return 0;
 }
 
 /** Calculates G = inv(I + S' * S) * S' = S' * inv(I + S * S').
  */
-void calc_G_denkf(int m, int p, double** S, int i, int j, double** G)
+void calc_G(int m, int p, double** Min, double** S, int i, int j, double** G)
 {
     double** M;
     double a = 1.0;
@@ -287,7 +236,7 @@ void calc_G_denkf(int m, int p, double** S, int i, int j, double** G)
     int lapack_info;
 
     if (p < m) {
-        M = alloc2d(p, p, sizeof(double));
+        M = (Min != NULL) ? cast2d(Min, p, p, sizeof(double)) : alloc2d(p, p, sizeof(double));
         /*
          * M = inv(I + S * S')
          */
@@ -303,47 +252,47 @@ void calc_G_denkf(int m, int p, double** S, int i, int j, double** G)
         /*
          * M = inv(I + S' * S)
          */
-        M = alloc2d(m, m, sizeof(double));
+        M = (Min != NULL) ? cast2d(Min, m, m, sizeof(double)) : alloc2d(m, m, sizeof(double));
         lapack_info = calc_M(p, m, 0, S, M);
         if (lapack_info != 0)
             enkf_quit("dpotrf() or dpotri(): lapack_info = %d at (i, j) = (%d, %d)", lapack_info, i, j);
+
         /*
          * G = inv(I + S * S') * S'
          */
         dgemm_(&noT, &doT, &m, &p, &m, &a, M[0], &m, S[0], &p, &b, G[0], &m);
     }
 
-#if defined(CHECK_G)
-    {
-        int e, o;
+    if (Min == NULL)
+        free(M);
+}
 
-        /*
-         * check that columns of G sum up to 0
-         */
-        for (o = 1; o < p; ++o) {
-            double* Go = G[o];
-            double sumG = 0.0;
-            double sumS = 0.0;
+/** Calculates T = I - 1/2 * G * S.
+ */
+void calc_T_denkf(int m, int p, double** G, double** S, double** T)
+{
+    double a, b;
+    int i;
 
-            for (e = 0; e < m; ++e) {
-                sumG += Go[e];
-                sumS += S[e][o];
-            }
+    /*
+     * T <- -1/2 * G * S 
+     */
+    a = -0.5;
+    b = 0.0;
+    dgemm_(&noT, &noT, &m, &m, &p, &a, G[0], &m, S[0], &p, &b, T[0], &m);
 
-            if (fabs(sumG) > EPS)
-                enkf_quit("inconsistency in G: column %d sums up to %.15f for (i, j) = (%d, %d); sum(S(%d,:) = %.15f)", o, sumG, i, j, o, sumS);
-        }
-    }
-#endif
-
-    free(M);
+    /*
+     * T = I - 1/2 * G * S
+     */
+    for (i = 0; i < m; ++i)
+        T[i][i] += 1.0;
 }
 
 /** Calculates G = inv(I + S' * S) * S' and T = (I + S' * S)^-1/2.
  */
-void calc_G_etkf(int m, int p, double** S, double alpha, int ii, int jj, double** G, double** T)
+void calc_GT_etkf(int m, int p, double** Min, double** S, int ii, int jj, double** G, double** T)
 {
-    double** M = alloc2d(m, m, sizeof(double));
+    double** M;
     int lapack_info;
     int i;
 
@@ -353,6 +302,7 @@ void calc_G_etkf(int m, int p, double** S, double alpha, int ii, int jj, double*
     double a = 1.0;
     double b = 0.0;
 
+    M = (Min != NULL) ? cast2d(Min, 2 * m + 11, m, sizeof(double)) : alloc2d(2 * m + 11, m, sizeof(double));
     /*
      * M = S' * S 
      */
@@ -364,7 +314,7 @@ void calc_G_etkf(int m, int p, double** S, double alpha, int ii, int jj, double*
     for (i = 0; i < m; ++i)
         M[i][i] += 1.0;
 
-    lapack_info = invsqrtm2(m, alpha, M, T);    /* M = M^-1, T = M^-1/2 */
+    lapack_info = invsqrtm2(m, M, T);   /* M = M^-1, T = M^-1/2 */
     if (lapack_info != 0)
         enkf_quit("dgesvd(): lapack_info = %d at (i, j) = (%d, %d)", lapack_info, ii, jj);
 
@@ -373,129 +323,35 @@ void calc_G_etkf(int m, int p, double** S, double alpha, int ii, int jj, double*
      */
     dgemm_(&noT, &doT, &m, &p, &m, &a, M[0], &m, S[0], &p, &b, G[0], &m);
 
-#if defined(CHECK_G)
-    /*
-     * check that columns of G sum up to 0
-     */
-    {
-        int e, o;
-
-        for (o = 1; o < p; ++o) {
-            double* Go = G[o];
-            double sumG = 0.0;
-            double sumS = 0.0;
-
-            for (e = 0; e < m; ++e) {
-                sumG += Go[e];
-                sumS += S[e][o];
-            }
-
-            if (fabs(sumG) > EPS)
-                enkf_quit("inconsistency in G: column %d sums up to %.15f for (i, j) = (%d, %d); sum(S(%d,:) = %.15f)", o, sumG, ii, jj, o, sumS);
-        }
-    }
-#endif
-
-    free(M);
+    if (Min == NULL)
+        free(M);
 }
 
-/** Calculates X5 = G * s * 1' + T.
- * G is [m x p]
- * S is [p x m]
- * s is [p]
- * X5 is [m x m]
+/** Calculates X5 = w * 1' + I + alpha * (T - I).
+ * @param m - size
+ * @param alpha - relaxation parameter (0 <= alpha <= 1; 
+ *        alpha = 1 -- no relaxation, alpha = 0 -- no anomalies update)
+ * @param w[m] - weights
+ * @param X5[m][m] - input: T, output: X5
  */
-void calc_X5_denkf(int m, int p, double** G, double** S, double* s, double alpha, int ii, int jj, double** X5)
+void calc_X5(int m, double alpha, double* w, double** X5)
 {
-    double* w = calloc(m, sizeof(double));
-    double a, b;
     int i, j;
 
     /*
-     * w = G * s 
-     */
-    if (enkf_nomeanupdate == 0) /* "normal" way */
-        calc_w(m, p, G, s, w);
-
-    /*
-     * X5 = G * s * 1^T 
-     */
-    for (j = 0; j < m; ++j)
-        memcpy(X5[j], w, m * sizeof(double));
-
-    /*
-     * X5 = G * s * 1^T - 1/2 * alpha * G * S 
-     */
-    a = -0.5 * alpha;
-    b = 1.0;
-    dgemm_(&noT, &noT, &m, &m, &p, &a, G[0], &m, S[0], &p, &b, X5[0], &m);
-
-    /*
-     * X5 = G * s * 1^T - 1/2 * alpha * G * S + I 
-     */
-    for (i = 0; i < m; ++i)
-        X5[i][i] += 1.0;
-
-#if defined(CHECK_X5)
-    /*
-     * check that columns of X5 sum up to 1 
+     * X5 = w * 1^T + I + alpha * (T - I)
      */
     for (i = 0; i < m; ++i) {
         double* X5i = X5[i];
-        double sum = 0.0;
 
+        X5i[i] -= 1.0;
         for (j = 0; j < m; ++j)
-            sum += X5i[j];
-
-        if (fabs(sum - 1.0) > EPS)
-            enkf_quit("inconsistency in X5: column %d sums up to %.15f for (i, j) = (%d, %d)", i, sum, ii, jj);
-    }
-#endif
-
-    free(w);
-}
-
-/** Calculates X5 = G * s * 1' + T.
- * X5 = T on input
- */
-void calc_X5_etkf(int m, int p, double** G, double* s, int ii, int jj, double** X5)
-{
-    double* w = calloc(m, sizeof(double));
-    int i, j;
-
-    /*
-     * w = G * s 
-     */
-    if (enkf_nomeanupdate == 0) /* "normal" way */
-        calc_w(m, p, G, s, w);
-
-    /*
-     * X5 = G * s * 1^T + T
-     */
-    for (i = 0; i < m; ++i) {
-        double* X5i = X5[i];
+            X5i[j] *= alpha;
+        X5i[i] += 1.0;
 
         for (j = 0; j < m; ++j)
             X5i[j] += w[j];
     }
-
-#if defined(CHECK_X5)
-    /*
-     * check that columns of X5 sum up to 1 
-     */
-    for (i = 0; i < m; ++i) {
-        double* X5i = X5[i];
-        double sum = 0.0;
-
-        for (j = 0; j < m; ++j)
-            sum += X5i[j];
-
-        if (fabs(sum - 1.0) > EPS)
-            enkf_quit("inconsistency in X5: column %d sums up to %.15f for (i, j) = (%d, %d)", i, sum, ii, jj);
-    }
-#endif
-
-    free(w);
 }
 
 /** Calculates w = G * s.
@@ -506,5 +362,8 @@ void calc_w(int m, int p, double** G, double* s, double* w)
     int inc = 1;
     double b = 0.0;
 
+    /*
+     * (no need to initialize w because b = 0, and w <- a * G * s + b * w)
+     */
     dgemv_(&noT, &m, &p, &a, G[0], &m, s, &inc, &b, w, &inc);
 }

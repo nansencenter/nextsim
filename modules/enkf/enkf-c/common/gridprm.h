@@ -16,14 +16,17 @@
 #if !defined(_GRIDPRM_H)
 
 typedef struct {
+    char* prmfname;
     char* name;
-    char* vtype;
-#if !defined(NO_GRIDUTILS)
-    char maptype;
-#endif
     char* fname;
+
+    char* aliasname;
     char* xvarname;
     char* yvarname;
+
+    char* vtype;
+    int geographic;             /* flag */
+
     /*
      * Z stuff: zvarname and zcvarname hold the names of the layer centre
      * and layer corner corrdinate variable.
@@ -69,7 +72,6 @@ typedef struct {
      */
     int stride;
     int sob_stride;
-    double sfactor;
 
     /*
      * Vertical intervals for observation statistics

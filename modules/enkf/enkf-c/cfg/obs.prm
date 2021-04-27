@@ -1,9 +1,0 @@
-PRODUCT = CS2SMOS
-READER = standard
-TYPE = sea_ice_thickness
-FILE = /cluster/home/chengsukun/src/nextsim_data_dir/CS2_SMOS_v2.2/W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20191015_20191021_r_v202_01_l4sit.nc
-
-#PRODUCT = CS2SMOS
-#READER = standard
-#TYPE = sea_ice_concentration
-#F_I_L_E = /cluster/home/chengsukun/src/nextsim_data_dir/CS2_SMOS_v2.2

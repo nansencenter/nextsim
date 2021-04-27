@@ -11,7 +11,8 @@
  *
  * Revisions:   5/2016 PS - modified alloc2d() and alloc3d(). They now work
  *                with only one internal allocation, and no longer require
- *                special dellocation 
+ *                special dellocation
+ *              6/9/2019 PS - moved NetCDF procedures to ncutils.c
  *
  *****************************************************************************/
 
@@ -29,10 +30,10 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#if !defined(NO_GRIDUTILS)
-#include <guquit.h>
-#endif
+#include <stdint.h>
+#include <glob.h>
 #include "ncw.h"
+#include "ncutils.h"
 #include "definitions.h"
 #include "version.h"
 #include "utils.h"
@@ -41,7 +42,8 @@
 #define EPS_DOUBLE 4.0e-15
 #define EPS_FLOAT  1.0e-7
 #define BACKTRACE_SIZE 50
-#define SEED 5555
+
+long int seed_rand48 = 0;
 
 /**
  */
@@ -86,22 +88,25 @@ void enkf_quit(char* format, ...)
 
 /**
  */
-static long int gen_randseed(void)
+static void randomise_rand48(void)
 {
     char fname[] = "/dev/urandom";
-    FILE* f = enkf_fopen(fname, "r");
-    long int seed;
+    FILE* f;
     size_t status;
 
-    status = fread(&seed, sizeof(seed), 1, f);
+    if (seed_rand48 != 0)
+        return;
+
+    f = enkf_fopen(fname, "r");
+
+    status = fread(&seed_rand48, sizeof(seed_rand48), 1, f);
     if (status != 1) {
         int errno_saved = errno;
 
-        enkf_quit("gen_randseed(): could not read from \"%s\": %s", fname, strerror(errno_saved));
+        enkf_quit("randomise_rand48(): could not read from \"%s\": %s", fname, strerror(errno_saved));
     }
     fclose(f);
-
-    return seed;
+    srand(seed_rand48);
 }
 
 /**
@@ -115,29 +120,105 @@ void enkf_init(int* argc, char*** argv)
     MPI_Init(argc, argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocesses);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (*argc > 1 && nprocesses > 1) {
+
+    if (*argc == 2 && strcmp((*argv)[1], "--version") == 0)
+        return;
+
+    if (*argc > 1) {
         enkf_printf("  MPI: initialised %d process(es)\n", nprocesses);
         MPI_Barrier(MPI_COMM_WORLD);
-        printf("  MPI: rank = %d, PID = %d\n", rank, getpid());
-        fflush(NULL);
+#if defined(USE_SHMEM)
+        /*
+         * initialise communicators for handling shared memory stuff
+         */
+        {
+            int ierror;
+            int* recvcounts = NULL;
+            int* displs = NULL;
+            int i;
+
+            ierror = MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &sm_comm);
+            assert(ierror == MPI_SUCCESS);
+            ierror = MPI_Comm_rank(sm_comm, &sm_comm_rank);
+            assert(ierror == MPI_SUCCESS);
+            ierror = MPI_Comm_size(sm_comm, &sm_comm_size);
+            assert(ierror == MPI_SUCCESS);
+            sm_comm_ranks = malloc(nprocesses * sizeof(int));
+            /*
+             * build map of local (i.e. within the node the core belongs to)
+             * ranks
+             */
+            sm_comm_ranks[rank] = sm_comm_rank;
+            recvcounts = malloc(nprocesses * sizeof(int));
+            displs = malloc(nprocesses * sizeof(int));
+            for (i = 0; i < nprocesses; ++i) {
+                recvcounts[i] = 1;
+                displs[i] = i;
+            }
+            ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, sm_comm_ranks, recvcounts, displs, MPI_INT, MPI_COMM_WORLD);
+            assert(ierror == MPI_SUCCESS);
+            /*
+             * create communicators based on local ranks
+             */
+            ierror = MPI_Comm_split(MPI_COMM_WORLD, sm_comm_rank, rank, &node_comm);
+            assert(ierror == MPI_SUCCESS);
+            ierror = MPI_Comm_rank(node_comm, &node_comm_rank);
+            assert(ierror == MPI_SUCCESS);
+            ierror = MPI_Comm_size(node_comm, &node_comm_size);
+            assert(ierror == MPI_SUCCESS);
+            /*
+             * Free communicators for local ranks other than 0. The communicator
+             * for local rank 0 will be used for gathering S and St.
+             */
+            if (sm_comm_rank != 0) {
+                MPI_Comm_free(&node_comm);
+                node_comm_rank = -1;
+            }
+            node_comm_ranks = malloc(nprocesses * sizeof(int));
+            node_comm_ranks[rank] = node_comm_rank;
+            ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, node_comm_ranks, recvcounts, displs, MPI_INT, MPI_COMM_WORLD);
+            assert(ierror == MPI_SUCCESS);
+
+            free(recvcounts);
+            free(displs);
+
+            enkf_printf("  Using MPI-3 shared memory:\n");
+            enkf_printf("    sm_comm size = %d\n", sm_comm_size);
+            enkf_printf("    node_comm size = %d\n", node_comm_size);
+        }
+        if (enkf_verbose > 1) {
+            MPI_Barrier(MPI_COMM_WORLD);
+            printf("  MPI: rank = %3d, sm_comm_rank = %2d, node_comm_rank = %2d, PID = %d\n", rank, sm_comm_rank, node_comm_rank, getpid());
+            fflush(NULL);
+        }
+#else
+        if (enkf_verbose > 1) {
+            MPI_Barrier(MPI_COMM_WORLD);
+            printf("  MPI: rank = %d, PID = %d\n", rank, getpid());
+            fflush(NULL);
+        }
+#endif
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
-    MPI_Type_size(MPI_INTEGER, &size);
+    MPI_Type_size(MPI_INT, &size);
     assert(size == sizeof(int));
-    MPI_Type_size(MPIENSOBSTYPE, &size);
-    assert(size == sizeof(ENSOBSTYPE));
+    MPI_Type_size(MPI_FLOAT, &size);
+    assert(size == sizeof(float));
+#else
+    if (*argc == 2 && strcmp((*argv)[1], "--version") == 0)
+        return;
+    if (enkf_verbose > 1)
+        printf("  rank = %d, PID = %d\n", rank, getpid());
 #endif
 
     ncw_set_quitfn(enkf_quit);
-#if !defined(NO_GRIDUTILS)
-    gu_setquitfn(enkf_quit);
-#endif
+    ncu_set_quitfn(enkf_quit);
 
     /*
      * initialise the random number generator to a random state for each cpu
      */
-    srand48(gen_randseed());
+    randomise_rand48();
 }
 
 /**
@@ -146,6 +227,16 @@ void enkf_finish(void)
 {
 #if defined(MPI)
     MPI_Barrier(MPI_COMM_WORLD);
+#endif
+#if defined (USE_SHMEM)
+    if (sm_comm != MPI_COMM_NULL)
+        MPI_Comm_free(&sm_comm);
+    if (sm_comm_ranks != NULL)
+        free(sm_comm_ranks);
+    if (node_comm != MPI_COMM_NULL)
+        MPI_Comm_free(&node_comm);
+    if (node_comm_ranks != NULL)
+        free(node_comm_ranks);
 #endif
     enkf_printtime("  ");
     enkf_printf("  finished\n");
@@ -201,7 +292,7 @@ void enkf_printtime(const char offset[])
     time_t t;
     struct tm tm;
 
-    if (rank != 0)
+    if (rank != 0 || !enkf_verbose)
         return;
 
     t = time(NULL);
@@ -214,32 +305,25 @@ void enkf_printtime(const char offset[])
  */
 void enkf_printcompileflags(const char offset[])
 {
-    enkf_printf("%scompile flags:\n", offset);
+#if defined(ENKF_PREP)
+    enkf_printf("%senkf_prep compile flags:\n", offset);
+#elif defined(ENKF_CALC)
+    enkf_printf("%senkf_calc compile flags:\n", offset);
+#elif defined(ENKF_UPDATE)
+    enkf_printf("%senkf_update compile flags:\n", offset);
+#else
+    enkf_quit("programming error");
+#endif
 #if defined(ENKF_CALC)
-#if defined(CHECK_X5)
-    enkf_printf("%s  CHECK_X5         = [+]\n", offset);
-#else
-    enkf_printf("%s  CHECK_X5         = [-]\n", offset);
-#endif
-#if defined(CHECK_G)
-    enkf_printf("%s  CHECK_G          = [+]\n", offset);
-#else
-    enkf_printf("%s  CHECK_G          = [-]\n", offset);
-#endif
 #if defined(SHUFFLE_ROWS)
     enkf_printf("%s  SHUFFLE_ROWS     = [+]\n", offset);
 #else
     enkf_printf("%s  SHUFFLE_ROWS     = [-]\n", offset);
 #endif
-#if defined(HE_VIAFILE)
-    enkf_printf("%s  HE_VIAFILE       = [+]\n", offset);
+#if defined(USE_SHMEM)
+    enkf_printf("%s  USE_SHMEM        = [+]\n", offset);
 #else
-    enkf_printf("%s  HE_VIAFILE       = [-]\n", offset);
-#endif
-#if defined(HE_VIASHMEM)
-    enkf_printf("%s  HE_VIASHMEM      = [+]\n", offset);
-#else
-    enkf_printf("%s  HE_VIASHMEM      = [-]\n", offset);
+    enkf_printf("%s  USE_SHMEM        = [-]\n", offset);
 #endif
 #if defined(MINIMISE_ALLOC)
     enkf_printf("%s  MINIMISE_ALLOC   = [+]\n", offset);
@@ -251,31 +335,33 @@ void enkf_printcompileflags(const char offset[])
 #else
     enkf_printf("%s  OBS_SHUFFLE      = [-]\n", offset);
 #endif
+#if defined(TW_VIAFILE)
+    enkf_printf("%s  TW_VIAFILE       = [+]\n", offset);
+#else
+    enkf_printf("%s  TW_VIAFILE       = [-]\n", offset);
+#endif
 #endif                          /* ENKF_CALC */
 #if defined(ENKF_PREP) || defined(ENKF_CALC)
-#if defined(GRIDNODES_WRITE)
-    enkf_printf("%s  GRIDNODES_WRITE  = [+]\n", offset);
-#else
-    enkf_printf("%s  GRIDNODES_WRITE  = [-]\n", offset);
-#endif
 #if defined(INTERNAL_QSORT_R)
     enkf_printf("%s  INTERNAL_QSORT_R = [+]\n", offset);
 #else
     enkf_printf("%s  INTERNAL_QSORT_R = [-]\n", offset);
 #endif
-#if defined(NO_GRIDUTILS)
-    enkf_printf("%s  NO_GRIDUTILS     = [+]\n", offset);
-#else
-    enkf_printf("%s  NO_GRIDUTILS     = [-]\n", offset);
 #endif
-#endif                          /* ENKF_PREP || ENKF_CALC */
 #if defined(ENKF_UPDATE)
 #if defined(NCW_SKIPSINGLE)
-    enkf_printf("%s  NCW_SKIPSINGLE = [+]\n", offset);
+    enkf_printf("%s  NCW_SKIPSINGLE   = [+]\n", offset);
 #else
-    enkf_printf("%s  NCW_SKIPSINGLE = [-]\n", offset);
+    enkf_printf("%s  NCW_SKIPSINGLE   = [-]\n", offset);
 #endif
 #endif                          /* ENKF_UPDATE */
+#if defined(ENKF_CALC) || defined(ENKF_UPDATE)
+#if defined(DEFLATE_ALL)
+    enkf_printf("%s  DEFLATE_ALL      = [+]\n", offset);
+#else
+    enkf_printf("%s  DEFLATE_ALL      = [-]\n", offset);
+#endif
+#endif
 }
 
 /**
@@ -302,8 +388,6 @@ void enkf_printversion(void)
     enkf_printcompileflags("  ");
 }
 
-#if 1
-#include <glob.h>
 /** Find files matching the template using glob.
  */
 void find_files(char* template, int* nfiles, char*** fnames)
@@ -311,8 +395,8 @@ void find_files(char* template, int* nfiles, char*** fnames)
     glob_t gl;
     int status;
 
-    status = glob(template, GLOB_PERIOD | GLOB_TILDE_CHECK, NULL, &gl);
-    if (status == GLOB_NOSPACE || status == GLOB_ABORTED || status == GLOB_NOMATCH) {
+    status = glob(template, GLOB_BRACE | GLOB_PERIOD | GLOB_TILDE_CHECK, NULL, &gl);
+    if (status == GLOB_NOSPACE || status == GLOB_ABORTED || status == GLOB_ERR) {
         int errno_saved = errno;
 
         enkf_quit("failed looking for \"%s\": %s", template, strerror(errno_saved));
@@ -336,36 +420,6 @@ void find_files(char* template, int* nfiles, char*** fnames)
         *nfiles += 1;
     }
 }
-#else
-/** Find files matching the template using "ls".
- */
-void find_files(char* template, int* nfiles, char*** fnames)
-{
-    char command[MAXSTRLEN];
-
-    FILE* in;
-    char buf[MAXSTRLEN];
-    char* eol;
-
-    snprintf(command, MAXSTRLEN, "ls -1 %s", template);
-    fflush(stdout);
-    in = popen(command, "r");
-    if (in == NULL)
-        return;
-
-    while (fgets(buf, MAXSTRLEN, in) != NULL) {
-        if (*nfiles % FILE_FIND_INC == 0)
-            *fnames = realloc(*fnames, (*nfiles + FILE_FIND_INC) * sizeof(char*));
-        eol = strchr(buf, '\n');
-        if (eol != NULL)
-            *eol = 0;
-        (*fnames)[*nfiles] = strdup(buf);
-        (*nfiles)++;
-    }
-
-    pclose(in);
-}
-#endif
 
 /*
 ** scalar date routines    --    public domain by Ray Gardner
@@ -379,14 +433,17 @@ static int isleap(unsigned yr)
 {
     return yr % 400 == 0 || (yr % 4 == 0 && yr % 100 != 0);
 }
+
 static unsigned months_to_days(unsigned month)
 {
     return (month * 3057 - 3007) / 100;
 }
+
 static long years_to_days(unsigned yr)
 {
     return yr * 365L + yr / 4 - yr / 100 + yr / 400;
 }
+
 static long ymd_to_scalar(unsigned yr, unsigned mo, unsigned day)
 {
     long scalar;
@@ -488,7 +545,7 @@ int file_exists(char* fname)
 
 /**
  */
-void file_delete(char* fname)
+void file_delete(char fname[])
 {
     int status = -1;
 
@@ -497,6 +554,20 @@ void file_delete(char* fname)
         int errno_saved = errno;
 
         enkf_quit("could not delete file \"%s\": %s", fname, strerror(errno_saved));
+    }
+}
+
+/**
+ */
+void file_rename(char oldname[], char newname[])
+{
+    int status = -1;
+
+    status = rename(oldname, newname);
+    if (status != 0) {
+        int errno_saved = errno;
+
+        enkf_quit("could not rename file \"%s\" to \"%s\": %s", oldname, newname, strerror(errno_saved));
     }
 }
 
@@ -663,6 +734,34 @@ void* alloc2d(size_t nj, size_t ni, size_t unitsize)
     return pp;
 }
 
+/** Casts an ni x nj matrix onto a pre-allocated storage and fills it with
+ ** zeros.
+ * @param p Address of allocated bloc
+ * @param nj Dimension 2
+ * @param ni Dimension 1
+ * @param unitsize Size of one matrix element in bytes
+ * @return Matrix (= (unit**) p)
+ */
+void* cast2d(void* p, size_t nj, size_t ni, size_t unitsize)
+{
+    size_t size;
+    void** pp;
+    int i;
+
+    if (ni <= 0 || nj <= 0)
+        enkf_quit("alloc2d(): invalid size (nj = %d, ni = %d)", nj, ni);
+
+    size = nj * sizeof(void*) + nj * ni * unitsize;
+    memset(p, 0, size);
+
+    pp = p;
+    p = &((size_t*) p)[nj];
+    for (i = 0; i < nj; ++i)
+        pp[i] = &((char*) p)[i * ni * unitsize];
+
+    return pp;
+}
+
 /** Copies 2D matrix.
  * @param src Source matrix
  * @param nj Dimension 2
@@ -775,631 +874,34 @@ void* copy3d(void*** src, size_t nk, size_t nj, size_t ni, size_t unitsize)
 
 /**
  */
-int getnlevels(char fname[], char varname[])
-{
-    int ncid;
-    int varid;
-    int ndims;
-    size_t dimlen[4];
-    int hasrecorddim;
-
-    ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_vardims(ncid, varid, 4, &ndims, dimlen);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-    ncw_close(ncid);
-
-    if (ndims > 4)
-        enkf_quit("%s: %s: EnKF-C does not know how to handle more than 4-dimensional variables\n", fname, varname);
-    if (ndims == 4) {
-        if (!hasrecorddim)
-            enkf_quit("%s: %s: expect an unlimited dimension to be present for a 4-dimensional variable\n", fname, varname);
-        return (int) dimlen[1];
-    }
-    if (ndims == 3)
-        return (hasrecorddim) ? 1 : (int) dimlen[0];
-    if (ndims == 2)
-        return (hasrecorddim) ? 0 : 1;
-
-    return 0;
-}
-
-/** Reads one horizontal field (layer) for a variable from a NetCDF file.
- ** Verifies that the field dimensions are ni x nj.
- */
-void readfield(char fname[], char varname[], int k, int ni, int nj, int nk, float* v)
-{
-    int ncid;
-    int varid;
-    int ndims;
-    size_t dimlen[4];
-    size_t start[4], count[4];
-    int i, n;
-    int hasrecorddim;
-
-    ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_vardims(ncid, varid, 4, &ndims, dimlen);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-    if (hasrecorddim)
-        if (dimlen[0] == 0)
-            enkf_quit("%s: %s: empty record dimension", fname, varname);
-
-    if (ndims == 4) {
-        if (!hasrecorddim)
-            enkf_quit("%s: %s: expect an unlimited dimension to be present for a 4-dimensional variable\n", fname, varname);
-        start[0] = dimlen[0] - 1;
-        if (dimlen[1] != nk) {
-            if (dimlen[1] != 1)
-                enkf_quit("\"%s\": vertical dimension of variable \"%s\" (nk = %d) does not match grid dimension (nk = %d)", fname, varname, dimlen[1], nk);
-            else
-                k = 0;          /* ignore k */
-        }
-        start[1] = k;
-        start[2] = 0;
-        start[3] = 0;
-        count[0] = 1;
-        count[1] = 1;
-        count[2] = dimlen[2];
-        count[3] = dimlen[3];
-        if (dimlen[2] != ni || dimlen[3] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[3], dimlen[2], ni, nj);
-    } else if (ndims == 3) {
-        if (!hasrecorddim) {
-            if (dimlen[0] != nk && !(dimlen[0] == 1 && (k == 0 || k == nk - 1)))
-                enkf_quit("\"%s\": vertical dimension of variable \"%s\" (nk = %d) does not match grid dimension (nk = %d)", fname, varname, dimlen[0], nk);
-            start[0] = k;
-            start[1] = 0;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = dimlen[1];
-            count[2] = dimlen[2];
-        } else {
-            /*
-             * ignore k in this case
-             */
-            start[0] = dimlen[0] - 1;
-            start[1] = 0;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = dimlen[1];
-            count[2] = dimlen[2];
-        }
-        if (dimlen[1] != ni || dimlen[2] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[2], dimlen[1], ni, nj);
-    } else if (ndims == 2) {
-        if (hasrecorddim)
-            enkf_quit("%s: can not read a layer from a 1D variable \"%s\"", fname, varname);
-        /*
-         * ignore k
-         */
-        start[0] = 0;
-        start[1] = 0;
-        count[0] = dimlen[0];
-        count[1] = dimlen[1];
-        if (dimlen[0] != ni || dimlen[1] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[1], dimlen[0], ni, nj);
-    } else
-        enkf_quit("%s: can not read 2D field for \"%s\": # of dimensions = %d", fname, varname, ndims);
-
-    ncw_get_vara_float(ncid, varid, start, count, v);
-
-    n = 1;
-    for (i = 0; i < ndims; ++i)
-        n *= count[i];
-
-    if (ncw_att_exists(ncid, varid, "valid_range")) {
-        nc_type xtype;
-        size_t len;
-
-        ncw_inq_att(ncid, varid, "valid_range", &xtype, &len);
-        if (len != 2)
-            enkf_quit("%s: %s: \"valid_range\" attribute must have 2 elements", fname, varname);
-        if (xtype == NC_SHORT) {
-            int valid_range[2];
-            int fill_value = SHRT_MIN;
-            short* vv = malloc(n * sizeof(short));
-
-            ncw_get_vara_short(ncid, varid, start, count, vv);
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_int(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_int(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_int(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i)
-                if (vv[i] == fill_value || vv[i] < valid_range[0] || vv[i] > valid_range[1])
-                    v[i] = NAN;
-            free(vv);
-        } else if (xtype == NC_FLOAT || xtype == NC_DOUBLE) {
-            float valid_range[2];
-            float fill_value = -FLT_MAX;
-
-            /*
-             * (we assume that double numbers outside of [-FLT_MAX, FLT_MAX]
-             * interval are converted to either -FLT_MAX or FLT_MAX)
-             */
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_float(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_float(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_float(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i)
-                if (v[i] == fill_value || v[i] < valid_range[0] || v[i] > valid_range[1])
-                    v[i] = NAN;
-        } else
-            enkf_quit("%s: %s: can not properly read NetCDF types other than NC_SHORT, NC_FLOAT, or NC_DOUBLE yet", fname, varname);
-    }
-
-    if (ncw_att_exists(ncid, varid, "scale_factor")) {
-        float scale_factor;
-
-        ncw_get_att_float(ncid, varid, "scale_factor", &scale_factor);
-        for (i = 0; i < n; ++i)
-            v[i] *= scale_factor;
-    }
-
-    if (ncw_att_exists(ncid, varid, "add_offset")) {
-        float add_offset;
-
-        ncw_get_att_float(ncid, varid, "add_offset", &add_offset);
-
-        for (i = 0; i < n; ++i)
-            v[i] += add_offset;
-    }
-
-    ncw_close(ncid);
-}
-
-/** Writes one horizontal field (layer) for a variable to a NetCDF file.
- */
-void writefield(char fname[], char varname[], int k, int ni, int nj, int nk, float* v)
-{
-    int ncid;
-    int varid;
-    int ndims;
-    size_t dimlen[4];
-    size_t start[4], count[4];
-    int i, n;
-    int hasrecorddim;
-
-    ncw_open(fname, NC_WRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_vardims(ncid, varid, 4, &ndims, dimlen);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-
-    if (ndims == 4) {
-        if (!hasrecorddim)
-            enkf_quit("%s: %s: expect an unlimited dimension to be present for a 4-dimensional variable\n", fname, varname);
-        start[0] = (dimlen[0] == 0) ? 0 : dimlen[0] - 1;
-        if (dimlen[1] != nk)
-            enkf_quit("\"%s\": vertical dimension of variable \"%s\" (nk = %d) does not match grid dimension (nk = %d)", fname, varname, dimlen[1], nk);
-        start[1] = k;
-        start[2] = 0;
-        start[3] = 0;
-        count[0] = 1;
-        count[1] = 1;
-        count[2] = dimlen[2];
-        count[3] = dimlen[3];
-        if (dimlen[2] != ni || dimlen[3] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[2], dimlen[3], ni, nj);
-    } else if (ndims == 3) {
-        if (!hasrecorddim) {
-            if (dimlen[0] != nk && !(dimlen[0] == 1 && (k == 0 || k == nk - 1)))
-                enkf_quit("\"%s\": vertical dimension of variable \"%s\" (nk = %d) does not match grid dimension (nk = %d)", fname, varname, dimlen[0], nk);
-            start[0] = k;
-            start[1] = 0;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = dimlen[1];
-            count[2] = dimlen[2];
-        } else {
-            /*
-             * 2D variable, ignore k
-             */
-            start[0] = (dimlen[0] == 0) ? 0 : dimlen[0] - 1;
-            start[1] = 0;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = dimlen[1];
-            count[2] = dimlen[2];
-        }
-        if (dimlen[1] != ni || dimlen[2] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[1], dimlen[2], ni, nj);
-    } else if (ndims == 2) {
-        if (hasrecorddim)
-            enkf_quit("%s: can not write a layer from a 1D variable \"%s\"", fname, varname);
-        /*
-         * ignore k
-         */
-        start[0] = 0;
-        start[1] = 0;
-        count[0] = dimlen[0];
-        count[1] = dimlen[1];
-        if (dimlen[1] != ni || dimlen[0] != nj)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d) do not match grid dimensions (ni = %d, nj = %d)", fname, varname, dimlen[1], dimlen[0], ni, nj);
-    } else
-        enkf_quit("%s: can not write 2D field for \"%s\": # of dimensions = %d", fname, varname, ndims);
-
-    n = 1;
-    for (i = 0; i < ndims; ++i)
-        n *= count[i];
-
-    if (ncw_att_exists(ncid, varid, "add_offset")) {
-        float add_offset;
-
-        ncw_get_att_float(ncid, varid, "add_offset", &add_offset);
-
-        for (i = 0; i < n; ++i)
-            v[i] -= add_offset;
-    }
-
-    if (ncw_att_exists(ncid, varid, "scale_factor")) {
-        float scale_factor;
-
-        ncw_get_att_float(ncid, varid, "scale_factor", &scale_factor);
-        for (i = 0; i < n; ++i)
-            v[i] /= scale_factor;
-    }
-
-    if (ncw_att_exists(ncid, varid, "valid_range")) {
-        nc_type xtype;
-        size_t len;
-
-        ncw_inq_att(ncid, varid, "valid_range", &xtype, &len);
-        if (xtype == NC_SHORT) {
-            int valid_range[2];
-            int fill_value = SHRT_MIN;
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_int(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_int(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_int(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i) {
-                if (v[i] == fill_value)
-                    continue;
-                if ((int) v[i] < valid_range[0])
-                    v[i] = (float) valid_range[0];
-                else if ((int) v[i] > valid_range[1])
-                    v[i] = (float) valid_range[1];
-            }
-        } else if (xtype == NC_FLOAT) {
-            float valid_range[2];
-            float fill_value = -FLT_MAX;
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_float(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_float(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_float(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i) {
-                if (v[i] == fill_value)
-                    continue;
-                if (v[i] < valid_range[0])
-                    v[i] = valid_range[0];
-                else if (v[i] > valid_range[1])
-                    v[i] = valid_range[1];
-            }
-        } else
-            enkf_quit("%s: %s: output for types other than NC_SHORT and NC_FLOAT is not handled", fname, varname);
-    }
-
-    ncw_put_vara_float(ncid, varid, start, count, v);
-    ncw_close(ncid);
-}
-
-/** Writes one row of a horizontal field (layer) for a variable to a NetCDF
- *  file.
- */
-void writerow(char fname[], char varname[], int k, int j, float* v)
-{
-    int ncid;
-    int varid;
-    int ndims;
-    size_t dimlen[4];
-    size_t start[4], count[4];
-    int i, n;
-    int hasrecorddim;
-
-    ncw_open(fname, NC_WRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_vardims(ncid, varid, 4, &ndims, dimlen);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-
-    if (ndims == 4) {
-        if (!hasrecorddim)
-            enkf_quit("%s: %s: expect an unlimited dimension to be present for a 4-dimensional variable\n", fname, varname);
-        if (k >= dimlen[1])
-            enkf_quit("%s: %s: the length of dimension 1 (%d) is not sufficient to read layer %d", fname, varname, dimlen[1], k);
-        start[0] = (dimlen[0] == 0) ? 0 : dimlen[0] - 1;
-        start[1] = k;
-        start[2] = j;
-        start[3] = 0;
-        count[0] = 1;
-        count[1] = 1;
-        count[2] = 1;
-        count[3] = dimlen[3];
-    } else if (ndims == 3) {
-        if (!hasrecorddim) {
-            assert(k < dimlen[0]);
-            start[0] = k;
-            start[1] = j;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = 1;
-            count[2] = dimlen[2];
-        } else {
-            /*
-             * 2D variable, ignore k
-             */
-            start[0] = (dimlen[0] == 0) ? 0 : dimlen[0] - 1;
-            start[1] = j;
-            start[2] = 0;
-            count[0] = 1;
-            count[1] = 1;
-            count[2] = dimlen[2];
-        }
-    } else if (ndims == 2) {
-        if (hasrecorddim)
-            enkf_quit("%s: can not write a row %d to a 1D variable \"%s\"", fname, j, varname);
-        if (k > 0)
-            enkf_quit("%s: can not write layer %d row %d to a 2D variable \"%s\"", fname, k, j, varname);
-        start[0] = j;
-        start[1] = 0;
-        count[0] = 1;
-        count[1] = dimlen[1];
-    } else
-        enkf_quit("%s: can not write a row to 2D field for \"%s\": # of dimensions = %d", fname, varname, ndims);
-
-    n = count[ndims - 1];
-
-    if (ncw_att_exists(ncid, varid, "add_offset")) {
-        float add_offset;
-
-        ncw_get_att_float(ncid, varid, "add_offset", &add_offset);
-
-        for (i = 0; i < n; ++i)
-            v[i] -= add_offset;
-    }
-
-    if (ncw_att_exists(ncid, varid, "scale_factor")) {
-        float scale_factor;
-
-        ncw_get_att_float(ncid, varid, "scale_factor", &scale_factor);
-        for (i = 0; i < n; ++i)
-            v[i] /= scale_factor;
-    }
-
-    if (ncw_att_exists(ncid, varid, "valid_range")) {
-        nc_type xtype;
-        size_t len;
-
-        ncw_inq_att(ncid, varid, "valid_range", &xtype, &len);
-        if (xtype == NC_SHORT) {
-            int valid_range[2];
-            int fill_value = SHRT_MIN;
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_int(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_int(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_int(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i) {
-                if (v[i] == fill_value)
-                    continue;
-                if ((int) v[i] < valid_range[0])
-                    v[i] = (float) valid_range[0];
-                else if ((int) v[i] > valid_range[1])
-                    v[i] = (float) valid_range[1];
-            }
-        } else if (xtype == NC_FLOAT) {
-            float valid_range[2];
-            float fill_value = -FLT_MAX;
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_float(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_float(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_float(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i) {
-                if (v[i] == fill_value)
-                    continue;
-                if (v[i] < valid_range[0])
-                    v[i] = valid_range[0];
-                else if (v[i] > valid_range[1])
-                    v[i] = valid_range[1];
-            }
-        } else
-            enkf_quit("%s: %s: output for types other than NC_SHORT and NC_FLOAT are not handled yet", fname, varname);
-    }
-
-    ncw_put_vara_float(ncid, varid, start, count, v);
-    ncw_close(ncid);
-}
-
-/**
- */
-void read3dfield(char* fname, char* varname, int ni, int nj, int nk, float* v)
-{
-    int ncid;
-    int varid;
-    int ndims;
-    size_t dimlen[4];
-    size_t start[4], count[4];
-    int i, n;
-    int hasrecorddim;
-
-    ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_vardims(ncid, varid, 4, &ndims, dimlen);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-    if (hasrecorddim)
-        if (dimlen[0] == 0)
-            enkf_quit("%s: %s: empty record dimension", fname, varname);
-
-    if (ndims == 4) {
-        if (!hasrecorddim)
-            enkf_quit("%s: %s: expect an unlimited dimension to be present for a 4-dimensional variable\n", fname, varname);
-        start[0] = dimlen[0] - 1;
-        start[1] = 0;
-        start[2] = 0;
-        start[3] = 0;
-        count[0] = 1;
-        count[1] = dimlen[1];
-        count[2] = dimlen[2];
-        count[3] = dimlen[3];
-        if (dimlen[3] != ni || dimlen[2] != nj || dimlen[1] != nk)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d, nk = %d) do not match grid dimensions (ni = %d, nj = %d, nk = %d)", fname, varname, dimlen[3], dimlen[2], dimlen[1], ni, nj, nk);
-    } else if (ndims == 3) {
-        if (hasrecorddim)
-            enkf_quit("%s: %s: can not read 3D field because the variable is only 2D", fname, varname);
-        start[0] = 0;
-        start[1] = 0;
-        start[2] = 0;
-        count[0] = dimlen[0];
-        count[1] = dimlen[1];
-        count[2] = dimlen[2];
-        if (dimlen[2] != ni || dimlen[1] != nj || dimlen[0] != nk)
-            enkf_quit("\"%s\": horizontal dimensions of variable \"%s\" (ni = %d, nj = %d, nk = %d) do not match grid dimensions (ni = %d, nj = %d, nk = %d)", fname, varname, dimlen[2], dimlen[1], dimlen[0], ni, nj, nk);
-    } else
-        enkf_quit("%s: can not read 3D field for \"%s\": # of dimensions = %d", fname, varname, ndims);
-
-    ncw_get_vara_float(ncid, varid, start, count, v);
-
-    n = 1;
-    for (i = 0; i < ndims; ++i)
-        n *= count[i];
-
-    if (ncw_att_exists(ncid, varid, "valid_range")) {
-        nc_type xtype;
-        size_t len;
-
-        ncw_inq_att(ncid, varid, "valid_range", &xtype, &len);
-        if (len != 2)
-            enkf_quit("%s: %s: \"valid_range\" attribute must have 2 elements", fname, varname);
-        if (xtype == NC_SHORT) {
-            int valid_range[2];
-            int fill_value = SHRT_MIN;
-            short* vv = malloc(n * sizeof(short));
-
-            ncw_get_vara_short(ncid, varid, start, count, vv);
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_int(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_int(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_int(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i)
-                if (vv[i] == fill_value || vv[i] < valid_range[0] || vv[i] > valid_range[1])
-                    v[i] = NAN;
-            free(vv);
-        } else if (xtype == NC_FLOAT || xtype == NC_DOUBLE) {
-            float valid_range[2];
-            float fill_value = -FLT_MAX;
-
-            /*
-             * (we assume that double numbers outside of [-FLT_MAX, FLT_MAX]
-             * interval are converted to either -FLT_MAX or FLT_MAX)
-             */
-
-            if (ncw_att_exists(ncid, varid, "_FillValue"))
-                ncw_get_att_float(ncid, varid, "_FillValue", &fill_value);
-            else if (ncw_att_exists(ncid, varid, "missing_value"))
-                ncw_get_att_float(ncid, varid, "missing_value", &fill_value);
-
-            ncw_get_att_float(ncid, varid, "valid_range", valid_range);
-            for (i = 0; i < n; ++i)
-                if (v[i] == fill_value || v[i] < valid_range[0] || v[i] > valid_range[1])
-                    v[i] = NAN;
-        } else
-            enkf_quit("%s: %s: can not properly read NetCDF types other than NC_SHORT, NC_FLOAT, or NC_DOUBLE yet", fname, varname);
-    }
-
-    if (ncw_att_exists(ncid, varid, "scale_factor")) {
-        float scale_factor;
-
-        ncw_get_att_float(ncid, varid, "scale_factor", &scale_factor);
-        for (i = 0; i < n; ++i)
-            v[i] *= scale_factor;
-    }
-
-    if (ncw_att_exists(ncid, varid, "add_offset")) {
-        float add_offset;
-
-        ncw_get_att_float(ncid, varid, "add_offset", &add_offset);
-
-        for (i = 0; i < n; ++i)
-            v[i] += add_offset;
-    }
-
-    ncw_close(ncid);
-}
-
-/** Tries to determine whether the variable is 3D or 2D.
- */
-int is3d(char fname[], char varname[])
-{
-    int ncid;
-    int varid;
-    int ndims;
-    int hasrecorddim;
-
-    ncw_open(fname, NC_NOWRITE, &ncid);
-    ncw_inq_varid(ncid, varname, &varid);
-    ncw_inq_varndims(ncid, varid, &ndims);
-    if (ndims > 4)
-        enkf_quit("%s: %s: do not know how to read a %d-dimensional variable", fname, varname, ndims);
-    hasrecorddim = ncw_var_hasunlimdim(ncid, varid);
-    ncw_close(ncid);
-
-    ndims -= hasrecorddim;
-    if (ndims < 2 || ndims > 3)
-        enkf_quit("%s: %s: a 2D or 3D variable expected", fname, varname);
-
-    return ndims == 3;
-}
-
-/**
- */
-/**
- */
-double date_str2dbl(char strdate[])
+double date2day(char strdate[])
 {
     char buf[MAXSTRLEN];
     char* token;
     char seps[] = " ";
     char seps2[] = "\n";
-    double date, offset, multiple;
+    double day, offset, multiple;
 
-    strncpy(buf, strdate, MAXSTRLEN);
+    strncpy(buf, strdate, MAXSTRLEN - 1);
     if ((token = strtok(buf, seps)) == NULL)
         enkf_quit("could not understand date \"%s\"", strdate);
-    if (!str2double(token, &date))
+    if (!str2double(token, &day))
         enkf_quit("could not convert date \"%s\" to double", token);
     if ((token = strtok(NULL, seps2)) == NULL)
         enkf_quit("could not understand date \"%s\"", strdate);
     tunits_convert(token, &multiple, &offset);
-    date = date * multiple + offset;
+    day = day * multiple + offset;
 
-    return date;
+    return day;
 }
 
 /**
  */
-int get_tshift(double date, double tstep, int centred)
+int get_tshift(double reltime, double tstep, int centred)
 {
     double offset = (centred) ? 0.5 : 0.0;
 
-    return (int) floor(date / tstep + offset);
+    return (int) floor(reltime / tstep + offset);
 }
 
 /** For debugging purposes - to be called from GDB.
@@ -1456,7 +958,7 @@ void print_vector_float(int n, float* a, char offset[])
 
 /**
  */
-ENSOBSTYPE interpolate2d(double fi, double fj, int ni, int nj, float** v, int** mask, int periodic_i)
+float interpolate2d(double fi, double fj, int ni, int nj, float** v, int** mask, int periodic_i)
 {
     int i1 = (int) floor(fi);
     double wi1 = ceil(fi) - fi;
@@ -1512,7 +1014,19 @@ ENSOBSTYPE interpolate2d(double fi, double fj, int ni, int nj, float** v, int** 
     }
     sum = sum / w;
 
-    return (ENSOBSTYPE) sum;
+    return (float) sum;
+}
+
+float average2d(int n, size_t* ids, float** v)
+{
+    double sum = 0.0;
+    float* v0 = v[0];
+    int i;
+
+    for (i = 0; i < n; ++i)
+        sum += v0[ids[i]];
+
+    return (float) (sum / (double) n);
 }
 
 /** A part of interpolate2d() that looks at mask in adjacent nodes only.
@@ -1523,6 +1037,7 @@ int island(double fi, double fj, double fk, int ni, int nj, int ksurf, int** num
     int i2 = (int) ceil(fi);
     int j1 = (int) floor(fj);
     int j2 = (int) ceil(fj);
+    int k = (ksurf == 0) ? ceil(fk) : ceil((double) ksurf - fk);
 
     if (i1 == -1)
         i1 = (periodic_i) ? ni - 1 : i2;
@@ -1533,22 +1048,17 @@ int island(double fi, double fj, double fk, int ni, int nj, int ksurf, int** num
     if (j2 == nj)
         j2 = j1;
 
-    if (ksurf > 0)
-        fk = (double) ksurf - fk;
-    if (fk == 0.0)
-        return !(numlevels[j1][i1] || numlevels[j1][i2] || numlevels[j2][i1] || numlevels[j2][i2]);
-    else {
-        int k = ceil(fk);
-
-        return !(numlevels[j1][i1] > k || numlevels[j1][i2] > k || numlevels[j2][i1] > k || numlevels[j2][i2] > k);
-    }
+    if (k == 0)
+        return numlevels[j1][i1] == 0 && numlevels[j1][i2] == 0 && numlevels[j2][i1] == 0 && numlevels[j2][i2] == 0;
+    else
+        return numlevels[j1][i1] < k && numlevels[j1][i2] < k && numlevels[j2][i1] < k && numlevels[j2][i2] < k;
 }
 
 /** Linearly interpolates a 3D field to fractional coordinates in index space.
  *  Assumes that integer k indices correspond to layer centres. E.g. for 
  *  fk = 1.2 the vertical weights are 0.8 of layer 1 and 0.2 of layer 2.
  */
-ENSOBSTYPE interpolate3d(double fi, double fj, double fk, int ni, int nj, int nk, int ktop, float*** v, int** nlevels, int periodic_i)
+float interpolate3d(double fi, double fj, double fk, int ni, int nj, int nk, int ktop, float*** v, int** nlevels, int periodic_i)
 {
     int i1 = (int) floor(fi);
     double wi1 = ceil(fi) - fi;
@@ -1646,7 +1156,7 @@ ENSOBSTYPE interpolate3d(double fi, double fj, double fk, int ni, int nj, int nk
     }
     sum = sum / w;
 
-    return (ENSOBSTYPE) sum;
+    return (float) sum;
 }
 
 /** Gaspary & Cohn's taper function.
@@ -1741,4 +1251,147 @@ int inloninterval(double lon, double lon1, double lon2)
     while (lon < lon1)
         lon += 360.0;
     return (lon <= lon2);
+}
+
+/**
+ */
+void shuffle(size_t n, size_t ids[])
+{
+    size_t i;
+
+    for (i = 0; i < n; ++i) {
+        size_t ii = (size_t) ((double) n * drand48());
+        size_t tmp = ids[i];
+
+        ids[i] = ids[ii];
+        ids[ii] = tmp;
+    }
+}
+
+#if defined(ENKF_PREP) || defined(ENKF_CALC)
+/**
+ */
+void kd_printinfo(kdtree* tree, char* offset)
+{
+    size_t nnode;
+    size_t nalloc;
+
+    if (rank != 0)
+        return;
+
+    nnode = kd_getsize(tree);
+    nalloc = kd_getnalloc(tree);
+
+    enkf_printf("%skdtree \"%s\":\n", offset == NULL ? "" : offset, kd_getname(tree));
+    enkf_printf("%s  %zu nodes", offset == NULL ? "" : offset, nnode);
+    if (nalloc != 0) {
+        if (nnode != nalloc)
+            enkf_printf("(%zu allocated)\n", nalloc);
+        else
+            enkf_printf("\n");
+        enkf_printf("%s  %zu bytes\n", offset == NULL ? "" : offset, kd_getstoragesize(tree, nalloc));
+    } else {
+        enkf_printf("\n");
+        enkf_printf("%s  %zu bytes (externally allocated)\n", offset == NULL ? "" : offset, kd_getstoragesize(tree, 0));
+    }
+    enkf_flush();
+}
+#endif
+
+#include <memory.h>
+
+/**
+ */
+static int get_memory_usage_kb(size_t* vmrss_kb, size_t* vmsize_kb)
+{
+    /*
+     * Get the the current process' status file from the proc filesystem 
+     */
+    FILE* procfile = fopen("/proc/self/status", "r");
+
+    size_t to_read = 8192;
+    char buffer[to_read];
+
+    /*
+     * (dummy if to avoid warning from GCC) 
+     */
+    if (fread(buffer, sizeof(char), to_read, procfile));
+    fclose(procfile);
+
+    int found_vmrss = 0;
+    int found_vmsize = 0;
+    char* search_result;
+
+    /*
+     * Look through proc status contents line by line 
+     */
+    char delims[] = "\n";
+    char* line = strtok(buffer, delims);
+
+    while (line != NULL && (found_vmrss == 0 || found_vmsize == 0)) {
+        search_result = strstr(line, "VmRSS:");
+        if (search_result != NULL) {
+            sscanf(line, "%*s %zu", vmrss_kb);
+            found_vmrss = 1;
+        }
+
+        search_result = strstr(line, "VmSize:");
+        if (search_result != NULL) {
+            sscanf(line, "%*s %zu", vmsize_kb);
+            found_vmsize = 1;
+        }
+
+        line = strtok(NULL, delims);
+    }
+
+    return (found_vmrss == 1 && found_vmsize == 1) ? 0 : 1;
+}
+
+/**
+ */
+static int get_cluster_memory_usage_kb(size_t* vmrss_per_process, size_t* vmsize_per_process, int root, int np)
+{
+    size_t vmrss_kb;
+    size_t vmsize_kb;
+    int ret_code = get_memory_usage_kb(&vmrss_kb, &vmsize_kb);
+
+    if (ret_code != 0)
+        enkf_quit("could not gather memory usage: %s\n", strerror(ret_code));
+
+#if defined(MPI)
+    MPI_Gather(&vmrss_kb, 1, MPI_UNSIGNED_LONG, vmrss_per_process, 1, MPI_UNSIGNED_LONG, root, MPI_COMM_WORLD);
+
+    MPI_Gather(&vmsize_kb, 1, MPI_UNSIGNED_LONG, vmsize_per_process, 1, MPI_UNSIGNED_LONG, root, MPI_COMM_WORLD);
+#else
+    vmrss_per_process[0] = vmrss_kb;
+    vmsize_per_process[0] = vmsize_kb;
+#endif
+
+    return 0;
+}
+
+/**
+ */
+void print_memory_usage()
+{
+    size_t vmrss_per_process[nprocesses];
+    size_t vmsize_per_process[nprocesses];
+    size_t vmrss, vmsize;
+
+    get_cluster_memory_usage_kb(vmrss_per_process, vmsize_per_process, 0, nprocesses);
+
+    if (rank == 0) {
+        int i;
+
+        enkf_printf("  memory usage:\n");
+        if (nprocesses > 1) {
+            for (i = 0, vmrss = 0, vmsize = 0; i < nprocesses; i++) {
+                enkf_printf("    process %03d: VmRSS = %zu kB, VmSize = %zu kB\n", i, vmrss_per_process[i], vmsize_per_process[i]);
+                vmrss += vmrss_per_process[i];
+                vmsize += vmsize_per_process[i];
+            }
+            enkf_printf("    total: VmRSS = %zu kB, VmSize = %zu kB\n", vmrss, vmsize);
+        } else
+            enkf_printf("    VmRSS = %zu kB, VmSize = %zu kB\n", vmrss_per_process[0], vmsize_per_process[0]);
+    }
 }

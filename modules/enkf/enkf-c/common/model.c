@@ -21,6 +21,7 @@
 #include "stringtable.h"
 #include "definitions.h"
 #include "utils.h"
+#include "ncutils.h"
 #include "grid.h"
 #include "gridprm.h"
 #include "enkfprm.h"
@@ -42,6 +43,7 @@ struct variable {
     int gridid;
     double inflation;
     double inf_ratio;
+    int applylog;
     /*
      * if not NaN then the code will "propagate" the variable as follows:
      *   v <- deflation * v + (1 - deflation^2)^1/2 * s, 
@@ -69,13 +71,14 @@ struct model {
 
 /**
  */
-static void variable_new(variable * v, int id, char* name)
+static void variable_new(variable* v, int id, char* name)
 {
     v->id = id;
     v->name = strdup(name);
     v->gridid = -1;
     v->inflation = NAN;
     v->inf_ratio = NAN;
+    v->applylog = 0;
     v->deflation = NAN;
     v->sigma = NAN;
 }
@@ -115,7 +118,7 @@ model* model_create(enkfprm* prm)
     char* modelprm = prm->modelprm;
     int i;
 
-    grids_create(prm->gridprm, prm->stride, prm->sob_stride, &m->ngrid, &m->grids);
+    grids_create(prm->gridprm, prm->stride, &m->ngrid, &m->grids);
 
     assert(m->ngrid > 0);
 
@@ -184,13 +187,22 @@ model* model_create(enkfprm* prm)
                 if (!isnan(now->inflation))
                     enkf_quit("%s, l.%d: INFLATION already specified for \"%s\"", modelprm, line, now->name);
                 if ((token = strtok(NULL, seps)) == NULL)
-                    enkf_quit("%s, l.%d: INFLATION not specified", modelprm, line);
+                    enkf_quit("%s, l.%d: INFLATION value not specified", modelprm, line);
                 if (!str2double(token, &now->inflation))
                     enkf_quit("%s, l.%d: could not convert \"%s\" to double", modelprm, line, token);
                 if ((token = strtok(NULL, seps)) != NULL) {
                     if (!str2double(token, &now->inf_ratio))
                         enkf_quit("%s, l.%d: could not convert \"%s\" to double", modelprm, line, token);
                 }
+            } else if (strcasecmp(token, "APPLYLOG") == 0) {
+                if (now == NULL)
+                    enkf_quit("%s, l.%d: VAR not specified", modelprm, line);
+                if ((token = strtok(NULL, seps)) == NULL)
+                    enkf_quit("%s, l.%d: APPLYLOG value not specified", modelprm, line);
+                now->applylog = istrue(token) ? 1 : 0;
+                if (now->applylog && prm->mode != MODE_ENKF && !enkf_allowenoilog)
+
+                    enkf_quit("%s, l.%d: to use APPLYLOG in EnOI or Hybrid modes the static ensemble must be in log space. If you are aware of this and wish to proceed use command line option \"--allow-logspace-with-static-ens\"", modelprm, line);
             } else if (strcasecmp(token, "RANDOMISE") == 0 || strcasecmp(token, "RANDOMIZE") == 0) {
                 if (!isnan(now->deflation))
                     enkf_quit("%s, l.%d: randomisation multiple already specified for \"%s\"", modelprm, line, now->name);
@@ -199,7 +211,7 @@ model* model_create(enkfprm* prm)
                 if (!str2double(token, &now->deflation))
                     enkf_quit("%s, l.%d: could not convert \"%s\" to double", modelprm, line, token);
                 if ((token = strtok(NULL, seps)) == NULL)
-                    enkf_quit("%s, l.%d: RANDOMISE STD not specified", modelprm, line);
+                    enkf_quit("%s, l.%d: RANDOMISE STD value not specified", modelprm, line);
                 if (!str2double(token, &now->sigma))
                     enkf_quit("%s, l.%d: could not convert \"%s\" to double", modelprm, line, token);
             } else
@@ -245,6 +257,8 @@ model* model_create(enkfprm* prm)
 
     model_checkvars(m, modelprm);
 
+    model_print(m, "  ");
+
     return m;
 }
 
@@ -276,15 +290,30 @@ static void model_freemodeldata(model* m)
 
 /**
  */
+void model_destroygrids(model* m)
+{
+    grids_destroy(m->ngrid, m->grids);
+    m->ngrid = 0;
+}
+
+/**
+ */
 void model_destroy(model* m)
 {
     free(m->name);
-    grids_destroy(m->ngrid, m->grids);
+    model_destroygrids(m);
     model_destroyvars(m);
     model_freemodeldata(m);
     st_destroy(m->domains);
     free(m);
 }
+
+#if defined(ENKF_CALC)
+int model_destroygxytrees(model* m)
+{
+    return grids_destroygxytrees(m->ngrid, m->grids);
+}
+#endif
 
 /**
  */
@@ -304,18 +333,22 @@ void model_print(model* m, char offset[])
             enkf_printf("%s      inflation = %.3f PLAIN\n", offset, v->inflation);
         else
             enkf_printf("%s      inflation = %.3f %.2f\n", offset, v->inflation, v->inf_ratio);
+        if (v->applylog)
+            enkf_printf("%s      applylog = true\n", offset);
         if (!isnan(v->deflation))
             enkf_printf("%s      randomise: deflation = %.3f, sigma = %.3f\n", offset, v->deflation, v->sigma);
     }
-    enkf_printf("%s  %d modeldata:\n", offset, m->ndata);
-    for (i = 0; i < m->ndata; ++i) {
-        enkf_printf("%s    %s:\n", offset, m->data[i].tag);
-        if (m->data[i].alloctype == ALLOCTYPE_1D)
-            enkf_printf("%s      type = 1D\n", offset);
-        else if (m->data[i].alloctype == ALLOCTYPE_2D)
-            enkf_printf("%s      type = 2D\n", offset);
-        else if (m->data[i].alloctype == ALLOCTYPE_3D)
-            enkf_printf("%s      type = 3D\n", offset);
+    if (m->ndata > 0) {
+        enkf_printf("%s  %d modeldata:\n", offset, m->ndata);
+        for (i = 0; i < m->ndata; ++i) {
+            enkf_printf("%s    %s:\n", offset, m->data[i].tag);
+            if (m->data[i].alloctype == ALLOCTYPE_1D)
+                enkf_printf("%s      type = 1D\n", offset);
+            else if (m->data[i].alloctype == ALLOCTYPE_2D)
+                enkf_printf("%s      type = 2D\n", offset);
+            else if (m->data[i].alloctype == ALLOCTYPE_3D)
+                enkf_printf("%s      type = 3D\n", offset);
+        }
     }
 }
 
@@ -330,6 +363,7 @@ void model_describeprm(void)
     enkf_printf("    VAR       = <name>\n");
     enkf_printf("  [ GRID      = <name> ]                    (# grids > 1)\n");
     enkf_printf("  [ INFLATION = <value> [<value> | PLAIN] ]\n");
+    enkf_printf("  [ APPLYLOG  = <YES | NO*> ]\n");
     enkf_printf("  [ RANDOMISE <deflation> <sigma> ]\n");
     enkf_printf("\n");
     enkf_printf("  [ <more of the above blocks> ]\n");
@@ -338,7 +372,7 @@ void model_describeprm(void)
     enkf_printf("    1. [ ... ] denotes an optional input\n");
     enkf_printf("    2. < ... > denotes a description of an entry\n");
     enkf_printf("    3. ( ... ) is a note\n");
-    enkf_printf("    4. ... denotes repeating the previous item an arbitrary number of times\n");
+    enkf_printf("    4. * denotes the default value\n");
     enkf_printf("\n");
 }
 
@@ -389,7 +423,7 @@ void model_addorreplacedata(model* m, char tag[], int vid, int alloctype, void* 
         assert(m->data[i].alloctype == alloctype);
     }
 
-    model_getvargriddims(m, mdata->vid, &ni, &nj, &nk);
+    model_getvargridsize(m, mdata->vid, &ni, &nj, &nk);
     if (mdata->alloctype == ALLOCTYPE_1D)
         memcpy(mdata->data, data, nk * sizeof(float));
     else if (mdata->alloctype == ALLOCTYPE_2D)
@@ -400,7 +434,7 @@ void model_addorreplacedata(model* m, char tag[], int vid, int alloctype, void* 
         enkf_quit("programming error");
 }
 
-/**
+/** Get model data.
  */
 void* model_getdata(model* m, char tag[])
 {
@@ -489,9 +523,9 @@ double model_getvarsigma(model* m, int varid)
 
 /**
  */
-void model_getvargriddims(model* m, int vid, int* ni, int* nj, int* nk)
+void model_getvargridsize(model* m, int vid, int* ni, int* nj, int* nk)
 {
-    grid_getdims(m->grids[m->vars[vid].gridid], ni, nj, nk);
+    grid_getsize(m->grids[m->vars[vid].gridid], ni, nj, nk);
 }
 
 /**
@@ -506,6 +540,13 @@ void* model_getvargrid(model* m, int vid)
 int model_getvargridid(model* m, int vid)
 {
     return m->vars[vid].gridid;
+}
+
+/**
+ */
+int model_getvarislog(model* m, int vid)
+{
+    return m->vars[vid].applylog;
 }
 
 /**
@@ -547,11 +588,11 @@ double model_getlonbase(model* m, int vid)
  */
 float** model_getdepth(model* m, int vid, int musthave)
 {
-    void* grid = m->grids[m->vars[vid].gridid];
-    float** depth = grid_getdepth(grid);
+    void* g = m->grids[m->vars[vid].gridid];
+    float** depth = grid_getdepth(g);
 
     if (musthave && depth == NULL)
-        enkf_quit("DEPTHVARNAME not specified for grid \"%s\"", grid_getname(grid));
+        enkf_quit("DEPTHVARNAME not specified for grid \"%s\"", grid_getname(g));
 
     return depth;
 }
@@ -561,44 +602,6 @@ float** model_getdepth(model* m, int vid, int musthave)
 int** model_getnumlevels(model* m, int vid)
 {
     return grid_getnumlevels(m->grids[m->vars[vid].gridid]);
-}
-
-/**
- */
-void model_getmemberfname(model* m, char ensdir[], char varname[], int mem, char fname[])
-{
-    snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", ensdir, mem);
-}
-
-/**
- */
-int model_getmemberfname_async(model* m, char ensdir[], char alias[], char varname[], int mem, int t, char fname[])
-{
-    snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s_%d.nc", ensdir, mem, alias, t);
-    if (!file_exists(fname)) {
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", ensdir, mem, varname);
-        return 0;
-    }
-    return 1;
-}
-
-/**
- */
-void model_getbgfname(model* m, char ensdir[], char varname[], char fname[])
-{
-    snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", ensdir, varname);
-}
-
-/**
- */
-int model_getbgfname_async(model* m, char bgdir[], char alias[], char varname[], int t, char fname[])
-{
-    snprintf(fname, MAXSTRLEN, "%s/bg_%s_%d.nc", bgdir, alias, t);
-    if (!file_exists(fname)) {
-        snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", bgdir, varname);
-        return 0;
-    }
-    return 1;
 }
 
 /**
@@ -617,11 +620,18 @@ int model_xy2fij(model* m, int vid, double x, double y, double* fi, double* fj)
 
 /**
  */
+int model_xy2fij_f(model* m, int vid, double x, double y, float* fi, float* fj)
+{
+    return grid_xy2fij_f(m->grids[m->vars[vid].gridid], x, y, fi, fj);
+}
+
+/**
+ */
 int model_fij2xy(model* m, int vid, double fi, double fj, double* x, double* y)
 {
-    void* grid = m->grids[m->vars[vid].gridid];
+    void* g = m->grids[m->vars[vid].gridid];
 
-    grid_fij2xy(grid, fi, fj, x, y);
+    grid_fij2xy(g, fi, fj, x, y);
 
     if (isnan(*x + *y))
         return STATUS_OUTSIDEGRID;
@@ -632,9 +642,9 @@ int model_fij2xy(model* m, int vid, double fi, double fj, double* x, double* y)
  */
 int model_ij2xy(model* m, int vid, int i, int j, double* x, double* y)
 {
-    void* grid = m->grids[m->vars[vid].gridid];
+    void* g = m->grids[m->vars[vid].gridid];
 
-    grid_ij2xy(grid, i, j, x, y);
+    grid_ij2xy(g, i, j, x, y);
 
     if (isnan(*x + *y))
         return STATUS_OUTSIDEGRID;
@@ -650,6 +660,13 @@ int model_z2fk(model* m, int vid, double fi, double fj, double z, double* fk)
 
 /**
  */
+int model_z2fk_f(model* m, int vid, double fi, double fj, double z, float* fk)
+{
+    return grid_z2fk_f(m->grids[m->vars[vid].gridid], fi, fj, z, fk);
+}
+
+/**
+ */
 int model_fk2z(model* m, int vid, int i, int j, double fk, double* z)
 {
     return grid_fk2z(m->grids[m->vars[vid].gridid], i, j, fk, z);
@@ -657,47 +674,81 @@ int model_fk2z(model* m, int vid, int i, int j, double fk, double* z)
 
 /**
  */
-void model_readfield(model* m, char fname[], char varname[], int k, float* v)
+void model_readfield(model* m, char fname[], char varname[], int k, float* v, int ignorelog)
 {
     int ni, nj, nk;
     int mvid = model_getvarid(m, varname, 1);
 
-    model_getvargriddims(m, mvid, &ni, &nj, &nk);
+    model_getvargridsize(m, mvid, &ni, &nj, &nk);
     assert(k < nk);
-    readfield(fname, varname, k, ni, nj, nk, v);
+    ncu_readfield(fname, varname, k, ni, nj, nk, v);
+
+    if (m->vars[mvid].applylog && !ignorelog) {
+        size_t nij = ni * nj;
+        size_t i;
+
+        for (i = 0; i < nij; ++i)
+            v[i] = log10(v[i]);
+    }
 }
 
 /**
  */
-void model_read3dfield(model* m, char fname[], char varname[], float* v)
+void model_read3dfield(model* m, char fname[], char varname[], float* v, int ignorelog)
 {
     int ni, nj, nk;
     int mvid = model_getvarid(m, varname, 1);
 
-    model_getvargriddims(m, mvid, &ni, &nj, &nk);
-    read3dfield(fname, varname, ni, nj, nk, v);
+    model_getvargridsize(m, mvid, &ni, &nj, &nk);
+    ncu_read3dfield(fname, varname, ni, nj, nk, v);
+
+    if (m->vars[mvid].applylog && !ignorelog) {
+        size_t nijk = (size_t) ni * nj * nk;
+        size_t i;
+
+        for (i = 0; i < nijk; ++i)
+            v[i] = log10(v[i]);
+    }
 }
 
 /**
  */
-void model_writefield(model* m, char fname[], char varname[], int k, float* v)
+void model_writefield(model* m, char fname[], char varname[], int k, float* v, int ignorelog)
 {
     int ni, nj, nk;
     int mvid = model_getvarid(m, varname, 1);
 
-    model_getvargriddims(m, mvid, &ni, &nj, &nk);
+    model_getvargridsize(m, mvid, &ni, &nj, &nk);
     assert(k < nk);
-    writefield(fname, varname, k, ni, nj, nk, v);
+
+    if (m->vars[mvid].applylog && !ignorelog) {
+        size_t nij = (size_t) ni * nj;
+        size_t i;
+
+        for (i = 0; i < nij; ++i)
+            v[i] = exp10(v[i]);
+    }
+
+    ncu_writefield(fname, varname, (k >= 0) ? k : 0, ni, nj, (k >= 0) ? nk : 1, v);
 }
 
 /**
  */
-void model_writefieldas(model* m, char fname[], char varname[], char varnameas[], int k, float* v)
+void model_writefieldas(model* m, char fname[], char varname[], char varnameas[], int k, float* v, int ignorelog)
 {
     int ni, nj, nk;
     int mvid = model_getvarid(m, varnameas, 1);
 
-    model_getvargriddims(m, mvid, &ni, &nj, &nk);
+    model_getvargridsize(m, mvid, &ni, &nj, &nk);
     assert(k < nk);
-    writefield(fname, varname, k, ni, nj, nk, v);
+
+    if (m->vars[mvid].applylog && !ignorelog) {
+        size_t nij = (size_t) ni * nj;
+        size_t i;
+
+        for (i = 0; i < nij; ++i)
+            v[i] = exp10(v[i]);
+    }
+
+    ncu_writefield(fname, varname, (k >= 0) ? k : 0, ni, nj, (k >= 0) ? nk : 1, v);
 }

@@ -43,14 +43,19 @@ int describe_superob_id = -1;
 int do_superob = 1;
 
 /*
- * superobing across instruments can be switched off
+ * superobing across instruments can be switched on
  */
-int do_superob_acrossinst = 1;
+int do_superob_acrossinst = 0;
+
+/*
+ * superobing across batches can be switched on
+ */
+int do_superob_acrossbatches = 1;
 
 /*
  * writing of the original obs can be swithched off
  */
-int write_orig_obs = 1;
+int write_orig_obs = 0;
 
 /*
  * thinning of obs with identical positions in the same time window can be
@@ -64,6 +69,8 @@ static void usage()
 {
     enkf_printf("  Usage: enkf_prep <prm file> [<options>]\n");
     enkf_printf("  Options:\n");
+    enkf_printf("  --allow-logspace-with-static-ens\n");
+    enkf_printf("      confirm that static ensemble is conditioned for using log space\n");
     enkf_printf("  --consider-subgrid-variability\n");
     enkf_printf("      increase error of superobservations according to subgrid variability\n");
     enkf_printf("  --describe-prm-format [main|model|grid|obstypes|obsdata]\n");
@@ -73,9 +80,10 @@ static void usage()
     enkf_printf("  --log-all-obs\n");
     enkf_printf("      write all obs to %s (default: obs within model domain only)\n", FNAME_OBS);
     enkf_printf("  --no-superobing\n");
-    enkf_printf("  --no-superobing-across-instruments\n");
+    enkf_printf("  --no-superobing-across-batches\n");
     enkf_printf("  --no-thinning\n");
-    enkf_printf("  --no-writing-orig-obs\n");
+    enkf_printf("  --superob-across-instruments\n");
+    enkf_printf("  --write-orig-obs\n");
     enkf_printf("  --version\n");
     enkf_printf("      print version and exit\n");
 
@@ -100,6 +108,14 @@ static void parse_commandline(int argc, char* argv[], char** fname)
                 continue;
             } else
                 usage();
+        } else if (strcmp(argv[i], "--allow-logspace-with-static-ens") == 0) {
+            enkf_allowenoilog = 1;
+            i++;
+            continue;
+        } else if (strcmp(argv[i], "--consider-subgrid-variability") == 0) {
+            enkf_considersubgridvar = 1;
+            i++;
+            continue;
         } else if (strcmp(argv[i], "--describe-prm-format") == 0) {
             if (i < argc - 1) {
                 if (strcmp(argv[i + 1], "main") == 0)
@@ -125,10 +141,6 @@ static void parse_commandline(int argc, char* argv[], char** fname)
                 enkf_quit("usage: could not convert \"%s\" to integer", argv[i]);
             i++;
             continue;
-        } else if (strcmp(argv[i], "--consider-subgrid-variability") == 0) {
-            enkf_considersubgridvar = 1;
-            i++;
-            continue;
         } else if (strcmp(argv[i], "--log-all-obs") == 0) {
             log_all_obs = 1;
             i++;
@@ -137,16 +149,20 @@ static void parse_commandline(int argc, char* argv[], char** fname)
             do_superob = 0;
             i++;
             continue;
-        } else if (strcmp(argv[i], "--no-superobing-across-instruments") == 0) {
-            do_superob_acrossinst = 0;
+        } else if (strcmp(argv[i], "--no-superobing-across-batches") == 0) {
+            do_superob_acrossbatches = 0;
             i++;
             continue;
         } else if (strcmp(argv[i], "--no-thinning") == 0) {
             do_thin = 0;
             i++;
             continue;
-        } else if (strcmp(argv[i], "--no-writing-orig-obs") == 0) {
-            write_orig_obs = 0;
+        } else if (strcmp(argv[i], "--superob-across-instruments") == 0) {
+            do_superob_acrossinst = 1;
+            i++;
+            continue;
+        } else if (strcmp(argv[i], "--write-orig-obs") == 0) {
+            write_orig_obs = 1;
             i++;
             continue;
         } else if (strcmp(argv[i], "--version") == 0) {
@@ -164,41 +180,53 @@ static void parse_commandline(int argc, char* argv[], char** fname)
  */
 static int cmp_obs(const void* p1, const void* p2, void* p)
 {
-    observation* m1 = (observation*) p1;
-    observation* m2 = (observation*) p2;
+    observation* o1 = (observation*) p1;
+    observation* o2 = (observation*) p2;
     observations* obs = (observations*) p;
     obstype* ot;
     int stride;
     double offset;
     int i1, i2;
 
-    if (m1->type > m2->type)
+    if (o1->type > o2->type)
         return 1;
-    if (m1->type < m2->type)
+    if (o1->type < o2->type)
         return -1;
 
     if (!do_superob_acrossinst) {
-        if (m1->instrument > m2->instrument)
+        if (o1->instrument > o2->instrument)
             return 1;
-        if (m1->instrument < m2->instrument)
+        if (o1->instrument < o2->instrument)
             return -1;
     }
 
-    ot = &obs->obstypes[m1->type];
+    if (!do_superob_acrossbatches) {
+        if (o1->batch > o2->batch)
+            return 1;
+        if (o1->batch < o2->batch)
+            return -1;
+    }
+
+    ot = &obs->obstypes[o1->type];
     if (ot->isasync) {
-        i1 = get_tshift(m1->date, ot->async_tstep, ot->async_centred);
-        i2 = get_tshift(m2->date, ot->async_tstep, ot->async_centred);
+        i1 = get_tshift(o1->time, ot->async_tstep, ot->async_centred);
+        i2 = get_tshift(o2->time, ot->async_tstep, ot->async_centred);
         if (i1 > i2)
             return 1;
         if (i2 > i1)
             return -1;
     }
 
+    if (o1->footprint > o2->footprint)
+        return 1;
+    else if (o1->footprint < o2->footprint)
+        return -1;
+
     stride = ot->sob_stride;
     if (stride == 0) {          /* no superobing on this grid */
-        if (m1->id > m2->id)
+        if (o1->id > o2->id)
             return 1;
-        else if (m1->id < m2->id)
+        else if (o1->id < o2->id)
             return -1;
         return 0;
     }
@@ -209,22 +237,22 @@ static int cmp_obs(const void* p1, const void* p2, void* p)
      */
     offset = (double) (stride % 2) / 2.0;
 
-    i1 = (int) floor(m1->fi + offset) / stride;
-    i2 = (int) floor(m2->fi + offset) / stride;
+    i1 = (int) floor(o1->fi + offset) / stride;
+    i2 = (int) floor(o2->fi + offset) / stride;
     if (i1 > i2)
         return 1;
     if (i1 < i2)
         return -1;
 
-    i1 = (int) floor(m1->fj + offset) / stride;
-    i2 = (int) floor(m2->fj + offset) / stride;
+    i1 = (int) floor(o1->fj + offset) / stride;
+    i2 = (int) floor(o2->fj + offset) / stride;
     if (i1 > i2)
         return 1;
     if (i1 < i2)
         return -1;
 
-    i1 = (int) floor(m1->fk + 0.5);
-    i2 = (int) floor(m2->fk + 0.5);
+    i1 = (int) floor(o1->fk + 0.5);
+    i2 = (int) floor(o2->fk + 0.5);
     if (i1 > i2)
         return 1;
     if (i1 < i2)
@@ -242,6 +270,8 @@ int main(int argc, char* argv[])
     model* m;
     int nmeta = 0;
     obsmeta* meta = NULL;
+    int nexclude = 0;
+    obsregion* exclude = NULL;
     observations* obs = NULL;
     observations* sobs = NULL;
     int i;
@@ -259,7 +289,7 @@ int main(int argc, char* argv[])
     enkfprm_print(prm, "    ");
 
     enkf_printf("  reading observation specs from \"%s\":\n", prm->obsprm);
-    obsprm_read(prm->obsprm, &nmeta, &meta);
+    obsprm_read(prm->obsprm, &nmeta, &meta, &nexclude, &exclude);
 
     enkf_printf("  creating model and observations:\n");
     m = model_create(prm);
@@ -268,32 +298,32 @@ int main(int argc, char* argv[])
     obs->allobs = log_all_obs;
     obs->model = m;
 
+    for (i = 0; i < nexclude; ++i) {
+        if (strcasecmp(exclude[i].otname, "ALL") == 0)
+            exclude[i].otid = -1;
+        else
+            exclude[i].otid = obstype_getid(obs->nobstypes, obs->obstypes, exclude[i].otname, 1);
+    }
+
     enkf_printf("  reading observations:\n");
     for (i = 0; i < nmeta; i++)
-        obs_add(obs, m, &meta[i]);
+        obs_add(obs, m, &meta[i], nexclude, exclude);
     obs_markbadbatches(obs);
-    obsprm_destroy(nmeta, meta);
+    obsprm_destroy(nmeta, meta, nexclude, exclude);
+    enkf_printtime("  ");
+    enkf_printf("  compacting obs:\n");
     obs_compact(obs);
     obs_calcstats(obs);
 
-    if (write_orig_obs && describe_superob_id < 0) {
-        enkf_printf("  writing observations to \"%s\":\n", FNAME_OBS);
-        obs_write(obs, FNAME_OBS);
-    }
-
     if (do_superob) {
+        enkf_printtime("  ");
         enkf_printf("  superobing:\n");
         obs_superob(obs, cmp_obs, &sobs, describe_superob_id, do_thin);
 
         if (describe_superob_id >= 0)
             goto finalise;
 
-        enkf_printf("  writing superobservations to \"%s\":\n", FNAME_SOBS);
-        obs_write(sobs, FNAME_SOBS);
-        free(sobs->data);
-        enkf_printf("  reading super-observations from disk:\n");
-        obs_read(sobs, FNAME_SOBS);
-
+        enkf_printtime("  ");
         enkf_printf("  checking for superobs on land:\n");
         if (obs_checkforland(sobs, m)) {
             obs_compact(sobs);
@@ -301,21 +331,27 @@ int main(int argc, char* argv[])
                 if (sobs->data[i].status != STATUS_OK)
                     break;
             assert(i != sobs->nobs);
-            enkf_printf("    deleted %d observations\n", sobs->nobs - i);
+            enkf_printf("    deleted %d observation(s)\n", sobs->nobs - i);
             sobs->nobs = i;
-            file_delete(FNAME_SOBS);
-            enkf_printf("  writing good superobservations to \"%s\":\n", FNAME_SOBS);
-            obs_write(sobs, FNAME_SOBS);
+            obs_calcstats(sobs);
         } else
             enkf_printf("    all good\n");
+
+        enkf_printtime("  ");
+        enkf_printf("  writing superobservations to \"%s\":\n", FNAME_SOBS);
+        obs_write(sobs, FNAME_SOBS);
     } else {
         observation* data = malloc(obs->ngood * sizeof(observation));
 
         memcpy(data, obs->data, obs->ngood * sizeof(observation));
         sobs = obs_create_fromdata(obs, obs->ngood, data);
-        obs_calcstats(sobs);
         obs_write(sobs, FNAME_SOBS);
         goto finalise;
+    }
+
+    if (write_orig_obs && describe_superob_id < 0) {
+        enkf_printf("  writing observations to \"%s\":\n", FNAME_OBS);
+        obs_write(obs, FNAME_OBS);
     }
 
     /*

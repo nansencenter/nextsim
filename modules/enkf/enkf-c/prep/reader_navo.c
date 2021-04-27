@@ -54,7 +54,7 @@ void reader_navo_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
     size_t tunits_len;
     double tunits_multiple, tunits_offset;
     char* basename;
-    int i;
+    int i, nobs_read;
 
     for (i = 0; i < meta->npars; ++i) {
         if (strcasecmp(meta->pars[i].name, "ADDBIAS") == 0)
@@ -73,7 +73,6 @@ void reader_navo_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
     ncw_open(fname, NC_NOWRITE, &ncid);
     ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "nobs")) ? "nobs" : "length", &dimid_nobs);
     ncw_inq_dimlen(ncid, dimid_nobs, &nobs_local);
-    enkf_printf("        nobs = %u\n", (unsigned int) nobs_local);
 
     if (nobs_local == 0) {
         ncw_close(ncid);
@@ -122,12 +121,14 @@ void reader_navo_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
 
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
+    nobs_read = 0;
     for (i = 0; i < (int) nobs_local; ++i) {
         observation* o;
 
         obs_checkalloc(obs);
         o = &obs->data[obs->nobs];
 
+        nobs_read++;
         o->product = st_findindexbystring(obs->products, meta->product);
         assert(o->product >= 0);
         o->type = obstype_getid(obs->nobstypes, obs->obstypes, meta->type, 1);
@@ -136,20 +137,21 @@ void reader_navo_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
         o->fid = fid;
         o->batch = 0;
         o->value = (addbias) ? sst[i] + sstb[i] : sst[i];
-        o->std = error_std[i];
+        o->estd = error_std[i];
         o->lon = lon[i];
         o->lat = lat[i];
         o->depth = 0.0;
         o->fk = (double) ksurf;
-        o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+        o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
         if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
             continue;
         o->model_depth = NAN;   /* set in obs_add() */
-        o->date = time[i] * tunits_multiple + tunits_offset;
+        o->time = time[i] * tunits_multiple + tunits_offset;
         o->aux = -1;
 
         obs->nobs++;
     }
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     free(lon);
     free(lat);

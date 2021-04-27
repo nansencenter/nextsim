@@ -32,13 +32,11 @@
 
 struct gxy_curv {
     char* name;
+    int geographic;
     int ni;
     int nj;
     double** x;
     double** y;
-    double** X;
-    double** Y;
-    double** Z;
     int sign;
     kdtree* nodetreeXY;
 #if defined(USE_SHMEM)
@@ -48,46 +46,44 @@ struct gxy_curv {
 
 /**
  */
-gxy_curv* gxy_curv_create(void* g, int ni, int nj, double** x, double** y, int** mask)
+gxy_curv* gxy_curv_create(void* g, int ni, int nj, double** x, double** y, int** mask, int geographic)
 {
     char name[MAXSTRLEN];
     gxy_curv* gxy = malloc(sizeof(gxy_curv));
-    // double* nodecoords[2];
     double* nodecoords[3];
-
 
     assert(x != NULL && y != NULL);
 
     snprintf(name, MAXSTRLEN - 4, "%s_XY", grid_getname(g));
 
     gxy->name = strdup(name);
+    gxy->geographic = geographic;
     gxy->ni = ni;
     gxy->nj = nj;
     gxy->x = x;
     gxy->y = y;
     gxy->sign = 0;
 
-    gxy->X = alloc2d(nj, ni, sizeof(double));
-    gxy->Y = alloc2d(nj, ni, sizeof(double));
-    gxy->Z = alloc2d(nj, ni, sizeof(double));
-    double xyz[3];
-    double ll[2];
+    if (!geographic) {
+        nodecoords[0] = x[0];
+        nodecoords[1] = y[0];
+        gxy->nodetreeXY = kd_create(name, 2);
+    } else {
+        int i, c;
 
-    int i, j;
-    for (j=0; j<nj; ++j){
-        for (i=0; i<ni; ++i){
-            ll[0] = x[j][i];
-            ll[1] = y[j][i];
+        for (c = 0; c < 3; ++c)
+            nodecoords[c] = malloc(ni * nj * sizeof(double));
+
+        for (i = 0; i < ni * nj; ++i) {
+            double ll[2] = { x[0][i], y[0][i] };
+            double xyz[3];
+
             ll2xyz(ll, xyz);
-            gxy->X[j][i] = xyz[0]; gxy->Y[j][i] = xyz[1]; gxy->Z[j][i] = xyz[2]; 
+            for (c = 0; c < 3; ++c)
+                nodecoords[c][i] = xyz[c];
         }
+        gxy->nodetreeXY = kd_create(name, 3);
     }
-
-    nodecoords[0] = gxy->X[0];
-    nodecoords[1] = gxy->Y[0];
-    nodecoords[2] = gxy->Z[0];
-    // gxy->nodetreeXY = kd_create(name, 2);
-    gxy->nodetreeXY = kd_create(name, 3);
 #if defined(USE_SHMEM)
     {
         MPI_Aint size;
@@ -129,6 +125,12 @@ gxy_curv* gxy_curv_create(void* g, int ni, int nj, double** x, double** y, int**
 #else
     kd_insertnodes(gxy->nodetreeXY, ni * nj, nodecoords, NULL, (mask != NULL) ? mask[0] : NULL, 1);
 #endif
+
+    if (geographic) {
+        free(nodecoords[0]);
+        free(nodecoords[1]);
+        free(nodecoords[2]);
+    }
 
     return gxy;
 }
@@ -239,25 +241,26 @@ static int incell(double x, double y, double* px, double* py)
 static int gxy_curv_xy2ij(gxy_curv* gxy, double x, double y, int* iout, int* jout)
 {
     double* minmax;
-    // double pos[2];
     double pos[3];
-    double ll[2];
     size_t nearest;
     size_t id;
     int i, j, i1, i2, j1, j2;
     double px[4], py[4];
 
-    ll[0] = x;
-    ll[1] = y;
-    ll2xyz(ll, pos);
     minmax = kd_getminmax(gxy->nodetreeXY);
-    // if (x < minmax[0] || y < minmax[1] || x > minmax[2] || y > minmax[3])
-    //     return 0;
-    if (pos[0] < minmax[0] || pos[1] < minmax[1] || pos[0] > minmax[2] || pos[1] > minmax[3])
-        return 0;
+    if (!gxy->geographic) {
+        pos[0] = x;
+        pos[1] = y;
+        if (x < minmax[0] || y < minmax[1] || x > minmax[2] || y > minmax[3])
+            return 0;
+    } else {
+        double ll[2] = { x, y };
 
-    // pos[0] = x;
-    // pos[1] = y;
+        ll2xyz(ll, pos);
+        if (pos[0] < minmax[0] || pos[1] < minmax[1] || pos[0] > minmax[3] || pos[1] > minmax[4])
+            return 0;
+    }
+
     /*
      * this is a rather expensive call, O(log N)
      */
@@ -276,13 +279,11 @@ static int gxy_curv_xy2ij(gxy_curv* gxy, double x, double y, int* iout, int* jou
     j1 = (j > 0) ? j - 1 : j;
     j2 = (j < gxy->nj - 1) ? j + 1 : j;
 
-    int i_tmp;
-    double x_tmp;
-
     for (j = j1; j <= j2 - 1; ++j) {
         for (i = i1; i <= i2 - 1; ++i) {
             if (!isfinite(gxy->x[j][i]) || !isfinite(gxy->x[j][i + 1]) || !isfinite(gxy->x[j + 1][i + 1]) || !isfinite(gxy->x[j + 1][i]))
                 continue;
+
             px[0] = gxy->x[j][i];
             py[0] = gxy->y[j][i];
             px[1] = gxy->x[j][i + 1];
@@ -292,19 +293,7 @@ static int gxy_curv_xy2ij(gxy_curv* gxy, double x, double y, int* iout, int* jou
             px[3] = gxy->x[j + 1][i];
             py[3] = gxy->y[j + 1][i];
 
-            for (i_tmp = 0; i_tmp <= 3; i_tmp++){
-                if (abs(px[(i_tmp+1)%4] - px[i_tmp%4]) > 180){
-                    if (px[(i_tmp+1)%4] > px[i_tmp%4])
-                        px[i_tmp%4] += 360;
-                    else
-                        px[(i_tmp+1)%4] += 360;
-                }
-            }
-            x_tmp = x;
-            if ((px[0] - x_tmp > 180) & (px[0] > x_tmp))
-                    x_tmp += 360;
-
-            if (incell(x_tmp, y, px, py)) {
+            if (incell(x, y, px, py)) {
                 *iout = i;
                 *jout = j;
                 return 1;

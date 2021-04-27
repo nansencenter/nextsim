@@ -70,12 +70,12 @@ void reader_cars_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
     int len;
     int year, month, day;
     double tunits_multiple, tunits_offset;
-    int p, i;
+    int p, i, nobs_read;
 
     for (i = 0; i < meta->npars; ++i)
         enkf_quit("unknown PARAMETER \"%s\"\n", meta->pars[i].name);
 
-    if (meta->nstds == 0)
+    if (meta->nestds == 0)
         enkf_quit("ERROR_STD is necessary but not specified for product \"%s\"", meta->product);
 
     ncw_open(fname, NC_NOWRITE, &ncid);
@@ -141,6 +141,7 @@ void reader_cars_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
 
     tunits_convert(buf, &tunits_multiple, &tunits_offset);
 
+    nobs_read = 0;
     for (p = 0; p < (int) nprof; ++p) {
         char inststr[MAXSTRLEN];
 
@@ -165,6 +166,7 @@ void reader_cars_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
             if (z[p][i] < 0.0)
                 continue;
 
+            nobs_read++;
             obs_checkalloc(obs);
             o = &obs->data[obs->nobs];
 
@@ -176,24 +178,25 @@ void reader_cars_standard(char* fname, int fid, obsmeta* meta, grid* g, observat
             o->fid = fid;
             o->batch = p;
             o->value = v[p][i];
-            o->std = 0.0;
+            o->estd = 0.0;
             o->lon = lon[p];
             o->lat = lat[p];
             o->depth = z[p][i];
-            o->status = grid_xy2fij(g, o->lon, o->lat, &o->fi, &o->fj);
+            o->status = grid_xy2fij_f(g, o->lon, o->lat, &o->fi, &o->fj);
             if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
                 break;
             if (o->status == STATUS_OK)
-                o->status = grid_z2fk(g, o->fi, o->fj, o->depth, &o->fk);
+                o->status = grid_z2fk_f(g, o->fi, o->fj, o->depth, &o->fk);
             else
                 o->fk = NAN;
             o->model_depth = NAN;       /* set in obs_add() */
-            o->date = tunits_offset + 0.5;
+            o->time = tunits_offset + 0.5;
             o->aux = -1;
 
             obs->nobs++;
         }
     }
+    enkf_printf("        nobs = %d\n", nobs_read);
 
     /*
      * get the number of unique profile locations

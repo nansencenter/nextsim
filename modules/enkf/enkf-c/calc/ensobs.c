@@ -10,17 +10,14 @@
  * Description: This file contains code for calculating forecast and analysis
  *              ensemble observations HE. The forecast ensemble observations are
  *              calculated using observation functions H from model2obs.c.
- *              They are then used for calculating ensemble transforms X5.
+ *              They are then used for calculating ensemble transforms.
  *              The analysis ensemble observations are calculated by applying
- *              the ensemble transforms X5 to the forecast HE. Both forecast and
+ *              the ensemble transforms to the forecast HE. Both forecast and
  *              analysis ensemble observations are used for calculating
  *              observation statistics in obsstats.c.
  *
  *              For the EnOI the ensemble observations are calculated as
- *              H(E) = H(x) 1' + H(A). This implies that the observation
- *              functions H are linear. For nonlinear H one needs to use
- *              H(E) = H(x 1' + A) instead, but this has little sense as the
- *              EnOI itself implies linearity
+ *              H(E) = H(x) 1' + H(A).
  *
  * Revisions:
  *
@@ -42,25 +39,26 @@
 #include "dasystem.h"
 
 #define EPSF 1.0e-6f
-#if defined(HE_VIASHMEM)
-#define HE_NPROCMAX 20
-#endif
 
 /**
  */
 void das_getHE(dasystem* das)
 {
     observations* obs = das->obs;
-    model* m = das->m;
-    ENSOBSTYPE* Hx = NULL;
+    float* Hx = NULL;
     size_t nobs = obs->nobs;
     size_t nmem = das->nmem;
+    size_t nmem_alloc = (das->mode == MODE_ENOI) ? nmem + 1 : nmem;
     size_t i, e;
 
-#if defined (HE_VIASHMEM)
-    ENSOBSTYPE* SS = NULL;
-    MPI_Aint size;
+#if defined(MPI)
     int ierror;
+#endif
+
+#if defined(USE_SHMEM)
+    float* SS = NULL;
+    float* SSt = NULL;
+    MPI_Aint size;
 #endif
 
     das->s_mode = S_MODE_HE_f;
@@ -71,38 +69,112 @@ void das_getHE(dasystem* das)
      * ensemble observation array to be filled 
      */
     assert(das->S == NULL);
-#if !defined(HE_VIASHMEM)
-    das->S = alloc2d(nmem, nobs, sizeof(ENSOBSTYPE));
+#if !defined(USE_SHMEM)
+    das->S = alloc2d(nmem_alloc, nobs, sizeof(float));
+    /*
+     * HE (das->S) is filled independently for different observation types and
+     * asynchronous time intervals. To make sure that there are no gaps left
+     * initialise it with NANs.
+     */
+    for (i = 0; i < nmem_alloc * nobs; ++i)
+        das->S[0][i] = NAN;
 #else
-    das->S = calloc(nmem, sizeof(void*));
-    das->St = calloc(nobs, sizeof(void*));
-    size = nmem * nobs * sizeof(ENSOBSTYPE) * 2;
+    size = nmem_alloc * nobs * sizeof(float);
+
+    /*
+     * Allocate das->S in shared memory on each compute node. Allocate the
+     * whole block on CPU with sm_comm_rank = 0.
+     */
     enkf_printf("    allocating %zu bytes for HE array:\n", size);
 
-    ierror = MPI_Win_allocate_shared((das->sm_comm_rank == 0) ? size : 0, sizeof(ENSOBSTYPE), MPI_INFO_NULL, das->sm_comm, &SS, &das->sm_comm_win);
+    ierror = MPI_Win_allocate_shared((sm_comm_rank == 0) ? size : 0, sizeof(float), MPI_INFO_NULL, sm_comm, &SS, &das->sm_comm_win_S);
     assert(ierror == MPI_SUCCESS);
-
-    if (das->sm_comm_rank == 0) {
-        memset(SS, 0, size);
-    } else {
+    if (sm_comm_rank != 0) {
         int disp_unit;
         MPI_Aint my_size;
 
-        ierror = MPI_Win_shared_query(das->sm_comm_win, 0, &my_size, &disp_unit, &SS);
+        ierror = MPI_Win_shared_query(das->sm_comm_win_S, 0, &my_size, &disp_unit, &SS);
         assert(ierror == MPI_SUCCESS);
         assert(my_size == size);
+        assert(disp_unit == sizeof(float));
     }
+    MPI_Win_fence(0, das->sm_comm_win_S);
+    MPI_Barrier(sm_comm);
+    if (sm_comm_rank == 0) {
+        /*
+         * HE (das->S) is filled independently for different observation types
+         * and asynchronous time intervals. To make sure that there are no gaps
+         * left initialise it with NANs.
+         */
+        for (i = 0; i < nmem_alloc * nobs; ++i)
+            SS[i] = NAN;
+    }
+    MPI_Win_fence(0, das->sm_comm_win_S);
+    MPI_Barrier(sm_comm);
+
+    /*
+     * set addresses of column vectors of the 2D array das->S
+     */
+    das->S = calloc(nmem, sizeof(void*));
     for (i = 0; i < nmem; ++i)
         das->S[i] = &SS[i * nobs];
-    for (i = 0; i < nobs; ++i)
-        das->St[i] = &SS[(i + nobs) * nmem];
+
+    /*
+     * Allocate das->St in shared memory on each compute node. Allocate the
+     * whole block on CPU with sm_comm_rank = 0.
+     */
+    if (!enkf_fstatsonly) {
+        size = nmem * nobs * sizeof(float);
+        enkf_printf("    allocating %zu bytes for HE^T array:\n", size);
+
+        ierror = MPI_Win_allocate_shared((sm_comm_rank == 0) ? size : 0, sizeof(float), MPI_INFO_NULL, sm_comm, &SSt, &das->sm_comm_win_St);
+        assert(ierror == MPI_SUCCESS);
+        if (sm_comm_rank == 0)
+            memset(SSt, 0, size);
+        else {
+            int disp_unit;
+            MPI_Aint my_size;
+
+            ierror = MPI_Win_shared_query(das->sm_comm_win_St, 0, &my_size, &disp_unit, &SSt);
+            assert(ierror == MPI_SUCCESS);
+            assert(my_size == size);
+            assert(disp_unit == sizeof(float));
+        }
+        MPI_Win_fence(0, das->sm_comm_win_St);
+        MPI_Barrier(sm_comm);
+
+        /*
+         * set addresses of column vectors of the 2D array das->St
+         */
+        das->St = calloc(nobs, sizeof(void*));
+        for (i = 0; i < nobs; ++i)
+            das->St[i] = &SSt[i * nmem];
+    }
+
+    MPI_Barrier(sm_comm);
+
+    if (print_mem)
+        print_memory_usage();
 #endif
 
     distribute_iterations(0, nmem - 1, nprocesses, rank, "    ");
 
-    if (das->mode == MODE_ENOI)
-        Hx = calloc(nobs, sizeof(ENSOBSTYPE));
+    if (das->mode == MODE_ENOI) {
+#if defined(USE_SHMEM)
+        Hx = &SS[nmem * nobs];
+#else
+        Hx = das->S[nmem];
+#endif
+    }
 
+    /*
+     * The main cycle: fill HE (das->S).
+     *
+     * Note that in the case (das->mode == MODE_ENOI && enkf_fstatonly) to make
+     * CALC faster only the forecast observations for the background are
+     * calculated; as a consequence, the ensemble spread is not calculated in
+     * this case.
+     */
     for (i = 0; i < obs->nobstypes; ++i) {
         obstype* ot = &obs->obstypes[i];
         H_fn H = NULL;
@@ -116,8 +188,8 @@ void das_getHE(dasystem* das)
         H = getH(ot->issurface, ot->hfunction);
 
         if (ot->isasync) {
-            int t1 = get_tshift(ot->date_min, ot->async_tstep, ot->async_centred);
-            int t2 = get_tshift(ot->date_max, ot->async_tstep, ot->async_centred);
+            int t1 = get_tshift(ot->time_min, ot->async_tstep, ot->async_centred);
+            int t2 = get_tshift(ot->time_max, ot->async_tstep, ot->async_centred);
             int t;
 
             for (t = t1; t <= t2; ++t) {
@@ -130,27 +202,29 @@ void das_getHE(dasystem* das)
                 if (nobs_tomap == 0)
                     continue;
 
-                /*
-                 * for EnOI it is essential sometimes (e.g. in some bias
-                 * correction cases) that the background is interpolated first
-                 */
                 if (das->mode == MODE_ENOI) {
-                    if (enkf_obstype == OBSTYPE_VALUE) {
-                        int success = model_getbgfname_async(m, das->bgdir, ot->alias, ot->varnames[0], t, fname);
+#if defined(USE_SHMEM)
+                    if (sm_comm_rank == 0) {
+#endif
+                        if (enkf_obstype == OBSTYPE_VALUE) {
+                            int success = das_getbgfname_async(das, ot, t, fname);
 
-                        H(das, nobs_tomap, obsids, fname, -1, t, Hx);
-                        enkf_printf((success) ? "A" : "S");
-                        fflush(stdout);
-                    } else if (enkf_obstype == OBSTYPE_INNOVATION) {
-                        Hx[0] = 0;
-                        enkf_printf("-");
-                        fflush(stdout);
+                            H(das, nobs_tomap, obsids, fname, -1, t, Hx);
+                            enkf_printf((success) ? "A" : "S");
+                            fflush(stdout);
+                        } else if (enkf_obstype == OBSTYPE_INNOVATION) {
+                            Hx[0] = 0;
+                            enkf_printf("-");
+                            fflush(stdout);
+                        }
+#if defined(USE_SHMEM)
                     }
+#endif
                 }
 
-                if (das->mode == MODE_ENKF || !enkf_fstatsonly) {
+                if (das->mode == MODE_ENKF || das->mode == MODE_HYBRID || !enkf_fstatsonly) {
                     for (e = my_first_iteration; e <= my_last_iteration; ++e) {
-                        int success = model_getmemberfname_async(m, das->ensdir, ot->alias, ot->varnames[0], e + 1, t, fname);
+                        int success = das_getmemberfname_async(das, ot, e + 1, t, fname);
 
                         H(das, nobs_tomap, obsids, fname, e + 1, t, das->S[e]);
                         enkf_printf((success) ? "a" : "s");
@@ -169,26 +243,28 @@ void das_getHE(dasystem* das)
             if (nobs_tomap == 0)
                 goto next;
 
-            /*
-             * for EnOI it is essential sometimes (e.g. in some bias correction
-             * cases) that the background is interpolated first
-             */
             if (das->mode == MODE_ENOI) {
-                if (enkf_obstype == OBSTYPE_VALUE) {
-                    model_getbgfname(m, das->bgdir, ot->alias, fname);
-                    H(das, nobs_tomap, obsids, fname, -1, INT_MAX, Hx);
-                    enkf_printf("+");
-                    fflush(stdout);
-                } else if (enkf_obstype == OBSTYPE_INNOVATION) {
-                    Hx[0] = 0;
-                    enkf_printf("-");
-                    fflush(stdout);
+#if defined(USE_SHMEM)
+                if (sm_comm_rank == 0) {
+#endif
+                    if (enkf_obstype == OBSTYPE_VALUE) {
+                        das_getbgfname(das, ot->alias, fname);
+                        H(das, nobs_tomap, obsids, fname, -1, INT_MAX, Hx);
+                        enkf_printf("+");
+                        fflush(stdout);
+                    } else if (enkf_obstype == OBSTYPE_INNOVATION) {
+                        Hx[0] = 0;
+                        enkf_printf("-");
+                        fflush(stdout);
+                    }
+#if defined(USE_SHMEM)
                 }
+#endif
             }
 
-            if (das->mode == MODE_ENKF || !enkf_fstatsonly) {
+            if (das->mode == MODE_ENKF || das->mode == MODE_HYBRID || !enkf_fstatsonly) {
                 for (e = my_first_iteration; e <= my_last_iteration; ++e) {
-                    model_getmemberfname(m, das->ensdir, ot->alias, e + 1, fname);
+                    das_getmemberfname(das, ot->alias, e + 1, fname);
                     H(das, nobs_tomap, obsids, fname, e + 1, INT_MAX, das->S[e]);
                     enkf_printf(".");
                     fflush(stdout);
@@ -202,145 +278,208 @@ void das_getHE(dasystem* das)
 
         enkf_printf("\n");
     }                           /* for i (over obstypes) */
+#if defined(USE_SHMEM)
+    MPI_Win_fence(0, das->sm_comm_win_S);
+    MPI_Barrier(sm_comm);
+#endif
 
+    /*
+     * all ensemble forecast observations have been calculated; now consolidate
+     * them to be available on each compute node (with USE_SHMEM) or on each
+     * CPU (without USE_SHMEM)
+     */
 #if defined(MPI)
-    if (das->mode == MODE_ENKF || !enkf_fstatsonly) {
-#if !defined(HE_VIAFILE)
+    if (!(das->mode == MODE_ENOI && enkf_fstatsonly)) {
         /*
          * communicate HE via MPI
          */
         int* recvcounts = calloc(nprocesses, sizeof(int));
         int* displs = calloc(nprocesses, sizeof(int));
         MPI_Datatype mpitype_vec_nobs;
-        int ierror;
 
-#if defined(HE_VIASHMEM)
+#if defined(USE_SHMEM)
         int ii;
 #endif
 
-        ierror = MPI_Type_contiguous(nobs, MPIENSOBSTYPE, &mpitype_vec_nobs);
+        ierror = MPI_Type_contiguous(nobs, MPI_FLOAT, &mpitype_vec_nobs);
         assert(ierror == MPI_SUCCESS);
         ierror = MPI_Type_commit(&mpitype_vec_nobs);
         assert(ierror == MPI_SUCCESS);
 
-#if !defined(HE_VIASHMEM)
+#if !defined(USE_SHMEM)
+        /*
+         * gather HE on each CPU
+         */
         for (i = 0; i < nprocesses; ++i) {
             recvcounts[i] = number_of_iterations[i];
             displs[i] = first_iteration[i];
         }
-        MPI_Barrier(MPI_COMM_WORLD);
         ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->S[0], recvcounts, displs, mpitype_vec_nobs, MPI_COMM_WORLD);
         assert(ierror == MPI_SUCCESS);
 #else
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (das->node_comm_rank >= 0 && das->node_comm_size > 1) {
+        /*
+         * gather HE between CPUs with sm_comm_rank = 0; via shared memory it
+         * will be available for all CPUs
+         */
+        if (node_comm_rank >= 0 && node_comm_size > 1) {
             for (i = 0, ii = -1; i < nprocesses; ++i) {
-                if (das->node_comm_ranks[i] >= 0) {
-                    ii = das->node_comm_ranks[i];
+                if (node_comm_ranks[i] >= 0) {
+                    ii = node_comm_ranks[i];
                     displs[ii] = first_iteration[i];
                 }
                 assert(ii >= 0);
                 recvcounts[ii] += number_of_iterations[i];
             }
-            MPI_Barrier(das->node_comm);
-            ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->S[0], recvcounts, displs, mpitype_vec_nobs, das->node_comm);
+            ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->S[0], recvcounts, displs, mpitype_vec_nobs, node_comm);
             assert(ierror == MPI_SUCCESS);
         }
+        MPI_Win_fence(0, das->sm_comm_win_S);
+        MPI_Barrier(sm_comm);
+#endif
         ierror = MPI_Type_free(&mpitype_vec_nobs);
         assert(ierror == MPI_SUCCESS);
-        MPI_Barrier(MPI_COMM_WORLD);
-#endif
-
         free(recvcounts);
         free(displs);
-#else                           /* HE_VIAFILE */
-        /*
-         * communicate HE via file
-         */
-        {
-            int ncid;
-            int varid;
-            size_t start[2], count[2];
-
-            if (rank == 0) {
-                int dimids[2];
-
-                ncw_create(FNAME_HE, NC_CLOBBER | das->ncformat, &ncid);
-                ncw_def_dim(FNAME_HE, ncid, "m", nmem, &dimids[0]);
-                ncw_def_dim(FNAME_HE, ncid, "p", nobs, &dimids[1]);
-                ncw_def_var(FNAME_HE, ncid, "HE", NC_FLOAT, 2, dimids, &varid);
-                if (das->nccompression > 0)
-                    ncw_def_deflate(ncid, 0, 1, das->nccompression);
-                ncw_close(FNAME_HE, ncid);
-            }
-            MPI_Barrier(MPI_COMM_WORLD);
-
-            ncw_open(FNAME_HE, NC_WRITE, &ncid);
-            ncw_inq_varid(FNAME_HE, ncid, "HE", &varid);
-            start[0] = my_first_iteration;
-            start[1] = 0;
-            count[0] = my_last_iteration - my_first_iteration + 1;
-            count[1] = nobs;
-            ncw_put_vara_float(FNAME_HE, ncid, varid, start, count, das->S[my_first_iteration]);
-            ncw_close(FNAME_HE, ncid);
-            MPI_Barrier(MPI_COMM_WORLD);
-
-            ncw_open(FNAME_HE, NC_NOWRITE, &ncid);
-            ncw_inq_varid(FNAME_HE, ncid, "HE", &varid);
-            ncw_get_var_float(FNAME_HE, ncid, varid, das->S[0]);
-            ncw_close(FNAME_HE, ncid);
-        }
-#endif
     }
 #endif
 
-    if (das->mode == MODE_ENOI) {
-        /*
-         * subtract ensemble mean; add background
-         */
-        if (!enkf_fstatsonly) {
-            ENSOBSTYPE* ensmean = calloc(nobs, sizeof(ENSOBSTYPE));
-
-            for (e = 0; e < nmem; ++e) {
-                ENSOBSTYPE* Se = das->S[e];
-
-                for (i = 0; i < nobs; ++i)
-                    ensmean[i] += Se[i];
-            }
-            for (i = 0; i < nobs; ++i)
-                ensmean[i] /= (ENSOBSTYPE) nmem;
-
-#if defined (HE_VIASHMEM)
-            if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0) {
 #endif
+        if (das->mode == MODE_ENOI) {
+            enkf_printf("    subtracting ensemble mean:\n");
+            /*
+             * subtract ensemble mean; add background
+             */
+            if (!enkf_fstatsonly) {
+                float* ensmean = calloc(nobs, sizeof(float));
+
                 for (e = 0; e < nmem; ++e) {
-                    ENSOBSTYPE* Se = das->S[e];
+                    float* Se = das->S[e];
+
+                    for (i = 0; i < nobs; ++i)
+                        ensmean[i] += Se[i];
+                }
+                for (i = 0; i < nobs; ++i)
+                    ensmean[i] /= (float) nmem;
+
+                for (e = 0; e < nmem; ++e) {
+                    float* Se = das->S[e];
 
                     for (i = 0; i < nobs; ++i)
                         Se[i] += Hx[i] - ensmean[i];
                 }
-#if defined (HE_VIASHMEM)
-            MPI_Barrier(das->sm_comm);
-#endif
-            free(ensmean);
-        } else {
-#if defined (HE_VIASHMEM)
-            if (das->sm_comm_rank == 0)
-#endif
+                free(ensmean);
+            } else {
                 for (e = 0; e < nmem; ++e) {
-                    ENSOBSTYPE* Se = das->S[e];
+                    float* Se = das->S[e];
 
                     for (i = 0; i < nobs; ++i)
                         Se[i] = Hx[i];
                 }
-#if defined (HE_VIASHMEM)
-            MPI_Barrier(das->sm_comm);
-#endif
-        }
-    }
+            }
+        } else if (das->mode == MODE_HYBRID) {
+            double* ensmean_d = calloc(nobs, sizeof(double));
+            double* ensmean_s = calloc(nobs, sizeof(double));
+            int nmem_d = das->nmem_dynamic;
+            int nmem_s = das->nmem_static;
+            double k_d = (nmem_d > 1) ? sqrt((double) (nmem - 1) / (double) (nmem_d - 1)) : 0.0;
+            double k_s = sqrt(das->gamma * (double) (nmem - 1) / (double) (nmem_s - 1));
 
-    if (das->mode == MODE_ENOI)
-        free(Hx);
+            enkf_printf("    scaling:\n");
+            /*
+             * calculate dynamic ensemble mean
+             */
+            for (e = 0; e < nmem_d; ++e) {
+                float* Se = das->S[e];
+
+                for (i = 0; i < nobs; ++i)
+                    ensmean_d[i] += Se[i];
+            }
+            for (i = 0; i < nobs; ++i)
+                ensmean_d[i] /= (double) nmem_d;
+            /*
+             * scale dynamic ensemble animalies
+             */
+            for (e = 0; e < nmem_d; ++e) {
+                float* Se = das->S[e];
+
+                for (i = 0; i < nobs; ++i)
+                    Se[i] = (Se[i] - ensmean_d[i]) * k_d + ensmean_d[i];
+            }
+            /*
+             * calculate static ensemble mean
+             */
+            for (e = nmem_d; e < nmem; ++e) {
+                float* Se = das->S[e];
+
+                for (i = 0; i < nobs; ++i)
+                    ensmean_s[i] += Se[i];
+            }
+            for (i = 0; i < nobs; ++i)
+                ensmean_s[i] /= (double) nmem_s;
+            /*
+             * scale static ensemble anomalies and add dynamic ensemble mean
+             */
+            for (e = nmem_d; e < nmem; ++e) {
+                float* Se = das->S[e];
+
+                for (i = 0; i < nobs; ++i)
+                    Se[i] = (Se[i] - ensmean_s[i]) * k_s + ensmean_d[i];
+            }
+            free(ensmean_d);
+            free(ensmean_s);
+        }
+#if defined(USE_SHMEM)
+    }
+    MPI_Win_fence(0, das->sm_comm_win_S);
+    MPI_Barrier(sm_comm);
+#endif
+
+    /*
+     * kd-trees grid.nodetreeXYZ are used for calculating forecast obs with
+     * finite footprint; they are no longer needed and can be destroyed
+     */
+    for (i = 0; i < model_getngrid(das->m); ++i) {
+        void* g = model_getgridbyid(das->m, i);
+        kdtree* tree = grid_gettreeXYZ(g, 0);
+
+        if (tree == NULL)
+            continue;
+
+        kd_printinfo(tree, "    ");
+        enkf_printf("      (now destroying)\n");
+        grid_destroytreeXYZ(g);
+    }
+}
+
+/**
+ */
+void das_writeHE(dasystem* das)
+{
+    int ncid;
+    int dimids[2];
+    int varid;
+
+    if (rank != 0)
+        return;
+
+    enkf_printf("  writing HE to \"%s\":", FNAME_HE);
+    enkf_flush();
+    ncw_create(FNAME_HE, NC_CLOBBER | NC_NOFILL | das->ncformat, &ncid);
+    ncw_def_dim(ncid, "nmem", das->nmem, &dimids[0]);
+    ncw_def_dim(ncid, "nobs", das->obs->nobs, &dimids[1]);
+    ncw_def_var(ncid, "HE", NC_FLOAT, 2, dimids, &varid);
+    if (das->mode == MODE_HYBRID)
+        ncw_put_att_int(ncid, NC_GLOBAL, "nmem_dynamic", 1, &das->nmem_dynamic);
+    if (das->nccompression > 0)
+        ncw_def_deflate(ncid, 0, 1, das->nccompression);
+    ncw_enddef(ncid);
+
+    ncw_put_var_float(ncid, varid, das->S[0]);
+    ncw_close(ncid);
+    enkf_printf("\n");
+    enkf_flush();
 }
 
 /**
@@ -355,6 +494,10 @@ void das_calcinnandspread(dasystem* das)
     if (nobs == 0)
         goto finish;
 
+#if defined(USE_SHMEM)
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
+
     if (das->s_mode == S_MODE_HE_f) {
         if (das->s_f == NULL) {
             das->s_f = calloc(nobs, sizeof(double));
@@ -368,11 +511,8 @@ void das_calcinnandspread(dasystem* das)
         /*
          * calculate ensemble mean observations 
          */
-#if defined(HE_VIASHMEM)
-        MPI_Barrier(das->sm_comm);
-#endif
         for (e = 0; e < nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < nobs; ++o)
                 das->s_f[o] += (double) Se[o];
@@ -383,20 +523,23 @@ void das_calcinnandspread(dasystem* das)
         /*
          * calculate ensemble spread and innovation 
          */
-#if defined(HE_VIASHMEM)
-        if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+        MPI_Barrier(sm_comm);   /* do not remove */
+        if (sm_comm_rank == 0) {
 #endif
             for (e = 0; e < nmem; ++e) {
-                ENSOBSTYPE* Se = das->S[e];
+                float* Se = das->S[e];
 
                 for (o = 0; o < nobs; ++o)
-                    Se[o] -= (ENSOBSTYPE) das->s_f[o];
+                    Se[o] -= (float) das->s_f[o];
             }
-#if defined(HE_VIASHMEM)
-        MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+        }
+        MPI_Win_fence(0, das->sm_comm_win_S);
+        MPI_Barrier(sm_comm);
 #endif
         for (e = 0; e < nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < nobs; ++o)
                 das->std_f[o] += (double) (Se[o] * Se[o]);
@@ -432,7 +575,7 @@ void das_calcinnandspread(dasystem* das)
          * calculate ensemble mean observations 
          */
         for (e = 0; e < nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < nobs; ++o)
                 das->s_a[o] += (double) Se[o];
@@ -443,20 +586,22 @@ void das_calcinnandspread(dasystem* das)
         /*
          * calculate ensemble spread and innovation 
          */
-#if defined(HE_VIASHMEM)
-        if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+        if (sm_comm_rank == 0) {
 #endif
             for (e = 0; e < nmem; ++e) {
-                ENSOBSTYPE* Se = das->S[e];
+                float* Se = das->S[e];
 
                 for (o = 0; o < nobs; ++o)
-                    Se[o] -= (ENSOBSTYPE) das->s_a[o];
+                    Se[o] -= (float) das->s_a[o];
             }
-#if defined(HE_VIASHMEM)
-        MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+        }
+        MPI_Win_fence(0, das->sm_comm_win_S);
+        MPI_Barrier(sm_comm);
 #endif
         for (e = 0; e < nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < nobs; ++o)
                 das->std_a[o] += (double) (Se[o] * Se[o]);
@@ -488,10 +633,10 @@ void das_calcinnandspread(dasystem* das)
         das->s_mode = S_MODE_HA_a;
 }
 
-/** Adds forecast observations and forecast ensemble spread to the observation
- * file.
+/** Write forecast observations and forecast ensemble spread to the observation
+ ** file.
  */
-void das_addforecast(dasystem* das, char fname[])
+void das_writeforecastobs(dasystem* das, char fname[])
 {
     int ncid;
     int dimid_nobs[1];
@@ -519,8 +664,10 @@ void das_addforecast(dasystem* das, char fname[])
     ncw_redef(ncid);
     ncw_def_var(ncid, "Hx_f", NC_FLOAT, 1, dimid_nobs, &varid_Hx);
     ncw_put_att_text(ncid, varid_Hx, "long_name", "forecast observation (forecast observation ensemble mean)");
-    ncw_def_var(ncid, "std_f", NC_FLOAT, 1, dimid_nobs, &varid_spread);
-    ncw_put_att_text(ncid, varid_spread, "long_name", "standard deviation of the forecast observation ensemble");
+    if (!(das->mode == MODE_ENOI && enkf_fstatsonly)) {
+        ncw_def_var(ncid, "std_f", NC_FLOAT, 1, dimid_nobs, &varid_spread);
+        ncw_put_att_text(ncid, varid_spread, "long_name", "standard deviation of the forecast observation ensemble");
+    }
     ncw_enddef(ncid);
 
     Hx = calloc(nobs, sizeof(double));
@@ -528,7 +675,8 @@ void das_addforecast(dasystem* das, char fname[])
         Hx[o] = das->obs->data[o].value - das->s_f[o];
 
     ncw_put_var_double(ncid, varid_Hx, Hx);
-    ncw_put_var_double(ncid, varid_spread, das->std_f);
+    if (!(das->mode == MODE_ENOI && enkf_fstatsonly))
+        ncw_put_var_double(ncid, varid_spread, das->std_f);
 
     free(Hx);
 
@@ -546,7 +694,7 @@ void das_moderateobs(dasystem* das)
 {
     observations* obs = das->obs;
     double kfactor = das->kfactor;
-    double* std_new;
+    double* estd_new;
     int i;
 
     if (obs->nobs == 0)
@@ -556,78 +704,85 @@ void das_moderateobs(dasystem* das)
 
     assert(das->s_mode == S_MODE_HA_f);
 
-    std_new = malloc(obs->nobs * sizeof(double));
+    estd_new = malloc(obs->nobs * sizeof(double));
 
     for (i = 0; i < obs->nobs; ++i) {
         observation* o = &obs->data[i];
         double svar = das->std_f[i] * das->std_f[i];
-        double ovar = o->std * o->std;
+        double ovar = o->estd * o->estd;
         double inn = das->s_f[i];
 
         if (o->status != STATUS_OK) {
-            std_new[i] = o->std;
+            estd_new[i] = o->estd;
             continue;
         }
 
-        std_new[i] = sqrt(sqrt((svar + ovar) * (svar + ovar) + svar * inn * inn / kfactor / kfactor) - svar);
-        if (svar > 0.0 && std_new[i] * std_new[i] / ovar > 2.0) {
+        estd_new[i] = sqrt(sqrt((svar + ovar) * (svar + ovar) + svar * inn * inn / kfactor / kfactor) - svar);
+        if (svar > 0.0 && estd_new[i] * estd_new[i] / ovar > 2.0) {
             obs->nmodified++;
             obs->obstypes[o->type].nmodified++;
         }
     }
 
-    for (i = 0; i < obs->nobs; ++i)
-        obs->data[i].std = std_new[i];
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0) {
+#endif
+        for (i = 0; i < obs->nobs; ++i)
+            obs->data[i].estd = estd_new[i];
+#if defined(USE_SHMEM)
+    }
+    MPI_Barrier(sm_comm);
+#endif
 
     enkf_printf("    observations substantially modified:\n");
     for (i = 0; i < obs->nobstypes; ++i)
         enkf_printf("      %s    %7d (%.1f%%)\n", obs->obstypes[i].name, obs->obstypes[i].nmodified, 100.0 * (double) obs->obstypes[i].nmodified / (double) obs->obstypes[i].nobs);
     enkf_printf("      total  %7d (%.1f%%)\n", obs->nmodified, 100.0 * (double) obs->nmodified / (double) obs->nobs);
 
-    free(std_new);
+    free(estd_new);
 }
 
 /** Replaces observation errors in the observation file with the modified
- * values. The original values are stored as "std_orig".
+ * values. The original values are stored as "estd_orig".
  */
-void das_addmodifiederrors(dasystem* das, char fname[])
+void das_writemoderatedobs(dasystem* das, char fname[])
 {
     int ncid;
     int dimid_nobs[1];
     size_t nobs;
-    int varid_std, varid_stdorig;
-    double* std;
+    int varid_estd, varid_estdorig;
+    double* estd;
     int i;
-    double da_julday = NAN;
+    double da_time = NAN;
 
     if (rank != 0)
         return;
 
     ncw_open(fname, NC_WRITE, &ncid);
-    assert(!ncw_var_exists(ncid, "std_orig"));
+    assert(!ncw_var_exists(ncid, "estd_orig"));
     ncw_inq_dimid(ncid, "nobs", dimid_nobs);
     ncw_inq_dimlen(ncid, dimid_nobs[0], &nobs);
 
-    ncw_get_att_double(ncid, NC_GLOBAL, "DA_JULDAY", &da_julday);
-    if (!enkf_noobsdatecheck && (isnan(da_julday) || fabs(das->obs->da_date - da_julday) > 1e-6))
+    ncw_get_att_double(ncid, NC_GLOBAL, "DA_DAY", &da_time);
+    if (!enkf_noobsdatecheck && (isnan(da_time) || fabs(das->obs->da_time - da_time) > 1e-6))
         enkf_quit("\"observations.nc\" from a different cycle");
 
     ncw_redef(ncid);
-    ncw_rename_var(ncid, "std", "std_orig");
-    ncw_inq_varid(ncid, "std_orig", &varid_stdorig);
-    ncw_del_att(ncid, varid_stdorig, "long_name");
-    ncw_put_att_text(ncid, varid_stdorig, "long_name", "standard deviation of observation error after superobing (before applying KF-QC)");
-    ncw_def_var(ncid, "std", NC_FLOAT, 1, dimid_nobs, &varid_std);
-    ncw_put_att_text(ncid, varid_std, "long_name", "standard deviation of observation error used in DA");
+    ncw_rename_var(ncid, "estd", "estd_orig");
+    ncw_inq_varid(ncid, "estd_orig", &varid_estdorig);
+    ncw_del_att(ncid, varid_estdorig, "long_name");
+    ncw_put_att_text(ncid, varid_estdorig, "long_name", "standard deviation of observation error after superobing (before applying KF-QC)");
+    ncw_def_var(ncid, "estd", NC_FLOAT, 1, dimid_nobs, &varid_estd);
+    ncw_put_att_text(ncid, varid_estd, "long_name", "standard deviation of observation error used in DA");
     ncw_enddef(ncid);
 
-    std = malloc(nobs * sizeof(double));
+    estd = malloc(nobs * sizeof(double));
 
     for (i = 0; i < (int) nobs; ++i)
-        std[i] = das->obs->data[i].std;
-    ncw_put_var_double(ncid, varid_std, std);
+        estd[i] = das->obs->data[i].estd;
+    ncw_put_var_double(ncid, varid_estd, estd);
 
-    free(std);
+    free(estd);
 
     ncw_close(ncid);
 }
@@ -648,33 +803,33 @@ void das_standardise(dasystem* das)
     if (obs->nobs == 0)
         goto finish;
 
-#if defined (HE_VIASHMEM)
-    if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
 #endif
         for (e = 0; e < das->nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (i = 0; i < obs->nobs; ++i) {
                 observation* o = &obs->data[i];
 
-                Se[i] /= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+                Se[i] /= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
             }
         }
-#if defined (HE_VIASHMEM)
-    MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+    MPI_Barrier(sm_comm);
 #endif
     if (das->s_f != NULL) {
         for (i = 0; i < obs->nobs; ++i) {
             observation* o = &obs->data[i];
 
-            das->s_f[i] /= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+            das->s_f[i] /= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
         }
     }
     if (das->s_a != NULL) {
         for (i = 0; i < obs->nobs; ++i) {
             observation* o = &obs->data[i];
 
-            das->s_a[i] /= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+            das->s_a[i] /= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
         }
     }
 
@@ -685,7 +840,6 @@ void das_standardise(dasystem* das)
         das->s_mode = S_MODE_S_a;
     else
         enkf_quit("programming error");
-
 }
 
 /**
@@ -736,33 +890,33 @@ void das_destandardise(dasystem* das)
     if (obs->nobs == 0)
         goto finish;
 
-#if defined(HE_VIASHMEM)
-    if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
 #endif
         for (e = 0; e < das->nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (i = 0; i < obs->nobs; ++i) {
                 observation* o = &obs->data[i];
 
-                Se[i] *= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+                Se[i] *= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
             }
         }
-#if defined (HE_VIASHMEM)
-    MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+    MPI_Barrier(sm_comm);
 #endif
     if (das->s_f != NULL) {
         for (i = 0; i < obs->nobs; ++i) {
             observation* o = &obs->data[i];
 
-            das->s_f[i] *= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+            das->s_f[i] *= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
         }
     }
     if (das->s_a != NULL) {
         for (i = 0; i < obs->nobs; ++i) {
             observation* o = &obs->data[i];
 
-            das->s_a[i] *= o->std * sqrt(obs->obstypes[o->type].rfactor) * mult;
+            das->s_a[i] *= o->estd * sqrt(obs->obstypes[o->type].rfactor) * mult;
         }
     }
 
@@ -790,7 +944,13 @@ static void das_sortobs_byij(dasystem* das)
         return;
 
     enkf_printf("    sorting obs by ij:\n");
-    qsort_r(obs->data, obs->nobs, sizeof(observation), cmp_obs_byij, das);
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
+#endif
+        qsort_r(obs->data, obs->nobs, sizeof(observation), cmp_obs_byij, das);
+#if defined(USE_SHMEM)
+    MPI_Barrier(sm_comm);
+#endif
 
     if (das->s_f != NULL) {
         double* s = calloc(obs->nobs, sizeof(double));
@@ -819,23 +979,23 @@ static void das_sortobs_byij(dasystem* das)
 
         free(s);
     }
-#if defined(HE_VIASHMEM)
-    if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
 #endif
     {
-        ENSOBSTYPE* S = calloc(obs->nobs, sizeof(ENSOBSTYPE));
+        float* S = calloc(obs->nobs, sizeof(float));
 
         for (e = 0; e < das->nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < obs->nobs; ++o)
                 S[o] = Se[obs->data[o].id];
-            memcpy(Se, S, obs->nobs * sizeof(ENSOBSTYPE));
+            memcpy(Se, S, obs->nobs * sizeof(float));
         }
         free(S);
     }
-#if defined(HE_VIASHMEM)
-    MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+    MPI_Barrier(sm_comm);
 #endif
 
     das->sort_mode = OBS_SORTMODE_IJ;
@@ -854,11 +1014,11 @@ static void das_changeSmode(dasystem* das, int mode_from, int mode_to)
         observations* obs = das->obs;
         int e, o;
 
-#if defined(HE_VIASHMEM)
-        if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+        if (sm_comm_rank == 0)
 #endif
             for (e = 0; e < das->nmem; ++e) {
-                ENSOBSTYPE* Se = das->S[e];
+                float* Se = das->S[e];
 
                 for (o = 0; o < obs->nobs; ++o)
                     /*
@@ -867,8 +1027,8 @@ static void das_changeSmode(dasystem* das, int mode_from, int mode_to)
                      */
                     Se[o] += obs->data[o].value - das->s_f[o];
             }
-#if defined(HE_VIASHMEM)
-        MPI_Barrier(das->sm_comm);
+#if defined(USE_SHMEM)
+        MPI_Barrier(sm_comm);
 #endif
     } else
         enkf_quit("das_changesmode(): transition from mode %d to mode %d is not handled yet\n", mode_from, mode_to);
@@ -915,36 +1075,39 @@ static void das_sortobs_byid(dasystem* das)
 
         free(s);
     }
-#if defined(HE_VIASHMEM)
-    if (das->sm_comm_rank == 0)
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
 #endif
     {
-        ENSOBSTYPE* S = calloc(obs->nobs, sizeof(ENSOBSTYPE));
+        float* S = calloc(obs->nobs, sizeof(float));
 
         for (e = 0; e < das->nmem; ++e) {
-            ENSOBSTYPE* Se = das->S[e];
+            float* Se = das->S[e];
 
             for (o = 0; o < obs->nobs; ++o)
                 S[obs->data[o].id] = Se[o];
-            memcpy(Se, S, obs->nobs * sizeof(ENSOBSTYPE));
+            memcpy(Se, S, obs->nobs * sizeof(float));
         }
         free(S);
     }
-#if defined(HE_VIASHMEM)
-    MPI_Barrier(das->sm_comm);
-#endif
 
     /*
      * order obs back by id
      */
-    obs_inorder(obs);
+#if defined(USE_SHMEM)
+    if (sm_comm_rank == 0)
+#endif
+        obs_inorder(obs);
+#if defined(USE_SHMEM)
+    MPI_Barrier(sm_comm);
+#endif
 
     das->sort_mode = OBS_SORTMODE_ID;
 }
 
+#if defined(USE_SHMEM)
 /**
  */
-#if defined(HE_VIASHMEM)
 static void gather_St(dasystem* das)
 {
     int nmem = das->nmem;
@@ -954,26 +1117,26 @@ static void gather_St(dasystem* das)
     int* displs = calloc(nprocesses, sizeof(int));
     int i, ii;
 
-    ierror = MPI_Type_contiguous(nmem, MPIENSOBSTYPE, &mpitype_vec_nmem);
+    ierror = MPI_Type_contiguous(nmem, MPI_FLOAT, &mpitype_vec_nmem);
     assert(ierror == MPI_SUCCESS);
     ierror = MPI_Type_commit(&mpitype_vec_nmem);
     assert(ierror == MPI_SUCCESS);
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if (das->node_comm_rank >= 0 && das->node_comm_size > 1) {
+    if (node_comm_rank >= 0 && node_comm_size > 1) {
         for (i = 0, ii = -1; i < nprocesses; ++i) {
-            if (das->node_comm_ranks[i] >= 0) {
-                ii = das->node_comm_ranks[i];
+            if (node_comm_ranks[i] >= 0) {
+                ii = node_comm_ranks[i];
                 displs[ii] = first_iteration[i];
             }
             assert(ii >= 0);
             recvcounts[ii] += number_of_iterations[i];
         }
-        ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->St[0], recvcounts, displs, mpitype_vec_nmem, das->node_comm);
-        assert(ierror == MPI_SUCCESS);
-        ierror = MPI_Type_free(&mpitype_vec_nmem);
+        ierror = MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, das->St[0], recvcounts, displs, mpitype_vec_nmem, node_comm);
         assert(ierror == MPI_SUCCESS);
     }
+    ierror = MPI_Type_free(&mpitype_vec_nmem);
+    assert(ierror == MPI_SUCCESS);
     MPI_Barrier(MPI_COMM_WORLD);
 
     free(displs);
@@ -992,12 +1155,13 @@ static void update_HE(dasystem* das)
     model* m = das->m;
     int ngrid = model_getngrid(m);
     int nmem = das->nmem;
+    int nmem_dynamic = das->nmem_dynamic;
     int gid;
     observations* obs = das->obs;
     int nobs = obs->nobs;
     int e, o;
-    ENSOBSTYPE* HEi_f;
-    ENSOBSTYPE* HEi_a;
+    float* HEo_f;
+    float* HEo_a;
     char do_T = 'T';
     float alpha = 1.0f;
     float beta = 0.0f;
@@ -1009,40 +1173,45 @@ static void update_HE(dasystem* das)
     if (nobs == 0)
         goto finish;
 
-#if defined(HE_VIASHMEM)
-    distribute_iterations(0, nobs - 1, (nprocesses > HE_NPROCMAX) ? HE_NPROCMAX : nprocesses, rank, "    ");
-    for (e = 0; e < nmem; ++e)
-        for (o = my_first_iteration; o <= my_last_iteration; ++o)
-            das->St[o][e] = das->S[e][o];
+#if defined(USE_SHMEM)
+    {
+        distribute_iterations(0, nobs - 1, sm_comm_size, rank, "    ");
+        for (e = 0; e < nmem; ++e)
+            for (o = my_first_iteration; o <= my_last_iteration; ++o)
+                das->St[o][e] = das->S[e][o];
+    }
 #else
     my_first_iteration = 0;
     my_last_iteration = nobs - 1;
 #endif
 
-#if !defined(HE_VIASHMEM)
-    HEi_f = malloc(nmem * sizeof(ENSOBSTYPE));
+#if !defined(USE_SHMEM)
+    HEo_f = malloc(nmem * sizeof(float));
 #endif
-    HEi_a = malloc(nmem * sizeof(ENSOBSTYPE));
-
+    HEo_a = malloc(nmem * sizeof(float));
     /*
      * the following code for interpolation of X5 essentially coincides with
      * that in das_updatefields() 
      */
 
     for (gid = 0, o = my_first_iteration; gid < ngrid && o <= my_last_iteration; ++gid) {
-        void* grid = model_getgridbyid(m, gid);
-        int periodic_i = grid_isperiodic_i(grid);
-        int stride = grid_getstride(grid);
+        void* g = model_getgridbyid(m, gid);
+        int periodic_i = grid_isperiodic_i(g);
+        int stride = grid_getstride(g);
 
-        char fname_X5[MAXSTRLEN];
+        char fname[MAXSTRLEN];
         int ncid;
-        int varid;
-        size_t dimlens[3];
-        size_t start[3], count[3];
-        float** X5j = NULL;
-        float** X5jj = NULL;
-        float** X5jj1 = NULL;
-        float** X5jj2 = NULL;
+        int varid_T, varid_w;
+        size_t dimlens[4];
+        size_t start[4], count[4];
+        float*** Tj = NULL;
+        float*** Tjj = NULL;
+        float*** Tjj1 = NULL;
+        float*** Tjj2 = NULL;
+        float** wj = NULL;
+        float** wjj = NULL;
+        float** wjj1 = NULL;
+        float** wjj2 = NULL;
 
         int mni, mnj;
         int* iiter;
@@ -1053,14 +1222,13 @@ static void update_HE(dasystem* das)
         if (gid < obs->obstypes[obs->data[o].type].gridid)
             continue;
 
-        das_getfname_X5(das, grid, fname_X5);
-
-        ncw_open(fname_X5, NC_NOWRITE, &ncid);
-        ncw_inq_varid(ncid, "X5", &varid);
-        ncw_inq_vardims(ncid, varid, 3, NULL, dimlens);
-        ni = dimlens[1];
+        das_getfname_transforms(das, gid, fname);
+        ncw_open(fname, NC_NOWRITE, &ncid);
+        ncw_inq_varid(ncid, "T", &varid_T);
+        ncw_inq_varid(ncid, "w", &varid_w);
+        ncw_inq_vardims(ncid, varid_T, 4, NULL, dimlens);
         nj = dimlens[0];
-        assert((int) dimlens[2] == nmem * nmem);
+        ni = dimlens[1];
 
         jiter = malloc((nj + 1) * sizeof(int)); /* "+ 1" to handle periodic
                                                  * grids */
@@ -1072,20 +1240,28 @@ static void update_HE(dasystem* das)
         if (periodic_i)
             iiter[ni] = iiter[ni - 1] + stride;
 
-        grid_getdims(grid, &mni, &mnj, NULL);
+        grid_getsize(g, &mni, &mnj, NULL);
 
         start[0] = 0;
         start[1] = 0;
         start[2] = 0;
+        start[3] = 0;
         count[0] = 1;
         count[1] = ni;
-        count[2] = nmem * nmem;
-        X5j = alloc2d(mni, nmem * nmem, sizeof(float));
+        count[2] = nmem_dynamic;
+        count[3] = nmem;
+        Tj = alloc3d(mni, nmem_dynamic, nmem, sizeof(float));
+        wj = alloc2d(mni, nmem, sizeof(float));
         if (stride > 1) {
-            X5jj = alloc2d(ni, nmem * nmem, sizeof(float));
-            X5jj1 = alloc2d(ni, nmem * nmem, sizeof(float));
-            X5jj2 = alloc2d(ni, nmem * nmem, sizeof(float));
-            ncw_get_vara_float(ncid, varid, start, count, X5jj2[0]);
+            Tjj = alloc3d(ni, nmem_dynamic, nmem, sizeof(float));
+            Tjj1 = alloc3d(ni, nmem_dynamic, nmem, sizeof(float));
+            Tjj2 = alloc3d(ni, nmem_dynamic, nmem, sizeof(float));
+            ncw_get_vara_float(ncid, varid_T, start, count, Tjj2[0][0]);
+            wjj = alloc2d(ni, nmem, sizeof(float));
+            wjj1 = alloc2d(ni, nmem, sizeof(float));
+            wjj2 = alloc2d(ni, nmem, sizeof(float));
+            count[2] = nmem;
+            ncw_get_vara_float(ncid, varid_w, start, count, wjj2[0]);
         }
 
         /*
@@ -1104,59 +1280,81 @@ static void update_HE(dasystem* das)
                      * j-th row from disk 
                      */
                     start[0] = j;
-                    ncw_get_vara_float(ncid, varid, start, count, X5j[0]);
+                    count[2] = nmem_dynamic;
+                    ncw_get_vara_float(ncid, varid_T, start, count, Tj[0][0]);
+                    count[2] = nmem;
+                    ncw_get_vara_float(ncid, varid_w, start, count, wj[0]);
                 } else {
                     /*
                      * the following code interpolates the ETM back to the
                      * original grid, first by j, and then by i 
                      */
                     if (stepj == 0) {
-                        memcpy(X5jj[0], X5jj2[0], ni * nmem * nmem * sizeof(float));
-                        memcpy(X5jj1[0], X5jj2[0], ni * nmem * nmem * sizeof(float));
+                        memcpy(Tjj[0][0], Tjj2[0][0], ni * nmem_dynamic * nmem * sizeof(float));
+                        memcpy(Tjj1[0][0], Tjj2[0][0], ni * nmem_dynamic * nmem * sizeof(float));
+                        memcpy(wjj[0], wjj2[0], ni * nmem * sizeof(float));
+                        memcpy(wjj1[0], wjj2[0], ni * nmem * sizeof(float));
                         if (jj < nj - 1) {
                             start[0] = (jj + 1) % nj;
-                            ncw_get_vara_float(ncid, varid, start, count, X5jj2[0]);
+                            count[2] = nmem_dynamic;
+                            ncw_get_vara_float(ncid, varid_T, start, count, Tjj2[0][0]);
+                            count[2] = nmem;
+                            ncw_get_vara_float(ncid, varid_w, start, count, wjj2[0]);
                         }
                     } else {
                         float weight2 = (float) stepj / stride;
                         float weight1 = (float) 1.0 - weight2;
 
                         for (ii = 0; ii < ni; ++ii) {
-                            float* X5jjii = X5jj[ii];
-                            float* X5jj1ii = X5jj1[ii];
-                            float* X5jj2ii = X5jj2[ii];
+                            float* Tjjii = Tjj[ii][0];
+                            float* Tjj1ii = Tjj1[ii][0];
+                            float* Tjj2ii = Tjj2[ii][0];
+                            float* wjjii = wjj[ii];
+                            float* wjj1ii = wjj1[ii];
+                            float* wjj2ii = wjj2[ii];
 
-                            for (e = 0; e < nmem * nmem; ++e)
-                                X5jjii[e] = X5jj1ii[e] * weight1 + X5jj2ii[e] * weight2;
+                            for (e = 0; e < nmem_dynamic * nmem; ++e)
+                                Tjjii[e] = Tjj1ii[e] * weight1 + Tjj2ii[e] * weight2;
+                            for (e = 0; e < nmem; ++e)
+                                wjjii[e] = wjj1ii[e] * weight1 + wjj2ii[e] * weight2;
                         }
                     }
 
                     for (ii = 0, i = 0; ii < ni; ++ii) {
                         for (stepi = 0; stepi < stride && i < mni; ++stepi, ++i) {
-                            if (stepi == 0)
-                                memcpy(X5j[i], X5jj[ii], nmem * nmem * sizeof(float));
-                            else {
+                            if (stepi == 0) {
+                                memcpy(Tj[i][0], Tjj[ii][0], nmem_dynamic * nmem * sizeof(float));
+                                memcpy(wj[i], wjj[ii], nmem * sizeof(float));
+                            } else {
                                 float weight2 = (float) stepi / stride;
                                 float weight1 = (float) 1.0 - weight2;
-                                float* X5jjii1 = X5jj[ii];
-                                float* X5ji = X5j[i];
-                                float* X5jjii2;
+                                float* Tjjii1 = Tjj[ii][0];
+                                float* Tji = Tj[i][0];
+                                float* Tjjii2;
+                                float* wjjii1 = wjj[ii];
+                                float* wji = wj[i];
+                                float* wjjii2;
 
-                                if (ii < ni - 1)
-                                    X5jjii2 = X5jj[ii + 1];
-                                else
-                                    X5jjii2 = X5jj[(periodic_i) ? (ii + 1) % ni : ii];
-
-                                for (e = 0; e < nmem * nmem; ++e)
-                                    X5ji[e] = X5jjii1[e] * weight1 + X5jjii2[e] * weight2;
+                                if (ii < ni - 1) {
+                                    Tjjii2 = Tjj[ii + 1][0];
+                                    wjjii2 = wjj[ii + 1];
+                                } else {
+                                    Tjjii2 = Tjj[(periodic_i) ? (ii + 1) % ni : ii][0];
+                                    wjjii2 = wjj[(periodic_i) ? (ii + 1) % ni : ii];
+                                }
+                                for (e = 0; e < nmem_dynamic * nmem; ++e)
+                                    Tji[e] = Tjjii1[e] * weight1 + Tjjii2[e] * weight2;
+                                for (e = 0; e < nmem; ++e)
+                                    wji[e] = wjjii1[e] * weight1 + wjjii2[e] * weight2;
                             }
                         }
                     }
                 }               /* stride != 1 */
 
                 /*
-                 * (at this stage X5j should contain the array of X5 matrices
-                 * for the j-th row of the grid) 
+                 * (at this stage Tj should contain the array of mni T matrices
+                 * for the j-th row of the grid, and wj should contain the
+                 * array of mni vectors for the j-th row of the grid)
                  */
 
                 if (o > my_last_iteration)
@@ -1166,51 +1364,82 @@ static void update_HE(dasystem* das)
                     float inflation0 = NAN;
                     double inf_ratio = NAN;
                     float inflation = NAN;
-                    double v1_a = 0.0;
+                    double v1_f, v1_a;
 
                     model_getvarinflation(m, obs->obstypes[obs->data[o].type].vid, &inflation0, &inf_ratio);
 
-                    /*
-                     * HE(i, :) = HE(i, :) * X5 
-                     */
                     i = (int) (obs->data[o].fi + 0.5);
                     if (i == mni)
                         i--;
-#if defined(HE_VIASHMEM)
-                    HEi_f = das->St[o];
+#if defined(USE_SHMEM)
+                    HEo_f = das->St[o];
 #else
                     for (e = 0; e < nmem; ++e)
-                        HEi_f[e] = das->S[e][o];
+                        HEo_f[e] = das->S[e][o];
 #endif
-                    sgemv_(&do_T, &nmem, &nmem, &alpha, X5j[i], &nmem, HEi_f, &inc, &beta, HEi_a, &inc);
 
+                    /*
+                     * HE^a(o, :) = HE^f(o, :) * X5
+                     *            = Hx^f(o) * 1^T + HA^f(o, :) * (w * 1^T + T)
+                     */
+
+                    /*
+                     * Hx^f
+                     */
+                    for (e = 0, v1_f = 0.0; e < nmem_dynamic; ++e)
+                        v1_f += HEo_f[e];
+                    v1_f /= (double) nmem_dynamic;
+
+                    /*
+                     * HA^f = HE^f - Hx^f * 1^T
+                     */
                     for (e = 0; e < nmem; ++e)
-                        v1_a += HEi_a[e];
-                    v1_a /= (double) nmem;
+                        HEo_f[e] -= v1_f;
+                    /*
+                     * HA^a = HA^f * T
+                     */
+                    sgemv_(&do_T, &nmem, &nmem_dynamic, &alpha, Tj[i][0], &nmem, HEo_f, &inc, &beta, HEo_a, &inc);
+                    /*
+                     * dHx = dHx^a - dHx^f
+                     */
+                    for (e = 0, v1_a = 0.0; e < nmem; ++e)
+                        v1_a += HEo_f[e] * wj[i][e];
+                    /*
+                     * Hx^a = Hx^f + dHx
+                     */
+                    v1_a += v1_f;
+                    /*
+                     * HE^a = HA^a + x^a * 1^T
+                     */
+                    for (e = 0; e < nmem_dynamic; ++e)
+                        HEo_a[e] += v1_a;
+
+                    /*
+                     * HE^f = HA^f + Hx^f
+                     */
+                    for (e = 0; e < nmem; ++e)
+                        HEo_f[e] += v1_f;
 
                     if (!isnan(inf_ratio)) {
-                        double v1_f = 0.0;
                         double v2_f = 0.0;
                         double v2_a = 0.0;
                         double var_a, var_f;
 
-                        for (e = 0; e < nmem; ++e) {
-                            double ve = (double) HEi_f[e];
+                        for (e = 0; e < nmem_dynamic; ++e) {
+                            double ve = (double) HEo_f[e];
 
-                            v1_f += ve;
                             v2_f += ve * ve;
                         }
-                        v1_f /= (double) nmem;
-                        var_f = v2_f / (double) nmem - v1_f * v1_f;
+                        var_f = v2_f / (double) nmem_dynamic - v1_f * v1_f;
 
-                        for (e = 0; e < nmem; ++e) {
-                            double ve = (double) HEi_a[e];
+                        for (e = 0; e < nmem_dynamic; ++e) {
+                            double ve = (double) HEo_a[e];
 
                             v2_a += ve * ve;
                         }
-                        var_a = v2_a / (double) nmem - v1_a * v1_a;
+                        var_a = v2_a / (double) nmem_dynamic - v1_a * v1_a;
 
-                        if (var_a > 0) {
+                        if (var_a > 0.0) {
                             /*
                              * (Normal case.) Limit inflation by inf_ratio of
                              * the magnitude of spread reduction.
@@ -1226,15 +1455,19 @@ static void update_HE(dasystem* das)
                      * applying inflation:
                      */
                     if (fabsf(inflation - 1.0f) > EPSF)
-                        for (e = 0; e < nmem; ++e)
-                            HEi_a[e] = (HEi_a[e] - (float) v1_a) * inflation + v1_a;
+                        for (e = 0; e < nmem_dynamic; ++e)
+                            HEo_a[e] = (HEo_a[e] - (float) v1_a) * inflation + v1_a;
 
-#if defined(HE_VIASHMEM)
-                    for (e = 0; e < nmem; ++e)
-                        das->St[o][e] = HEi_a[e];
+#if defined(USE_SHMEM)
+                    for (e = 0; e < nmem_dynamic; ++e)
+                        das->St[o][e] = HEo_a[e];
+                    for (e = nmem_dynamic; e < nmem; ++e)
+                        das->St[o][e] += v1_a - v1_f;
 #else
-                    for (e = 0; e < nmem; ++e)
-                        das->S[e][o] = HEi_a[e];
+                    for (e = 0; e < nmem_dynamic; ++e)
+                        das->S[e][o] = HEo_a[e];
+                    for (e = nmem_dynamic; e < nmem; ++e)
+                        das->S[e][o] += v1_a - v1_f;
 #endif
                 }
             }                   /* for stepj */
@@ -1244,15 +1477,19 @@ static void update_HE(dasystem* das)
 
         free(iiter);
         free(jiter);
-        free(X5j);
+        free(Tj);
+        free(wj);
         if (stride > 1) {
-            free(X5jj);
-            free(X5jj1);
-            free(X5jj2);
+            free(Tjj);
+            free(Tjj1);
+            free(Tjj2);
+            free(wjj);
+            free(wjj1);
+            free(wjj2);
         }
     }                           /* for gid */
 
-#if defined(HE_VIASHMEM)
+#if defined(USE_SHMEM)
     gather_St(das);
 
     if (rank == 0)
@@ -1261,9 +1498,9 @@ static void update_HE(dasystem* das)
                 das->S[e][o] = das->St[o][e];
 #endif
 
-    free(HEi_a);
-#if !defined(HE_VIASHMEM)
-    free(HEi_f);
+    free(HEo_a);
+#if !defined(USE_SHMEM)
+    free(HEo_f);
 #endif
 
   finish:
@@ -1288,27 +1525,29 @@ static void update_Hx(dasystem* das)
     if (nobs == 0)
         goto finish;
 
-#if defined(HE_VIASHMEM)
-    distribute_iterations(0, nobs - 1, (nprocesses > HE_NPROCMAX) ? HE_NPROCMAX : nprocesses, rank, "    ");
-    for (e = 0; e < nmem; ++e)
-        for (o = my_first_iteration; o <= my_last_iteration; ++o)
-            das->St[o][e] = das->S[e][o];
+#if defined(USE_SHMEM)
+    {
+        distribute_iterations(0, nobs - 1, sm_comm_size, rank, "    ");
+        for (e = 0; e < nmem; ++e)
+            for (o = my_first_iteration; o <= my_last_iteration; ++o)
+                das->St[o][e] = das->S[e][o];
+    }
 #else
     my_first_iteration = 0;
     my_last_iteration = nobs - 1;
 #endif
 
     /*
-     * the following code for interpolation of X5 essentially coincides with
-     * that in das_updatefields() 
+     * the following code for interpolation of w essentially coincides with
+     * that in das_updatebg() 
      */
 
     for (gid = 0, o = my_first_iteration; gid < ngrid && o <= my_last_iteration; ++gid) {
-        void* grid = model_getgridbyid(m, gid);
-        int periodic_i = grid_isperiodic_i(grid);
-        int stride = grid_getstride(grid);
+        void* g = model_getgridbyid(m, gid);
+        int periodic_i = grid_isperiodic_i(g);
+        int stride = grid_getstride(g);
 
-        char fname_w[MAXSTRLEN];
+        char fname[MAXSTRLEN];
         int ncid;
         int varid;
         size_t dimlens[3];
@@ -1327,9 +1566,9 @@ static void update_Hx(dasystem* das)
         if (gid < obs->obstypes[obs->data[o].type].gridid)
             continue;
 
-        das_getfname_w(das, grid, fname_w);
+        das_getfname_transforms(das, gid, fname);
 
-        ncw_open(fname_w, NC_NOWRITE, &ncid);
+        ncw_open(fname, NC_NOWRITE, &ncid);
         ncw_inq_varid(ncid, "w", &varid);
         ncw_inq_vardims(ncid, varid, 3, NULL, dimlens);
         ni = dimlens[1];
@@ -1346,7 +1585,7 @@ static void update_Hx(dasystem* das)
         if (periodic_i)
             iiter[ni] = iiter[ni - 1] + stride;
 
-        grid_getdims(grid, &mni, &mnj, NULL);
+        grid_getsize(g, &mni, &mnj, NULL);
 
         start[0] = 0;
         start[1] = 0;
@@ -1429,7 +1668,7 @@ static void update_Hx(dasystem* das)
                 }               /* stride != 1 */
 
                 /*
-                 * (at this stage wj should contain the array of b vectors for
+                 * (at this stage wj should contain the array of mni vectors for
                  * the j-th row of the grid) 
                  */
 
@@ -1440,7 +1679,7 @@ static void update_Hx(dasystem* das)
                     double dHx = 0.0;
                     double Hx = 0.0;
 
-#if defined(HE_VIASHMEM)
+#if defined(USE_SHMEM)
                     for (e = 0; e < nmem; ++e)
                         Hx += das->St[o][e];
 #else
@@ -1455,7 +1694,7 @@ static void update_Hx(dasystem* das)
                     /*
                      * HE(i, :) += HA(i, :) * b * 1' 
                      */
-#if defined(HE_VIASHMEM)
+#if defined(USE_SHMEM)
                     for (e = 0; e < nmem; ++e)
                         dHx += (das->St[o][e] - Hx) * wj[i][e];
                     for (e = 0; e < nmem; ++e)
@@ -1482,7 +1721,7 @@ static void update_Hx(dasystem* das)
         }
     }                           /* for gid */
 
-#if defined(HE_VIASHMEM)
+#if defined(USE_SHMEM)
     gather_St(das);
 
     if (rank == 0)
@@ -1503,7 +1742,7 @@ void das_updateHE(dasystem* das)
     das_sortobs_byij(das);
     das_changeSmode(das, S_MODE_HA_f, S_MODE_HE_f);
     enkf_printtime("    ");
-    if (das->mode == MODE_ENKF)
+    if (das->mode == MODE_ENKF || das->mode == MODE_HYBRID)
         update_HE(das);
     else
         update_Hx(das);
@@ -1512,9 +1751,10 @@ void das_updateHE(dasystem* das)
     das_sortobs_byid(das);
 }
 
-/** Add analysed observation estimates and ensemble spread to FNAME_SOBS.
+/** Write analysed observation estimates and ensemble spread to the observation
+ ** file.
  */
-void das_addanalysis(dasystem* das, char fname[])
+void das_writeanalysisobs(dasystem* das, char fname[])
 {
     int ncid;
     int dimid_nobs[1];

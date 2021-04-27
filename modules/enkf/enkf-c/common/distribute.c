@@ -46,12 +46,12 @@ int* last_iteration = NULL;
  * @param i1 Start of the interval
  * @param i2 End of the interval
  * @param nproc Number of processes (CPUs) to be be used
- * @param rank ID of the "native" process
+ * @param myrank ID of the process
  * @param prefix Prefix for log printing; NULL to print no log.
  * Note that `nprocesses' and `rank' are supposed to be external (global) 
  * variables.
  */
-void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
+void distribute_iterations(int i1, int i2, int nproc, int myrank, char prefix[])
 {
     int n, npp, i;
 
@@ -67,7 +67,7 @@ void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
         last_iteration = malloc(nprocesses * sizeof(int));
     }
     if (prefix != NULL)
-        enkf_printf("%sdistributing iterations:\n", prefix);
+        enkf_printf("%sdistributing %d iterations:\n", prefix, i2 - i1 + 1);
 #if defined(MPI)
     if (prefix != NULL)
         fflush(stdout);
@@ -79,11 +79,14 @@ void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
     n = i2 - i1 + 1;
     npp = n / nproc;
     if (n % nproc == 0) {
-        my_number_of_iterations = npp;
         for (i = 0; i < nproc; ++i)
             number_of_iterations[i] = npp;
-        if (prefix != NULL)
-            enkf_printf("%s  %d processes get %d iterations each\n", prefix, nproc, npp);
+        if (prefix != NULL) {
+            if (nproc > 1)
+                enkf_printf("%s  %d processes get %d iterations each\n", prefix, nproc, npp);
+            else
+                enkf_printf("%s  1 process gets %d iterations\n", prefix, npp);
+        }
     } else {
         int j = n - nproc * npp;
 
@@ -91,8 +94,12 @@ void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
             number_of_iterations[i] = npp + 1;
         for (i = j; i < nproc; ++i)
             number_of_iterations[i] = npp;
-        if (prefix != NULL)
-            enkf_printf("%s  %d processes get %d or %d iterations\n", prefix, nproc, npp + 1, npp);
+        if (prefix != NULL) {
+            if (npp == 0) {
+                enkf_printf("%s  %d processes get 1 iteration, %d processes get 0 iterations\n", prefix, n, nproc - n);
+            } else
+                enkf_printf("%s  %d processes get %d or %d iterations\n", prefix, nproc, npp + 1, npp);
+        }
     }
     for (i = nproc; i < nprocesses; ++i)
         number_of_iterations[i] = 0;
@@ -100,7 +107,7 @@ void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
         enkf_printf("%s  %d processes get 0 iterations\n", prefix, nprocesses - nproc);
 #if defined(MPI)
     if (prefix != NULL)
-        fflush(stdout);
+        enkf_flush();
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
 
@@ -115,9 +122,9 @@ void distribute_iterations(int i1, int i2, int nproc, int rank, char prefix[])
         last_iteration[i] = first_iteration[i] + number_of_iterations[i] - 1;
     }
 
-    my_first_iteration = first_iteration[rank];
-    my_last_iteration = last_iteration[rank];
-    my_number_of_iterations = number_of_iterations[rank];
+    my_first_iteration = first_iteration[myrank];
+    my_last_iteration = last_iteration[myrank];
+    my_number_of_iterations = number_of_iterations[myrank];
 }
 
 /**
