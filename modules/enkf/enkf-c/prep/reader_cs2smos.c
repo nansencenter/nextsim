@@ -13,6 +13,9 @@
  *               
  *
  * Revisions:
+ *   We use grid: reference_grid.nc created from OCRA grid, used in NEMO. 
+ *   The grid use variable mask to indicate land and ocean.
+ *   mask is modified that the ocean area is limited with the nextsim domain by its output prior.nc sit, that mask(isnan(sit))=0
  *
  *****************************************************************************/
 
@@ -186,8 +189,10 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                     continue;
                 // check distance between the observation the closest coast
                 obs_distance2coast(g, coast_len, coast_lon, coast_lat, o->lon, o->lat, &o->status); 
-                if (!obs->allobs && o->status == STATUS_OUTSIDEGRID)
+                if (!obs->allobs && o->status == STATUS_SHALLOW)
                     continue;
+                // if (!obs->allobs && o->status == STATUS_LAND)
+                //     continue;
                 o->model_depth = NAN;   // set in obs_add()
                 o->time = time[tlen] * tunits_multiple + tunits_offset;
                 o->aux = -1;
@@ -231,8 +236,8 @@ void obs_distance2coast(grid* g, size_t coast_len, float* coast_lon, float* coas
         ll2xyz(ll2, xyz2);
         // reject observation close to the coast, mark the obervation as STATUS_OUTSIDEGRID.
         distance = sqrt((xyz1[0] - xyz2[0]) * (xyz1[0] - xyz2[0]) + (xyz1[1] -  xyz2[1]) * (xyz1[1] - xyz2[1]) + (xyz1[2] - xyz2[2]) * (xyz1[2] - xyz2[2]));
-        if (distance<=min_distance2coast_km || lat<=70 ){
-            *status = STATUS_OUTSIDEGRID; 
+        if (distance<=min_distance2coast_km){
+            *status = STATUS_SHALLOW; 
             return;
         }
     }

@@ -1,0 +1,9 @@
+NAME = reference_grid
+geographic=yes
+VTYPE = z
+DATA =/cluster/home/chengsukun/src/nextsim_data_dir/reference_grid.nc
+XVARNAME = plon
+YVARNAME = plat
+ZVARNAME = ZCOOR
+DEPTHVARNAME = DEPTH
+NUMLEVELSVARNAME = mask

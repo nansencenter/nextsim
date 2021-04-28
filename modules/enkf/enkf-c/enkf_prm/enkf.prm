@@ -1,0 +1,26 @@
+MODE = EnKF
+SCHEME = DENKF
+
+MODEL = model.prm
+GRID = grid.prm
+OBSTYPES = obstypes.prm
+
+OBS = obs.prm
+DATE = 6565.5 days since 1990-01-01
+
+ENSDIR = prior
+ENSSIZE = 40
+
+INFLATION = 1
+RFACTOR = 3
+KFACTOR = 2
+LOCRAD = 300
+
+STRIDE = 1
+FIELDBUFFERSIZE = 4
+
+REGION Global   0   360   -90     90
+
+#POINTLOG 30 50 t-grid
+
+EXITACTION = SEGFAULT
