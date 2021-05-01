@@ -16,8 +16,8 @@ void ensemble::addPerturbation(std::vector<double>& perturbed_field, std::vector
     // outer loop rows indicated by y direction. j is index in submesh
     // interior loop read a row of data for submesh using starting from index x_start_tmp in the full mesh, i is index in the full mesh.
     
-    // index of forcing field defined in save_randfld_synforc() of mod_random_forcing.f90, starting from 1
-    // for element, index is defined in synforc_element.nc 
+    // For perturbing u(index=1),v(index=2), index of forcing field defined in save_randfld_synforc() of mod_random_forcing.f90,
+    // For perturbing element, index is defined in synforc_element.nc: snowfall(index=1),longWaveRadiation(index=2)
     // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
     int start_tmp,n = 0;
     for(int j = 0; j <y_count; j++) {  
