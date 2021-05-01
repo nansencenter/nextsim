@@ -131,19 +131,19 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
 
     tunits_convert(tunits, &tunits_multiple, &tunits_offset);
 
-    // load coast data from 'reference_grid_coast.nc'
-    filename="reference_grid_coast.nc";
+    // load coast data from 'reference_grid.nc'
+    filename="reference_grid.nc";
     ncw_open(filename, NC_NOWRITE, &ncid);
     // longitude
-    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "lon")) ? "lon" : "length", &lon_dimid);
+    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "boundary_lon")) ? "boundary_lon" : "length", &lon_dimid);
     ncw_inq_dimlen(ncid, lon_dimid, &coast_len);
-    ncw_inq_varid(ncid, "lon", &varid_lon);
+    ncw_inq_varid(ncid, "boundary_lon", &varid_lon);
     coast_lon = malloc(coast_len * sizeof(float));
     ncw_get_var_float(ncid, varid_lon, coast_lon);  
     // latitude
-    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "lat")) ? "lat" : "length", &lat_dimid);
+    ncw_inq_dimid(ncid, (ncw_dim_exists(ncid, "boundary_lat")) ? "boundary_lat" : "length", &lat_dimid);
     // ncw_inq_dimlen(ncid, lat_dimid, &coast_len);
-    ncw_inq_varid(ncid, "lat", &varid_lat);
+    ncw_inq_varid(ncid, "boundary_lat", &varid_lat);
     coast_lat = malloc(coast_len * sizeof(float));
     ncw_get_var_float(ncid, varid_lat, coast_lat);
     ncw_close(ncid);
