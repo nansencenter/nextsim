@@ -549,17 +549,19 @@ void das_calcmld(dasystem* das, obstype* ot, float*** src, float** dst)
 void das_getmemberfname(dasystem* das, char varname[], int mem, char fname[])
 {
     if (das->mode == MODE_HYBRID && das->nmem_dynamic >= 0 && mem > das->nmem_dynamic)
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+        // snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", das->ensdir2, mem - das->nmem_dynamic);
     else
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir, mem, varname); 
-        // snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", das->ensdir, mem);  //csk: how to define mem?.nc using varname, if one assimilates sit and sic together.
+        // snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir, mem, varname); 
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", das->ensdir, mem);  //csk: how to define mem?.nc using varname, if one assimilates sit and sic together.
 }
 
 /**
  */
 void das_getbgfname(dasystem* das, char varname[], char fname[])
 {
-    snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", das->bgdir, varname);
+    // snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", das->bgdir, varname);
+    snprintf(fname, MAXSTRLEN, "%s/bg.nc", das->bgdir);
 }
 
 #if defined(ENKF_CALC)
@@ -572,13 +574,15 @@ int das_getmemberfname_async(dasystem* das, obstype* ot, int mem, int t, char fn
     char* ensdir = das->ensdir;
 
     if (das->mode == MODE_HYBRID && das->nmem_dynamic >= 0 && mem > das->nmem_dynamic) {
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+        // snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", das->ensdir2, mem - das->nmem_dynamic, varname);
         return 0;
     }
 
     snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s_%d.nc", ensdir, mem, alias, t);
     if (!file_exists(fname)) {
-        snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", ensdir, mem, varname);
+        // snprintf(fname, MAXSTRLEN, "%s/mem%03d_%s.nc", ensdir, mem, varname);
+        snprintf(fname, MAXSTRLEN, "%s/mem%03d.nc", ensdir, mem, varname);
         return 0;
     }
     /*
@@ -625,7 +629,8 @@ int das_getbgfname_async(dasystem* das, obstype* ot, int t, char fname[])
 
     snprintf(fname, MAXSTRLEN, "%s/bg_%s_%d.nc", bgdir, alias, t);
     if (!file_exists(fname)) {
-        snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", bgdir, varname);
+        // snprintf(fname, MAXSTRLEN, "%s/bg_%s.nc", bgdir, varname);
+        snprintf(fname, MAXSTRLEN, "%s/bgee.nc", bgdir, varname);
         return 0;
     }
     /*
