@@ -3,10 +3,6 @@ import datetime as dt
 import os
 import sys
 import numpy as np
-# print(os.environ['LD_LIBRARY_PATH'])
-import ctypes 
-old = os.environ['LD_LIBRARY_PATH']
-os.environ['LD_LIBRARY_PATH'] = old + ":" + os.path.join(os.getcwd(), 'lib/')
 sys.path.append(os.path.join(os.getcwd(), 'src'))
 import mod_perturb
 
@@ -24,7 +20,6 @@ def Get_wind(filename):
 def Get_perturb(nx, ny, synforc, randfld, previous_perturbation_exist):
     """Read wind from the ECMWF files
     """
-    print(synforc.shape, nx*ny)
     mod_perturb.generate_perturbation(nx, 
                                     ny, 
                                        synforc,
@@ -80,7 +75,7 @@ def main(dir_wind, ndays, N):
                                                v10[it].flatten(order='F'), 
                                                du10, dv10)
 
-            print(ratio[4*iday + it + 1])
+            print('the ratio is:', ratio[4*iday + it + 1])
 
 main(dir_wind='/cluster/projects/nn2993k/sim/sukun_test/nextsim_data_dir/GENERIC_ATM',  
     ndays=2, N=40)

@@ -2,6 +2,8 @@ INCPATH = .:../include
 
 OBJS=../objs
 
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+mkfile_dir := $(dir $(mkfile_path))
 
 .SUFFIXES:
 .SUFFIXES: .o .F90 .
@@ -32,7 +34,7 @@ CPPFLAGS += $(CPPARCH) -DFFTW -DIARGC -DLAPACK # -DQMPI
 #
 #
 # This uses the OpenMPI implementation of mpi-2
-FLIBS = -mkl=parallel -lfftw3 -lgsl -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lsz -lz -ldl -lm -liomp5 -lpthread -lcurl
+FLIBS = -shared -mkl=parallel -lfftw3 -lgsl -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lsz -lz -ldl -lm -liomp5 -lpthread -lcurl
 #
 # Include dir for header and module files
 INCLUDEDIR= -I/local/netcdf/include -I/local/fftw/include
@@ -71,7 +73,7 @@ FOBJECTS= \
 
 PyOBJECTS=perturb2D_python.F90
 PyINCLUDES=-I../objs
-PyLIBS=-L/PATH//lib -lpseudo2D -L/usr/lib -lfftw3
+PyLIBS=-L$(mkfile_dir)/../lib -lpseudo2D -L/usr/lib -lfftw3
 $(P_L): $(FOBJECTS)
 	cd ./$(OBJS) ; $(CF90) $(SFLAGS) $(FLIBS) $(FOBJECTS) -o $(P_L)
 	cd ../lib; ln -sf libpseudo2D.so libpseudo2D.so.1.0
