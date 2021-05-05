@@ -1447,7 +1447,7 @@ FiniteElement::initFETensors()
 {
     M_Dunit.assign(9,0);
 
-    double Dunit_factor=1./(1.-nu0*nu0);
+    double const Dunit_factor=1./(1.-nu0*nu0);
     /* Stiffness matrix
      * 1  nu 0
      * nu 1  0
@@ -4065,6 +4065,9 @@ FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> c
 void
 FiniteElement::updateSigmaDamage(double const dt)
 {
+    // Reciprocal of the speed of a shear wave in undamaged ice (used to calculate td)
+    double const rc = std::sqrt( 2.*(1.+nu0)*physical::rhoi/young );
+
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
      * already in use in another place so we need to check first what effect
@@ -4114,9 +4117,6 @@ FiniteElement::updateSigmaDamage(double const dt)
          *======================================================================
          */
 
-        /* Calculate the characteristic time for damage */
-        double const td = M_delta_x[cpt]*std::sqrt( 2.*(1.+nu0)*physical::rhoi/young );
-
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
         double const sigma_n =            (sigma[0]+sigma[1])/2.;
@@ -4131,6 +4131,8 @@ FiniteElement::updateSigmaDamage(double const dt)
         /* Calculate the adjusted level of damage */
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
+            /* Calculate the characteristic time for damage and damage increment */
+            double const td = M_delta_x[cpt]*rc;
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
             M_damage[cpt] += del_damage;
 
