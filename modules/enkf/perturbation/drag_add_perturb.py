@@ -57,7 +57,7 @@ def main(dir_wind, ndays, N):
 
     synforc = np.zeros((ny*nx, 4), order='F')
     randfld = np.zeros((ny*nx, 4), order='F')
-    previous_perturbation_exist = 0
+
     for iday in range(ndays):
         # get wind
         t = starting_date + dt.timedelta(days=iday)
@@ -69,13 +69,13 @@ def main(dir_wind, ndays, N):
         # get perturbation
         for it in range(ndays):
             for ie in range(N):
-                du10[ie], dv10[ie] = Get_perturb(nx, ny, synforc, randfld, previous_perturbation_exist)
+                du10[ie], dv10[ie] = Get_perturb(nx, ny, synforc, randfld, previous_perturbation_exist=4*iday + it)
         
-            ratio[4*iday + it + 1] = Get_ratio(u10[it].flatten(order='F'), 
+            ratio[4*iday + it] = Get_ratio(u10[it].flatten(order='F'), 
                                                v10[it].flatten(order='F'), 
                                                du10, dv10)
 
-            print('the ratio is:', ratio[4*iday + it + 1])
+            print('the ratio is:', ratio[4*iday + it])
 
 main(dir_wind='/cluster/projects/nn2993k/sim/sukun_test/nextsim_data_dir/GENERIC_ATM',  
     ndays=2, N=40)
