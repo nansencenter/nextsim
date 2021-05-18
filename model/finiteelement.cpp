@@ -4026,7 +4026,7 @@ void
 FiniteElement::updateSigmaDamage(double const dt)
 {
     // Reciprocal of the speed of a shear wave in undamaged ice (used to calculate td)
-    double const rc = std::sqrt( 2.*(1.+nu0)*physical::rhoi/young );
+    double const sqrt_nu_rhoi = std::sqrt( 2.*(1.+nu0)*physical::rhoi );
 
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
@@ -4118,7 +4118,7 @@ FiniteElement::updateSigmaDamage(double const dt)
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*rc;
+            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
             M_damage[cpt] += del_damage;
 
