@@ -4021,47 +4021,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 //------------------------------------------------------------------------------------------------------
-//! Update M_sigma and return elasticity for a given cpt (index).
-//! Optional parameters for BBM is del_damage, with del_damage > 0 only when
-//! calculating sigma after a change in damage.
-//! Called from explicitSolve() and updateSigmaDamage()
-std::vector<double> inline
-FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
-{
-    double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
-
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
-    // Plastic failure
-    double dcrit;
-    if ( sigma_n < 0. )
-    {
-        double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
-        // dcrit must be capped at 1 to get an elastic response
-        dcrit = std::min(1., -Pmax/sigma_n);
-    } else {
-        dcrit = 0.;
-    }
-
-    double const multiplicator = std::min( 1. - 1e-12,
-            time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
-
-    double const elasticity = young*(1.-M_damage[cpt])*expC;
-
-    std::vector<double> sigma(3);
-    for(int i=0;i<3;i++)
-    {
-        sigma[i] = M_sigma[i][cpt];
-        for(int j=0;j<3;j++)
-            sigma[i] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-        sigma[i] *= multiplicator;
-    }
-
-    return sigma;
-
-}//updateSigma
-
-//------------------------------------------------------------------------------------------------------
 //! Calculate M_sigma for the current time step and update M_damage.
 void
 FiniteElement::updateSigmaDamage(double const dt)
@@ -4111,7 +4070,33 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        std::vector<double> sigma = this->updateSigma(cpt, dt, epsilon_veloc, (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
+        double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
+
+        // Plastic failure
+        double tildeP;
+        if ( sigma_n < 0. )
+        {
+            double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
+            // tildeP must be capped at 1 to get an elastic response
+            tildeP = std::min(1., -Pmax/sigma_n);
+        } else {
+            tildeP = 0.;
+        }
+
+        double const multiplicator = std::min( 1. - 1e-12,
+                time_viscous/(time_viscous+dt*(1.-tildeP)) );
+
+        double const elasticity = young*(1.-M_damage[cpt])*expC;
+
+        for(int i=0;i<3;i++)
+        {
+            for(int j=0;j<3;j++)
+                M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+            M_sigma[i][cpt] *= multiplicator;
+        }
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
@@ -4119,8 +4104,8 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((sigma[0]-sigma[1])/2.,sigma[2]);
-        double const sigma_n =            (sigma[0]+sigma[1])/2.;
+        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
         double dcrit;
@@ -4141,13 +4126,10 @@ FiniteElement::updateSigmaDamage(double const dt)
             M_cum_damage[cpt] += del_damage;
 #endif
 
-            // Recalculate the new state of stress with a new damage
-            sigma = this->updateSigma(cpt, dt, epsilon_veloc, sigma_n, del_damage);
+            // Recalculate the new state of stress by relaxing elstically
+            for (int i=0;i<3;i++)
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
         }
-
-        // Save sigma
-        for (int i=0;i<3;i++)
-            M_sigma[i][cpt] = sigma[i];
 
         /*======================================================================
          * Check:
