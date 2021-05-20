@@ -172,6 +172,7 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
     M_ncols = ncols;
     M_nrows = nrows;
     M_mooring_spacing = mooring_spacing;
+    M_is_regular_grid = true;
     M_grid_size = M_ncols*M_nrows;
 
     M_xmin = xmin;
@@ -191,21 +192,22 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
     double lat;
     double lon;
     int i=0;
-    double X = xmin;
-    for (int ncols=0; ncols<M_ncols; ncols++)
+    double Y = ymin;
+    // x changes in cols, y in rows
+    for (int nrows=0; nrows<M_nrows; nrows++)
     {
-        double Y = ymin;
-        for (int nrows=0; nrows<M_nrows; nrows++)
+        double X = xmin;
+        for (int ncols=0; ncols<M_ncols; ncols++)
         {
             int status = inverse_mapx(map,X,Y,&lat,&lon);
             M_grid.gridLAT[i] = lat;
             M_grid.gridLON[i] = lon;
-            Y += mooring_spacing;
+            X += mooring_spacing;
             i++;
         }
-        X += mooring_spacing;
-        M_ymax = Y - mooring_spacing;
+        Y += mooring_spacing;
     }
+    M_ymax = Y - mooring_spacing;
 
     close_mapx(map);
 
@@ -220,6 +222,7 @@ void
 GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
 {
+    M_is_regular_grid = false;
     M_grid = grid;
     M_comm = comm;
 
@@ -235,24 +238,16 @@ GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, C
     // Open file
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
-    /* We don't know the dimNameX and dimNameY so we assume the first dimension is x and the second
-     * is y ... unless M_grid.transpose is true, then we do it the other way around. */
+    /* We don't know the dimNameX and dimNameY so we assume the first dimension is y and the second
+     * is x ... unless M_grid.transpose is true, then we do it the other way around. */
     netCDF::NcVar VLAT = dataFile.getVar(M_grid.latName);
     netCDF::NcVar VLON = dataFile.getVar(M_grid.lonName);
 
     // Read the dimension of the grid
-    netCDF::NcDim dim;
-    M_grid.dimNameX = VLAT.getDim((int)M_grid.transpose).getName();
-
-    dim = dataFile.getDim(M_grid.dimNameX);
-    M_ncols = dim.getSize();
-
-    M_grid.dimNameY = VLAT.getDim((int)!M_grid.transpose).getName();
-
-    dim = dataFile.getDim(M_grid.dimNameY);
-    M_nrows = dim.getSize();
-
-    M_mooring_spacing = -1.;
+    M_grid.dimNameX = VLAT.getDim((int)!M_grid.transpose).getName();
+    M_grid.dimNameY = VLAT.getDim((int)M_grid.transpose).getName();
+    M_ncols = dataFile.getDim(M_grid.dimNameX).getSize();
+    M_nrows = dataFile.getDim(M_grid.dimNameY).getSize();
     M_grid_size = M_ncols*M_nrows;
 
     // Read the lat and lon, and theta and corners if requested
@@ -470,8 +465,16 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
                                     &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
                                     true, 0.);
     }
-    else if ( (M_ncols>0) && (M_nrows>0) && (M_mooring_spacing>0) )
+    else if (M_is_regular_grid)
     {
+        if ( (M_ncols <= 0) || (M_nrows <= 0) || (M_mooring_spacing <= 0) )
+        {
+            // sanity check
+            std::stringstream msg;
+            msg << "GridOutput::updateGridMeanWorker: using regular grid\n";
+            msg << "but not all of M_ncols, M_nrows, or M_mooring_spacing are set properly.\n";
+            std::logic_error(msg.str());
+        }
         InterpFromMeshToGridx(interp_out,
                               &indexTr[0],&coordX[0],&coordY[0],
                               numNodes,numTriangles,
@@ -484,7 +487,7 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     }
     else
     {
-        std::logic_error("GridOutput::updateGridMeanWorker: No grid loaded from file and one of M_ncols, M_nrows, or M_mooring_spacing not set properly.");
+        std::logic_error("GridOutput::updateGridMeanWorker: Not regular grid and no grid loaded.\n");
     }
 
     // Rotate vectors if needed (these may only be on the nodes)
@@ -494,12 +497,36 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
 
 
     // Add the output pointer value to the grid vectors
-    for (int i=0; i<nb_var; i++)
-        for (int j=0; j<M_grid_size; ++j)
-            if ( kind == variableKind::nodal )
-                variables[i].data_grid[j] += interp_out[nb_var*j+i]*M_proc_mask[j];
-            else
-                variables[i].data_grid[j] += interp_out[nb_var*j+i];
+    for (int nv=0; nv<nb_var; nv++)
+    {
+        if (M_is_regular_grid)
+        {
+            // regularly spaced grid
+            // - need to transpose bamg output
+            //   - bamg increases down columns
+            //   - grid increases along rows
+            int bamg_ind = 0;
+            for (int i=0; i<M_ncols; ++i)//x
+                for (int j=0; j<M_nrows; ++j)//y
+                {
+                    int const grid_ind = i + M_ncols*j;
+                    if ( kind == variableKind::nodal )
+                        variables[nv].data_grid[grid_ind]
+                            += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[grid_ind];
+                    else
+                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
+                    bamg_ind++;
+                }
+        }
+        else
+        {
+            for (int j=0; j<M_grid_size; ++j)
+                if ( kind == variableKind::nodal )
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv]*M_proc_mask[j];
+                else
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
+        }
+    }
 
     xDelete<double>(interp_out);
 }
@@ -836,10 +863,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     // Create the two spatial dimensions.
     netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
     netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
-
-    std::vector<netCDF::NcDim> dims2(2);
-    dims2[0] = xDim;
-    dims2[1] = yDim;
+    std::vector<netCDF::NcDim> dims2 = {yDim, xDim};
 
     // cell methods - combine time method with hard-coded area method defined for each variable
     std::string cell_methods_time = "time: point ";//for snapshot
@@ -856,8 +880,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
     lon.putAtt("standard_name","longitude");
     lon.putAtt("long_name","longitude");
-    lon.putAtt("units","degrees_north");
-    lon.putAtt("_CoordinateAxisType","Lon");
+    lon.putAtt("units","degrees_east");
     lon.putVar(&M_grid.gridLON[0]);
 
     // Latitude
@@ -865,15 +888,11 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     lat.putAtt("standard_name","latitude");
     lat.putAtt("long_name","latitude");
     lat.putAtt("units","degrees_north");
-    lat.putAtt("_CoordinateAxisType","Lat");
     lat.putVar(&M_grid.gridLAT[0]);
 
     // Create the output variables
     netCDF::NcVar data;
-    std::vector<netCDF::NcDim> dims(3);
-    dims[0] = tDim;
-    dims[1] = xDim;
-    dims[2] = yDim;
+    std::vector<netCDF::NcDim> dims = {tDim, yDim, xDim};
     for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
     {
         if ( it->varID < 0 ) // Skip non-outputting variables
@@ -970,7 +989,7 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
 
     // Append to the output variables
     start = {nc_step, 0, 0};
-    count = {1, M_ncols, M_nrows};
+    count = {1, (size_t) M_nrows, (size_t) M_ncols};
 
     // Apply mask - if needed
     if (M_use_lsm)

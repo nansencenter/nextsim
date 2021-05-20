@@ -30,7 +30,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 BOOST_LIBDIR=/opt/local/boost/lib
 
-CXX = g++
+CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -43,7 +43,7 @@ endif
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(BOOST_INCDIR)
+CXXFLAGS += -I $(BOOST_INCDIR)/
 CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
 LNKFLAGS  = -lstdc++ -lgfortran
 
@@ -64,10 +64,10 @@ FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 FFTW_INC   = $(FFTW_DIR)/include
 FFTW_LIB   = $(FFTW_DIR)/lib
 
-FC = gfortran
+FC = mpif90
 F90FLG= -free
 FFLAGS = -fPIC -O3 -fconvert=big-endian -fdefault-real-8
-FFLAGS += -I $(OPENMPI_INCLUDE_DIR) -I $(FFTW_INC)
+FFLAGS += -I $(FFTW_INC)/
 # ========================================================
 
 # ========================================================

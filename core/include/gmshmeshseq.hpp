@@ -123,6 +123,12 @@ public:
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices) const;
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices,
+                std::vector<double> const& um, double factor) const;
+
     std::vector<double> lat() const;
     std::vector<double> lon() const;
 

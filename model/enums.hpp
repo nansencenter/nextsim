@@ -15,53 +15,56 @@ namespace setup
 
     enum class AtmosphereType
     {
-        CONSTANT  = 0,
-        ASR       = 1,
-        ERAi      = 2,
-        EC        = 3,
-        EC2       = 4,
-        EC_ERAi   = 5,
-        CFSR      = 6,
-        CFSR_HI   = 7,
-        EC2_AROME = 8,
-        ERA5      = 9
+        CONSTANT           = 0,
+        GENERIC_PS         = 1,
+        ASR                = 2,
+        ERAi               = 3,
+        EC2                = 4,
+        EC_ERAi            = 5,
+        CFSR               = 6,
+        CFSR_HI            = 7,
+        EC2_AROME          = 8,
+        EC2_AROME_ENSEMBLE = 9,
+        ERA5               = 10
     };
 
-	enum class OceanType
-	{
-		CONSTANT = 0,
-		TOPAZR   = 1,
-		TOPAZF   = 2,
-        MITGCM   = 3,
-        TOPAZR_atrest   = 4,
+    enum class OceanType
+    {
+        CONSTANT           = 0,
+        TOPAZR             = 1,
+        TOPAZF             = 2,
+        MITGCM             = 3,
+        TOPAZR_atrest      = 4,
         TOPAZR_ALTIMETER   = 5,
-        COUPLED  = 6
+        COUPLED            = 6
     };
 
     enum class IceType
-	{
-		CONSTANT            = 0,
-		CONSTANT_PARTIAL    = 1,
-		AMSRE               = 2,
-		TOPAZ4              = 3,
-        ARBITRARY           = 5,
-        AMSR2               = 6,
-        TOPAZ4F             = 7,
-        MITGCM              = 8,
-        TARGET              = 9,
-        OSISAF              = 10,
-        PIOMAS              = 11,
-        TOPAZ4FAMSR2        = 12,
-        TOPAZ4FAMSR2OSISAF  = 13,
-        CS2_SMOS            = 14,
-        CS2_SMOS_AMSR2      = 15,
-        SMOS                = 16,
-        BINARY              = 17,
-        TOPAZ4OSISAFICESAT  = 18,
-        TOPAZ4FAMSR2OSISAFNIC= 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20,
-        CREG                = 21
-	};
+    {
+        CONSTANT                    = 0,
+        CONSTANT_PARTIAL            = 1,
+        AMSRE                       = 2,
+        TOPAZ4                      = 3,
+        ARBITRARY                   = 5,
+        AMSR2                       = 6,
+        TOPAZ4F                     = 7,
+        MITGCM                      = 8,
+        TARGET                      = 9,
+        OSISAF                      = 10,
+        PIOMAS                      = 11,
+        TOPAZ4FAMSR2                = 12,
+        TOPAZ4FAMSR2OSISAF          = 13,
+        CS2_SMOS                    = 14,
+        CS2_SMOS_AMSR2              = 15,
+        SMOS                        = 16,
+        BINARY                      = 17,
+        TOPAZ4OSISAFICESAT          = 18,
+        TOPAZ4FAMSR2OSISAFNIC       = 19,
+        TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
+        CREG                        = 21,
+        CICE                        = 22,
+        AMSR2CSTTHICK               = 23
+    };
 
     enum class WaveType
     {
@@ -92,6 +95,24 @@ namespace setup
         MULTI       = 2
     };
 
+    enum class WeldingType
+    {
+        NONE     = 0,
+        ROACH    = 1
+    };
+
+    enum class FSDType
+    {
+        CONSTANT_SIZE   = 0,
+        CONSTANT_AREA   = 1
+    };
+    enum class BreakupType
+    {
+        NONE  = 0,
+        UNIFORM_SIZE = 1,
+        ZHANG   =2,
+        DUMONT  =3
+    };
     enum class MeshType
     {
         FROM_UNREF     = 0,
@@ -107,7 +128,7 @@ namespace setup
     enum class FreezingPointType
     {
         LINEAR     = 0,
-        NON_LINEAR = 1
+        UNESCO     = 1
     };
 
 
@@ -119,9 +140,11 @@ namespace setup
 
     enum class DynamicsType
     {
-        DEFAULT         = 0,
-        NO_MOTION       = 1,
-        FREE_DRIFT      = 2
+        BBM        = 0,
+        NO_MOTION  = 1,
+        FREE_DRIFT = 2,
+        EVP        = 3,
+        mEVP       = 4
     };
 
 } // setup

@@ -140,6 +140,12 @@ public:
     std::vector<double> bCoordX(double const& rotangle) const;
     std::vector<double> bCoordY(double const& rotangle) const;
 
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices) const;
+    std::vector<std::vector<double>>
+        vertices(std::vector<int> const& indices,
+                std::vector<double> const& um, double factor) const;
+
     std::vector<double> meanLat() const;
     std::vector<double> meanLon() const;
 

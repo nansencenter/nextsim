@@ -64,23 +64,25 @@ public:
 
     typedef struct Grid
     {
-        Grid() {}
+        Grid()
+            : loaded(false), defined(false)
+        {}
 
         Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
-                loaded(false)
+                loaded(false), defined(true)
         {}
 
         interpMethod interp_method;
@@ -91,6 +93,7 @@ public:
         std::string thetaName;
 
         bool loaded;
+        bool defined;
         bool transpose;
 
         std::string dimNameX;
@@ -121,71 +124,83 @@ public:
     enum variableID
     {
         // Land-sea mask
-        lsm         =  0,
+        lsm =  0,
 
         // Prognostic variables
-        conc        =  1,
-        thick       =  2,
-        damage      =  3,
-        snow        =  4,
-        VT_x        =  5,
-        VT_y        =  6,
-        tsurf       =  7,
-        sst         =  8,
-        sss         =  9,
-        tsurf_ice   = 10,
-        t1          = 11,
-        t2          = 12,
-        h_thin      = 13,
-        hs_thin     = 14,
-        conc_thin   = 15,
-        fyi_fraction    = 16,
-        age_d       = 17,
-        age         = 18,
-        conc_upd    = 19,
+        conc         =  1,
+        thick        =  2,
+        snow         =  3,
+        damage       =  4,
+        ridge_ratio  =  5,
+        VT_x         =  6,
+        VT_y         =  7,
+        tsurf        =  8,
+        sst          =  9,
+        sss          = 10,
+        tsurf_ice    = 11,
+        t1           = 12,
+        t2           = 13,
+        h_thin       = 14,
+        hs_thin      = 15,
+        conc_thin    = 16,
+        fyi_fraction = 17,
+        age_d        = 18,
+        age          = 19,
+        conc_upd     = 20,
 
         // Diagnostic variables
-        Qa          = 100,
-        Qsw         = 101,
-        Qlw         = 102,
-        Qsh         = 103,
-        Qlh         = 104,
-        Qo          = 105,
-        delS        = 106,
-        rain        = 107,
-        evap        = 108,
+        Qa     = 100,
+        Qsw    = 101,
+        Qlw    = 102,
+        Qsh    = 103,
+        Qlh    = 104,
+        Qo     = 105,
+        delS   = 106,
+        rain   = 107,
+        evap   = 108,
+        d_crit = 109,
+        vice_melt  = 110,
+        del_hi     = 111,
+        del_hi_thin= 112,
+        newice     = 113,
+        snow2ice   = 114,
+        mlt_top    = 115,
+        mlt_bot    = 116,
+        del_vi_thin= 117,
 
         // Forcing variables
-        tair        = 200,
-        sphuma      = 201,
-        mixrat      = 202,
-        d2m         = 203,
-        mslp        = 204,
-        Qsw_in      = 205,
-        Qlw_in      = 206,
-        tcc         = 207,
-        snowfall    = 208,
-        precip      = 209,
-        snowfr      = 210,
-        wind_x      = 211,
-        wind_y      = 212,
+        tair     = 200,
+        sphuma   = 201,
+        mixrat   = 202,
+        d2m      = 203,
+        mslp     = 204,
+        Qsw_in   = 205,
+        Qlw_in   = 206,
+        tcc      = 207,
+        snowfall = 208,
+        precip   = 209,
+        snowfr   = 210,
+        wind_x   = 211,
+        wind_y   = 212,
+        wspeed   = 213,
 
         // WIM variables
-        dfloe       = 300,
+        dmax        = 300,
+        dmean       = 301,
 
         // Coupling variables not already covered elsewhere
-        taux        = 901,
-        tauy        = 902,
-        taumod      = 903,
-        fwflux      = 904,
-        QNoSw       = 905,
-        QSwOcean    = 906,
-        saltflux    = 907,
-        fwflux_ice  = 908,
+        taux       = 901,
+        tauy       = 902,
+        taumod     = 903,
+        fwflux     = 904,
+        QNoSw      = 905,
+        QSwOcean   = 906,
+        saltflux   = 907,
+        fwflux_ice = 908,
 
         // Non-output variables - all negative
-        proc_mask   = -1,
-        ice_mask    = -2
+        proc_mask = -1,
+        ice_mask  = -2
     };
 
 
@@ -230,6 +245,13 @@ public:
                     name     = "damage";
                     longName = "Sea Ice Damage";
                     stdName  = "sea_ice_damage";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::ridge_ratio):
+                    name     = "ridge_ratio";
+                    longName = "Sea Ice Ridge Ratio";
+                    stdName  = "sea_ice_ridge_ratio";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -415,6 +437,69 @@ public:
                     Units    = "kg m-2 s-1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::d_crit):
+                    name     = "d_crit";
+                    longName = "Distance_To_Yield_Criterion";
+                    stdName  = "distance_to_yield_criterion";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_vi_thin):
+                    name     = "del_vi_thin";
+                    longName = "Thin ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "thin_ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::vice_melt):
+                    name     = "vice_melt";
+                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi):
+                    name     = "del_hi";
+                    longName = "Growth-melt rate of (thick) ice";
+                    stdName  = "growth_melt_rate_of_thick_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi_thin):
+                    name     = "del_hi_thin";
+                    longName = "Growth-melt rate of new (thin) ice";
+                    stdName  = "growth_melt_rate_of_thin_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::newice):
+                    name     = "newice";
+                    longName = "Ice formed in open water by supercooling";
+                    stdName  = "ice_formed_in_open_water_by_supercooling";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_bot):
+                    name     = "mlt_bot";
+                    longName = "Ice melted at bottom";
+                    stdName  = "ice_melted_at_bottom";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_top):
+                    name     = "mlt_top";
+                    longName = "Ice melted at top";
+                    stdName  = "ice_melted_at_top";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::snow2ice):
+                    name     = "snow2ice";
+                    longName = "Ice formed from snow by flooding";
+                    stdName  = "ice_formed_from_snow_by_flooding";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
 
                 // Coupling variables
                 case (variableID::taux):
@@ -473,11 +558,20 @@ public:
                     Units    = "W m-2";
                     cell_methods = "area: mean";
                     break;
+
                 //WIM variables
-                case (variableID::dfloe):
-                    name     = "dfloe";
+                case (variableID::dmax):
+                    name     = "dmax";
                     longName = "Maximum floe size";
                     stdName  = "maximum_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dmean):
+                    name     = "dmean";
+                    longName = "Mean floe size";
+                    stdName  = "mean_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
@@ -569,6 +663,7 @@ public:
                     stdName  = "total_precipitation_rate";
                     Units    = "kg/m^2/s";
                     cell_methods = "area: mean";
+                    break;
 
                 case (variableID::wind_x):
                     name     = "wndx";
@@ -585,6 +680,13 @@ public:
                     Units    = "m/s";
                     cell_methods = "area: mean";
                     break;
+
+                case (variableID::wspeed):
+                    name     = "wspeed";
+                    longName = "Wind speed";
+                    stdName  = "wind_speed";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
                     break;
 
                 // Non-output variables
@@ -671,7 +773,7 @@ public:
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
-    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacin, double xmin, double yming, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
+    GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
@@ -703,7 +805,8 @@ public:
 
     int M_ncols;
     int M_nrows;
-    double M_mooring_spacing;
+    double M_mooring_spacing = 0;
+    bool M_is_regular_grid;
     double M_averaging_period;
     int M_grid_size;
     bool M_false_easting;

@@ -18,10 +18,6 @@ Environment::Environment( int& argc, char** &argv )
     mpicomm = Communicator::commSelf();
 
     this->setEnvironmentVariables();
-
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
 }
 
 Environment::Environment( int& argc, char** &argv, po::options_description desc )
@@ -46,48 +42,33 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
 
         if ( vmenv.count( "config-file" ) || vmenv.count( "config-files" ) )
         {
-
             if ( vmenv.count( "config-file" ) )
+                configFiles = {vmenv["config-file"].as<std::string>()};
+            else if ( vmenv.count( "config-files" ) )
+                configFiles = vmenv["config-files"].as<std::vector<std::string>>();
+        }
+
+        if (configFiles.size() == 0)
+        {
+            std::stringstream msg;
+            msg << "Please provide (a) config file(s) with command line options\n";
+            msg << "--config-file=CFGFILE or --config-files=CFGFILE1 CFGFILE2\n";
+            throw std::runtime_error(msg.str());
+        }
+
+        // loop over config files
+        for ( std::string cfgfile : configFiles )
+        {
+            if ( fs::exists( cfgfile ) )
             {
-                // only 1 config file
-                std::string cfg_file = vmenv["config-file"].as<std::string>();
-                if ( fs::exists(cfg_file) )
-                {
-                    if (Communicator::commSelf().rank()==0)
-                        std::cout << "Reading " << cfg_file << "...\n";
-                    std::ifstream ifs( cfg_file.c_str() );
-
-                    // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
-                    po::store( parse_config_file( ifs, desc, false ), vmenv );
-                }
-                else
-                {
-                    std::cout << "Cannot find " << "config-file `" << vmenv["config-file"].as<std::string>() <<"`\n";
-                }
+                if (Communicator::commSelf().rank()==0)
+                    std::cout << "Reading " << cfgfile << "...\n";
+                std::ifstream ifs( cfgfile.c_str() );
+                // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
+                po::store( parse_config_file( ifs, desc, false ), vmenv );
             }
-
-            if ( vmenv.count( "config-files" ) )
-            {
-                std::vector<std::string> configFiles = vmenv["config-files"].as<std::vector<std::string> >();
-
-                // multiple config files: loop over them all
-                for ( std::string cfgfile : configFiles )
-                {
-                    if ( fs::exists( cfgfile ) )
-                    {
-                        if (Communicator::commSelf().rank()==0)
-                            std::cout << "Reading " << cfgfile << "...\n";
-                        std::ifstream ifs( cfgfile.c_str() );
-                        // 3rd argument of parse_config_file: true for ignoring unknown options (false else)
-                        po::store( parse_config_file( ifs, desc, false ), vmenv );
-                    }
-                    else
-                    {
-                        std::cout << "Cannot find " << "config-file `" << cfgfile <<"`\n";
-                    }
-                }
-            }
-
+            else
+                std::cout << "Cannot find " << "config-file `" << cfgfile <<"`\n";
         }
 
         po::notify(vmenv);
@@ -116,7 +97,7 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         throw std::runtime_error("...");
     }
 
-    //! -3) Initialise communicator, PETSc, and OASIS (if compiled in)
+    //! -3) Initialise communicator and OASIS (if compiled in)
 #ifdef OASIS
     // For OASIS we need to get the local communicator first
 
@@ -142,9 +123,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
     // create a Nextsim::Communicator from the OASIS communicator
     mpicomm = Communicator(localComm);
 
-    // Tell PETSc to use the right communicator
-    PETSC_COMM_WORLD = localComm;
-
     // Create the coupler communicator - only root communicates with the coupler
     ierror = OASIS3::create_couplcomm(mpicomm.rank()==0, &localComm, &cplComm);
     if (ierror != 0) {
@@ -154,10 +132,6 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
 #else
     mpicomm = Communicator::commSelf();
 #endif
-
-    int ierr = 0;
-    ierr = PetscInitialize( &argc, &argv, PETSC_NULL, PETSC_NULL );
-    CHKERRABORT( mpicomm, ierr );
 
     //! -4) set other useful variables it would be convenient to have access to
     //! across multiple classes
@@ -173,18 +147,16 @@ Environment::Environment( int& argc, char** &argv, po::options_description desc 
         ("info", INFO)
         ("warning", WARNING)
         ("error", ERROR);
-
-    log_level = str2log.find(vmenv["debugging.log-level"].as<std::string>())->second;
-
+    std::string const s = vmenv["debugging.log-level"].as<std::string>();
+    if(str2log.count(s)==0)
+        throw std::runtime_error("bad value for option debugging.log-level: " + s);
+    log_level = str2log.find(s)->second;
     log_all = vmenv["debugging.log-all"].as<bool>();
 }
 
 
 Environment::~Environment()
-{
-    int ierr = 0;
-    ierr = PetscFinalize();
-}
+{}
 
 
 void
@@ -219,47 +191,8 @@ po::variables_map Environment::vmenv;
 fs::path Environment::nextsim_data_dir_env;
 fs::path Environment::nextsim_mesh_dir_env;
 std::string Environment::nextsim_mppfile;
+std::vector<std::string> Environment::configFiles;
 LogLevel Environment::log_level;
 bool Environment::log_all;
-
-MemoryUsage
-Environment::logMemoryUsage(std::string const& message)
-{
-    MemoryUsage mem;
-
-    PetscMemoryGetCurrentUsage( &mem.memory_usage );
-    std::cout << message
-              << " PETSC get current memory usage (resident memory): ["
-              << mem.memory_usage/1e3
-              << " KB]  ["
-              << mem.memory_usage/1e6
-              << " MB]  ["
-              << mem.memory_usage/1e9
-              << " GB]\n" ;
-    //PetscMemoryGetMaximumUsage( &mem );
-    //LOG(INFO) << logMessage << " PETSC get maximum memory usag (resident memory): " << mem/1e6 << "  MB " << mem/1e9 << " GB" ;
-
-    PetscMallocGetCurrentUsage( &mem.petsc_malloc_usage );
-    std::cout << message
-              << " PETSC get current PETSC Malloc usage: ["
-              << mem.petsc_malloc_usage/1e3
-              << " KB]  ["
-              << mem.petsc_malloc_usage/1e6
-              << " MB]  ["
-              << mem.petsc_malloc_usage/1e9
-              << " GB]\n" ;
-
-    PetscMallocGetMaximumUsage( &mem.petsc_malloc_maximum_usage );
-    std::cout << message
-              << " PETSC get maximum PETSC Malloc usage(largest memory ever used so far): ["
-              << mem.petsc_malloc_maximum_usage/1e3
-              << " KB]  ["
-              << mem.petsc_malloc_maximum_usage/1e6
-              << " MB]  ["
-              << mem.petsc_malloc_maximum_usage/1e9
-              << " GB]\n" ;
-
-    return mem;
-}//logMemoryUsage
 
 } // Nextsim
