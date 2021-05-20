@@ -564,6 +564,7 @@ FiniteElement::surface(FEMeshType const& mesh)
 void
 FiniteElement::assignVariables()
 {
+    M_delta_x.resize(M_num_nodes);
     M_surface = this->surface(M_mesh);
 
     M_UM.assign(2*M_num_nodes,0.);
@@ -1181,6 +1182,7 @@ FiniteElement::initOptAndParam()
 
     //! Sets mechanical parameter values
     // scale_coef is now set after initialising the mesh
+    compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
     C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
@@ -1458,7 +1460,7 @@ FiniteElement::initFETensors()
 {
     M_Dunit.assign(9,0);
 
-    double Dunit_factor=1./(1.-nu0*nu0);
+    double const Dunit_factor=1./(1.-nu0*nu0);
     /* Stiffness matrix
      * 1  nu 0
      * nu 1  0
@@ -4013,51 +4015,12 @@ FiniteElement::update(std::vector<double> const & UM_P)
 }//update
 
 //------------------------------------------------------------------------------------------------------
-//! Update M_sigma and return elasticity for a given cpt (index).
-//! Optional parameters for BBM is del_damage, with del_damage > 0 only when
-//! calculating sigma after a change in damage.
-//! Called from explicitSolve() and updateSigmaDamage()
-double inline
-FiniteElement::updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage)
-{
-    double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
-
-    double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
-    // Plastic failure
-    double dcrit;
-    if ( sigma_n > 0. )
-    {
-        double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
-        // dcrit must be capped at 1 to get an elastic response
-        dcrit = std::min(1., Pmax/sigma_n);
-    } else {
-        dcrit = 0.;
-    }
-
-    double const multiplicator = std::min( 1. - 1e-12,
-            time_viscous/(time_viscous+dt*(1.-dcrit)+time_viscous*del_damage/(1.-M_damage[cpt])) );
-
-    double const elasticity = young*(1.-M_damage[cpt])*expC;
-
-    for(int i=0;i<3;i++)
-    {
-        for(int j=0;j<3;j++)
-            M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-        M_sigma[i][cpt] *= multiplicator;
-    }
-
-    return elasticity;
-
-}//updateSigma
-
-//------------------------------------------------------------------------------------------------------
 //! Calculate M_sigma for the current time step and update M_damage.
 void
 FiniteElement::updateSigmaDamage(double const dt)
 {
-    // Slope of the MC enveloppe
-    const double q = std::pow(std::pow(std::pow(tan_phi,2.)+1,.5)+tan_phi,2.);
+    // Reciprocal of the speed of a shear wave in undamaged ice (used to calculate td)
+    double const sqrt_nu_rhoi = std::sqrt( 2.*(1.+nu0)*physical::rhoi );
 
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
@@ -4101,36 +4064,55 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double const elasticity = this->updateSigma(cpt, dt, epsilon_veloc, -(M_sigma[0][cpt]+M_sigma[1][cpt])*0.5);
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
+        double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
+
+        // Plastic failure
+        double tildeP;
+        if ( sigma_n < 0. )
+        {
+            double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
+            // tildeP must be capped at 1 to get an elastic response
+            tildeP = std::min(1., -Pmax/sigma_n);
+        } else {
+            tildeP = 0.;
+        }
+
+        double const multiplicator = std::min( 1. - 1e-12,
+                time_viscous/(time_viscous+dt*(1.-tildeP)) );
+
+        double const elasticity = young*(1.-M_damage[cpt])*expC;
+
+        for(int i=0;i<3;i++)
+        {
+            for(int j=0;j<3;j++)
+                M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
+
+            M_sigma[i][cpt] *= multiplicator;
+        }
 
         /*======================================================================
          //! - Estimates the level of damage from the updated internal stress and the local damage criterion
          *======================================================================
          */
 
-        /* Calculate the characteristic time for damage */
-        double const delta_x2 = 4.*M_surface[cpt]/std::sqrt(3.);
-        double const td = std::sqrt( delta_x2 * 2.*(1.+nu0)*physical::rhoi/elasticity );
-
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s =  std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        double const sigma_n = -           (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
-        double const sigma_1 = sigma_n+sigma_s; // max principal component following convention (positive sigma_n=pressure)
-        double const sigma_2 = sigma_n-sigma_s; // min principal component following convention (positive sigma_n=pressure)
-
-        double const sigma_c =  2.*M_Cohesion[cpt]/(std::sqrt(std::pow(tan_phi,2)+1)-tan_phi);
-        double const sigma_t = -sigma_c/q;
-
-        double dcrit = 0;
-        if ( sigma_2 > 0. )
-            dcrit = sigma_c/(sigma_1-q*sigma_2);
+        // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
+        double dcrit;
+        if ( sigma_n < -compr_strength )
+            dcrit = -compr_strength/sigma_n;
         else
-            dcrit = sigma_t/sigma_2;
+            dcrit = M_Cohesion[cpt]/(sigma_s+tan_phi*sigma_n);
 
         /* Calculate the adjusted level of damage */
-        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_1 - q*sigma_2 < 0 is always inside, but gives dcrit < 0
+        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
+            /* Calculate the characteristic time for damage and damage increment */
+            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
             M_damage[cpt] += del_damage;
 
@@ -4138,8 +4120,9 @@ FiniteElement::updateSigmaDamage(double const dt)
             M_cum_damage[cpt] += del_damage;
 #endif
 
-            //Calculating the new state of stress
-            this->updateSigma(cpt, dt, epsilon_veloc, sigma_n*dcrit, del_damage);
+            // Recalculate the new state of stress by relaxing elstically
+            for (int i=0;i<3;i++)
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
         }
 
         /*======================================================================
@@ -6445,12 +6428,13 @@ FiniteElement::init()
     LOG(INFO) <<"TIMESTEP= "<< time_step <<" s\n";
     LOG(INFO) <<"DURATION= "<< duration/days_in_sec <<" day(s)\n";
 
-    // We need to set the scale_coeff et al after initialising the mesh - this was previously done in initConstants
+    // We need to set the scale_coef et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
     scale_coef = std::sqrt(0.1/M_res_root_mesh);
     C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
+    compr_strength *= scale_coef;
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
 
     if ( M_use_restart )
@@ -7224,7 +7208,6 @@ FiniteElement::updateIceDiagnostics()
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
-    double sigma_s, sigma_n;
     std::vector<double> sigma(3);
     for(int i=0; i<M_num_elements; i++)
     {
@@ -7242,12 +7225,8 @@ FiniteElement::updateIceDiagnostics()
         D_tsurf[i] += (1-D_conc[i])*M_sst[i];
 
         // principal stresses
-        for(int k=0; k<3; k++)
-            sigma[k] = M_sigma[k][i];
-        sigma_s = std::hypot((sigma[0]-sigma[1])/2., sigma[2]);
-        sigma_n =          - (sigma[0]+sigma[1])/2.;
-        D_sigma[0][i] = sigma_n+sigma_s;
-        D_sigma[1][i] = sigma_n-sigma_s;
+        D_sigma[0][i] =            (M_sigma[0][i]+M_sigma[1][i])/2.;
+        D_sigma[1][i] = std::hypot((M_sigma[0][i]-M_sigma[1][i])/2.,M_sigma[2][i]);
         // FSD relative parameters
         D_dmean[i] = 0. ;
         D_dmax[i]  = 0. ;
@@ -9315,6 +9294,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
     M_timer.tick("prep elements");
 
+    M_delta_x.resize(M_num_elements);
     M_surface.resize(M_num_elements);
     M_shape_coeff.resize(M_num_elements);
     M_B0T.resize(M_num_elements);
@@ -9326,6 +9306,8 @@ FiniteElement::explicitSolve()
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
         // We need to update the mesh every time step
+        auto const my_sides = this->sides(M_elements[cpt], M_mesh, M_UM);
+        M_delta_x[cpt] = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);
         // TODO: Put the B0T code in a seperate function

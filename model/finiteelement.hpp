@@ -287,7 +287,6 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
-    double inline updateSigma(int const cpt, double const dt, std::vector<double> const& epsilon_veloc, double const sigma_n, double const del_damage=0.);
 
 #ifdef OASIS
     // FSD related functions
@@ -466,6 +465,7 @@ private:
     std::vector<double> M_diffusivity_parameters;
 
     std::vector<double> M_surface;
+    std::vector<double> M_delta_x;
 
     std::vector<double> M_UM;
     std::vector<double> M_UM_P;
@@ -480,6 +480,7 @@ private:
     std::vector<double> M_Voce_factor;
     std::vector<double> M_basal_factor;
     std::vector<double> M_water_elements;
+
 
 #ifdef OASIS
     ExternalData M_tau_wi;

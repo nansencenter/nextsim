@@ -307,8 +307,9 @@ namespace Nextsim
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
             ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
-            ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
+            ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1e10 ), "Pa")
             ("dynamics.compaction_param", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
