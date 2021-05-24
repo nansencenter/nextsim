@@ -294,9 +294,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                                 data0.getVar(&M_dataset->synforc[0]);     
                             }
                         }
-                    }       
-                    double sum_before=0.,sum_after=0.,sum_tmp, ratio; 
-                    std::vector<double> sum_vector;             
+                    }                     
                     //Q: where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
                     M_comm.barrier();
                     boost::mpi::broadcast(M_comm, previous_perturbation_exist, 0); 
@@ -306,34 +304,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     if( previous_perturbation_exist==1) // if not, wind forcing has been moved from current to previous in function? in this file below
                     {
                         LOG(DEBUG) << "### Add previous perturbations to wind fields\n";  
-                        
-                        //summary wind speed before perturbation
-                        M_comm.barrier();
-                        sum_tmp = 0;
-                        for(int n = 0; n<x_count*y_count; n++)  
-                            sum_tmp += sqrt(pow(M_dataset->variables[0].loaded_data[0][n],2) + pow(M_dataset->variables[1].loaded_data[0][n],2));
-                        M_comm.barrier();
-                        boost::mpi::all_gather(M_comm, sum_tmp, sum_vector);
-                        sum_before = std::accumulate(sum_vector.begin(),sum_vector.end(),0);
-
                         perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1,1);  // the last argument indates which variable field is pertubed, starting from 1.  uwind
                         perturbation.addPerturbation(M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2,1);  // vwind
-
-                        //summary wind speed after perturbation
-                        sum_tmp = 0.;
-                        for(int n = 0; n<x_count*y_count; n++)
-                            sum_tmp += sqrt(pow(M_dataset->variables[0].loaded_data[0][n],2) + pow(M_dataset->variables[1].loaded_data[0][n],2));
-                        M_comm.barrier();
-                        boost::mpi::all_gather(M_comm, sum_tmp, sum_vector);
-                        sum_after = std::accumulate(sum_vector.begin(),sum_vector.end(),0);
-                        ratio = sum_before/sum_after;
-                        M_comm.barrier();
-                        boost::mpi::broadcast(M_comm,ratio, 0);    
-                        //adjust wind speed
-                        for(int n = 0; n<x_count*y_count; n++) {  
-                            M_dataset->variables[0].loaded_data[0][n] *= ratio;
-                            M_dataset->variables[1].loaded_data[0][n] *= ratio;
-                        } 
                     }
                     
                     LOG(DEBUG) << "### Generate current perturbations based on randfld at previous randfld \n"; 
@@ -358,42 +330,16 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         // @Einar, similar as line 319 but for current perturbation
                         //M_wind_elements->perturb_atm_element_current = M_dataset->synforc[2*MN_full].                               
                     }   
-                    //summary wind speed before perturbation
+                                    
                     M_comm.barrier();
-                    sum_tmp = 0;
-                    for(int n = 0; n<x_count*y_count; n++)  
-                        sum_tmp += sqrt(pow(M_dataset->variables[0].loaded_data[1][n],2) + pow(M_dataset->variables[1].loaded_data[1][n],2));
-                    M_comm.barrier();
-                    boost::mpi::all_gather(M_comm, sum_tmp, sum_vector);
-                    sum_before = std::accumulate(sum_vector.begin(),sum_vector.end(),0);
-                    //
                     LOG(DEBUG) << "### Broadcast current perturbations to all processors\n";  
-                    M_comm.barrier();
                     boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0);                
                     LOG(DEBUG) << "### Add current perturbations to wind fields\n";  
                     perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1,1); 
                     perturbation.addPerturbation(M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2,1); 
 
-                    //summary wind speed after perturbation
-                    sum_tmp = 0.;
-                    for(int n = 0; n<x_count*y_count; n++)
-                        sum_tmp += sqrt(pow(M_dataset->variables[0].loaded_data[1][n],2) + pow(M_dataset->variables[1].loaded_data[1][n],2));
-                    M_comm.barrier();
-                    boost::mpi::all_gather(M_comm, sum_tmp, sum_vector);
-                    sum_after = std::accumulate(sum_vector.begin(),sum_vector.end(),0);
-                    ratio = sum_before/sum_after;
-                    M_comm.barrier();
-                    boost::mpi::broadcast(M_comm,ratio, 0);    
-                    //adjust wind speed
-                    for(int n = 0; n<x_count*y_count; n++) {  
-                        M_dataset->variables[0].loaded_data[1][n] *= ratio;
-                        M_dataset->variables[1].loaded_data[1][n] *= ratio;
-                    } 
-                    LOG(DEBUG)  <<"perturbation ratio= "<<ratio<<"\n";
-                    
-                    
-                    // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[1].begin(),M_dataset->variables[0].loaded_data[1].end());
-                    // double M_max=*std:: max_element(M_dataset->variables[0].loaded_data[1].begin(),M_dataset->variables[0].loaded_data[1].end());
+                    // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
+                    // double M_max=*std:: max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
                     // LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
                 }
                 else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \

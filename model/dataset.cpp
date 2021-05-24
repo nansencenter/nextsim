@@ -6051,22 +6051,6 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
-//        Variable conc={
-//            name: "sic",
-//            dimensions: dimensions,
-//            land_mask_defined: true,
-//            land_mask_value: 12500.,
-//            NaN_mask_defined: true,
-//            NaN_mask_value: 11500.,
-//            use_FillValue: false,
-//            use_missing_value: false,
-//            a: 0.01,
-//            b: 0.,
-//            Units: "",
-//            loaded_data: loaded_data_tmp,
-//            interpolated_data: interpolated_data_tmp,
-//            wavDirOptions: wavdiropt_none
-//        };
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
             filename_prefix: "", // All variables are in the same (grid) file
@@ -6080,7 +6064,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -6112,11 +6096,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        // std::vector<Variable> variables_tmp(2);
-        // variables_tmp[0] = thickness;
-        // variables_tmp[1] = conc;
-        std::vector<Variable> variables_tmp(1);
+        std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = thickness;
+        variables_tmp[1] = conc;
+        // std::vector<Variable> variables_tmp(1);
+        // variables_tmp[0] = thickness;
 
         variables= variables_tmp;
         grid= grid_tmp;

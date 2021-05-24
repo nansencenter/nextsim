@@ -9169,10 +9169,10 @@ FiniteElement::readStateVector()
 
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
-//    external_data M_analysis_conc=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
-//    external_data_tmp.push_back(&M_analysis_conc);
+    external_data_tmp.push_back(&M_analysis_conc);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
@@ -9183,14 +9183,15 @@ FiniteElement::readStateVector()
     LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
     for(int i=0; i<M_num_elements; ++i){
         LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
-//        LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
         LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
-//        LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
         M_thick[i]  = (M_analysis_thick[i]>1e-14) ? M_analysis_thick[i] : 0.;
-//        M_conc[i]   = (M_analysis_conc[i] >1e-14) ? M_analysis_conc[i] : 0.;
+
 
         LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
-//        LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
+        LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
+        LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
+        M_conc[i]   = (M_analysis_conc[i] >1e-14) ? M_analysis_conc[i] : 0.;
+        LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
     }
 
 }//readStateVector
@@ -9219,12 +9220,12 @@ FiniteElement::export_WindPerturbations()
         Dataset *M_dataset;
         // write data to the file
         M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-        LOG(DEBUG) << "write perturbations that are added to fields\n";
+        LOG(DEBUG) << "write dimensional perturbations\n";
         netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
         netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
         synforc.putVar(&M_dataset->synforc[0]);
         //
-        LOG(DEBUG) << "write math-perturbed fields\n";
+        LOG(DEBUG) << "write nondimensional fields\n";
         netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
         netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
         randfld.putVar(&M_dataset->randfld[0]);
@@ -9552,21 +9553,7 @@ FiniteElement::readRestart(std::string const& name_str)
         // read time and misc_int
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
-// #ifdef ENSEMBLE
-//         if ( field_map_dbl.count("synforc") * field_map_dbl.count("randfld") > 0. )
-//         {
-//             //@@@M_external_data_nodes, M_wind are not defined yet, which are defined in step(5) @@@
-//             // if(!M_wind.isInitialized())
-//                 //     throw std::logic_error("M_wind is not initialised");
-//             // M_wind.synforc = field_map_dbl["synforc"];
-//             // M_wind.randfld = field_map_dbl["randfld"];
-//             M_external_data_nodes[0]->put_Mwind(field_map_dbl["synforc"], field_map_dbl["randfld"]);
-//         }
-//         else{
-//             // Initialise M_wind.synforc and M_wind.randfld differently in externaldata.cpp
-//         }
 
-// #endif
         // Fix boundaries
         M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
@@ -9600,14 +9587,7 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // mesh partitioning
     this->partitionMeshRestart();
-// #ifdef ENSEMBLE
-//     if (M_wind.synforc.size() ==1){ //see  externaldata.cpp
-//     // no need to broadcast randfld, it is only used in root processor for generating next synforc. 
-//     // If previous perturbed wind field is not used, then it is no need to broadcast synforc too.              
-//         boost::mpi::broadcast(M_comm, &M_wind.synforc[0], M_wind.synforc.size(), 0); 
-//         boost::mpi::broadcast(M_comm, &M_wind.randfld[0], M_wind.randfld.size(), 0); 
-//     }
-// #endif
+
     //set time and counters
     if(M_rank==0)
     {
