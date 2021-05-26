@@ -4,12 +4,7 @@ PROGNAME=nextsim.exec
 
 CXX = mpicxx
 
-# setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
-ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
-	CXXFLAGS += -std=c++14
-else
-	CXXFLAGS += -std=c++11
-endif
+CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
@@ -94,7 +89,6 @@ CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -isystem /opt/local/include
 
 ifeq ($(KERNEL),Linux)
-	#CXXFLAGS += -std=c++0x -std=c++11 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -lm -pthread -v #-MMD -MP -lm -pthread -v
 	CXXFLAGS += -I /usr/include
 
 else

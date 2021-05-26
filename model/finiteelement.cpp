@@ -5938,18 +5938,10 @@ FiniteElement::thermo(int dt)
         else
         {
             // nudgeFlux
-            if ( M_ocean_salt[i] > physical::si )
-            {
-                Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
+            Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
-                double delS = M_sss[i] - M_ocean_salt[i];
-                Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
-            }
-            else
-            {
-                Qdw = Qdw_const;
-                Fdw = Fdw_const;
-            }
+            double const delS = M_sss[i] - M_ocean_salt[i];
+            Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
         }
 
         // -------------------------------------------------
@@ -6090,9 +6082,10 @@ FiniteElement::thermo(int dt)
                             newsnow = del_hs_thin;
                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
-                            M_conc_thin[i] -= del_c;
-                            M_h_thin[i]    -= del_h_thin;
-                            M_hs_thin[i]   -= del_hs_thin;
+                            // std::max is to prevent round-off error giving negative values
+                            M_conc_thin[i] = std::max( 0., M_conc_thin[i] - del_c );
+                            M_h_thin[i]    = std::max( 0., M_h_thin[i] - del_h_thin );
+                            M_hs_thin[i]   = std::max( 0., M_hs_thin[i] - del_hs_thin );
                         }
                     }
                 }
@@ -6366,7 +6359,9 @@ FiniteElement::thermo(int dt)
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
         denominator = ( denominator > 1.*physical::rhow ) ? denominator : 1.*physical::rhow;
 
-        double delsss = ( (M_sss[i]-physical::si)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
+        // Use si_eff (effective ice salinity) to make sure that salt is only moved from the ocean to the ice when ocean salinity is higher than the ice salinity
+        double const si_eff = std::min(M_sss[i], physical::si);
+        double const delsss = ( (M_sss[i]-si_eff)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
@@ -6467,13 +6462,13 @@ FiniteElement::thermo(int dt)
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
 
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
-        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*physical::si)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
+        D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*si_eff)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
 
         // Freshwater balance at the surface - kg/m^2/s
         D_fwflux[i] = D_fwflux_ice[i] - emp;
 
         // Brine release - kg/m^2/s
-        D_brine[i] = -1e-3*physical::si*physical::rhoi*del_vi/ddt;
+        D_brine[i] = -1e-3*si_eff*physical::rhoi*del_vi/ddt;
 
         // Evaporation
         D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
@@ -7960,19 +7955,12 @@ FiniteElement::step()
     M_regrid = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
-        M_timer.tick("angle_check");
-        double displacement_factor = 1.;
-        double minang = this->minAngle(M_mesh,M_UM,displacement_factor);
-        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+        M_timer.tick("checkRegridding");
+        M_regrid = this->checkRegridding();
+        M_timer.tock("checkRegridding");
 
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-
-        M_timer.tock("angle_check");
-
-        if ( minang < vm["numerics.regrid_angle"].as<double>() )
+        if ( M_regrid )
         {
-            M_regrid = true;
-
             if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
@@ -8048,6 +8036,8 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
+
+        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
 
     M_comm.barrier();
@@ -8273,7 +8263,26 @@ FiniteElement::step()
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
- }//step
+}//step
+
+
+//-------------------------------------------------------------------------------------
+//! Test all processes if regridding is necessary,
+//! and make sure all the others know it is time.
+//! Called by FiniteElement::step()
+bool
+FiniteElement::checkRegridding()
+{
+    bool regrid;
+    double const minang = this->minAngle(M_mesh, M_UM, 1.);
+    LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+    bool const regrid_local =
+        (minang < vm["numerics.regrid_angle"].as<double>())
+        || this->flip(M_mesh, M_UM, 1.);
+    boost::mpi::all_reduce(M_comm, regrid_local, regrid,
+            std::plus<bool>());//NB "+" for bools is "or"
+    return regrid;
+}//checkRegridding
 
 
 //------------------------------------------------------------------------------------------------------
@@ -9662,7 +9671,6 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i0].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #1 at " << M_drifters[i1].getInitTime()
             << " = " << datenumToString(M_drifters[i1].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
     }
     else if( b0 && !b1 )
     {
@@ -9673,11 +9681,11 @@ FiniteElement::synchroniseOsisafDrifters()
         M_drifters[i1].setInitTime(t);
         LOG(DEBUG) << "OSISAF drifters: have #0 at " << M_drifters[i0].getInitTime()
             << " = " << datenumToString(M_drifters[i0].getInitTime()) << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t << "\n";
     }
     else if( !(b0 || b1) )
     {
         // neither are initialised from restart => need to check the times
+        LOG(DEBUG) << "Neither OSISAF drifters initialised\n";
         double t = std::min(
                 M_drifters[i0].getInitTime(),
                 M_drifters[i1].getInitTime()
@@ -9686,8 +9694,17 @@ FiniteElement::synchroniseOsisafDrifters()
             t += 1;//make sure it's after the restart time, otherwise neither will ever start
         M_drifters[i0].setInitTime(t);
         M_drifters[i1].setInitTime(t + 1);
-        LOG(DEBUG) << "OSISAF drifters: init #0 at " << t << "\n";
-        LOG(DEBUG) << "OSISAF drifters: init #1 at " << t + 1 << "\n";
+    }
+    else
+    {
+        LOG(DEBUG) << "Both OSISAF drifters initialised\n";
+    }
+
+    for (int i=0; i<2; i++)
+    {
+        double const t = M_drifters[M_osisaf_drifters_indices[i]].getInitTime();
+        LOG(DEBUG) << "OSISAF drifters: init #" << i << " at "
+            << t << " = " << datenumToString(t) << "\n";
     }
 }//synchroniseOsisafDrifters
 
@@ -12693,7 +12710,6 @@ FiniteElement::instantiateDrifters()
                         netcdf_input_info, drifters_conc_lim, timing_info,
                         false)
                     );
-
         }
     }
 
