@@ -13570,6 +13570,18 @@ FiniteElement::checkFieldsFast()
     std::stringstream crash_msg;
     crash_msg << "FiniteElement::checkFieldsFast: Check failed: ";
 
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     *      WARNING
+     * Limit ice and snow thickness to get around a problem with HYCOM-neXtSIM
+     * Not for any other use!!!
+     * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     */
+    for (int i=0; i<M_num_elements; ++i )
+    {
+        M_thick[i]      = std::min(49., M_thick[i]);
+        M_snow_thick[i] = std::min(9.0, M_snow_thick[i]);
+    }
+
     // Loop over all the nodal variables
     for (auto ptr: M_variables_elt)
     {
