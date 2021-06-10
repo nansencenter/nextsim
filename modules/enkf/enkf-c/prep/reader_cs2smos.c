@@ -8,8 +8,8 @@
  *              NERSC
  *
  * Description: Contains reader_cs2smos_standard() for preprocessed
- *              data from CS2-SMOS.
- *              Parameters:
+ *              data from CS2-SMOS v2.03.
+ *              load SIT, obs. error of SIT and SIC
  *               
  *
  * Revisions:
@@ -35,7 +35,7 @@
 
 
 /**
- * read CS2_SMOS_v2.2 merged sea ice thickness, two dimensions, 
+ * read CS2_SMOS_v2.3 merged sea ice thickness, two dimensions, 
    W_XX-ESA,SMOS_CS2,NH_25KM_EASE2_20181111_20181117_r_v202_01_l4sit.nc << v202
 */
 void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, observations* obs)
