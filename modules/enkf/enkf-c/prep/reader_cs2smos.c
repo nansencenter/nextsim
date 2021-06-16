@@ -177,7 +177,7 @@ void reader_cs2smos_standard(char* fname, int fid, obsmeta* meta, grid* g, obser
                 
                 }
                 else if (strcmp(meta->type,"SIC") == 0) {
-                    o->value = (double) (sic[it][i][j]*sic_scale_factor*0.01);
+                    o->value = (double) (sic[it][i][j]*sic_scale_factor);
                     o->estd   = 0.01+pow(0.5-fabs(0.5-o->value),2.0);
                 }
                 o->lon = lon[i][j];
