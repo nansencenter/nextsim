@@ -8232,6 +8232,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc_summer[i]*time_factor;
                 break;
+            case (GridOutput::variableID::thick_summer):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_thick_summer[i]*time_factor;
+                break;
             case (GridOutput::variableID::melt_onset):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_melt_onset[i]*time_factor;
@@ -8589,6 +8593,7 @@ FiniteElement::initMoorings()
             ("conc_myi", GridOutput::variableID::conc_myi)
             ("melt_seconds", GridOutput::variableID::melt_seconds)
             ("freeze_seconds", GridOutput::variableID::freeze_seconds)
+            ("thick_summer", GridOutput::variableID::thick_summer)
             ("conc_summer", GridOutput::variableID::conc_summer)
             ("melt_onset", GridOutput::variableID::melt_onset)
             ("freeze_onset", GridOutput::variableID::freeze_onset)
