@@ -87,6 +87,7 @@ prep/reader_xyz_gridded.c\
 prep/reader_xyh_gridded.c\
 prep/reader_cmems.c\
 prep/reader_cs2smos.c\
+prep/reader_osisaf_iconc.c\
 prep/reader_z.c\
 prep/enkf_prep.c
 

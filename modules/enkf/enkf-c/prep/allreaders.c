@@ -48,6 +48,7 @@ obsreader_entry allreaders[] = {
     {"ANY", "xyh_gridded", reader_xyh_gridded},
     {"ANY", "z", reader_z},
     {"CS2SMOS", "standard", reader_cs2smos_standard},
+    {"OSISAF_ice_conc", "standard", reader_osisaf_iconc_standard},
 };
 
 /**
