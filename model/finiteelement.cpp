@@ -9177,23 +9177,31 @@ FiniteElement::readStateVector()
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
-//    external_data_tmp.resize(0);
+    external_data_tmp.resize(0);
+    // double M_min;
+    // M_min =*std::min_element(M_thick.begin(),M_thick.end());
+    // double M_max;
+    // M_max =*std:: max_element(M_thick.begin(),M_thick.end());
+    // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
+    // for(int i=0; i<M_num_elements; ++i)
+    //     std::cout<< M_thick[i] <<"  "<<M_analysis_thick[i]<<"  "<<M_conc[i] <<"  "<<M_analysis_conc[i] <<"\n";
 
     LOG(DEBUG)<<"-------------------M_size M_analysis_thick "<< M_analysis_thick.size() <<"\n";
     LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
     for(int i=0; i<M_num_elements; ++i){
-        LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
-        LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
-        M_thick[i]  = (M_analysis_thick[i]>1e-14) ? M_analysis_thick[i] : 0.;
-
-
-        LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
-        LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
-        LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
-        M_conc[i]   = (M_analysis_conc[i] >1e-14) ? M_analysis_conc[i] : 0.;
-        LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
+        
+        // LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
+        // LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
+        M_thick[i]  = std::max(M_analysis_thick[i],0.);
+        // LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
+        // LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
+        // LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
+        M_conc[i] = std::min(1.,std::max(M_analysis_conc[i],0.));
+        // LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
     }
-
+    // M_min =*std::min_element(M_thick.begin(),M_thick.end());
+    // M_max =*std:: max_element(M_thick.begin(),M_thick.end());
+    // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
 }//readStateVector
 
 void

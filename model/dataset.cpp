@@ -6044,7 +6044,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 0.01,
+            a: 1,
             b: 0.,
             Units: "",
             loaded_data: loaded_data_tmp,

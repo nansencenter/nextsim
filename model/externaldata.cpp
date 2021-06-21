@@ -283,7 +283,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         if (M_comm.rank() == 0) {                          
                             std::string filename_root = "WindPerturbation_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
                             ifstream iofile(filename_root.c_str());
-                            LOG(DEBUG) << "### existence of "<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
+                            LOG(DEBUG) << "### check if using a exist perturbation series"<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
                             previous_perturbation_exist = iofile.good();
                             if ( previous_perturbation_exist ) {
                                 netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
