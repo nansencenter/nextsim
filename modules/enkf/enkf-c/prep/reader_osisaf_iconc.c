@@ -39,13 +39,12 @@ void reader_osisaf_iconc_standard(char* fname, int fid, obsmeta* meta, grid* g, 
     int x_dimid, y_dimid, t_dimid, lon_dimid, lat_dimid;
     size_t nobslen, xlen, ylen, tlen, coast_len;
     int varid_lon, varid_lat, varid_sic, varid_time;
-    int    estd_fill_value,  sic_fill_value;
-    float  estd_scale_factor,sic_scale_factor;
+    int sic_fill_value;
+    float  sic_scale_factor;
     float** lon = NULL;
     float** lat = NULL;
     float* coast_lon = NULL;
     float* coast_lat = NULL;
-    int*** error_std = NULL;
     int*** sic = NULL;
     double* time = NULL;
     int year, month, day;
@@ -77,7 +76,6 @@ void reader_osisaf_iconc_standard(char* fname, int fid, obsmeta* meta, grid* g, 
     ncw_inq_varid(ncid, "lon", &varid_lon);
     lon = alloc2d(ylen, xlen, sizeof(float));
     ncw_get_var_float(ncid, varid_lon, lon[0]);
-    error_std = alloc3d(tlen, ylen, xlen, sizeof(int));
     sic = alloc3d(tlen, ylen, xlen, sizeof(int));
     
     if (strcmp(meta->type,"SIC") == 0) {
@@ -143,7 +141,7 @@ void reader_osisaf_iconc_standard(char* fname, int fid, obsmeta* meta, grid* g, 
                 o->fid = fid;
                 o->batch = 0;
                 if (strcmp(meta->type,"SIC") == 0) {
-                    o->value = (double) (sic[it][i][j]*sic_scale_factor);
+                    o->value = (double) (sic[it][i][j]*sic_scale_factor*0.01);  // sic_scale_factor=0.01, sic[it][i][j]*sic_scale_factor is from 0 to 100.
                     o->estd   = 0.01+pow(0.5-fabs(0.5-o->value),2.0);
                 }
                 o->lon = lon[i][j];
