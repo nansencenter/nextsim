@@ -8402,7 +8402,6 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
-            ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
@@ -8785,6 +8784,8 @@ FiniteElement::initStateVector()
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
             ("snow", GridOutput::variableID::snow)
+            ("damage", GridOutput::variableID::damage)
+            ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
@@ -8796,11 +8797,17 @@ FiniteElement::initStateVector()
             ("conc_thin", GridOutput::variableID::conc_thin)
             ("h_thin", GridOutput::variableID::h_thin)
             ("hs_thin", GridOutput::variableID::hs_thin)
+            ("sst", GridOutput::variableID::sst)
+            ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
+            ("vice_melt", GridOutput::variableID::vice_melt)
             ("fwflux", GridOutput::variableID::fwflux)
+            ("fwflux_ice", GridOutput::variableID::fwflux_ice)
             ("QNoSw", GridOutput::variableID::QNoSw)
             ("saltflux", GridOutput::variableID::saltflux)
+            ("dmax",GridOutput::variableID::dmax)
+            ("dmean",GridOutput::variableID::dmean)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
@@ -8819,8 +8826,8 @@ FiniteElement::initStateVector()
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
-
-
+            ("d_crit", GridOutput::variableID::d_crit)
+            ("wspeed", GridOutput::variableID::wspeed)
         ;
     std::vector<std::string> names = vm["statevector.variables"].as<std::vector<std::string>>();
 
@@ -8917,6 +8924,7 @@ FiniteElement::initStateVector()
             LOG(ERROR)<<"Unimplemented statevector output variable name: "<<*it<<"\n\n";
             LOG(ERROR)<<"Available names are:\n";
             LOG(ERROR)<<"  velocity\n";
+            LOG(ERROR)<<"  wind\n";
             LOG(ERROR)<<"  tau\n";
             for (auto ptr=statevector_name_map_elements.begin();
                     ptr!=statevector_name_map_elements.end(); ptr++)
@@ -9166,13 +9174,16 @@ FiniteElement::exportStateVector(bool const& at_init_time)
 void
 FiniteElement::readStateVector()
 {
-
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
+    external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
     external_data_tmp.push_back(&M_analysis_conc);
+    external_data_tmp.push_back(&M_analysis_sst);
+    external_data_tmp.push_back(&M_analysis_sss);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
@@ -9192,11 +9203,14 @@ FiniteElement::readStateVector()
         
         // LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
         // LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
-        M_thick[i]  = std::max(M_analysis_thick[i],0.);
+        // M_analysis_thick[i]=0.;
+        M_thick[i] = std::max(M_analysis_thick[i],0.);
+        M_conc[i] = std::min(1.,std::max(M_analysis_conc[i],0.));   
+        M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
+        M_sst[i]  = std::min(35.,std::max(M_analysis_sss[i],-0.057*M_sss[i]));
         // LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
         // LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
         // LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
-        M_conc[i] = std::min(1.,std::max(M_analysis_conc[i],0.));
         // LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
     }
     // M_min =*std::min_element(M_thick.begin(),M_thick.end());

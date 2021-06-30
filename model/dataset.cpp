@@ -6051,6 +6051,43 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
+
+        Variable sst={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "sea_surface_temperature",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "deg celsius",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable sss={
+            filename_prefix: "", // All variables are in the same (grid) file
+            name: "sea_surface_salinity",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "deg celsius",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
             filename_prefix: "", // All variables are in the same (grid) file
@@ -6096,9 +6133,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(2);
+        std::vector<Variable> variables_tmp(4);
         variables_tmp[0] = thickness;
         variables_tmp[1] = conc;
+        variables_tmp[2] = sst;
+        variables_tmp[3] = sss;
         // std::vector<Variable> variables_tmp(1);
         // variables_tmp[0] = thickness;
 
