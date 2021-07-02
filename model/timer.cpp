@@ -35,12 +35,12 @@ Timer::~Timer()
 // Public functions
 ///////////////////////////////////////////////////////////////////////
 
-//! (Re)start a timer named "name". The "name" is added to a global list if it
-//! does not already exist, the total elapsed time is initialised, and the
-//! parent is registered. Children report the fraction of time spent within the
-//! parent's scope. There is no checking of correct use; in particular, the
-//! "name" needs to be globally unique, otherwise an existing timer (with that
-//! name) is used, regardless of lineage.
+// (Re)start a timer named "name". The "name" is added to a global list if it
+// does not already exist, the total elapsed time is initialised, and the
+// parent is registered. Children report the fraction of time spent within the
+// parent's scope. There is no checking of correct use; in particular, the
+// "name" needs to be globally unique, otherwise an existing timer (with that
+// name) is used, regardless of lineage.
 void Timer::tick(const std::string & name)
 {
     // Add the name to M_names if needed and initialise the elapsed counter
@@ -68,7 +68,7 @@ void Timer::tick(const std::string & name)
     M_timer[name].timer.restart();
 }
 
-//! Stop a timer named "name" and add to the total elapsed time
+// Stop a timer named "name" and add to the total elapsed time
 void Timer::tock(const std::string & name)
 {
     // Check for consistency
@@ -87,8 +87,8 @@ void Timer::tock(const std::string & name)
     M_timer[name].running = false;
 }
 
-//! For a timer named "name" returned elapsed time since the last tick of a
-//! running timer or the length of the last tick-tock interval of a stopped timer
+// For a timer named "name" returned elapsed time since the last tick of a
+// running timer or the length of the last tick-tock interval of a stopped timer
 const double Timer::lap(const std::string & name)
 {
     if ( M_timer[name].running )
@@ -97,13 +97,13 @@ const double Timer::lap(const std::string & name)
         return M_timer[name].lap;
 }
 
-//! Return the total elapsed time of a timer named "name"
+// Return the total elapsed time of a timer named "name"
 const double Timer::elapsed(const std::string & name)
 {
     return M_timer[name].elapsed;
 }
 
-//! Pretty-print all the timers
+// Pretty-print all the timers
 const std::string Timer::printAll()
 {
     // Don't write out anything if M_names is empty
@@ -136,7 +136,7 @@ const std::string Timer::printAll()
     return return_string.str();
 }
 
-//! Pretty-print all children of a given timer - and recursively its children as well
+// Pretty-print all children of a given timer - and recursively its children as well
 std::string Timer::printChildren(const std::string & parent, const double wall_time)
 {
     std::stringstream return_string;
@@ -165,7 +165,7 @@ std::string Timer::printChildren(const std::string & parent, const double wall_t
     return return_string.str();
 }
 
-//! Pretty-print a given timer
+// Pretty-print a given timer
 void Timer::printTimer(const std::string & name, const std::string & parent, const double wall_time,
         std::stringstream & return_string, double & not_counted)
 {
