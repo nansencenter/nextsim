@@ -30,6 +30,9 @@
 #include <InterpFromMeshToMesh2dx_apply.hpp>
 #endif
 
+namespace Nextsim
+{
+
 /**
  * @class ExternalData
  * @brief Manage the external data
@@ -37,9 +40,6 @@
  * @see
  *
  */
-
-namespace Nextsim
-{
 
 class ExternalData: public DataSet
 {

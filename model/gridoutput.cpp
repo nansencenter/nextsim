@@ -9,16 +9,16 @@
 #include <gridoutput.hpp>
 #include <date.hpp>
 
+namespace Nextsim
+{
+
 /**
  * @class GridOutput
  * @brief Manage output of gridded data
  *
  * @see
  *
-*/
-
-namespace Nextsim
-{
+ */
 
 GridOutput::GridOutput()
 {}

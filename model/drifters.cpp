@@ -8,16 +8,16 @@
 
 #include <drifters.hpp>
 
+
+namespace Nextsim
+{
 /**
  * @class Drifters
  * @brief Manage drifters (base class)
  *
  * @see
  *
-*/
-
-namespace Nextsim
-{
+ */
 
 // ------------------------------------------
 //! Main drifter interface to FiniteElement

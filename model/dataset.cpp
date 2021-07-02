@@ -11,17 +11,16 @@
 #include <constants.hpp>
 #include <numeric>
 
+namespace Nextsim
+{
+
 /**
  * @class DataSet
  * @brief Describe the datasets
  *
  * @see
  *
-*/
-
-namespace Nextsim
-{
-
+ */
 
 DataSet::DataSet( )
 {}

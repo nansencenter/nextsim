@@ -17,16 +17,16 @@ extern "C"
 #endif
 
 
+namespace Nextsim
+{
+
 /**
  * @class ExternalData
  * @brief Manage the external data
  *
  * @see
  *
-*/
-
-namespace Nextsim
-{
+ */
 
 ExternalData::ExternalData( ):
 M_initialized(false)

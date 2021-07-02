@@ -1,7 +1,7 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
- * @file   gridoutput.hpp
+ * @file   model_variable.hpp
  * @author Einar Olason <einar.olason@nersc.no>
  * @date   Thu Aug  4 09:47:27 CEST 2016
  */
@@ -12,16 +12,16 @@
 #include <environment.hpp>
 #include <constants.hpp>
 
+namespace Nextsim
+{
+
 /**
- * @class GridOutput
- * @brief Manage output of gridded data
+ * @class ModelVariable
+ * @brief Manage a single variable in the model
  *
  * @see
  *
  */
-
-namespace Nextsim
-{
 
 class ModelVariable: public std::vector<double> // inherit from std::vector<double>
 {

@@ -22,6 +22,8 @@
 #include <BamgTriangulatex.h>
 #include <netcdf>
 
+namespace Nextsim
+{
 /**
  * @class GridOutput
  * @brief Manage output of gridded data
@@ -30,8 +32,6 @@
  *
  */
 
-namespace Nextsim
-{
 class GridOutput
 {
 public:

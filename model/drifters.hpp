@@ -20,16 +20,15 @@
 #include "debug.hpp"
 #include <numeric>
 
+namespace Nextsim
+{
 /**
- * @class GridOutput
- * @brief Manage output of gridded data
+ * @class Drifters
+ * @brief Manage drifters (base class)
  *
  * @see
  *
  */
-
-namespace Nextsim
-{
     class Drifters
     {
 public:

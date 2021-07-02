@@ -29,6 +29,8 @@ extern "C"
 #endif
 
 
+namespace Nextsim
+{
 /**
  * @class DataSet
  * @brief Describe the dataset
@@ -38,8 +40,6 @@ extern "C"
  *
  */
 
-namespace Nextsim
-{
     enum InterpolationType
     {
         None = -1,
