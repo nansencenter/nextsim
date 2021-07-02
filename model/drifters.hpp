@@ -33,7 +33,7 @@ namespace Nextsim
     {
 public:
 
-        //how are we initialising?
+        //! An enumeration of drifter initialization methods.
         enum initType
         {
             TEXT_FILE = 1,
@@ -41,8 +41,8 @@ public:
             NETCDF    = 3
         };
 
-        //info for netcdf file needed when
-        //initialising from restart
+        //! A struct holding the data necessary to initialize from a netCDF
+        //! file after a restart.
         typedef struct NetCDFInputInfo
         {
             NetCDFInputInfo() {}
@@ -60,14 +60,20 @@ public:
             std::string lonName;
         } NetCDFInputInfo;
 
+        //! @brief    A struct holding information on the temporal behaviour of
+        //!           drifters.
+        //! @details  Contains the initialization time, the output interval,
+        //!           whether the drifter has a fixed lifetime, what its
+        //!           lifetime is and whether is had a fixed time
+        //!           initialization.
         // info for drifters about "timing"
         // - input/output intervals, lifetime, init time...
         typedef struct TimingInfo
         {
             TimingInfo() {}
 
-            //constructor for "persistent" drifters
-            // - drifters are only added at initialisation
+            //! @brief  Constructor for "persistent" drifters.
+            //! @details These drifters are only added at initialization.
             // (unlike eg IABP)
             TimingInfo(
                     double const& ti,
@@ -84,8 +90,8 @@ public:
                 fixed_time_init = fti;
             }
 
-            //constructor for "transient" drifters
-            // - drifters can be added and removed periodically
+            //! @brief Constructor for "transient" drifters.
+            //! @details These drifters can be added and removed periodically.
             //  (eg IABP)
             TimingInfo(
                     double const& ti,
@@ -100,13 +106,13 @@ public:
                 transient = true;
             }
 
-            double time_init;//init time
-            double output_interval;//time between outputs
-            double input_interval = -1;//time between inputs (transient drifters)
-            bool has_lifetime;//do they have a limited lifetime, like the OSISAF drifters
-            double lifetime;//lifetime of drifters in days - eg 2. for OSISAF drifters, after which they are reset
-            bool fixed_time_init;// some drifters have a fixed init time (eg depend on a specific input file);
-            bool transient = false;// can drifters be added/removed after init?
+            double time_init;//! Initialization time
+            double output_interval;//! Time period between outputs
+            double input_interval = -1;//! Time between inputs for transient drifters
+            bool has_lifetime;//! Does the drifter have a limited lifetime, like the OSISAF drifters
+            double lifetime;//! Lifetime of drifters in days - eg 2. for OSISAF drifters, after which they are reset
+            bool fixed_time_init;//! Doe the drifter have a fixed initialization time (eg depend on a specific input file);
+            bool transient = false;// Can drifters be added/removed after initialization?
         } TimingInfo;
 
         //! Constructors and destructors
