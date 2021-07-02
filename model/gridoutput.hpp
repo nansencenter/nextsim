@@ -40,6 +40,7 @@ public:
     // Misc. enumerations and type definitions
     //////////////////////////////////////////////////////////////////////
 
+	//! Enumeration for the period to start a new file
     enum fileLength
     {
         // How much data to put into each output file
@@ -50,63 +51,93 @@ public:
         yearly  = 4
     };
 
+    //! Enumeration as to whether a variable is nodal or elemental
     enum variableKind
     {
         nodal      =  0,
         elemental  =  1
     };
 
+    //! Interpolation method
     enum interpMethod
     {
         meshToMesh = 0,
         conservative = 1
     };
 
+    // A struct for specifying grid data
     typedef struct Grid
     {
-        Grid()
+        //! Default constructor: an unloaded, undefined grid.
+    	Grid()
             : loaded(false), defined(false)
         {}
 
-        Grid(std::string file, std::string lat, std::string lon, bool transp=false)
+    	//! Construct the grid from a filename, latitude and longitude dataset
+    	//! names and whether the grid is transposed.
+    	Grid(std::string file, std::string lat, std::string lon, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), transpose(transp),
                 thetaName(""), interp_method(interpMethod::meshToMesh),
                 loaded(false), defined(true)
         {}
 
+    	//! Construct the grid from a filename, latitude and longitude dataset
+    	//! names, an angular dataset name and whether the grid is transposed.)
         Grid(std::string file, std::string lat, std::string lon, std::string theta, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp),
                 interp_method(interpMethod::meshToMesh),
                 loaded(false), defined(true)
         {}
 
+    	//! Construct the grid from a filename, latitude and longitude dataset
+    	//! names, an angular dataset name, the interpolation method and
+        //! whether the grid is transposed.
         Grid(std::string file, std::string lat, std::string lon, std::string theta, interpMethod method, bool transp=false)
             : gridFile(file), latName(lat), lonName(lon), thetaName(theta), transpose(transp), interp_method(method),
                 loaded(false), defined(true)
         {}
 
+        //! Enumerated interpolation method
         interpMethod interp_method;
 
+        //! Name of the file providing the grid
         std::string gridFile;
+        //! Name of the latitude dataset within gridFile
         std::string latName;
+        //! Name of the latitude dataset within gridFile
         std::string lonName;
+        //! Name of the theta dataert within the gribfile
         std::string thetaName;
 
+        //! Is the grid file loaded into this instance?
         bool loaded;
+        //! Is the grid defined?
         bool defined;
+        //! Is the grid transposed from the usual longitude-latitude layout order?
         bool transpose;
 
+        //! dataset name of the X coordinate, either latName or lonName
         std::string dimNameX;
+        //! dataset name of the Y coordinate, either latName or lonName
         std::string dimNameY;
+        //! Vector of the values along the latitude axis of the grid
         std::vector<double> gridLAT;
+        //! Vector of the values along the longitude axis of the grid
         std::vector<double> gridLON;
+        //! Vector of the values along the X axis of the grid
         std::vector<double> gridX;
+        //! Vector of the values along the Y axis of the grid
         std::vector<double> gridY;
 
+        //! Vector of grid rotation values
         std::vector<double> gridTheta;
+        //! Vector of values of latitude at the corners of the grid
         std::vector<double> gridCornerLat;
+        //! Vector of values of longitude at the corners of the grid
         std::vector<double> gridCornerLon;
+        //! Vector of values of the X coordinate at the corners of the grid
         std::vector<double> gridCornerX;
+        //! Vector of values of the Y coordinate at the corners of the grid
         std::vector<double> gridCornerY;
 
     } Grid;
@@ -121,6 +152,10 @@ public:
      * (http://cfconventions.org/standard-names.html).
      */
 
+    //! @brief Enumeration of valid variable names.
+    //! @details Try to follow the CF table of
+    //! standard names whenever possible
+    //! (http://cfconventions.org/standard-names.html).
     enum variableID
     {
         // Land-sea mask
