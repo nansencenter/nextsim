@@ -386,6 +386,8 @@ namespace Nextsim
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.snow_cond", po::value<double>()->default_value( 0.3096 ),
+                "snow conductivity (W/(K m)")
 
             ("thermo.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
