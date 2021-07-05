@@ -238,15 +238,17 @@ public:
         ice_mask  = -2
     };
 
-
+    //! @brief Data and metadata for a single variable
     typedef struct Variable
     {
         Variable(){}
 
+        //! @brief Construct an unmasked variable of a given id
         Variable(variableID id)
             : Variable(id, false)
         {}
 
+        //! @brief Construct a variable of a given id, which may have a mask
         Variable(variableID id, bool masked)
             : varID(id), mask(masked), data_mesh(), data_grid()
         {
@@ -763,6 +765,7 @@ public:
 
     } Variable;
 
+    //! @brief A pair of variable ids denoting the components of a two dimensional vector variable.
     typedef struct Vectorial_Variable
     {
         Vectorial_Variable() {}
@@ -781,36 +784,44 @@ public:
     ///////////////////////////////////////////////////////////////////////
     GridOutput();
 
+    //! @brief Constructor for only one set of variables - regular grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind,
             double averaging_period, bool false_easting);
 
+    //! @brief Constructor for only one set of variables - arbitrary grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
+    //! @brief Constructor for one set of variables plus vectors - regular grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
+    //! @brief Constructor for only one set of variables - arbitrary grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
+    //! @brief Constructor for nodal and elemental variables only (no vectors) - regular grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting);
 
+    //! @brief Constructor for nodal and elemental variables only (no vectors) - arbitrary grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
         bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
         Communicator const & comm = Environment::comm());
 
+    //! @brief Constructor for nodal, elemental and vectorial variables - regular grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
+    //! @brief Constructor for nodal, elemental and vectorial variables - arbitrary grid
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
@@ -821,8 +832,22 @@ public:
 
     void setLSM(BamgMesh* bamgmesh);
 
+    //! @brief Interpolate from the mesh values to the grid
     void updateGridMean(BamgMesh* bamgmesh);
+    //! @brief Set the grid values back to zero - with land mask
     void resetGridMean();
+    //! @brief Set the _mesh values back to zero, and recalculate weights and set proc_mask if needed
+    //!
+    //! @details When not called after a remesh (e.g. after output) only
+    //!          bamgmesh is required as input.
+    //!          When called after a remesh we should set regrid == true and
+    //!          provide nb_local_el.
+    //!          When called after a remesh and when doing conservative
+    //!          remapping we also need to provide transfer_map and
+    //!          bamgmesh_root.
+    //!          When called after a remesh and when doing conservative
+    //!          remapping we can also supply the gridP, triangles, and
+    //!          weights vectors so we don't spend time re-calculating those.
     void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
             const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
     void resetMeshMean(BamgMesh* bamgmesh,
@@ -830,9 +855,11 @@ public:
             int nb_local_el = 0,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
             BamgMesh* bamgmesh_root = NULL);
+    //! @brief Initialise a netCDF file and return the file name in an std::string
     std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
             const double current_time, const bool append=false);
     void createProjectionVariable(netCDF::NcFile &dataFile);
+    //! @brief Write data to the netCDF file
     void appendNetCDF(std::string filename, double timestamp);
 
     // Return a mask
@@ -856,6 +883,7 @@ public:
     std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
     std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
 
+    //! @brief Diagnostic output on stdout - for debugging.
     void info();
 
 private:
@@ -870,8 +898,10 @@ private:
 
     GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting);
 
+    //! @brief Constructor for nodal and elemental variables only (no vectors)
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, double averaging_period, bool false_easting);
 
+    //! @brief Constructor for nodal, elemental and vectorial variables
     GridOutput(std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
 
