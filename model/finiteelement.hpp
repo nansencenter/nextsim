@@ -94,9 +94,20 @@ public:
 
     mesh_type const& mesh() const {return M_mesh;}
 
+    //! @name Mesh
+    //!@{
     void initMesh();
+    //!@}
+    //! @name External Data
+    //!@{
     void initExternalData();
+    //!@}
+    //! @name Internal Data
+    //!@{
     void initDatasets();
+    //!@}
+    //! @name Mesh
+    //!@{
     void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(std::vector<std::vector<double>> const& vertices) const;
@@ -159,15 +170,19 @@ public:
     void scatterFieldsNode(double* interp_nd_out);
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
-
+    //!@}
+    //! @name Iteration
+    //!@{
     void init();
     void step();
     void run();
-
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
     inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
+    //!@}
 
+    //! @name Physics
+    //!@{
     void nestingIce();
     void nestingDynamics();
     void thermo(int dt);
@@ -190,12 +205,15 @@ public:
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
+    //!@}
 
+    //! @name External Data
+    //!@{
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
                     const bool use_timer=false);
     void checkReloadMainDatasets(double const CRtime, const bool use_timer=false);
-
+    //!@}
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
     Dataset M_atmosphere_bis_elements_dataset;
@@ -207,6 +225,8 @@ public:
     Dataset M_wave_elements_dataset;
 #endif
 
+    //! @name External Data
+    //!@{
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
@@ -218,6 +238,7 @@ public:
     Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
+    //!@}
 
     // Datasets for nesting from outer domain with coarse resolution
     Dataset M_nesting_ocean_elements_dataset;
@@ -227,6 +248,8 @@ public:
     Dataset M_nesting_distance_elements_dataset;
     Dataset M_nesting_dynamics_elements_dataset;
 
+    //! @name Mesh
+    //!@{
     template<typename FEMeshType>
     double minAngles(element_type const& element, FEMeshType const& mesh) const;
     template<typename FEMeshType>
@@ -247,11 +270,23 @@ public:
     std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
     void initBamg();
+    //!@}
+    //! @name Setup
+    //!@{
     void initOptAndParam();
+    //!@}
+    //! @name Physics
+    //!@{
     void initFETensors();
+    //!@}
+    //! @name Setup
+    //!@{
     template<typename enum_type>
     enum_type getOptionFromMap(std::string const &opt_name,
         boost::unordered_map<const std::string, enum_type> map);
+    //!@}
+    //! @name External Data
+    //!@{
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -266,9 +301,14 @@ public:
     void initIce();
     void checkConsistency();
     void initSlabOcean();
-
+    //!@}
+    //! @name Dynamics
+    //!@{
     void calcCoriolis();
+    //!@}
     //void timeInterpolation(int step);
+    //! @name Mesh
+    //!@{
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
@@ -279,20 +319,40 @@ public:
     void calcAuxiliaryVariables();
     void initModelVariables();
     void sortPrognosticVars();
+    //!@}
+    //! @name Setup
+    //!@{
     void initModelState();
+    //!@}
+    //! @name External Data
+    //!@{
     void DataAssimilation();
-
+    //!@}
+    //! @name Physics
+    //!@{
     void calcCohesion();
     void updateFreeDriftVelocity();
     void speedScaling(std::vector<double>& speed_scaling);
+    //!@}
+    //! @name Iteration
+    //!@{
     void update(std::vector<double> const & UM_P);
+    //@}
+    //! @name Physics
+    //!@{
     void updateSigmaDamage(double const dt);
+    //!@}
 
+    //! @name Mesh
+    //!@{
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
     int globalNumToprocId(int global_num);
+    //!@}
 
 #ifdef OASIS
+    //! @name Physics
+    //!@{
     // FSD related functions
     void initFsd();
     void redistributeFSD();
@@ -303,8 +363,11 @@ public:
     void weldingRoach(const int cpt, double ddt);
     void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
     double lateralMeltFSD(const int i,double ddt) ;
+    //!@}
 #endif
 
+    //! @name Output
+    //!@{
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
             bool const& export_fields, bool const& apply_displacement);
@@ -321,7 +384,9 @@ public:
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
-
+    //!@}
+    //! @name Mesh
+    //!@{
     void rootMeshProcessing();
 
     void rootMeshRenumbering();
@@ -331,23 +396,35 @@ public:
     void interpVertices();
 
     void bcMarkedNodes();
-
+    //!@}
+    //! @name Iteration
+    //!@{
     void finalise(std::string current_time_system);
-
+    //!@}
 public:
+    //! @name Setup
+    //!@{
     std::string system(std::string const& command);
     std::string getEnv(std::string const& envname);
+    //!@}
+    //! @name Teardown
+    //!@{
     void writeLogFile();
+    //!@}
 
 private:
+    //! @name Iterate
+    //!@{
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
-
+    //!@}
     // IO
+    //! @name Output
+    //!@{
     void collectVariablesIO(std::vector<double>& elt_values_local,
             std::vector<ModelVariable*> const& vars_elements,
             std::vector<ExternalData*> const& ext_data_elements,
@@ -361,13 +438,16 @@ private:
         std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
         this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data_elements);
     }
-
+    //!@}
+    //! @name Mesh
+    //!@{
     void redistributeVariablesIO(std::vector<double> const& out_elt_values,
             std::vector<ModelVariable*> &vars_elements);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         std::vector<ModelVariable*> &vars_elements);
 
     void scatterElementConnectivity();
+    //!@}
 
 private:
     po::variables_map vm;
@@ -843,8 +923,9 @@ private:
 #endif
 
 private:
-
     //ice-init functions
+    //! @name Setup
+    //!@{
     void constantIce();
     void topazIce();
     void topazIceOsisafIcesat();
@@ -868,8 +949,11 @@ private:
     void warrenClimatology();
     void assimilate_topazForecastAmsr2OsisafIce();
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
+    //!@}
 
     //drifter functions
+    //! @name Drifters & Moorings
+    //!@{
     void checkMoveDrifters();
     void checkUpdateDrifters();
     void instantiateDrifters();
@@ -880,10 +964,13 @@ private:
     void initMoorings();
     void updateMoorings();
     void mooringsAppendNetcdf(double const &output_time);
+    //!@}
+    //! @name Iteration
+    //!@{
     void checkFields();
     void checkFieldsFast();
     void checkVelocityFields();
-
+    //!@}
 };
 } // Nextsim
 #endif
