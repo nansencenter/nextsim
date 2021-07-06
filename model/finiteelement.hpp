@@ -92,18 +92,15 @@ public:
 
     // FiniteElement(Communicator const& comm = Environment::comm());
 
-    mesh_type const& mesh() const {return M_mesh;}
-
     //! @name Mesh
     //!@{
+    mesh_type const& mesh() const {return M_mesh;}
+
     void initMesh();
     //!@}
     //! @name External Data
     //!@{
     void initExternalData();
-    //!@}
-    //! @name Internal Data
-    //!@{
     void initDatasets();
     //!@}
     //! @name Mesh
@@ -214,6 +211,8 @@ public:
                     const bool use_timer=false);
     void checkReloadMainDatasets(double const CRtime, const bool use_timer=false);
     //!@}
+    //! @name External Data
+    //!@{
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
     Dataset M_atmosphere_bis_elements_dataset;
@@ -225,8 +224,6 @@ public:
     Dataset M_wave_elements_dataset;
 #endif
 
-    //! @name External Data
-    //!@{
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
     Dataset M_ice_piomas_elements_dataset;
@@ -238,7 +235,6 @@ public:
     Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
-    //!@}
 
     // Datasets for nesting from outer domain with coarse resolution
     Dataset M_nesting_ocean_elements_dataset;
@@ -247,6 +243,7 @@ public:
     Dataset M_nesting_distance_nodes_dataset;
     Dataset M_nesting_distance_elements_dataset;
     Dataset M_nesting_dynamics_elements_dataset;
+    //!@}
 
     //! @name Mesh
     //!@{
@@ -450,9 +447,14 @@ private:
     //!@}
 
 private:
-    po::variables_map vm;
-    mesh_type M_mesh;
-    graph_type M_graph;
+    //! @name Setup
+    //!@{
+    po::variables_map vm; // Read everywhere, as it holds the option values
+    //!@}
+    //! @name Mesh
+    //!@{
+    mesh_type M_mesh; // M
+    graph_type M_graph; // M
     graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
     mesh_type M_mesh_previous;
@@ -479,9 +481,14 @@ private:
     int M_prv_num_elements;
     int M_prv_global_num_nodes;
     int M_prv_global_num_elements;
-
+    //!@}
+    //! @name Iteration
+    //!@{
     int pcpt;
     int niter;
+    //!@}
+    //! @name Mesh
+    //!@{
     int mesh_adapt_step;
     bool had_remeshed;
     double minang;
@@ -492,10 +499,14 @@ private:
     std::vector<int> M_dirichlet_nodes;
     std::vector<int> M_neumann_flags;
     std::vector<int> M_neumann_nodes;
-
+    //!@}
+    //! @name Iteration
+    //!@{
     boost::mpi::timer chrono, chrono_tot;
     Timer M_timer;
-
+    //!@}
+    //! @name Setup
+    //!@{
     setup::AtmosphereType M_atmosphere_type;
     setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
@@ -528,7 +539,10 @@ private:
     std::string M_mesh_fileformat;
 
     int M_flag_fix;
+    //!@}
     // local masks
+    //! @name Mesh
+    //!@{
     std::vector<bool> M_mask;
     std::vector<bool> M_mask_dirichlet;
 
@@ -538,8 +552,10 @@ private:
 
     // interpolation method
     std::vector<int> M_interp_methods;
-
+    //!@}
     // diffusivity parameters
+    //! @name Physics
+    //!@{
     std::vector<double> M_diffusivity_parameters;
 
     std::vector<double> M_surface;
@@ -565,11 +581,16 @@ private:
 //    ExternalData M_tm02;
     ExternalData M_wlbk;
 #endif
-
+    //!@}
+    //! @name External Data
+    //!@{
     external_data_vec M_external_data_elements, M_external_data_nodes;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
+    //!@}
 
+    //! @name Mesh
+    //!@{
     std::vector<double> M_fcor;
 
     std::vector<int> M_sizes_nodes;
@@ -602,17 +623,24 @@ private:
     double M_nudge_lengthscale;
     bool M_nest_dynamic_vars;
     // =============================================================================
-
+    //!@}
+    //! @name Output
+    //!@{
     LogLevel M_log_level;
     bool M_log_all;
-
+    //!@}
 
 private:
 
+    //! @name Physics
+    //!@{
     double nu0;
     double young;
     double rhoi;
     double rhos;
+    //!@}
+    //! @name Iteration
+    //!@{
     double const days_in_sec  = 86400.;
     double time_init;
     int output_time_step;
@@ -624,6 +652,9 @@ private:
     double dtime_step;
     double duration;
     double divergence_min;
+    //!@}
+    //! @name Physics
+    //!@{
     double compression_factor;
     double exponent_compression_factor;
     double exponent_cohesion;
@@ -656,36 +687,52 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
+    //!@}
+    //! @name Mesh
+    //!@{
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
-
+    //!@}
+    //! @name Setup
     bool M_use_assimilation;
 
     bool M_use_restart;
+    //!@}
+    //! @name Output
+    //!@{
     bool M_check_restart;
     bool M_write_restart_interval;
     bool M_write_restart_end;
     bool M_write_restart_start;
-
+    //!@}
+    //! @name Setup
+    //!@{
     double M_spinup_duration;
-
+    //!@}
+    //! @name Output
+    //!@{
     std::string M_export_path;
-
+    //!@}
 private: // update solution from explicit solver
+    //! @name Iteration
+    //!@{
     std::vector<std::vector<int>> M_extract_local_index;
     std::vector<int> M_recipients_proc_id;
     std::vector<int> M_local_ghosts_proc_id;
     std::vector<std::vector<int>> M_local_ghosts_local_index;
-
+    //!@}
 private:
 
+    //! @name Mesh
+    //!@{
     BamgOpts *bamgopt;
     BamgMesh *bamgmesh;
     BamgGeom *bamggeom;
-
+    //!@}
 private: // only on root process (rank 0)
-
+    //! @name Mesh
+    //!@{
     mesh_type_root M_mesh_root;
     mesh_type_root M_mesh_init_root;
     mesh_type_root M_mesh_previous_root;
@@ -705,9 +752,10 @@ private: // only on root process (rank 0)
     BamgOpts *bamgopt_previous;
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
-
+    //!@}
 private:
-
+    //! @name Physics
+    //!@{
     // Thermodynamic and dynamic forcing
     // Atmosphere
     external_data M_wind;         // Surface wind [m/s]
@@ -732,7 +780,9 @@ private:
     external_data M_mld;          // Mixed-layer depth [m]
 
     external_data M_qsrml;        // Fraction of short wave radiation absorbed by the mixed layer
-
+    //!@}
+    //! @name Mesh
+    //!@{
     // Nesting
     external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
     external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
@@ -752,24 +802,34 @@ private:
 
     // Bathymetry
     external_data M_element_depth;
-
+    //!@}
     // Drifters
+    //! @name Drifters & Moorings
+    //!@{
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters
-
+    //!@}
     // Element variable
+    //! @name Mesh
+    //!@{
     std::vector<double> M_element_age;         // Age of the element (model time since its last adaptation)
-
+    //!@}
+    //! @name Iteration
+    //!@{
     // vectors of pointers to variables (for looping)
     std::vector<ModelVariable*> M_variables_elt;
     std::vector<ModelVariable*> M_prognostic_variables_elt;//for restart, regrid
     std::vector<ModelVariable*> M_export_variables_elt;
-
+    //!@}
     // other vectors related to export/restart
+    //! @name Output
+    //!@{
     std::vector<std::string> M_restart_names_elt;
     std::vector<std::string> M_export_names_elt;
-
+    //!@}
     // Prognostic variables
+    //! @name Internal Data
+    //!@{
     ModelVariable M_conc;               // Ice concentration
     ModelVariable M_thick;              // Effective ice thickness [m]
     ModelVariable M_damage;             // Ice damage
@@ -875,8 +935,10 @@ private:
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
     std::vector<double> D_tau_a; // Ice-atmosphere drag [Pa]
-
+    //!@}
 private:
+    //! @name Drifters & Moorings
+    //!@{
     // Variables for the moorings
 
     std::vector<double> M_conc_mean;    // Mean concentration (on the mesh)
@@ -906,9 +968,11 @@ private:
     GridOutput M_moorings;
     bool M_moorings_false_easting;
     double M_moorings_averaging_period;
-
+    //!@}
 #ifdef OASIS
     // Coupling with OASIS
+    //! @name External Data
+    //!@{
     GridOutput M_cpl_out;
     std::vector<int> var_id_snd;
     std::vector<int> var_id_rcv;
@@ -920,6 +984,7 @@ private:
     void initOASIS();
     void setCplId_rcv(DataSet &dataset);
     void setCplId_snd(std::vector<GridOutput::Variable> &cpl_var);
+    //!@}
 #endif
 
 private:
