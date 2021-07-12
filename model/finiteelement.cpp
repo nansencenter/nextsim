@@ -1165,6 +1165,7 @@ FiniteElement::initOptAndParam()
     //! Sets the minimum and maximum thickness of thin ice
     h_thin_max = vm["thermo.h_thin_max"].as<double>(); //! \param h_thin_max (double) Maximum thickness of thin ice [m]
     h_thin_min = vm["thermo.h_thin_min"].as<double>(); //! \param h_thin_min (double) Minimum thickness of thin ice [m]
+    M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
 
 
     //! Sets mechanical parameter values
@@ -5679,11 +5680,11 @@ FiniteElement::thermo(int dt)
                 switch (M_thermo_type)
                 {
                     case (setup::ThermoType::ZERO_LAYER):
-                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]);
+                        C = physical::ki*M_snow_thick[i]/(M_ks*M_thick[i]);
                         deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
                         break;
                     case (setup::ThermoType::WINTON):
-                        C = physical::ki*M_snow_thick[i]/(physical::ks*M_thick[i]/4.);
+                        C = physical::ki*M_snow_thick[i]/(M_ks*M_thick[i]/4.);
                         deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
                         break;
                     default:
@@ -6116,7 +6117,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
          */
 
         // First some coefficients based on temperatures from the previous time step
-        double K12 = 4*physical::ki*physical::ks / ( physical::ks*hi + 4*physical::ki*hs ); // (5)
+        double K12 = 4*physical::ki*M_ks / ( M_ks*hi + 4*physical::ki*hs ); // (5)
         double A   = Qia - Tsurf*dQiadT; // (7)
         double B   = dQiadT; // (8)
         double K32 = 2*physical::ki/hi; // (10)
@@ -6336,9 +6337,9 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         // -------------------------------------------------
         /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic   = physical::ks*( Tbot-Tsurf )/( hs + physical::ks*hi/physical::ki );
+        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki );
         Tsurf = Tsurf + ( Qic - Qia )/
-            ( physical::ks/(hs+physical::ks*hi/physical::ki) + dQiadT );
+            ( M_ks/(hs+M_ks*hi/physical::ki) + dQiadT );
 
         /* Limit Tsurf to the freezing point of snow or ice */
         if ( hs > 0. )
@@ -10674,9 +10675,9 @@ FiniteElement::checkConsistency()
                     // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
                     // => a*Ti = b
                     double const a = physical::ki*M_snow_thick[i]
-                        + physical::ks*M_thick[i];
+                        + M_ks*M_thick[i];
                     double const b = physical::ki*M_snow_thick[i]*Tfr_wtr
-                        + physical::ks*M_thick[i]*M_tice[0][i];
+                        + M_ks*M_thick[i]*M_tice[0][i];
                     Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
                 }
 

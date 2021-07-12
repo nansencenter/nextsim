@@ -565,6 +565,7 @@ private:
 
     double h_thin_min;
     double h_thin_max;
+    double M_ks;
 
     double compr_strength;
     double tract_coef;

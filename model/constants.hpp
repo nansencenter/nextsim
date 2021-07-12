@@ -40,9 +40,6 @@ namespace physical
     //! Heat conductivity of ice [W/K/m]
     const double ki = 2.0334;
 
-    //! Heat conductivity of snow [W/K/m]
-    const double ks = 0.3096;
-
     //! Latent heat of fusion [J/Kg]
     const double Lf = 333.55e3;
 
