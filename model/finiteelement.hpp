@@ -302,7 +302,7 @@ public:
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
     void weldingRoach(const int cpt, double ddt);
-    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
+    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double young_ice_growth, double old_conc, double old_conc_young) ;
     double lateralMeltFSD(const int i,double ddt) ;
 #endif
 
@@ -568,8 +568,9 @@ private:
     double basal_u_0;
     double basal_Cb;
 
-    double h_thin_min;
-    double h_thin_max;
+    double h_young_min;
+    double h_young_max;
+    double M_ks;
 
     double compr_strength;
     double tract_coef;
@@ -665,9 +666,9 @@ private:
     external_data M_nesting_conc; // sea_ice_area_fraction from the outer domain
     external_data M_nesting_thick; // sea_ice_thickness from the outer domain
     external_data M_nesting_snow_thick; // surface_snow_thickness from the outer domain
-    external_data M_nesting_h_thin ; // thin_ice_thickness from the outer domain
-    external_data M_nesting_conc_thin ; // thin_ice_area_fraction from the outer domain
-    external_data M_nesting_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
+    external_data M_nesting_h_young ; // young_ice_thickness from the outer domain
+    external_data M_nesting_conc_young ; // young_ice_area_fraction from the outer domain
+    external_data M_nesting_hs_young ; // surface_snow_thickness_on_young_ice from the outer domain
     external_data M_nesting_damage; // damage from the outer domain
     external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
     external_data M_nesting_VT1; // X-velocity from the outer domain
@@ -710,10 +711,10 @@ private:
     std::vector<ModelVariable> M_sigma; // Internal stress tensor
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
-    ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
-    ModelVariable M_h_thin;
-    ModelVariable M_hs_thin;
-    ModelVariable M_conc_thin;
+    ModelVariable M_tsurf_young;        // Ice surface temperature of young ice [C]
+    ModelVariable M_h_young;
+    ModelVariable M_hs_young;
+    ModelVariable M_conc_young;
     ModelVariable M_random_number;
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
@@ -734,7 +735,7 @@ private:
     // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     //std::vector<ModelVariable> M_conc_fsd_thick;
-    //std::vector<ModelVariable> M_conc_fsd_thin ;
+    //std::vector<ModelVariable> M_conc_fsd_young ;
     std::vector<ModelVariable> M_conc_mech_fsd;
     int M_num_fsd_bins;
     std::vector<double> M_fsd_bin_widths;
@@ -780,7 +781,7 @@ private:
     ModelVariable D_conc; //total concentration
     ModelVariable D_thick; // total thickness [m]
     ModelVariable D_snow_thick;// total snow thickness [m]
-    ModelVariable D_tsurf; //mean surface temperature (thick + thin ice + slab ocean) [deg C]
+    ModelVariable D_tsurf; //mean surface temperature (thick + young ice + slab ocean) [deg C]
     std::vector<ModelVariable> D_sigma; //principal stresses [Pa]
     ModelVariable D_Qa; // Heat loss to atmosphere [W/m2]
     ModelVariable D_Qsw; // Total short wave at surface [W/m2]
@@ -792,9 +793,9 @@ private:
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m/day]
-    ModelVariable D_del_vi_thin; // thin ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_vi_young; // young ice volume (/element_area) melted/formed [m/day]
     ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
-    ModelVariable D_del_hi_thin; // thin ice growth/melt rate [m/day]
+    ModelVariable D_del_hi_young; // young ice growth/melt rate [m/day]
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
     ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
     ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
@@ -888,7 +889,7 @@ private:
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
+    void concBinsNic(double &young_conc_obs_min,double &young_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void smosIce();

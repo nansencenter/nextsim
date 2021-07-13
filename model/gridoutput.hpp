@@ -140,9 +140,9 @@ public:
         tsurf_ice    = 11,
         t1           = 12,
         t2           = 13,
-        h_thin       = 14,
-        hs_thin      = 15,
-        conc_thin    = 16,
+        h_young      = 14,
+        hs_young     = 15,
+        conc_young   = 16,
         fyi_fraction = 17,
         age_d        = 18,
         age          = 19,
@@ -171,12 +171,12 @@ public:
         d_crit = 109,
         vice_melt  = 110,
         del_hi     = 111,
-        del_hi_thin= 112,
+        del_hi_young= 112,
         newice     = 113,
         snow2ice   = 114,
         mlt_top    = 115,
         mlt_bot    = 116,
-        del_vi_thin= 117,
+        del_vi_young= 117,
         dci_ridge_myi= 118,
         dci_mlt_myi  = 119,
         dvi_mlt_myi  = 120,
@@ -345,24 +345,24 @@ public:
                     cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
-                case (variableID::conc_thin):
-                    name     = "sic_thin";
-                    longName = "Thin Ice Concentration";
-                    stdName  = "thin_ice_area_fraction";
+                case (variableID::conc_young):
+                    name     = "sic_young";
+                    longName = "Young Ice Concentration";
+                    stdName  = "young_ice_area_fraction";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::h_thin):
-                    name     = "sit_thin";
-                    longName = "Thin Ice Thickness";
-                    stdName  = "thin_ice_thickness";
+                case (variableID::h_young):
+                    name     = "sit_young";
+                    longName = "Young Ice Thickness";
+                    stdName  = "young_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::hs_thin):
-                    name     = "snt_thin";
-                    longName = "Surface Snow Thickness on thin ice";
-                    stdName  = "surface_snow_thickness_on_thin_ice";
+                case (variableID::hs_young):
+                    name     = "snt_young";
+                    longName = "Surface Snow Thickness on young ice";
+                    stdName  = "surface_snow_thickness_on_young_ice";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
@@ -565,10 +565,10 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_vi_thin):
-                    name     = "del_vi_thin";
-                    longName = "Thin ice Volume Melted or Formed per Day per Surface Area";
-                    stdName  = "thin_ice_volume_melted_or_formed_per_day_per_surface_area";
+                case (variableID::del_vi_young):
+                    name     = "del_vi_young";
+                    longName = "Young Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "young_ice_volume_melted_or_formed_per_day_per_surface_area";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
@@ -586,10 +586,10 @@ public:
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_hi_thin):
-                    name     = "del_hi_thin";
-                    longName = "Growth-melt rate of new (thin) ice";
-                    stdName  = "growth_melt_rate_of_thin_ice";
+                case (variableID::del_hi_young):
+                    name     = "del_hi_young";
+                    longName = "Growth-melt rate of young ice";
+                    stdName  = "growth_melt_rate_of_young_ice";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;

@@ -1164,9 +1164,10 @@ FiniteElement::initOptAndParam()
     time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec; //! \param time_relaxation_damage (double) Characteristic healing time [s]
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
 
-    //! Sets the minimum and maximum thickness of thin ice
-    h_thin_max = vm["thermo.h_thin_max"].as<double>(); //! \param h_thin_max (double) Maximum thickness of thin ice [m]
-    h_thin_min = vm["thermo.h_thin_min"].as<double>(); //! \param h_thin_min (double) Minimum thickness of thin ice [m]
+    //! Sets the minimum and maximum thickness of young ice
+    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
+    h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
+    M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
 
 
     //! Sets mechanical parameter values
@@ -1177,7 +1178,7 @@ FiniteElement::initOptAndParam()
 
     //! Sets options on the thermodynamics scheme
     if ( vm["thermo.newice_type"].as<int>() == 4 )
-        M_ice_cat_type = setup::IceCategoryType::THIN_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (thin ice or "classic")
+        M_ice_cat_type = setup::IceCategoryType::YOUNG_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (young ice or "classic")
     else
         M_ice_cat_type = setup::IceCategoryType::CLASSIC;
 
@@ -2214,9 +2215,9 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
             (*vptr)[i] = val;
         }
 
-        if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            if ((M_conc[i] + M_conc_thin[i]) > 1.) M_conc_thin[i] = 1. - M_conc[i];
+            if ((M_conc[i] + M_conc_young[i]) > 1.) M_conc_young[i] = 1. - M_conc[i];
         }
     }//loop over i
 }//redistributeVariables
@@ -3957,11 +3958,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
             // (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
 
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
             {
-                M_h_thin[cpt] *= surf_ratio;
-                M_conc_thin[cpt] *= surf_ratio;
-                M_hs_thin[cpt] *= surf_ratio;
+                M_h_young[cpt] *= surf_ratio;
+                M_conc_young[cpt] *= surf_ratio;
+                M_hs_young[cpt] *= surf_ratio;
             }
 #ifdef OASIS
             for(int k=0; k<M_num_fsd_bins; k++)
@@ -3982,9 +3983,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
          */
         double open_water_concentration=1.-M_conc[cpt];
 
-        /* Thin ice category */
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-            open_water_concentration -= M_conc_thin[cpt];
+        /* Young ice category */
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+            open_water_concentration -= M_conc_young[cpt];
 
         // limit open_water concentration to 0 if inferior to 0 (should not happen)
         open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
@@ -3992,38 +3993,38 @@ FiniteElement::update(std::vector<double> const & UM_P)
         // limit open_water concentration to 1 if superior to 1
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
-        /* Thin ice category */
-        double new_conc_thin=0.;
-        double new_h_thin=0.;
-        double new_hs_thin=0.;
+        /* Young ice category */
+        double new_conc_young=0.;
+        double new_h_young=0.;
+        double new_hs_young=0.;
 
         double newice = 0.;
         double del_c = 0.;
         double newsnow = 0.;
 
-        double ridge_thin_ice_aspect_ratio=10.;
+        double ridge_young_ice_aspect_ratio=10.;
 
-        double conc_thin = 0.;
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        double conc_young = 0.;
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
-            if(M_conc_thin[cpt]>0. )
+            if(M_conc_young[cpt]>0. )
             {
-                new_conc_thin   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
 
                 // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_thin < M_conc_thin[cpt] ))
+                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
                 {
-                    new_h_thin      = new_conc_thin*M_h_thin[cpt]/M_conc_thin[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_thin     = new_conc_thin*M_hs_thin[cpt]/M_conc_thin[cpt];
+                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
+                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
 
-                    newice = M_h_thin[cpt]-new_h_thin;
-                    del_c   = (M_conc_thin[cpt]-new_conc_thin)/ridge_thin_ice_aspect_ratio;
-                    newsnow = M_hs_thin[cpt]-new_hs_thin;
+                    newice = M_h_young[cpt]-new_h_young;
+                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
+                    newsnow = M_hs_young[cpt]-new_hs_young;
 
-                    M_h_thin[cpt]   = new_h_thin;
-                    M_hs_thin[cpt]  = new_hs_thin;
+                    M_h_young[cpt]   = new_h_young;
+                    M_hs_young[cpt]  = new_hs_young;
 
-                    // Ridging of thin ice - conserve level ice volume, but now area is constant
+                    // Ridging of young ice - conserve level ice volume, but now area is constant
                     // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
                     M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
 
@@ -4034,21 +4035,21 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_snow_thick[cpt]   += newsnow;
                 }
 
-                M_conc_thin[cpt] = new_conc_thin;
+                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_thin[cpt]=0.;
-                M_h_thin[cpt]=0.;
-                M_hs_thin[cpt]=0.;
+                M_conc_young[cpt]=0.;
+                M_h_young[cpt]=0.;
+                M_hs_young[cpt]=0.;
             }
-            conc_thin = M_conc_thin[cpt];
+            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_thin-open_water_concentration+del_c,0.));
+        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
 
-        if((new_conc+conc_thin)>1.)
-            new_conc=1.-conc_thin;
+        if((new_conc+conc_young)>1.)
+            new_conc=1.-conc_young;
 
         M_conc[cpt]=new_conc;
 
@@ -4057,7 +4058,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_thin,M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
         }
         else
         {
@@ -4258,8 +4259,8 @@ FiniteElement::redistributeFSD()
     for (int i=0; i<M_num_elements; i++)
     {
         double ctot = M_conc[i];
-        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-           ctot += M_conc_thin[i];
+        if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+           ctot += M_conc_young[i];
         if (ctot>0)
         {
             // don't try to break if there are no waves
@@ -4281,8 +4282,8 @@ FiniteElement::redistributeFSD()
             double  sea_ice_thickness = 0;
             if (M_breakup_cell_average_thickness)
                 sea_ice_thickness = M_thick[i] ;
-            else if (M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-               sea_ice_thickness = (M_thick[i]+M_h_thin[i])/ctot ;
+            else if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+               sea_ice_thickness = (M_thick[i]+M_h_young[i])/ctot ;
 
             sea_ice_thickness = std::max(M_breakup_thick_min,sea_ice_thickness) ;
 
@@ -4461,20 +4462,20 @@ FiniteElement::redistributeFSD()
 
 
 void
-FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin )
+FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_rate, double young_ice_growth, double old_conc, double old_conc_young )
 //------------------------------------------------------------------------------------------------------
 //! Takes care of changes induced by lateral growth and melt in the FSD
 //Input :
 // -- const int i -> Element Index
 // -- lat_melt_rate -> lateral melt rate in m/s. Computed in thermo()
-// -- thin_ice_growth -> the delta concentration due to thin ice reduction by bottom melt
+// -- young_ice_growth -> the delta concentration due to young ice reduction by bottom melt
 //------------------------------------------------------------------------------------------------------
 {
     // Used for debug
     std::stringstream crash_msg;
     bool crash = false;
     //
-    double del_c_thin = 0.;
+    double del_c_young = 0.;
     double del_c_fsd = M_conc[i] - old_conc;
     double cat0_del_c =0. ;
 
@@ -4485,10 +4486,10 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     for(int m=0; m<M_num_fsd_bins;m++)
         fsd_init[m]=M_conc_fsd[m][i] ;
 
-    // THIN ICE CASE
-    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-             del_c_thin = M_conc_thin[i] - old_conc_thin;   //>0: only treat thin ice differently if freezing new ice
-    del_c_fsd += del_c_thin ;
+    // YOUNG ICE CASE
+    if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+             del_c_young = M_conc_young[i] - old_conc_young;   //>0: only treat young ice differently if freezing new ice
+    del_c_fsd += del_c_young ;
 
     /*FSD : initialize a vector for ulterior redistribution  */
     std::vector<double> del_c_bin_melt(M_num_fsd_bins,0.) ;
@@ -4535,11 +4536,11 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         double ctot=0.;
         for(int m=0;m<M_num_fsd_bins;m++)
             ctot+=M_conc_fsd[m][i] ;
-        // If bottom melt reduces the thin ice fraction
-        if (thin_ice_growth<0)
+        // If bottom melt reduces the young ice fraction
+        if (young_ice_growth<0)
         {
             for(int m=0;m<M_num_fsd_bins;m++)
-                 M_conc_fsd[m][i]+=(thin_ice_growth)*M_conc_fsd[m][i]/ctot ;
+                 M_conc_fsd[m][i]+=(young_ice_growth)*M_conc_fsd[m][i]/ctot ;
         }
         // Debug
         if ((M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)&& M_debug_fsd)
@@ -4551,9 +4552,9 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     }
     else //if lat_melt_rate==0 (or lower, but not possible yet)
     {   // REFREEZING
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-        { // Complete refreezing if thin ice fills the lead
-            if (M_conc[i] + M_conc_thin[i]==1.)
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        { // Complete refreezing if young ice fills the lead
+            if (M_conc[i] + M_conc_young[i]==1.)
             {
                 M_conc_fsd[M_num_fsd_bins-1][i] =1.; //
                 for(int m=0;m<M_num_fsd_bins-1;m++)
@@ -4594,12 +4595,12 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         if  (M_conc_fsd[M_num_fsd_bins-1][i]<-1e-11)
         {
             crash =  true;
-            crash_msg <<"Negative unbroken floes conc. after  thin ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
+            crash_msg <<"Negative unbroken floes conc. after  young ice redist. :" << M_conc_fsd[M_num_fsd_bins-1][i] <<"\n";
         }
 
         double ctot = M_conc[i];
-        if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-            ctot += M_conc_thin[i];
+        if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+            ctot += M_conc_young[i];
 
         double ctot2 = M_conc_fsd[0][i];
         for(int j=1;j<M_num_fsd_bins;j++)
@@ -4625,7 +4626,7 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
         {
             crash_msg <<"Lateral melt rate (if depends on fsd) :" << lat_melt_rate <<"\n";
             crash_msg <<"current M_conc = "<< M_conc[i]  <<", old_conc = "<<old_conc  <<", diff = "<<M_conc[i]-old_conc <<"\n";
-            crash_msg <<  "del_conc_thin =" << del_c_thin << " ; old conc_thin =" <<old_conc_thin <<"\n";
+            crash_msg <<  "del_conc_young =" << del_c_young << " ; old conc_young =" <<old_conc_young <<"\n";
             crash_msg <<"old_conc_fsd ="<< std::accumulate(fsd_init.begin(), fsd_init.end(),0.) << ", del_conc_fsd =" << del_c_fsd <<" \n";
             double sum_del_fsd=0. ;
             for(int j=0;j<M_num_fsd_bins;j++)
@@ -4635,10 +4636,10 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
                 sum_del_fsd += del_c_bin_melt[j] ;
             }
             crash_msg << "sum_del_fsd +cat0_del_c :"<< sum_del_fsd + cat0_del_c  <<" \n";
-            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             {
-               crash_msg << "M_conc_thin :" << M_conc_thin[i] <<"; diff thin : new-old ="<< M_conc_thin[i]-old_conc_thin <<" \n";
-               crash_msg << "thin_ice_growth ="<< thin_ice_growth <<" \n";
+               crash_msg << "M_conc_young :" << M_conc_young[i] <<"; diff young : new-old ="<< M_conc_young[i]-old_conc_young <<" \n";
+               crash_msg << "young_ice_growth ="<< young_ice_growth <<" \n";
             }
             crash_msg  << "LAT MELT : [" <<M_rank << "], element : "<<i << " \n" ;
             throw std::runtime_error(crash_msg.str())                            ;
@@ -4658,8 +4659,8 @@ FiniteElement::updateFSD()//----------------------------------------------------
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[cpt];
-            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                ctot += M_conc_thin[cpt];
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+                ctot += M_conc_young[cpt];
 
             double ctot2 = M_conc_fsd[0][cpt];
             for(int j=1;j<M_num_fsd_bins;j++)
@@ -4874,11 +4875,11 @@ FiniteElement::nestingIce()
             M_conc[i]       += (fNudge*(time_step/nudge_time)*(M_nesting_conc[i]-M_conc[i]));
             M_thick[i]      += (fNudge*(time_step/nudge_time)*(M_nesting_thick[i]-M_thick[i]));
             M_snow_thick[i] += (fNudge*(time_step/nudge_time)*(M_nesting_snow_thick[i]-M_snow_thick[i]));
-            if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+            if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
             {
-                M_conc_thin[i] += (fNudge*(time_step/nudge_time)*(M_nesting_conc_thin[i]-M_conc_thin[i]));
-                M_h_thin[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_h_thin[i]-M_h_thin[i]));
-                M_hs_thin[i]   += (fNudge*(time_step/nudge_time)*(M_nesting_hs_thin[i]-M_hs_thin[i]));
+                M_conc_young[i] += (fNudge*(time_step/nudge_time)*(M_nesting_conc_young[i]-M_conc_young[i]));
+                M_h_young[i]    += (fNudge*(time_step/nudge_time)*(M_nesting_h_young[i]-M_h_young[i]));
+                M_hs_young[i]   += (fNudge*(time_step/nudge_time)*(M_nesting_hs_young[i]-M_hs_young[i]));
             }
         }
     }
@@ -4971,7 +4972,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
             a=6.1115e2, b=23.036,  c=279.82, d=333.7;
-            // Here temp can be either M_tice[0][i] or M_tsurf_thin so the user must suply its value
+            // Here temp can be either M_tice[0][i] or M_tsurf_young so the user must suply its value
             assert( temp > -physical::tfrwK );
             salinity = 0;
             break;
@@ -5205,25 +5206,25 @@ FiniteElement::thermo(int dt)
     std::vector<double> dQiadT(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi, Qswi, Qlhi, Qshi, subl, dQiadT);
 
-    //! Calculate the ice-atmosphere fluxes over thin ice
-    std::vector<double> Qia_thin(M_num_elements);
-    std::vector<double> Qlw_thin(M_num_elements);
-    std::vector<double> Qsw_thin(M_num_elements);
-    std::vector<double> Qlh_thin(M_num_elements);
-    std::vector<double> Qsh_thin(M_num_elements);
-    std::vector<double> subl_thin(M_num_elements);
-    std::vector<double> dQiadT_thin(M_num_elements);
-    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+    //! Calculate the ice-atmosphere fluxes over young ice
+    std::vector<double> Qia_young(M_num_elements);
+    std::vector<double> Qlw_young(M_num_elements);
+    std::vector<double> Qsw_young(M_num_elements);
+    std::vector<double> Qlh_young(M_num_elements);
+    std::vector<double> Qsh_young(M_num_elements);
+    std::vector<double> subl_young(M_num_elements);
+    std::vector<double> dQiadT_young(M_num_elements);
+    if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
     {
-        this->IABulkFluxes(M_tsurf_thin, M_hs_thin, M_conc_thin, Qia_thin, Qlw_thin, Qsw_thin, Qlh_thin, Qsh_thin, subl_thin, dQiadT_thin);
+        this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young, Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young, subl_young, dQiadT_young);
     } else {
-        Qia_thin.assign(M_num_elements, 0.);
-        Qlw_thin.assign(M_num_elements, 0.);
-        Qsw_thin.assign(M_num_elements, 0.);
-        Qlh_thin.assign(M_num_elements, 0.);
-        Qsh_thin.assign(M_num_elements, 0.);
-        subl_thin.assign(M_num_elements, 0.);
-        dQiadT_thin.assign(M_num_elements, 0.);
+        Qia_young.assign(M_num_elements, 0.);
+        Qlw_young.assign(M_num_elements, 0.);
+        Qsw_young.assign(M_num_elements, 0.);
+        Qlh_young.assign(M_num_elements, 0.);
+        Qsh_young.assign(M_num_elements, 0.);
+        subl_young.assign(M_num_elements, 0.);
+        dQiadT_young.assign(M_num_elements, 0.);
     }
 
     M_timer.tock("ia_fluxes");
@@ -5241,18 +5242,18 @@ FiniteElement::thermo(int dt)
         double  hi_old=0.;      //! \param hi_old (double) Ice thickness at the start of the time step (slab) [m]
         double  hs=0.;          //! \param hs (double) Snow thickness (slab) [m]
 
-        double  hi_thin=0.;     //! \param hi_thin (double) Thin ice thickness (slab) [m]
-        double  hi_thin_old=0.; //! \param hi_thin_old (double) Thin ice thickness at the start of the time step (slab) [m]
-        double  hs_thin=0.;     //! \param hs_thin (double) Snow thickness on thin ice (slab) [m]
+        double  hi_young=0.;     //! \param hi_young (double) Young ice thickness (slab) [m]
+        double  hi_young_old=0.; //! \param hi_young_old (double) Young ice thickness at the start of the time step (slab) [m]
+        double  hs_young=0.;     //! \param hs_young (double) Snow thickness on young ice (slab) [m]
 
         double  del_hi=0.;      //! \param del_hi (double) Rate of change in ice thickness (slab only) [m/s]
-        double  del_hi_thin=0.; //! \param del_hi_thin (double) Rate of change in thin ice thickness (slab only) [m/s]
+        double  del_hi_young=0.; //! \param del_hi_young (double) Rate of change in young ice thickness (slab only) [m/s]
 
         double  Qdw=0.;         //! \param Qdw (double) Heat flux from ocean nudging
         double  Fdw=0.;         //! \param Fdw (double) Fresh water flux from ocean nudging
 
         double  Qio=0.;         //! \param Qio (double) Ice-ocean heat flux
-        double  Qio_thin=0.;    //! \param Qio_thin (double) Ice-ocean heat flux through thin ice
+        double  Qio_young=0.;    //! \param Qio_young (double) Ice-ocean heat flux through young ice
 
         double  Qassm=0.;       //! \param Qassm (double) compensating flux to ocean due to assimilation [W/m^2]
 
@@ -5260,16 +5261,16 @@ FiniteElement::thermo(int dt)
         double  old_vol=M_thick[i];
         double  old_snow_vol=M_snow_thick[i];
         double  old_conc=M_conc[i];
-        double  old_h_thin = 0.;
-        double  old_hs_thin = 0.;
-        double  old_conc_thin=0.;
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        double  old_h_young = 0.;
+        double  old_hs_young = 0.;
+        double  old_conc_young=0.;
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
-            old_h_thin  = M_h_thin[i];
-            old_conc_thin  = M_conc_thin[i];
-            old_hs_thin = M_hs_thin[i];
+            old_h_young  = M_h_young[i];
+            old_conc_young  = M_conc_young[i];
+            old_hs_young = M_hs_young[i];
         }
-        double old_ow_fraction = 1. - old_conc - old_conc_thin;
+        double old_ow_fraction = 1. - old_conc - old_conc_young;
 
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall = 0.;
@@ -5320,9 +5321,9 @@ FiniteElement::thermo(int dt)
 
         /* Heatflux from ocean */
         Qio  = this->iceOceanHeatflux(i, M_sst[i], M_sss[i], mld, dt);
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
             // ice-ocean flux doesn't depend on ice properties
-            Qio_thin = Qio;
+            Qio_young = Qio;
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
@@ -5347,22 +5348,22 @@ FiniteElement::thermo(int dt)
                 break;
         }
 
-        double del_hs_thin_mlt = 0;
-        double mlt_hi_top_thin = 0;
-        double mlt_hi_bot_thin = 0;
-        double del_hi_s2i_thin = 0;
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        double del_hs_young_mlt = 0;
+        double mlt_hi_top_young = 0;
+        double mlt_hi_bot_young = 0;
+        double del_hi_s2i_young = 0;
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
-            this->thermoIce0(ddt, M_conc_thin[i], M_h_thin[i], M_hs_thin[i],
-                    mld, tmp_snowfall, Qia_thin[i], dQiadT_thin[i], subl_thin[i], tfrw,//end of inputs - rest are outputs or in/out
-                    Qio_thin, hi_thin, hs_thin, hi_thin_old, del_hi_thin, del_hs_thin_mlt, mlt_hi_top_thin, mlt_hi_bot_thin, del_hi_s2i_thin, M_tsurf_thin[i]);
-            M_h_thin[i]  = hi_thin * old_conc_thin;
-            M_hs_thin[i] = hs_thin * old_conc_thin;
+            this->thermoIce0(ddt, M_conc_young[i], M_h_young[i], M_hs_young[i],
+                    mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
+                    Qio_young, hi_young, hs_young, hi_young_old, del_hi_young, del_hs_young_mlt, mlt_hi_top_young, mlt_hi_bot_young, del_hi_s2i_young, M_tsurf_young[i]);
+            M_h_young[i]  = hi_young * old_conc_young;
+            M_hs_young[i] = hs_young * old_conc_young;
         }
 
         // Compensation of heatflux for concentration reduced by assimilation
         // conc before assimilation
-        double conc_pre_assim = old_conc + old_conc_thin - M_conc_upd[i];
+        double conc_pre_assim = old_conc + old_conc_young - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
         if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
@@ -5370,7 +5371,7 @@ FiniteElement::thermo(int dt)
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
+            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_young*old_conc_young) *
                     (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
 
@@ -5400,15 +5401,15 @@ FiniteElement::thermo(int dt)
         double mlt_vi_bot = mlt_hi_bot*old_conc;
         double del_vs_mlt = del_hs_mlt*old_conc;
         double snow2ice   = del_hi_s2i*old_conc;
-        double del_vi_thin = 0.;
-        if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
+        double del_vi_young = 0.;
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
-            del_vi_thin+= del_hi_thin*old_conc_thin;
-            del_vi     += del_hi_thin*old_conc_thin;
-            mlt_vi_top += mlt_hi_top_thin*old_conc_thin;
-            mlt_vi_bot += mlt_hi_bot_thin*old_conc_thin;
-            snow2ice   += del_hi_s2i_thin*old_conc_thin;
-            del_vs_mlt += del_hs_thin_mlt*old_conc_thin;
+            del_vi_young+= del_hi_young*old_conc_young;
+            del_vi     += del_hi_young*old_conc_young;
+            mlt_vi_top += mlt_hi_top_young*old_conc_young;
+            mlt_vi_bot += mlt_hi_bot_young*old_conc_young;
+            snow2ice   += del_hi_s2i_young*old_conc_young;
+            del_vs_mlt += del_hs_young_mlt*old_conc_young;
         }
 
         /* Decide the change in ice fraction (del_c) */
@@ -5419,8 +5420,8 @@ FiniteElement::thermo(int dt)
         /* In case there is an FSD initialize a lateral rate melt for
         ulterior redistribution (eq. to Gr in Horvat&Tziperman2015)  */
         double lat_melt_rate = 0.;
-        // For FSD redistribution it is necessary to differentiate the thin ice coverted into new ice
-        double thin_ice_growth =0.;
+        // For FSD redistribution it is necessary to differentiate the young ice coverted into new ice
+        double young_ice_growth =0.;
 
 
         /* Freezing conditions */
@@ -5453,51 +5454,51 @@ FiniteElement::thermo(int dt)
                     break;
                 }
             case 4:
-                /* Thin ice category */
-                M_h_thin[i]+=newice;
-                M_conc_thin[i]=std::min(1.-M_conc[i],M_conc_thin[i]+newice/h_thin_min);
+                /* Young ice category */
+                M_h_young[i]+=newice;
+                M_conc_young[i]=std::min(1.-M_conc[i],M_conc_young[i]+newice/h_young_min);
                 newice  = 0.;
                 newsnow = 0.;
 
-                if(M_conc_thin[i]>0.)
+                if(M_conc_young[i]>0.)
                 {
-                    /* Two cases: Thin ice fills the cell or not */
-                    if ( M_h_thin[i] < h_thin_min*M_conc_thin[i] )
+                    /* Two cases: Young ice fills the cell or not */
+                    if ( M_h_young[i] < h_young_min*M_conc_young[i] )
                     {
-                        M_conc_thin[i] = M_h_thin[i]/h_thin_min;
-                        thin_ice_growth =M_conc_thin[i] - old_conc_thin ;
+                        M_conc_young[i] = M_h_young[i]/h_young_min;
+                        young_ice_growth =M_conc_young[i] - old_conc_young ;
                     }
                     else
                     {
-                        double h0 = h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
-                        if(h0>h_thin_max)
+                        double h0 = h_young_min + 2.*(M_h_young[i]-h_young_min*M_conc_young[i])/(M_conc_young[i]);
+                        if(h0>h_young_max)
                         {
-                            del_c = M_conc_thin[i]/(h0-h_thin_min) * (h0-h_thin_max);
-                            double del_h_thin = del_c*(h0+h_thin_max)/2.;
-                            double del_hs_thin = del_c*M_hs_thin[i]/M_conc_thin[i];
+                            del_c = M_conc_young[i]/(h0-h_young_min) * (h0-h_young_max);
+                            double del_h_young = del_c*(h0+h_young_max)/2.;
+                            double del_hs_young = del_c*M_hs_young[i]/M_conc_young[i];
 
-                            M_thick[i] += del_h_thin;
+                            M_thick[i] += del_h_young;
                             // M_conc[i]  += del_c; ; <- this is done properly below
 
-                            newice  = del_h_thin; // Reset newice to use below
-                            newsnow = del_hs_thin;
+                            newice  = del_h_young; // Reset newice to use below
+                            newsnow = del_hs_young;
                             // M_snow_thick[i] += newsnow; <- this is done properly below
 
                             // std::max is to prevent round-off error giving negative values
-                            M_conc_thin[i] = std::max( 0., M_conc_thin[i] - del_c );
-                            M_h_thin[i]    = std::max( 0., M_h_thin[i] - del_h_thin );
-                            M_hs_thin[i]   = std::max( 0., M_hs_thin[i] - del_hs_thin );
+                            M_conc_young[i] = std::max( 0., M_conc_young[i] - del_c );
+                            M_h_young[i]    = std::max( 0., M_h_young[i] - del_h_young );
+                            M_hs_young[i]   = std::max( 0., M_hs_young[i] - del_hs_young );
                         }
                     }
                 }
-                else // we should not have thin ice, no space for it
+                else // we should not have young ice, no space for it
                 {
-                    M_thick[i] += M_h_thin[i];
+                    M_thick[i] += M_h_young[i];
 
-                    newice  = M_h_thin[i];
-                    newsnow = M_hs_thin[i];
-                    M_h_thin[i] = 0.;
-                    M_hs_thin[i]= 0.;
+                    newice  = M_h_young[i];
+                    newsnow = M_hs_young[i];
+                    M_h_young[i] = 0.;
+                    M_hs_young[i]= 0.;
                 }
                 break;
             default:
@@ -5566,12 +5567,12 @@ FiniteElement::thermo(int dt)
                         if (hi>0)  //case hi==0 is treated in thermo
                         {
                             // It would be worthy checking that lat. melt is indeed lower for unbroken ice than for broken ice
-                            double ctot = M_conc[i] + M_conc_thin[i];
+                            double ctot = M_conc[i] + M_conc_young[i];
                             if (ctot<1e-11)
                                 break;
                             double h0 = 0. ;
-                            if (M_conc_thin[i]>0.)
-                                h0=h_thin_min + 2.*(M_h_thin[i]-h_thin_min*M_conc_thin[i])/(M_conc_thin[i]);
+                            if (M_conc_young[i]>0.)
+                                h0=h_young_min + 2.*(M_h_young[i]-h_young_min*M_conc_young[i])/(M_conc_young[i]);
 
                             if (std::abs(M_conc_fsd[M_num_fsd_bins-1][i]-ctot)<1e-7 ) //If sea ice is unbroken, then follow melt_type==2
                             {
@@ -5591,10 +5592,10 @@ FiniteElement::thermo(int dt)
                                 del_c_melt += cat0_del_c ;
                                 for (int j=0;j<M_num_fsd_bins-1;++j)
                                     del_c_melt += lat_melt_rate *(M_conc_fsd[j][i]*2./M_fsd_bin_centres[j]) * ddt ;
-                                Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_thin[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
+                                Qow[i] -= del_c_melt*(hi*qi*M_conc[i]+h0*qi*M_conc_young[i])/(ddt*ctot) ;       // Guillaume : snow is treated below ??
                             }
                             del_c +=  (M_conc[i]/ctot)*del_c_melt ;
-                            M_conc_thin[i] += del_c_melt * (M_conc_thin[i]/ctot) ;
+                            M_conc_young[i] += del_c_melt * (M_conc_young[i]/ctot) ;
                         }
                     }
                     break;
@@ -5647,7 +5648,7 @@ FiniteElement::thermo(int dt)
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
         {
-            hi = ( hi*old_conc + newice )/M_conc[i]; // TODO: Is it still valid with thin ice ?
+            hi = ( hi*old_conc + newice )/M_conc[i]; // TODO: Is it still valid with young ice ?
             if ( del_c < 0. )
             {
                 /* We conserve the snow height, but melt away snow as the concentration decreases */
@@ -5680,13 +5681,13 @@ FiniteElement::thermo(int dt)
             for (int j=0; j<M_tice.size(); j++)
                 M_tice[j][i] = -physical::mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
 
-            //M_tsurf_thin[i] = tfrw;
+            //M_tsurf_young[i] = tfrw;
             hi     = 0.;
             hs     = 0.;
             M_ridge_ratio[i] = 0.;
 
 #ifdef OASIS
-            // If FSD : Don't change its shape. Remove all ice if no thin ice
+            // If FSD : Don't change its shape. Remove all ice if no young ice
             if(M_num_fsd_bins>0)
             {
                 double ctot=0;
@@ -5694,7 +5695,7 @@ FiniteElement::thermo(int dt)
 
                 for(int m=0;m<M_num_fsd_bins;m++)
                         ctot+=M_conc_fsd[m][i] ;
-                if ( (ctot>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                if ( (ctot>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE ) and (M_conc_young[i]>0.) )
                 {
                     for(int m=0 ; m<M_num_fsd_bins;m++)
                         M_conc_fsd[m][i]+= (-old_conc)*M_conc_fsd[m][i]/ctot ;
@@ -5703,7 +5704,7 @@ FiniteElement::thermo(int dt)
                 {
                     for(int m=0;m<M_num_fsd_bins;m++)
                         ctot_mech+=M_conc_mech_fsd[m][i] ;
-                    if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE ) and (M_conc_thin[i]>0.) )
+                    if ( (ctot_mech>old_conc) and ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE ) and (M_conc_young[i]>0.) )
                     {
                         for(int m=0;m<M_num_fsd_bins;m++)
                             M_conc_mech_fsd[m][i]+= (-old_conc)*M_conc_mech_fsd[m][i]/ctot_mech ;
@@ -5726,7 +5727,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
             /* In case there is an FSD: */
             if(M_num_fsd_bins>0)
-                this->redistributeThermoFSD(i,ddt,lat_melt_rate,thin_ice_growth,old_conc,old_conc_thin);
+                this->redistributeThermoFSD(i,ddt,lat_melt_rate,young_ice_growth,old_conc,old_conc_young);
 #endif
         }
 
@@ -5763,11 +5764,11 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         // rain Liquid precipitation
         // emp  Evaporation minus liquid precipitation
-        double rain = (1.-old_conc-old_conc_thin)*M_precip[i] + (old_conc+old_conc_thin)*(M_precip[i]-tmp_snowfall);
-        double emp  = evap[i]*(1.-old_conc-old_conc_thin) - rain;
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*(M_precip[i]-tmp_snowfall);
+        double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
 
         // Element mean ice-ocean heat flux
-        double Qio_mean = Qio*old_conc + Qio_thin*old_conc_thin;
+        double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
 
@@ -5849,19 +5850,19 @@ FiniteElement::thermo(int dt)
         //! 10) Computes diagnostics (open water fraction and heat fluxes to the atmosphere and ocean)
 
         // Total heat flux to the atmosphere
-        D_Qa[i] = Qia[i]*old_conc + Qia_thin[i]*old_conc_thin + Qow[i]*old_ow_fraction;
+        D_Qa[i] = Qia[i]*old_conc + Qia_young[i]*old_conc_young + Qow[i]*old_ow_fraction;
 
         // Short wave flux to the atmosphere
-        D_Qsw[i] = Qswi[i]*old_conc + Qsw_thin[i]*old_conc_thin + Qsw_ow[i]*old_ow_fraction;
+        D_Qsw[i] = Qswi[i]*old_conc + Qsw_young[i]*old_conc_young + Qsw_ow[i]*old_ow_fraction;
 
         // Long wave flux to the atmosphere
-        D_Qlw[i] = Qlwi[i]*old_conc + Qlw_thin[i]*old_conc_thin + Qlw_ow[i]*old_ow_fraction;
+        D_Qlw[i] = Qlwi[i]*old_conc + Qlw_young[i]*old_conc_young + Qlw_ow[i]*old_ow_fraction;
 
         // Sensible heat flux to the atmosphere
-        D_Qsh[i] = Qshi[i]*old_conc + Qsh_thin[i]*old_conc_thin + Qsh_ow[i]*old_ow_fraction;
+        D_Qsh[i] = Qshi[i]*old_conc + Qsh_young[i]*old_conc_young + Qsh_ow[i]*old_ow_fraction;
 
         // Latent heat flux to the atmosphere
-        D_Qlh[i] = Qlhi[i]*old_conc + Qlh_thin[i]*old_conc_thin + Qlh_ow[i]*old_ow_fraction;
+        D_Qlh[i] = Qlhi[i]*old_conc + Qlh_young[i]*old_conc_young + Qlh_ow[i]*old_ow_fraction;
 
         // Total heat lost by ocean
         D_Qo[i] = Qio_mean + Qow_mean;
@@ -5888,7 +5889,7 @@ FiniteElement::thermo(int dt)
         D_brine[i] = -1e-3*si_eff*physical::rhoi*del_vi/ddt;
 
         // Evaporation
-        D_evap[i] = evap[i]*(1.-old_conc-old_conc_thin);
+        D_evap[i] = evap[i]*(1.-old_conc-old_conc_young);
 
         // Rain
         D_rain[i] = rain;
@@ -5896,16 +5897,16 @@ FiniteElement::thermo(int dt)
         // Ice volume melt rate per day per element area  [m/day]
         D_vice_melt[i]   = del_vi*86400/ddt;
 
-        // Thin Ice volume melt rate per day per element area  [m/day]
-        D_del_vi_thin[i]  = del_vi_thin*86400/ddt;
+        // Young Ice volume melt rate per day per element area  [m/day]
+        D_del_vi_young[i]  = del_vi_young*86400/ddt;
 
         // Ice growth/melt rate [m/day]
         D_del_hi[i]      = del_hi*86400/ddt;
 
-        // New thin ice growth/melt rate [m/day]
-        D_del_hi_thin[i] = del_hi_thin*86400/ddt;
+        // New young ice growth/melt rate [m/day]
+        D_del_hi_young[i] = del_hi_young*86400/ddt;
 
-        // thin ice volume per surface area rate [m/day]
+        // young ice volume per surface area rate [m/day]
         D_newice[i]      = newice_stored*86400/ddt;
 
         // top melt  volume per surface area rate [m/day]
@@ -6875,16 +6876,16 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_sst);
     M_sss = ModelVariable(ModelVariable::variableID::M_sss);//! \param M_sss (double) Sea surface salinity (slab ocean) [C]
     M_variables_elt.push_back(&M_sss);
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        M_tsurf_thin = ModelVariable(ModelVariable::variableID::M_tsurf_thin);//! \param M_tsurf_thin (double) Thin ice surface temperature [C]
-        M_variables_elt.push_back(&M_tsurf_thin);
-        M_h_thin = ModelVariable(ModelVariable::variableID::M_h_thin);//! \param M_h_thin (double) Thickness of thin ice [m]
-        M_variables_elt.push_back(&M_h_thin);
-        M_hs_thin = ModelVariable(ModelVariable::variableID::M_hs_thin);//! \param M_hs_thin (double) Snow thickness (on top of thin ice) [m]
-        M_variables_elt.push_back(&M_hs_thin);
-        M_conc_thin = ModelVariable(ModelVariable::variableID::M_conc_thin);//! \param M_conc (double) Concentration of thin ice
-        M_variables_elt.push_back(&M_conc_thin);
+        M_tsurf_young = ModelVariable(ModelVariable::variableID::M_tsurf_young);//! \param M_tsurf_young (double) Young ice surface temperature [C]
+        M_variables_elt.push_back(&M_tsurf_young);
+        M_h_young = ModelVariable(ModelVariable::variableID::M_h_young);//! \param M_h_young (double) Thickness of young ice [m]
+        M_variables_elt.push_back(&M_h_young);
+        M_hs_young = ModelVariable(ModelVariable::variableID::M_hs_young);//! \param M_hs_young (double) Snow thickness (on top of young ice) [m]
+        M_variables_elt.push_back(&M_hs_young);
+        M_conc_young = ModelVariable(ModelVariable::variableID::M_conc_young);//! \param M_conc (double) Concentration of young ice
+        M_variables_elt.push_back(&M_conc_young);
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
@@ -6970,8 +6971,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_Qsw_ocean);
     D_vice_melt = ModelVariable(ModelVariable::variableID::D_vice_melt);//! \param D_vice_melt (double) Ice volume formed/melted per element area [m/day]
     M_variables_elt.push_back(&D_vice_melt);
-    D_del_vi_thin = ModelVariable(ModelVariable::variableID::D_del_vi_thin);//! \param D_del_vi_thin (double) Thin Ice volume formed/melted per element area [m/day]
-    M_variables_elt.push_back(&D_del_vi_thin);
+    D_del_vi_young = ModelVariable(ModelVariable::variableID::D_del_vi_young);//! \param D_del_vi_young (double) Young Ice volume formed/melted per element area [m/day]
+    M_variables_elt.push_back(&D_del_vi_young);
     D_newice = ModelVariable(ModelVariable::variableID::D_newice);//! \param D_newice (double) Ice volume formed in open water  per element area [m/day]
     M_variables_elt.push_back(&D_newice);
     D_mlt_top = ModelVariable(ModelVariable::variableID::D_mlt_top);//! \param D_mlt_top (double) Ice volume melted at top  per element area [m/day]
@@ -6980,8 +6981,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_mlt_bot);
     D_snow2ice = ModelVariable(ModelVariable::variableID::D_snow2ice);//! \param D_snow2ice (double) Ice volume formed in from snow flooding per element area [m/day]
     M_variables_elt.push_back(&D_snow2ice);
-    D_del_hi_thin = ModelVariable(ModelVariable::variableID::D_del_hi_thin);//! \param D_del_hi_thin (double) Thin growth/melt rate [m/day]
-    M_variables_elt.push_back(&D_del_hi_thin);
+    D_del_hi_young = ModelVariable(ModelVariable::variableID::D_del_hi_young);//! \param D_del_hi_young (double) Young growth/melt rate [m/day]
+    M_variables_elt.push_back(&D_del_hi_young);
     D_del_hi = ModelVariable(ModelVariable::variableID::D_del_hi);//! \param D_del_hi (double) Ice growth/melt rate  [m/day]
     M_variables_elt.push_back(&D_del_hi);
     D_del_vi_mlt_myi = ModelVariable(ModelVariable::variableID::D_del_vi_mlt_myi);//! \param D_del_vi_mlt_myi (double) Ice growth/melt rate  [m/day]
@@ -7223,8 +7224,8 @@ FiniteElement::initFsd()
     {
         // all the thick ice in the highest bin
         M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i];
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_thin[i];
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_young[i];
 
         //nothing in the other bins
         for(int k=0; k<M_num_fsd_bins-1; k++)
@@ -7520,12 +7521,12 @@ FiniteElement::updateIceDiagnostics()
         D_thick[i] = M_thick[i];
         D_snow_thick[i] = M_snow_thick[i];
         D_tsurf[i] = M_conc[i]*M_tice[0][i];
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            D_conc[i] += M_conc_thin[i];
-            D_thick[i] += M_h_thin[i];
-            D_snow_thick[i] += M_hs_thin[i];
-            D_tsurf[i] += M_conc_thin[i]*M_tsurf_thin[i];
+            D_conc[i] += M_conc_young[i];
+            D_thick[i] += M_h_young[i];
+            D_snow_thick[i] += M_hs_young[i];
+            D_tsurf[i] += M_conc_young[i]*M_tsurf_young[i];
         }
         D_tsurf[i] += (1-D_conc[i])*M_sst[i];
 
@@ -8214,19 +8215,19 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_tice[2][i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::conc_thin):
+            case (GridOutput::variableID::conc_young):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_conc_thin[i]*time_factor;
+                    it->data_mesh[i] += M_conc_young[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::h_thin):
+            case (GridOutput::variableID::h_young):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_h_thin[i]*time_factor;
+                    it->data_mesh[i] += M_h_young[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::hs_thin):
+            case (GridOutput::variableID::hs_young):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_hs_thin[i]*time_factor;
+                    it->data_mesh[i] += M_hs_young[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::fyi_fraction):
@@ -8394,9 +8395,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] -= D_fwflux_ice[i]*time_factor;
                 break;
-            case (GridOutput::variableID::del_vi_thin):
+            case (GridOutput::variableID::del_vi_young):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_del_vi_thin[i]*time_factor;
+                    it->data_mesh[i] += D_del_vi_young[i]*time_factor;
                 break;
             case (GridOutput::variableID::vice_melt):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8406,9 +8407,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_del_hi[i]*time_factor;
                 break;
-            case (GridOutput::variableID::del_hi_thin):
+            case (GridOutput::variableID::del_hi_young):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_del_hi_thin[i]*time_factor;
+                    it->data_mesh[i] += D_del_hi_young[i]*time_factor;
                 break;
             case (GridOutput::variableID::newice):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8464,8 +8465,8 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::ice_mask):
                 for (int i=0; i<M_local_nelements; i++)
                 {
-                    if ( M_ice_cat_type==setup::IceCategoryType::THIN_ICE )
-                        it->data_mesh[i] += (M_thick[i]+M_h_thin[i]>0.) ? 1. : 0.;
+                    if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+                        it->data_mesh[i] += (M_thick[i]+M_h_young[i]>0.) ? 1. : 0.;
                     else
                         it->data_mesh[i] += (M_thick[i]>0.) ? 1. : 0.;
                 }
@@ -8606,17 +8607,17 @@ FiniteElement::initMoorings()
             ("Qsh", GridOutput::variableID::Qsh)
             ("Qlh", GridOutput::variableID::Qlh)
             ("delS", GridOutput::variableID::delS)
-            ("conc_thin", GridOutput::variableID::conc_thin)
-            ("h_thin", GridOutput::variableID::h_thin)
-            ("hs_thin", GridOutput::variableID::hs_thin)
+            ("conc_young", GridOutput::variableID::conc_young)
+            ("h_young", GridOutput::variableID::h_young)
+            ("hs_young", GridOutput::variableID::hs_young)
             ("sst", GridOutput::variableID::sst)
             ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
-            ("del_vi_thin", GridOutput::variableID::del_vi_thin)
+            ("del_vi_young", GridOutput::variableID::del_vi_young)
             ("del_hi", GridOutput::variableID::del_hi)
-            ("del_hi_thin", GridOutput::variableID::del_hi_thin)
+            ("del_hi_young", GridOutput::variableID::del_hi_young)
             ("newice", GridOutput::variableID::newice)
             ("mlt_bot", GridOutput::variableID::mlt_bot)
             ("mlt_top", GridOutput::variableID::mlt_top)
@@ -8669,7 +8670,7 @@ FiniteElement::initMoorings()
     names.erase( std::unique( names.begin(), names.end() ), names.end() );
 
     //error checking
-    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+    std::vector<std::string> names_young = {"conc_young", "h_young", "hs_young"};
 
     // - these are not always initialised, depending on the atmospheric forcing
     boost::unordered_map<std::string, bool>
@@ -8701,12 +8702,12 @@ FiniteElement::initMoorings()
     int vector_counter = 0;
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
-        // error if trying to output thin ice variables if not using thin ice category
-        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+        // error if trying to output young ice variables if not using young ice category
+        if (std::count(names_young.begin(), names_young.end(), *it) > 0)
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type!=setup::IceCategoryType::YOUNG_ICE)
             {
-                LOG(ERROR)<<"initMoorings: trying to output <<"<< *it<<">> but not running with thin ice\n";
+                LOG(ERROR)<<"initMoorings: trying to output <<"<< *it<<">> but not running with young ice\n";
                 throw std::runtime_error("Invalid mooring name");
             }
         }
@@ -9768,11 +9769,11 @@ FiniteElement::explicitSolve()
         double total_thickness=M_thick[cpt];
         double total_snow=M_snow_thick[cpt];
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            total_concentration += M_conc_thin[cpt];
-            total_thickness     += M_h_thin[cpt];
-            total_snow          += M_hs_thin[cpt];
+            total_concentration += M_conc_young[cpt];
+            total_thickness     += M_h_young[cpt];
+            total_snow          += M_hs_young[cpt];
         }
 
         if ( total_concentration > 0. )
@@ -10604,17 +10605,17 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
     if ( Environment::vm()["thermo.newice_type"].as<int>() == 4 )
     {
-        M_nesting_h_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
-        M_external_data_elements_names.push_back("M_nesting_h_thin");
-        M_external_data_elements.push_back(&M_nesting_h_thin);
+        M_nesting_h_young=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 3,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_h_young");
+        M_external_data_elements.push_back(&M_nesting_h_young);
 
-        M_nesting_conc_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
-        M_external_data_elements_names.push_back("M_nesting_conc_thin");
-        M_external_data_elements.push_back(&M_nesting_conc_thin);
+        M_nesting_conc_young=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 4,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_conc_young");
+        M_external_data_elements.push_back(&M_nesting_conc_young);
 
-        M_nesting_hs_thin=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
-        M_external_data_elements_names.push_back("M_nesting_hs_thin");
-        M_external_data_elements.push_back(&M_nesting_hs_thin);
+        M_nesting_hs_young=ExternalData(&M_nesting_ice_elements_dataset, M_mesh, 5,false,time_init);
+        M_external_data_elements_names.push_back("M_nesting_hs_young");
+        M_external_data_elements.push_back(&M_nesting_hs_young);
     }
 
     M_nesting_sigma1=ExternalData(&M_nesting_dynamics_elements_dataset, M_mesh, 0,false,time_init);
@@ -11041,14 +11042,14 @@ FiniteElement::checkConsistency()
             for (int k=0; k<M_tice.size(); k++)
                 M_tice[k][i] = M_tice[k].valueNoThickIce();
         }
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            if (       (M_conc_thin[i] < physical::cmin)
-                    || (M_h_thin[i] < M_conc_thin[i]*physical::hmin))
+            if (       (M_conc_young[i] < physical::cmin)
+                    || (M_h_young[i] < M_conc_young[i]*physical::hmin))
             {
-                M_conc_thin[i]=0.;
-                M_h_thin[i]=0.;
-                M_hs_thin[i]=0.;
+                M_conc_young[i]=0.;
+                M_h_young[i]=0.;
+                M_hs_young[i]=0.;
             }
         }
 
@@ -11059,13 +11060,13 @@ FiniteElement::checkConsistency()
 
         // check SST is consistent
         double conc_tot = M_conc[i];
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            conc_tot += M_conc_thin[i];
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+            conc_tot += M_conc_young[i];
         double const weight_conc = std::min(1., conc_tot*100.);//increases linearly from 0 to 1 as conc goes from 0 to .01
         if(conc_tot>0.)
             M_sst[i] = Tfr_wtr*weight_conc + M_sst[i]*(1-weight_conc);
 
-        // init M_tice[j], M_tsurf_thin where it is needed
+        // init M_tice[j], M_tsurf_young where it is needed
         // - initialization: wherever there is ice
         // - assimilation: wherever there is ice
         //   TODO make this just where new ice is added
@@ -11085,10 +11086,10 @@ FiniteElement::checkConsistency()
             tsurf = std::min(Tfr_ice, M_tair[i]);
         }
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            //init thin ice temperature
-            M_tsurf_thin[i] = tsurf;
+            //init young ice temperature
+            M_tsurf_young[i] = tsurf;
         }
 
         //init thick ice temperature
@@ -11186,14 +11187,14 @@ FiniteElement::constantIce()
 
     // No ice where SST is over init_SST_limit
     double SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
-    double init_thin_conc = vm["ideal_simul.init_thin_conc"].as<double>();
-    double h_thin_min = vm["thermo.h_thin_min"].as<double>();
-    double h_thin_max = vm["thermo.h_thin_max"].as<double>();
+    double init_young_conc = vm["ideal_simul.init_young_conc"].as<double>();
+    double h_young_min = vm["thermo.h_young_min"].as<double>();
+    double h_young_max = vm["thermo.h_young_max"].as<double>();
     int cnt=0;
     bool const use_thermo = vm["thermo.use_thermo_forcing"].as<bool>();
     for (int i=0; i<M_sst.size(); ++i)
     {
-        bool set_thin = M_ice_cat_type==setup::IceCategoryType::THIN_ICE;
+        bool set_young = M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE;
         if ( use_thermo
                 && M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
         {
@@ -11201,13 +11202,13 @@ FiniteElement::constantIce()
             M_thick[i]      = 0;
             M_snow_thick[i] = 0;
             cnt++;
-            set_thin = false;
+            set_young = false;
         }
-        if(set_thin)
+        if(set_young)
         {
-            M_conc_thin[i] = init_thin_conc;
-            M_h_thin[i]    = (h_thin_min+(h_thin_max-h_thin_min)/2.)*M_conc_thin[i];
-            M_hs_thin[i]   = hs_const*M_conc_thin[i];
+            M_conc_young[i] = init_young_conc;
+            M_h_young[i]    = (h_young_min+(h_young_max-h_young_min)/2.)*M_conc_young[i];
+            M_hs_young[i]   = hs_const*M_conc_young[i];
         }
     }
     LOG(DEBUG) << (double)cnt/(double)M_sst.size() * 100 << "% ice covered cells cleared because of SST limit\n";
@@ -11422,10 +11423,10 @@ FiniteElement::topazIceOsisafIcesat()
             M_snow_thick[i]=hs*M_conc[i];
         }
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            M_conc_thin[i]=std::min(1., std::max(M_amsre_conc[i]-M_conc[i],0.));
-            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+            M_conc_young[i]=std::min(1., std::max(M_amsre_conc[i]-M_conc[i],0.));
+            M_h_young[i]=M_conc_young[i]*(h_young_min+0.5*(h_young_max-h_young_min));
         }
 
         M_damage[i]=0.;
@@ -11568,59 +11569,59 @@ FiniteElement::topazForecastAmsr2Ice()
 //! called by <FiniteElement::topazForecastAmsr2OsisafNicIce>() and
 //! <FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce>()
 void
-FiniteElement::concBinsNic(double &thin_conc_obs_min, double &thin_conc_obs_max,
+FiniteElement::concBinsNic(double &young_conc_obs_min, double &young_conc_obs_max,
         double ci, bool use_weekly_nic)
 {
 
     if(ci<=0.)
     {
-        thin_conc_obs_min = 0.;
-        thin_conc_obs_max = 0.;
+        young_conc_obs_min = 0.;
+        young_conc_obs_max = 0.;
     }
     else if(!use_weekly_nic)
     {
         if(ci<=0.45) // CT18
         {
-            thin_conc_obs_min = 0.1;
-            thin_conc_obs_max = 0.8;
+            young_conc_obs_min = 0.1;
+            young_conc_obs_max = 0.8;
         }
         else if(ci<=0.9) // CT81
         {
-            thin_conc_obs_min = 0.8;
-            thin_conc_obs_max = 1.;
+            young_conc_obs_min = 0.8;
+            young_conc_obs_max = 1.;
         }
     }
     else
     {
         if(ci<=0.2) // CT13
         {
-            thin_conc_obs_min = 0.1;
-            thin_conc_obs_max = 0.3;
+            young_conc_obs_min = 0.1;
+            young_conc_obs_max = 0.3;
         }
         else if(ci<=0.30) // CT24
         {
-            thin_conc_obs_min = 0.2;
-            thin_conc_obs_max = 0.4;
+            young_conc_obs_min = 0.2;
+            young_conc_obs_max = 0.4;
         }
         else if(ci<=0.50) // CT46
         {
-            thin_conc_obs_min = 0.4;
-            thin_conc_obs_max = 0.6;
+            young_conc_obs_min = 0.4;
+            young_conc_obs_max = 0.6;
         }
         else if(ci<=0.70) //CT68
         {
-            thin_conc_obs_min = 0.6;
-            thin_conc_obs_max = 0.8;
+            young_conc_obs_min = 0.6;
+            young_conc_obs_max = 0.8;
         }
         else if(ci<=0.90) // CT81
         {
-            thin_conc_obs_min = 0.8;
-            thin_conc_obs_max = 1.0;
+            young_conc_obs_min = 0.8;
+            young_conc_obs_max = 1.0;
         }
         else if(ci<=1.) // CT92
         {
-            thin_conc_obs_min = 0.9;
-            thin_conc_obs_max = 1.0;
+            young_conc_obs_min = 0.9;
+            young_conc_obs_max = 1.0;
         }
     }
 }//concBinsNic
@@ -11698,92 +11699,92 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 
         // Use the NIC ice charts
         // - get conc bins from NIC dataset
-        double thin_conc_obs = 0.;
-        double thin_conc_obs_min = 0.;
-        double thin_conc_obs_max = 0.;
-        this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
+        double young_conc_obs = 0.;
+        double young_conc_obs_min = 0.;
+        double young_conc_obs_max = 0.;
+        this->concBinsNic(young_conc_obs_min, young_conc_obs_max, M_nic_conc[i], use_weekly_nic);
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
 
-            if((M_conc[i]+M_conc_thin[i])<thin_conc_obs_min)
+            if((M_conc[i]+M_conc_young[i])<young_conc_obs_min)
             {
-                thin_conc_obs = thin_conc_obs_min-M_conc[i];//always >=0?
-                if(thin_conc_obs>=0.)
+                young_conc_obs = young_conc_obs_min-M_conc[i];//always >=0?
+                if(young_conc_obs>=0.)
                 {
-                    //increase thin ice conc so total conc = thin_conc_obs_min
-                    if(thin_conc_obs>M_conc_thin[i])
-                        //increase thin ice vol
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                    //increase young ice conc so total conc = young_conc_obs_min
+                    if(young_conc_obs>M_conc_young[i])
+                        //increase young ice vol
+                        M_h_young[i] = M_h_young[i]+(h_young_min + (h_young_max/2.-h_young_min)*0.5)*(young_conc_obs-M_conc_young[i]);
                     else
-                        //reduce thin ice vol
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                        //reduce young ice vol
+                        M_h_young[i] = M_h_young[i]*young_conc_obs/M_conc_young[i];
 
-                    M_conc_thin[i] = thin_conc_obs;
+                    M_conc_young[i] = young_conc_obs;
                 }
 #if 0
                 else
                 {
                     //not possible?
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
+                    M_conc_young[i]=0.;
+                    M_h_young[i]=0.;
 
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+thin_conc_obs);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
+                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+young_conc_obs);
+                    M_conc[i]=M_conc[i]+young_conc_obs;
                 }
 #endif
             }
-            else if((M_conc[i]+M_conc_thin[i])>thin_conc_obs_max)
+            else if((M_conc[i]+M_conc_young[i])>young_conc_obs_max)
             {
-                thin_conc_obs = thin_conc_obs_max-M_conc[i];
-                if(thin_conc_obs>=0.)
+                young_conc_obs = young_conc_obs_max-M_conc[i];
+                if(young_conc_obs>=0.)
                 {
-                    //some thin ice
-                    if(thin_conc_obs>M_conc_thin[i])
-                        M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                    //some young ice
+                    if(young_conc_obs>M_conc_young[i])
+                        M_h_young[i] = M_h_young[i]+(h_young_min + (h_young_max/2.-h_young_min)*0.5)*(young_conc_obs-M_conc_young[i]);
                     else
-                        M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                        M_h_young[i] = M_h_young[i]*young_conc_obs/M_conc_young[i];
 
-                    M_conc_thin[i] = thin_conc_obs;
+                    M_conc_young[i] = young_conc_obs;
                 }
                 else
                 {
-                    //no thin ice
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
+                    //no young ice
+                    M_conc_young[i]=0.;
+                    M_h_young[i]=0.;
 
                     // reduce thick ice to max value
-                    M_thick[i]=M_thick[i]*(M_conc[i]+thin_conc_obs)/(M_conc[i]);
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
+                    M_thick[i]=M_thick[i]*(M_conc[i]+young_conc_obs)/(M_conc[i]);
+                    M_conc[i]=M_conc[i]+young_conc_obs;
                 }
             }
 
-            /* Two cases: Thin ice fills the cell or not */
-            double min_h_thin = h_thin_min*M_conc_thin[i];
-            if ( M_h_thin[i] < min_h_thin )
-                M_h_thin[i] = min_h_thin;
+            /* Two cases: Young ice fills the cell or not */
+            double min_h_young = h_young_min*M_conc_young[i];
+            if ( M_h_young[i] < min_h_young )
+                M_h_young[i] = min_h_young;
 
-            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-            if ( M_h_thin[i] > max_h_thin)
-                M_h_thin[i] = max_h_thin;
-        }//using thin ice
+            double max_h_young=(h_young_min+(h_young_max+h_young_min)/2.)*M_conc_young[i];
+            if ( M_h_young[i] > max_h_young)
+                M_h_young[i] = max_h_young;
+        }//using young ice
         else
         {
-            if(M_conc[i]<thin_conc_obs_min)
+            if(M_conc[i]<young_conc_obs_min)
             {
-                //thin_conc_obs = .25*thin_conc_obs_max + .75*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_min + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs-M_conc[i]); // 50 cm minimum for the added ice
-                M_conc[i] = thin_conc_obs;
+                //young_conc_obs = .25*young_conc_obs_max + .75*young_conc_obs_min;
+                young_conc_obs = ( young_conc_obs_min + (young_conc_obs_min+young_conc_obs_max)/2.) /2.;
+                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(young_conc_obs-M_conc[i]); // 50 cm minimum for the added ice
+                M_conc[i] = young_conc_obs;
             }
-            else if(M_conc[i]>thin_conc_obs_max)
+            else if(M_conc[i]>young_conc_obs_max)
             {
-                //thin_conc_obs = .75*thin_conc_obs_max + .25*thin_conc_obs_min;
-                thin_conc_obs = ( thin_conc_obs_max + (thin_conc_obs_min+thin_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i]*thin_conc_obs/M_conc[i];
-                M_conc[i] = thin_conc_obs;
+                //young_conc_obs = .75*young_conc_obs_max + .25*young_conc_obs_min;
+                young_conc_obs = ( young_conc_obs_max + (young_conc_obs_min+young_conc_obs_max)/2.) /2.;
+                M_thick[i] = M_thick[i]*young_conc_obs/M_conc[i];
+                M_conc[i] = young_conc_obs;
             }
-        }//not using thin ice
+        }//not using young ice
     }//loop over elements
 }//assimilate_topazForecastAmsr2OsisafNicIce
 
@@ -11887,20 +11888,20 @@ FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
             M_ridge_ratio[i]=0.;
         }
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            double thin_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
+            double young_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
 
-            M_conc_thin[i] = (sigma_osisaf*M_conc_thin[i]+sigma_mod*thin_conc_obs)/(sigma_amsr2+sigma_mod);
+            M_conc_young[i] = (sigma_osisaf*M_conc_young[i]+sigma_mod*young_conc_obs)/(sigma_amsr2+sigma_mod);
 
-            /* Two cases: Thin ice fills the cell or not */
-            double min_h_thin = h_thin_min*M_conc_thin[i];
-            if ( M_h_thin[i] < min_h_thin )
-                M_h_thin[i] = min_h_thin;
+            /* Two cases: Young ice fills the cell or not */
+            double min_h_young = h_young_min*M_conc_young[i];
+            if ( M_h_young[i] < min_h_young )
+                M_h_young[i] = min_h_young;
 
-            double max_h_thin=(h_thin_min+(h_thin_max+h_thin_min)/2.)*M_conc_thin[i];
-            if ( M_h_thin[i] > max_h_thin)
-                M_h_thin[i] = max_h_thin;
+            double max_h_young=(h_young_min+(h_young_max+h_young_min)/2.)*M_conc_young[i];
+            if ( M_h_young[i] > max_h_young)
+                M_h_young[i] = max_h_young;
         }
     }
 }//assimilate_topazForecastAmsr2OsisafIce
@@ -12041,10 +12042,10 @@ FiniteElement::topazForecastAmsr2OsisafIce()
             M_damage[i]=0.;
         }
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            M_conc_thin[i]=std::max(M_amsr2_conc[i]-M_conc[i],0.);
-            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+            M_conc_young[i]=std::max(M_amsr2_conc[i]-M_conc[i],0.);
+            M_h_young[i]=M_conc_young[i]*(h_young_min+0.5*(h_young_max-h_young_min));
         }
 
     }//loop over elements
@@ -12194,60 +12195,60 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
         {
             // Use the NIC ice charts
             // - get conc bins from NIC dataset
-            double thin_conc_obs = 0.;
-            double thin_conc_obs_min = 0.;
-            double thin_conc_obs_max = 0.;
-            this->concBinsNic(thin_conc_obs_min, thin_conc_obs_max, M_nic_conc[i], use_weekly_nic);
+            double young_conc_obs = 0.;
+            double young_conc_obs_min = 0.;
+            double young_conc_obs_max = 0.;
+            this->concBinsNic(young_conc_obs_min, young_conc_obs_max, M_nic_conc[i], use_weekly_nic);
 
-            if((M_amsr2_conc[i]>=thin_conc_obs_min) && (M_amsr2_conc[i]<=thin_conc_obs_max))
+            if((M_amsr2_conc[i]>=young_conc_obs_min) && (M_amsr2_conc[i]<=young_conc_obs_max))
             {
-                thin_conc_obs_min=M_amsr2_conc[i];
-                thin_conc_obs_max=M_amsr2_conc[i];
+                young_conc_obs_min=M_amsr2_conc[i];
+                young_conc_obs_max=M_amsr2_conc[i];
             }
             else
             {
-                thin_conc_obs_min=0.5*(thin_conc_obs_min+thin_conc_obs_max);
-                thin_conc_obs_max=thin_conc_obs_min;
+                young_conc_obs_min=0.5*(young_conc_obs_min+young_conc_obs_max);
+                young_conc_obs_max=young_conc_obs_min;
             }
 
-            if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
             {
-                M_conc_thin[i]=0.;
+                M_conc_young[i]=0.;
 
-                thin_conc_obs = thin_conc_obs_min-M_conc[i];
-                if(thin_conc_obs>=0.)
+                young_conc_obs = young_conc_obs_min-M_conc[i];
+                if(young_conc_obs>=0.)
                 {
-                    //if(thin_conc_obs>M_conc_thin[i])
-                    //    M_h_thin[i] = M_h_thin[i]+(h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*(thin_conc_obs-M_conc_thin[i]);
+                    //if(young_conc_obs>M_conc_young[i])
+                    //    M_h_young[i] = M_h_young[i]+(h_young_min + (h_young_max/2.-h_young_min)*0.5)*(young_conc_obs-M_conc_young[i]);
                     //else
-                    //    M_h_thin[i] = M_h_thin[i]*thin_conc_obs/M_conc_thin[i];
+                    //    M_h_young[i] = M_h_young[i]*young_conc_obs/M_conc_young[i];
 
-                    M_conc_thin[i] = thin_conc_obs;
-                    M_h_thin[i] = (h_thin_min + (h_thin_max/2.-h_thin_min)*0.5)*M_conc_thin[i];
+                    M_conc_young[i] = young_conc_obs;
+                    M_h_young[i] = (h_young_min + (h_young_max/2.-h_young_min)*0.5)*M_conc_young[i];
                 }
                 else
                 {
-                    M_conc_thin[i]=0.;
-                    M_h_thin[i]=0.;
+                    M_conc_young[i]=0.;
+                    M_h_young[i]=0.;
 
-                    M_conc[i]=M_conc[i]+thin_conc_obs;
+                    M_conc[i]=M_conc[i]+young_conc_obs;
                     M_thick[i]=hi*M_conc[i];
                 }
 
-            }//thin ice
+            }//young ice
             else
             {
-                if(M_conc[i]<thin_conc_obs_min)
+                if(M_conc[i]<young_conc_obs_min)
                 {
-                    M_thick[i] = M_thick[i] + std::max(hi,0.5)*(thin_conc_obs_min-M_conc[i]); // 50 cm minimum for the added ice
-                    M_conc[i] = thin_conc_obs_min;
+                    M_thick[i] = M_thick[i] + std::max(hi,0.5)*(young_conc_obs_min-M_conc[i]); // 50 cm minimum for the added ice
+                    M_conc[i] = young_conc_obs_min;
                 }
-                else if(M_conc[i]>thin_conc_obs_max)
+                else if(M_conc[i]>young_conc_obs_max)
                 {
-                    M_conc[i] = thin_conc_obs_max;
+                    M_conc[i] = young_conc_obs_max;
                     M_thick[i]=hi*M_conc[i];
                 }
-            }//no thin ice
+            }//no young ice
         }//use NIC
 
         M_damage[i]=0.;
@@ -12415,7 +12416,7 @@ FiniteElement::topazAmsreIce()
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
     }
-}//topazAmsreIce TODO no thin ice; logic needs checking; no ice-type option for this
+}//topazAmsreIce TODO no young ice; logic needs checking; no ice-type option for this
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -12492,7 +12493,7 @@ FiniteElement::topazAmsr2Ice()
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
     }
-}//topazAmsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
+}//topazAmsr2Ice TODO no young ice; logic needs checking; no ice-type option for this
 
 
 //! Initializes the ice state from  AMSR2 data with a constant sea ice thickness
@@ -12552,7 +12553,7 @@ FiniteElement::amsr2ConstThickIce()
         M_damage[i]=0.;
         M_ridge_ratio[i]=0.;
     }
-}//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no thin ice; logic needs checking; no ice-type option for this
+}//topaz] = std::min(1., M_conc_amsr2[i]Amsr2Ice TODO no young ice; logic needs checking; no ice-type option for this
 
 
 // -----------------------------------------------------------------------------------------------------------
@@ -12578,7 +12579,7 @@ FiniteElement::cs2SmosIce()
     this->warrenClimatology();
 
     double tmp_var, correction_factor_warren;
-    // Observational operator for correcting thin ice concentrations
+    // Observational operator for correcting young ice concentrations
     // Coefficients are fitted using data (figure) from Thomas Lavergne
     // Atot = Aosisaf / OO(H)
     // OO(H) = 2y(exp(H/s + 0) / (1 + exp(H/s + 0)) - y
@@ -12594,7 +12595,7 @@ FiniteElement::cs2SmosIce()
     // fraction of young ice
     double fy0 = 0.10;
     // mean allowed thickness of young ice
-    double ty0 = h_thin_min + 0.5 * (h_thin_max - h_thin_min);
+    double ty0 = h_young_min + 0.5 * (h_young_max - h_young_min);
     //double ty0 = 0.05;
 
     for (int i=0; i<M_num_elements; ++i)
@@ -12654,23 +12655,23 @@ FiniteElement::cs2SmosIce()
 
         M_damage[i]=0.;
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
             // In case of young ice
             // Concentration is split into fy0 and 1 - fy0 for young and old ice
-            M_conc_thin[i] = fy0 * M_conc[i];
+            M_conc_young[i] = fy0 * M_conc[i];
             M_conc[i]  *= (1. - fy0);
             if (M_thick[i] / M_conc[i] <= ty0) {
                 // if absolute thickness (To = Ho / Ao) is below ty0 (see ty0 above):
                 // thickness is also split into fy0 and 1 - fy0
-                M_h_thin[i] = fy0 * M_thick[i];
+                M_h_young[i] = fy0 * M_thick[i];
                 M_thick[i] *= (1. - fy0);
             } else {
                 // if absolute thickness (To = Ho / Ao) is above ty0:
                 // young ice thickness is maximum: h = ty0 * a
                 // old ice thickness is the remaining part: H = H0 - h
-                M_h_thin[i] = ty0 * M_conc_thin[i];
-                M_thick[i] -= M_h_thin[i];
+                M_h_young[i] = ty0 * M_conc_young[i];
+                M_thick[i] -= M_h_young[i];
             }
         }
 
@@ -12764,13 +12765,13 @@ FiniteElement::cs2SmosAmsr2Ice()
 
         M_damage[i]=0.;
 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            // we assume the thin ice is not seen by passive microwave
-            // so arbitrarily increase the total conc by 20%, putting this into thin ice
+            // we assume the young ice is not seen by passive microwave
+            // so arbitrarily increase the total conc by 20%, putting this into young ice
             // at a constant absolute thickness (default=27.5cm)
-            M_conc_thin[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
-            M_h_thin[i]=M_conc_thin[i]*(h_thin_min+0.5*(h_thin_max-h_thin_min));
+            M_conc_young[i]=std::min(1.-M_conc[i], 0.2*M_conc[i]);
+            M_h_young[i]=M_conc_young[i]*(h_young_min+0.5*(h_young_max-h_young_min));
         }
 
         // Check that the snow is not so thick that the ice is flooded
@@ -13942,14 +13943,14 @@ FiniteElement::checkFieldsFast()
             ("M_sss",         std::make_pair(   0., 50.))
             ;
 
-    if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        double const h_thin_max = vm["thermo.h_thin_max"].as<double>();
+        double const h_young_max = vm["thermo.h_young_max"].as<double>();
 
-        minmax.emplace("M_tsurf_thin", std::make_pair(-100.,  0.));
-        minmax.emplace("M_h_thin",     std::make_pair(   0.,  h_thin_max));
-        minmax.emplace("M_hs_thin",    std::make_pair(   0.,  h_thin_max));
-        minmax.emplace("M_conc_thin",  std::make_pair(   0.,  1.));
+        minmax.emplace("M_tsurf_young", std::make_pair(-100.,  0.));
+        minmax.emplace("M_h_young",     std::make_pair(   0.,  h_young_max));
+        minmax.emplace("M_hs_young",    std::make_pair(   0.,  h_young_max));
+        minmax.emplace("M_conc_young",  std::make_pair(   0.,  1.));
     }
 
     bool crash = false;
@@ -14132,8 +14133,8 @@ FiniteElement::checkFields()
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[i];
-            if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                ctot += M_conc_thin[i];
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+                ctot += M_conc_young[i];
 
             double ctot2 = M_conc_fsd[0][i];
             for(int j=1;j<M_num_fsd_bins;j++)
@@ -14144,8 +14145,8 @@ FiniteElement::checkFields()
                 crash =  true;
                 crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
                           <<ctot<< "), diff =" << ctot-ctot2 << " \n"   ;
-                if(M_ice_cat_type == setup::IceCategoryType::THIN_ICE)
-                    crash_msg << " M_conc_thin ="<< M_conc_thin[i]<< " \n";
+                if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+                    crash_msg << " M_conc_young ="<< M_conc_young[i]<< " \n";
             }
         }
 #endif
