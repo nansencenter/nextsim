@@ -94,6 +94,12 @@ public:
             Communicator comm, const int cpl_time, const int cpl_dt);
 #endif
 
+    //! @brief Rotate vectorial variables to align with the model grid.
+    //! @details Transformation of the vectorial variables from the coordinate
+    //! 		 system of the data to the polar stereographic projection used
+    //!          in the model.
+    //!          Once we are in the polar stereographic projection, we can do
+    //!          spatial interpolation without bothering about the North Pole.
     void transformData(Dataset *dataset);
     void interpolateDataset(Dataset *dataset, std::vector<double> const& RX,
             std::vector<double> const& RY );
