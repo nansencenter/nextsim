@@ -222,6 +222,9 @@ public:
     Dataset M_ice_smos_elements_dataset;
 #if defined (ENSEMBLE)
     Dataset M_enkf_analysis_elements_dataset;
+    void AssimThick();
+    void AssimConc();
+    void checkConsistency_assim();
 #endif
 
     // Datasets for nesting from outer domain with coarse resolution

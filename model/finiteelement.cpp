@@ -9196,7 +9196,8 @@ FiniteElement::readStateVector()
     auto RY = M_mesh.bCoordY();
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
-    AssimThick(external_data_tmp)
+    this->AssimThick(external_data_tmp);
+    this->checkConsistency_assim(external_data_tmp)
     
     // double M_min, M_max;
     // LOG(DEBUG)<<"-------------------M_size D_analysis_thick "<< D_analysis_thick.size() <<"\n";
