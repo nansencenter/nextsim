@@ -432,7 +432,7 @@ FiniteElement::AssimThick()
         sic_new = sic_mod;
         snt_new = snt_mod;
         rir_new = rir_mod;
-        if(sit_new < _HMIN){
+        if(sit_new < physical::hmin){
             sit_new = 0;
             sic_new = 0;
             snt_new = 0;
@@ -442,7 +442,7 @@ FiniteElement::AssimThick()
         {
             sic_new_thin = sic_mod_thin;
             snt_new_thin = snt_mod_thin;
-            if (sit_new_thin < _HMIN)
+            if (sit_new_thin < physical::hmin)
             {
                 sit_new_thin = 0;
                 sic_new_thin = 0;

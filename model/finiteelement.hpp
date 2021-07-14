@@ -221,9 +221,9 @@ public:
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
 #if defined (ENSEMBLE)
-    Dataset M_enkf_analysis_elements_dataset;
-    void AssimThick();
-    void AssimConc();
+    Dataset D_enkf_analysis_elements_dataset;
+    void AssimThick(external_data const&, external_data const&  );
+    void AssimConc(external_data const&, external_data const& );
     void checkConsistency_assim();
 #endif
 
