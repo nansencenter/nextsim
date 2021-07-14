@@ -200,6 +200,7 @@ FiniteElement::AssimConc()
 
         // set total concentration
         double sic_mod_tot(sic_mod);
+        double sit_mod_tot(sic_mod);
         double sic_tot_est(M_analysis_conc[i]);
 
         // in case of thin (young) ice, total concentration is sum of old and young ice conc
@@ -209,6 +210,7 @@ FiniteElement::AssimConc()
             double sit_mod_thin(M_h_thin[i]);
             double snt_mod_thin(M_hs_thin[i]);
             sic_mod_tot += sic_mod_thin;
+            sit_mod_tot += sit_mod_thin;
         }
 
         // add OBSERVED concentration
@@ -245,7 +247,8 @@ FiniteElement::AssimConc()
         double sit_new_tot(D_analysis_thick[i]);
         update_factor = (sic_mod_tot >= physical::cmin) ? sit_new_tot/sit_mod_tot : 0;
 
-        // update ice thickness 
+        // update ice thickness
+        double h_thin_new(0);
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // for two ice categories
@@ -268,9 +271,10 @@ FiniteElement::AssimConc()
                 sit_new_thin = std::min(sit_new_thin, _HNULL); 
                 sit_new = sit_new_tot - sit_new_thin;
             }
-            // give these value to sit_mod and sit_mod_thin
+            
             sit_mod_thin = sit_new_thin;
             sit_mod = sit_new;
+            sit_new_tot = sit_mod_thin + sit_mod;
         }
         else
         {   
@@ -278,6 +282,11 @@ FiniteElement::AssimConc()
             sit_mod = sit_new_tot;
         }
 
+        // give these value to sit_mod and sit_mod_thin
+        if (sic_added > 0)
+        {
+            h_thin_new = (sit_new_tot - sit_mod_tot)/sic_added;
+        }
         // continue AssimConc
         // Update ice thickness, ridge ratio and snow thickness proportionaly to SIC
         // where ice was present:
@@ -308,20 +317,15 @@ FiniteElement::AssimConc()
         }
 
         // compute total ice and snow thickness before and after assimilation
-        double sit_mod_tot(sit_mod);
         sit_new_tot = sit_new;
-        double snt_mod_tot(snt_mod);
         double snt_new_tot(snt_new);
         // How much concentration was added/removed (positive - concentration added by assimilation)
         double sic_upd_new(sic_new - sic_mod);
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // also add young ice
-            sit_mod_tot += sit_mod_thin;
             sit_new_tot += sit_new_thin;
-            snt_mod_tot += snt_mod_thin;
             snt_new_tot += snt_new_thin;
-
             sic_upd_new += sic_new_thin - sic_mod_thin;
         }
             
