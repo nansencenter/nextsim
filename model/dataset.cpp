@@ -3275,9 +3275,9 @@ DataSet::DataSet(char const *DatasetName)
                 wavDirOptions: wavdiropt_none
             };
 
-            Variable sit_thin={
+            Variable sit_young={
             filename_string: "", // All variables are in the same (grid) file
-                name: "thin_ice_thickness",
+                name: "young_ice_thickness",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -3293,9 +3293,9 @@ DataSet::DataSet(char const *DatasetName)
                 wavDirOptions: wavdiropt_none
             };
 
-            Variable sic_thin={
+            Variable sic_young={
             filename_string: "", // All variables are in the same (grid) file
-                name: "thin_ice_area_fraction",
+                name: "young_ice_area_fraction",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -3311,9 +3311,9 @@ DataSet::DataSet(char const *DatasetName)
                 wavDirOptions: wavdiropt_none
             };
 
-            Variable snt_thin={
+            Variable snt_young={
             filename_string: "", // All variables are in the same (grid) file
-                name: "surface_snow_thickness_on_thin_ice",
+                name: "surface_snow_thickness_on_young_ice",
                 dimensions: dimensions,
                 land_mask_defined: false,
                 land_mask_value: 0.,
@@ -3363,9 +3363,9 @@ DataSet::DataSet(char const *DatasetName)
             variables_tmp[0] = sit;
             variables_tmp[1] = sic;
             variables_tmp[2] = snt;
-            variables_tmp[3] = sit_thin;
-            variables_tmp[4] = sic_thin;
-            variables_tmp[5] = snt_thin;
+            variables_tmp[3] = sit_young;
+            variables_tmp[4] = sic_young;
+            variables_tmp[5] = snt_young;
 
             std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 

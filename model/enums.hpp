@@ -91,7 +91,7 @@ namespace setup
     enum class IceCategoryType
     {
         CLASSIC     = 0,
-        THIN_ICE    = 1,
+        YOUNG_ICE   = 1,
         MULTI       = 2
     };
 
