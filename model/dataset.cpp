@@ -6054,7 +6054,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sst={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "sea_surface_temperature",
+            name: "sst",  //sea_surface_temperature
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -6072,7 +6072,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sss={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "sea_surface_salinity",
+            name: "sss",  //sea_surface_salinity
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -6133,14 +6133,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(4);
+        std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = thickness;
         variables_tmp[1] = conc;
-        variables_tmp[2] = sst;
-        variables_tmp[3] = sss;
-        // std::vector<Variable> variables_tmp(1);
-        // variables_tmp[0] = thickness;
-
+        // variables_tmp[2] = sst;
+        // variables_tmp[3] = sss;
         variables= variables_tmp;
         grid= grid_tmp;
 

@@ -8540,6 +8540,7 @@ FiniteElement::initMoorings()
             error_msg<<"Unimplemented moorings output variable name: "<<*it<<"\n\n";
             error_msg<<"Available names are:\n";
             error_msg<<"  velocity\n    vectors of sea-ice velocity\n";
+            error_msg<<"  wind\n    vectors of surface wind velocity\n";
             error_msg<<"  tau\n    vectors of ice-ocean stress\n";
             error_msg<<"\n";
             for (auto ptr=mooring_name_map_elements.begin();
@@ -8921,14 +8922,20 @@ FiniteElement::initStateVector()
         // Element variables
         else if (statevector_name_map_elements.count(*it)==0)
         {
-            LOG(ERROR)<<"Unimplemented statevector output variable name: "<<*it<<"\n\n";
-            LOG(ERROR)<<"Available names are:\n";
-            LOG(ERROR)<<"  velocity\n";
-            LOG(ERROR)<<"  wind\n";
-            LOG(ERROR)<<"  tau\n";
+            std::stringstream error_msg;
+            error_msg<<"Unimplemented statevector output variable name: "<<*it<<"\n\n";
+            error_msg<<"Available names are:\n";
+            error_msg<<"  velocity\n    vectors of sea-ice velocity\n";
+            error_msg<<"  wind\n    vectors of surface wind velocity\n";
+            error_msg<<"  tau\n    vectors of ice-ocean stress\n";
+            error_msg<<"\n";
             for (auto ptr=statevector_name_map_elements.begin();
                     ptr!=statevector_name_map_elements.end(); ptr++)
-                LOG(ERROR)<<"  "<< ptr->first <<"\n";
+            {
+                GridOutput::Variable tmp(ptr->second);
+                error_msg<<"  "<< ptr->first << "\n    netCDF name: " << tmp.name << "\n    netCDF long name: " << tmp.longName <<"\n";
+            }
+            LOG(ERROR) << error_msg.str();
             throw std::runtime_error("Invalid statevector name");
         }
         else
@@ -9174,45 +9181,33 @@ FiniteElement::exportStateVector(bool const& at_init_time)
 void
 FiniteElement::readStateVector()
 {
-    M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
-    external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
-    external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-    external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
-    external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
+    D_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements");
+    external_data D_analysis_thick=ExternalData(&D_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
+    external_data D_analysis_conc =ExternalData(&D_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    // external_data M_analysis_sst  =ExternalData(&D_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
+    // external_data M_analysis_sss  =ExternalData(&D_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_analysis_thick);
-    external_data_tmp.push_back(&M_analysis_conc);
-    external_data_tmp.push_back(&M_analysis_sst);
-    external_data_tmp.push_back(&M_analysis_sss);
+    external_data_tmp.push_back(&D_analysis_thick);
+    external_data_tmp.push_back(&D_analysis_conc);
+    // external_data_tmp.push_back(&M_analysis_sst);
+    // external_data_tmp.push_back(&M_analysis_sss);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
-    // double M_min;
-    // M_min =*std::min_element(M_thick.begin(),M_thick.end());
-    // double M_max;
-    // M_max =*std:: max_element(M_thick.begin(),M_thick.end());
-    // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
-    // for(int i=0; i<M_num_elements; ++i)
-    //     std::cout<< M_thick[i] <<"  "<<M_analysis_thick[i]<<"  "<<M_conc[i] <<"  "<<M_analysis_conc[i] <<"\n";
-
-    LOG(DEBUG)<<"-------------------M_size M_analysis_thick "<< M_analysis_thick.size() <<"\n";
-    LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
-    for(int i=0; i<M_num_elements; ++i){
-        
-        // LOG(DEBUG)<<"-------------------M_thick: "<< M_thick[i] <<"\n";
-        // LOG(DEBUG)<<"-------------------M_analysis_thick: "<< M_analysis_thick[i] <<"\n";
-        // M_analysis_thick[i]=0.;
-        M_thick[i] = std::max(M_analysis_thick[i],0.);
-        M_conc[i] = std::min(1.,std::max(M_analysis_conc[i],0.));   
-        M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
-        M_sst[i]  = std::min(35.,std::max(M_analysis_sss[i],-0.057*M_sss[i]));
-        // LOG(DEBUG)<<"-------------------M_after_thick: "<< M_thick[i] <<"\n";
-        // LOG(DEBUG)<<"-------------------M_conc:  "<< M_conc[i] <<"\n";
-        // LOG(DEBUG)<<"-------------------M_analysis_conc:  "<< M_analysis_conc[i] <<"\n";
-        // LOG(DEBUG)<<"-------------------M_after_conc:  "<< M_conc[i] <<"\n";
-    }
+    AssimThick(external_data_tmp)
+    
+    // double M_min, M_max;
+    // LOG(DEBUG)<<"-------------------M_size D_analysis_thick "<< D_analysis_thick.size() <<"\n";
+    // LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
+    // for(int i=0; i<M_num_elements; ++i){      
+    //     M_thick[i] = std::max(D_analysis_thick[i],0.);
+    //     M_conc[i] = std::min(1.,std::max(D_analysis_conc[i],0.));   
+    //     // M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
+    //     // M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
+    //     // std::cout<<i<<" "<< M_thick[i] <<" "<< M_conc[i] <<" "<< M_sss[i] <<" "<< M_sst[i] <<"\n";
+    // }
     // M_min =*std::min_element(M_thick.begin(),M_thick.end());
     // M_max =*std:: max_element(M_thick.begin(),M_thick.end());
     // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
