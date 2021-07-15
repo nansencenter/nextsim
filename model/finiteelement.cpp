@@ -9447,8 +9447,8 @@ FiniteElement::explicitSolve()
         // Wave stress
         if( coupler_with_waves )
         {
-            tau_a[u_windx] += M_tau_wi[u_indx];
-            tau_a[v_windx] += M_tau_wi[v_indx];
+            tau_a[u_indx] += M_tau_wi[u_indx];
+            tau_a[v_indx] += M_tau_wi[v_indx];
         }
 #endif
 
