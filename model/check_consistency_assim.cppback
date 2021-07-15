@@ -243,7 +243,7 @@ FiniteElement::AssimConc()
         }   
 
         // Use code from AssimThick to separate updated SIT
-        double sit_new_tot(D_analysis_thick[i]);
+        double sit_new_tot(M_analysis_thick[i]);
         update_factor = (sic_mod_tot >= physical::cmin) ? sit_new_tot/sit_mod_tot : 0;
 
         // update ice thickness
@@ -370,7 +370,7 @@ FiniteElement::AssimThick()
         //
         sit_mod     = M_thick[i];
         sit_mod_tot = sit_mod;
-        sit_new_tot = D_analysis_thick[i];
+        sit_new_tot = M_analysis_thick[i];
         //  
         sic_mod     = M_conc[i];
         sic_mod_tot = sic_mod;
