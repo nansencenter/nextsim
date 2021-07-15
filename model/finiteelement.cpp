@@ -9421,7 +9421,6 @@ FiniteElement::explicitSolve()
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
-    std::vector<double> tau_wi(2*M_num_nodes);
     bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
 #endif
     for ( int i=0; i<M_num_nodes; ++i )
@@ -9444,6 +9443,14 @@ FiniteElement::explicitSolve()
         const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
         tau_a[u_indx] = drag * M_wind[u_indx];
         tau_a[v_indx] = drag * M_wind[v_indx];
+#ifdef OASIS
+        // Wave stress
+        if( coupler_with_waves )
+        {
+            tau_a[u_windx] += M_tau_wi[u_indx];
+            tau_a[v_windx] += M_tau_wi[v_indx];
+        }
+#endif
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
@@ -9460,14 +9467,6 @@ FiniteElement::explicitSolve()
         VTM[u_indx] = M_VT[u_indx];
         VTM[v_indx] = M_VT[v_indx];
 
-#ifdef OASIS
-        // Wave stress
-        if( coupler_with_waves )
-        {
-            tau_wi[u_indx] = M_tau_wi[u_indx];
-            tau_wi[v_indx] = M_tau_wi[v_indx];
-        }
-#endif
     }
 
     M_timer.tock("prep nodes");
@@ -9572,14 +9571,8 @@ FiniteElement::explicitSolve()
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = tau_a[u_indx]
-#ifdef OASIS
-                + tau_wi[u_indx]
-#endif
                 + c_prime*( M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle );
             double const tau_y = tau_a[v_indx]
-#ifdef OASIS
-                + tau_wi[v_indx]
-#endif
                 + c_prime*( M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle );
 
             // We need to divide the gradient terms with the lumped mass matrix term
