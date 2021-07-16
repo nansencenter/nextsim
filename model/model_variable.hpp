@@ -82,7 +82,15 @@ public:
         M_cum_damage    = 21,
         M_cum_wave_damage=22,
         M_divergence    = 23,
-
+// #ifdef ENSEMBLE
+        M_analysis_conc = 24,
+        M_analysis_thick= 25,
+        M_analysis_snow_thick = 26,
+        M_analysis_ridge_ratio= 27,
+        M_analysis_conc_thin  = 28,
+        M_analysis_h_thin     = 29,
+        M_analysis_hs_thin    = 30,
+// #endif
         // Diagnostic variables
         D_conc       = 100,
         D_thick      = 101,

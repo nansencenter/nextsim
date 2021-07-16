@@ -741,7 +741,6 @@ private:
     ModelVariable M_analysis_conc_thin;
     ModelVariable M_analysis_h_thin;
     ModelVariable M_analysis_hs_thin;
-    ModelVariable M_analysis_tsurf_thin;
 #endif
 
 #ifdef OASIS
