@@ -736,11 +736,10 @@ private:
 #ifdef ENSEMBLE
     ModelVariable M_analysis_conc;
     ModelVariable M_analysis_thick;
+    ModelVariable M_analysis_thick_est;
     ModelVariable M_analysis_snow_thick;
     ModelVariable M_analysis_ridge_ratio;
-    ModelVariable M_analysis_conc_thin;
-    ModelVariable M_analysis_h_thin;
-    ModelVariable M_analysis_hs_thin;
+
 #endif
 
 #ifdef OASIS
