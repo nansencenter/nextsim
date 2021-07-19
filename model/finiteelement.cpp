@@ -6771,19 +6771,6 @@ FiniteElement::initModelVariables()
     M_divergence = ModelVariable(ModelVariable::variableID::M_divergence);//! \param M_damage (double) Level of damage
     M_variables_elt.push_back(&M_divergence);
 
-#ifdef ENSEMBLE
-    M_analysis_conc = ModelVariable(ModelVariable::variableID::M_analysis_conc);
-    M_variables_elt.push_back(&M_analysis_conc);
-    M_analysis_thick = ModelVariable(ModelVariable::variableID::M_analysis_thick);
-    M_variables_elt.push_back(&M_analysis_thick);
-    M_analysis_snow_thick = ModelVariable(ModelVariable::variableID::M_analysis_snow_thick);
-    M_variables_elt.push_back(&M_analysis_snow_thick);
-    M_analysis_ridge_ratio = ModelVariable(ModelVariable::variableID::M_analysis_ridge_ratio);
-    M_variables_elt.push_back(&M_analysis_ridge_ratio);
-    M_analysis_thick_est = ModelVariable(ModelVariable::variableID::M_analysis_thick_est);
-    M_variables_elt.push_back(&M_analysis_thick_est);
-#endif
-
     switch (M_thermo_type)
     {
         case (setup::ThermoType::ZERO_LAYER):
@@ -9196,13 +9183,13 @@ FiniteElement::readStateVector()
 {
     M_enkf_analysis_elements_dataset=DataSet("enkf_analysis_elements"); // note, the analysis variables are total sic and total thick
     // claim variables in finiteelement.hpp
-    external_data D_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
-    external_data D_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
+    external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
     // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&D_analysis_thick);
-    external_data_tmp.push_back(&D_analysis_conc);
+    external_data_tmp.push_back(&M_analysis_thick);
+    external_data_tmp.push_back(&M_analysis_conc);
     // external_data_tmp.push_back(&M_analysis_sst);
     // external_data_tmp.push_back(&M_analysis_sss);
 
@@ -9211,23 +9198,13 @@ FiniteElement::readStateVector()
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
 
-    LOG(DEBUG)<<"line9201\n";
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
-        LOG(DEBUG)<<i<<"\n";
-        LOG(DEBUG)<< D_analysis_thick[i] <<" "<< D_analysis_conc[i]  <<"\n";
-        LOG(DEBUG)<< M_thick[i] <<" "<< M_conc[i]  <<"\n";
-        //@error location
-        M_analysis_thick_est[i] = D_analysis_thick[i];
-        M_analysis_conc[i] = D_analysis_conc[i];
-        LOG(DEBUG)<< M_analysis_thick[i] <<" "<< M_analysis_conc[i]  <<"\n";
+        double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
+        this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
+        this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
+        this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 
-
-    this->AssimConc();
-    LOG(DEBUG)<<"line9209\n";
-    this->AssimThick();
-    LOG(DEBUG)<<"line9211\n";
-    this->checkConsistency_assim();
     
     // double M_min, M_max;
     // LOG(DEBUG)<<"-------------------M_size M_analysis_thick "<< M_analysis_thick.size() <<"\n";
@@ -14573,30 +14550,33 @@ FiniteElement::finalise(std::string current_time_system)
 
 
 void
-FiniteElement::checkConsistency_assim()
+FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, double &snt_mod, double &rir_mod)
 {
     //check consistency of fields after init/assimilation
     //1. set things to zero if conc/abs thickness are too small
     //2. check SST is consistent
     //3. Initialise M_tice[i]
-    for ( int i=0; i<M_num_elements; i++ )
-    {
+    // for ( int i=0; i<M_num_elements; i++ )
+    // {
         // freezing points of ice and water needed for init of ice temp
         // and to check SST
         double const Tfr_wtr = this->freezingPoint(M_sss[i]);   //freezing point for water
         double const Tfr_ice = -physical::mu*physical::si;      //freezing point for ice salinity
 
         // get model variables after assimilation
-        double sic_mod(M_analysis_conc[i]);
-        double sit_mod(M_analysis_thick[i]);
-        double rir_mod(M_analysis_ridge_ratio[i]);
-        double snt_mod(M_analysis_snow_thick[i]);
+        // double sic_mod(M_analysis_conc[i]);
+        // double sit_mod(M_analysis_thick[i]);
+        // double rir_mod(M_analysis_ridge_ratio[i]);
+        // double snt_mod(M_analysis_snow_thick[i]);
         double sst_mod(M_sst[i]);
         double it0_mod(M_tice[0][i]);
         
         double sic_mod_tot(sic_mod);
         double sit_mod_tot(sit_mod);
         double snt_mod_tot(snt_mod);
+        double sic_mod_thin(0);
+        double sit_mod_thin(0);
+        double snt_mod_thin(0);
 
         // original variables (before assimilation)
         double sic_orig(M_conc[i]);
@@ -14607,11 +14587,7 @@ FiniteElement::checkConsistency_assim()
         double sic_new_thin(0);
         double sit_new_thin(0);
         double snt_new_thin(0);
-        double ist_new_thin(0);
-
-        double sic_mod_thin(0);
-        double sit_mod_thin(0);
-        double snt_mod_thin(0);
+        double ist_new_thin(0);        
 
         double it1_new(0);
         double it2_new(0);
@@ -14759,22 +14735,23 @@ FiniteElement::checkConsistency_assim()
         M_conc_thin[i] = std::fmin(M_conc_thin[i], 1);
         M_ridge_ratio[i] = std::fmin(M_ridge_ratio[i], 1);
         M_conc_upd[i] = std::fmin(M_conc_upd[i], 1);
-    }
+    // }
 
 }//checkConsistency_assim
 
 
 void
-FiniteElement::AssimConc()
+FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {
     // refer to pynextismf.py
+    // sic_new,sit_new, snt_new, rir_new are temporary variables, return variable. Other modified variables are transfered by global variables
     // Young (thin) ice fraction from the total sic
     double const _YIF = 0.2;
     // Maximum Thickness of new ice
     double const _HNULL = 0.25;
 
-    for ( int i=0; i<M_num_elements; i++ )
-    {
+    // for ( int i=0; i<M_num_elements; i++ )
+    // {
         // get model variables
         double sic_mod(M_conc[i]);
         double sit_mod(M_thick[i]);
@@ -14785,12 +14762,10 @@ FiniteElement::AssimConc()
         // set total concentration
         double sic_mod_tot(sic_mod);
         double sit_mod_tot(sit_mod);
-        double sic_tot_est(M_analysis_conc[i]);
         
         // for thin ice declaration
         double sic_mod_thin,sit_mod_thin, snt_mod_thin;
-        // for postprocessed ice variables
-        double sit_new, sit_new_thin, snt_new_thin, sic_new, sic_new_thin,sit_new_tot;
+        double sit_new_thin, snt_new_thin, sic_new_thin;
         double h_thin_new = _HNULL;
 
         // in case of using thin (young) ice category, total concentration is sum of old and young ice conc
@@ -14830,9 +14805,9 @@ FiniteElement::AssimConc()
         // Update ice thickness, ridge ratio and snow thickness proportionaly to SIC
         // where ice was present:
         double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
-        double rir_new(rir_mod * update_factor);
+        rir_new = rir_mod * update_factor;
         sit_new = sit_mod * update_factor;
-        double snt_new(snt_mod * update_factor);
+        snt_new = snt_mod * update_factor;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             sit_new_thin = sit_mod_thin * update_factor;
@@ -14857,7 +14832,7 @@ FiniteElement::AssimConc()
         }
 
         // compute total ice and snow thickness before and after assimilation
-        sit_new_tot = sit_new;
+        double sit_new_tot(sit_new);
         double snt_new_tot(snt_new);
         // How much concentration was added/removed (positive - concentration added by assimilation)
         double sic_upd_new(sic_new - sic_mod);
@@ -14870,10 +14845,6 @@ FiniteElement::AssimConc()
         // weighted average with previous sic_upd
         sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
 
-        M_analysis_conc[i]=sic_new;
-        M_analysis_thick[i]=sit_new;
-        M_analysis_snow_thick[i]=snt_new;
-        M_analysis_ridge_ratio[i]=rir_new;
         M_conc_upd[i]=sic_upd_new;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -14881,17 +14852,31 @@ FiniteElement::AssimConc()
             M_h_thin[i]=sit_new_thin;
             M_hs_thin[i]=snt_new_thin;
         }
-    }
-
+    // }
 }
 
 
 void 
-FiniteElement::AssimThick()
+// temporary note
+// FiniteElement::AssimThick(M_analysis_conc,M_analysis_thick,M_analysis_snow_thick,M_analysis_ridge_ratio)
+// sic_mod     = M_analysis_conc[i];
+// sit_mod     = M_analysis_thick[i];
+// snt_mod = M_analysis_snow_thick[i];
+// rir_mod = M_analysis_ridge_ratio[i];
+// sit_new = sit_mod;
+// sic_new = sic_mod;
+// snt_new = snt_mod;
+// rir_new = rir_mod;
+    //  update the 4 news
+// M_analysis_conc[i]=sic_new;
+// M_analysis_thick[i]=sit_new;
+// M_analysis_snow_thick[i]=snt_new;
+// M_analysis_ridge_ratio[i]=rir_new;
+FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {   
     // post processing of the update ice thickness from enkf-c
     // refer to pynextsimf/assimilation.py->AssimThick()
-    // Assimilate sea ice thickness from CS2SMOS  
+    // sit_tot_est is from assimilated sit
     // Where ice in nextsim is present:
     //     *  new total thickness is calculated using enkf-c
     //     *  thick and thin/young ice thickness is changed proportionally
@@ -14901,24 +14886,17 @@ FiniteElement::AssimThick()
     double const _HNULL = 0.25;
     double update_factor;
     double sit_mod_tot, sic_mod_tot, sit_mod, sic_mod, snt_mod, rir_mod, sit_mod_thin, sic_mod_thin, snt_mod_thin;
-    double sit_new_tot, sic_new_tot, sit_new, sic_new, snt_new, rir_new, sit_new_thin, sic_new_thin, snt_new_thin;
+    double sic_new_tot, sit_new_thin, sic_new_thin, snt_new_thin;
     bool ice00,ice01,ice10,ice11;
     for ( int i=0; i<M_num_elements; i++ )
     {
-        LOG(DEBUG)<<"line149428  "<<i<<"\n";
-        LOG(DEBUG)<<i<<"  "<<M_thick[i]<<"\n";
-        //
-        sit_mod     = M_analysis_thick[i];
-        sit_mod_tot = sit_mod;
-        LOG(DEBUG)<<"line149432\n";
-        sit_new_tot = M_analysis_thick_est[i];
-        LOG(DEBUG)<<"line149434\n";
-        //  
-        sic_mod     = M_analysis_conc[i];
+        sic_mod = sic_new;
+        sit_mod = sit_new;
+        snt_mod = snt_new;
+        rir_mod = rir_new;
+        sit_mod_tot = sit_mod; //modified in assimConc
         sic_mod_tot = sic_mod;
         //
-        snt_mod = M_analysis_snow_thick[i];
-        rir_mod = M_analysis_ridge_ratio[i];
         LOG(DEBUG)<<"line14940\n";
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -14930,13 +14908,13 @@ FiniteElement::AssimThick()
         }
         LOG(DEBUG)<<"line14948\n";
         // codes identifying where ice was present before and after assim
-        ice00 = (sit_mod_tot < physical::hmin) && (sit_new_tot < physical::hmin);  // is the grammar correct ?
-        ice01 = (sit_mod_tot < physical::hmin) && (sit_new_tot >= physical::hmin);
-        ice10 = (sit_mod_tot >= physical::hmin) && (sit_new_tot < physical::hmin);
-        ice11 = (sit_mod_tot >= physical::hmin) && (sit_new_tot >= physical::hmin);
+        ice00 = (sit_mod_tot < physical::hmin) && (sit_tot_est < physical::hmin);  // is the grammar correct ?
+        ice01 = (sit_mod_tot < physical::hmin) && (sit_tot_est >= physical::hmin);
+        ice10 = (sit_mod_tot >= physical::hmin) && (sit_tot_est < physical::hmin);
+        ice11 = (sit_mod_tot >= physical::hmin) && (sit_tot_est >= physical::hmin);
 
         // calculate update factor 
-        update_factor = (ice10 || ice11) ? sit_new_tot/sit_mod_tot : 0;
+        update_factor = (ice10 || ice11) ? sit_tot_est/sit_mod_tot : 0;
     LOG(DEBUG)<<"line14957\n";
         // update ice thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -14956,15 +14934,15 @@ FiniteElement::AssimThick()
             // SIT OLDER - remaining part
             if (ice01)
             {
-                sit_new_thin = sit_new_tot * _YIF;
+                sit_new_thin = sit_tot_est * _YIF;
                 sit_new_thin = std::min(sit_new_thin, _HNULL); 
-                sit_new = sit_new_tot - sit_new_thin;
+                sit_new = sit_tot_est - sit_new_thin;
             }            
         }
         else
         {   
             // for one ice category
-            sit_new = sit_new_tot;
+            sit_new = sit_tot_est;
         }
     LOG(DEBUG)<<"line 14986\n";
         // tune other ice properties based on new ice thickness (sit_new, sit_new_thin) obtained above
@@ -14998,10 +14976,10 @@ FiniteElement::AssimThick()
         //     sic_new_thin = self.interpolate_gap(sic_new_thin, new_thin_ice_mask)
 
         // update variables
-        M_analysis_conc[i]=sic_new;
-        M_analysis_thick[i]=sit_new;
-        M_analysis_snow_thick[i]=snt_new;
-        M_analysis_ridge_ratio[i]=rir_new;
+        // M_analysis_conc[i]=sic_new;
+        // M_analysis_thick[i]=sit_new;
+        // M_analysis_snow_thick[i]=snt_new;
+        // M_analysis_ridge_ratio[i]=rir_new;
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE){
             M_conc_thin[i]=sic_new_thin;
             M_h_thin[i]=sit_new_thin;

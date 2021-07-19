@@ -222,9 +222,9 @@ public:
     Dataset M_ice_smos_elements_dataset;
 #if defined (ENSEMBLE)
     Dataset M_enkf_analysis_elements_dataset;
-    void AssimThick();
-    void AssimConc();
-    void checkConsistency_assim();
+    void AssimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new);
+    void AssimConc (int i, double sic_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new);
+    void checkConsistency_assim(int i, double &sic_mod, double &sit_mod, double &snt_mod, double &rir_mod);
 #endif
 
     // Datasets for nesting from outer domain with coarse resolution
@@ -732,15 +732,6 @@ private:
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
     ModelVariable M_divergence;         // Divergence (used by the pressure term)
-
-#ifdef ENSEMBLE
-    ModelVariable M_analysis_conc;
-    ModelVariable M_analysis_thick;
-    ModelVariable M_analysis_thick_est;
-    ModelVariable M_analysis_snow_thick;
-    ModelVariable M_analysis_ridge_ratio;
-
-#endif
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
