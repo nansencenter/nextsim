@@ -6773,10 +6773,15 @@ FiniteElement::initModelVariables()
 
 #ifdef ENSEMBLE
     M_analysis_conc = ModelVariable(ModelVariable::variableID::M_analysis_conc);
+    M_variables_elt.push_back(&M_analysis_conc);
     M_analysis_thick = ModelVariable(ModelVariable::variableID::M_analysis_thick);
+    M_variables_elt.push_back(&M_analysis_thick);
     M_analysis_snow_thick = ModelVariable(ModelVariable::variableID::M_analysis_snow_thick);
+    M_variables_elt.push_back(&M_analysis_snow_thick);
     M_analysis_ridge_ratio = ModelVariable(ModelVariable::variableID::M_analysis_ridge_ratio);
+    M_variables_elt.push_back(&M_analysis_ridge_ratio);
     M_analysis_thick_est = ModelVariable(ModelVariable::variableID::M_analysis_thick_est);
+    M_variables_elt.push_back(&M_analysis_thick_est);
 #endif
 
     switch (M_thermo_type)
@@ -14869,7 +14874,6 @@ FiniteElement::AssimConc()
         M_analysis_thick[i]=sit_new;
         M_analysis_snow_thick[i]=snt_new;
         M_analysis_ridge_ratio[i]=rir_new;
-        //@ add  
         M_conc_upd[i]=sic_upd_new;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
