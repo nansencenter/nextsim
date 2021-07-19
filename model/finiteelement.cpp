@@ -14612,9 +14612,9 @@ FiniteElement::checkConsistency_assim()
         double it2_new(0);
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            sic_mod_thin = M_analysis_conc_thin[i];
-            sit_new_thin = M_analysis_h_thin[i];
-            snt_new_thin = M_analysis_hs_thin[i];
+            sic_mod_thin = M_conc_thin[i];
+            sit_new_thin = M_h_thin[i];
+            snt_new_thin = M_hs_thin[i];
 
             sic_mod_tot = sic_mod + sic_mod_thin;
             // remove excess of young ice
