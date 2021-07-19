@@ -62,7 +62,8 @@ namespace setup
         TOPAZ4FAMSR2OSISAFNIC       = 19,
         TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
         CREG                        = 21,
-        AMSR2CSTTHICK               = 22
+        CICE                        = 22,
+        AMSR2CSTTHICK               = 23
     };
 
     enum class WaveType
@@ -90,7 +91,7 @@ namespace setup
     enum class IceCategoryType
     {
         CLASSIC     = 0,
-        THIN_ICE    = 1,
+        YOUNG_ICE   = 1,
         MULTI       = 2
     };
 
@@ -127,7 +128,7 @@ namespace setup
     enum class FreezingPointType
     {
         LINEAR     = 0,
-        NON_LINEAR = 1
+        UNESCO     = 1
     };
 
 
@@ -150,19 +151,6 @@ namespace setup
 
 namespace schemes
 {
-    enum class damageDiscretisation
-    {
-        EXPLICIT    = 0,
-        IMPLICIT    = 1,
-        RECURSIVE   = 2
-    };
-
-    enum class tdType
-    {
-        FIXED            = 0,
-        DAMAGE_DEPENDENT = 1,
-    };
-
     enum class specificHumidity
     {
         ATMOSPHERE = 0,

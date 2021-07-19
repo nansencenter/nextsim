@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nansencenter/nextsim_base_dev:latest
+ARG BASE_IMAGE=nansencenter/nextsim_base:latest
 FROM $BASE_IMAGE
 
 ENV NEXTSIM_MESH_DIR=/mesh \

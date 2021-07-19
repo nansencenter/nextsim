@@ -187,6 +187,7 @@ $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@echo $(Lines)$(Lines)
 	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+	chmod u+x $(BINARYDIR)$(PROGNAME)
 	@echo " "
 	@echo $(Lines)$(Lines)
 	@echo "Created executable: $(BINARYDIR)$(PROGNAME)"
