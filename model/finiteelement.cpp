@@ -620,7 +620,6 @@ FiniteElement::assignVariables()
     //     (*it)->grid.loaded=false;
     // }
 
-    M_Cohesion.resize(M_num_elements); // \param M_Cohesion (double) Ice cohesive strength [N/m2]
     M_time_relaxation_damage.resize(M_num_elements,time_relaxation_damage); // \param M_time_relaxation_damage (double) Characteristic time for healing [s]
 
     // root
@@ -6618,6 +6617,8 @@ FiniteElement::initModelVariables()
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
+    M_Cohesion = ModelVariable(ModelVariable::variableID::M_Cohesion);//! \param M_Cohesion (double) The cohesion
+    M_variables_elt.push_back(&M_Cohesion);
 
 #ifdef OASIS
     // FSD

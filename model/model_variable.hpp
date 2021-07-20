@@ -82,6 +82,7 @@ public:
         M_cum_damage      = 21,
         M_cum_wave_damage = 22,
         M_divergence      = 23,
+        M_Cohesion        = 24,
 
         // Diagnostic variables
         D_conc         = 100,

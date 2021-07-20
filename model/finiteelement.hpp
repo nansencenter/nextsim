@@ -507,7 +507,7 @@ private:
     std::vector<double> M_Dunit;
     std::vector<std::vector<double>> M_shape_coeff;
     std::vector<std::vector<double>> M_B0T;
-    std::vector<double> M_Cohesion;
+    ModelVariable M_Cohesion;
     std::vector<double> M_time_relaxation_damage;
 
     // =============================================================================

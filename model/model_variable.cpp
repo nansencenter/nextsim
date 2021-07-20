@@ -254,7 +254,7 @@ ModelVariable::initElemental()
             M_name = "M_random_number";
             M_export_name = "M_random_number";
             M_prognostic = true;
-            M_exporting = false;
+            M_exporting = true;
             M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
@@ -631,6 +631,13 @@ ModelVariable::initElemental()
                 throw std::runtime_error(
                         "Unauthorised component number for D_sigma_p: "
                         +std::to_string(M_component_number));
+            break;
+
+        case (variableID::M_Cohesion):
+            M_name = "M_Cohesion";
+            M_export_name = "Cohesion";
+            M_prognostic = false;
+            M_exporting = true;
             break;
 
         default:
