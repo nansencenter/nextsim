@@ -9422,7 +9422,6 @@ FiniteElement::explicitSolve()
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
     std::vector<double> tau_wi(2*M_num_nodes);
-    bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
 #endif
     for ( int i=0; i<M_num_nodes; ++i )
     {
