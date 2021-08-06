@@ -22,7 +22,8 @@ public:
 	void setFE(FiniteElement & fe);
 	void setVariablesFromMap(po::variables_map&);
 
-	void thermo(int dt);
+	// Calculate the physics for a single element
+	void thermo(int dt, int i);
 private:
 	FiniteElement& fe;
 	po::variables_map& vm;

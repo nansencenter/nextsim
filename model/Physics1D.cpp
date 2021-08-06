@@ -33,12 +33,12 @@ void Physics1D::setVariablesFromMap(po::variables_map& vm) {
 	this->vm = vm;
 } // void Physics1D::setVariablesFromMap(po::variables_map&)
 
-void Physics1D::thermo(int dt) {
+void Physics1D::thermo(int dt, int i) {
     //! 2) Calculate atmospheric fluxes
 
     //! Calculate the ocean-atmosphere fluxes
 	timer.tick("fluxes");
 	timer.tick("ow_fluxes");
-}
+} // void Physics1D::thermo(int dt, int i)
 
 } // namespace Nextsim
