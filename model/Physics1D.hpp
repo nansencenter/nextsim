@@ -17,8 +17,36 @@ public:
 
 	void setFE(FiniteElement & fe);
 
+
 private:
 	FiniteElement& fe;
+
+	class Settings {
+	public:
+		enum IceCategoryType {
+
+		} iceCategoryType;
+
+		enum OceanType {
+
+		} oceanType;
+
+		enum ThermoType {
+
+		} thermoType;
+
+		enum WeldingType {
+
+		} weldingType;
+
+		enum OceanHeatFluxScheme {
+
+		} oceanHeatFluxScheme;
+
+		enum FreezingPointType {
+
+		} freezingPointType;
+	} settings;
 }; // class Physics1D
 } // namespace Nextsim
 #endif /* MODEL_PHYSICS1D_HPP_ */
