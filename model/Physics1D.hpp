@@ -9,6 +9,7 @@
 #define MODEL_PHYSICS1D_HPP_
 
 #include "finiteelement.hpp"
+#include "enums.hpp"
 
 namespace Nextsim {
 class Physics1D {
@@ -23,29 +24,12 @@ private:
 
 	class Settings {
 	public:
-		enum IceCategoryType {
-
-		} iceCategoryType;
-
-		enum OceanType {
-
-		} oceanType;
-
-		enum ThermoType {
-
-		} thermoType;
-
-		enum WeldingType {
-
-		} weldingType;
-
-		enum OceanHeatFluxScheme {
-
-		} oceanHeatFluxScheme;
-
-		enum FreezingPointType {
-
-		} freezingPointType;
+		setup::IceCategoryType iceCategoryType;
+		setup::OceanType oceanType;
+		setup::ThermoType thermoType;
+		setup::WeldingType weldingType;
+		setup::OceanHeatfluxScheme oceanHeatFluxScheme;
+		setup::FreezingPointType freezingPointType;
 	} settings;
 }; // class Physics1D
 } // namespace Nextsim
