@@ -59,6 +59,8 @@ namespace Nextsim
 
 class FiniteElement
 {
+// Classes declared friend while the code is broken out
+	friend class Physics1d;
 public:
 
     typedef typename GmshMesh::point_type point_type;
