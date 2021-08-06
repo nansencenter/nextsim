@@ -27,7 +27,7 @@ Otherwise the model won't compile.
 
 The Docker image is built based on recipes in a `Dockerfile`. NeXtSIM repository contains a
 Dockerfile for compiling the model code. This Dockerfile is based on another image
-`nextsim_base` openly available at Docker hub. The Dockerfile for nextsim_base is locate in
+`nextsim_base` openly available at Docker hub. The Dockerfile for nextsim_base is located in
 [nextsim-env](https://github.com/nansencenter/nextsim-env) repo.
 
 To build an image you need to clone the repository, go to nextsim directory and run the following
@@ -35,23 +35,16 @@ command:
 ```
 docker build . -t nextsim
 ```
-It will pull the Docker image with Ubuntu, Boost, PETSC and GMSH and
+It will pull the Docker image with Ubuntu, Boost and GMSH and
 compile BAMG and MAPX libraries and compile the core and the model itself.
 
 Now you can run the model code which is inside the image:
 ```
 docker run --rm nextsim nextsim.exec
 ```
-This will, of course, crashr because no configfile is given to the model. But it
+This will, of course, crash because no configfile is given to the model. But it
 shows that the model is already compiled and stored inside the image. In the section 4 below see
 how to run the model correctly.
-
-By default the base image will be quite large, it will contain many libraries and Python packages.
-If a smaller image needs to be built with bare minimum of libraries, an extra option should be
-added to the build command:
-```
-docker build . -t nextsim --build-arg BASE_IMAGE=nansencenter/nextsim_base_prod:latest
-```
 
 ## 4. Run the neXtSIM executable inside a container
 
@@ -72,8 +65,8 @@ NEXTSIM_DATA_DIR=/data
 
 ```
 Therefore you need to provide mounting of these two directories and a directory for output.
-These directories should contain either files or links to files. There are two helping scripts that
-can create these links autometcially. You can run these scripts inside the nextsim image:
+These directories should contain either files or links to files. There are two helper scripts that
+can create these links automatically. You can run these scripts inside the `nextsim` image:
 ```
 # link meshes
 docker run --rm \
@@ -127,4 +120,4 @@ directory with `-w` options:
 docker run --rm -it -v /home/user/nextsim:/nextsim -w /nextsim/model nextsim make
 ```
 
-**Remebmer:** if you want to run the code compiled in-place, mount the `/nextsim` directory.
+**Remember:** if you want to run the code compiled in-place, mount the `/nextsim` directory.

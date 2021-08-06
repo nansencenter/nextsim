@@ -34,6 +34,7 @@ namespace Nextsim
     {
 public:
 
+        //how are we initialising?
         enum initType
         {
             TEXT_FILE = 1,
@@ -41,6 +42,8 @@ public:
             NETCDF    = 3
         };
 
+        //info for netcdf file needed when
+        //initialising from restart
         typedef struct NetCDFInputInfo
         {
             NetCDFInputInfo() {}
@@ -58,6 +61,8 @@ public:
             std::string lonName;
         } NetCDFInputInfo;
 
+        // info for drifters about "timing"
+        // - input/output intervals, lifetime, init time...
         typedef struct TimingInfo
         {
             TimingInfo() {}
@@ -112,7 +117,7 @@ public:
         //! * There is also an empty constructor which has M_is_initialised=false (default value).
         Drifters() {}
 
-         //! Construct a Drifters object with equally-spaced drifters
+        //! Construct a Drifters object with equally-spaced drifters
         Drifters(std::string const& tag, std::string const& output_prefix,
                 double const& spacing, double const& climit,
                 Drifters::TimingInfo const& timing_info,
@@ -124,7 +129,7 @@ public:
             M_spacing = spacing;
         }
 
-         //! Construct a Drifters object with drifter positions read from a netcdf file
+        //! Construct a Drifters object with drifter positions read from a netcdf file
         Drifters(std::string const& tag, std::string const& output_prefix,
                  NetCDFInputInfo const& netcdf_input_info,
                  double const& climit,
@@ -137,7 +142,7 @@ public:
             M_netcdf_input_info = netcdf_input_info;
         }
 
-         //! Construct a Drifters object with drifter positions from a text file
+        //! Construct a Drifters object with drifter positions from a text file
         Drifters(std::string const& tag, std::string const& output_prefix,
                 std::string const& filename, double const& climit,
                 Drifters::TimingInfo const& timing_info,
@@ -207,9 +212,9 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
+        void reset(GmshMeshSeq const& moved_mesh, std::vector<double> & conc_root,
                 double const& current_time);
-        void updateConc( GmshMeshSeq const& movedmesh,
+        void updateConc( GmshMeshSeq const& moved_mesh,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
         bool resetting(double const& current_time)
         {

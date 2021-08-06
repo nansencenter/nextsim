@@ -85,7 +85,7 @@ integer function oasis3_def_var(var_id,name,il_part_id,var_nodims,kinout,var_act
     integer(c_int),   intent(in)  :: lname
     character(c_char),intent(in)  :: name(lname+1)
     integer(c_int),   intent(in)  :: il_part_id
-    integer(c_int),   intent(in)  :: var_nodims(2)
+    integer(c_int),   intent(inout)  :: var_nodims(2)
     integer(c_int),   intent(in)  :: kinout
     integer(c_int),   intent(in)  :: var_actual_shape(2*var_nodims(1))
     integer(c_int),   intent(in)  :: var_type

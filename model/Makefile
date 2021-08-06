@@ -58,9 +58,6 @@ endif
 # openmpi
 CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
 
-# petsc
-CXXFLAGS += -isystem $(PETSC_DIR)/include
-
 # boost
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
 
@@ -107,14 +104,17 @@ LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
+ifneq ($(OPENMPI_DIR),)
+	LDFLAGS += -Wl,-rpath,$(OPENMPI_DIR)/lib -L $(OPENMPI_DIR)/lib -lmpi_mpifh
+endif
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
 LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+ifneq ($(NETCDF_FOR_DIR),)
+	LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib -L $(NETCDF_FOR_DIR)/lib -lnetcdff
+endif
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
-
-LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
@@ -187,6 +187,7 @@ $(PROGNAME): $(OBJS) #$(CCOBJS)
 	@echo $(Lines)$(Lines)
 	@echo " "
 	$(CXX) $(CXXFLAGS) -o $(BINARYDIR)$@ $^ $(LDFLAGS)
+	chmod u+x $(BINARYDIR)$(PROGNAME)
 	@echo " "
 	@echo $(Lines)$(Lines)
 	@echo "Created executable: $(BINARYDIR)$(PROGNAME)"

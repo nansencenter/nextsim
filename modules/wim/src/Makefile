@@ -57,7 +57,6 @@ CXXFLAGS += -I $(BOOST_INCDIR)
 CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
 CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(PETSC_DIR)/include
 CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I $(NEXTSIMDIR)/core/include
 # ========================================================

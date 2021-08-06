@@ -140,9 +140,9 @@ public:
         tsurf_ice    = 11,
         t1           = 12,
         t2           = 13,
-        h_thin       = 14,
-        hs_thin      = 15,
-        conc_thin    = 16,
+        h_young      = 14,
+        hs_young     = 15,
+        conc_young   = 16,
         fyi_fraction = 17,
         age_d        = 18,
         age          = 19,
@@ -159,6 +159,14 @@ public:
         rain   = 107,
         evap   = 108,
         d_crit = 109,
+        vice_melt    = 110,
+        del_hi       = 111,
+        del_hi_young = 112,
+        newice       = 113,
+        snow2ice     = 114,
+        mlt_top      = 115,
+        mlt_bot      = 116,
+        del_vi_young = 117,
 
         // Forcing variables
         tair     = 200,
@@ -174,6 +182,7 @@ public:
         snowfr   = 210,
         wind_x   = 211,
         wind_y   = 212,
+        wspeed   = 213,
 
         // WIM variables
         dmax        = 300,
@@ -314,24 +323,24 @@ public:
                     cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
-                case (variableID::conc_thin):
-                    name     = "sic_thin";
-                    longName = "Thin Ice Concentration";
-                    stdName  = "thin_ice_area_fraction";
+                case (variableID::conc_young):
+                    name     = "sic_young";
+                    longName = "Young Ice Concentration";
+                    stdName  = "young_ice_area_fraction";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::h_thin):
-                    name     = "sit_thin";
-                    longName = "Thin Ice Thickness";
-                    stdName  = "thin_ice_thickness";
+                case (variableID::h_young):
+                    name     = "sit_young";
+                    longName = "Young Ice Thickness";
+                    stdName  = "young_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::hs_thin):
-                    name     = "snt_thin";
-                    longName = "Surface Snow Thickness on thin ice";
-                    stdName  = "surface_snow_thickness_on_thin_ice";
+                case (variableID::hs_young):
+                    name     = "snt_young";
+                    longName = "Surface Snow Thickness on young ice";
+                    stdName  = "surface_snow_thickness_on_young_ice";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
@@ -433,6 +442,62 @@ public:
                     longName = "Distance_To_Yield_Criterion";
                     stdName  = "distance_to_yield_criterion";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_vi_young):
+                    name     = "del_vi_young";
+                    longName = "Young Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "young_ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::vice_melt):
+                    name     = "vice_melt";
+                    longName = "Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi):
+                    name     = "del_hi";
+                    longName = "Growth-melt rate of (thick) ice";
+                    stdName  = "growth_melt_rate_of_thick_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_hi_young):
+                    name     = "del_hi_young";
+                    longName = "Growth-melt rate of young ice";
+                    stdName  = "growth_melt_rate_of_young_ice";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::newice):
+                    name     = "newice";
+                    longName = "Ice formed in open water by supercooling";
+                    stdName  = "ice_formed_in_open_water_by_supercooling";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_bot):
+                    name     = "mlt_bot";
+                    longName = "Ice melted at bottom";
+                    stdName  = "ice_melted_at_bottom";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::mlt_top):
+                    name     = "mlt_top";
+                    longName = "Ice melted at top";
+                    stdName  = "ice_melted_at_top";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::snow2ice):
+                    name     = "snow2ice";
+                    longName = "Ice formed from snow by flooding";
+                    stdName  = "ice_formed_from_snow_by_flooding";
+                    Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
 
@@ -616,6 +681,14 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+                case (variableID::wspeed):
+                    name     = "wspeed";
+                    longName = "Wind speed";
+                    stdName  = "wind_speed";
+                    Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
@@ -732,7 +805,8 @@ public:
 
     int M_ncols;
     int M_nrows;
-    double M_mooring_spacing;
+    double M_mooring_spacing = 0;
+    bool M_is_regular_grid;
     double M_averaging_period;
     int M_grid_size;
     bool M_false_easting;
