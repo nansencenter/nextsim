@@ -9,7 +9,7 @@
 
 namespace Nextsim {
 Physics1D::Physics1D():
-fe(0)
+fe(0), vm(0), timer(0)
 {
 } // Physics1D::Physics1D()
 
@@ -23,7 +23,22 @@ void Physics1D::setFE(FiniteElement& fe) {
 	settings.weldingType = fe.M_welding_type;
 	settings.oceanHeatFluxScheme = fe.M_Qio_type;
 	settings.freezingPointType = fe.M_freezingpoint_type;
+
+	// Reference the FiniteElement timer instance
+	timer = fe.M_timer;
+
 } // void Physics1D::setFE(FiniteElement&)
 
+void Physics1D::setVariablesFromMap(po::variables_map& vm) {
+	this->vm = vm;
+} // void Physics1D::setVariablesFromMap(po::variables_map&)
+
+void Physics1D::thermo(int dt) {
+    //! 2) Calculate atmospheric fluxes
+
+    //! Calculate the ocean-atmosphere fluxes
+	timer.tick("fluxes");
+	timer.tick("ow_fluxes");
+}
 
 } // namespace Nextsim

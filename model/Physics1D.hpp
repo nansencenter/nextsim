@@ -10,6 +10,9 @@
 
 #include "finiteelement.hpp"
 #include "enums.hpp"
+#include "timer.hpp"
+
+namespace po = boost::program_options;
 
 namespace Nextsim {
 class Physics1D {
@@ -17,10 +20,13 @@ public:
 	Physics1D();
 
 	void setFE(FiniteElement & fe);
+	void setVariablesFromMap(po::variables_map&);
 
-
+	void thermo(int dt);
 private:
 	FiniteElement& fe;
+	po::variables_map& vm;
+	Timer& timer;
 
 	class Settings {
 	public:
