@@ -11,7 +11,7 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-CXX = mpicxx
+#CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
@@ -33,7 +33,7 @@ ifdef NEXTSIM_COMPILE_VERBOSE
 endif
 
 ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/lib/openmpi/include
+	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I$(MPI_INC_DIR)
 	LDFLAGS += -shared -Wl,-soname,libbamg.so.1
 	LDFLAGS += -lm -ldl #-lhwloc
 else
@@ -42,7 +42,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/local/include
+	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I/usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
 

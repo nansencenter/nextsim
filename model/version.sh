@@ -4,10 +4,10 @@ version=$( git describe --dirty --always --tags )
 date=$( date )
 commit=$( git rev-parse HEAD )
 branch=$( git rev-parse --abbrev-ref HEAD )
-cc_path=$( which mpicc )
-cc_version=$( mpicc -dumpversion )
-cxx_path=$( which mpicxx )
-cxx_version=$( mpicc -dumpversion )
+cc_path=$( which ${CC} )
+cc_version=$( ${CC} -dumpversion )
+cxx_path=$( which ${CXX} )
+cxx_version=$( ${CXX} -dumpversion )
 
 cat << EOF > version.hpp
 #ifndef __VERSION_HPP

@@ -26,7 +26,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
 #CXX = mpic++
-CXX = mpicxx # not tested with this
+#CXX = mpicxx # not tested with this
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
@@ -50,15 +50,15 @@ else
 endif
 
 # add include paths
-# CXXFLAGS += -I .
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+# CXXFLAGS += -I.
+CXXFLAGS += -I$(NEXTSIMDIR)/modules/wim/include
 
-CXXFLAGS += -I $(BOOST_INCDIR)
-CXXFLAGS += -I $(OPENMPI_INCLUDE_DIR)
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include
+CXXFLAGS += -I$(BOOST_INCDIR)
+CXXFLAGS += -I$(MPI_INC_DIR)
+CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I$(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 # ========================================================
 
 
@@ -70,9 +70,9 @@ CCOBJS=$(CCSRC:%.c=$(OBJECTDIR)%.o)
 CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
-CC = gcc
+#CC = gcc
 CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
-CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
+CFLAGS += -I$(NEXTSIMDIR)/modules/wim/include
 # ========================================================
 
 # ========================================================
@@ -80,8 +80,8 @@ CFLAGS += -I $(NEXTSIMDIR)/modules/wim/include
 LDFLAGS += -fopenmp
 LDFLAGS += -ldl -lstdc++ -lpthread
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
+LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lboost_date_time
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx -lbamg -lnextsim
 # ========================================================
 
 
