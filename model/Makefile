@@ -1,4 +1,4 @@
-KERNEL := $(shell uname -s)
+#KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
 
@@ -30,11 +30,6 @@ ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUI
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
-ifneq ($(KERNEL),Linux)
-	CXXFLAGS += -Wl,-no_pie
-endif
-else
-	CXXFLAGS += -O3 -pthread
 endif
 
 # add include paths
@@ -56,7 +51,7 @@ ifdef USE_AEROBULK
 endif
 
 # MPI
-CXXFLAGS += -isystem $(MPI_INC_DIR)/
+#CXXFLAGS += -isystem $(MPI_INC_DIR)/
 
 # boost
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
@@ -69,6 +64,7 @@ else
 	# - also datarmor needs this lib too
 	LDFLAGS += -lnetcdff
 endif
+
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I$(NETCDF_DIR)/include
@@ -81,32 +77,9 @@ endif
 # gmsh
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
-CXXFLAGS += -isystem /opt/local/include
-
-ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I/usr/include
-
-else
-
-	ifeq ($(CXX),clang)
-	CXXFLAGS += -stdlib=libc++
-	endif
-
-	CXXFLAGS += -isystem /usr/local/include
-
-	ifeq ($(CXX),clang)
-	LDFLAGS += -stdlib=libc++
-	endif
-
-endif
-
-LDFLAGS += -L/usr/local/lib
+#CXXFLAGS += -isystem /opt/local/include
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
-
-#ifneq ($(MPI_DIR),)
-#	LDFLAGS += -Wl,-rpath,$(MPI_LIB_DIR) -L$(MPI_LIB_DIR) -lmpi_mpifh
-#endif
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
 LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4

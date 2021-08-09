@@ -68,9 +68,6 @@ export LD_LIBRARY_PATH=${INTEL_MPI_DIR}/lib:${LD_LIBRARY_PATH}
 export CPATH=${INTEL_MPI_DIR}/include:${CPATH}
 #######################################################################
 
-export MPI_DIR=${INTEL_MPI_DIR}
-
-export LD_EXTRA_AEROBULK="-L${INTEL_DIR}/compiler/lib/intel64_lin -lifcore"
 
 
 #######################################################################
@@ -80,6 +77,10 @@ export FC=mpiifort
 #
 export CFLAGS="-xHost -O3"
 export CXXFLAGS="-xHost -O3"
+
+export MPI_DIR=${INTEL_MPI_DIR}
+
+export LD_EXTRA_AEROBULK="-L${INTEL_DIR}/compiler/lib/intel64_lin -lifcore"
 #######################################################################
 
 export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
@@ -92,7 +93,6 @@ export NETCDF_CXX_DIR=${NETCDF_DIR}
 
 export MPI_LIB_DIR=${MPI_DIR}/lib
 export MPI_INC_DIR=${MPI_DIR}/include
-
 
 
 #if [ ! -f ./model/version.hpp ]; then
