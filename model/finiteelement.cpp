@@ -8178,6 +8178,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_dcrit[i]*time_factor;
                 break;
+            case (GridOutput::variableID::Q_assm):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_Qassim[i]*time_factor;
+                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8442,6 +8446,7 @@ FiniteElement::initMoorings()
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
+            ("Q_assm", GridOutput::variableID::Q_assm)
             ("wspeed", GridOutput::variableID::wspeed)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
@@ -14743,10 +14748,8 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
 void
 FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {
-    // refer to pynextismf/assimilation.py
-    // sic_new,sit_new, snt_new, rir_new are temporary variables as return. 
-    // Other modified variables are transfered by global variables
-
+    // refer to pynextismf.py
+    // sic_new,sit_new, snt_new, rir_new are temporary variables, return variable. Other modified variables are transfered by global variables
     // Young (thin) ice fraction from the total sic
     double const _YIF = 0.2;
     // Maximum Thickness of new ice
@@ -14766,7 +14769,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         double sit_mod_tot(sit_mod);
         
         // for thin ice declaration
-        double sic_mod_thin, sit_mod_thin, snt_mod_thin;
+        double sic_mod_thin,sit_mod_thin, snt_mod_thin;
         double sit_new_thin, snt_new_thin, sic_new_thin;
         double h_thin_new = _HNULL;
 
@@ -14782,7 +14785,6 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 
         // add OBSERVED concentration
         double sic_new_tot(sic_mod_tot);
-        sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
         bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
         double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
 
@@ -14877,8 +14879,9 @@ void
 // M_analysis_ridge_ratio[i]=rir_new;
 FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {   
-    // post processing of the update ice thickness using sit_tot_est from enkf-c
+    // post processing of the update ice thickness from enkf-c
     // refer to pynextsimf/assimilation.py->AssimThick()
+    // sit_tot_est is from assimilated sit
     // Where ice in nextsim is present:
     //     *  new total thickness is calculated using enkf-c
     //     *  thick and thin/young ice thickness is changed proportionally
@@ -14890,14 +14893,16 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
     double sit_mod_tot, sic_mod_tot, sit_mod, sic_mod, snt_mod, rir_mod, sit_mod_thin, sic_mod_thin, snt_mod_thin;
     double sic_new_tot, sit_new_thin, sic_new_thin, snt_new_thin;
     bool ice00,ice01,ice10,ice11;
-
+    for ( int i=0; i<M_num_elements; i++ )
+    {
         sic_mod = sic_new;
         sit_mod = sit_new;
         snt_mod = snt_new;
         rir_mod = rir_new;
         sit_mod_tot = sit_mod; //modified in assimConc
         sic_mod_tot = sic_mod;
-        //        
+        //
+        LOG(DEBUG)<<"line14940\n";
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             sit_mod_thin= M_h_thin[i];
@@ -14906,16 +14911,16 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             sit_mod_tot += sit_mod_thin;
             sic_mod_tot += sic_mod_thin;
         }
-        
+        LOG(DEBUG)<<"line14948\n";
         // codes identifying where ice was present before and after assim
-        sit_tot_est = std::fmax(0, sit_tot_est);
-        ice00 = (sit_mod_tot < physical::hmin) && (sit_tot_est < physical::hmin);  
+        ice00 = (sit_mod_tot < physical::hmin) && (sit_tot_est < physical::hmin);  // is the grammar correct ?
         ice01 = (sit_mod_tot < physical::hmin) && (sit_tot_est >= physical::hmin);
         ice10 = (sit_mod_tot >= physical::hmin) && (sit_tot_est < physical::hmin);
         ice11 = (sit_mod_tot >= physical::hmin) && (sit_tot_est >= physical::hmin);
 
         // calculate update factor 
         update_factor = (ice10 || ice11) ? sit_tot_est/sit_mod_tot : 0;
+    LOG(DEBUG)<<"line14957\n";
         // update ice thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -14944,7 +14949,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             // for one ice category
             sit_new = sit_tot_est;
         }
-        
+    LOG(DEBUG)<<"line 14986\n";
         // tune other ice properties based on new ice thickness (sit_new, sit_new_thin) obtained above
         // REMOVE ice where it has disappeared (total thickness below threshold)
         sic_new = sic_mod;
@@ -14967,8 +14972,8 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
                 snt_new_thin = 0;
             }
         }
-
-        // increase SIC where ice appeared: linear interpolation from ice to no ice
+    LOG(DEBUG)<<"line15009\n";
+        // // increase SIC where ice appeared: linear interpolation from ice to no ice
         // new_ice_mask = (sic_mod < _CMIN)*(sic_new >0)
         // sic_new = self.interpolate_gap(sic_new, new_ice_mask)
         // if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
@@ -14976,11 +14981,17 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
         //     sic_new_thin = self.interpolate_gap(sic_new_thin, new_thin_ice_mask)
 
         // update variables
-        // sic_new, sit_new, snt_new, rir_new;
+        // M_analysis_conc[i]=sic_new;
+        // M_analysis_thick[i]=sit_new;
+        // M_analysis_snow_thick[i]=snt_new;
+        // M_analysis_ridge_ratio[i]=rir_new;
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE){
             M_conc_thin[i]=sic_new_thin;
             M_h_thin[i]=sit_new_thin;
             M_hs_thin[i]=snt_new_thin;
         }
+
+        LOG(DEBUG)<<"line15028\n";
+    }
 }
 } // Nextsim

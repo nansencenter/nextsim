@@ -159,6 +159,7 @@ public:
         rain   = 107,
         evap   = 108,
         d_crit = 109,
+        Q_assm = 110,
 
         // Forcing variables
         tair     = 200,
@@ -434,6 +435,13 @@ public:
                     name     = "d_crit";
                     longName = "Distance_To_Yield_Criterion";
                     stdName  = "distance_to_yield_criterion";
+                    Units    = "J m s-1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::Q_assm):
+                    name     = "Q_assm";
+                    longName = "Heat_flux_compensation_by_assim";
+                    stdName  = "Q_compensation";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
