@@ -29,9 +29,18 @@ void Physics1D::setFE(FiniteElement& fe) {
 
 } // void Physics1D::setFE(FiniteElement&)
 
-void Physics1D::setVariablesFromMap(po::variables_map& vm) {
-	this->vm = vm;
-} // void Physics1D::setVariablesFromMap(po::variables_map&)
+Physics1D::Settings::Settings(FiniteElement& fe, po::variables_map& vm) :
+		iceCategoryType(fe.M_ice_cat_type),
+		oceanType(fe.M_ocean_type),
+		thermoType(fe.M_thermo_type),
+		weldingType(fe.M_welding_type),
+		oceanHeatFluxScheme(fe.M_Qio_type),
+		freezingPointType(fe.M_freezingpoint_type),
+		drag_ocean_t(vm["thermo.drag_ocean_t"].as<double>()),
+		drag_ocean_q(vm["thermo.drag_ocean_q"].as<double>()),
+		ocean_albedo(vm["thermo.albedoW"].as<double>())
+{ }
+
 
 void Physics1D::thermo(int dt, int i) {
     //! 2) Calculate atmospheric fluxes
@@ -40,5 +49,29 @@ void Physics1D::thermo(int dt, int i) {
 	timer.tick("fluxes");
 	timer.tick("ow_fluxes");
 } // void Physics1D::thermo(int dt, int i)
+
+void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
+		double& Qlw,         // of the FiniteElement version
+		double& Qsw,
+		double& Qlh,
+		double& Qsh,
+		double& evap,
+		double& tau,         // variables read directly from
+		double sst,          // FiniteElement arrays
+		double t_air,
+		double mslp,
+		double Qsw_in
+		) {
+#ifdef AEROBULK
+    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER ) {
+    	// aerobulk
+    } else {
+#else
+    {
+#endif
+    	// not aerobulk
+    }
+    }
+}
 
 } // namespace Nextsim

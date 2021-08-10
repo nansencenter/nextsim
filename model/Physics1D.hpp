@@ -15,28 +15,55 @@
 namespace po = boost::program_options;
 
 namespace Nextsim {
+
+class PhysicsSettings;
+
 class Physics1D {
 public:
 	Physics1D();
 
-	void setFE(FiniteElement & fe);
-	void setVariablesFromMap(po::variables_map&);
+	void setFE(FiniteElement& fe);
 
 	// Calculate the physics for a single element
 	void thermo(int dt, int i);
+
+	// Argument monster version of the 1D version of FiniteElement::OWBulkFluxes
+	// TODO: supersede this with something better
+	void OWBulkFluxes(double& Qow, // scalar versions of the arguments
+			double& Qlw,         // of the FiniteElement version
+			double& Qsw,
+			double& Qlh,
+			double& Qsh,
+			double& evap,
+			double& tau,         // variables read directly from
+			double sst,          // FiniteElement arrays
+			double t_air,
+			double mslp,
+			double Qsw_in
+			);
 private:
 	FiniteElement& fe;
 	po::variables_map& vm;
 	Timer& timer;
 
+private:
 	class Settings {
 	public:
-		setup::IceCategoryType iceCategoryType;
-		setup::OceanType oceanType;
-		setup::ThermoType thermoType;
-		setup::WeldingType weldingType;
-		setup::OceanHeatfluxScheme oceanHeatFluxScheme;
-		setup::FreezingPointType freezingPointType;
+		Settings(FiniteElement& fe, po::variables_map& vm);
+
+		double out();
+
+		const setup::IceCategoryType iceCategoryType;
+		const setup::OceanType oceanType;
+		const setup::ThermoType thermoType;
+		const setup::WeldingType weldingType;
+		const setup::OceanHeatfluxScheme oceanHeatFluxScheme;
+		const setup::FreezingPointType freezingPointType;
+
+		const double drag_ocean_t;
+		const double drag_ocean_q;
+		const double ocean_albedo;
+
 	} settings;
 }; // class Physics1D
 } // namespace Nextsim
