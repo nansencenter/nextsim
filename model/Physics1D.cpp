@@ -65,6 +65,12 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 #ifdef AEROBULK
     if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER ) {
     	// aerobulk
+    	double sst_kelvin = sst + physical::tfrwK;
+    	double t2m_kelvin = t_air + physical:trfwK;
+    	double Qlw_in = incomingLongwave();
+    	double sphuma = specificHumidityAir();
+    	double windSpeed = windSpeed();
+    	// Aerobulk does not support a scalar interface :-(
     } else {
 #else
     {

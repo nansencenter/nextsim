@@ -11,6 +11,7 @@
 #include "finiteelement.hpp"
 #include "enums.hpp"
 #include "timer.hpp"
+#include "constants.hpp"
 
 namespace po = boost::program_options;
 
@@ -41,6 +42,19 @@ public:
 			double mslp,
 			double Qsw_in
 			);
+
+	// Argument monster version of incomingLongwave
+	// TODO: supersede this with something better
+	void incomingLongwave(); // TODO: fill in the argument list
+
+	// Argument monster version of the first half of specificHumidity (air)
+	// TODO: supersede this with something better
+	void specificHumidityAir(); // TODO: fill in the argument list
+
+	// Argument monster version of the windSpeedElement
+	// TODO: supersede this with something better
+	void windSpeed(); // TODO: fill in the argument list
+
 private:
 	FiniteElement& fe;
 	po::variables_map& vm;
