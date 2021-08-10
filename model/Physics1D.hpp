@@ -49,7 +49,11 @@ public:
 
 	// Argument monster version of the first half of specificHumidity (air)
 	// TODO: supersede this with something better
-	double specificHumidityAir(); // TODO: fill in the argument list
+	double specificHumidityAir(double t_air, double slp);
+
+	double specificHumidityWater(double sst, double sss, double slp);
+	double specificHumidityIce(double t_ice, double slp);
+	double dSH_dT(double t_ice, double slp);
 
 	// Argument monster version of the windSpeedElement
 	// TODO: supersede this with something better
@@ -59,6 +63,8 @@ private:
 	FiniteElement& fe;
 	po::variables_map& vm;
 	Timer& timer;
+
+	double generalHumidity(double T, double S, double p, bool isIce);
 
 private:
 	class Settings {
