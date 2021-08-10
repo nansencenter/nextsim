@@ -77,7 +77,23 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 #endif
     	// not aerobulk
     }
-    }
-}
+} // void Physics1D::OWBulkFluxes(...)
+
+double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc) {
+	// Convert temperatures to kelvin
+	double t_air_kelvin = t_air_centigrade + physical::tfrwK;
+    // S. B. Idso & R. D. Jackson, Thermal radiation from the atmosphere, J. Geophys. Res. 74, 5397-5403, (1969)
+	// σT^4{1 - c exp [−d (273 - T)^2]}
+	double c = 0.261;
+	double d = 7.77e-4;
+	// Stefan-Boltzmann
+	double lwr = physical::sigma_sb * pow(t_air_kelvin, 4);
+	// Idso and Jackson emittance correction
+	lwr *= (1 - c * exp(-d * pow(t_air_centigrade, 2)));
+	// Cloud cover correction from TODO: reference
+	double f = 0.275;
+	lwr *= (1 + f * t_cc);
+	return lwr;
+} // double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc)
 
 } // namespace Nextsim
