@@ -8,7 +8,6 @@ CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
-		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
 ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
@@ -24,7 +23,6 @@ ifdef USE_OASIS
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
@@ -36,7 +34,6 @@ endif
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
-# CXXFLAGS += -I$(NEXTSIMDIR)/contrib/interp/include
 
 ifdef USE_ENSEMBLE
 	CXXFLAGS += -DENSEMBLE
@@ -50,19 +47,12 @@ ifdef USE_AEROBULK
 		CXXFLAGS += -DAEROBULK
 endif
 
-# MPI
-#CXXFLAGS += -isystem $(MPI_INC_DIR)/
-
 # boost
 CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
 
 # netcdf
 ifeq ($(NETCDF_CXX_DIR),)
 	NETCDF_CXX_DIR=$(NETCDF_DIR)
-else
-	# separate dirs on datarmor
-	# - also datarmor needs this lib too
-	LDFLAGS += -lnetcdff
 endif
 
 ifeq ($(NETCDF_DIR),/usr)

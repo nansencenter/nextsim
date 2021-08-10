@@ -30,7 +30,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline
 ifneq ($(XSIMCOMP_VERBOSE),no)
 	CXXFLAGS += -v
 	CFLAGS   += -v
@@ -39,14 +39,10 @@ CXXFLAGS += -Wfatal-errors
 # CXXFLAGS += -pedantic
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DDEBUGGING
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
-else
-	CXXFLAGS += -O3 -pthread
 endif
 
 # add include paths
@@ -71,7 +67,7 @@ CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
 #CC = gcc
-CFLAGS += -Wno-inline -fPIC -O3 # -MMD -MP -lm #-Wall -pedantic
+CFLAGS += -Wno-inline # -MMD -MP -lm #-Wall -pedantic
 CFLAGS += -I$(NEXTSIMDIR)/modules/wim/include
 # ========================================================
 

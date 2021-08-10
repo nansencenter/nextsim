@@ -40,7 +40,7 @@ CXXFLAGS += -std=c++11
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v #-pedantic
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -v #-pedantic
 
 # add include paths
 CXXFLAGS += -I$(BOOST_INCDIR)/

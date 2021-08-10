@@ -5,7 +5,7 @@ PROGNAME=laplacian.exec
 #NEXTSIMDIR=..
 
 #CXX = mpicxx
-CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
+CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -g -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I. -I$(NEXTSIMDIR)/core/include  -I$(PETSC_DIR)/include #-I headers
