@@ -5508,8 +5508,9 @@ FiniteElement::thermo(int dt)
             // * total flux out of the ocean
             // * relative change in concentration (dCrel)
             // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
-                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
+            // Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
+            //         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
+            Qassm = M_conc_upd[i];
         }
 
         //relaxation of concentration update with time
@@ -8833,6 +8834,7 @@ FiniteElement::initStateVector()
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
+            ("Q_assm", GridOutput::variableID::Q_assm)
             ("wspeed", GridOutput::variableID::wspeed)
         ;
     std::vector<std::string> names = vm["statevector.variables"].as<std::vector<std::string>>();
@@ -9190,6 +9192,7 @@ FiniteElement::readStateVector()
     // claim variables in finiteelement.hpp
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
@@ -9205,6 +9208,7 @@ FiniteElement::readStateVector()
 
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
+        M_conc_upd[i] = M_analysis_Qassm[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
@@ -14853,7 +14857,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         // weighted average with previous sic_upd
         sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
 
-        M_conc_upd[i]=sic_upd_new;
+        // M_conc_upd[i]=sic_upd_new;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             M_conc_thin[i]=sic_new_thin;
