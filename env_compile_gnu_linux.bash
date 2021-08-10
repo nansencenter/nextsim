@@ -27,9 +27,9 @@ export CC=mpicc.openmpi
 export CXX=mpicxx.openmpi
 export FC=mpifort.openmpi
 #
-export CFLAGS="-O0 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
+export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-O0 -pthread -fPIC -fopenmp "  # NOTE: many other flags are still hard-coded in the Makefiles!
+export CXXFLAGS="-O3 -pthread -fPIC -fopenmp "  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
 #
 export MPI_DIR="/usr" ; # default OpenMPI

@@ -27,9 +27,9 @@ export CC=mpiicc
 export CXX=mpiicpc
 export FC=mpiifort
 #
-export CFLAGS="-O0 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
+export CFLAGS="-xHost -O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-O0 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
+export CXXFLAGS="-xHost -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
 #
 export INTEL_ROOT="/opt/intel/oneapi";                        # root directory of the Intel suite (compiler and MPI)
@@ -43,7 +43,6 @@ export NETCDF_DIR="/opt/hdf5_netcdf4_intel"
 export NETCDF_CXX_DIR=${NETCDF_DIR}
 #
 export NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
-#
 #############################################
 
 ######################################################################
