@@ -549,8 +549,8 @@ namespace Nextsim
                 "units of statevector.output_time_step: days or time_steps")
             ("statevector.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity","sst","sss"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity" "sst" "sss"
+                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity","sst","sss", "Q_assm"},
+                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity" "sst" "sss" "Q_assm"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("statevector.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for statevector output. It must be a netcdf file with two dimensional lat and lon")

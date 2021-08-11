@@ -5504,13 +5504,21 @@ FiniteElement::thermo(int dt)
         // if before assimilation there was ice and it was reduced
         if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
-            // compensating heat flux is a product of:
-            // * total flux out of the ocean
-            // * relative change in concentration (dCrel)
-            // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            // Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
-            //         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-            Qassm = M_conc_upd[i];
+            double M_min=*std::min_element(D_Qassim.begin(),D_Qassim.end());
+            double M_max=*std::max_element(D_Qassim.begin(),D_Qassim.end());
+            LOG(DEBUG) <<M_min<<", max"<<M_max<<"\n";
+            if(std::abs(M_min)>1e-7 && std::abs(M_max)>1e-7){
+                LOG(DEBUG) << "line5510\n";
+                Qassm = D_Qassim[i];
+            }
+            else{
+                // compensating heat flux is a product of:
+                // * total flux out of the ocean
+                // * relative change in concentration (dCrel)
+                // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+                Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
+                        (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
+            }            
         }
 
         //relaxation of concentration update with time
@@ -8181,7 +8189,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::Q_assm):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_Qassim[i]*time_factor;
+                    it->data_mesh[i] += D_Qassim[i]*time_factor/200;
                 break;
 
             // forcing variables
@@ -9198,6 +9206,7 @@ FiniteElement::readStateVector()
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
     external_data_tmp.push_back(&M_analysis_conc);
+    external_data_tmp.push_back(&M_analysis_Qassm);
     // external_data_tmp.push_back(&M_analysis_sst);
     // external_data_tmp.push_back(&M_analysis_sss);
 
@@ -9208,7 +9217,7 @@ FiniteElement::readStateVector()
 
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
-        M_conc_upd[i] = M_analysis_Qassm[i];
+        D_Qassim[i] = 200*M_analysis_Qassm[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
@@ -14857,7 +14866,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         // weighted average with previous sic_upd
         sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
 
-        // M_conc_upd[i]=sic_upd_new;
+        M_conc_upd[i]=sic_upd_new;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             M_conc_thin[i]=sic_new_thin;
