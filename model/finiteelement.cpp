@@ -5507,8 +5507,7 @@ FiniteElement::thermo(int dt)
             double M_min=*std::min_element(D_Qassim.begin(),D_Qassim.end());
             double M_max=*std::max_element(D_Qassim.begin(),D_Qassim.end());
             LOG(DEBUG) <<M_min<<", max"<<M_max<<"\n";
-            if(std::abs(M_min)>1e-7 && std::abs(M_max)>1e-7){
-                LOG(DEBUG) << "line5510\n";
+            if(std::abs(M_min)>1e-7 && std::abs(M_max)>1){
                 Qassm = D_Qassim[i];
             }
             else{
@@ -5518,9 +5517,9 @@ FiniteElement::thermo(int dt)
                 // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
                 Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-            }            
+            } 
+            LOG(DEBUG) <<"--------"<<M_min<<", max"<<M_max<<"\n";           
         }
-
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
@@ -9200,6 +9199,7 @@ FiniteElement::readStateVector()
     // claim variables in finiteelement.hpp
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
+    LOG(DEBUG) <<"9203\n";
     external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
@@ -9209,12 +9209,10 @@ FiniteElement::readStateVector()
     external_data_tmp.push_back(&M_analysis_Qassm);
     // external_data_tmp.push_back(&M_analysis_sst);
     // external_data_tmp.push_back(&M_analysis_sss);
-
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
-
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
         D_Qassim[i] = 200*M_analysis_Qassm[i];
