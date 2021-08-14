@@ -23,7 +23,6 @@
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
@@ -455,9 +454,6 @@ private:
     // global masks on root
     std::vector<bool> M_mask_root;
     std::vector<bool> M_mask_dirichlet_root;
-
-    // interpolation method
-    std::vector<int> M_interp_methods;
 
     // diffusivity parameters
     std::vector<double> M_diffusivity_parameters;
