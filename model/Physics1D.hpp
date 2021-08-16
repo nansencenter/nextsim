@@ -38,10 +38,25 @@ public:
 			double& evap,
 			double& tau,         // variables read directly from
 			double sst,          // FiniteElement arrays
+			double sss,
 			double t_air,
+			double t_cc,
 			double mslp,
 			double Qsw_in
 			);
+
+	// Argument monster version of a Aerobulk wrapper
+	// TODO: supersede this with something better
+	void aerobulkWrapper(double& Qlh,
+			double& Qsh,
+			double& evap,
+			double& tau,
+			double sst,
+			double sss,
+			double t_air,
+			double t_cc,
+			double mslp,
+			double Qsw);
 
 	// Argument monster version of incomingLongwave
 	// TODO: supersede this with something better
@@ -79,7 +94,11 @@ private:
 		const setup::WeldingType weldingType;
 		const setup::OceanHeatfluxScheme oceanHeatFluxScheme;
 		const setup::FreezingPointType freezingPointType;
-
+#ifdef AEROBULK
+		const aerobulk::algorithm oceanBulkFormula;
+#else
+		const int oceanBulkFormula;
+#endif
 		const double drag_ocean_t;
 		const double drag_ocean_q;
 		const double ocean_albedo;

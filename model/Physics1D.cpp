@@ -36,6 +36,11 @@ Physics1D::Settings::Settings(FiniteElement& fe, po::variables_map& vm) :
 		weldingType(fe.M_welding_type),
 		oceanHeatFluxScheme(fe.M_Qio_type),
 		freezingPointType(fe.M_freezingpoint_type),
+#ifdef AEROBULK
+		oceanBulkFormula(fe.M_ocean_bulk_formula),
+#else
+		oceanBulkFormula(0),
+#endif
 		drag_ocean_t(vm["thermo.drag_ocean_t"].as<double>()),
 		drag_ocean_q(vm["thermo.drag_ocean_q"].as<double>()),
 		ocean_albedo(vm["thermo.albedoW"].as<double>())
@@ -58,19 +63,16 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 		double& evap,
 		double& tau,         // variables read directly from
 		double sst,          // FiniteElement arrays
+		double sss,
 		double t_air,
+		double t_cc,
 		double mslp,
 		double Qsw_in
 		) {
 #ifdef AEROBULK
-    if ( M_ocean_bulk_formula != aerobulk::algorithm::OTHER ) {
+    if ( settings.oceanBulkFormula != aerobulk::algorithm::OTHER ) {
     	// aerobulk
-    	double sst_kelvin = sst + physical::tfrwK;
-    	double t2m_kelvin = t_air + physical:trfwK;
-    	double Qlw_in = incomingLongwave();
-    	double sphuma = specificHumidityAir();
-    	double windSpeed = windSpeed();
-    	// Aerobulk does not support a scalar interface :-(
+    	aerobulkWrapper(Qlh, Qsh, evap, tau, sst, sss, t_air, t_cc, mslp, Qsw);
     } else {
 #else
     {
@@ -78,6 +80,58 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
     	// not aerobulk
     }
 } // void Physics1D::OWBulkFluxes(...)
+
+void Physics1D::aerobulkWrapper(double& Qlh,
+			double& Qsh,
+			double& evap,
+			double& tau,
+			double sst,
+			double sss,
+			double t_air,
+			double t_cc,
+			double mslp,
+			double Qsw) {
+	double sst_kelvin = sst + physical::tfrwK;
+	double t2m_kelvin = t_air + physical::tfrwK;
+	double Qlw_in = incomingLongwave(t_air, t_cc);
+	double sphuma = specificHumidityAir(sst, mslp);
+	double windSpeed = windSpeed();
+	// Aerobulk does not support a scalar interface :-(
+	// vectors to receive the calculated values
+	std::vector<double> v_Qlh(1);
+	std::vector<double> v_Qsh(1);
+	std::vector<double> v_tau(1);
+	std::vector<double> dummy(1);
+	std::vector<double> T_s(1);
+	std::vector<double> lvap(1);
+	// Heights of measurements in metres
+	const double HEIGHT_OF_TEMPERATURE = 2.;
+	const double HEIGHT_OF_WINDS = 10.;
+	// Transform scalars into 1-element std::vectors
+#ifdef AEROBULK
+	aerobulk::model(settings.oceanBulkFormula,
+			HEIGHT_OF_TEMPERATURE, HEIGHT_OF_WIND,
+			std::vector<double>({sst_kelvin}),
+			std::vector<double>({t2m_kelvin}),
+			std::vector<double>({sphuma}),
+			std::vector<double>({windSpeed}),
+			std::vector<double>({0.}),
+			std::vector<double>({mslp}),
+			Qlh, Qsh, tau, dummy,
+			std::vector<double>({Qsw_in}),
+			std::vector<double>({Qlw_in}),
+			T_s);
+	lvap = aerobulk::lvap(sst);
+#endif
+	// Transfer data back to the current element with post-processing:
+	// Change sign on the fluxes, divide tau with wind speed, and calculate
+	// evaporation
+	Qlh = -v_Qlh[0];
+	Qsh = -v_Qsh[0];
+	tau = v_tau[0] / (windSpeed * windSpeed);
+	evap = Qlh / lvap[0];
+
+} // void Physics1D::aerobulkWrapper(...)
 
 double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc) {
 	// Convert temperatures to kelvin
