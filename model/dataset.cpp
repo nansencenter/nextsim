@@ -9163,8 +9163,8 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<double> tmp1,tmp2, tmp3, tmp4;
         randfld = tmp1;
         synforc = tmp2;
-        perturb_atm_element_previous = tmp3;
-        perturb_atm_element_current = tmp4;
+        N_ocean=1
+        N_wind=1
 #endif
 
 #ifdef OASIS

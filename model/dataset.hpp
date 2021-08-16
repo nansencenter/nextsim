@@ -251,7 +251,8 @@ public:
 #endif
 
 #if defined (ENSEMBLE)  
-    std::vector<double> randfld, synforc, perturb_atm_element_previous, perturb_atm_element_current;
+    std::vector<double> randfld, synforc;
+    int N_ocean, N_wind
 #endif
 private:
 

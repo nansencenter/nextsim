@@ -253,7 +253,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
             // todo, if it needs to avoid unexpected perturbation due to remesh process.  
             M_comm.barrier();
-            if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+            if (strcmp (M_dataset->name.c_str(), "topaz_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "topaz_elements") == 0 || \
+                strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
                 strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
@@ -270,113 +272,85 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 LOG(DEBUG) << "### MN_FULL: " << MN_full <<" = " << M_full << "x" <<N_full<<"\n"; //M_full=688, N_full=556
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                 LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
-                                     
+
+                // ocean perturbation
+                // loaded_data[0]: previous, loaded_data[1]: current
+                // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
+                if (strcmp (M_dataset->name.c_str(), "topaz_elements") == 0 )   //{sst,sss,mld}
+                { 
+                    for (int it = 0; it<2; it++)
+                    {
+                        M_dataset->N_ocean = M_dataset->N_ocean + 4*it; //assume initial N_ocean=1. Because wind updates 4 times per day, topaz updates once per day. Thus, I use 4*it to keep consistent with N_wind below
+                        if (M_comm.rank() == 0) {  
+                            //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX) to filename_root synforc_randfld_XX_M_dataset->N_ocean.nc, maybe other names
+                            std::string filename_root = "synforc_randfld_mem" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_ocean + ".nc";
+                            LOG(DEBUG)<<"topaz load"<<filename_root<<"\n";
+                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
+                            netCDF::NcVar data0;
+                            data0 = dataFile0.getVar("sst");                         
+                            data0.getVar(&M_dataset->synforc1[0]);
+                            data0 = dataFile0.getVar("sss");
+                            data0.getVar(&M_dataset->synforc2[0]);     
+                        }
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
+                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                    }
+                }                
+
+                // wind perturbation 
                 if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                     strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
-                {                    
-                    int  previous_perturbation_exist=1;
-                    if (M_dataset->randfld.size()==0){  // the 1st perturbation 
-                        // Initialize randfld, synforc, which are defined mod_random_forcing.f90:save_randfld_synforc()
-                        M_dataset->randfld.resize(4*MN_full,0.); 
-                        M_dataset->synforc.resize(4*MN_full,0.); 
-                        // load perturbation by the root processor
-                        if (M_comm.rank() == 0) {                          
-                            std::string filename_root = "WindPerturbation_mem" + std::to_string(M_comm.rank()+1) +".nc";  // 
-                            ifstream iofile(filename_root.c_str());
-                            LOG(DEBUG) << "### check if using a exist perturbation series"<< filename_root<<", 1-yes, 0-no: " <<  iofile.good()  << "\n";
-                            previous_perturbation_exist = iofile.good();
-                            if ( previous_perturbation_exist ) {
-                                netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
-                                netCDF::NcVar data0;
-                                data0 = dataFile0.getVar("randfld"); 
-                                data0.getVar(&M_dataset->randfld[0]);
-                                data0 = dataFile0.getVar("synforc");
-                                data0.getVar(&M_dataset->synforc[0]);     
-                            }
-                        }
-                    }                     
-                    //Q: where is the previous wind field used? Is it necessary to broadcast and add previous perturbation to previous wind field
-                    M_comm.barrier();
-                    boost::mpi::broadcast(M_comm, previous_perturbation_exist, 0); 
-                    LOG(DEBUG) << "### Broadcast previous perturbations to all processors\n";  
-                    boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0); 
-                    
-                    if( previous_perturbation_exist==1) // if not, wind forcing has been moved from current to previous in function? in this file below
+                {   
+                    for (int it = 0; it<2; it++)
                     {
-                        LOG(DEBUG) << "### Add previous perturbations to wind fields\n";  
-                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1,1);  // the last argument indates which variable field is pertubed, starting from 1.  uwind
-                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[0], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2,1);  // vwind
+                        LOG(DEBUG)<<"wind node load"<<filename_root<<"\n";
+                        M_dataset->N_wind = M_dataset->N_wind + it; //assume initial N_wind=1
+                        if (M_comm.rank() == 0) {  
+                            std::string filename_root = "synforc_randfld_" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_wind + ".nc";
+                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
+                            netCDF::NcVar data0;
+                            data0 = dataFile0.getVar("uwind");                         
+                            data0.getVar(&M_dataset->synforc1[0]);
+                            data0 = dataFile0.getVar("vwind");
+                            data0.getVar(&M_dataset->synforc2[0]);     
+                        }
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
+                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
-                    
-                    LOG(DEBUG) << "### Generate current perturbations based on randfld at previous randfld \n"; 
-                    if (M_comm.rank() == 0){
-                        // save previous element perturbations  
-                        netCDF::NcFile dataFile("synforc_elements.nc", netCDF::NcFile::replace);
-                        netCDF::NcDim dim = dataFile.addDim("length",2*MN_full); // perturbed snowfall, longwave radiation
-                        netCDF::NcVar data;
-                        data = dataFile.addVar("perturb_atm_element_previous",netCDF::ncFloat, dim);
-                        data.putVar(&M_dataset->synforc[2*MN_full]);    //2*MN_full is index of the 3rd variable  
-                        // @Einar: 
-                        // In this nextsim-branch, check_and_reload() first calls M_wind_nodes, then calls M_wind_elements. 
-                        // Perturbations for atmosphere variables (u-speed, v-speed saved on nodes, and others like snowfall rate, longwave rate saved on elements) are generated in calling check_and_reload(M_wind_nodes) 
-                        // My question is that is it possible to call the wind-element dataset to save perturbations for variables on elements by something like M_wind_elements->perturb_atm_element_previous = M_dataset->synforc[2*MN_full]. 
-               
-                        // Generate current perturbations based on randfld at previous randfld
-                        perturbation.synopticPerturbation(M_dataset->synforc, M_dataset->randfld, M_full, N_full,previous_perturbation_exist); 
-
-                        // save current element perturbations  
-                        data = dataFile.addVar("perturb_atm_element_current",netCDF::ncFloat, dim);  
-                        data.putVar(&M_dataset->synforc[2*MN_full]);  
-                        // @Einar, similar as line 319 but for current perturbation
-                        //M_wind_elements->perturb_atm_element_current = M_dataset->synforc[2*MN_full].                               
-                    }   
-                                    
-                    M_comm.barrier();
-                    LOG(DEBUG) << "### Broadcast current perturbations to all processors\n";  
-                    boost::mpi::broadcast(M_comm, &M_dataset->synforc[0], M_dataset->synforc.size(), 0);                
-                    LOG(DEBUG) << "### Add current perturbations to wind fields\n";  
-                    perturbation.addPerturbation(M_dataset->variables[0].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 1,1); 
-                    perturbation.addPerturbation(M_dataset->variables[1].loaded_data[1], M_dataset->synforc, M_full,N_full, x_start, y_start, x_count, y_count, 2,1); 
-
-                    // double M_min=*std::min_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
-                    // double M_max=*std:: max_element(M_dataset->variables[0].loaded_data[0].begin(),M_dataset->variables[0].loaded_data[0].end());
-                    // LOG(DEBUG) << "### MINMAX: " << M_min << " - " << M_max << "\n";
                 }
                 else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
                          strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )
-                {      
-                    M_dataset->perturb_atm_element_previous.resize(2*MN_full,0.); 
-                    M_dataset->perturb_atm_element_current.resize(2*MN_full,0.); 
-                    //  @Einar, if it is feasible to save M_wind_elements->perturb_atm_element_previous and M_wind_elements->perturb_atm_element_current for line 320, the temporary file synforc_elements.nc can be removed             
-                    if (M_comm.rank() == 0) {  
-                        LOG(DEBUG) << "### load synforc_elements.nc\n";
-                        netCDF::NcFile dataFile("synforc_elements.nc", netCDF::NcFile::read);
-                        netCDF::NcVar data;
-                        data = dataFile.getVar("perturb_atm_element_previous");
-                        data.getVar(&M_dataset->perturb_atm_element_previous[0]);
-                        data = dataFile.getVar("perturb_atm_element_current");
-                        data.getVar(&M_dataset->perturb_atm_element_current[0]);                 
+                {   // index in M_dataset->variables[0] indicates to snowfall defined in dataset.cpp,generic_atm_elements,{ tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip }
+                    for (int it = 0; it<2; it++)
+                    {
+                        LOG(DEBUG)<<"wind element load"<<filename_root<<"\n";
+                        // Because checkReloadMainDatasets calls wind_nodes first, the call wind_element, I skip increase N_wind here. The order is defined in finiteelement.cpp initDatasets()
+                        // M_dataset->N_wind = M_dataset->N_wind + it; //assume initial N_ocean=1. 
+                        if (M_comm.rank() == 0) {  
+                            std::string filename_root = "synforc_randfld_" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_wind + ".nc";
+                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
+                            netCDF::NcVar data0;
+                            data0 = dataFile0.getVar("Qlw_in");    //longwave downwelling radiation rate                      
+                            data0.getVar(&M_dataset->synforc1[0]);
+                            data0 = dataFile0.getVar("snowfall");  //snowfall rate
+                            data0.getVar(&M_dataset->synforc2[0]);     
+                        }
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
+                        // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
+                        perturbation.addPerturbation(M_dataset->variables[4].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[5].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
                     }
-                    
-                    M_comm.barrier(); 
-                    LOG(DEBUG) << "### Broadcast previous & current perturbations loaded from restart file to all processors\n"; 
-                    boost::mpi::broadcast(M_comm, &M_dataset->perturb_atm_element_previous[0], M_dataset->perturb_atm_element_previous.size(), 0); 
-                    boost::mpi::broadcast(M_comm, &M_dataset->perturb_atm_element_current[0],  M_dataset->perturb_atm_element_current.size(), 0); 
-                    // not need to broadcast old randfld, which is only used in root processor for generating current perturbation.  
-
-                    LOG(DEBUG) << "### Add perturbations to previous & current wind fields loaded from wind dataset\n";  
-                    // todo: are the previous wind field used? If not, it is no need to broadcast and add previous perturbation to previous wind field
-                    // previous perturbations 
-                    //0 in M_dataset->variables[0] indicates to snowfall defined in dataset.cpp,generic_atm_elements,{ tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip }, the last argument corresponds to 1st perturbed variable on element, see the order of the element's perturbed variables in save_randfld_synforc() in mod_random_forcing.f90
-                    //loaded_data[0]: previous, loaded_data[1]: current
-                    // index before the last one, indicates order of variables in synforc_element.nc, 
-                    // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
-                    //snowfall rate
-                    perturbation.addPerturbation(M_dataset->variables[5].loaded_data[0], M_dataset->perturb_atm_element_previous, M_full,N_full, x_start, y_start, x_count, y_count, 1,2); 
-                    perturbation.addPerturbation(M_dataset->variables[5].loaded_data[1], M_dataset->perturb_atm_element_current, M_full,N_full, x_start, y_start, x_count, y_count, 1,2); 
-                    //longwave downwelling radiation rate
-                    perturbation.addPerturbation(M_dataset->variables[4].loaded_data[0], M_dataset->perturb_atm_element_previous, M_full,N_full, x_start, y_start, x_count, y_count, 2,1); 
-                    perturbation.addPerturbation(M_dataset->variables[4].loaded_data[1], M_dataset->perturb_atm_element_current, M_full,N_full, x_start, y_start, x_count, y_count, 2,1);
                 }
                 M_comm.barrier();
             }
