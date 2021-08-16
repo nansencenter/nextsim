@@ -75,18 +75,28 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
     	// aerobulk
     	aerobulkWrapper(Qlh, Qsh, evap, tau, sst, sss, t_air, t_cc, mslp, Qsw);
     } else {
-#else
-    {
-#endif
-    	// not aerobulk
-    	double sphuma = specificHumidityAir(t_air, t_cc);
-    	double sphumw = specificHumidityWater(sst, sss, mslp);
-    	double rhoair = airDensity(mslp, t_air, sphuma);
-    	Qsh = sensibleHeatFlux(rhoair, sphuma, windSpeed, sst - t_air);
-		evap = evaporation(rhoair, windSpeed, sphumw - sphuma);
-    	Qlh = evap * latentHeatVaporization(sst);
+    	nonRadiativeFluxes(Qlh, Qsh, evap, tau, sst, sss, t_air, mslp, windSpeed);
     }
-} // void Physics1D::OWBulkFluxes(...)
+#else
+	nonRadiativeFluxes(Qlh, Qsh, evap, tau, sst, sss, t_air, mslp, windSpeed);
+#endif
+	// radiative fluxes
+}  // void Physics1D::OWBulkFluxes(...)
+
+
+void Physics1D::nonRadiativeFluxes(
+		double& Qlh, double& Qsh, double& evap, double& tau,
+		double sst, double sss, double t_air, double mslp, double windSpeed) {
+
+	// not aerobulk: Heat, momentum and vapour fluxes
+	double sphuma = specificHumidityAir(t_air, mslp);
+	double sphumw = specificHumidityWater(sst, sss, mslp);
+	double rhoair = airDensity(mslp, t_air, sphuma);
+	Qsh = sensibleHeatFlux(rhoair, sphuma, windSpeed, sst - t_air);
+	evap = evaporation(rhoair, windSpeed, sphumw - sphuma);
+	Qlh = evap * latentHeatVaporization(sst);
+	tau = oceanDrag(rhoair, windSpeed);
+} // void Physics1D::nonRadiativeFluxes(...)
 
 void Physics1D::aerobulkWrapper(double& Qlh,
 			double& Qsh,
@@ -100,6 +110,7 @@ void Physics1D::aerobulkWrapper(double& Qlh,
 			double Qsw) {
 	double sst_kelvin = sst + physical::tfrwK;
 	double t2m_kelvin = t_air + physical::tfrwK;
+	double Qsw_in = Qsw;
 	double Qlw_in = incomingLongwave(t_air, t_cc);
 	double sphuma = specificHumidityAir(sst, mslp);
 	double windSpeed = windSpeed();

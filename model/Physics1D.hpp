@@ -60,6 +60,16 @@ public:
 			double mslp,
 			double Qsw);
 
+	void nonRadiativeFluxes(double& Qlh,
+			double& Qsh,
+			double& evap,
+			double& tau,
+			double sst,
+			double sss,
+			double t_air,
+			double mslp,
+			double windSpeed);
+
 	// Argument monster version of incomingLongwave
 	// TODO: supersede this with something better
 	double incomingLongwave(double t_air_centigrade, double t_cc);
