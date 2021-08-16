@@ -68,6 +68,7 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 		double t_cc,
 		double mslp,
 		double Qsw_in,
+		double qsrml,
 		double windSpeed
 		) {
 #ifdef AEROBULK
@@ -81,6 +82,18 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 	nonRadiativeFluxes(Qlh, Qsh, evap, tau, sst, sss, t_air, mslp, windSpeed);
 #endif
 	// radiative fluxes
+	radiativeFluxes(Qlw, Qsw, sst, t_air, t_cc, Qsw_in);
+
+	// Total outward flux
+	Qow = Qlw + Qsh + Qlh + Qsw;
+
+#ifdef OASIS
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    	// Correct for the amount of shortwave flux absorbed in the top layer
+    	// of the ocean, derived from the ocean model. Equivalent to replacing
+    	// Qsw above with Qsw * qsrml.
+    	Qow -= (1 - qsrml) * Qsw
+#endif
 }  // void Physics1D::OWBulkFluxes(...)
 
 
@@ -151,22 +164,26 @@ void Physics1D::aerobulkWrapper(double& Qlh,
 
 } // void Physics1D::aerobulkWrapper(...)
 
-double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc) {
-	// Convert temperatures to kelvin
-	double t_air_kelvin = t_air_centigrade + physical::tfrwK;
+double Physics1D::incomingLongwave(double t_air_celsius, double t_cc) {
     // S. B. Idso & R. D. Jackson, Thermal radiation from the atmosphere, J. Geophys. Res. 74, 5397-5403, (1969)
 	// σT^4{1 - c exp [−d (273 - T)^2]}
 	double c = 0.261;
 	double d = 7.77e-4;
 	// Stefan-Boltzmann
-	double lwr = physical::sigma_sb * pow(t_air_kelvin, 4);
+	double lwr = stefanBoltzmanInCelsius(t_air_celsius);
 	// Idso and Jackson emittance correction
-	lwr *= (1 - c * exp(-d * pow(t_air_centigrade, 2)));
+	lwr *= (1 - c * exp(-d * pow(t_air_celsius, 2)));
 	// Cloud cover correction from TODO: reference
 	double f = 0.275;
 	lwr *= (1 + f * t_cc);
 	return lwr;
 } // double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc)
+
+double Physics1D::stefanBoltzmanInCelsius(double temperature) {
+	// Absolute temperature
+	double t = temperature + physical::tfrwK;
+	return physical::sigma_sb * t * t * t * t;
+} // double Physics1D::stefanBoltzman(double temperature)
 
 double Physics1D::airDensity(double mslp, double t_c, double sphuma) {
 	double t_k = t_c + physical::tfrwK;
@@ -271,5 +288,16 @@ double Physics1D::oceanDrag(double density, double windSpeed) {
 	double drag_ocean_m = 1e-2 * std::max(1., std::min(2., 0.61 + 0.063 * windSpeed));
 	return density * drag_ocean_m;
 } // double Physics1D::oceanDrag(double density, double windSpeed)
+
+void Physics1D::radiativeFluxes(double& Qlw, double& Qsw,
+		double sst, double t_air, double t_cc, double Qsw_in) {
+	// Shortwave flux. Positive is outward.
+	Qsw = -Qsw_in * (1. - settings.ocean_albedo);
+	// Emitted longwave flux. Positive is outward.
+	double Qlw_out = stefanBoltzmanInCelsius(t_air);
+	// Net outward longwave flux.
+	Qlw = Qlw_out - incomingLongwave(t_air, t_cc);
+
+} // void Physics1D::radiativeFluxes(...)
 
 } // namespace Nextsim

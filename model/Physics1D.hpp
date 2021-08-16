@@ -44,6 +44,7 @@ public:
 			double t_cc,
 			double mslp,
 			double Qsw_in,
+			double qsrml,
 			double windspeed
 			);
 
@@ -70,9 +71,15 @@ public:
 			double mslp,
 			double windSpeed);
 
+	void radiativeFluxes(double& Qlw, double& Qsw,
+			double sst, double t_air, double t_cc, double Qsw_in);
+
 	// Argument monster version of incomingLongwave
 	// TODO: supersede this with something better
-	double incomingLongwave(double t_air_centigrade, double t_cc);
+	double incomingLongwave(double t_air_celsius, double t_cc);
+
+	// Stefan-Boltzman flux
+	double stefanBoltzmanInCelsius(double temperature);
 
 	// Air density
 	double airDensity(double mslp, double t_air, double sphuma);
