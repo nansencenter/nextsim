@@ -67,7 +67,8 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
 		double t_air,
 		double t_cc,
 		double mslp,
-		double Qsw_in
+		double Qsw_in,
+		double windSpeed
 		) {
 #ifdef AEROBULK
     if ( settings.oceanBulkFormula != aerobulk::algorithm::OTHER ) {
@@ -78,6 +79,12 @@ void Physics1D::OWBulkFluxes(double& Qow, // scalar versions of the arguments
     {
 #endif
     	// not aerobulk
+    	double sphuma = specificHumidityAir(t_air, t_cc);
+    	double sphumw = specificHumidityWater(sst, sss, mslp);
+    	double rhoair = airDensity(mslp, t_air, sphuma);
+    	Qsh = sensibleHeatFlux(rhoair, sphuma, windSpeed, sst - t_air);
+		evap = evaporation(rhoair, windSpeed, sphumw - sphuma);
+    	Qlh = evap * latentHeatVaporization(sst);
     }
 } // void Physics1D::OWBulkFluxes(...)
 
@@ -149,6 +156,15 @@ double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc) {
 	lwr *= (1 + f * t_cc);
 	return lwr;
 } // double Physics1D::incomingLongwave(double t_air_centigrade, double t_cc)
+
+double Physics1D::airDensity(double mslp, double t_c, double sphuma) {
+	double t_k = t_c + physical::tfrwK;
+	double rhoDry = mslp / (physical::Ra_dry * t_k);
+	double humidityCorrection = 1 - sphuma * (1 - physical::Ra_vap/physical::Ra_dry);
+
+	return rhoDry * humidityCorrection;
+} // double Physics1D::airDensity(...)
+
 
 // Specific Humidity coefficients for ice
 const static double ICE_A = 2.2e-4;
@@ -222,6 +238,27 @@ double Physics1D::dSH_dT(double t_ice, double slp) {
     double dsphumdT   = ALPHA * slp * ( f*destdT + est*dfdT ) /
     						std::pow(slp - BETA*est*f,2);
     return dsphumdT;
-}
+} // double Physics1D::dSH_dT(double t_ice, double slp)
+
+double Physics1D::sensibleHeatFlux(double density, double specificHumidity, double windSpeed, double temperatureDifference) {
+	return settings.drag_ocean_t * density * (physical::cpa + specificHumidity * physical::cpv) * windSpeed * temperatureDifference;
+} // double Physics1D::sensibleHeatFlux(double rho, double sh, double wind, double t_diff)
+
+double Physics1D::latentHeatVaporization(double sst) {
+	return physical::Lv0 +
+			sst * (-2.36418e3 +
+					sst * (1.58927 +
+							sst * 6.14342e-2));
+} // double Physics1D::latentHeatVaporization(double sst)
+
+double Physics1D::evaporation(double density, double wind, double sh_diff) {
+	return settings.drag_ocean_q * density * wind *sh_diff;
+} // double Physics1D::evaporation(double rho, double wind, double sh_diff)
+
+double Physics1D::oceanDrag(double density, double windSpeed) {
+	// Drag coefficient from Gill(1982) / Smith (1980)
+	double drag_ocean_m = 1e-2 * std::max(1., std::min(2., 0.61 + 0.063 * windSpeed));
+	return density * drag_ocean_m;
+} // double Physics1D::oceanDrag(double density, double windSpeed)
 
 } // namespace Nextsim

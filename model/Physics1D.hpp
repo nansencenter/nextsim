@@ -29,6 +29,7 @@ public:
 	void thermo(int dt, int i);
 
 	// Argument monster version of the 1D version of FiniteElement::OWBulkFluxes
+	// Requires the wind speed calculation to be done externally and be passed in.
 	// TODO: supersede this with something better
 	void OWBulkFluxes(double& Qow, // scalar versions of the arguments
 			double& Qlw,         // of the FiniteElement version
@@ -42,7 +43,8 @@ public:
 			double t_air,
 			double t_cc,
 			double mslp,
-			double Qsw_in
+			double Qsw_in,
+			double windspeed
 			);
 
 	// Argument monster version of a Aerobulk wrapper
@@ -62,6 +64,9 @@ public:
 	// TODO: supersede this with something better
 	double incomingLongwave(double t_air_centigrade, double t_cc);
 
+	// Air density
+	double airDensity(double mslp, double t_air, double sphuma);
+
 	// Argument monster version of the first half of specificHumidity (air)
 	// TODO: supersede this with something better
 	double specificHumidityAir(double t_air, double slp);
@@ -70,10 +75,11 @@ public:
 	double specificHumidityIce(double t_ice, double slp);
 	double dSH_dT(double t_ice, double slp);
 
-	// Argument monster version of the windSpeedElement
-	// TODO: supersede this with something better
-	double windSpeed(); // TODO: fill in the argument list
+	double sensibleHeatFlux(double density, double specificHumidity, double windSpeed, double temperatureDifference);
+	double latentHeatVaporization(double sst);
+	double evaporation(double density, double windSpeed, double specificHumidityDifference);
 
+	double oceanDrag(double density, double windSpeed);
 private:
 	FiniteElement& fe;
 	po::variables_map& vm;
