@@ -119,12 +119,6 @@ public:
         return M_dataset;
     }
 
-    // void put_Mwind(std::vector<double> &X,std::vector<double> &Y){ 
-    //     M_dataset->synforc = X;
-    //     M_dataset->randfld = Y;
-    //     //delete
-    //     M_dataset->previous_perturbation_exist = -1; // -1 indicates get perturbations from restart file. 0 (default value) indicates the need of creating previous perturbations. 1 indicates previous perturbation exist online. The later two values are used in fortran code
-    // }
 #endif   
  
 private:

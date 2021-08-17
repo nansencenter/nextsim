@@ -253,21 +253,25 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
             // todo, if it needs to avoid unexpected perturbation due to remesh process.  
             M_comm.barrier();
-            if (strcmp (M_dataset->name.c_str(), "topaz_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "topaz_elements") == 0 || \
+            if (strcmp (M_dataset->name.c_str(), "topaz_forecast_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
                 strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
             {
                 ensemble perturbation; 
-                int M_full  = M_dataset->grid.dimension_y_count_netcdf;
-                int N_full  = M_dataset->grid.dimension_x_count_netcdf;
+                int M_full  = std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_y_count_netcdf)));
+                int N_full  = std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_x_count_netcdf)));
                 int MN_full = M_full*N_full;
                 int y_start = M_dataset->grid.dimension_y_start;
                 int x_start = M_dataset->grid.dimension_x_start;
                 int y_count = M_dataset->grid.dimension_y_count;
                 int x_count = M_dataset->grid.dimension_x_count; 
+                std::vector<double> synforc1(1);
+                std::vector<double> synforc2(1);
+                synforc1.resize(MN_full);
+                synforc2.resize(MN_full);
 
                 LOG(DEBUG) << "### MN_FULL: " << MN_full <<" = " << M_full << "x" <<N_full<<"\n"; //M_full=688, N_full=556
                 LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
@@ -276,28 +280,29 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // ocean perturbation
                 // loaded_data[0]: previous, loaded_data[1]: current
                 // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
-                if (strcmp (M_dataset->name.c_str(), "topaz_elements") == 0 )   //{sst,sss,mld}
+                if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 )   //{sst,sss,mld}
                 { 
+                    LOG(DEBUG)<<"line 281  M_dataset->N_wind = "<<M_dataset->N_wind<<" M_dataset->N_ocean = "<<M_dataset->N_ocean<<"\n";
                     for (int it = 0; it<2; it++)
                     {
-                        M_dataset->N_ocean = M_dataset->N_ocean + 4*it; //assume initial N_ocean=1. Because wind updates 4 times per day, topaz updates once per day. Thus, I use 4*it to keep consistent with N_wind below
+                        M_dataset->N_ocean = M_dataset->N_ocean + 4*it; // initial N_ocean=0 by default. Because wind updates 4 times per day, topaz updates once per day. Thus, I use 4*it to keep consistent with N_wind below
                         if (M_comm.rank() == 0) {  
-                            //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX) to filename_root synforc_randfld_XX_M_dataset->N_ocean.nc, maybe other names
-                            std::string filename_root = "synforc_randfld_mem" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_ocean + ".nc";
-                            LOG(DEBUG)<<"topaz load"<<filename_root<<"\n";
-                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
-                            netCDF::NcVar data0;
-                            data0 = dataFile0.getVar("sst");                         
-                            data0.getVar(&M_dataset->synforc1[0]);
-                            data0 = dataFile0.getVar("sss");
-                            data0.getVar(&M_dataset->synforc2[0]);     
+                            //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX/synforc_randfldYY) to filename Perturbations_XX_M_dataset->N_ocean.nc, maybe other names
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + std::to_string(M_comm.rank()+1) +"_series" + std::to_string(M_dataset->N_ocean) + ".nc";
+                            LOG(DEBUG)<<"topaz load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;
+                            data = dataFile.getVar("sst");                         
+                            data.getVar(&synforc1[0]);
+                            data = dataFile.getVar("sss");
+                            data.getVar( &synforc2[0]);   
                         }
                         M_comm.barrier();
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
                         LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
-                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
                 }                
 
@@ -305,25 +310,28 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                     strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
                 {   
+                    LOG(DEBUG)<<"line 310  M_dataset->N_wind = "<<M_dataset->N_wind<<"\n";
+                    LOG(DEBUG)<<"line 310  M_dataset->N_ocean = "<<M_dataset->N_ocean<<"\n";
                     for (int it = 0; it<2; it++)
                     {
-                        LOG(DEBUG)<<"wind node load"<<filename_root<<"\n";
-                        M_dataset->N_wind = M_dataset->N_wind + it; //assume initial N_wind=1
+                        M_dataset->N_wind = M_dataset->N_wind + it; //initial N_wind=0 by default
                         if (M_comm.rank() == 0) {  
-                            std::string filename_root = "synforc_randfld_" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_wind + ".nc";
-                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
-                            netCDF::NcVar data0;
-                            data0 = dataFile0.getVar("uwind");                         
-                            data0.getVar(&M_dataset->synforc1[0]);
-                            data0 = dataFile0.getVar("vwind");
-                            data0.getVar(&M_dataset->synforc2[0]);     
+                            LOG(DEBUG)<<"line 316  M_dataset->N_wind = "<<M_dataset->N_wind<<"\n";
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + std::to_string(M_comm.rank()+1) +"_series" + std::to_string(M_dataset->N_wind) + ".nc";
+                            LOG(DEBUG)<<"wind node load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;     
+                            data = dataFile.getVar("uwind");   
+                            data.getVar( &synforc1[0]);
+                            data = dataFile.getVar("vwind");
+                            data.getVar( &synforc2[0]);     
                         }
                         M_comm.barrier();
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
                         LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
-                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
                 }
                 else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
@@ -331,25 +339,26 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 {   // index in M_dataset->variables[0] indicates to snowfall defined in dataset.cpp,generic_atm_elements,{ tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip }
                     for (int it = 0; it<2; it++)
                     {
-                        LOG(DEBUG)<<"wind element load"<<filename_root<<"\n";
-                        // Because checkReloadMainDatasets calls wind_nodes first, the call wind_element, I skip increase N_wind here. The order is defined in finiteelement.cpp initDatasets()
-                        // M_dataset->N_wind = M_dataset->N_wind + it; //assume initial N_ocean=1. 
+                        // Because checkReloadMainDatasets calls wind_nodes first, the call wind_element, I skip increase N_wind here. 
+                        // The order is defined in finiteelement.cpp initDatasets()
+                        // M_dataset->N_wind = M_dataset->N_wind + it; //initial N_wind=0 by default
                         if (M_comm.rank() == 0) {  
-                            std::string filename_root = "synforc_randfld_" + std::to_string(M_comm.rank()+1) +"_" + M_dataset->N_wind + ".nc";
-                            netCDF::NcFile dataFile0(filename_root, netCDF::NcFile::read);
-                            netCDF::NcVar data0;
-                            data0 = dataFile0.getVar("Qlw_in");    //longwave downwelling radiation rate                      
-                            data0.getVar(&M_dataset->synforc1[0]);
-                            data0 = dataFile0.getVar("snowfall");  //snowfall rate
-                            data0.getVar(&M_dataset->synforc2[0]);     
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + std::to_string(M_comm.rank()+1) +"_series" + std::to_string(M_dataset->N_wind) + ".nc";
+                            LOG(DEBUG)<<"wind element load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;
+                            data = dataFile.getVar("Qlw_in");    //longwave downwelling radiation rate                      
+                            data.getVar( &synforc1[0]);
+                            data = dataFile.getVar("snowfall");  //snowfall rate
+                            data.getVar( &synforc2[0]);
                         }
                         M_comm.barrier();
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc1[0], MN_full, 0); 
-                        boost::mpi::broadcast(M_comm, &M_dataset->synforc2[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
                         LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
                         // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
-                        perturbation.addPerturbation(M_dataset->variables[4].loaded_data[it], M_dataset->synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                        perturbation.addPerturbation(M_dataset->variables[5].loaded_data[it], M_dataset->synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
+                        perturbation.addPerturbation(M_dataset->variables[4].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[5].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
                     }
                 }
                 M_comm.barrier();

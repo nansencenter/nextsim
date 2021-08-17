@@ -16,7 +16,7 @@ Header file for ensemble.cpp
 
 extern "C" {
 //	void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, int const *previous_perturbation_exist );   
-  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *previous_perturbation_exist);
+//  void p_pseudo2D_fld_sub(int const *xdm, int const *ydm, double *synforc, double *randfld,int const *previous_perturbation_exist);
 /* Other subroutines in libpseudo2D.dylib fortran library
     void init_fvars_();
     void m_set_random_seed_();
@@ -84,7 +84,7 @@ class ensemble
 
     public:
 
-        void synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld,int const& ydim, int const& xdim, int const& previous_perturbation_exist); 
+        // void synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld,int const& ydim, int const& xdim, int const& previous_perturbation_exist); 
 
         void addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count, int opr);
         // void addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count,int index, int opr);

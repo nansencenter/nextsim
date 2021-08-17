@@ -5504,11 +5504,12 @@ FiniteElement::thermo(int dt)
         // if before assimilation there was ice and it was reduced
         if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
         {
-            double M_min=*std::min_element(D_Qassim.begin(),D_Qassim.end());
-            double M_max=*std::max_element(D_Qassim.begin(),D_Qassim.end());
-            LOG(DEBUG) <<M_min<<", max"<<M_max<<"\n";
-            if(std::abs(M_min)>1e-7 && std::abs(M_max)>1){
-                Qassm = D_Qassim[i];
+            // double M_min=*std::min_element(D_Qassim.begin(),D_Qassim.end());
+            // double M_max=*std::max_element(D_Qassim.begin(),D_Qassim.end());            
+            // LOG(DEBUG)<<"M_current_time - time_init= "<<M_current_time - time_init<<", M_min= "<<M_min<<", M_max= "<<M_max<<" line5512\n";
+            // NOTE: D_Qassim=0 at each tim step except load from analysis result.
+            if(M_current_time > time_init){ 
+                Qassm = D_Qassim[i];                
             }
             else{
                 // compensating heat flux is a product of:
@@ -5517,8 +5518,7 @@ FiniteElement::thermo(int dt)
                 // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
                 Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-            } 
-            LOG(DEBUG) <<"--------"<<M_min<<", max"<<M_max<<"\n";           
+            }        
         }
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
@@ -8029,7 +8029,7 @@ FiniteElement::run()
     if (M_use_statevector)
     {
         this->exportStateVector(false);
-        this->export_WindPerturbations();
+        // this->export_WindPerturbations();
     }
 #endif
 
@@ -9237,42 +9237,42 @@ FiniteElement::readStateVector()
     // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
 }//readStateVector
 
-void
-FiniteElement::export_WindPerturbations()
-{
-    LOG(DEBUG) << "export perturbations of wind fields to file\n";
-    if (M_comm.rank() == 0) {
-        // assume M_external_data_nodes[0] with index 0 is related ot wind field.
-        // thus, M_dataset = M_external_data_nodes[0]->get_M_dataset(); 
-        // data coordinates are ecmwf grid: 3600x501, also defined in pseudo.nml
-        // otherwise, search the dataset by the following commented loop
+// void
+// FiniteElement::export_WindPerturbations()
+// {
+//     LOG(DEBUG) << "export perturbations of wind fields to file\n";
+//     if (M_comm.rank() == 0) {
+//         // assume M_external_data_nodes[0] with index 0 is related ot wind field.
+//         // thus, M_dataset = M_external_data_nodes[0]->get_M_dataset(); 
+//         // data coordinates are ecmwf grid: 3600x501, also defined in pseudo.nml
+//         // otherwise, search the dataset by the following commented loop
         
-        // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
-        // {
-        //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
-        //     {   
-        //         Dataset *dataset;
-        //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
+//         // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
+//         // {
+//         //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
+//         //     {   
+//         //         Dataset *dataset;
+//         //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
   
-        // Create the netCDF file.
-        std::string filename_root;
-        filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
-        netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
-        Dataset *M_dataset;
-        // write data to the file
-        M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-        LOG(DEBUG) << "write dimensional perturbations\n";
-        netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
-        netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
-        synforc.putVar(&M_dataset->synforc[0]);
-        //
-        LOG(DEBUG) << "write nondimensional fields\n";
-        netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
-        netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-        randfld.putVar(&M_dataset->randfld[0]);
-        
-    }
-}//export_WindPerturbations
+//         // Create the netCDF file.
+//         std::string filename_root;
+//         filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+//         netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
+//         Dataset *M_dataset;
+//         // write data to the file
+//         M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
+//         LOG(DEBUG) << "write dimensional perturbations\n";
+//         netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
+//         netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
+//         synforc.putVar(&M_dataset->synforc[0]);
+//         //
+//         LOG(DEBUG) << "write nondimensional fields\n";
+//         netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
+//         netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
+//         randfld.putVar(&M_dataset->randfld[0]);     
+//     }
+// }//export_WindPerturbations
+
 #endif // ENSEMBLE
 
 //------------------------------------------------------------------------------------------------------
@@ -9447,16 +9447,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
         exporter.writeField(outbin, timevec, "Time");
-// #ifdef ENSEMBLE
-//         // be sure that M_external_data_nodes[0]->getVariableName().c_str()=="10U" pointing to the wind field: ec2_nodes
-//         Dataset *dataset=M_external_data_nodes[0]->get_M_dataset(); 
-//         LOG(DEBUG) <<" 10079, name check: "<< M_wind.name<<", "<<M_external_data_nodes[0]->name<<","<<dataset->name<< "\n";
-//         LOG(DEBUG) <<"M_wind.synforc.size(): "<< M_wind.synforc.size()<<", "<<dataset->synforc.size() << "\n";
-//         exporter.writeField(outbin, dataset->synforc, "synforc");
-//         exporter.writeField(outbin, dataset->randfld, "randfld");      
-//         // exporter.writeField(outbin, M_wind.synforc, "synforc");
-//         // exporter.writeField(outbin, M_wind.randfld, "randfld");
-// #endif
+
         // loop over the elemental variables that have been
         // gathered to elt_values_root
         int const nb_var_element = M_restart_names_elt.size();

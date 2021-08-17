@@ -9160,11 +9160,12 @@ DataSet::DataSet(char const *DatasetName)
         
 #if defined (ENSEMBLE) 
         // Save dimensional and nondimensional perturbations for variables specified in externaldata.cpp
-        std::vector<double> tmp1,tmp2, tmp3, tmp4;
-        randfld = tmp1;
-        synforc = tmp2;
-        N_ocean=1
-        N_wind=1
+        std::vector<double> tmp0, tmp1,tmp2;
+        randfld  = tmp0;
+        synforc1 = tmp1;
+        synforc2 = tmp2;
+        N_ocean  = 1;
+        N_wind   = 1;
 #endif
 
 #ifdef OASIS

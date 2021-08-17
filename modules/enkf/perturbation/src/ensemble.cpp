@@ -1,13 +1,13 @@
 #include "ensemble.hpp"
 
-void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& previous_perturbation_exist) 
-{
-    // generate perturbations for atmospheric variables by calling fortran library for synoptic perturbation
-    // input: xdim, ydim, randfld, previous_perturbation_exist
-    // return: synforc, randfld
-    // M_full = ydim is size of y domain, N_full = xdim is size of x domain    
-    p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&previous_perturbation_exist);    
-}    
+// void ensemble::synopticPerturbation(std::vector<double> &synforc,std::vector<double> &randfld, int const& ydim, int const& xdim, int const& previous_perturbation_exist) 
+// {
+//     // generate perturbations for atmospheric variables by calling fortran library for synoptic perturbation
+//     // input: xdim, ydim, randfld, previous_perturbation_exist
+//     // return: synforc, randfld
+//     // M_full = ydim is size of y domain, N_full = xdim is size of x domain    
+//     p_pseudo2D_fld_sub(&xdim, &ydim, &synforc[0], &randfld[0],&previous_perturbation_exist);    
+// }    
 
 
 void ensemble::addPerturbation(std::vector<double>& perturbed_field, std::vector<double>& synforc, int M_full, int N_full, int x_start, int y_start, int x_count, int y_count, int opr)
