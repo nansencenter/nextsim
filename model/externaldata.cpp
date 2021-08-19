@@ -303,8 +303,28 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
                         boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
                         LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  //{sst,sss,mld,conc,thick, snow_thick}
-                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+
+                        int final_MN = M_dataset->grid.reduced_nodes_ind.size();
+                        cout << "### final_MN: "<< final_MN << " variable size: " << M_dataset->variables[0].loaded_data[it].size() <<" \n"; 
+                        for(int n = 0; n < final_MN; n++)
+                        {   
+                            int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
+                            int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
+                            i = x_start + (y_start + j)*N_full + i;
+                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i];
+                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i];
+                            if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
+                        }
+ 
+                        cout  << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                        cout  << "### min sst: "<<*std::min_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                        cout  << "### max sss: "<<*std::max_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+                        cout  << "### min sss: "<<*std::min_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+ 
+                    // LOG(DEBUG)<<"maxmium n: "<<n<< " size of sst: " <<  M_dataset->variables[0].loaded_data[it].size()  <<  " \n";    
+                   //  LOG(DEBUG)<<"maxmium n: "<<n<< " size of sss: " <<  M_dataset->variables[1].loaded_data[it].size()  <<  " \n";
+//                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+//                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
                     LOG(DEBUG)<<"topaz_forecast_elements,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<"M_ensemble_member = "<<M_ensemble_member<<"\n";
                 }                
@@ -1535,8 +1555,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     int ind = (dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j;
                     data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                 }
-
         }
+
     }
 
     // ---------------------------------
