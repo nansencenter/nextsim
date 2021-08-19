@@ -6126,9 +6126,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            prefix: "mem"+Environment::vm()["statevector.id"].as<std::string>()+".nc.analysis",
+            prefix: "mem"+Environment::vm()["statevector.ensemble_member"].as<std::string>()+".nc.analysis",
             postfix: "",
-            gridfile: "mem"+Environment::vm()["statevector.id"].as<std::string>()+".nc.analysis",
+            gridfile: "mem"+Environment::vm()["statevector.ensemble_member"].as<std::string>()+".nc.analysis",
             reference_date: "1979-01-01",
 
             latitude: latitude,
@@ -9164,8 +9164,8 @@ DataSet::DataSet(char const *DatasetName)
         randfld  = tmp0;
         synforc1 = tmp1;
         synforc2 = tmp2;
-        N_ocean  = 1;
-        N_wind   = 1;
+        // N_ocean  = 1;
+        // N_wind   = 1;
 #endif
 
 #ifdef OASIS

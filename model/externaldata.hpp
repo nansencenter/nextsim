@@ -75,9 +75,9 @@ public:
         double StartingTime, double SpinUpDuration );
 
     ~ExternalData();
-
+    //TODO, add ensemble_member for an ensemble run
     void check_and_reload(std::vector<double> const& RX,
-            std::vector<double> const& RY, const double current_time );
+            std::vector<double> const& RY, const double current_time, const int ensemble_member );
 
     value_type operator[] (const size_type i);
     value_type get(const size_type i);
@@ -118,7 +118,6 @@ public:
     Dataset* get_M_dataset(){ 
         return M_dataset;
     }
-
 #endif   
  
 private:

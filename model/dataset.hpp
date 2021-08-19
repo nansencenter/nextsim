@@ -252,7 +252,7 @@ public:
 
 #if defined (ENSEMBLE)  
     std::vector<double> randfld, synforc1, synforc2;
-    int N_ocean, N_wind;
+    int N_ocean=0, N_wind=0;
 #endif
 private:
 

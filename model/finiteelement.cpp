@@ -946,7 +946,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #ifdef OASIS
         (*it)->check_and_reload(RX, RY, CRtime, M_comm, pcpt*time_step, cpl_time_step);
 #else
-        (*it)->check_and_reload(RX, RY, CRtime);
+        (*it)->check_and_reload(RX, RY, CRtime, M_ensemble_member);
 #endif
         M_timer.tock((*it)->getDatasetName());
     }
@@ -1303,7 +1303,7 @@ FiniteElement::initOptAndParam()
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
-    M_ensemble_member = vm["statevector.ensemble_member"].as<int>();
+    
     lin_drag_coef_air = vm["dynamics.lin_drag_coef_air"].as<double>();
 
     M_use_nesting= vm["nesting.use_nesting"].as<bool>(); //! \param M_use_nesting (boolean) Option on the use of nested model meshes
@@ -1460,8 +1460,8 @@ FiniteElement::initOptAndParam()
 
 #ifdef ENSEMBLE
     M_use_statevector = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
-    M_id_statevector = vm["statevector.id"].as<std::string>(); //! \param M_use_statevector (boolean) Option on the use of statevector
+    M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //M_restart_from_analysis, use annalysis as restart for new simulation    
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>(); //! // ensemble member run id
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
     M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
@@ -9256,7 +9256,7 @@ FiniteElement::readStateVector()
   
 //         // Create the netCDF file.
 //         std::string filename_root;
-//         filename_root = M_export_path + "/WindPerturbation_mem" + M_id_statevector +".nc";
+//         filename_root = M_export_path + "/WindPerturbation_mem" + std::string(M_ensemble_member) +".nc";
 //         netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
 //         Dataset *M_dataset;
 //         // write data to the file
