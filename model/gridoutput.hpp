@@ -21,6 +21,7 @@
 #include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
+#include <debug.hpp>
 
 /**
  * @class GridOutput
@@ -802,6 +803,10 @@ public:
 
     // Return a mask
     std::vector<int> const &getMask() const { return M_lsm; }
+
+    // for LOG
+    bool M_log_all;
+    LogLevel M_log_level;
 
     int M_ncols;
     int M_nrows;

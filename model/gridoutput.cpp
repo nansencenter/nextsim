@@ -27,7 +27,11 @@ GridOutput::GridOutput()
 // Constructor for only one set of variables
 ////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting)
-    : M_averaging_period(averaging_period), M_false_easting(false_easting)
+    :
+        M_averaging_period(averaging_period),
+        M_false_easting(false_easting),
+        M_log_level(Environment::logLevel()),
+        M_log_all(false)//Environment::logAll())
 {
     M_vectorial_variables.resize(0);
 
@@ -368,7 +372,7 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
     std::fill( variables[0].data_mesh.begin() + nb_local_el, variables[0].data_mesh.end(),  0. );
 
     // Mesh displacement of zero
-    std::vector<double> UM(bamgmesh->TrianglesSize[0], 0.);
+    std::vector<double> UM(2*bamgmesh->VerticesSize[0], 0.);
 
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
