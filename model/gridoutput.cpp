@@ -31,7 +31,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, doubl
         M_averaging_period(averaging_period),
         M_false_easting(false_easting),
         M_log_level(Environment::logLevel()),
-        M_log_all(false)//Environment::logAll())
+        M_log_all(Environment::logAll())
 {
     M_vectorial_variables.resize(0);
 
