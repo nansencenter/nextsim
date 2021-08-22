@@ -555,7 +555,7 @@ GridOutput::setLSM(BamgMesh* bamgmesh_root)
     variables[0].data_mesh.assign(bamgmesh_root->TrianglesSize[0], 1.);
 
     // Mesh displacement of zero
-    std::vector<double> UM(bamgmesh_root->TrianglesSize[0], 0.);
+    std::vector<double> UM(2*bamgmesh_root->VerticesSize[0], 0.);
 
     this->updateGridMeanWorker(bamgmesh_root, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
