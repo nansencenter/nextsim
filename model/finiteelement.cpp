@@ -7803,6 +7803,7 @@ FiniteElement::step()
     // - update fields on grid if outputting mean fields
     // - check if we are adding records to netcdf file
     // 2. check if writing outputs, and do it if it's time
+    
     // 3. check if writing restart, and do it if it's time
     // TODO also add drifter check here
     // - if we move at restart output time we can remove M_UT from
