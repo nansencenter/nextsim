@@ -790,12 +790,10 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("ocean_cpl_elements");
             break;
 #endif
-
         case setup::OceanType::GLORYS12R:
             M_ocean_nodes_dataset=DataSet("glorys12_nodes");
             M_ocean_elements_dataset=DataSet("glorys12_elements");
             break;
-
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
