@@ -2026,18 +2026,15 @@ FiniteElement::sortPrognosticVars()
     }
 
     //! - 2) reorder M_prognostic_variables_elt and:
-    //!    * set M_interp_methods
     //!    * set M_restart_names_elt
     auto tmp_prog_vars = M_prognostic_variables_elt;
     M_prognostic_variables_elt.resize(0);
-    M_interp_methods.resize(0);
     M_restart_names_elt.resize(0);
     for (auto inds : prognostic_variables_elt_indices)
         for (int j : inds)
         {
             auto vptr = tmp_prog_vars[j];//this is a pointer to a ModelVariable object
             M_prognostic_variables_elt.push_back(vptr);
-            M_interp_methods.push_back(vptr->getInterpMethod());
             M_restart_names_elt.push_back(vptr->name());
         }
 }//sortPrognosticVars
@@ -3030,15 +3027,9 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
             ++cpt;
         }
 
-        //! The interpolation with the cavities still needs to be tested on a long run.
-        //! By default, we then use the non-conservative MeshToMesh interpolation
-
         chrono.restart();
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_methods[0], nb_var_element,
-                                       &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
-
-        LOG(DEBUG)<<"-------------------CAVITIES done in "<< chrono.elapsed() <<"s\n";
+        ConservativeRemappingMeshToMesh(interp_elt_out, interp_in_elements, nb_var_element, bamgmesh_previous, bamgmesh_root);
+        LOG(DEBUG)<<"-------------------CONSERVATIVE REMAPPING done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();

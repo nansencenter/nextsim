@@ -12,7 +12,6 @@
 #include <environment.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToGridx.h>
@@ -45,11 +44,10 @@ namespace Nextsim
         None = -1,
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
-        FromMeshToMesh2dCavities = 2,
 #if defined OASIS
-        ConservativeRemapping = 3,
+        ConservativeRemapping = 2,
 #endif
-        FromMeshToMeshQuick = 4
+        FromMeshToMeshQuick = 3
     };
 
     typedef struct WaveOptions

@@ -39,14 +39,6 @@ public:
         elemental  =  1
     };
 
-    enum interpMethod
-    {
-        // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
-        nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
-        conservative      = 1  // integral of all the dead elements in a cavity is redistributed
-                               //  among the new elements in proportion to their area
-    };
-
     enum interpTransformation
     {
         // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
@@ -128,7 +120,6 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    interpMethod M_interp_method;//interpolation method during regridding
     interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
@@ -194,7 +185,6 @@ public:
     std::string exportName() { return M_export_name; }
     bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    interpMethod getInterpMethod() {return M_interp_method; }
     interpTransformation getInterpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
