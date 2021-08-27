@@ -790,6 +790,12 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("ocean_cpl_elements");
             break;
 #endif
+
+        case setup::OceanType::GLORYS12R:
+            M_ocean_nodes_dataset=DataSet("glorys12_nodes");
+            M_ocean_elements_dataset=DataSet("glorys12_elements");
+            break;
+
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
@@ -1285,7 +1291,8 @@ FiniteElement::initOptAndParam()
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
-        ("coupled", setup::OceanType::COUPLED);
+        ("coupled", setup::OceanType::COUPLED)
+        ("glorys12", setup::OceanType::GLORYS12R);
     M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
         //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
@@ -10251,7 +10258,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             break;
 
-        case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF: case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, M_spinup_duration);
@@ -10398,6 +10405,7 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::GLORYS12R:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -10445,6 +10453,7 @@ FiniteElement::assimilateSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::GLORYS12R:
             double sss_obs, sst_obs;
             for ( int i=0; i<M_num_elements; ++i)
             {
