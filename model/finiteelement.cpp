@@ -9295,6 +9295,15 @@ FiniteElement::explicitSolve()
     // Build the parts that don't change over the sub-time stepping
     // On the elements
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
+
+    M_timer.tick("prep ssh");
+    // SSH because M_ssh is slow
+    std::vector<double> ssh(M_num_nodes);
+    for ( int i=0; i<M_num_nodes; ++i )
+        ssh[i] = M_ssh[i];
+
+    M_timer.tock("prep ssh");
+
     M_timer.tick("prep elements");
 
     M_delta_x.resize(M_num_elements);
@@ -9306,6 +9315,7 @@ FiniteElement::explicitSolve()
     std::vector<double> rlmass_matrix(M_num_nodes, 0.);
     std::vector<double> node_mass(M_num_nodes, 0.);
     std::vector<double> C_bu(M_num_nodes, 0.);
+    std::vector<double> grad_ssh(2*M_num_nodes, 0.);
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
         // We need to update the mesh every time step
@@ -9353,7 +9363,7 @@ FiniteElement::explicitSolve()
         // We calculate C_bu on the element and then take the nodal maximum of it below.
         double element_ssh = 0; // Element mean ssh
         for (int i=0; i<3; ++i)
-            element_ssh += M_ssh[(M_elements[cpt]).indices[i]-1];
+            element_ssh += ssh[(M_elements[cpt]).indices[i]-1];
 
         element_ssh /= 3.;
 
@@ -9362,6 +9372,7 @@ FiniteElement::explicitSolve()
         double keel_depth;
         double critical_h;
         double critical_h_mod;
+        double const g3rd = physical::gravity/3.;
         switch ( M_basal_stress_type )
         {
             case setup::BasalStressType::NONE:
@@ -9404,6 +9415,28 @@ FiniteElement::explicitSolve()
             // Max C_bu
             C_bu[idx_node]  = std::max(C_bu[idx_node], element_C_bu);
         }
+
+        // Gradient of m*g*SSH
+        double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
+        std::vector<double> const dxN = M_shape_coeff[cpt];
+        for (int i=0; i<3; ++i)
+        {
+            int const i_indx = (M_elements[cpt]).indices[i]-1;
+
+            // Skip closed boundaries, ice free, and ghost nodes
+            if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
+                continue;
+
+            int const u_indx = i_indx;
+            int const v_indx = i_indx + M_num_nodes;
+
+            for ( int j=0; j<3; ++j )
+            {
+                int const j_indx = (M_elements[cpt]).indices[j]-1;
+                grad_ssh[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
+                grad_ssh[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
+            }
+        }
     }
     M_timer.tock("prep elements");
 
@@ -9414,7 +9447,6 @@ FiniteElement::explicitSolve()
     std::vector<double> tau_a(2*M_num_nodes);
     // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
-    std::vector<double> ssh(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
     for ( int i=0; i<M_num_nodes; ++i )
@@ -9440,9 +9472,6 @@ FiniteElement::explicitSolve()
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
-
-        // SSH because M_ssh is slow
-        ssh[i] = M_ssh[i];
 
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
@@ -9481,13 +9510,11 @@ FiniteElement::explicitSolve()
         M_timer.tock("updateSigma");
 
         // Walk through all the elements to build the gradient terms of the RHS
-        M_timer.tick("gradient terms");
-        std::vector<double> grad_terms(2*M_num_nodes, 0.);
-        double const g3rd = physical::gravity/3.;
+        M_timer.tick("gradient sigma");
+        std::vector<double> grad_terms = grad_ssh; // grad ssh is pre-calculated
         for ( int cpt=0; cpt<M_num_elements; ++cpt )
         {
             // Loop over the nodes of the element to build the gradient terms themselves
-            double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
             std::vector<double> const dxN = M_shape_coeff[cpt];
             double const volume = M_thick[cpt]*M_surface[cpt];
             for (int i=0; i<3; ++i)
@@ -9505,17 +9532,9 @@ FiniteElement::explicitSolve()
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
                 grad_terms[u_indx] -= volume*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] );
                 grad_terms[v_indx] -= volume*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] );
-
-                // Gradient of m*g*SSH
-                for ( int j=0; j<3; ++j )
-                {
-                    int const j_indx = (M_elements[cpt]).indices[j]-1;
-                    grad_terms[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
-                    grad_terms[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
-                }
             }
         }
-        M_timer.tock("gradient terms");
+        M_timer.tock("gradient sigma");
 
         M_timer.tick("sub-solve");
         // Walk through all the (non-ghost) nodes to build the remaining terms of the RHS and solve
