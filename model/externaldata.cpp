@@ -245,11 +245,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         }
         else {
 #endif
-            LOG(DEBUG)<<"line248\n";
             if (to_be_reloaded)
             {
                 LOG(DEBUG) << "Load " << M_datasetname << "\n";   
-                LOG(DEBUG) << "line249 1111, " << M_dataset->name << datenumToString(M_dataset->ftime_range[0]) <<", " <<datenumToString(current_time_tmp)<<", "<< datenumToString(M_dataset->ftime_range[1]) << "  M_dataset->loaded:"<<M_dataset->loaded<< "\n";
                 this->loadDataset(M_dataset, RX_in, RY_in);                                           
                 this->transformData(M_dataset);
 #ifdef ENSEMBLE 
@@ -257,6 +255,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // variables on nodes and elements are perturbed at the same time by default, but perturbation on  the elements can be turned off.
                 // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
                 // todo, if it needs to avoid unexpected perturbation due to remesh process.  
+                LOG(DEBUG) << "adding perturbations to loaded data\n"; 
                 M_comm.barrier(); 
                 if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
                     strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
@@ -281,14 +280,14 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
                     LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
 
-                    // ocean perturbation
+                    // apply ocean perturbation
                     // loaded_data[0]: previous, loaded_data[1]: current
                     // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
                     if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 )   
                     { 
                         M_dataset->N_ocean = floor(M_current_time - M_StartingTime + 0.5); // update file after 12:00
                         LOG(DEBUG)<<"topaz_forecast_elements,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<", M_ensemble_member = "<<M_ensemble_member<<"\n";
-                        for (int it = 0; it<2; it++)
+                        for (int it = 0; it<2; it++) //fstep
                         {
                             if (M_comm.rank() == 0) {  
                                 //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX/synforc_randfldYY) to filename Perturbations_XX_perturbation_fileID.nc, maybe other names
@@ -320,10 +319,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                                 M_dataset->variables[1].loaded_data[it][n] += synforc2[i];
                                 if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
                             }
-                            LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
-                            LOG(DEBUG) << "### min sst: "<<*std::min_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
-                            LOG(DEBUG) << "### max sss: "<<*std::max_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
-                            LOG(DEBUG) << "### min sss: "<<*std::min_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+                            // LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                            // LOG(DEBUG) << "### min sst: "<<*std::min_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                            // LOG(DEBUG) << "### max sss: "<<*std::max_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+                            // LOG(DEBUG) << "### min sss: "<<*std::min_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
                             // perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
                             // perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                         }
@@ -388,14 +387,12 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 }
 #endif
             //interpolate the loaded external data onto the model grid
-            M_dataset->interpolated = false;
+                M_dataset->interpolated = false;
             }
-    LOG(DEBUG)<<"line393  "<<M_dataset->interpolated<<"\n";
 #ifdef OASIS
         }
 #endif
     }
-    LOG(DEBUG)<<"line398  "<<M_dataset->interpolated<<"\n";
 #ifdef OASIS
     if ( M_dataset->calc_nodal_weights )
     {
@@ -683,7 +680,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
         }
         //only need init_time to get grid
-        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
+        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time);  //, RX_in, RY_in);
     }
 
     // closing maps
@@ -1111,7 +1108,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
     dataset->nb_forcing_step=nb_forcing_step;
     dataset->loaded=true;
-    LOG(DEBUG)<<"line 1111, "<< M_current_time<<",  dataset "<< dataset->name <<"->loaded is true now\n";
 }//loadDataset
 
 
@@ -1596,14 +1592,11 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 		}
 	}
 #endif
-    LOG(DEBUG)<<"line1599"<<"\n";
     std::vector<double> RX,RY;//size set in convertTargetXY;
     dataset->convertTargetXY(&(dataset->grid), RX_in, RY_in, RX, RY,mapNextsim);
 
     // closing maps
     close_mapx(mapNextsim);
-    LOG(DEBUG)<<"line1605"<<"\n";
-
     LOG(DEBUG) << "Interpolation:" <<"\n";
 
     double* data_out;
