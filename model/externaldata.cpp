@@ -176,9 +176,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         to_be_reloaded=((cpl_time < M_dataset->itime_range[0] ) || (M_dataset->itime_range[1] <= cpl_time) || !M_dataset->loaded );
 #endif
     else
-        to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) );
+        to_be_reloaded=((current_time_tmp < M_dataset->ftime_range[0]) || (M_dataset->ftime_range[1] < current_time_tmp) || !M_dataset->loaded);
 
-    if (to_be_reloaded || !M_dataset->loaded)
+    if (to_be_reloaded)
     {
 #ifdef OASIS
         // We call oasis_get every time step, but only actually receive data at coupling times
@@ -245,150 +245,147 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         }
         else {
 #endif
-            if (to_be_reloaded)
-            {
-                LOG(DEBUG) << "Load " << M_datasetname << "\n";   
-                this->loadDataset(M_dataset, RX_in, RY_in);                                           
-                this->transformData(M_dataset);
+            LOG(DEBUG) << "Load " << M_datasetname << "\n";   
+            this->loadDataset(M_dataset, RX_in, RY_in);                                           
+            this->transformData(M_dataset);
 #ifdef ENSEMBLE 
-                //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
-                // variables on nodes and elements are perturbed at the same time by default, but perturbation on  the elements can be turned off.
-                // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
-                // todo, if it needs to avoid unexpected perturbation due to remesh process.  
-                LOG(DEBUG) << "adding perturbations to loaded data\n"; 
-                M_comm.barrier(); 
-                if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
-                    strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                    strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
-                    strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                    strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
-                {
-                    ensemble perturbation; 
-                    int M_full  = 1024; //std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_y_count_netcdf)));
-                    int N_full  = 1024; //std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_x_count_netcdf)));
-                    int MN_full = M_full*N_full;
-                    int y_start = M_dataset->grid.dimension_y_start;
-                    int x_start = M_dataset->grid.dimension_x_start;
-                    int y_count = M_dataset->grid.dimension_y_count;
-                    int x_count = M_dataset->grid.dimension_x_count; 
-                    std::vector<double> synforc1(1);
-                    std::vector<double> synforc2(1);
-                    synforc1.resize(MN_full);
-                    synforc2.resize(MN_full);
+            //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
+            // variables on nodes and elements are perturbed at the same time by default, but perturbation on  the elements can be turned off.
+            // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
+            // todo, if it needs to avoid unexpected perturbation due to remesh process.  
+            LOG(DEBUG) << "adding perturbations to loaded data\n"; 
+            M_comm.barrier(); 
+            if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
+                strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
+                strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
+                strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
+            {
+                ensemble perturbation; 
+                int M_full  = 1024; //std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_y_count_netcdf)));
+                int N_full  = 1024; //std::pow(2,std::ceil(std::log2(M_dataset->grid.dimension_x_count_netcdf)));
+                int MN_full = M_full*N_full;
+                int y_start = M_dataset->grid.dimension_y_start;
+                int x_start = M_dataset->grid.dimension_x_start;
+                int y_count = M_dataset->grid.dimension_y_count;
+                int x_count = M_dataset->grid.dimension_x_count; 
+                std::vector<double> synforc1(1);
+                std::vector<double> synforc2(1);
+                synforc1.resize(MN_full);
+                synforc2.resize(MN_full);
 
-                    LOG(DEBUG) << "### MN_FULL: " << MN_full <<" = " << M_full << "x" <<N_full<<"\n"; 
-                    LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
-                    LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
+                LOG(DEBUG) << "### MN_FULL: " << MN_full <<" = " << M_full << "x" <<N_full<<"\n"; 
+                LOG(DEBUG) << "### M_dataset_name: " << M_dataset->name << "\n";
+                LOG(DEBUG) << "### M_current_time: " << M_current_time  << " = "<<datenumToString(M_current_time)<<"\n";
 
-                    // apply ocean perturbation
-                    // loaded_data[0]: previous, loaded_data[1]: current
-                    // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
-                    if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 )   
-                    { 
-                        M_dataset->N_ocean = floor(M_current_time - M_StartingTime + 0.5); // update file after 12:00
-                        LOG(DEBUG)<<"topaz_forecast_elements,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<", M_ensemble_member = "<<M_ensemble_member<<"\n";
-                        for (int it = 0; it<2; it++) //fstep
-                        {
-                            if (M_comm.rank() == 0) {  
-                                //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX/synforc_randfldYY) to filename Perturbations_XX_perturbation_fileID.nc, maybe other names
-                                // file series starts from N_ocean=0
-                                std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
-                                                    std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_ocean + it) + ".nc";
-                                LOG(DEBUG)<<"topaz load: "<<filename<<"\n";
-                                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-                                netCDF::NcVar data;
-                                data = dataFile.getVar("sst");     
-                                data.getVar(&synforc1[0]);
-                                data = dataFile.getVar("sss");
-                                data.getVar(&synforc2[0]);   
-                            }
-                            M_comm.barrier();
-                            boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
-                            boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
-                            LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  //{sst,sss,mld,conc,thick, snow_thick}
-                            // todo, merge this part into addPerturbation 
-                            
-                            int final_MN = M_dataset->grid.reduced_nodes_ind.size();
-                            LOG(DEBUG) << "### final_MN: "<< final_MN << " variable size: " << M_dataset->variables[0].loaded_data[it].size() <<"\n"; 
-                            for(int n = 0; n < final_MN; n++)
-                            {   
-                                int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
-                                int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
-                                i = x_start + (y_start + j)*N_full + i;
-                                M_dataset->variables[0].loaded_data[it][n] += synforc1[i];
-                                M_dataset->variables[1].loaded_data[it][n] += synforc2[i];
-                                if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
-                            }
-                            // LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
-                            // LOG(DEBUG) << "### min sst: "<<*std::min_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
-                            // LOG(DEBUG) << "### max sss: "<<*std::max_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
-                            // LOG(DEBUG) << "### min sss: "<<*std::min_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
-                            // perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                            // perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                // apply ocean perturbation
+                // loaded_data[0]: previous, loaded_data[1]: current
+                // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
+                if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 )   
+                { 
+                    M_dataset->N_ocean = floor(M_current_time - M_StartingTime + 0.5); // update file after 12:00
+                    LOG(DEBUG)<<"topaz_forecast_elements,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<", M_ensemble_member = "<<M_ensemble_member<<"\n";
+                    for (int it = 0; it<2; it++) //fstep
+                    {
+                        if (M_comm.rank() == 0) {  
+                            //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX/synforc_randfldYY) to filename Perturbations_XX_perturbation_fileID.nc, maybe other names
+                            // file series starts from N_ocean=0
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                                                std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_ocean + it) + ".nc";
+                            LOG(DEBUG)<<"topaz load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;
+                            data = dataFile.getVar("sst");     
+                            data.getVar(&synforc1[0]);
+                            data = dataFile.getVar("sss");
+                            data.getVar(&synforc2[0]);   
                         }
-                    }                
-                    
-                    // wind velocity perturbation 
-                    if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                        strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
-                    {   
-                        LOG(DEBUG)<<"wind node,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<"M_ensemble_member = "<<M_ensemble_member<<"\n";
-                        for (int it = 0; it<2; it++)
-                        {
-                            if (M_comm.rank() == 0) {  
-                                M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
-                                std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
-                                                    std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
-                                LOG(DEBUG)<<"wind node load: "<<filename<<"\n";
-                                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-                                netCDF::NcVar data;     
-                                data = dataFile.getVar("uwind");   
-                                data.getVar( &synforc1[0]);
-                                data = dataFile.getVar("vwind");
-                                data.getVar( &synforc2[0]);     
-                            }
-                            M_comm.barrier();
-                            boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
-                            boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
-                            LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
-                            perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                            perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  //{sst,sss,mld,conc,thick, snow_thick}
+                        // todo, merge this part into addPerturbation 
+                        
+                        int final_MN = M_dataset->grid.reduced_nodes_ind.size();
+                        LOG(DEBUG) << "### final_MN: "<< final_MN << " variable size: " << M_dataset->variables[0].loaded_data[it].size() <<"\n"; 
+                        for(int n = 0; n < final_MN; n++)
+                        {   
+                            int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
+                            int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
+                            i = x_start + (y_start + j)*N_full + i;
+                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i];
+                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i];
+                            if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
                         }
+                        // LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                        // LOG(DEBUG) << "### min sst: "<<*std::min_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
+                        // LOG(DEBUG) << "### max sss: "<<*std::max_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+                        // LOG(DEBUG) << "### min sss: "<<*std::min_element(M_dataset->variables[1].loaded_data[it].begin(), M_dataset->variables[1].loaded_data[it].end()) << '\n';
+                        // perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        // perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
-                    // atmosphere scalar variable perturbation
-                    else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                            strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )
-                    {   // index in M_dataset->variables[0] indicates to snowfall defined in dataset.cpp,generic_atm_elements,{ tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip }
-                        for (int it = 0; it<2; it++)
-                        {
-                            if (M_comm.rank() == 0) {  
-                                M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
-                                std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
-                                                    std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
-                                LOG(DEBUG)<<"wind element load: "<<filename<<"\n";
-                                netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
-                                netCDF::NcVar data;
-                                data = dataFile.getVar("Qlw_in");    //longwave downwelling radiation rate                      
-                                data.getVar( &synforc1[0]);
-                                data = dataFile.getVar("snowfall");  //snowfall rate
-                                data.getVar( &synforc2[0]);
-                            }
-                            M_comm.barrier();
-                            boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
-                            boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
-                            LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
-                            // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
-                            perturbation.addPerturbation(M_dataset->variables[4].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
-                            perturbation.addPerturbation(M_dataset->variables[5].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
+                }                
+                
+                // wind velocity perturbation 
+                if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+                    strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
+                {   
+                    LOG(DEBUG)<<"wind node,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<"M_ensemble_member = "<<M_ensemble_member<<"\n";
+                    for (int it = 0; it<2; it++)
+                    {
+                        if (M_comm.rank() == 0) {  
+                            M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                                                std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
+                            LOG(DEBUG)<<"wind node load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;     
+                            data = dataFile.getVar("uwind");   
+                            data.getVar( &synforc1[0]);
+                            data = dataFile.getVar("vwind");
+                            data.getVar( &synforc2[0]);     
                         }
-                        M_dataset->N_wind++; 
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
+                        perturbation.addPerturbation(M_dataset->variables[0].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[1].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 1); 
                     }
-                    M_comm.barrier();
                 }
-#endif
-            //interpolate the loaded external data onto the model grid
-                M_dataset->interpolated = false;
+                // atmosphere scalar variable perturbation
+                else if (strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
+                        strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )
+                {   // index in M_dataset->variables[0] indicates to snowfall defined in dataset.cpp,generic_atm_elements,{ tair, dair, mslp, Qsw_in, Qlw_in, snowfall, precip }
+                    for (int it = 0; it<2; it++)
+                    {
+                        if (M_comm.rank() == 0) {  
+                            M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                                                std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
+                            LOG(DEBUG)<<"wind element load: "<<filename<<"\n";
+                            netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
+                            netCDF::NcVar data;
+                            data = dataFile.getVar("Qlw_in");    //longwave downwelling radiation rate                      
+                            data.getVar( &synforc1[0]);
+                            data = dataFile.getVar("snowfall");  //snowfall rate
+                            data.getVar( &synforc2[0]);
+                        }
+                        M_comm.barrier();
+                        boost::mpi::broadcast(M_comm, &synforc1[0], MN_full, 0); 
+                        boost::mpi::broadcast(M_comm, &synforc2[0], MN_full, 0); 
+                        LOG(DEBUG) << "### Add previous/current perturbations to fields\n";  
+                        // int opr =1: +  //for most of the perturbed variables, =2: *// for variables using lognormal format, refered to rand_update() in mod_random_forcing.F90
+                        perturbation.addPerturbation(M_dataset->variables[4].loaded_data[it], synforc1, M_full,N_full, x_start, y_start, x_count, y_count, 1);  
+                        perturbation.addPerturbation(M_dataset->variables[5].loaded_data[it], synforc2, M_full,N_full, x_start, y_start, x_count, y_count, 2); 
+                    }
+                    M_dataset->N_wind++; 
+                }
+                M_comm.barrier();
             }
+#endif
+        //interpolate the loaded external data onto the model grid
+            M_dataset->interpolated = false;            
 #ifdef OASIS
         }
 #endif
@@ -680,7 +677,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
         }
         //only need init_time to get grid
-        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time);  //, RX_in, RY_in);
+        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);  // load a portion of grid based on sea ice area RX_in,RY_in for efficiency
+        // dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time);  //, RX_in, RY_in);
     }
 
     // closing maps
