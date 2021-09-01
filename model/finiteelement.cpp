@@ -8188,7 +8188,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::Q_assm):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_Qassim[i]*time_factor/200;
+                    it->data_mesh[i] += D_Qassim[i]*time_factor; //. /200;
                 break;
 
             // forcing variables
@@ -9199,14 +9199,13 @@ FiniteElement::readStateVector()
     // claim variables in finiteelement.hpp
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-    LOG(DEBUG) <<"9203\n";
-    external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
+    // external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
     external_data_tmp.push_back(&M_analysis_conc);
-    external_data_tmp.push_back(&M_analysis_Qassm);
+    // external_data_tmp.push_back(&M_analysis_Qassm);
     // external_data_tmp.push_back(&M_analysis_sst);
     // external_data_tmp.push_back(&M_analysis_sss);
     auto RX = M_mesh.bCoordX();
@@ -9215,7 +9214,7 @@ FiniteElement::readStateVector()
     external_data_tmp.resize(0);
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
-        D_Qassim[i] = 200*M_analysis_Qassm[i];
+        // D_Qassim[i] = 200*M_analysis_Qassm[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);

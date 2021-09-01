@@ -6149,10 +6149,10 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(3);
+        std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = thickness;
         variables_tmp[1] = conc;
-        variables_tmp[2] = Q_assm;
+        // variables_tmp[2] = Q_assm;
         // variables_tmp[2] = sst;
         // variables_tmp[3] = sss;
         variables= variables_tmp;
