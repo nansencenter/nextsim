@@ -53,11 +53,12 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
 {
+    LOG(DEBUG)<<"line56. "<<M_dataset->grid.prefix<<". "<<M_dataset->grid.postfix<<"\n";
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
                     % M_dataset->grid.postfix
                     ).str();
-
+    LOG(DEBUG)<<"line56\n";
     fcoeff.resize(2);
 }
 
@@ -254,7 +255,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
             // todo, if it needs to avoid unexpected perturbation due to remesh process.  
             LOG(DEBUG) << "adding perturbations to loaded data\n"; 
-            M_comm.barrier(); 
+            M_comm.barrier();
             if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
                 strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                 strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
@@ -284,7 +285,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 )   
                 { 
                     M_dataset->N_ocean = floor(M_current_time - M_StartingTime + 0.5); // update file after 12:00
-                    LOG(DEBUG)<<"topaz_forecast_elements,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<", M_ensemble_member = "<<M_ensemble_member<<"\n";
                     for (int it = 0; it<2; it++) //fstep
                     {
                         if (M_comm.rank() == 0) {  
@@ -330,7 +330,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 if (strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
                     strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 )
                 {   
-                    LOG(DEBUG)<<"wind node,  M_dataset->N_wind = "<<M_dataset->N_wind<<", M_dataset->N_ocean = "<<M_dataset->N_ocean<<"M_ensemble_member = "<<M_ensemble_member<<"\n";
                     for (int it = 0; it<2; it++)
                     {
                         if (M_comm.rank() == 0) {  
@@ -1083,6 +1082,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             // Check Nan and store the loaded data
             dataset->variables[j].loaded_data[fstep].resize(final_MN);
+
             double tmp_data_i;
             int reduced_i;
             for (int i=0; i<(final_MN); ++i)
@@ -1549,8 +1549,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                     int ind = (dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j;
                     data_in[ind] = dataset->variables[j].loaded_data[fstep][i];
                 }
-        }
 
+        }
     }
 
     // ---------------------------------
@@ -1595,6 +1595,8 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
 
     // closing maps
     close_mapx(mapNextsim);
+
+
     LOG(DEBUG) << "Interpolation:" <<"\n";
 
     double* data_out;

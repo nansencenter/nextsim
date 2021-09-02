@@ -533,11 +533,12 @@ namespace Nextsim
 #endif
 
             // for ensemble forcing, input_path=/data, export_path=output.exporter_path
-            ("statevector.ensemble_member", po::value<int>()->default_value(0), "id of ensemble member (NB starts from 1)")
 #if defined(ENSEMBLE)
             ("statevector.use_statevector", po::value<bool>()->default_value( false ), "do we use statevector (netcdf output to grid)?")
             ("statevector.restart_from_analysis", po::value<bool>()->default_value( false ), "do we read statevector (netcdf output to grid)?")
             ("statevector.restart_path", po::value<std::string>()->default_value( "" ), "where to find restart files mem???.nc.analysis")
+            ("statevector.ensemble_member", po::value<int>()->default_value( 1 ), "id of ensemble member")
+            // ("statevector.id", po::value<std::string>()->default_value( "1" ), "id of ensemble member")//TODO merge with ensemble_member
             ("statevector.grid_type", po::value<std::string>()->default_value( "reference" ), "[reference|regular|from_file] for regular spaced grid or grid read in from the file statevector.grid_file (default: reference)")
             ("statevector.snapshot", po::value<bool>()->default_value( true ), "do we output snapshots in time or do we use time-averaging?")
             ("statevector.file_length", po::value<std::string>()->default_value( "inf" ), "daily, weekly, monthly, or yearly statevector files; or inf (single file)")

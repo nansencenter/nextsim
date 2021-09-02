@@ -1467,6 +1467,7 @@ FiniteElement::initOptAndParam()
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
     M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
+    LOG(DEBUG) << "M_ensemble_member: " << M_ensemble_member<<"\n";
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -5508,8 +5509,9 @@ FiniteElement::thermo(int dt)
             // double M_max=*std::max_element(D_Qassim.begin(),D_Qassim.end());            
             // LOG(DEBUG)<<"M_current_time - time_init= "<<M_current_time - time_init<<", M_min= "<<M_min<<", M_max= "<<M_max<<" line5512\n";
             // NOTE: D_Qassim=0 at each tim step except load from analysis result.
+            // D_Qassim is temporarily used to load updated heat flux. The latter needs to be defined in dataset.cpp->variables 
             if(M_current_time > time_init){ 
-                Qassm = D_Qassim[i];                
+                Qassm = D_Qassim[i];
             }
             else{
                 // compensating heat flux is a product of:
@@ -5518,7 +5520,7 @@ FiniteElement::thermo(int dt)
                 // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
                 Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_thin*old_conc_thin) *
                         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-            }        
+            } 
         }
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
@@ -7803,7 +7805,6 @@ FiniteElement::step()
     // - update fields on grid if outputting mean fields
     // - check if we are adding records to netcdf file
     // 2. check if writing outputs, and do it if it's time
-    
     // 3. check if writing restart, and do it if it's time
     // TODO also add drifter check here
     // - if we move at restart output time we can remove M_UT from
@@ -9200,14 +9201,13 @@ FiniteElement::readStateVector()
     // claim variables in finiteelement.hpp
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-    LOG(DEBUG) <<"9203\n";
-    external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
+    // external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
     // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
     external_data_tmp.push_back(&M_analysis_conc);
-    external_data_tmp.push_back(&M_analysis_Qassm);
+    // external_data_tmp.push_back(&M_analysis_Qassm);
     // external_data_tmp.push_back(&M_analysis_sst);
     // external_data_tmp.push_back(&M_analysis_sss);
     auto RX = M_mesh.bCoordX();
@@ -9216,7 +9216,7 @@ FiniteElement::readStateVector()
     external_data_tmp.resize(0);
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
-        D_Qassim[i] = 200*M_analysis_Qassm[i];
+        // D_Qassim[i] = 200*M_analysis_Qassm[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
@@ -9257,7 +9257,7 @@ FiniteElement::readStateVector()
   
 //         // Create the netCDF file.
 //         std::string filename_root;
-//         filename_root = M_export_path + "/WindPerturbation_mem" + std::string(M_ensemble_member) +".nc";
+//         filename_root = M_export_path + "/WindPerturbation_mem" + std::to_string(M_ensemble_member) +".nc";
 //         netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
 //         Dataset *M_dataset;
 //         // write data to the file
