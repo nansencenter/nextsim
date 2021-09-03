@@ -1462,6 +1462,7 @@ FiniteElement::initOptAndParam()
     M_use_statevector = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
     M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //M_restart_from_analysis, use annalysis as restart for new simulation    
     M_ensemble_member = vm["statevector.ensemble_member"].as<int>(); //! // ensemble member run id
+    //M_id_statevector = vm["statevector.id"].as<std::string>(); //same as ensemble_member
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
     M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
@@ -9201,22 +9202,21 @@ FiniteElement::readStateVector()
     // claim variables in finiteelement.hpp
     external_data M_analysis_thick=ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 0, false, time_init);    
     external_data M_analysis_conc =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 1, false, time_init);
-    // external_data M_analysis_Qassm =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
-    // external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
-    // external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
+    external_data M_analysis_sss  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 2, false, time_init);
+    external_data M_analysis_sst  =ExternalData(&M_enkf_analysis_elements_dataset, M_mesh, 3, false, time_init);
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_analysis_thick);
     external_data_tmp.push_back(&M_analysis_conc);
-    // external_data_tmp.push_back(&M_analysis_Qassm);
-    // external_data_tmp.push_back(&M_analysis_sst);
-    // external_data_tmp.push_back(&M_analysis_sss);
+    external_data_tmp.push_back(&M_analysis_sss);
+    external_data_tmp.push_back(&M_analysis_sst);
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
     external_data_tmp.resize(0);
-    for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type
+    for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type                
+        M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
+        M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
-        // D_Qassim[i] = 200*M_analysis_Qassm[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);

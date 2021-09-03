@@ -53,12 +53,10 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
 {
-    LOG(DEBUG)<<"line56. "<<M_dataset->grid.prefix<<". "<<M_dataset->grid.postfix<<"\n";
     M_datasetname = (boost::format( "%1%...%2%" )
                     % M_dataset->grid.prefix
                     % M_dataset->grid.postfix
                     ).str();
-    LOG(DEBUG)<<"line56\n";
     fcoeff.resize(2);
 }
 
@@ -313,8 +311,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                             int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
                             int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
                             i = x_start + (y_start + j)*N_full + i;
-                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i];
-                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i];
+                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i]*M_dataset->variables[0].loaded_data[it][n];
+                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i]*M_dataset->variables[0].loaded_data[it][n];
                             if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
                         }
                         // LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';

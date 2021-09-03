@@ -6127,11 +6127,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            // prefix: "mem1.nc.analysis",
-            prefix: "mem"+Environment::vm()["statevector.ensemble_member"].as<std::string>()+".nc.analysis",
+            prefix: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
             postfix: "",
-            // gridfile: "mem1.nc.analysis",
-            gridfile: "mem"+Environment::vm()["statevector.ensemble_member"].as<std::string>()+".nc.analysis", 
+            gridfile: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
             reference_date: "1979-01-01",
 
             latitude: latitude,
@@ -6152,12 +6150,11 @@ DataSet::DataSet(char const *DatasetName)
             masking_variable: mask,
         };
 
-        std::vector<Variable> variables_tmp(2);
+        std::vector<Variable> variables_tmp(4);
         variables_tmp[0] = thickness;
         variables_tmp[1] = conc;
-        // variables_tmp[2] = Q_assm;
-        // variables_tmp[2] = sst;
-        // variables_tmp[3] = sss;
+        variables_tmp[2] = sss;
+        variables_tmp[3] = sst;
         variables= variables_tmp;
         grid= grid_tmp;
 
