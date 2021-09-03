@@ -311,8 +311,8 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                             int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
                             int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
                             i = x_start + (y_start + j)*N_full + i;
-                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i]*M_dataset->variables[0].loaded_data[it][n];
-                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i]*M_dataset->variables[0].loaded_data[it][n];
+                            M_dataset->variables[0].loaded_data[it][n] += synforc1[i]*( 1- M_dataset->variables[3].loaded_data[it][n]);
+                            M_dataset->variables[1].loaded_data[it][n] += synforc2[i]; 
                             if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
                         }
                         // LOG(DEBUG) << "### max sst: "<<*std::max_element(M_dataset->variables[0].loaded_data[it].begin(), M_dataset->variables[0].loaded_data[it].end()) << '\n';
