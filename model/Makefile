@@ -175,7 +175,7 @@ clean:
 	@echo " "
 
 mrproper: clean
-	$(RM) $(BINARYDIR)$(PROGNAME)
+	$(RM) $(BINARYDIR)$(PROGNAME) version.hpp
 	@echo " "
 
 # Rule for making the actual target
