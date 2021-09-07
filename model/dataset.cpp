@@ -2325,10 +2325,10 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-//interpolation_method: InterpolationType::FromGridToMesh,
-//interp_type : BilinearInterpEnum,
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-        interp_type: -1,
+        interpolation_method: InterpolationType::FromGridToMesh,
+        interp_type : BilinearInterpEnum,
+        //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+        //interp_type: -1,
         dirname: "",
         filename_mask: "GLORYS12V1_%Y_30m.nc",
         gridfile: "",
@@ -2348,8 +2348,8 @@ DataSet::DataSet(char const *DatasetName)
 
         waveOptions: wavopt_none,
 
-        masking: true,
-        masking_variable: ssh
+        masking: false,
+        //masking_variable:
         };
 
 //VAR
@@ -2540,10 +2540,10 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-//interpolation_method: InterpolationType::FromGridToMesh,
-//interp_type : BilinearInterpEnum,
-        interpolation_method: InterpolationType::FromMeshToMesh2dx,
-        interp_type: -1,
+        interpolation_method: InterpolationType::FromGridToMesh,
+        interp_type : BilinearInterpEnum,
+        //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+        //interp_type: -1,
         dirname: "",
         filename_mask: "GLORYS12V1_%Y_3m.nc",
         gridfile: "",
@@ -2563,8 +2563,8 @@ DataSet::DataSet(char const *DatasetName)
 
         waveOptions: wavopt_none,
 
-        masking: true,
-        masking_variable: sss
+        masking: false,
+        //masking_variable: sss
         };
 
 //VAR
