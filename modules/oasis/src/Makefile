@@ -26,7 +26,7 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-CXX = mpicxx
+#CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
@@ -46,7 +46,7 @@ FCSRC=$(wildcard $(FCSRCDIR)/*.F90)
 FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
-FC = mpif90
+#FC = mpif90
 FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
 FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
