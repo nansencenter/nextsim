@@ -19,6 +19,9 @@ BOOST_VERSION="1.67"
 
 export NEXTSIMDIR=`pwd`
 
+#export USE_AEROBULK=true
+#export AEROBULK_DIR="${HOME}/DEV/aerobulk"
+
 ############################################
 # Defaults before host-specific adjustment #
 ############################################
@@ -77,13 +80,10 @@ export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
 export BOOST_INCDIR=${BOOST_DIR}/include/boost
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
+#export LD_EXTRA_AEROBULK="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore"
+
 #if [ ! -f ./model/version.hpp ]; then
 cd model
 ./version.sh
 cd ../
 #fi
-
-
-
-
-
