@@ -10275,7 +10275,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             break;
 
-        case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF: case setup::OceanType::GLORYS12R:
+        case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZF:
+        case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, M_spinup_duration);
@@ -13205,6 +13207,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
+    //manually export some vectors defined on the nodes
     std::vector<double> M_VT_root;
     this->gatherNodalField(M_VT, M_VT_root);
 #if defined (OASIS)
@@ -13214,7 +13217,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 #endif
 
     std::vector<double> M_wind_root;
-    this->gatherNodalField(M_wind.getVector(),M_wind_root);
+    this->gatherNodalField(M_wind.getVector(), M_wind_root);
+    std::vector<double> M_ocean_root;
+    this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
 
     std::vector<double> M_UM_root;
     this->gatherNodalField(M_UM, M_UM_root);
@@ -13303,13 +13308,17 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, timevec, "Time");
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
+
+            //manually export some vectors defined on the nodes
             exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
-            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
             exporter.writeField(outbin, M_wind_root, "M_wind");
+            exporter.writeField(outbin, M_ocean_root, "M_ocean");
+
+            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
 
             // loop over the elemental variables that have been
