@@ -53,7 +53,7 @@ export NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compi
 ######################################################################
 case `hostname | cut -d. -f2` in
     "merlat" )        export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -limf"
-                      ;;    
+                      ;;
     "ige-meom-cal1" ) export NXTSM_DEP_DIR="/mnt/meom/workdir/brodeau/opt/nextsim_intel"
                       export INTEL_ROOT="/mnt/meom/workdir/brodeau/opt/intel/oneapi"
                       export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux"
@@ -67,6 +67,16 @@ case `hostname | cut -d. -f2` in
                       export MPI_INC_DIR=${MPI_DIR}/include
                       export NETCDF_DIR="/store/CT1/hmg2840/lbrodeau/opt/hdf5_netcdf4_intel_mpi"
                       ;;
+    "fram" )          export NXTSM_DEP_DIR="/cluster/projects/nn9878k/brodeau/opt/nextsim_intel"
+                      export INTEL_ROOT="/cluster/software/ifort/2018.1.163-GCC-6.4.0-2.28"
+                      export INTEL_COMP_DIR="${INTEL_ROOT}/compilers_and_libraries_2018.1.163/linux"
+                      export MPI_DIR="/cluster/software/impi/2018.1.163-iccifort-2018.1.163-GCC-6.4.0-2.28/intel64"
+                      export MPI_LIB_DIR=${MPI_DIR}/lib
+                      export MPI_INC_DIR=${MPI_DIR}/include
+                      export NETCDF_DIR="/cluster/software/netCDF/4.4.1.1-intel-2018a-HDF5-1.8.19"
+                      export NETCDF_CXX_DIR="/cluster/software/netCDF-C++4/4.3.0-intel-2018a-HDF5-1.8.19"
+                      ;;
+
     *               ) echo;
                       echo "WARNING: Unknow machine with HOSTNAME = `hostname` !"
                       echo
@@ -77,7 +87,8 @@ esac
 export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
 
 export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
-export BOOST_INCDIR=${BOOST_DIR}/include/boost
+#export BOOST_INCDIR=${BOOST_DIR}/include/boost
+export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
 #export LD_EXTRA_AEROBULK="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore"
