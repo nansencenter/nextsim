@@ -7324,14 +7324,14 @@ FiniteElement::step()
 
             if ( M_use_moorings && !M_moorings_snapshot )
             {
-                M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh, M_UM);
+                M_timer.tick("u, pdateGridMean");
+                M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
                 M_timer.tock("updateGridMean");
             }
 
 #ifdef OASIS
             M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh, M_UM);
+            M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
             M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
@@ -7350,7 +7350,7 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, m_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
@@ -7543,7 +7543,7 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
-        M_cpl_out.updateGridMean(bamgmesh, M_UM);
+        M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
 
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
         {
@@ -8548,7 +8548,7 @@ void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
     // update data on grid
-    M_moorings.updateGridMean(bamgmesh, M_UM);
+    M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
 
     if ( ! M_moorings_parallel_output )
     {

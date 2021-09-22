@@ -353,7 +353,7 @@ GridOutput::initMask()
 }
 
 void
-GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
+GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> UM)
 {
     assert(nb_local_el>0);
 
@@ -367,9 +367,6 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
     std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + nb_local_el, 1. );
     std::fill( variables[0].data_mesh.begin() + nb_local_el, variables[0].data_mesh.end(),  0. );
 
-    // Mesh displacement of zero
-    std::vector<double> UM(bamgmesh->VerticesSize[0], 0.);
-
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
     M_proc_mask = variables[0].data_grid;
@@ -381,8 +378,15 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM)
+GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> & UM)
 {
+    // Need to reset M_proc_mask every time now
+    if ( M_nodal_variables.size() > 0 )
+    {
+        // Mesh displacement of zero
+        this->setProcMask(bamgmesh, nb_local_el, UM);
+    }
+
     // Call the worker routine for the elements
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
 
@@ -673,9 +677,6 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
 
     if ( regrid )
     {
-        if ( M_nodal_variables.size() > 0 )
-            this->setProcMask(bamgmesh, nb_local_el);
-
         /* Calculate the weights on the root, broadcast them to ohers, and map from global to local
          * element id */
         if ( M_grid.interp_method==interpMethod::conservative )
