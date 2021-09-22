@@ -358,18 +358,18 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double>
     assert(nb_local_el>0);
 
     // Call the worker routine using a vector of ones and give zero for missing values and gohsts
-    std::vector<Variable> variables(1);
-    variables[0] = Variable(variableID::proc_mask);
+    std::vector<Variable> proc_mask_var(1);
+    proc_mask_var[0] = Variable(variableID::proc_mask);
 
-    variables[0].data_grid.assign(M_grid_size,0);
-    variables[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
+    proc_mask_var[0].data_grid.assign(M_grid_size,0);
+    proc_mask_var[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
 
-    std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + nb_local_el, 1. );
-    std::fill( variables[0].data_mesh.begin() + nb_local_el, variables[0].data_mesh.end(),  0. );
+    std::fill( proc_mask_var[0].data_mesh.begin(), proc_mask_var[0].data_mesh.begin() + nb_local_el, 1. );
+    std::fill( proc_mask_var[0].data_mesh.begin() + nb_local_el, proc_mask_var[0].data_mesh.end(),  0. );
 
-    this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
+    this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, proc_mask_var, 0.);
 
-    M_proc_mask = variables[0].data_grid;
+    M_proc_mask = proc_mask_var[0].data_grid;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -7324,7 +7324,7 @@ FiniteElement::step()
 
             if ( M_use_moorings && !M_moorings_snapshot )
             {
-                M_timer.tick("u, pdateGridMean");
+                M_timer.tick("updateGridMean");
                 M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
                 M_timer.tock("updateGridMean");
             }
