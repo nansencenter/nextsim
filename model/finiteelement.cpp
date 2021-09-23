@@ -7350,7 +7350,7 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, m_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
                 M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
