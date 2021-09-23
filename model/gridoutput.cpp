@@ -352,41 +352,14 @@ GridOutput::initMask()
             M_ice_mask_indx = i;
 }
 
-void
-GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> UM)
-{
-    assert(nb_local_el>0);
-
-    // Call the worker routine using a vector of ones and give zero for missing values and gohsts
-    std::vector<Variable> proc_mask_var(1);
-    proc_mask_var[0] = Variable(variableID::proc_mask);
-
-    proc_mask_var[0].data_grid.assign(M_grid_size,0);
-    proc_mask_var[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
-
-    std::fill( proc_mask_var[0].data_mesh.begin(), proc_mask_var[0].data_mesh.begin() + nb_local_el, 1. );
-    std::fill( proc_mask_var[0].data_mesh.begin() + nb_local_el, proc_mask_var[0].data_mesh.end(),  0. );
-
-    this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, proc_mask_var, 0.);
-
-    M_proc_mask = proc_mask_var[0].data_grid;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Functions other than construction and initialisation
 ////////////////////////////////////////////////////////////////////////////////
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> & UM)
+GridOutput::updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM)
 {
-    // Need to reset M_proc_mask every time now
-    if ( M_nodal_variables.size() > 0 )
-    {
-        // Mesh displacement of zero
-        this->setProcMask(bamgmesh, nb_local_el, UM);
-    }
-
     // Call the worker routine for the elements
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
 
@@ -518,21 +491,14 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, v
                 for (int j=0; j<M_nrows; ++j)//y
                 {
                     int const grid_ind = i + M_ncols*j;
-                    if ( kind == variableKind::nodal )
-                        variables[nv].data_grid[grid_ind]
-                            += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[grid_ind];
-                    else
-                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
+                    variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
                     bamg_ind++;
                 }
         }
         else
         {
             for (int j=0; j<M_grid_size; ++j)
-                if ( kind == variableKind::nodal )
-                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv]*M_proc_mask[j];
-                else
-                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
+                variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
         }
     }
 
