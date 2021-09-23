@@ -21,6 +21,7 @@
 #include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
+#include <debug.hpp>
 
 /**
  * @class GridOutput
@@ -824,6 +825,9 @@ public:
     void info();
 
 private:
+
+    LogLevel M_log_level;
+    bool M_log_all;
 
     double M_xmin;
     double M_ymax;

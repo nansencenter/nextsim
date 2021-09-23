@@ -27,7 +27,11 @@ GridOutput::GridOutput()
 // Constructor for only one set of variables
 ////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting)
-    : M_averaging_period(averaging_period), M_false_easting(false_easting)
+    :
+        M_averaging_period(averaging_period),
+        M_false_easting(false_easting),
+        M_log_level(Environment::logLevel()),
+        M_log_all(Environment::logAll())
 {
     M_vectorial_variables.resize(0);
 
