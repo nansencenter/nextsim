@@ -7695,7 +7695,19 @@ void FiniteElement::checkMoveDrifters()
     boost::mpi::broadcast(M_comm, n_drifters, 0);
     if(n_drifters==0)
         return;
+
+
+    // return if M_UT=0
+    float const min_ut = *std::min_element(M_UT.begin(), M_UT.end());
+    float const max_ut = *std::max_element(M_UT.begin(), M_UT.end());
+    bool const no_ut = (
+            std::max(std::abs(min_ut), std::abs(max_ut)) < 1e-8
+            );
+    LOG(DEBUG) << "M_UT zero? " << no_ut << "\n";
+    if(boost::mpi::all_reduce(M_comm, no_ut, std::plus<bool>()))
+        return;
     LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
+
 
     //! - gather M_UT to root processor
     std::vector<double> UT_root;
