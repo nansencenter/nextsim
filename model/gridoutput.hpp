@@ -21,6 +21,7 @@
 #include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
+#include <debug.hpp>
 
 /**
  * @class GridOutput
@@ -825,6 +826,9 @@ public:
 
 private:
 
+    LogLevel M_log_level;
+    bool M_log_all;
+
     double M_xmin;
     double M_ymax;
 
@@ -857,9 +861,6 @@ private:
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
-
-    void setProcMask(BamgMesh* bamgmesh, int nb_local_el);
-    std::vector<double> M_proc_mask;
 
     Communicator M_comm;
 

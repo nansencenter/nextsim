@@ -3212,12 +3212,12 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
         M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+6];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+7];
+        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
+        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+8];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+9];
+        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
+        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
     }
 
 
@@ -5227,7 +5227,7 @@ FiniteElement::thermo(int dt)
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
-    
+
         /* Tracking ice melt/formation components */
         double del_hs_mlt = 0;
         double mlt_hi_top = 0;
@@ -5297,7 +5297,7 @@ FiniteElement::thermo(int dt)
         // del_vi     Change in ice volume
         // del_vs_mlt Change in snow volume due to melt
         double del_vi     = newice + del_hi*old_conc;
-        double mlt_vi_top = mlt_hi_top*old_conc; 
+        double mlt_vi_top = mlt_hi_top*old_conc;
         double mlt_vi_bot = mlt_hi_bot*old_conc;
         double del_vs_mlt = del_hs_mlt*old_conc;
         double snow2ice   = del_hi_s2i*old_conc;
@@ -5776,13 +5776,13 @@ FiniteElement::thermo(int dt)
 
         // top melt  volume per surface area rate [m/day]
         D_mlt_top[i]      = mlt_vi_top*86400/ddt;
-        
+
         // top melt  volume per surface area rate [m/day]
         D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
 
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*86400/ddt;
-        
+
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -6078,7 +6078,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 inline void
 FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, 
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf, double &T1, double &T2)
 {
     // Useful volumetric quantities
@@ -6182,7 +6182,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             hs = 0.;
         }
         // We consider sublimation as part of the top melt
-        mlt_hi_top = std::max(0.,h1+h2-hi_old); 
+        mlt_hi_top = std::max(0.,h1+h2-hi_old);
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -6282,12 +6282,12 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
             if (del_hi < 0.)
-            {   
+            {
                 mlt_hi_top*=-hi_old/del_hi;
                 mlt_hi_bot*=-hi_old/del_hi;
             }
             del_hi_s2i =0. ;
-            
+
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
@@ -6383,7 +6383,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         if ( hi < physical::hmin )
         {
             if (del_hi < 0.)
-            {   
+            {
                 mlt_hi_top*=-hi_old/del_hi;
                 mlt_hi_bot*=-hi_old/del_hi;
             }
