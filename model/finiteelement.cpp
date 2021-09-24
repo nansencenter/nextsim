@@ -14556,7 +14556,7 @@ FiniteElement::finalise(std::string current_time_system)
 #endif
 }//finalise
 
-
+#ifdef ENSEMBLE
 void
 FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, double &snt_mod, double &rir_mod)
 {
@@ -14991,4 +14991,5 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             M_hs_thin[i]=snt_new_thin;
         }
 }
+#endif
 } // Nextsim

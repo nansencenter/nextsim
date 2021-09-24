@@ -31,7 +31,7 @@ MPISTATUS_UPDATE = MPI
 
 include ./make.inc
 
-INCS_COMMON = -I/home/yumeng/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-9.3.0/hdf5-1.10.7-hxp5skn5gzzvyltvwqs4rcwh3crmnhy4/include -I/home/yumeng/spack/opt/spack/linux-ubuntu20.04-zen2/gcc-9.3.0/netcdf-c-4.7.4-ddl2iuv5f2mpwz75n2rxsm6lmdvfqvnw/include -I. -I./common $(INC_NC)
+INCS_COMMON = -I/cluster/software/netCDF/4.7.1-iimpi-2019b/include -I/cluster/software/HDF5/1.10.5-iimpi-2019b/include -I./common $(INC_NC)
 LIBS_COMMON = $(LD_PATH) $(LIB_NC) $(LIB_M)
 
 INCS_PREP =
