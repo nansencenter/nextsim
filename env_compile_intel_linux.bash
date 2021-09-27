@@ -19,8 +19,13 @@ BOOST_VERSION="1.67"
 
 export NEXTSIMDIR=`pwd`
 
+# Uncomment these 2 if you want AeroBulk to compute air-sea fluxes:
 #export USE_AEROBULK=true
 #export AEROBULK_DIR="${HOME}/DEV/aerobulk"
+
+# This neXtSIM is going to be coupled to NEMO via OASIS so:
+#export USE_OASIS=true
+#export OASIS_DIR="${HOME}/src/oasis3-mct"
 
 ############################################
 # Defaults before host-specific adjustment #
@@ -34,6 +39,7 @@ export CFLAGS="-xHost -O3 -fPIC";                      # NOTE: many other flags 
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
 export CXXFLAGS="-xHost -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
+export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC"
 #
 export INTEL_ROOT="/opt/intel/oneapi";                        # root directory of the Intel suite (compiler and MPI)
 export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "              " compiler
@@ -66,6 +72,9 @@ case `hostname | cut -d. -f2` in
                       export MPI_LIB_DIR=${MPI_DIR}/lib
                       export MPI_INC_DIR=${MPI_DIR}/include
                       export NETCDF_DIR="/store/CT1/hmg2840/lbrodeau/opt/hdf5_netcdf4_intel_mpi"
+                      #
+                      #export AEROBULK_DIR="/store/CT1/hmg2840/lbrodeau/DEV/aerobulk"
+                      #export OASIS_DIR="/store/CT1/hmg2840/lbrodeau/src/oasis3-mct"
                       ;;
     "fram" )          export NXTSM_DEP_DIR="/cluster/projects/nn9878k/brodeau/opt/nextsim_intel"
                       export INTEL_ROOT="/cluster/software/ifort/2018.1.163-GCC-6.4.0-2.28"
@@ -75,6 +84,12 @@ case `hostname | cut -d. -f2` in
                       export MPI_INC_DIR=${MPI_DIR}/include
                       export NETCDF_DIR="/cluster/software/netCDF/4.4.1.1-intel-2018a-HDF5-1.8.19"
                       export NETCDF_CXX_DIR="/cluster/software/netCDF-C++4/4.3.0-intel-2018a-HDF5-1.8.19"
+                      #
+                      #export AEROBULK_DIR="/cluster/projects/nn9878k/brodeau/src/aerobulk"
+                      #export OASIS_DIR="/cluster/projects/nn9878k/brodeau/src/oasis3-mct"
+                      #
+                      # only for C++ to find module "iso_c_binding":
+                      #export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC -I`which ifort | sed -e "s|bin/intel64/ifort|compiler/include/intel64|g"`"
                       ;;
 
     *               ) echo;
@@ -91,6 +106,7 @@ export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
+#export LD_EXTRA_AEROBULK="-L${INTEL_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
 #export LD_EXTRA_AEROBULK="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore"
 
 #if [ ! -f ./model/version.hpp ]; then
