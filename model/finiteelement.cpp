@@ -9295,10 +9295,8 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
 
     M_timer.tick("prep ssh");
-    // SSH because M_ssh is slow
-    std::vector<double> ssh(M_num_nodes);
-    for ( int i=0; i<M_num_nodes; ++i )
-        ssh[i] = M_ssh[i];
+    // copy SSH because M_ssh is slow
+    auto ssh = M_ssh.getVector();
 
     M_timer.tock("prep ssh");
 
