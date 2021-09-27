@@ -16,7 +16,6 @@ endif
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
 	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
@@ -88,7 +87,6 @@ LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D
-	LDFLAGS += -lgfortran
 endif
 
 ifdef USE_AEROBULK

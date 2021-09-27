@@ -22,7 +22,6 @@ CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
 endif
