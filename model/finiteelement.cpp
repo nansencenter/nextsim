@@ -13216,10 +13216,13 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
 #endif
 
-    std::vector<double> M_wind_root;
-    this->gatherNodalField(M_wind.getVector(), M_wind_root);
-    std::vector<double> M_ocean_root;
-    this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
+    std::vector<double> M_wind_root, M_ocean_root, M_ssh_root;
+    if (vm["output.save_forcing_fields"].as<bool>())
+    {
+        this->gatherNodalField(M_wind.getVector(), M_wind_root);
+        this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
+        this->gatherNodalField(M_ssh.getVector(), M_ssh_root);
+    }
 
     std::vector<double> M_UM_root;
     this->gatherNodalField(M_UM, M_UM_root);
@@ -13315,9 +13318,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             if (vm["coupler.with_waves"].as<bool>())
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
-            exporter.writeField(outbin, M_wind_root, "M_wind");
-            exporter.writeField(outbin, M_ocean_root, "M_ocean");
-
+            if (vm["output.save_forcing_fields"].as<bool>())
+            {
+                exporter.writeField(outbin, M_wind_root, "M_wind");
+                exporter.writeField(outbin, M_ocean_root, "M_ocean");
+                exporter.writeField(outbin, M_ssh_root, "M_ssh");
+            }
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
 
