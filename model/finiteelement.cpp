@@ -13868,8 +13868,16 @@ FiniteElement::checkFields()
         if(crash_nd) break;
     }//loop over nodes
 
-    if(crash_els || crash_nd)
+    bool const crash = (crash_els || crash_nd);
+    // Export everything and crash
+    if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
+    {
+        this->exportResults("crash", true, true, false);
+        this->writeRestart("crash");
+
+        M_comm.barrier();
         throw std::runtime_error(crash_msg.str());
+    }
 }//checkFields
 
 
