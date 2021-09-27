@@ -477,13 +477,15 @@ private:
 
 #ifdef OASIS
     ExternalData M_tau_wi;
+    ExternalData M_wlbk;
 //    ExternalData M_str_var;
 //    ExternalData M_tm02;
-    ExternalData M_wlbk;
 #endif
 
-    external_data_vec M_external_data_elements, M_external_data_nodes;
+    external_data_vec M_external_data_elements;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
+    external_data_vec M_external_data_nodes;
+    std::vector<std::string> M_external_data_nodes_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;

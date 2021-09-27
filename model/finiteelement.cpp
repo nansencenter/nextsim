@@ -10102,6 +10102,7 @@ FiniteElement::forcingAtmosphere()
     // - these are common to all the forcings
     // - check if they are initialised here
     M_external_data_nodes.push_back(&M_wind);
+    M_external_data_nodes_names.push_back("M_wind");
     if(!M_wind.isInitialized())
         throw std::logic_error("M_wind is not initialised");
 
@@ -10229,10 +10230,13 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
     M_nesting_dist_nodes=ExternalData(&M_nesting_distance_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_dist_nodes);
+    M_external_data_nodes_names.push_back("M_nesting_dist_nodes");
     M_nesting_VT1=ExternalData(&M_nesting_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT1);
+    M_external_data_nodes_names.push_back("M_nesting_VT1");
     M_nesting_VT2=ExternalData(&M_nesting_nodes_dataset, M_mesh, 1,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT2);
+    M_external_data_nodes_names.push_back("M_nesting_VT2");
 
 }//forcingNesting
 
@@ -10359,7 +10363,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     // for looping
     // - nodes
     M_external_data_nodes.push_back(&M_ocean);
+    M_external_data_nodes_names.push_back("M_ocean");
     M_external_data_nodes.push_back(&M_ssh);
+    M_external_data_nodes_names.push_back("M_ssh");
 
     // - elements
     M_external_data_elements_names.push_back("M_ocean_temp");
@@ -10389,7 +10395,14 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
 
     M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
                 time_init, vm["simul.spinup_duration"].as<double>());
+    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+
     M_external_data_nodes.push_back(&M_tau_wi);
+    M_external_data_nodes_names.push_back("M_tauwi");
+    M_external_data_elements.push_back(&M_wlbk);
+    M_external_data_elements_names.push_back("M_wlbk");
+
     //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
     //            time_init, 0);
     //M_external_data_elements.push_back(&M_str_var);
@@ -10398,11 +10411,6 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
     //            time_init, 0);
     //M_external_data_elements.push_back(&M_tm02);
     //M_external_data_elements_names.push_back("M_tm02");
-
-    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
-                time_init, 0);
-    M_external_data_elements.push_back(&M_wlbk);
-    M_external_data_elements_names.push_back("M_wlbk");
 }
 #endif
 
@@ -13694,7 +13702,7 @@ FiniteElement::checkFields()
     int rank_test = vm["debugging.test_proc_number"].as<int>();
     bool printout = (M_rank == rank_test && itest>0);
     std::stringstream crash_msg;
-    bool crash = false;
+    bool crash_els = false;
 
     for(int i=0; i<M_num_elements; i++)
     {
@@ -13716,7 +13724,7 @@ FiniteElement::checkFields()
             values.push_back(val);
             if(std::isnan(val))
             {
-                crash = true;
+                crash_els = true;
                 crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
             }
         }
@@ -13732,7 +13740,7 @@ FiniteElement::checkFields()
             // is it nan?
             if(std::isnan(val))
             {
-                crash = true;
+                crash_els = true;
                 crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
             }
 
@@ -13742,7 +13750,7 @@ FiniteElement::checkFields()
                 double thresh = ptr->minVal() - 1.e-8;
                 if(val<thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
                         << val << " < " << thresh
                         << ", |diff|=" << thresh - val << "\n";
@@ -13755,7 +13763,7 @@ FiniteElement::checkFields()
                 double thresh = ptr->maxVal() + 1.e-8;
                 if(val>thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
                         << val << " > " << thresh
                         << ", |diff|=" << val-thresh << "\n";
@@ -13768,7 +13776,7 @@ FiniteElement::checkFields()
                 double thresh = too_high_values[name];
                 if(val > thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                         << val << " > " << thresh << "\n";
                 }
@@ -13788,7 +13796,7 @@ FiniteElement::checkFields()
 
             if ((std::abs(ctot-ctot2)>1e-7)&&(ctot>1e-4))
             {
-                crash =  true;
+                crash_els =  true;
                 crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
                           <<ctot<< "), diff =" << ctot-ctot2 << " \n"   ;
                 if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
@@ -13797,7 +13805,7 @@ FiniteElement::checkFields()
         }
 #endif
 
-        if((printout && i==itest) || crash)
+        if((printout && i==itest) || crash_els)
         {
             // printout all the variables' values
 
@@ -13837,10 +13845,34 @@ FiniteElement::checkFields()
             }
             std::cout<<"\n";
         }
+        if(crash_els) break;
+    }// loop over elements
 
-        if(crash)
-            throw std::runtime_error(crash_msg.str());
-    }
+    bool crash_nd = false;
+    for (int i=0; i<M_num_nodes; i++)
+    {
+        std::vector<double> values;
+        auto names = M_external_data_nodes_names;
+
+        for (int j=0; j<M_external_data_nodes.size(); j++)
+        {
+            auto ptr = M_external_data_nodes[j];
+            auto name = names[j];
+            double val = ptr->get(i);
+            if (ptr->isVector())
+                val = std::hypot(val, ptr->get(i + M_num_nodes));
+            values.push_back(val);
+            if(std::isnan(val))
+            {
+                crash_nd = true;
+                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            }
+        }
+        if(crash_nd) break;
+    }//loop over nodes
+
+    if(crash_els || crash_nd)
+        throw std::runtime_error(crash_msg.str());
 }//checkFields
 
 
