@@ -2172,7 +2172,7 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "glorys12_nodes") == 0)
     {
-// Definition of glorys12 grid and datasets
+        // Definition of glorys12 grid and datasets
         Dimension dimension_x={
         name:"longitude",
         cyclic:false//true
@@ -2193,7 +2193,7 @@ DataSet::DataSet(char const *DatasetName)
         cyclic:false
         };
 
-// Definition of the grid
+        // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
         dimensions_lon[0] = dimension_x;
 
@@ -2214,8 +2214,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = dimension_y;
         dimensions[2] = dimension_x;
 
-//VARIABLES:
-
+        //VARIABLES:
         Variable latitude={
         filename_string: "", // All variables are in the same (grid) file
         name: "latitude",
@@ -2352,13 +2351,13 @@ DataSet::DataSet(char const *DatasetName)
         //masking_variable:
         };
 
-//VAR
+        //VAR
         std::vector<Variable> variables_tmp(3);
         variables_tmp[0] = u;
         variables_tmp[1] = v;
         variables_tmp[2] = ssh;
 
-//VECTOR
+        //VECTOR
         std::vector<int> uv_tmp(2);
         uv_tmp[0] = 0;
         uv_tmp[1] = 1;
@@ -2387,7 +2386,7 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "glorys12_elements") == 0)
     {
-// Definition of glorys12 grid and datasets
+        // Definition of glorys12 grid and datasets
         Dimension dimension_x={
         name:"longitude",
         cyclic:false//true
@@ -2408,7 +2407,7 @@ DataSet::DataSet(char const *DatasetName)
         cyclic:false
         };
 
-// Definition of the grid
+        // Definition of the grid
         std::vector<Dimension> dimensions_lon(1);
         dimensions_lon[0] = dimension_x;
 
@@ -2429,8 +2428,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions[1] = dimension_y;
         dimensions[2] = dimension_x;
 
-//VARIABLES:
-
+        //VARIABLES:
         Variable latitude={
         filename_string: "", // All variables are in the same (grid) file
         name: "latitude",
@@ -2567,13 +2565,13 @@ DataSet::DataSet(char const *DatasetName)
         //masking_variable: sss
         };
 
-//VAR
+        //VAR
         std::vector<Variable> variables_tmp(3);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = mld;
 
-//VECTOR
+        //VECTOR
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
         variables= variables_tmp;
