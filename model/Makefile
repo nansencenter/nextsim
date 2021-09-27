@@ -133,7 +133,7 @@ version.hpp: version.sh $(CXXSRC) $(CXXHDR)
 # Delete the object files.
 clean:
 	@echo " "
-	$(RM) $(OBJS) $(DEPS)
+	$(RM) $(OBJS) $(DEPS) version.hpp
 	@echo " "
 
 mrproper: clean

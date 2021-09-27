@@ -3227,7 +3227,7 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
-//! Called by the regrid(), checkUpdateDrifters() function.
+//! Called by the regrid(), checkUpdateDrifters(), exportResults() functions.
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
@@ -3267,6 +3267,7 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
         }
     }
 }//gatherNodalField
+
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers nodal fields.
