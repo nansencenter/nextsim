@@ -13669,8 +13669,8 @@ FiniteElement::checkFieldsFast()
     // Export everything and crash
     if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
     {
-        this->exportResults("crash_CFF", true, true, false);
-        this->writeRestart("crash_CFF");
+        this->exportResults("crash", true, true, false);
+        this->writeRestart("crash");
 
         M_comm.barrier();
         throw std::runtime_error(crash_msg.str());
@@ -13832,15 +13832,8 @@ FiniteElement::checkFields()
             std::cout<<"\n";
         }
 
-        // Export everything and crash
-        if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
-        {
-            this->exportResults("crash_CF", true, true, false);
-            this->writeRestart("crash_CF");
-
-            M_comm.barrier();
+        if(crash)
             throw std::runtime_error(crash_msg.str());
-        }
     }
 }//checkFields
 
