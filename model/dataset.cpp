@@ -2175,7 +2175,7 @@ DataSet::DataSet(char const *DatasetName)
 // Definition of glorys12 grid and datasets
         Dimension dimension_x={
         name:"longitude",
-        cyclic:true
+        cyclic:false//true
         };
 
         Dimension dimension_y={
@@ -2390,7 +2390,7 @@ DataSet::DataSet(char const *DatasetName)
 // Definition of glorys12 grid and datasets
         Dimension dimension_x={
         name:"longitude",
-        cyclic:true
+        cyclic:false//true
         };
 
         Dimension dimension_y={
