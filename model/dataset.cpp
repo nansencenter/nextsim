@@ -2262,7 +2262,7 @@ DataSet::DataSet(char const *DatasetName)
         use_FillValue: true,
         use_missing_value: true,
         a: 1.,
-        b: 12., // to center the time on the middle of the day //lolo?
+        b: 0.,
         Units: "hours",
         loaded_data: loaded_data_tmp,
         interpolated_data: interpolated_data_tmp,
@@ -2476,7 +2476,7 @@ DataSet::DataSet(char const *DatasetName)
         use_FillValue: true,
         use_missing_value: true,
         a: 1.,
-        b: 12., // to center the time on the middle of the day //lolo?
+        b: 0.,
         Units: "hours",
         loaded_data: loaded_data_tmp,
         interpolated_data: interpolated_data_tmp,
