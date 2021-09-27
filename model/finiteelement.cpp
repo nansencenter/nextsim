@@ -3231,21 +3231,20 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
-    std::vector<double> um_local(2*M_local_ndof,0.);
+    int const num_components = field_local.size() / M_num_nodes;
+    std::vector<double> um_local(num_components * M_local_ndof, 0.);
     for (int i=0; i<M_local_ndof; ++i)
-    {
-        um_local[2*i] = field_local[i]; //M_UM[i];
-        um_local[2*i+1] = field_local[i+M_num_nodes]; //M_UM[i+M_num_nodes];
-    }
+        for (int k=0; k<num_components; ++k)
+            um_local[num_components * i + k] = field_local[i + k*M_num_nodes];
 
     std::vector<int> sizes_nodes = M_sizes_nodes;
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(),
+            [&](int& f){ f = num_components * f; });
 
     // send displacement vector to the root process (rank 0)
-
     if (M_rank == 0)
     {
-        field_root.resize(2*M_ndof);
+        field_root.resize(num_components * M_ndof);
         boost::mpi::gatherv(M_comm, um_local, &field_root[0], sizes_nodes, 0);
     }
     else
@@ -3262,9 +3261,9 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
         for (int i=0; i<global_num_nodes; ++i)
         {
             int ri =  M_rmap_nodes[i];
-
-            field_root[i] = field_root_nrd[2*ri];
-            field_root[i+global_num_nodes] = field_root_nrd[2*ri+1];
+            for(int k=0; k<num_components; k++)
+                field_root[i + k * global_num_nodes]
+                    = field_root_nrd[num_components * ri + k];
         }
     }
 }//gatherNodalField
@@ -6478,7 +6477,6 @@ FiniteElement::init()
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
-
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
     //! - 7) If not using a restart, initializes the model from the datasets
