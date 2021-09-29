@@ -45,8 +45,6 @@ export INTEL_ROOT="/opt/intel/oneapi";                        # root directory o
 export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "              " compiler
 #
 export MPI_DIR="${INTEL_ROOT}/mpi/latest"
-export MPI_LIB_DIR=${MPI_DIR}/lib
-export MPI_INC_DIR=${MPI_DIR}/include
 #
 export NETCDF_DIR="/opt/hdf5_netcdf4_intel"
 export NETCDF_CXX_DIR=${NETCDF_DIR}
@@ -63,25 +61,23 @@ case `hostname | cut -d. -f2` in
     "ige-meom-cal1" ) export NXTSM_DEP_DIR="/mnt/meom/workdir/brodeau/opt/nextsim_intel"
                       export INTEL_ROOT="/mnt/meom/workdir/brodeau/opt/intel/oneapi"
                       export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux"
+                      export MPI_DIR="${INTEL_ROOT}/mpi/latest"
                       export NETCDF_DIR=/mnt/meom/workdir/brodeau/opt/hdf5_netcdf4_intel_par
                       ;;
     "occigen" )       export NXTSM_DEP_DIR="/store/CT1/ige2071/brodeau/opt/nextsim_intel"
                       export INTEL_ROOT="/opt/software/common/intel"
                       export INTEL_COMP_DIR="${INTEL_ROOT}/compilers_and_libraries_2019.4.243/linux"
                       export MPI_DIR="${INTEL_ROOT}/impi/2019.4.243/intel64"
-                      export MPI_LIB_DIR=${MPI_DIR}/lib
-                      export MPI_INC_DIR=${MPI_DIR}/include
                       export NETCDF_DIR="/store/CT1/hmg2840/lbrodeau/opt/hdf5_netcdf4_intel_mpi"
                       #
                       #export AEROBULK_DIR="/store/CT1/hmg2840/lbrodeau/DEV/aerobulk"
                       #export OASIS_DIR="/store/CT1/hmg2840/lbrodeau/src/oasis3-mct"
                       ;;
     "fram" )          export NXTSM_DEP_DIR="/cluster/projects/nn9878k/brodeau/opt/nextsim_intel"
-                      export INTEL_ROOT="/cluster/software/ifort/2018.1.163-GCC-6.4.0-2.28"
-                      export INTEL_COMP_DIR="${INTEL_ROOT}/compilers_and_libraries_2018.1.163/linux"
-                      export MPI_DIR="/cluster/software/impi/2018.1.163-iccifort-2018.1.163-GCC-6.4.0-2.28/intel64"
-                      export MPI_LIB_DIR=${MPI_DIR}/lib
-                      export MPI_INC_DIR=${MPI_DIR}/include
+                      INTEL_VERSION="2018.1.163"
+                      export INTEL_ROOT="/cluster/software/ifort/${INTEL_VERSION}-GCC-6.4.0-2.28"
+                      export INTEL_COMP_DIR="${INTEL_ROOT}/compilers_and_libraries_${INTEL_VERSION}/linux"
+                      export MPI_DIR="/cluster/software/impi/${INTEL_VERSION}-iccifort-${INTEL_VERSION}-GCC-6.4.0-2.28/intel64"
                       export NETCDF_DIR="/cluster/software/netCDF/4.4.1.1-intel-2018a-HDF5-1.8.19"
                       export NETCDF_CXX_DIR="/cluster/software/netCDF-C++4/4.3.0-intel-2018a-HDF5-1.8.19"
                       #
@@ -99,6 +95,11 @@ case `hostname | cut -d. -f2` in
                       ;;
 esac
 
+# Normally the following 2 are pretty standard:
+export MPI_LIB_DIR=${MPI_DIR}/lib
+export MPI_INC_DIR=${MPI_DIR}/include
+
+# Third-party software dependencies, compiled with relevant compiler!
 export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
 
 export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
@@ -109,8 +110,8 @@ export BOOST_LIBDIR=${BOOST_DIR}/lib
 #export LD_EXTRA_AEROBULK="-L${INTEL_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
 #export LD_EXTRA_AEROBULK="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore"
 
-#if [ ! -f ./model/version.hpp ]; then
-cd model
-./version.sh
-cd ../
-#fi
+if [ ! -f ./model/version.hpp ]; then
+    cd model
+    ./version.sh
+    cd ../
+fi
