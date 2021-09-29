@@ -10213,7 +10213,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, s
     /* We make the loaded domain a bit larger to avoid problems.
      * This is now done by adding a "halo" of one grid cell around the grid
      * cells needed. Replaces the old "expansion_factor" approach. */
-    int halo_size = 1;
+    int halo_size = 3;
 
     // Attributes (scaling and offset)
     netCDF::NcVarAtt att;
