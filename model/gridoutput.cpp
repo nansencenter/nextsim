@@ -27,7 +27,11 @@ GridOutput::GridOutput()
 // Constructor for only one set of variables
 ////////////////////////////////////////////////////////////////////////////////
 GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting)
-    : M_averaging_period(averaging_period), M_false_easting(false_easting)
+    :
+        M_averaging_period(averaging_period),
+        M_false_easting(false_easting),
+        M_log_level(Environment::logLevel()),
+        M_log_all(Environment::logAll())
 {
     M_vectorial_variables.resize(0);
 
@@ -352,39 +356,19 @@ GridOutput::initMask()
             M_ice_mask_indx = i;
 }
 
-void
-GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el)
-{
-    assert(nb_local_el>0);
-
-    // Call the worker routine using a vector of ones and give zero for missing values and gohsts
-    std::vector<Variable> variables(1);
-    variables[0] = Variable(variableID::proc_mask);
-
-    variables[0].data_grid.assign(M_grid_size,0);
-    variables[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
-
-    std::fill( variables[0].data_mesh.begin(), variables[0].data_mesh.begin() + nb_local_el, 1. );
-    std::fill( variables[0].data_mesh.begin() + nb_local_el, variables[0].data_mesh.end(),  0. );
-
-    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
-
-    M_proc_mask = variables[0].data_grid;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Functions other than construction and initialisation
 ////////////////////////////////////////////////////////////////////////////////
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(BamgMesh* bamgmesh)
+GridOutput::updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM)
 {
     // Call the worker routine for the elements
-    this->updateGridMeanWorker(bamgmesh, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
+    this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
 
     // Call the worker routine for the nodes
-    this->updateGridMeanWorker(bamgmesh, variableKind::nodal, M_grid.interp_method, M_nodal_variables, M_miss_val);
+    this->updateGridMeanWorker(bamgmesh, UM, variableKind::nodal, M_grid.interp_method, M_nodal_variables, M_miss_val);
 
     // Ice mask if that's requested
     for ( auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); it++ )
@@ -402,7 +386,7 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh)
 
 // Interpolate from the mesh to the grid - updating the gridded mean
 void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
 {
     int nb_var = variables.size();
     if ( nb_var == 0 )
@@ -424,8 +408,9 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
     std::vector<double> coordY(numNodes); // = mesh.coordY();
     for (int id=0; id<numNodes; ++id)
     {
-        coordX[id] = bamgmesh->Vertices[3*id];
-        coordY[id] = bamgmesh->Vertices[3*id+1];
+        // Copy coordinates from bamgmesh and add mesh displacement
+        coordX[id] = bamgmesh->Vertices[3*id]   + UM[id];
+        coordY[id] = bamgmesh->Vertices[3*id+1] + UM[id+numNodes];
     }
 
     int source_size = (kind==variableKind::nodal) ? numNodes : numTriangles;
@@ -510,21 +495,14 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMe
                 for (int j=0; j<M_nrows; ++j)//y
                 {
                     int const grid_ind = i + M_ncols*j;
-                    if ( kind == variableKind::nodal )
-                        variables[nv].data_grid[grid_ind]
-                            += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[grid_ind];
-                    else
-                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
+                    variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
                     bamg_ind++;
                 }
         }
         else
         {
             for (int j=0; j<M_grid_size; ++j)
-                if ( kind == variableKind::nodal )
-                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv]*M_proc_mask[j];
-                else
-                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
+                variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
         }
     }
 
@@ -546,7 +524,10 @@ GridOutput::setLSM(BamgMesh* bamgmesh_root)
     variables[0].data_grid.assign(M_grid_size,0);
     variables[0].data_mesh.assign(bamgmesh_root->TrianglesSize[0], 1.);
 
-    this->updateGridMeanWorker(bamgmesh_root, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
+    // Mesh displacement of zero
+    std::vector<double> UM(2*bamgmesh_root->VerticesSize[0], 0.);
+
+    this->updateGridMeanWorker(bamgmesh_root, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
     M_lsm = std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
 }
@@ -666,9 +647,6 @@ GridOutput::resetMeshMean(BamgMesh* bamgmesh,
 
     if ( regrid )
     {
-        if ( M_nodal_variables.size() > 0 )
-            this->setProcMask(bamgmesh, nb_local_el);
-
         /* Calculate the weights on the root, broadcast them to ohers, and map from global to local
          * element id */
         if ( M_grid.interp_method==interpMethod::conservative )

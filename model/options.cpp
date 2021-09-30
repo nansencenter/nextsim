@@ -143,8 +143,8 @@ namespace Nextsim
                 "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
+                            {"conc", "thick", "snow", "conc_young", "h_young", "hs_young", "velocity"},
+                             "conc    thick    snow    conc_young    h_young    hs_young    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
@@ -263,7 +263,7 @@ namespace Nextsim
             // - if setup.ice-type = constant
             ("ideal_simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_young_conc", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_SST_limit", po::value<double>()->default_value( 2. ), "")
 
@@ -304,7 +304,7 @@ namespace Nextsim
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.C_lab", po::value<double>()->default_value( 2.0e6 ), "Pa")       // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
             ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.compr_strength", po::value<double>()->default_value( 1e10 ), "Pa")
@@ -346,7 +346,7 @@ namespace Nextsim
 
             // - Pressure term parameters
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
-            ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 10e3 ), "Max pressure for damaged converging ice")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
@@ -379,13 +379,15 @@ namespace Nextsim
             ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
-            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: THIN_ICE; else CLASSIC")
+            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
             ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.h_young_max", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.h_young_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.snow_cond", po::value<double>()->default_value( 0.3096 ),
+                "snow conductivity (W/(K m)")
 
             ("thermo.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
