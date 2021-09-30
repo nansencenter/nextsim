@@ -2026,18 +2026,15 @@ FiniteElement::sortPrognosticVars()
     }
 
     //! - 2) reorder M_prognostic_variables_elt and:
-    //!    * set M_interp_methods
     //!    * set M_restart_names_elt
     auto tmp_prog_vars = M_prognostic_variables_elt;
     M_prognostic_variables_elt.resize(0);
-    M_interp_methods.resize(0);
     M_restart_names_elt.resize(0);
     for (auto inds : prognostic_variables_elt_indices)
         for (int j : inds)
         {
             auto vptr = tmp_prog_vars[j];//this is a pointer to a ModelVariable object
             M_prognostic_variables_elt.push_back(vptr);
-            M_interp_methods.push_back(vptr->getInterpMethod());
             M_restart_names_elt.push_back(vptr->name());
         }
 }//sortPrognosticVars
@@ -3030,15 +3027,9 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
             ++cpt;
         }
 
-        //! The interpolation with the cavities still needs to be tested on a long run.
-        //! By default, we then use the non-conservative MeshToMesh interpolation
-
         chrono.restart();
-        InterpFromMeshToMesh2dCavities(&interp_elt_out,&interp_in_elements[0],
-                                       &M_interp_methods[0], nb_var_element,
-                                       &surface_previous[0], &surface_root[0], bamgmesh_previous, bamgmesh_root);
-
-        LOG(DEBUG)<<"-------------------CAVITIES done in "<< chrono.elapsed() <<"s\n";
+        ConservativeRemappingMeshToMesh(interp_elt_out, interp_in_elements, nb_var_element, bamgmesh_previous, bamgmesh_root);
+        LOG(DEBUG)<<"-------------------CONSERVATIVE REMAPPING done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
         // chrono.restart();
@@ -3216,12 +3207,12 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
         M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+6];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+7];
+        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
+        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+8];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+9];
+        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
+        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
     }
 
 
@@ -5231,7 +5222,7 @@ FiniteElement::thermo(int dt)
 
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
-    
+
         /* Tracking ice melt/formation components */
         double del_hs_mlt = 0;
         double mlt_hi_top = 0;
@@ -5301,7 +5292,7 @@ FiniteElement::thermo(int dt)
         // del_vi     Change in ice volume
         // del_vs_mlt Change in snow volume due to melt
         double del_vi     = newice + del_hi*old_conc;
-        double mlt_vi_top = mlt_hi_top*old_conc; 
+        double mlt_vi_top = mlt_hi_top*old_conc;
         double mlt_vi_bot = mlt_hi_bot*old_conc;
         double del_vs_mlt = del_hs_mlt*old_conc;
         double snow2ice   = del_hi_s2i*old_conc;
@@ -5780,13 +5771,13 @@ FiniteElement::thermo(int dt)
 
         // top melt  volume per surface area rate [m/day]
         D_mlt_top[i]      = mlt_vi_top*86400/ddt;
-        
+
         // top melt  volume per surface area rate [m/day]
         D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
 
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*86400/ddt;
-        
+
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -6082,7 +6073,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 inline void
 FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
         const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
-        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, 
+        double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf, double &T1, double &T2)
 {
     // Useful volumetric quantities
@@ -6186,7 +6177,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             hs = 0.;
         }
         // We consider sublimation as part of the top melt
-        mlt_hi_top = std::max(0.,h1+h2-hi_old); 
+        mlt_hi_top = std::max(0.,h1+h2-hi_old);
 
         // Bottom melt/freezing
         double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
@@ -6286,12 +6277,12 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             Qio   -= ( -qs*hs + (E1+E2)*hi/2. )/dt; // modified (30) - with multiplication of rhoi and rhos and division with dt
 
             if (del_hi < 0.)
-            {   
+            {
                 mlt_hi_top*=-hi_old/del_hi;
                 mlt_hi_bot*=-hi_old/del_hi;
             }
             del_hi_s2i =0. ;
-            
+
             del_hi = -hi_old;
             hi     = 0.;
             hs     = 0.;
@@ -6387,7 +6378,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         if ( hi < physical::hmin )
         {
             if (del_hi < 0.)
-            {   
+            {
                 mlt_hi_top*=-hi_old/del_hi;
                 mlt_hi_bot*=-hi_old/del_hi;
             }
@@ -9299,6 +9290,15 @@ FiniteElement::explicitSolve()
     // Build the parts that don't change over the sub-time stepping
     // On the elements
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
+
+    M_timer.tick("prep ssh");
+    // SSH because M_ssh is slow
+    std::vector<double> ssh(M_num_nodes);
+    for ( int i=0; i<M_num_nodes; ++i )
+        ssh[i] = M_ssh[i];
+
+    M_timer.tock("prep ssh");
+
     M_timer.tick("prep elements");
 
     M_delta_x.resize(M_num_elements);
@@ -9310,6 +9310,7 @@ FiniteElement::explicitSolve()
     std::vector<double> rlmass_matrix(M_num_nodes, 0.);
     std::vector<double> node_mass(M_num_nodes, 0.);
     std::vector<double> C_bu(M_num_nodes, 0.);
+    std::vector<double> grad_ssh(2*M_num_nodes, 0.);
     for ( int cpt=0; cpt<M_num_elements; ++cpt )
     {
         // We need to update the mesh every time step
@@ -9357,7 +9358,7 @@ FiniteElement::explicitSolve()
         // We calculate C_bu on the element and then take the nodal maximum of it below.
         double element_ssh = 0; // Element mean ssh
         for (int i=0; i<3; ++i)
-            element_ssh += M_ssh[(M_elements[cpt]).indices[i]-1];
+            element_ssh += ssh[(M_elements[cpt]).indices[i]-1];
 
         element_ssh /= 3.;
 
@@ -9366,6 +9367,7 @@ FiniteElement::explicitSolve()
         double keel_depth;
         double critical_h;
         double critical_h_mod;
+        double const g3rd = physical::gravity/3.;
         switch ( M_basal_stress_type )
         {
             case setup::BasalStressType::NONE:
@@ -9408,6 +9410,28 @@ FiniteElement::explicitSolve()
             // Max C_bu
             C_bu[idx_node]  = std::max(C_bu[idx_node], element_C_bu);
         }
+
+        // Gradient of m*g*SSH
+        double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
+        std::vector<double> const dxN = M_shape_coeff[cpt];
+        for (int i=0; i<3; ++i)
+        {
+            int const i_indx = (M_elements[cpt]).indices[i]-1;
+
+            // Skip closed boundaries, ice free, and ghost nodes
+            if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
+                continue;
+
+            int const u_indx = i_indx;
+            int const v_indx = i_indx + M_num_nodes;
+
+            for ( int j=0; j<3; ++j )
+            {
+                int const j_indx = (M_elements[cpt]).indices[j]-1;
+                grad_ssh[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
+                grad_ssh[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
+            }
+        }
     }
     M_timer.tock("prep elements");
 
@@ -9418,7 +9442,6 @@ FiniteElement::explicitSolve()
     std::vector<double> tau_a(2*M_num_nodes);
     // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
-    std::vector<double> ssh(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
     for ( int i=0; i<M_num_nodes; ++i )
@@ -9444,9 +9467,6 @@ FiniteElement::explicitSolve()
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
-
-        // SSH because M_ssh is slow
-        ssh[i] = M_ssh[i];
 
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
@@ -9485,13 +9505,11 @@ FiniteElement::explicitSolve()
         M_timer.tock("updateSigma");
 
         // Walk through all the elements to build the gradient terms of the RHS
-        M_timer.tick("gradient terms");
-        std::vector<double> grad_terms(2*M_num_nodes, 0.);
-        double const g3rd = physical::gravity/3.;
+        M_timer.tick("gradient sigma");
+        std::vector<double> grad_terms = grad_ssh; // grad ssh is pre-calculated
         for ( int cpt=0; cpt<M_num_elements; ++cpt )
         {
             // Loop over the nodes of the element to build the gradient terms themselves
-            double const m_g_A3rd = element_mass[cpt]*M_surface[cpt]*g3rd;
             std::vector<double> const dxN = M_shape_coeff[cpt];
             double const volume = M_thick[cpt]*M_surface[cpt];
             for (int i=0; i<3; ++i)
@@ -9509,17 +9527,9 @@ FiniteElement::explicitSolve()
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
                 grad_terms[u_indx] -= volume*( M_sigma[0][cpt]*dxN[i] + M_sigma[2][cpt]*dxN[i+3] );
                 grad_terms[v_indx] -= volume*( M_sigma[2][cpt]*dxN[i] + M_sigma[1][cpt]*dxN[i+3] );
-
-                // Gradient of m*g*SSH
-                for ( int j=0; j<3; ++j )
-                {
-                    int const j_indx = (M_elements[cpt]).indices[j]-1;
-                    grad_terms[u_indx] -= dxN[j] * m_g_A3rd * ssh[j_indx];
-                    grad_terms[v_indx] -= dxN[j+3] * m_g_A3rd * ssh[j_indx];
-                }
             }
         }
-        M_timer.tock("gradient terms");
+        M_timer.tock("gradient sigma");
 
         M_timer.tick("sub-solve");
         // Walk through all the (non-ghost) nodes to build the remaining terms of the RHS and solve
