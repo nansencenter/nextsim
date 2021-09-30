@@ -100,7 +100,8 @@ case `hostname | cut -d. -f2` in
                       #export AEROBULK_DIR="/cluster/projects/nn9878k/brodeau/src/aerobulk"
                       #export OASIS_DIR="/cluster/projects/nn9878k/brodeau/src/oasis3-mct"
                       #
-                      #export LD_EXTRA_OASIS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"                                           
+                      #export LD_EXTRA_OASIS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
+                      export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
                       #export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC -I`which ifort | sed -e "s|bin/intel64/ifort|compiler/include/intel64|g"`" ; # only for C++ to find module "iso_c_binding":
                       ;;
 
