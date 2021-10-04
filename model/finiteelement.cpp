@@ -12668,7 +12668,7 @@ FiniteElement::instantiateDrifters()
         int i0 = M_drifters.size();
         M_osisaf_drifters_indices = {i0, i0+1};
 
-        double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12687,7 +12687,7 @@ FiniteElement::instantiateDrifters()
         Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
         Drifters::TimingInfo timing_info(
                 drifters_time_init + .5, //init time
-                output_time_step,        //output interval
+                dr_output_time_step,     //output interval
                 true,                    //has finite lifetime?
                 2.,                      //lifetime before re-initialising
                 false                    //fixed init time? (like RGPS, SIDFEX)
@@ -12710,14 +12710,14 @@ FiniteElement::instantiateDrifters()
     // equally spaced drifters
     if (vm["drifters.use_equally_spaced_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
         std::string const output_prefix = M_export_path + "/Equally_Spaced_Drifters_";
         Drifters::TimingInfo const timing_info(
-                drifters_time_init, //init time
-                output_time_step,   //output interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                false               //fixed init time? (like RGPS, SIDFEX)
+                drifters_time_init,     //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                false                   //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12732,18 +12732,18 @@ FiniteElement::instantiateDrifters()
     // RGPS drifters
     if (vm["drifters.use_rgps_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
         std::string const time_str = vm["drifters.RGPS_time_init"].as<std::string>();
         double const rgps_time_init = Nextsim::stringToDatenum(time_str);
         std::string const rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
         std::string const output_prefix = M_export_path + "/RGPS_Drifters_";
         Drifters::TimingInfo const timing_info(
-                rgps_time_init,   //init time
-                output_time_step, //output interval
-                false,            //has finite lifetime?
-                0.,               //lifetime before re-initialising
-                true              //fixed init time? (like RGPS, SIDFEX)
+                rgps_time_init,         //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                true                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12757,7 +12757,7 @@ FiniteElement::instantiateDrifters()
     // SIDFEX drifters
     if (vm["drifters.use_sidfex_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
         std::string const infile = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
         std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
@@ -12772,11 +12772,11 @@ FiniteElement::instantiateDrifters()
         }
 
         Drifters::TimingInfo const timing_info(
-                sidfex_time_init, //init time
-                output_time_step, //output interval
-                false,            //has finite lifetime?
-                0.,               //lifetime before re-initialising
-                fix_time_init     //fixed init time? (like RGPS, SIDFEX)
+                sidfex_time_init,       //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                fix_time_init           //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12789,19 +12789,19 @@ FiniteElement::instantiateDrifters()
 
     if (vm["drifters.use_iabp_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
         double const input_time_step = 0.5;
         std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
         std::string const outfile_prefix = M_export_path + "/IABP_Drifters_";
 
         // add drifter to the list of drifters
         Drifters::TimingInfo const timing_info(
-                drifters_time_init, //init time
-                output_time_step,   //output interval
-                input_time_step,    //input interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                false               //fixed init time? (like RGPS, SIDFEX)
+                drifters_time_init,     //init time
+                dr_output_time_step,    //output interval
+                input_time_step,        //input interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                false                   //fixed init time? (like RGPS, SIDFEX)
                 );
         bool const ignore_restart = vm["drifters.iabp_ignore_restart"].as<bool>();
         M_drifters.push_back(
