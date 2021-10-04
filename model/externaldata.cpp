@@ -288,8 +288,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         if (M_comm.rank() == 0) {  
                             //todo: job script needs to link the perturbation files(/nird/projects/nird/NS2993K/NORSTORE_OSL_DISK/NS2993K/chengsukun/wind_perturbation_amplification/results/memXX/synforc_randfldYY) to filename Perturbations_XX_perturbation_fileID.nc, maybe other names
                             // file series starts from N_ocean=0
-                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/OceanPerturbations_mem" + 
                                                 std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_ocean + it) + ".nc";
+                            // std::string filename = "./Perturbations/OceanPerturbations_mem" + 
+                            //                     std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_ocean + it) + ".nc";
                             LOG(DEBUG)<<"topaz load: "<<filename<<"\n";
                             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
                             netCDF::NcVar data;
@@ -307,7 +309,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                         int final_MN = M_dataset->grid.reduced_nodes_ind.size();
                         LOG(DEBUG) << "### final_MN: "<< final_MN << " variable size: " << M_dataset->variables[0].loaded_data[it].size() <<"\n"; 
                         for(int n = 0; n < final_MN; n++)
-                        {   
+                        {  //because of using part of ocean grid, i,j are recalculated. 
                             int j = M_dataset->grid.reduced_nodes_ind[n]/x_count;
                             int i = M_dataset->grid.reduced_nodes_ind[n] - j*x_count;
                             i = x_start + (y_start + j)*N_full + i;
@@ -332,8 +334,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     {
                         if (M_comm.rank() == 0) {  
                             M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
-                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/AtmospherePerturbations_mem" + 
                                                 std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
+                            // std::string filename = "./Perturbations/AtmospherePerturbations_mem" + 
+                            //                     std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";                            
                             LOG(DEBUG)<<"wind node load: "<<filename<<"\n";
                             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
                             netCDF::NcVar data;     
@@ -358,8 +362,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                     {
                         if (M_comm.rank() == 0) {  
                             M_dataset->N_wind = floor((M_current_time - M_StartingTime)*4); // update files every 6 hours. unit is a day.
-                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/Perturbations_mem" + 
+                            std::string filename = Environment::nextsimDataDir().string() + "/Perturbations/AtmospherePerturbations_mem" + 
                                                 std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
+                            // std::string filename = "./Perturbations/AtmospherePerturbations_mem" + 
+                            //                     std::to_string(M_ensemble_member) +"_series" + std::to_string(M_dataset->N_wind+it) + ".nc";
                             LOG(DEBUG)<<"wind element load: "<<filename<<"\n";
                             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
                             netCDF::NcVar data;

@@ -32,7 +32,7 @@ MPISTATUS_UPDATE = MPI
 include ./make.inc
 
 INCS_COMMON = -I/cluster/software/netCDF/4.7.1-iimpi-2019b/include -I/cluster/software/HDF5/1.10.5-iimpi-2019b/include -I./common $(INC_NC)
-LIBS_COMMON = $(LD_PATH) $(LIB_NC) $(LIB_M)
+LIBS_COMMON = $(LD_PATH) $(LIB_LAPACK) $(LIB_NC) $(LIB_M)
 
 INCS_PREP =
 LIBS_PREP =

@@ -28,7 +28,8 @@ CXXSRC=$(wildcard $(CXXSRCDIR)*.cpp)
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
-BOOST_LIBDIR=/opt/local/boost/lib
+BOOST_LIBDIR=/cluster/software/Boost/1.71.0-iimpi-2019b/lib
+FFTW_DIR=/cluster/software/FFTW/3.3.8-intel-2019b
 
 CXX = mpicxx
 

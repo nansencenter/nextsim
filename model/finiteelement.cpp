@@ -9221,21 +9221,6 @@ FiniteElement::readStateVector()
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
-
-    
-    // double M_min, M_max;
-    // LOG(DEBUG)<<"-------------------M_size M_analysis_thick "<< M_analysis_thick.size() <<"\n";
-    // LOG(DEBUG)<<"-------------------M_num_elements in readStateVector "<< M_num_elements <<"\n";
-    // for(int i=0; i<M_num_elements; ++i){      
-    //     M_thick[i] = std::max(M_analysis_thick[i],0.);
-    //     M_conc[i] = std::min(1.,std::max(M_analysis_conc[i],0.));   
-    //     // M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
-    //     // M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
-    //     // std::cout<<i<<" "<< M_thick[i] <<" "<< M_conc[i] <<" "<< M_sss[i] <<" "<< M_sst[i] <<"\n";
-    // }
-    // M_min =*std::min_element(M_thick.begin(),M_thick.end());
-    // M_max =*std:: max_element(M_thick.begin(),M_thick.end());
-    // LOG(DEBUG) << "### thick MINMAX: " << M_min << ", " << M_max << "\n";
 }//readStateVector
 
 // void
@@ -14868,29 +14853,17 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 
 
 void 
-// temporary note
-// FiniteElement::AssimThick(M_analysis_conc,M_analysis_thick,M_analysis_snow_thick,M_analysis_ridge_ratio)
-// sic_mod     = M_analysis_conc[i];
-// sit_mod     = M_analysis_thick[i];
-// snt_mod = M_analysis_snow_thick[i];
-// rir_mod = M_analysis_ridge_ratio[i];
-// sit_new = sit_mod;
-// sic_new = sic_mod;
-// snt_new = snt_mod;
-// rir_new = rir_mod;
-    //  update the 4 news
-// M_analysis_conc[i]=sic_new;
-// M_analysis_thick[i]=sit_new;
-// M_analysis_snow_thick[i]=snt_new;
-// M_analysis_ridge_ratio[i]=rir_new;
 FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {   
-    // post processing of the update ice thickness using sit_tot_est from enkf-c
+    // post processing of analysis SIT: sit_tot_est from enkf
     // refer to pynextsimf/assimilation.py->AssimThick()
     // Where ice in nextsim is present:
     //     *  new total thickness is calculated using enkf-c
     //     *  thick and thin/young ice thickness is changed proportionally
     // Young (thin) ice fraction
+    
+    // modified sice variables due to enkf: sic_new, sit_new, snt_new, rir_new;
+    // i: i-th element of the model grid
     double const _YIF = 0.2;
     // Thickness of new ice
     double const _HNULL = 0.25;
