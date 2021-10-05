@@ -134,7 +134,6 @@ export CPATH=${MPI_INC_DIR}:${CPATH}
 export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
 
 export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
-#export BOOST_INCDIR=${BOOST_DIR}/include/boost
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
