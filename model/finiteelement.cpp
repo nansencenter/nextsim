@@ -7677,6 +7677,9 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 }//checkOutputs
 
 
+//------------------------------------------------------------------------------------------------------
+//! Check if M_UT is zero
+//! Called by checkDrifters()
 bool const
 FiniteElement::isUTZero()
 {
@@ -7689,6 +7692,9 @@ FiniteElement::isUTZero()
 }//isUTZero
 
 
+//------------------------------------------------------------------------------------------------------
+//! Check if we need to move, init, or output any drifters
+//! Called by checkUpdateDrifters()
 void
 FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
 {
@@ -7724,12 +7730,12 @@ FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
                 M_drifters_move_time = M_current_time;
         }
         else
+            // no active drifters or M_UT is zero so increment M_drifters_move_time
             M_drifters_move_time = M_current_time;
     }
 
     boost::mpi::broadcast(M_comm, M_drifters_move_time, 0);
     boost::mpi::broadcast(M_comm, move, 0);
-    boost::mpi::broadcast(M_comm, n_active, 0);
     boost::mpi::broadcast(M_comm, n_init, 0);
     boost::mpi::broadcast(M_comm, n_output, 0);
 
@@ -7737,8 +7743,8 @@ FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
 
 
 // -----------------------------------------------------------------------
-//! move any active drifters and move them by the amount specified by M_UT
-//! Called by regrid() and checkUpdateDrifters()
+//! move any active drifters by the amount specified by M_UT
+//! Called by checkUpdateDrifters()
 void FiniteElement::moveDrifters()
 {
     LOG(DEBUG) << "in moveDrifters\n";
@@ -7764,6 +7770,7 @@ void FiniteElement::checkUpdateDrifters()
     bool move;
     int n_init, n_output;
     this->checkDrifters(move, n_init, n_output);
+    LOG(DEBUG) << "moving drifters? " << move << "\n";
     LOG(DEBUG) << "initialising " << n_init << " drifters\n";
     LOG(DEBUG) << "outputting " << n_output << " drifters\n";
 
@@ -7783,7 +7790,7 @@ void FiniteElement::checkUpdateDrifters()
     std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
     this->gatherElementField(M_conc, conc_root);
-    if(M_rank!=0) return;
+    if(M_rank != 0) return;
 
     // updateDrifters does initialising, resetting, inputting,
     // outputting (if needed)
@@ -12654,9 +12661,9 @@ FiniteElement::instantiateDrifters()
     double const drifters_conc_lim = vm["drifters.concentration_limit"].as<double>();
 
     // remember when drifters were last moved
-    M_drifters_move_time = time_init;
-    // don't let drifters go more than 6h without moving them
-    M_drifters_move_limit = .25;
+    M_drifters_move_time = time_init;//! param M_drifters_move_time (float) last time drifters were moved
+    // don't let drifters go more than 3h without moving them
+    M_drifters_move_limit = .125;//! param M_drifters_move_limit (float) move drifters after this time in days
 
     // use OSISAF drifters
     // - every day at 12:00 start a new set of drifters which run for 48h
@@ -12814,7 +12821,6 @@ FiniteElement::instantiateDrifters()
     for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
         it->checkOutputTimeStep(time_step);
 }//instantiateDrifters
-
 
 
 // -----------------------------------------------------------------------------------------------------------
