@@ -79,9 +79,7 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
-#LDFLAGS += -L$(NEXTSIMDIR)/lib -linterp
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
-#LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D

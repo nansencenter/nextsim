@@ -26,8 +26,9 @@ export NEXTSIMDIR=`pwd`
 l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
-    # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula` of the `thermo` block in the config file
+    # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
     #   ==> algos are: 'ecmwf', 'coare3p0', 'coare3p0', 'ncar' or 'andreas' ('ecmwf recomended if using an ECMWF-based atmo forcing)
+    #   ==> use 'nextsim' if you want to use the old neXtSIM bulk formulae
 else
     unset USE_AEROBULK ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_AEROBULK...
 fi
