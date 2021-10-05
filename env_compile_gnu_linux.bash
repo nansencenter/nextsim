@@ -8,10 +8,10 @@
 #  MPI_INC_DIR
 #  MPI_LIB_DIR
 #
-# => adapt this file tou your system and source it prior to using
+# => adapt this file to your system and source it prior to using
 #    the `make` command to clean or compile neXtSIM
 #
-# L. Brodeau, August 2021
+# L. Brodeau, October 2021
 ########################################################################
 
 # DO NOT EXPORT "INTEL_ROOT" !
@@ -21,13 +21,25 @@ BOOST_VERSION="1.67"
 
 export NEXTSIMDIR=`pwd`
 
-# Uncomment these 2 if you want AeroBulk to compute air-sea fluxes:
-export USE_AEROBULK=true
-export AEROBULK_DIR="${HOME}/DEV/aerobulk"
+# AeroBulk turbulent air-sea flux computation
+#--------------------------------------------
+l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+if ${l_aerobulk}; then
+    export USE_AEROBULK=true
+    # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula` of the `thermo` block in the config file
+    #   ==> algos are: 'ecmwf', 'coare3p0', 'coare3p0', 'ncar' or 'andreas' ('ecmwf recomended if using an ECMWF-based atmo forcing)
+else
+    unset USE_AEROBULK ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_AEROBULK...
+fi
 
-# This neXtSIM is going to be coupled to NEMO via OASIS so:
-export USE_OASIS=true
-export OASIS_DIR="${HOME}/src/oasis3-mct"
+# Coupling with another GCM component via OASIS (WW3, NEMO, etc)
+# --------------------------------------------------------------
+l_cpl_oasis=false ; # neXtSIM is going to be coupled to something via OASIS ? If true, give the appropriate value for "OASIS_DIR" in the arch CASE block...
+if ${l_cpl_oasis}; then
+    export USE_OASIS=true
+else
+    unset USE_OASIS ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_OASIS...
+fi
 
 ############################################
 # Defaults before host-specific adjustment #
@@ -45,6 +57,9 @@ export FFLAGS="-O2 -fopenmp -lstdc++ -fPIC"
 #
 export MPI_DIR="/usr" ; # default OpenMPI
 #
+export AEROBULK_DIR="${HOME}/DEV/aerobulk"
+export OASIS_DIR="${HOME}/src/oasis3-mct"
+#
 NXTSM_DEP_DIR="/opt/nextsim_gnu" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
 #############################################
 
@@ -55,6 +70,8 @@ case `hostname | cut -d. -f2` in
     "ige-meom-cal1" ) NXTSM_DEP_DIR="/mnt/meom/workdir/brodeau/opt/nextsim_gnu"
                       ;;
     "occigen" )       NXTSM_DEP_DIR="/store/CT1/ige2071/brodeau/opt/nextsim_gnu"
+                      ;;
+    "fram" )          echo "Someone fixes me!!!! Env. variables for 'fram' and Gnu compilers...." ; exit
                       ;;
     *               ) echo;
                       echo "WARNING: Unknow machine with HOSTNAME = `hostname` !"
@@ -73,9 +90,6 @@ export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
 export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
-
-#export LD_EXTRA_AEROBULK="-L${INTEL_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
-#export LD_EXTRA_AEROBULK="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore"
 
 if [ ! -f ./model/version.hpp ]; then
     cd model
