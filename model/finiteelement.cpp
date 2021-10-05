@@ -4999,7 +4999,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
-            Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.); // NEMO NEMO-LIM3 expects a negative value #LB
+            Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
 
             /* Evaporation */
             evap[i] = Qlh[i]/Lv;

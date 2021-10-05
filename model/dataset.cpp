@@ -2734,7 +2734,6 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-//        grid = {  //#LB
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
@@ -2773,7 +2772,7 @@ DataSet::DataSet(char const *DatasetName)
             };
         vectorial_variables = {tau_xy};
 
-        grid= grid_tmp; //#LB
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -2938,7 +2937,6 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        // #LB grid = {
         Grid grid_tmp = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
@@ -2971,7 +2969,7 @@ DataSet::DataSet(char const *DatasetName)
         variables = {wlbk};
         vectorial_variables = {};
 
-        grid= grid_tmp; //#LB
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
