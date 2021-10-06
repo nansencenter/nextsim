@@ -25,8 +25,6 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-#CXX = mpic++
-#CXX = mpicxx # not tested with this
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
@@ -66,7 +64,6 @@ CCOBJS=$(CCSRC:%.c=$(OBJECTDIR)%.o)
 CCDEPS=$(CCSRC:%.c=$(DEPENDDIR)%.d)
 
 
-#CC = gcc
 CFLAGS += -Wno-inline # -MMD -MP -lm #-Wall -pedantic
 CFLAGS += -I$(NEXTSIMDIR)/modules/wim/include
 # ========================================================

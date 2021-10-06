@@ -2734,7 +2734,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
+        Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
@@ -2771,6 +2771,8 @@ DataSet::DataSet(char const *DatasetName)
                 // following the mpp_file defined for the grid
             };
         vectorial_variables = {tau_xy};
+
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -2935,7 +2937,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
+        Grid grid_tmp = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
@@ -2966,6 +2968,8 @@ DataSet::DataSet(char const *DatasetName)
 
         variables = {wlbk};
         vectorial_variables = {};
+
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6709,7 +6713,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ice_creg_elements") == 0)
+    else if (strcmp (DatasetName, "ice_nemo_elements") == 0)
     {
         // Definition of the icesat grid and datasets
         Dimension dimension_x={
@@ -6820,7 +6824,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "CREG025_icemod.nc",
+            filename_mask: "NEMO_icemod.nc",
             gridfile: "",
             reference_date: "",
 
@@ -8339,8 +8343,7 @@ DataSet::DataSet(char const *DatasetName)
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-        }; // Q2M
-
+        }; // D2M
         Variable mslp={
             filename_string: "msl",
             name:"msl",
