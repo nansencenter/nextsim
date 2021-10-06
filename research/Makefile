@@ -2,13 +2,10 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=laplacian.exec
 
-#NEXTSIMDIR=..
-
-#CXX = mpicxx
 CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -g -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I. -I$(NEXTSIMDIR)/core/include  -I$(PETSC_DIR)/include #-I headers
+	CXXFLAGS += -I. -I$(NEXTSIMDIR)/core/include  -I$(PETSC_DIR)/include #-Iheaders
 	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I$(NEXTSIMDIR)/contrib/mapx/include
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
 	LDFLAGS += -L$(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
