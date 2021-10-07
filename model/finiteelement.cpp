@@ -9219,13 +9219,10 @@ FiniteElement::readStateVector()
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
-        this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
-//        //option2
-//9        if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
-//        {}
-//        else
-//            this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
-        //
+        if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
+        {}
+        else
+           this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 }//readStateVector
@@ -14783,8 +14780,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         // add OBSERVED concentration
         double sic_new_tot(sic_mod_tot);
         sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
-       // bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
-        bool add_ice=true;
+        bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
         double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
 
         sic_new_tot += sic_added;
