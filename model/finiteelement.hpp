@@ -912,6 +912,7 @@ private:
     bool   M_statevector_parallel_output;
     // std::string M_id_statevector; // int    M_ensemble_member;
     std::string M_statevector_file;
+    std::string M_statevector_DAtype;
     std::string M_statevector_prefix;
     GridOutput::fileLength M_statevector_file_length;
     GridOutput M_statevector;

@@ -1463,6 +1463,7 @@ FiniteElement::initOptAndParam()
     M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //M_restart_from_analysis, use annalysis as restart for new simulation    
     M_ensemble_member = vm["statevector.ensemble_member"].as<int>(); //! // ensemble member run id
     //M_id_statevector = vm["statevector.id"].as<std::string>(); //same as ensemble_member
+    M_statevector_DAtype = vm["statevector.DAtype"].as<std::string>();   // indicates assimilation type (assimlated variable(s))
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
     M_statevector_snapshot = vm["statevector.snapshot"].as<bool>(); //! \param M_statevector_snapshot (boolean) Option on outputting snapshots of mooring records
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
@@ -9219,6 +9220,12 @@ FiniteElement::readStateVector()
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin
+//        //option2
+//9        if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
+//        {}
+//        else
+//            this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
+        //
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 }//readStateVector
@@ -14776,7 +14783,8 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         // add OBSERVED concentration
         double sic_new_tot(sic_mod_tot);
         sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
-        bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
+       // bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
+        bool add_ice=true;
         double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
 
         sic_new_tot += sic_added;
