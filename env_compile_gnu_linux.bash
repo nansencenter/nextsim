@@ -58,10 +58,14 @@ export FFLAGS="-O2 -fopenmp -lstdc++ -fPIC"
 #
 export MPI_DIR="/usr" ; # default OpenMPI
 #
+export NETCDF_DIR="/usr"
+export NETCDF_CXX_DIR="/usr"
+#
 export AEROBULK_DIR="${HOME}/DEV/aerobulk"
 export OASIS_DIR="${HOME}/src/oasis3-mct"
 #
 NXTSM_DEP_DIR="/opt/nextsim_gnu" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
+#
 #############################################
 
 ######################################################################
@@ -69,6 +73,7 @@ NXTSM_DEP_DIR="/opt/nextsim_gnu" ; # path to directory containing compiled BOOST
 ######################################################################
 case `hostname | cut -d. -f2` in
     "ige-meom-cal1" ) NXTSM_DEP_DIR="/mnt/meom/workdir/brodeau/opt/nextsim_gnu"
+                      export AEROBULK_DIR="${NXTSM_DEP_DIR}/aerobulk"
                       ;;
     "occigen" )       NXTSM_DEP_DIR="/store/CT1/ige2071/brodeau/opt/nextsim_gnu"
                       ;;
@@ -80,6 +85,10 @@ case `hostname | cut -d. -f2` in
                       sleep 2
                       ;;
 esac
+
+if ${l_aerobulk} || ${l_cpl_oasis}; then
+    export LDFLAGS+="-lgfortran"
+fi
 
 # Normally the following 2 are pretty standard:
 export MPI_LIB_DIR=${MPI_DIR}/lib
