@@ -16,7 +16,7 @@ ifdef USE_OASIS
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.${CHAN} -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
+	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
@@ -54,7 +54,10 @@ endif
 ifeq ($(NETCDF_FOR_DIR),)
 	NETCDF_FOR_DIR=$(NETCDF_DIR)
 endif
-LDFLAGS += -L$(NETCDF_DIR)/lib -lnetcdf -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4 -L$(NETCDF_FOR_DIR)/lib -lnetcdff
+LDFLAGS += -L$(NETCDF_DIR)/lib -lnetcdf -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+ifdef USE_OASIS
+	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
+endif
 
 ifeq ($(NETCDF_DIR),/usr)
 	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
