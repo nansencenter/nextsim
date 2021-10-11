@@ -9454,6 +9454,9 @@ FiniteElement::explicitSolve()
     std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
+#ifdef OASIS
+    std::vector<double> tau_wi(2*M_num_nodes);
+#endif
     for ( int i=0; i<M_num_nodes; ++i )
     {
         const int u_indx = i;
@@ -9486,6 +9489,15 @@ FiniteElement::explicitSolve()
         // For the mEVP and drag
         VTM[u_indx] = M_VT[u_indx];
         VTM[v_indx] = M_VT[v_indx];
+
+#ifdef OASIS
+        // Wave stress
+        if( coupler_with_waves )
+        {
+            tau_wi[u_indx] = M_tau_wi[u_indx];
+            tau_wi[v_indx] = M_tau_wi[v_indx];
+        }
+#endif
     }
 
     M_timer.tock("prep nodes");
@@ -9579,8 +9591,16 @@ FiniteElement::explicitSolve()
             double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx] + c_prime*(M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle);
-            double const tau_y = tau_a[v_indx] + c_prime*(M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle);
+            double const tau_x = tau_a[u_indx]
+#ifdef OASIS
+                + tau_wi[u_indx]
+#endif
+                + c_prime*( M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle );
+            double const tau_y = tau_a[v_indx]
+#ifdef OASIS
+                + tau_wi[v_indx]
+#endif
+                + c_prime*( M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle );
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
