@@ -61,10 +61,14 @@ export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "           
 #
 export MPI_DIR="${INTEL_ROOT}/mpi/latest"
 #
+export NETCDF_DIR="/opt/netcdf_intel"
+export NETCDF_CXX_DIR="/opt/netcdf_intel"
+#
 export AEROBULK_DIR="${HOME}/DEV/aerobulk"
 export OASIS_DIR="${HOME}/src/oasis3-mct"
 #
 NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
+#
 #############################################
 
 ######################################################################
@@ -120,6 +124,10 @@ case `hostname | cut -d. -f2` in
                       sleep 2
                       ;;
 esac
+
+if ${l_aerobulk} || ${l_cpl_oasis}; then
+    export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
+fi
 
 # Normally the following 2 are pretty standard:
 export MPI_LIB_DIR=${MPI_DIR}/lib
