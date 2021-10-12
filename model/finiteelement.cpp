@@ -14781,8 +14781,9 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         // add OBSERVED concentration
         double sic_new_tot(sic_mod_tot);
         sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
-        bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
-        double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
+        // bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
+        // double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
+        double sic_added = sic_tot_est - sic_mod_tot; 
 
         sic_new_tot += sic_added;
         sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
