@@ -9219,7 +9219,8 @@ FiniteElement::readStateVector()
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
-        if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
+        //if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
+        if ( M_statevector_DAtype=="sic")
         {}
         else
            this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
