@@ -4079,12 +4079,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
+        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
+        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
         if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_thin[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-
+        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
     }//loop over elements
 }//update
 
@@ -5912,12 +5913,16 @@ FiniteElement::thermo(int dt)
         
         // top melt  volume per surface area rate [m/day]
         D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
-
+        
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*86400/ddt;
         
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
+        double del_vi_rplnt_myi =0.;
+        double del_ci_rplnt_myi =0.;
+        double del_vi_mlt_myi =0.;
+        double del_ci_mlt_myi =0.;
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
         {
             M_fyi_fraction[i] = 0.;
@@ -6015,8 +6020,10 @@ FiniteElement::thermo(int dt)
                 //}
 
             }
+            double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
+            double old_thick_myi =  M_thick_myi[i];
 
-            if (reset_myi)
+            if (reset_myi) // 
             {
                 if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_thin_ice_in_myi_reset == true) 
                 {
@@ -6052,6 +6059,8 @@ FiniteElement::thermo(int dt)
                 }
                 M_conc_myi[i] = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]); //make sure it doesn't exceed 1 (it shouldn't)
+                del_ci_rplnt_myi =M_conc_myi[i]  - old_conc_myi; 
+                del_vi_rplnt_myi =M_thick_myi[i] - old_thick_myi;
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
@@ -6069,9 +6078,20 @@ FiniteElement::thermo(int dt)
                     M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
                     M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
+                    del_ci_mlt_myi =M_conc_myi[i] - old_conc_myi; 
+                    del_vi_mlt_myi =M_thick_myi[i]- old_thick_myi;
                 }
             }
         }
+        // Tracers quantities to output
+        // myi melted area per surface area rate [/day]
+        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*86400/ddt;
+        // myi melted  volume per surface area rate [m/day]
+        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*86400/ddt;
+        // myi replenished area per surface area rate [/day]
+        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
+        // myi replenished  volume per surface area rate [m/day]
+        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
 
     }// end for loop
 
@@ -6957,6 +6977,16 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_del_hi_thin);
     D_del_hi = ModelVariable(ModelVariable::variableID::D_del_hi);//! \param D_del_hi (double) Ice growth/melt rate  [m/day]
     M_variables_elt.push_back(&D_del_hi);
+    D_del_vi_mlt_myi = ModelVariable(ModelVariable::variableID::D_del_vi_mlt_myi);//! \param D_del_vi_mlt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_vi_mlt_myi);
+    D_del_ci_mlt_myi = ModelVariable(ModelVariable::variableID::D_del_ci_mlt_myi);//! \param D_del_ci_mlt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_mlt_myi);
+    D_del_ci_rplnt_myi = ModelVariable(ModelVariable::variableID::D_del_ci_rplnt_myi);//! \param D_del_ci_rplnt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_rplnt_myi);
+    D_del_vi_rplnt_myi = ModelVariable(ModelVariable::variableID::D_del_vi_rplnt_myi);//! \param D_del_vi_rplnt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_vi_rplnt_myi);
+    D_del_ci_ridge_myi = ModelVariable(ModelVariable::variableID::D_del_ci_ridge_myi);//! \param D_del_ci_ridge_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_ridge_myi);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -8212,6 +8242,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            // MYI code
             case (GridOutput::variableID::conc_myi):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc_myi[i]*time_factor;
@@ -8247,6 +8278,26 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::del_hi_tend):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_del_hi_tend[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_ridge_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_ridge_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_mlt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_mlt_myi[i]*time_factor;
                 break;
 
             // Diagnostic variables
@@ -8598,6 +8649,11 @@ FiniteElement::initMoorings()
             ("melt_onset", GridOutput::variableID::melt_onset)
             ("freeze_onset", GridOutput::variableID::freeze_onset)
             ("del_hi_tend", GridOutput::variableID::del_hi_tend)
+            ("dvi_mlt_myi", GridOutput::variableID::dvi_mlt_myi)
+            ("dci_mlt_myi", GridOutput::variableID::dci_mlt_myi)
+            ("dci_rplnt_myi", GridOutput::variableID::dci_rplnt_myi)
+            ("dvi_rplnt_myi", GridOutput::variableID::dvi_rplnt_myi)
+            ("dci_ridge_myi", GridOutput::variableID::dci_ridge_myi)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 

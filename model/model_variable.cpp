@@ -368,7 +368,7 @@ ModelVariable::initElemental()
             M_has_max = true;
             M_max_val = 1.;
             break;
-
+        // MYI Variables    
         case (variableID::M_conc_myi):
             M_name = "M_conc_myi";
             M_export_name = "Concentration_myi";
@@ -476,11 +476,43 @@ ModelVariable::initElemental()
         case (variableID::M_del_hi_tend):
             M_name = "M_del_hi_tend";
             M_export_name = "Ice_volume_tendency_daily";
-            M_prognostic = true;
-            M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0.;
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_ci_ridge_myi):
+            M_name = "D_del_ci_ridge_myi";
+            M_export_name = "MYI_area_ridging_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_vi_mlt_myi):
+            M_name = "D_del_vi_mlt_myi";
+            M_export_name = "MYI_volume_melt_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_ci_mlt_myi):
+            M_name = "D_del_ci_mlt_myi";
+            M_export_name = "MYI_area_melt_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_vi_rplnt_myi):
+            M_name = "D_del_vi_rplnt_myi";
+            M_export_name = "MYI_volume_replenishment_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_ci_rplnt_myi):
+            M_name = "D_del_ci_rplnt_myi";
+            M_export_name = "MYI_area_replenishment_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         // Diagnostic variables

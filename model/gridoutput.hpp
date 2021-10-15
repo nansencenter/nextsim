@@ -177,6 +177,11 @@ public:
         mlt_top    = 115,
         mlt_bot    = 116,
         del_vi_thin= 117,
+        dci_ridge_myi= 118,
+        dci_mlt_myi  = 119,
+        dvi_mlt_myi  = 120,
+        dci_rplnt_myi= 121,
+        dvi_rplnt_myi= 122,
 
         // Forcing variables
         tair     = 200,
@@ -389,6 +394,7 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
+                // MYI variables
                 case (variableID::conc_myi):
                     name     = "conc_myi";
                     longName = "Concentration of Multiyear Ice";
@@ -450,6 +456,41 @@ public:
                     longName = "Daily total ice volume tendency";
                     stdName  = "del_hi_tend";
                     Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_rplnt_myi):
+                    name     = "dci_rplnt_myi";
+                    longName = "myi area change rate due to replenishment";
+                    stdName  = "myi_area_change_rate_due_to_replenishment";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_rplnt_myi):
+                    name     = "dvi_rplnt_myi";
+                    longName = "myi volume_change rate due to replenishment";
+                    stdName  = "myi_volume_change_rate_due_to_replenishment";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_mlt_myi):
+                    name     = "dvi_mlt_myi";
+                    longName = "myi volume_change rate due to melt";
+                    stdName  = "myi_volume_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_mlt_myi):
+                    name     = "dci_mlt_myi";
+                    longName = "myi area_change rate due to melt";
+                    stdName  = "myi_area_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge_myi):
+                    name     = "dci_ridge_myi";
+                    longName = "myi area_change rate due to ridging";
+                    stdName  = "myi_area_change_rate_due_to_ridging";
+                    Units    = " /day";
                     cell_methods = "area: mean";
                     break;
 

@@ -798,6 +798,11 @@ private:
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
     ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
     ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_del_vi_mlt_myi;   //myi ice volume (/element_area) melted [m/day]
+    ModelVariable D_del_vi_rplnt_myi;  //myi ice vol change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_rplnt_myi;  //myi ice area change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_mlt_myi;    //myi ice area (/element_area) melted   [m/day]
+    ModelVariable D_del_ci_ridge_myi; //myi ice area change (/element_area) due to ridging [./day]
     ModelVariable D_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]

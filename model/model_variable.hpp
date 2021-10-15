@@ -127,6 +127,11 @@ public:
         D_mlt_top    = 130,
         D_snow2ice   = 131,
         D_del_vi_thin= 132,
+        D_del_ci_mlt_myi = 133,
+        D_del_vi_mlt_myi = 134,
+        D_del_ci_rplnt_myi = 135,
+        D_del_vi_rplnt_myi = 136,
+        D_del_ci_ridge_myi = 137,
     };
 
 
