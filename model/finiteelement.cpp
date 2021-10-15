@@ -8130,6 +8130,17 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
                 break;
 
+#ifdef OASIS
+            case (GridOutput::variableID::tauwix):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_tau_wi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::tauwiy):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += M_tau_wi[i+M_num_nodes]*time_factor;
+                break;
+#endif
+
             // Coupling variables (not covered elsewhere)
             // TODO: Double-check that the ghost nodes see all the connected elements (i.e. ghosts)
             case (GridOutput::variableID::taux):
@@ -8370,6 +8381,22 @@ FiniteElement::initMoorings()
             vectorial_variables.push_back(tau);
         }
 
+#ifdef OASIS
+        else if ( *it == "tauwi" )
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable tauwix(GridOutput::variableID::tauwix);
+            GridOutput::Variable tauwiy(GridOutput::variableID::tauwiy);
+            nodal_variables.push_back(tauwix);
+            nodal_variables.push_back(tauwiy);
+
+            GridOutput::Vectorial_Variable tauwi(
+                    std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+            vectorial_variables.push_back(tauwi);
+        }
+#endif
+
         // Element variables
         else if (mooring_name_map_elements.count(*it)==0)
         {
@@ -8378,6 +8405,9 @@ FiniteElement::initMoorings()
             error_msg<<"Available names are:\n";
             error_msg<<"  velocity\n    vectors of sea-ice velocity\n";
             error_msg<<"  tau\n    vectors of ice-ocean stress\n";
+#ifdef OASIS
+            error_msg<<"  tauwi\n  vectors of wave-ice stress\n";
+#endif
             error_msg<<"\n";
             for (auto ptr=mooring_name_map_elements.begin();
                     ptr!=mooring_name_map_elements.end(); ptr++)
