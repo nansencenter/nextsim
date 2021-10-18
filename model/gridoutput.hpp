@@ -787,7 +787,8 @@ public:
 
     void setLSM(BamgMesh* bamgmesh);
 
-    void updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM);
+    void updateGridMean(BamgMesh* bamgmesh, int nb_local_el,
+            std::vector<double> const& UM);
     void resetGridMean();
     void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
             const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
@@ -854,13 +855,19 @@ private:
 
     void applyLSM();
 
-    void updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> const& UM,
+            variableKind kind, interpMethod method, std::vector<Variable>& variables,
+            double miss_val);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
     std::vector<int> M_gridP;
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
+
+    void setProcMask(BamgMesh* bamgmesh, int nb_local_el,
+            std::vector<double> const& UM);
+    std::vector<double> M_proc_mask;
 
     Communicator M_comm;
 
