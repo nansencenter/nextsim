@@ -357,7 +357,7 @@ GridOutput::initMask()
 }
 
 void
-GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> UM)
+GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> & UM)
 {
     assert(nb_local_el>0);
 
