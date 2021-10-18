@@ -569,6 +569,15 @@ FiniteElement::assignVariables()
         M_ocean_nodes_dataset.grid.loaded=false;
         M_ocean_elements_dataset.grid.loaded=false;
     }
+#if defined OASIS
+    if (vm["coupler.with_waves"].as<bool>())
+    {
+        M_wave_nodes_dataset.loaded=false;
+        M_wave_elements_dataset.loaded=false;
+        M_wave_nodes_dataset.grid.loaded=false;
+        M_wave_elements_dataset.grid.loaded=false;
+    }
+#endif
 
     // reload the dataset
     M_atmosphere_nodes_dataset.loaded=false;
@@ -7051,6 +7060,12 @@ FiniteElement::initOASIS()
         M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
         M_ocean_nodes_dataset.calc_nodal_weights = true;
     }
+    if ( vm["coupler.with_waves"].as<bool>() )
+    {
+        M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        M_wave_nodes_dataset.calc_nodal_weights = true;
+    }
 
     int nrows = M_cpl_out.M_nrows;
     int ncols = M_cpl_out.M_ncols;
@@ -7369,7 +7384,6 @@ FiniteElement::step()
                 M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 M_ocean_nodes_dataset.calc_nodal_weights = true;
             }
-
             if ( vm["coupler.with_waves"].as<bool>() )
             {
                 M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
