@@ -7371,8 +7371,11 @@ FiniteElement::step()
             }
 
             if ( vm["coupler.with_waves"].as<bool>() )
+            {
                 M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
                         M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+                M_wave_nodes_dataset.calc_nodal_weights = true;
+            }
 
             M_timer.tock("resetMeshMean_cpl");
 #endif
