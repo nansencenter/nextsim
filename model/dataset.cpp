@@ -2760,7 +2760,7 @@ DataSet::DataSet(char const *DatasetName)
             masking: true,
             masking_variable: mask,
 
-            gridded_rotation_angle: false,
+            gridded_rotation_angle: true,
             vector_rotation_variable: theta
         };
 
