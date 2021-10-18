@@ -357,7 +357,8 @@ GridOutput::initMask()
 }
 
 void
-GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> & UM)
+GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el,
+        std::vector<double> const& UM)
 {
     assert(nb_local_el>0);
 
@@ -374,7 +375,8 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double>
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, proc_mask_var, 0.);
 
     M_proc_mask = proc_mask_var[0].data_grid;
-}
+}//setProcMask
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Functions other than construction and initialisation
@@ -382,7 +384,8 @@ GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el, std::vector<double>
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el, std::vector<double> & UM)
+GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el,
+        std::vector<double> const& UM)
 {
     // Need to reset M_proc_mask every time now
     if ( M_nodal_variables.size() > 0 )
@@ -409,11 +412,14 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el, std::vector<doub
             for ( int i=0; i<M_grid_size; ++i )
                 if ( M_elemental_variables[M_ice_mask_indx].data_grid[i] <= 0. && it->data_grid[i] != M_miss_val )
                     it->data_grid[i] = 0.;
-}
+}//updateGridMean
+
 
 // Interpolate from the mesh to the grid - updating the gridded mean
 void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> const& UM,
+        variableKind kind, interpMethod method, std::vector<Variable>& variables,
+        double miss_val)
 {
     int nb_var = variables.size();
     if ( nb_var == 0 )
@@ -541,7 +547,8 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, v
     }
 
     xDelete<double>(interp_out);
-}
+}//updateGridMeanWorker
+
 
 // Set the land-sea mask
 /* This function should _only_ be called by the root and _only_ with bamgmesh_root as an argument.
