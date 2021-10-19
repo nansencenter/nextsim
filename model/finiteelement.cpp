@@ -10460,7 +10460,7 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
 {
 
     M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
-                time_init, vm["simul.spinup_duration"].as<double>());
+                time_init, M_spinup_duration);
     M_external_data_nodes.push_back(&M_tau_wi);
     //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
     //            time_init, 0);
