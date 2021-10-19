@@ -2237,7 +2237,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2256,7 +2256,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2274,7 +2274,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2492,7 +2492,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2659,7 +2659,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2677,7 +2677,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2863,7 +2863,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2881,7 +2881,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
