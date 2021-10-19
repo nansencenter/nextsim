@@ -7057,7 +7057,8 @@ FiniteElement::initOASIS()
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
-        M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
         M_ocean_nodes_dataset.calc_nodal_weights = true;
     }
     if ( vm["coupler.with_waves"].as<bool>() )
@@ -7381,7 +7382,8 @@ FiniteElement::step()
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
-                M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+                M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
+                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 M_ocean_nodes_dataset.calc_nodal_weights = true;
             }
             if ( vm["coupler.with_waves"].as<bool>() )

@@ -2607,7 +2607,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions = {dimension_x, dimension_y};
+        std::vector<Dimension> dimensions = {dimension_y, dimension_x};
 
         // Variables received through OASIS
         Variable tau_wi_x={
@@ -2794,7 +2794,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions = {dimension_x, dimension_y};
+        std::vector<Dimension> dimensions = {dimension_y, dimension_x};
 
         // Variables received through OASIS
         //Variable str_var ={
@@ -2864,24 +2864,6 @@ DataSet::DataSet(char const *DatasetName)
             a: 1.,
             b: 0.,
             Units: "",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
-        Variable theta={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "ptheta",
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2961,10 +2943,7 @@ DataSet::DataSet(char const *DatasetName)
             waveOptions: wavopt_none,
 
             masking: true,
-            masking_variable: mask,
-
-            gridded_rotation_angle: true,
-            vector_rotation_variable: theta
+            masking_variable: mask
         };
 
         variables = {wlbk};
