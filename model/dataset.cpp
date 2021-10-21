@@ -2921,7 +2921,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp = {
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::ConservativeRemapping,
+            //interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
             filename_mask: exchange_grid_file.filename().string(),
