@@ -817,8 +817,11 @@ FiniteElement::initDatasets()
 #ifdef OASIS
     if (vm["coupler.with_waves"].as<bool>())
     {
-        M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
-        M_datasets_regrid.push_back(&M_wave_nodes_dataset);
+        if(M_recv_wave_stress)
+        {
+            M_wave_nodes_dataset = DataSet("wave_cpl_nodes");
+            M_datasets_regrid.push_back(&M_wave_nodes_dataset);
+        }
         M_wave_elements_dataset = DataSet("wave_cpl_elements");
         M_datasets_regrid.push_back(&M_wave_elements_dataset);
     }
@@ -1348,6 +1351,7 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
 #ifdef OASIS
+    M_recv_wave_stress = vm["wave_coupling.receive_wave_stress"].as<bool>();
     //! FSD Initialization
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
     const boost::unordered_map<const std::string, setup::FSDType> str2fsd= boost::assign::map_list_of
@@ -7155,8 +7159,11 @@ FiniteElement::initOASIS()
     //Waves
     if ( vm["coupler.with_waves"].as<bool>() )
     {
-        var_rcv.push_back(std::string("I_tauwix"));
-        var_rcv.push_back(std::string("I_tauwiy"));
+        if(M_recv_wave_stress)
+        {
+            var_rcv.push_back(std::string("I_tauwix"));
+            var_rcv.push_back(std::string("I_tauwiy"));
+        }
         var_rcv.push_back(std::string("I_wlbk"));
         //var_rcv.push_back(std::string("I_tm02"));
         //var_rcv.push_back(std::string("I_str_var"));
@@ -7184,9 +7191,12 @@ FiniteElement::initOASIS()
     }
     if (vm["coupler.with_waves"].as<bool>())
     {
-        this->setCplId_rcv(M_wave_nodes_dataset);
+        if(M_recv_wave_stress)
+        {
+            this->setCplId_rcv(M_wave_nodes_dataset);
+            n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
+        }
         this->setCplId_rcv(M_wave_elements_dataset);
-        n_cpl_id += M_wave_nodes_dataset.M_cpl_id.size();
         n_cpl_id += M_wave_elements_dataset.M_cpl_id.size();
     }
 
@@ -8403,6 +8413,9 @@ FiniteElement::initMoorings()
 #ifdef OASIS
         else if ( *it == "tauwi" )
         {
+            if(!M_recv_wave_stress)
+                throw std::runtime_error(
+                    "trying to export M_tau_wi to moorings but wave_coupling.receive_wave_stress=false");
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable tauwix(GridOutput::variableID::tauwix);
             GridOutput::Variable tauwiy(GridOutput::variableID::tauwiy);
@@ -9504,7 +9517,7 @@ FiniteElement::explicitSolve()
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
-    std::vector<double> tau_wi(2*M_num_nodes);
+    std::vector<double> tau_wi(2*M_num_nodes, 0.);
 #endif
     for ( int i=0; i<M_num_nodes; ++i )
     {
@@ -9541,7 +9554,7 @@ FiniteElement::explicitSolve()
 
 #ifdef OASIS
         // Wave stress
-        if( coupler_with_waves )
+        if(coupler_with_waves && M_recv_wave_stress)
         {
             tau_wi[u_indx] = M_tau_wi[u_indx];
             tau_wi[v_indx] = M_tau_wi[v_indx];
@@ -10459,9 +10472,12 @@ void
 FiniteElement::forcingWaves()//(double const& u, double const& v)
 {
 
-    M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
-                time_init, M_spinup_duration);
-    M_external_data_nodes.push_back(&M_tau_wi);
+    if(M_recv_wave_stress)
+    {
+        M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
+                    time_init, M_spinup_duration);
+        M_external_data_nodes.push_back(&M_tau_wi);
+    }
     //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
     //            time_init, 0);
     //M_external_data_elements.push_back(&M_str_var);
@@ -13281,7 +13297,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->gatherNodalField(M_VT, M_VT_root);
 #if defined (OASIS)
     std::vector<double> M_tau_wi_root;
-    if (vm["coupler.with_waves"].as<bool>())
+    if (vm["coupler.with_waves"].as<bool>()
+            && M_recv_wave_stress)
         this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
 #endif
 
@@ -13377,7 +13394,8 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
-            if (vm["coupler.with_waves"].as<bool>())
+            if (vm["coupler.with_waves"].as<bool>()
+                && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");

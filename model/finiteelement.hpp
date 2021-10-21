@@ -302,6 +302,7 @@ public:
     void weldingRoach(const int cpt, double ddt);
     void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double young_ice_growth, double old_conc, double old_conc_young) ;
     double lateralMeltFSD(const int i,double ddt) ;
+    bool M_recv_wave_stress;
 #endif
 
     void checkOutputs(bool const& at_init_time);

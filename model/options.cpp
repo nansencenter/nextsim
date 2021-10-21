@@ -470,6 +470,8 @@ namespace Nextsim
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
+            ("wave_coupling.receive_wave_stress", po::value<bool>()->default_value( true ),
+             "Do we receive the wave stress from the wave model?")
             // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
             ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
