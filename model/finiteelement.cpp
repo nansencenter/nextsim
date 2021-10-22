@@ -664,7 +664,7 @@ FiniteElement::initExternalData()
 
 #ifdef OASIS
     LOG(DEBUG) <<"Initialize forcingWaves\n";
-    if (vm["coupler.with_waves"].as<bool>())
+    if (M_couple_waves)
         this->forcingWaves();
 #endif
 
@@ -806,7 +806,7 @@ FiniteElement::initDatasets()
     }
 
 #ifdef OASIS
-    if (vm["coupler.with_waves"].as<bool>())
+    if (M_couple_waves)
     {
         if(M_recv_wave_stress)
         {
@@ -1342,6 +1342,7 @@ FiniteElement::initOptAndParam()
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
 
 #ifdef OASIS
+    M_couple_waves = vm["coupler.with_waves"].as<bool>();
     M_recv_wave_stress = vm["wave_coupling.receive_wave_stress"].as<bool>();
     //! FSD Initialization
     M_num_fsd_bins = vm["wave_coupling.num_fsd_bins"].as<int>();
@@ -7021,7 +7022,7 @@ FiniteElement::initOASIS()
     }
 
     // Waves
-    if ( vm["coupler.with_waves"].as<bool>() )
+    if (M_couple_waves)
     {
         // Output variables - elements
         std::vector<GridOutput::variableID> grid_ids = {
@@ -7141,7 +7142,7 @@ FiniteElement::initOASIS()
     }
 
     //Waves
-    if ( vm["coupler.with_waves"].as<bool>() )
+    if (M_couple_waves)
     {
         if(M_recv_wave_stress)
         {
@@ -7173,7 +7174,7 @@ FiniteElement::initOASIS()
         n_cpl_id += M_ocean_nodes_dataset.M_cpl_id.size();
         n_cpl_id += M_ocean_elements_dataset.M_cpl_id.size();
     }
-    if (vm["coupler.with_waves"].as<bool>())
+    if (M_couple_waves)
     {
         if(M_recv_wave_stress)
         {
@@ -7380,7 +7381,7 @@ FiniteElement::step()
                 M_ocean_nodes_dataset.calc_nodal_weights = true;
             }
 
-            if ( vm["coupler.with_waves"].as<bool>() )
+            if ( M_couple_waves )
                 M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
                         M_cpl_out.getTriangles(), M_cpl_out.getWeights());
 
@@ -7485,7 +7486,8 @@ FiniteElement::step()
     //======================================================================
     //! 2 + 1/2 : if coupled with waves and FSD activated -> Perform break-up
     //======================================================================
-    if ( (M_num_fsd_bins>0) && (vm["coupler.with_waves"].as<bool>()) && ( pcpt*time_step % cpl_time_step == 0) )
+    if ( M_couple_waves && (M_num_fsd_bins>0)
+            && ( pcpt*time_step % cpl_time_step == 0) )
     {
         chrono.restart();
         LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
@@ -9316,10 +9318,6 @@ FiniteElement::explicitSolve()
     // It's the minimum _slab_ thickness times ice density
     double const min_m = physical::rhoi*vm["dynamics.min_h"].as<double>();
 
-#ifdef OASIS
-    bool const coupler_with_waves = vm["coupler.with_waves"].as<bool>();
-#endif
-
     // For the MEB code
     double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
     double const exponent_relaxation_sigma = vm["dynamics.exponent_relaxation_sigma"].as<double>();
@@ -9535,7 +9533,7 @@ FiniteElement::explicitSolve()
 
 #ifdef OASIS
         // Wave stress
-        if(coupler_with_waves && M_recv_wave_stress)
+        if(M_couple_waves && M_recv_wave_stress)
         {
             tau_wi[u_indx] = M_tau_wi[u_indx];
             tau_wi[v_indx] = M_tau_wi[v_indx];
@@ -13278,8 +13276,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     this->gatherNodalField(M_VT, M_VT_root);
 #if defined (OASIS)
     std::vector<double> M_tau_wi_root;
-    if (vm["coupler.with_waves"].as<bool>()
-            && M_recv_wave_stress)
+    if (M_couple_waves && M_recv_wave_stress)
         this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
 #endif
 
@@ -13375,8 +13372,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
-            if (vm["coupler.with_waves"].as<bool>()
-                && M_recv_wave_stress)
+            if (M_couple_waves && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
