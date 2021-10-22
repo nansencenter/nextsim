@@ -198,6 +198,8 @@ public:
         QSwOcean   = 906,
         saltflux   = 907,
         fwflux_ice = 908,
+        tauwix     = 909,
+        tauwiy     = 910,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -557,6 +559,20 @@ public:
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauwix):
+                    name     = "tauwix";
+                    longName = "Eastward Stress waves on ice";
+                    stdName  = "eastward_stress_waves_on_ice";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauwiy):
+                    name     = "tauwiy";
+                    longName = "Northward Stress waves on ice";
+                    stdName  = "northward_stress_waves_on_ice";
+                    Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
 
