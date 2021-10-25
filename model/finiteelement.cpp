@@ -592,8 +592,14 @@ FiniteElement::assignVariables()
     M_ocean_nodes_dataset.interpolated=false;
     M_ocean_elements_dataset.interpolated=false;
 #ifdef OASIS
-    M_wave_nodes_dataset.interpolated = false;
-    M_wave_elements_dataset.interpolated = false;
+    if(M_couple_waves)
+    {
+        if(M_recv_wave_stress)
+        {
+            M_wave_nodes_dataset.interpolated = false;
+        }
+        M_wave_elements_dataset.interpolated=false;
+    }
 #endif
     M_ice_topaz_elements_dataset.interpolated=false;
     M_ice_piomas_elements_dataset.interpolated=false;
@@ -13276,18 +13282,6 @@ void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
-
-    std::vector<double> M_VT_root;
-    this->gatherNodalField(M_VT, M_VT_root);
-#if defined (OASIS)
-    std::vector<double> M_tau_wi_root;
-    if (M_couple_waves && M_recv_wave_stress)
-        this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
-#endif
-
-    std::vector<double> M_wind_root;
-    this->gatherNodalField(M_wind.getVector(),M_wind_root);
-
     std::vector<double> M_UM_root;
     this->gatherNodalField(M_UM, M_UM_root);
 
@@ -13305,6 +13299,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
+    std::vector<double> M_VT_root;
+    std::vector<double> M_tau_wi_root;
+    std::vector<double> M_wind_root;
     if(export_fields)
     {
         M_surface_root = this->surface(M_mesh_root, M_UM_root);
@@ -13316,6 +13313,13 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                 names_elements.push_back(name);
         }
         this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
+
+        this->gatherNodalField(M_VT, M_VT_root);
+#if defined (OASIS)
+        if (M_couple_waves && M_recv_wave_stress)
+            this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
+#endif
+        this->gatherNodalField(M_wind.getVector(),M_wind_root);
     }
     M_comm.barrier();
     if (M_rank == 0)
@@ -13375,12 +13379,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, timevec, "Time");
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
+            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
             exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (M_couple_waves && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
-            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
             exporter.writeField(outbin, M_wind_root, "M_wind");
 
 
