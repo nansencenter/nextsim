@@ -569,6 +569,18 @@ FiniteElement::assignVariables()
         M_ocean_nodes_dataset.grid.loaded=false;
         M_ocean_elements_dataset.grid.loaded=false;
     }
+#ifdef OASIS
+    if(M_couple_waves)
+    {
+        if(M_recv_wave_stress)
+        {
+            M_wave_nodes_dataset.loaded=false;
+            M_wave_nodes_dataset.grid.loaded=false;
+        }
+        M_wave_elements_dataset.loaded=false;
+        M_wave_elements_dataset.grid.loaded=false;
+    }
+#endif
 
     // reload the dataset
     M_atmosphere_nodes_dataset.loaded=false;
@@ -8396,9 +8408,14 @@ FiniteElement::initMoorings()
 #ifdef OASIS
         else if ( *it == "tauwi" )
         {
-            if(!M_recv_wave_stress)
-                throw std::runtime_error(
-                    "trying to export M_tau_wi to moorings but wave_coupling.receive_wave_stress=false");
+            if(!(M_wave_couple && M_recv_wave_stress))
+            {
+                std::stringstream msg;
+                msg << "To export M_tau_wi to moorings needs:\n"
+                msg << "\t-coupler.with_waves=true\n"
+                msg << "\t-wave_coupling.receive_wave_stress=true\n"
+                throw std::runtime_error(msg.string())
+            }
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable tauwix(GridOutput::variableID::tauwix);
             GridOutput::Variable tauwiy(GridOutput::variableID::tauwiy);
