@@ -8414,13 +8414,14 @@ FiniteElement::initMoorings()
 #ifdef OASIS
         else if ( *it == "tauwi" )
         {
-            if(!(M_wave_couple && M_recv_wave_stress))
+            if(!(M_couple_waves && M_recv_wave_stress))
             {
                 std::stringstream msg;
                 msg << "To export M_tau_wi to moorings needs:\n"
-                msg << "\t-coupler.with_waves=true\n"
-                msg << "\t-wave_coupling.receive_wave_stress=true\n"
-                throw std::runtime_error(msg.string())
+                    << "\t-coupler.with_waves=true\n"
+                    << "\t-wave_coupling.receive_wave_stress=true\n";
+                LOG(ERROR) << msg.str();
+                throw std::runtime_error("Invalid mooring name");
             }
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable tauwix(GridOutput::variableID::tauwix);
@@ -13334,6 +13335,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         this->gatherNodalField(M_wind.getVector(),M_wind_root);
     }
     M_comm.barrier();
+
     if (M_rank == 0)
     {
 
@@ -13398,7 +13400,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
             exporter.writeField(outbin, M_wind_root, "M_wind");
-
 
             // loop over the elemental variables that have been
             // gathered to elt_values_root
