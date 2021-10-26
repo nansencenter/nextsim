@@ -8396,9 +8396,14 @@ FiniteElement::initMoorings()
 #ifdef OASIS
         else if ( *it == "tauwi" )
         {
-            if(!M_recv_wave_stress)
-                throw std::runtime_error(
-                    "trying to export M_tau_wi to moorings but wave_coupling.receive_wave_stress=false");
+            if(!(M_couple_waves && M_recv_wave_stress))
+            {
+                std::stringstream msg;
+                msg << "To export M_tau_wi to moorings needs:\n"
+                    << "\t-coupler.with_waves=true\n"
+                    << "\t-wave_coupling.receive_wave_stress=true\n";
+                throw std::runtime_error(msg.str());
+            }
             use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
             GridOutput::Variable tauwix(GridOutput::variableID::tauwix);
             GridOutput::Variable tauwiy(GridOutput::variableID::tauwiy);
