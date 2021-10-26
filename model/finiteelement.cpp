@@ -13701,10 +13701,10 @@ FiniteElement::checkFieldsFast()
         }
     }
 
-    // Check the velocity
+    // Check the nodes
     for ( int i=0; i<M_num_nodes; i++ )
     {
-        // Too high
+        // Velocity too high
         if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
         {
             crash = true;
@@ -13714,7 +13714,7 @@ FiniteElement::checkFieldsFast()
             break;
         }
 
-        // check for NaN
+        // check for NaN's in velocity
         if ( std::isnan(M_VT[i]+M_VT[i+M_num_nodes]) )
         {
             crash = true;
@@ -13722,6 +13722,20 @@ FiniteElement::checkFieldsFast()
             crash_msg << " ... skipping further tests.\n";
             break;
         }
+
+#ifdef OASIS
+        if(M_couple_waves && M_recv_wave_stress)
+        {
+            // check for NaN's in wave stress
+            if ( std::isnan(M_tau_wi[i]+M_tau_wi[i+M_num_nodes]) )
+            {
+                crash = true;
+                crash_msg << "[" <<M_rank << "] wave stress contains a NaN\n";
+                crash_msg << " ... skipping further tests.\n";
+                break;
+            }
+        }
+#endif
     }
 
     // Export everything and crash
