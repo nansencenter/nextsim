@@ -595,9 +595,7 @@ FiniteElement::assignVariables()
     if(M_couple_waves)
     {
         if(M_recv_wave_stress)
-        {
             M_wave_nodes_dataset.interpolated = false;
-        }
         M_wave_elements_dataset.interpolated=false;
     }
 #endif
@@ -8405,7 +8403,7 @@ FiniteElement::initMoorings()
             if(!(M_couple_waves && M_recv_wave_stress))
             {
                 std::stringstream msg;
-                msg << "To export M_tau_wi to moorings needs:\n"
+                msg << "To export M_tau_wi to moorings, you need the options:\n"
                     << "\t-coupler.with_waves=true\n"
                     << "\t-wave_coupling.receive_wave_stress=true\n";
                 throw std::runtime_error(msg.str());
