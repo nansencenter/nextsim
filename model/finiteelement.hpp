@@ -292,6 +292,8 @@ public:
     int globalNumToprocId(int global_num);
 
 #ifdef OASIS
+    bool M_couple_waves;
+    bool M_recv_wave_stress;
     // FSD related functions
     void initFsd();
     void redistributeFSD();
