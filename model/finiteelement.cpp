@@ -7609,6 +7609,7 @@ FiniteElement::step()
                 if ( ( it->varID > 0 ) && ( it->cpl_id > 0 ) ) // Skip non-outputing variables
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
+        M_comm.barrier();
 
         M_cpl_out.resetMeshMean(bamgmesh);
         M_cpl_out.resetGridMean();
