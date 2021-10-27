@@ -7405,8 +7405,6 @@ FiniteElement::step()
                         M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 M_ocean_nodes_dataset.calc_nodal_weights = true;
             }
-            {
-
             if (M_couple_waves)
             {
                 M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
