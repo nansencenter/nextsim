@@ -919,8 +919,7 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 //! Called by checkReloadMainDatasets(), and all the ice initialisation and assimilation routines.
 void
 FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
-        double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
-        const bool use_timer)
+        double const CRtime, std::vector<double> &RX, std::vector<double> &RY)
 {
     M_timer.tick("checkReloadDatasets");
     if ( ext_data_vec.size()==0 )
@@ -960,7 +959,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 //!   needs to be reloaded and/or reinterpolated
 //! Called by init() and step()
 void
-FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer)
+FiniteElement::checkReloadMainDatasets(double const CRtime)
 {
     // check the time-dependant ExternalData objects to see if they need to be reloaded
     // - mesh elements
@@ -969,7 +968,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer
     auto RY = M_mesh.bCoordY();
     M_timer.tock("bCoord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant elements)\n";
-    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY, use_timer);
+    this->checkReloadDatasets(M_external_data_elements, CRtime, RX, RY);
 
     // - mesh nodes
     M_timer.tick("Coord");
@@ -977,7 +976,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime, const bool use_timer
     RY = M_mesh.coordY();
     M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY, use_timer);
+    this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
 
@@ -7447,7 +7446,7 @@ FiniteElement::step()
     M_timer.tick("checkReload");
 
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0), true);
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
     LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
 
     M_timer.tock("checkReload");
