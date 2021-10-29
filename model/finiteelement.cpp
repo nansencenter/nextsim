@@ -5426,10 +5426,6 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
-#ifdef OASIS
-                    if (M_num_fsd_bins>1)
-                        throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
-#endif
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -5836,6 +5832,11 @@ FiniteElement::thermo(int dt)
 
     }// end for loop
 
+#ifdef OASIS
+    /* If wave coupling is on, but no FSD effect on lateral melting */
+    if (M_num_fsd_bins>1)
+    this->updateFSD()
+#endif
     M_timer.tock("slab");
 
 }//thermo
