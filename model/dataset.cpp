@@ -2655,7 +2655,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2674,7 +2674,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2692,7 +2692,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2910,7 +2910,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -3025,7 +3025,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions = {dimension_x, dimension_y};
+        std::vector<Dimension> dimensions = {dimension_y, dimension_x};
 
         // Variables received through OASIS
         Variable tau_wi_x={
@@ -3077,7 +3077,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -3095,7 +3095,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "radians",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -3153,8 +3153,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp = {
-            //interpolation_method: InterpolationType::FromMeshToMeshQuick,
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
             filename_mask: exchange_grid_file.filename().string(),
@@ -3178,7 +3177,7 @@ DataSet::DataSet(char const *DatasetName)
             masking: true,
             masking_variable: mask,
 
-            gridded_rotation_angle: false,
+            gridded_rotation_angle: true,
             vector_rotation_variable: theta
         };
 
@@ -3212,7 +3211,7 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        std::vector<Dimension> dimensions = {dimension_x, dimension_y};
+        std::vector<Dimension> dimensions = {dimension_y, dimension_x};
 
         // Variables received through OASIS
         //Variable str_var ={
@@ -3281,25 +3280,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
-        Variable theta={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "ptheta",
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -3357,7 +3338,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none};
 
         Grid grid_tmp = {
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::ConservativeRemapping,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
             filename_mask: exchange_grid_file.filename().string(),
@@ -3379,10 +3360,7 @@ DataSet::DataSet(char const *DatasetName)
             waveOptions: wavopt_none,
 
             masking: true,
-            masking_variable: mask,
-
-            gridded_rotation_angle: true,
-            vector_rotation_variable: theta
+            masking_variable: mask
         };
 
         variables = {wlbk};
