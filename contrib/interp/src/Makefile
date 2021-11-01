@@ -11,7 +11,6 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-#CXX = mpicxx
 CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -v
 
 ifeq ($(KERNEL),Linux)
