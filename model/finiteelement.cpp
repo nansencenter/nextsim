@@ -5435,10 +5435,6 @@ FiniteElement::thermo(int dt)
                         del_c += del_hi*M_conc[i]*PhiM/hi_old;
                     else
                         del_c += 0.;
-#ifdef OASIS
-                    if (M_num_fsd_bins>1)
-                        throw std::logic_error("melt_type =1 is not compatible with the use of a FSD yet");
-#endif
                     break;
                 case 2:
                     /* Mellor and Kantha (89) */
@@ -5458,11 +5454,6 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
-#ifdef OASIS
-                    if (M_num_fsd_bins>1)
-                        throw std::logic_error("melt_type =2 is not compatible with the use of a FSD yet");
-#endif
-                    break;
 #ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
@@ -5566,7 +5557,8 @@ FiniteElement::thermo(int dt)
             M_ridge_ratio[i] = 0.;
 
 #ifdef OASIS
-            // If FSD : Don't change its shape. Remove all ice if no young ice
+            // If FSD : Doesn't change FSD shape. Remove all ice if no young ice
+            // This is to cover the case where there is no "solid" ice but young ice. FSD should still be defined
             if(M_num_fsd_bins>0)
             {
                 double ctot=0;
@@ -5604,9 +5596,13 @@ FiniteElement::thermo(int dt)
         else
         {
 #ifdef OASIS
-            /* In case there is an FSD: */
-            if(M_num_fsd_bins>0)
+            /* In case there is an FSD and M_conc>0: */
+            if ( (M_num_fsd_bins>0) && (melt_type==3) )
+            { 
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,young_ice_growth,old_conc,old_conc_young);
+            }
+            /* In case there is melt_type!=3 (no FSD dependent lateral melting), FSD shape is unchanged.
+            FSD is updated after the routine is over (in updateFSD(), called from step()) */
 #endif
         }
 
@@ -7482,6 +7478,10 @@ FiniteElement::step()
         M_timer.tock("thermo");
         LOG(VERBOSE) <<"---timer thermo:               "<< M_timer.lap("thermo") <<"s\n";
 
+#ifdef OASIS
+        if ( M_couple_waves && (M_num_fsd_bins>0))
+            this->updateFSD();
+#endif
         //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields starting \n";
         // this->checkFields();
         //LOG(DEBUG) <<"["<<M_rank<<"], Post-Thermo checkfields is a success \n";
@@ -7495,7 +7495,6 @@ FiniteElement::step()
     {
         chrono.restart();
         LOG(DEBUG) <<"["<<M_rank<<"], Redistribution starts \n";
-        this->updateFSD();
         this->redistributeFSD();
         if (M_debug_fsd)
         {
