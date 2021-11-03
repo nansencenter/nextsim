@@ -5602,7 +5602,7 @@ FiniteElement::thermo(int dt)
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,young_ice_growth,old_conc,old_conc_young);
             }
             /* In case there is melt_type!=3 (no FSD dependent lateral melting), FSD shape is unchanged.
-            FSD is updated after the routine is over (in step()) */
+            FSD is updated after the routine is over (in updateFSD(), called from step()) */
 #endif
         }
 
