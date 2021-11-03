@@ -5597,7 +5597,7 @@ FiniteElement::thermo(int dt)
         {
 #ifdef OASIS
             /* In case there is an FSD and M_conc>0: */
-            if ( (M_num_fsd_bins>0) and (melt_type==3) )
+            if ( (M_num_fsd_bins>0) && (melt_type==3) )
             { 
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,young_ice_growth,old_conc,old_conc_young);
             }
