@@ -1,5 +1,3 @@
-
-
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
 
 /**
@@ -14742,7 +14740,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 {
     // refer to pynextismf/assimilation.py
     // sic_new,sit_new, snt_new, rir_new are temporary variables as return. 
-    // Other modified variables are transfered by global variables
+    // Other modified variables are transfered by global variables like M_h_thin
 
     // Young (thin) ice fraction from the total sic
     double const _YIF = 0.2;
@@ -14786,7 +14784,8 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 
         sic_new_tot += sic_added;
         sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
-
+        double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
+        // Update concentration and thickness
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // Split updated total concentration into old and young
@@ -14797,28 +14796,52 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
                 sic_new = 0;
                 sic_new_thin = 0;
             }
+            if (sic_added<0)
+            {   // In open water case 
+                if (sic_new_tot < physical::cmin)
+                {
+                    sic_new_thin=0;
+                    sit_new_thin=0;                    
+                    sic_new=0;
+                    sit_new=0;
+                }     
+                // start removing ice from thin ice first as thin ice will disappear quicker than thick ice                                       
+                else  
+                    if (sic_mod_thin + sic_added <0)
+                    {   
+                        sic_new_thin=0;
+                        sit_new_thin=0;
+                        sic_new=sic_mod + (sic_mod_thin+sic_added);
+                        sit_new=sit_mod // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
+                    }
+                    else //thin ice is partially removed 
+                    {   
+                        sic_new_thin=sic_mod_thin + sic_added;
+                        sit_new_thin=sit_mod_thin //+ h_thin_new*sic_added;
+                        sic_new=sic_mod;
+                        sit_new=sit_mod;   
+                    }
+            }
+            else  // thin ice is added
+            {
+                sic_new_thin=sic_mod_thin + sic_added;
+                sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
+                sic_new=sic_mod;
+                sit_new=sit_mod;           
+            }
         }
         else
         {
             sic_new = sic_new_tot < physical::cmin ? 0. : sic_new_tot;
-        }
-        
-        // Update ice thickness, ridge ratio and snow thickness proportionaly to SIC
-        // where ice was present:
-        double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
-        rir_new = rir_mod * update_factor;
-        sit_new = sit_mod * update_factor;
-        snt_new = snt_mod * update_factor;
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            sit_new_thin = sit_mod_thin * update_factor;
-            snt_new_thin = snt_mod_thin * update_factor;
-            sit_new_thin += h_thin_new * sic_added; // all new ice is thin
-        }
-        else
-        {
             sit_new += h_thin_new * sic_added;
         }
+        
+        // Update ridge ratio and snow thickness proportionaly to SIC
+        // where ice was present:        
+        rir_new = rir_mod * update_factor;
+        snt_new = snt_mod * update_factor;
+        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            snt_new_thin = snt_mod_thin * update_factor;
 
         // in brand new ice:
         if ((sic_mod_tot < physical::cmin) &&
@@ -14867,8 +14890,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
     //     *  thick and thin/young ice thickness is changed proportionally
     // Young (thin) ice fraction
     
-    // modified sice variables due to enkf: sic_new, sit_new, snt_new, rir_new;
-    // i: i-th element of the model grid
+    // modified sice variables due to enkf: sic_new, sit_new, snt_new, rir_new
     double const _YIF = 0.2;
     // Thickness of new ice
     double const _HNULL = 0.25;
@@ -14876,13 +14898,13 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
     double sit_mod_tot, sic_mod_tot, sit_mod, sic_mod, snt_mod, rir_mod, sit_mod_thin, sic_mod_thin, snt_mod_thin;
     double sic_new_tot, sit_new_thin, sic_new_thin, snt_new_thin;
     bool ice00,ice01,ice10,ice11;
-
+    //the variables have been modified in assimConc
         sic_mod = sic_new;
         sit_mod = sit_new;
         snt_mod = snt_new;
         rir_mod = rir_new;
-        sit_mod_tot = sit_mod; //modified in assimConc
-        sic_mod_tot = sic_mod;
+        sit_mod_tot = sit_mod; 
+        // sic_mod_tot = sic_mod; 
         //        
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -14890,7 +14912,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             sic_mod_thin= M_conc_thin[i];
             snt_mod_thin = M_hs_thin[i];
             sit_mod_tot += sit_mod_thin;
-            sic_mod_tot += sic_mod_thin;
+            // sic_mod_tot += sic_mod_thin; 
         }
         
         // codes identifying where ice was present before and after assim
@@ -14906,7 +14928,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // for two ice categories
-            sit_new = sit_mod;
+            sit_new = sit_mod;    
             sit_new_thin = sit_mod_thin;
             // where ice was present
             if (ice10 || ice11)
