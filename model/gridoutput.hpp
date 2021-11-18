@@ -147,6 +147,7 @@ public:
         age_d        = 18,
         age          = 19,
         conc_upd     = 20,
+        abs_thick    = 21,
 
         // Diagnostic variables
         Qa     = 100,
@@ -232,6 +233,13 @@ public:
                     name     = "sit";
                     longName = "Sea Ice Thickness";
                     stdName  = "sea_ice_thickness";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::abs_thick):
+                    name     = "sit";
+                    longName = "Absolute Sea Ice Thickness";
+                    stdName  = "abs_sea_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;

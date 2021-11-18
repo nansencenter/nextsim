@@ -6019,7 +6019,7 @@ DataSet::DataSet(char const *DatasetName)
         };
         Variable thickness={
             filename_prefix: "", // All variables are in the same (grid) file
-            name: "sit",
+            name: "sit",         // it loads the absolute ice thickness, used in readstatevector
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,

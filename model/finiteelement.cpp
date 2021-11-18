@@ -8067,6 +8067,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_thick[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::abs_thick):  //total absolute thickness
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += (D_thick[i]/D_conc[i])*time_factor;
+                break;
+
             case (GridOutput::variableID::damage):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_damage[i]*time_factor;
@@ -8412,6 +8417,7 @@ FiniteElement::initMoorings()
         mooring_name_map_elements = boost::assign::map_list_of
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
+            ("abs_thick", GridOutput::variableID::abs_thick)
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
@@ -8799,6 +8805,7 @@ FiniteElement::initStateVector()
         statevector_name_map_elements = boost::assign::map_list_of
             ("conc", GridOutput::variableID::conc)
             ("thick", GridOutput::variableID::thick)
+            ("abs_thick", GridOutput::variableID::abs_thick)
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
@@ -9215,7 +9222,8 @@ FiniteElement::readStateVector()
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type                
         M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
-        double sic_tmp,sit_tmp,snt_tmp,rir_tmp;
+        double sic_tmp,sit_tmp,snt_tmp,rir_tmp,effective_thickness;
+        effective_thickness = M_analysis_thick[i]*M_analysis_conc[i];
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
@@ -14812,12 +14820,12 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
                         sic_new_thin=0;
                         sit_new_thin=0;
                         sic_new=sic_mod + (sic_mod_thin+sic_added);
-                        sit_new=sit_mod // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
+                        sit_new=sit_mod; // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
                     }
                     else //thin ice is partially removed 
                     {   
                         sic_new_thin=sic_mod_thin + sic_added;
-                        sit_new_thin=sit_mod_thin //+ h_thin_new*sic_added;
+                        sit_new_thin=sit_mod_thin; //+ h_thin_new*sic_added;
                         sic_new=sic_mod;
                         sit_new=sit_mod;   
                     }
