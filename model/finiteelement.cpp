@@ -14756,6 +14756,9 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     sic_new_tot += sic_added;
     sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
     double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
+
+    sit_new_thin=sit_mod_thin;
+    sit_new=sit_mod;
     // Update concentration and thickness
     if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
@@ -14766,39 +14769,17 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         {
             sic_new = 0;
             sic_new_thin = 0;
+            sit_new_thin=0;
+            sit_new=0;
         }
-        if (sic_added<0)
-        {   // In open water case 
-            if (sic_new_tot < physical::cmin)
-            {
-                sic_new_thin=0;
-                sit_new_thin=0;                    
-                sic_new=0;
-                sit_new=0;
-            }     
-            // start removing ice from thin ice first as thin ice will disappear quicker than thick ice                                       
-            else  
-                if (sic_mod_thin + sic_added <0)
-                {   
-                    sic_new_thin=0;
-                    sit_new_thin=0;
-                    sic_new=sic_mod + (sic_mod_thin+sic_added);
-                    sit_new=sit_mod; // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
-                }
-                else //thin ice is partially removed 
-                {   
-                    sic_new_thin=sic_mod_thin + sic_added;
-                    sit_new_thin=sit_mod_thin; //+ h_thin_new*sic_added;
-                    sic_new=sic_mod;
-                    sit_new=sit_mod;   
-                }
-        }
-        else  // thin ice is added
+        else
         {
-            sic_new_thin=sic_mod_thin + sic_added;
-            sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
-            sic_new=sic_mod;
-            sit_new=sit_mod;           
+            if (sic_new_thin < 0)
+            {   
+                sic_new_thin=0;
+                sit_new_thin=0;
+                sic_new=sic_mod + (sic_mod_thin+sic_added);
+            }
         }
     }
     else
@@ -14822,6 +14803,7 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
         snt_new = 0;
         if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
+            sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
             snt_new_thin = 0;
         }
     }
