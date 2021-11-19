@@ -14807,6 +14807,10 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
             sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
             snt_new_thin = 0;
         }
+        else
+        {
+            sit_new=sit_mod + h_thin_new*sic_added;
+        }
     }
 
     // compute total ice and snow thickness before and after assimilation
