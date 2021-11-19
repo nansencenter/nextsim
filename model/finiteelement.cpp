@@ -9222,52 +9222,16 @@ FiniteElement::readStateVector()
     for(int i=0; i<M_num_elements; ++i){    //transfer state from external_data to ModelVariable type                
         M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
-        double sic_tmp,sit_tmp,snt_tmp,rir_tmp,effective_thickness;
-        effective_thickness = M_analysis_thick[i]*M_analysis_conc[i];
+        double sic_tmp,sit_tmp,snt_tmp,rir_tmp, effective_thickness;        
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
+        effective_thickness = M_analysis_thick[i]*M_analysis_conc[i]; // reconstruct the effective SIT since M_analysis_thick is absolute SIT
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
         else
-           this->AssimThick(i,M_analysis_thick[i],sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
+           this->AssimThick(i,effective_thickness,sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 }//readStateVector
-
-// void
-// FiniteElement::export_WindPerturbations()
-// {
-//     LOG(DEBUG) << "export perturbations of wind fields to file\n";
-//     if (M_comm.rank() == 0) {
-//         // assume M_external_data_nodes[0] with index 0 is related ot wind field.
-//         // thus, M_dataset = M_external_data_nodes[0]->get_M_dataset(); 
-//         // data coordinates are ecmwf grid: 3600x501, also defined in pseudo.nml
-//         // otherwise, search the dataset by the following commented loop
-        
-//         // for ( auto it = M_external_data_nodes.begin(); it != M_external_data_nodes.end(); ++it)
-//         // {
-//         //     if (strcmp((*it)->getVariableName().c_str(), "10U") == 0)  //new name: "10U", oldname:"U10M"
-//         //     {   
-//         //         Dataset *dataset;
-//         //         dataset=(*it)->get_M_dataset();  // function is defined in externaldata.hpp      
-  
-//         // Create the netCDF file.
-//         std::string filename_root;
-//         filename_root = M_export_path + "/WindPerturbation_mem" + std::to_string(M_ensemble_member) +".nc";
-//         netCDF::NcFile dataFile(filename_root, netCDF::NcFile::replace);
-//         Dataset *M_dataset;
-//         // write data to the file
-//         M_dataset = M_external_data_nodes[0]->get_M_dataset();  // function is defined in externaldata.hpp   
-//         LOG(DEBUG) << "write dimensional perturbations\n";
-//         netCDF::NcDim dim_synforc = dataFile.addDim("synforc",M_dataset->synforc.size());  
-//         netCDF::NcVar synforc     = dataFile.addVar("synforc",netCDF::ncFloat, dim_synforc);
-//         synforc.putVar(&M_dataset->synforc[0]);
-//         //
-//         LOG(DEBUG) << "write nondimensional fields\n";
-//         netCDF::NcDim dim_randfld = dataFile.addDim("randfld",M_dataset->randfld.size()); 
-//         netCDF::NcVar randfld     = dataFile.addVar("randfld",netCDF::ncFloat, dim_randfld);
-//         randfld.putVar(&M_dataset->randfld[0]);     
-//     }
-// }//export_WindPerturbations
 
 #endif // ENSEMBLE
 
@@ -14755,136 +14719,134 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     // Maximum Thickness of new ice
     double const _HNULL = 0.25;
 
-    // for ( int i=0; i<M_num_elements; i++ )
-    // {
-        // get model variables
-        double sic_mod(M_conc[i]);
-        double sit_mod(M_thick[i]);
-        double rir_mod(M_ridge_ratio[i]);
-        double snt_mod(M_snow_thick[i]);
-        double sic_upd_mod(M_conc_upd[i]); // it is used for calculating compensation heat flux
 
-        // set total concentration
-        double sic_mod_tot(sic_mod);
-        double sit_mod_tot(sit_mod);
-        
-        // for thin ice declaration
-        double sic_mod_thin, sit_mod_thin, snt_mod_thin;
-        double sit_new_thin, snt_new_thin, sic_new_thin;
-        double h_thin_new = _HNULL;
+    // get model variables
+    double sic_mod(M_conc[i]);
+    double sit_mod(M_thick[i]);
+    double rir_mod(M_ridge_ratio[i]);
+    double snt_mod(M_snow_thick[i]);
+    double sic_upd_mod(M_conc_upd[i]); // it is used for calculating compensation heat flux
 
-        // in case of using thin (young) ice category, total concentration is sum of old and young ice conc
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    // set total concentration
+    double sic_mod_tot(sic_mod);
+    double sit_mod_tot(sit_mod);
+    
+    // for thin ice declaration
+    double sic_mod_thin, sit_mod_thin, snt_mod_thin;
+    double sit_new_thin, snt_new_thin, sic_new_thin;
+    double h_thin_new = _HNULL;
+
+    // in case of using thin (young) ice category, total concentration is sum of old and young ice conc
+    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        sic_mod_thin = M_conc_thin[i];
+        sit_mod_thin = M_h_thin[i];
+        snt_mod_thin = M_hs_thin[i];
+        sic_mod_tot += sic_mod_thin;
+        sit_mod_tot += sit_mod_thin;
+    }
+
+    // add OBSERVED concentration
+    double sic_new_tot(sic_mod_tot);
+    sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
+    // bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
+    // double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
+    double sic_added = sic_tot_est - sic_mod_tot; 
+
+    sic_new_tot += sic_added;
+    sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
+    double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
+    // Update concentration and thickness
+    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        // Split updated total concentration into old and young
+        sic_new = sic_mod;
+        sic_new_thin = sic_mod_thin + sic_added;
+        if (sic_new_tot < physical::cmin)
         {
-            sic_mod_thin = M_conc_thin[i];
-            sit_mod_thin = M_h_thin[i];
-            snt_mod_thin = M_hs_thin[i];
-            sic_mod_tot += sic_mod_thin;
-            sit_mod_tot += sit_mod_thin;
+            sic_new = 0;
+            sic_new_thin = 0;
         }
-
-        // add OBSERVED concentration
-        double sic_new_tot(sic_mod_tot);
-        sic_tot_est = std::fmax(0, std::fmin(sic_tot_est,1));
-        // bool add_ice = ( (sic_tot_est >= 0.15) && (sic_mod_tot < 0.15) );
-        // double sic_added = add_ice ? sic_tot_est - sic_mod_tot : 0.;
-        double sic_added = sic_tot_est - sic_mod_tot; 
-
-        sic_new_tot += sic_added;
-        sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
-        double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
-        // Update concentration and thickness
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            // Split updated total concentration into old and young
-            sic_new = sic_mod;
-            sic_new_thin = sic_mod_thin + sic_added;
+        if (sic_added<0)
+        {   // In open water case 
             if (sic_new_tot < physical::cmin)
             {
-                sic_new = 0;
-                sic_new_thin = 0;
-            }
-            if (sic_added<0)
-            {   // In open water case 
-                if (sic_new_tot < physical::cmin)
-                {
+                sic_new_thin=0;
+                sit_new_thin=0;                    
+                sic_new=0;
+                sit_new=0;
+            }     
+            // start removing ice from thin ice first as thin ice will disappear quicker than thick ice                                       
+            else  
+                if (sic_mod_thin + sic_added <0)
+                {   
                     sic_new_thin=0;
-                    sit_new_thin=0;                    
-                    sic_new=0;
-                    sit_new=0;
-                }     
-                // start removing ice from thin ice first as thin ice will disappear quicker than thick ice                                       
-                else  
-                    if (sic_mod_thin + sic_added <0)
-                    {   
-                        sic_new_thin=0;
-                        sit_new_thin=0;
-                        sic_new=sic_mod + (sic_mod_thin+sic_added);
-                        sit_new=sit_mod; // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
-                    }
-                    else //thin ice is partially removed 
-                    {   
-                        sic_new_thin=sic_mod_thin + sic_added;
-                        sit_new_thin=sit_mod_thin; //+ h_thin_new*sic_added;
-                        sic_new=sic_mod;
-                        sit_new=sit_mod;   
-                    }
-            }
-            else  // thin ice is added
-            {
-                sic_new_thin=sic_mod_thin + sic_added;
-                sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
-                sic_new=sic_mod;
-                sit_new=sit_mod;           
-            }
+                    sit_new_thin=0;
+                    sic_new=sic_mod + (sic_mod_thin+sic_added);
+                    sit_new=sit_mod; // or sit_new=sit_mod =（sit_mod_thin /sic_mod_thin)*(sic_mod_thin+sic_add); // a+ h_thin_new*(sic_mod_thin+sic_added);
+                }
+                else //thin ice is partially removed 
+                {   
+                    sic_new_thin=sic_mod_thin + sic_added;
+                    sit_new_thin=sit_mod_thin; //+ h_thin_new*sic_added;
+                    sic_new=sic_mod;
+                    sit_new=sit_mod;   
+                }
         }
-        else
+        else  // thin ice is added
         {
-            sic_new = sic_new_tot < physical::cmin ? 0. : sic_new_tot;
-            sit_new += h_thin_new * sic_added;
+            sic_new_thin=sic_mod_thin + sic_added;
+            sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
+            sic_new=sic_mod;
+            sit_new=sit_mod;           
         }
+    }
+    else
+    {
+        sic_new = sic_new_tot < physical::cmin ? 0. : sic_new_tot;
+        sit_new += h_thin_new * sic_added;
+    }
+    
+    // Update ridge ratio and snow thickness proportionaly to SIC
+    // where ice was present:        
+    rir_new = rir_mod * update_factor;
+    snt_new = snt_mod * update_factor;
+    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        snt_new_thin = snt_mod_thin * update_factor;
+
+    // in brand new ice:
+    if ((sic_mod_tot < physical::cmin) &&
+        (sic_new_tot >= physical::cmin))
+    {
+        rir_new = 0;
+        snt_new = 0;
+        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        {
+            snt_new_thin = 0;
+        }
+    }
+
+    // compute total ice and snow thickness before and after assimilation
+    double sit_new_tot(sit_new);
+    double snt_new_tot(snt_new);
+    // How much concentration was added/removed (positive - concentration added by assimilation)
+    double sic_upd_new(sic_new - sic_mod);
+    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        // also add young ice
+        sic_upd_new += sic_new_thin - sic_mod_thin;
+    }
         
-        // Update ridge ratio and snow thickness proportionaly to SIC
-        // where ice was present:        
-        rir_new = rir_mod * update_factor;
-        snt_new = snt_mod * update_factor;
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            snt_new_thin = snt_mod_thin * update_factor;
+    // weighted average with previous sic_upd
+    sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
 
-        // in brand new ice:
-        if ((sic_mod_tot < physical::cmin) &&
-            (sic_new_tot >= physical::cmin))
-        {
-            rir_new = 0;
-            snt_new = 0;
-            if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-            {
-                snt_new_thin = 0;
-            }
-        }
-
-        // compute total ice and snow thickness before and after assimilation
-        double sit_new_tot(sit_new);
-        double snt_new_tot(snt_new);
-        // How much concentration was added/removed (positive - concentration added by assimilation)
-        double sic_upd_new(sic_new - sic_mod);
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            // also add young ice
-            sic_upd_new += sic_new_thin - sic_mod_thin;
-        }
-            
-        // weighted average with previous sic_upd
-        sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
-
-        M_conc_upd[i]=sic_upd_new;
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        {
-            M_conc_thin[i]=sic_new_thin;
-            M_h_thin[i]=sit_new_thin;
-            M_hs_thin[i]=snt_new_thin;
-        }
-    // }
+    M_conc_upd[i]=sic_upd_new;
+    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    {
+        M_conc_thin[i]=sic_new_thin;
+        M_h_thin[i]=sit_new_thin;
+        M_hs_thin[i]=snt_new_thin;
+    }
 }
 
 
