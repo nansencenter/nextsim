@@ -14756,15 +14756,17 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     sic_new_tot += sic_added;
     sic_new_tot = sic_tot_est < 0.15 ? 0. : sic_new_tot;
     double update_factor = sic_new_tot < physical::cmin ? 0. : 1.;
-
-    sit_new_thin=sit_mod_thin;
+    // initialise sit_new and sic_new
     sit_new=sit_mod;
+    sic_new = sic_mod;
+
     // Update concentration and thickness
     if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
     {
         // Split updated total concentration into old and young
-        sic_new = sic_mod;
+        sit_new_thin=sit_mod_thin;
         sic_new_thin = sic_mod_thin + sic_added;
+
         if (sic_new_tot < physical::cmin)
         {
             sic_new = 0;
@@ -14785,7 +14787,6 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     else
     {
         sic_new = sic_new_tot < physical::cmin ? 0. : sic_new_tot;
-        sit_new += h_thin_new * sic_added;
     }
     
     // Update ridge ratio and snow thickness proportionaly to SIC
@@ -14856,7 +14857,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
         snt_mod = snt_new;
         rir_mod = rir_new;
         sit_mod_tot = sit_mod; 
-        // sic_mod_tot = sic_mod; 
+        sic_new_tot = sic_mod; 
         //        
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
@@ -14864,40 +14865,46 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             sic_mod_thin= M_conc_thin[i];
             snt_mod_thin = M_hs_thin[i];
             sit_mod_tot += sit_mod_thin;
-            // sic_mod_tot += sic_mod_thin; 
+            sic_new_tot += sic_mod_thin; 
         }
         
         // codes identifying where ice was present before and after assim
         sit_tot_est = std::fmax(0, sit_tot_est);
         ice00 = (sit_mod_tot < physical::hmin) && (sit_tot_est < physical::hmin);  
-        ice01 = (sit_mod_tot < physical::hmin) && (sit_tot_est >= physical::hmin);
+        ice01 = (sit_mod_tot < physical::hmin) && (sit_tot_est  >= physical::hmin);
         ice10 = (sit_mod_tot >= physical::hmin) && (sit_tot_est < physical::hmin);
         ice11 = (sit_mod_tot >= physical::hmin) && (sit_tot_est >= physical::hmin);
 
         // calculate update factor 
-        update_factor = (ice10 || ice11) ? sit_tot_est/sit_mod_tot : 0;
+
+        // update_factor = (ice10 || ice11) ? sit_tot_est/sit_mod_tot : 0;
+        update_factor = sic_mod_thin/sic_new_tot;
         // update ice thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
             // for two ice categories
-            sit_new = sit_mod;    
-            sit_new_thin = sit_mod_thin;
-            // where ice was present
-            if (ice10 || ice11)
-            {
-                sit_new = sit_mod * update_factor;
-                sit_new_thin = sit_mod_thin * update_factor;           
-            }
-            // where new ice was added
-            // similar to initialiation:
-            // SIT YOUNG is 20% of total SIT until it reaches _HNULL
-            // SIT OLDER - remaining part
-            if (ice01)
-            {
-                sit_new_thin = sit_tot_est * _YIF;
-                sit_new_thin = std::min(sit_new_thin, _HNULL); 
-                sit_new = sit_tot_est - sit_new_thin;
-            }            
+            // sit_new = sit_mod;    
+            // sit_new_thin = sit_mod_thin;
+            sit_new = sit_tot_est*(1 - update_factor);
+            sit_new_thin = sit_tot_est*update_factor;
+
+
+            // // where ice was present
+            // if (ice10 || ice11)
+            // {
+            //     sit_new = sit_mod * update_factor;
+            //     sit_new_thin = sit_mod_thin * update_factor;           
+            // }
+            // // where new ice was added
+            // // similar to initialiation:
+            // // SIT YOUNG is 20% of total SIT until it reaches _HNULL
+            // // SIT OLDER - remaining part
+            // if (ice01)
+            // {
+            //     sit_new_thin = sit_tot_est * _YIF;
+            //     sit_new_thin = std::min(sit_new_thin, _HNULL); 
+            //     sit_new = sit_tot_est - sit_new_thin;
+            // }
         }
         else
         {   
