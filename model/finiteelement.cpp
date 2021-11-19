@@ -9224,7 +9224,7 @@ FiniteElement::readStateVector()
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp, effective_thickness;        
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
-        effective_thickness = M_analysis_thick[i]*M_analysis_conc[i]; // reconstruct the effective SIT since M_analysis_thick is absolute SIT
+        effective_thickness = std::max(0, M_analysis_thick[i])*(M_conc_thin[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
         else
