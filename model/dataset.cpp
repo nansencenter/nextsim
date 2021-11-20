@@ -5939,6 +5939,7 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "enkf_analysis_elements") == 0)
     {   // structure is similar to ice_amsr2_elements
         // Definition of topaz grid and datasets
+        boost::filesystem::path const statevector_restart_input_path ( Environment::vm()["statevector.restart_path"].as<std::string>() );
         Dimension dimension_x={
             name:"x",    
             cyclic:false
@@ -6126,7 +6127,7 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "",
+            dirname: statevector_restart_input_path.string(),
             prefix: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
             postfix: "",
             gridfile: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
@@ -9945,7 +9946,12 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
     std::string filename = grid_ptr->gridfile;
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
-    else
+    else if (grid_ptr->prefix.substr(0,3)=="mem")
+        filename = (boost::format( "%1%/%2%" )
+                % grid_ptr->dirname
+                % grid_ptr->gridfile
+                ).str();
+    else        
         filename = (boost::format( "%1%/%2%" )
                 % Environment::nextsimDataDir().string()
                 % grid_ptr->gridfile
@@ -9956,7 +9962,6 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
     //std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
         throw std::runtime_error("File not found: " + filename);
-
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
@@ -10195,6 +10200,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
             netCDF::NcVar VTHETA;
 
             // Open the datafile
+            
             std::string filename = getFilename(grid_ptr, init_time, init_time);
 
             LOG(DEBUG)<<"GRID for masking: FILENAME = "<< filename <<"\n";

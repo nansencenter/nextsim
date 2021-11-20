@@ -536,7 +536,7 @@ namespace Nextsim
 #if defined(ENSEMBLE)
             ("statevector.use_statevector", po::value<bool>()->default_value( false ), "do we use statevector (netcdf output to grid)?")
             ("statevector.restart_from_analysis", po::value<bool>()->default_value( false ), "do we read statevector (netcdf output to grid)?")
-            ("statevector.restart_path", po::value<std::string>()->default_value( "" ), "where to find restart files mem???.nc.analysis")
+            ("statevector.restart_path", po::value<std::string>()->default_value( "" ), "where to find restart files mem???.nc.analysis")  // must be subfolder name of nextsimDataDir, it is used in dataset.cpp enkf_analysis_elements
             ("statevector.DAtype", po::value<std::string>()->default_value( "sic" ), "sic|sit|sitsic")
             ("statevector.ensemble_member", po::value<int>()->default_value( 1 ), "id of ensemble member")
             //("statevector.id", po::value<std::string>()->default_value( "1" ), "id of ensemble member")//TODO merge with ensemble_member
