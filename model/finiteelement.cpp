@@ -8069,7 +8069,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::abs_thick):  //total absolute thickness
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += (D_thick[i]/D_conc[i])*time_factor;
+                    it->data_mesh[i] += (D_thick[i]/(D_conc[i]+1.e-10))*time_factor;
                 break;
 
             case (GridOutput::variableID::damage):
@@ -9224,7 +9224,7 @@ FiniteElement::readStateVector()
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp, effective_thickness;        
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
-        effective_thickness = std::max(0, M_analysis_thick[i])*(M_conc_thin[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
+        effective_thickness = std::max(0.0, M_analysis_thick[i])*(M_conc_thin[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
         else
