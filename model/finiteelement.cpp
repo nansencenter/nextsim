@@ -6507,6 +6507,10 @@ FiniteElement::init()
             this->DataAssimilation();
             LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
         }
+#ifdef OASIS
+        if (M_couple_waves)
+            this->initFsd();
+#endif
         if ( M_check_restart )
         {
             // check restart file has no crazy fields (eg with nans, conc>1)
@@ -7257,6 +7261,7 @@ FiniteElement::updateIceDiagnostics()
                 D_dmean[i]=1000.;
                 if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
                 {
+                    //If more than 90% of sea ice that is in the element is "broken"
                     double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
                     for(int j=M_num_fsd_bins-2;j>-1;j--)
                     {
@@ -7282,6 +7287,10 @@ FiniteElement::updateIceDiagnostics()
                         D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
                     D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
                 }
+            D_dmax[i] =std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+            D_dmax[i] =std::max(D_dmax[i],M_fsd_min_floe_size);
+            D_dmean[i]=std::min(D_dmax[i],D_dmean[i]);
+            D_dmean[i]=std::max(D_dmean[i],M_fsd_min_floe_size);
             }
             else
             {
@@ -10788,7 +10797,8 @@ FiniteElement::checkConsistency()
 
 #ifdef OASIS
     //FSD
-    this->initFsd();
+    if (M_couple_waves)
+        this->initFsd();
 #endif
 }//checkConsistency
 
