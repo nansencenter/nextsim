@@ -5939,7 +5939,8 @@ DataSet::DataSet(char const *DatasetName)
     else if (strcmp (DatasetName, "enkf_analysis_elements") == 0)
     {   // structure is similar to ice_amsr2_elements
         // Definition of topaz grid and datasets
-        boost::filesystem::path const statevector_restart_input_path ( Environment::vm()["statevector.restart_path"].as<std::string>() );
+        // boost::filesystem::path const statevector_restart_input_path ( Environment::vm()["statevector.restart_path"].as<std::string>() );
+        // todo: fix restart_path in getFilename
         Dimension dimension_x={
             name:"x",    
             cyclic:false
@@ -6127,10 +6128,14 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: statevector_restart_input_path.string(),
+            // dirname: statevector_restart_input_path.string(),
+            // prefix: "mem",
+            // postfix: ".nc.analysis",
+            // gridfile: std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>()),
+            dirname: "",
             prefix: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
             postfix: "",
-            gridfile: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
+            gridfile:"",
             reference_date: "1979-01-01",
 
             latitude: latitude,
@@ -9946,11 +9951,14 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
     std::string filename = grid_ptr->gridfile;
     if ( filename=="" )
         filename = getFilename(grid_ptr, init_time, init_time);
-    else if (grid_ptr->prefix.substr(0,3)=="mem")
-        filename = (boost::format( "%1%/%2%" )
-                % grid_ptr->dirname
-                % grid_ptr->gridfile
-                ).str();
+    // else if (grid_ptr->prefix.substr(0,3)=="mem")  //todo: fix restart_path in getFilename
+    //     filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
+    //                 % Environment::nextsimDataDir().string()
+    //                 % grid_ptr->dirname
+    //                 % grid_ptr->prefix
+    //                 % grid_ptr->gridfile
+    //                 % grid_ptr->postfix
+    //                 ).str();
     else        
         filename = (boost::format( "%1%/%2%" )
                 % Environment::nextsimDataDir().string()
@@ -9961,7 +9969,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
     //std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
-        throw std::runtime_error("File not found: " + filename);
+        throw std::runtime_error("File not found: 9970" + filename);
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
@@ -10207,7 +10215,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
             //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: " + filename);
+                throw std::runtime_error("File not found: 10216" + filename);
 
             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
@@ -10263,7 +10271,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double init_time, doub
 
             //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: " + filename);
+                throw std::runtime_error("File not found: 10272" + filename);
 
             netCDF::NcFile dataFile2(filename, netCDF::NcFile::read);
 
