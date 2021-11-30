@@ -5385,7 +5385,7 @@ FiniteElement::thermo(int dt)
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
-        if ( tw_new < tfrw )
+        if  (tw_new < tfrw )
         {
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
@@ -5632,8 +5632,8 @@ FiniteElement::thermo(int dt)
             {
                 M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
                 M_freeze_seconds[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + del_c; // melting occurring, so need to adjust to new onset
-                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
+                if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_thin_ice_in_myi_reset)
                     M_conc_summer[i]+=M_conc_thin[i];
             }
             M_del_hi_tend[i] = 0.;
@@ -6022,64 +6022,71 @@ FiniteElement::thermo(int dt)
             }
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
+            double ctot = M_conc[i];
+            double vtot = M_thick[i];
+            if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_thin_ice_in_myi_reset)
+            {
+                vtot+=M_h_thin[i];
+                ctot+=M_conc_thin[i];
+            }
 
             if (reset_myi) // 
             {
-                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_thin_ice_in_myi_reset == true) 
+                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_thin_ice_in_myi_reset == true) //NANUK default
                 {
-                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
+                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze") //NANUK default
                     {
-                        M_conc_myi[i]  = M_conc_summer[i] ; // reset to sea ice summer low
-                        M_thick_myi[i] = M_thick_summer[i]; // reset to sea ice summer low
+                        // summer thickness and concentration might be a bit dodgy in places.
+                        // Replenishment should be positive
+                        double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
+                        double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
+                        M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
+                        M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
                     }
                     else
                     {
-                        M_thick_myi[i] = M_thick[i];
-                        M_conc_myi[i]  = M_conc[i] ; // include thin ice in reset: all ice on reset date is myi
-                        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-                        {
-                            M_conc_myi[i] +=M_conc_thin[i];
-                            M_thick_myi[i]+=M_h_thin[i];
-                        }
-                    }
-
-                }
-                else
-                {
-                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze")
-                    {
-                        M_conc_myi[i]  = M_conc_summer[i]; // reset to sea ice summer low
-                        M_thick_myi[i] = M_thick_summer[i]; // reset to sea ice summer low
-                    }
-                    else
-                    {
-                        M_conc_myi[i]  = M_conc[i]; // reset to M_conc: all thick ice on reset date is myi
-                        M_thick_myi[i] = M_thick[i];
+                        M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
+                        M_thick_myi[i] = vtot;
                     }
                 }
-                M_conc_myi[i] = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
-                M_thick_myi[i] = std::max(0.,M_thick_myi[i]); //make sure it doesn't exceed 1 (it shouldn't)
+                M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
+                M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
                 del_ci_rplnt_myi =M_conc_myi[i]  - old_conc_myi; 
                 del_vi_rplnt_myi =M_thick_myi[i] - old_thick_myi;
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
-                if (del_hi < 0.)
-                {    
-                    double conc_loss_ratio  = 1.;  
-                    double thick_loss_ratio = 1.;
-                    // We ignore the thin ice
+                // We ignore the thin ice for now
+                double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
+                double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
+                if  (del_v_ratio < 1.) // if there is some melt of old ice
+                {   
                     if (melt_myi_and_fyi)
                     {    
-                        conc_loss_ratio  = std::max(0., M_conc[i]/old_conc); // Here i need a scaling factor to multiply the ice by
-                        thick_loss_ratio = std::max(0., M_thick[i]/old_vol); // could use already defined del_vi
+                        del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
+                        del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
+
+                        //conc_loss_ratio  = std::max(0., std::min(M_conc[i]/old_conc,1.)); // Here i need a scaling factor to multiply the ice by
+                        //thick_loss_ratio = std::max(0., std::min(M_thick[i]/old_vol,1.)); // could use already defined del_vi
+                        //if (M_conc[i]/old_conc>1.)
+                        //{
+                        //    LOG(INFO) << "Melt and increase in concentration, newice "<< newice <<"\n";
+                        //    LOG(INFO) << "Melt and increase in concentration, del_hi "<< del_hi <<"\n";
+                        //    LOG(INFO) << "Melt and increase in concentration, M_conc[i] "<< M_conc[i] <<"\n";
+                        //    LOG(INFO) << "Melt and increase in concentration, old_conc "<< old_conc <<"\n";
+                        //    LOG(INFO) << "Melt and increase in concentration, END\n\n\n";
+                        //}
                     }
+                    // Check it does not get crazy
+                    M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
+                    M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]+del_vi_mlt_myi));                  
                     //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
-                    M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
+                    //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
-                    M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
-                    del_ci_mlt_myi =M_conc_myi[i] - old_conc_myi; 
-                    del_vi_mlt_myi =M_thick_myi[i]- old_thick_myi;
+                    //M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
+                    // Recompute effective change
+                    del_ci_mlt_myi = M_conc_myi[i] - old_conc_myi; 
+                    del_vi_mlt_myi = M_thick_myi[i]- old_thick_myi;
                 }
             }
         }

@@ -476,8 +476,12 @@ ModelVariable::initElemental()
         case (variableID::M_del_hi_tend):
             M_name = "M_del_hi_tend";
             M_export_name = "Ice_volume_tendency_daily";
-            M_prognostic = false;
-            M_exporting = false;
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_method = interpMethod::conservative;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+
             break;
         
         case (variableID::D_del_ci_ridge_myi):
