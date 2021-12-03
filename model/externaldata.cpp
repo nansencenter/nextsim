@@ -230,7 +230,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             int const cpl_time_last = (cpl_time/cpl_dt)*cpl_dt;
             M_dataset->itime_range[0] = cpl_time_last;
             M_dataset->itime_range[1] = cpl_time_last + cpl_dt;
-            //TODO ftime_range not used?
+            //TODO ftime_range doesn't seem to be used in coupling code
             M_dataset->ftime_range[0] = M_current_time;
             M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
         }//reload coupling data
