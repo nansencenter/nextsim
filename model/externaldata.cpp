@@ -232,7 +232,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             M_dataset->itime_range[1] = cpl_time_last + cpl_dt;
             //TODO ftime_range not used?
             M_dataset->ftime_range[0] = M_current_time;
-            M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)/86400.;
+            M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
         }//reload coupling data
         else {
 #endif
