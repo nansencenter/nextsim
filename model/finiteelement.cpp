@@ -806,6 +806,10 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("ocean_cpl_elements");
             break;
 #endif
+        case setup::OceanType::GLORYS12R:
+            M_ocean_nodes_dataset=DataSet("glorys12_nodes");
+            M_ocean_elements_dataset=DataSet("glorys12_elements");
+            break;
         default:
             std::cout << "invalid ocean forcing"<<"\n";throw std::logic_error("invalid ocean forcing");
     }
@@ -1304,7 +1308,8 @@ FiniteElement::initOptAndParam()
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
         ("topaz_forecast", setup::OceanType::TOPAZF)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
-        ("coupled", setup::OceanType::COUPLED);
+        ("coupled", setup::OceanType::COUPLED)
+        ("glorys12", setup::OceanType::GLORYS12R);
     M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
         //! \param M_ocean_type (enum) Option on the type of ocean forcing (constant or Topaz options)
     LOG(DEBUG) <<"OCEANTYPE= "<< (int)M_ocean_type <<"\n";
@@ -3243,25 +3248,24 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
 //------------------------------------------------------------------------------------------------------
 //! Sends displacement vector to the root process.
-//! Called by the regrid(), checkUpdateDrifters() function.
+//! Called by the regrid(), checkUpdateDrifters(), exportResults() functions.
 void
 FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root)
 {
-    std::vector<double> um_local(2*M_local_ndof,0.);
+    int const num_components = field_local.size() / M_num_nodes;
+    std::vector<double> um_local(num_components * M_local_ndof, 0.);
     for (int i=0; i<M_local_ndof; ++i)
-    {
-        um_local[2*i] = field_local[i]; //M_UM[i];
-        um_local[2*i+1] = field_local[i+M_num_nodes]; //M_UM[i+M_num_nodes];
-    }
+        for (int k=0; k<num_components; ++k)
+            um_local[num_components * i + k] = field_local[i + k*M_num_nodes];
 
     std::vector<int> sizes_nodes = M_sizes_nodes;
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(),
+            [&](int& f){ f = num_components * f; });
 
     // send displacement vector to the root process (rank 0)
-
     if (M_rank == 0)
     {
-        field_root.resize(2*M_ndof);
+        field_root.resize(num_components * M_ndof);
         boost::mpi::gatherv(M_comm, um_local, &field_root[0], sizes_nodes, 0);
     }
     else
@@ -3278,12 +3282,13 @@ FiniteElement::gatherNodalField(std::vector<double> const& field_local, std::vec
         for (int i=0; i<global_num_nodes; ++i)
         {
             int ri =  M_rmap_nodes[i];
-
-            field_root[i] = field_root_nrd[2*ri];
-            field_root[i+global_num_nodes] = field_root_nrd[2*ri+1];
+            for(int k=0; k<num_components; k++)
+                field_root[i + k * global_num_nodes]
+                    = field_root_nrd[num_components * ri + k];
         }
     }
 }//gatherNodalField
+
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers nodal fields.
@@ -6499,7 +6504,6 @@ FiniteElement::init()
     LOG(DEBUG) << "init - time-dependant ExternalData objects\n";
     chrono.restart();
     this->checkReloadMainDatasets(M_current_time);
-
     LOG(DEBUG) <<"check_and_reload in "<< chrono.elapsed() <<"s\n";
 
     //! - 7) If not using a restart, initializes the model from the datasets
@@ -6518,6 +6522,10 @@ FiniteElement::init()
             this->DataAssimilation();
             LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
         }
+#ifdef OASIS
+        if (M_couple_waves)
+            this->initFsd();
+#endif
         if ( M_check_restart )
         {
             // check restart file has no crazy fields (eg with nans, conc>1)
@@ -7276,6 +7284,7 @@ FiniteElement::updateIceDiagnostics()
                 D_dmean[i]=1000.;
                 if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
                 {
+                    //If more than 90% of sea ice that is in the element is "broken"
                     double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
                     for(int j=M_num_fsd_bins-2;j>-1;j--)
                     {
@@ -7301,6 +7310,10 @@ FiniteElement::updateIceDiagnostics()
                         D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
                     D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
                 }
+                D_dmax[i] =std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+                D_dmax[i] =std::max(D_dmax[i],M_fsd_min_floe_size);
+                D_dmean[i]=std::min(D_dmax[i],D_dmean[i]);
+                D_dmean[i]=std::max(D_dmean[i],M_fsd_min_floe_size);
             }
             else
             {
@@ -9375,10 +9388,8 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (elements)\n";
 
     M_timer.tick("prep ssh");
-    // SSH because M_ssh is slow
-    std::vector<double> ssh(M_num_nodes);
-    for ( int i=0; i<M_num_nodes; ++i )
-        ssh[i] = M_ssh[i];
+    // copy SSH because M_ssh is slow
+    auto ssh = M_ssh.getVector();
 
     M_timer.tock("prep ssh");
 
@@ -10200,6 +10211,7 @@ FiniteElement::forcingAtmosphere()
     // - these are common to all the forcings
     // - check if they are initialised here
     M_external_data_nodes.push_back(&M_wind);
+    M_external_data_nodes_names.push_back("M_wind");
     if(!M_wind.isInitialized())
         throw std::logic_error("M_wind is not initialised");
 
@@ -10327,10 +10339,13 @@ FiniteElement::forcingNesting()//(double const& u, double const& v)
 
     M_nesting_dist_nodes=ExternalData(&M_nesting_distance_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_dist_nodes);
+    M_external_data_nodes_names.push_back("M_nesting_dist_nodes");
     M_nesting_VT1=ExternalData(&M_nesting_nodes_dataset, M_mesh, 0,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT1);
+    M_external_data_nodes_names.push_back("M_nesting_VT1");
     M_nesting_VT2=ExternalData(&M_nesting_nodes_dataset, M_mesh, 1,false,time_init);
     M_external_data_nodes.push_back(&M_nesting_VT2);
+    M_external_data_nodes_names.push_back("M_nesting_VT2");
 
 }//forcingNesting
 
@@ -10373,7 +10388,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             break;
 
-        case setup::OceanType::TOPAZR: case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZR:
+        case setup::OceanType::TOPAZF:
+        case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, M_spinup_duration);
@@ -10455,7 +10472,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
     // for looping
     // - nodes
     M_external_data_nodes.push_back(&M_ocean);
+    M_external_data_nodes_names.push_back("M_ocean");
     M_external_data_nodes.push_back(&M_ssh);
+    M_external_data_nodes_names.push_back("M_ssh");
 
     // - elements
     M_external_data_elements_names.push_back("M_ocean_temp");
@@ -10483,11 +10502,17 @@ void
 FiniteElement::forcingWaves()//(double const& u, double const& v)
 {
 
+    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
+                time_init, 0);
+    M_external_data_elements.push_back(&M_wlbk);
+    M_external_data_elements_names.push_back("M_wlbk");
+
     if(M_recv_wave_stress)
     {
         M_tau_wi = ExternalData(&M_wave_nodes_dataset, M_mesh, 0, true,
                     time_init, M_spinup_duration);
         M_external_data_nodes.push_back(&M_tau_wi);
+        M_external_data_nodes_names.push_back("M_tauwi");
     }
     //M_str_var = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
     //            time_init, 0);
@@ -10497,11 +10522,6 @@ FiniteElement::forcingWaves()//(double const& u, double const& v)
     //            time_init, 0);
     //M_external_data_elements.push_back(&M_tm02);
     //M_external_data_elements_names.push_back("M_tm02");
-
-    M_wlbk = ExternalData(&M_wave_elements_dataset, M_mesh, 0, false,
-                time_init, 0);
-    M_external_data_elements.push_back(&M_wlbk);
-    M_external_data_elements_names.push_back("M_wlbk");
 }
 #endif
 
@@ -10523,6 +10543,7 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::GLORYS12R:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
@@ -10570,6 +10591,7 @@ FiniteElement::assimilateSlabOcean()
         case setup::OceanType::TOPAZR_atrest:
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::GLORYS12R:
             double sss_obs, sst_obs;
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -10812,7 +10834,8 @@ FiniteElement::checkConsistency()
 
 #ifdef OASIS
     //FSD
-    this->initFsd();
+    if (M_couple_waves)
+        this->initFsd();
 #endif
 }//checkConsistency
 
@@ -13322,8 +13345,12 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
     std::vector<double> M_VT_root;
+#if defined (OASIS)
     std::vector<double> M_tau_wi_root;
+#endif
     std::vector<double> M_wind_root;
+    std::vector<double> M_ocean_root;
+    std::vector<double> M_ssh_root;
     if(export_fields)
     {
         M_surface_root = this->surface(M_mesh_root, M_UM_root);
@@ -13336,11 +13363,18 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         }
         this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
 
+        // manually export some vectors defined on the nodes
         this->gatherNodalField(M_VT, M_VT_root);
 #if defined (OASIS)
         if (M_couple_waves && M_recv_wave_stress)
             this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
 #endif
+        if (vm["output.save_forcing_fields"].as<bool>())
+        {
+            this->gatherNodalField(M_wind.getVector(), M_wind_root);
+            this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
+            this->gatherNodalField(M_ssh.getVector(), M_ssh_root);
+        }
         this->gatherNodalField(M_wind.getVector(),M_wind_root);
     }
     M_comm.barrier();
@@ -13402,12 +13436,19 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeField(outbin, regridvec, "M_nb_regrid");
             exporter.writeField(outbin, M_surface_root, "Element_area");
             exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+
+            //manually export some vectors defined on the nodes
             exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (M_couple_waves && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
-            exporter.writeField(outbin, M_wind_root, "M_wind");
+            if (vm["output.save_forcing_fields"].as<bool>())
+            {
+                exporter.writeField(outbin, M_wind_root, "M_wind");
+                exporter.writeField(outbin, M_ocean_root, "M_ocean");
+                exporter.writeField(outbin, M_ssh_root, "M_ssh");
+            }
 
 
             // loop over the elemental variables that have been
@@ -13791,7 +13832,7 @@ FiniteElement::checkFields()
     int rank_test = vm["debugging.test_proc_number"].as<int>();
     bool printout = (M_rank == rank_test && itest>0);
     std::stringstream crash_msg;
-    bool crash = false;
+    bool crash_els = false;
 
     for(int i=0; i<M_num_elements; i++)
     {
@@ -13813,7 +13854,7 @@ FiniteElement::checkFields()
             values.push_back(val);
             if(std::isnan(val))
             {
-                crash = true;
+                crash_els = true;
                 crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
             }
         }
@@ -13829,7 +13870,7 @@ FiniteElement::checkFields()
             // is it nan?
             if(std::isnan(val))
             {
-                crash = true;
+                crash_els = true;
                 crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
             }
 
@@ -13839,7 +13880,7 @@ FiniteElement::checkFields()
                 double thresh = ptr->minVal() - 1.e-8;
                 if(val<thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
                         << val << " < " << thresh
                         << ", |diff|=" << thresh - val << "\n";
@@ -13852,7 +13893,7 @@ FiniteElement::checkFields()
                 double thresh = ptr->maxVal() + 1.e-8;
                 if(val>thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
                         << val << " > " << thresh
                         << ", |diff|=" << val-thresh << "\n";
@@ -13865,7 +13906,7 @@ FiniteElement::checkFields()
                 double thresh = too_high_values[name];
                 if(val > thresh)
                 {
-                    crash = true;
+                    crash_els = true;
                     crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
                         << val << " > " << thresh << "\n";
                 }
@@ -13885,7 +13926,7 @@ FiniteElement::checkFields()
 
             if ((std::abs(ctot-ctot2)>1e-7)&&(ctot>1e-4))
             {
-                crash =  true;
+                crash_els =  true;
                 crash_msg << "[" <<M_rank << "] sum M_conc_fsd (="<<ctot2 <<") different to total conc (="
                           <<ctot<< "), diff =" << ctot-ctot2 << " \n"   ;
                 if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
@@ -13894,7 +13935,7 @@ FiniteElement::checkFields()
         }
 #endif
 
-        if((printout && i==itest) || crash)
+        if((printout && i==itest) || crash_els)
         {
             // printout all the variables' values
 
@@ -13934,9 +13975,41 @@ FiniteElement::checkFields()
             }
             std::cout<<"\n";
         }
+        if(crash_els) break;
+    }// loop over elements
 
-        if(crash)
-            throw std::runtime_error(crash_msg.str());
+    bool crash_nd = false;
+    for (int i=0; i<M_num_nodes; i++)
+    {
+        std::vector<double> values;
+        auto names = M_external_data_nodes_names;
+
+        for (int j=0; j<M_external_data_nodes.size(); j++)
+        {
+            auto ptr = M_external_data_nodes[j];
+            auto name = names[j];
+            double val = ptr->get(i);
+            if (ptr->isVector())
+                val = std::hypot(val, ptr->get(i + M_num_nodes));
+            values.push_back(val);
+            if(std::isnan(val))
+            {
+                crash_nd = true;
+                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            }
+        }
+        if(crash_nd) break;
+    }//loop over nodes
+
+    bool const crash = (crash_els || crash_nd);
+    // Export everything and crash
+    if(boost::mpi::all_reduce(M_comm, crash, std::plus<bool>()))
+    {
+        this->exportResults("crash", true, true, false);
+        this->writeRestart("crash");
+
+        M_comm.barrier();
+        throw std::runtime_error(crash_msg.str());
     }
 }//checkFields
 
