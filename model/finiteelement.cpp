@@ -1173,9 +1173,9 @@ FiniteElement::initOptAndParam()
     time_relaxation_damage = vm["dynamics.time_relaxation_damage"].as<double>()*days_in_sec; //! \param time_relaxation_damage (double) Characteristic healing time [s]
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
 
-    //! Sets the minimum and maximum thickness of young ice
-    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
+    //! Sets the minimum and maximum thickness of young ice TODO make h_young_max correspond to input from config file
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
+    h_young_max = .5*(h_young_min + vm["thermo.h_young_max"].as<double>()); //! \param h_young_max (double) Maximum thickness of young ice [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
 
 
@@ -3967,7 +3967,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 }
 
                 //transfer young ice to old if necessary
-                if(new_h_young[i] > .5*new_conc_young[i]*(h_young_min + h_young_max))
+                if((new_conc_young > 0.) && (new_h_young > (new_conc_young * h_young_max))
                     this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
                 del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
                 newice = M_h_young[cpt] - new_h_young;
@@ -5389,7 +5389,7 @@ FiniteElement::thermo(int dt)
                         M_conc_young[i] = M_h_young[i]/h_young_min;
                         young_ice_growth = M_conc_young[i] - old_conc_young ;
                     }
-                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))//TODO redefine h_young_max as the average
+                    else if(M_h_young[i] > (M_conc_young[i]*h_young_max))
                     {
                         double const old_conc_young = M_conc_young[i];
                         double const old_s_young = M_h_young[i];
@@ -5840,22 +5840,18 @@ FiniteElement::thermo(int dt)
 }//thermo
 
 
-//------------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------------*
 //! Transfers young ice to old ice if young ice is too thick
+//! Come here if conc_young>0 and h_young > h_y_max
 //! called by thermo() and update()
 void
 FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young)
 {
-      double const h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
-      double const del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
-      double const del_h_young = del_c*(h0+h_young_max)/2.;
-      double const del_hs_young = del_c*hs_young/conc_young;
-
-      // std::max is to prevent round-off error giving negative values
-      h_young += del_h_young;
-      conc_young = std::max( 0., conc_young - del_c );
-      h_young    = std::max( 0., h_young - del_h_young );
-      hs_young   = std::max( 0., hs_young - del_hs_young );
+      double const h_young_abs = h_young/conc_young;
+      double const hs_young_abs = hs_young/conc_young;
+      conc_young *= (h_young_max - h_young_min)/(h_young_abs - h_young_min);//young ice concentration drops (somewhat arbitrarily)
+      h_young = conc_young * h_young_max;
+      hs_young = std::max(0., conc_young * hs_young_abs);//heep the same absolute snow thickness
 }
 
 
