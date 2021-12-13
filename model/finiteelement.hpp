@@ -189,7 +189,7 @@ public:
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
-    void transferYoungIce(double & conc_young, double & h_young, double & hs_young, double & del_c, double & newice, double & newsnow);
+    void transferYoungIce(double & conc_young, double & h_young, double & hs_young);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
