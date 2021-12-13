@@ -3968,7 +3968,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 }
 
                 //transfer young ice to old if necessary
-                if((new_conc_young > 0.) && (new_h_young > (new_conc_young * h_young_max))
+                if((new_conc_young > 0.) && (new_h_young > (new_conc_young * h_young_max)))
                     this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
                 del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
                 newice = M_h_young[cpt] - new_h_young;
