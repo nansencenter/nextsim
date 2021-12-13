@@ -5818,19 +5818,15 @@ void
 FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young,
       double & del_c, double & newice, double & newsnow)
 {
-      double h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
+      double const h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
       del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
-      double del_h_young = del_c*(h0+h_young_max)/2.;
-      double del_hs_young = del_c*hs_young/conc_young;
-
-      M_thick[i] += del_h_young;
-      // M_conc[i]  += del_c; ; <- this is done properly below
-
-      newice  = del_h_young; // Reset newice to use below
+      double const del_h_young = del_c*(h0+h_young_max)/2.;
+      double const del_hs_young = del_c*hs_young/conc_young;
+      newice  = del_h_young;
       newsnow = del_hs_young;
-      // M_snow_thick[i] += newsnow; <- this is done properly below
 
       // std::max is to prevent round-off error giving negative values
+      h_young += del_h_young;
       conc_young = std::max( 0., conc_young - del_c );
       h_young    = std::max( 0., h_young - del_h_young );
       hs_young   = std::max( 0., hs_young - del_hs_young );
