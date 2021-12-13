@@ -5354,6 +5354,7 @@ FiniteElement::thermo(int dt)
                 M_conc_young[i]=std::min(1.-M_conc[i],M_conc_young[i]+newice/h_young_min);
                 newice  = 0.;
                 newsnow = 0.;
+                double const h_y_max = .5*(h_young_min + h_young_max);//TODO redefine h_young_max as this
 
                 if(M_conc_young[i]>0.)
                 {
@@ -5363,8 +5364,16 @@ FiniteElement::thermo(int dt)
                         M_conc_young[i] = M_h_young[i]/h_young_min;
                         young_ice_growth =M_conc_young[i] - old_conc_young ;
                     }
-                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))
-                        this->transferYoungIce(M_conc_young[i], M_h_young[i], M_hs_young[i], del_c, newice, newsnow);
+                    else if(M_h_young[i] > M_conc_young[i]*h_y_max)
+                    {
+                        double const old_conc_young = M_conc_young[i];
+                        double const old_s_young = M_h_young[i];
+                        double const old_hs_young = M_hs_young[i];
+                        this->transferYoungIce(M_conc_young[i], M_h_young[i], M_hs_young[i]);
+                        del_c = -(M_conc_young[i] - old_conc_young);
+                        newice = -(M_h_young[i] - old_h_young);
+                        newsnow = -(M_hs_young[i] - old_hs_young);
+                    }
                 }
                 else // we should not have young ice, no space for it
                 {
@@ -5815,15 +5824,12 @@ FiniteElement::thermo(int dt)
 //! Transfers young ice to old ice if young ice is too thick
 //! called by thermo() and update()
 void
-FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young,
-      double & del_c, double & newice, double & newsnow)
+FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young)
 {
       double const h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
-      del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
+      double const del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
       double const del_h_young = del_c*(h0+h_young_max)/2.;
       double const del_hs_young = del_c*hs_young/conc_young;
-      newice  = del_h_young;
-      newsnow = del_hs_young;
 
       // std::max is to prevent round-off error giving negative values
       h_young += del_h_young;
