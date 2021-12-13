@@ -3947,40 +3947,42 @@ FiniteElement::update(std::vector<double> const & UM_P)
         double del_c = 0.;
         double newsnow = 0.;
 
-        double ridge_young_ice_aspect_ratio=10.;
+        double const ridge_young_ice_aspect_ratio=10.;
 
         double conc_young = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             if(M_conc_young[cpt]>0. )
             {
-                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_h_young = M_h_young[i];
+                new_hs_young = M_hs_young[i];
 
                 // Ridging
                 if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
                 {
-                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
-
-                    newice = M_h_young[cpt]-new_h_young;
-                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
-                    newsnow = M_hs_young[cpt]-new_hs_young;
-
-                    M_h_young[cpt]   = new_h_young;
-                    M_hs_young[cpt]  = new_hs_young;
-
-                    // Ridging of young ice - conserve level ice volume, but now area is constant
-                    // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
-                    M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-
-                    M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-
-                    M_snow_thick[cpt]   += newsnow;
+                    double const surf_ratio = new_conc_young/M_conc_young[cpt];
+                    new_h_young = surf_ratio*M_h_young[cpt][cpt]; // so that we keep the same absolute thickness, no preferences for the ridging
+                    new_hs_young = surf_ratio*M_hs_young[cpt][cpt];
                 }
 
+                //transfer young ice to old if necessary
+                if(new_h_young[i] > .5*new_conc_young[i]*(h_young_min + h_young_max))
+                    this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
+                del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
+                newice = M_h_young[cpt] - new_h_young;
+                newsnow = M_hs_young[cpt] - new_hs_young;
+
                 M_conc_young[cpt] = new_conc_young;
+                M_h_young[cpt]   = new_h_young;
+                M_hs_young[cpt]  = new_hs_young;
+
+                // Ridging of young ice - conserve level ice volume, but now area is constant
+                // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
+                M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
+                M_thick[cpt] += newice;
+                M_conc[cpt] = std::min(1.,std::max(M_conc[cpt] + del_c,0.));
+                M_snow_thick[cpt] += newsnow;
             }
             else
             {
@@ -5385,15 +5387,22 @@ FiniteElement::thermo(int dt)
                     if ( M_h_young[i] < h_young_min*M_conc_young[i] )
                     {
                         M_conc_young[i] = M_h_young[i]/h_young_min;
-                        young_ice_growth =M_conc_young[i] - old_conc_young ;
+                        young_ice_growth = M_conc_young[i] - old_conc_young ;
                     }
-                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))
-                        this->transferYoungIce(M_conc_young[i], M_h_young[i], M_hs_young[i], del_c, newice, newsnow);
+                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))//TODO redefine h_young_max as the average
+                    {
+                        double const old_conc_young = M_conc_young[i];
+                        double const old_s_young = M_h_young[i];
+                        double const old_hs_young = M_hs_young[i];
+                        this->transferYoungIce(M_conc_young[i], M_h_young[i], M_hs_young[i]);
+                        del_c = -(M_conc_young[i] - old_conc_young);
+                        newice = -(M_h_young[i] - old_h_young);
+                        newsnow = -(M_hs_young[i] - old_hs_young);
+                    }
                 }
                 else // we should not have young ice, no space for it
                 {
                     M_thick[i] += M_h_young[i];
-
                     newice  = M_h_young[i];
                     newsnow = M_hs_young[i];
                     M_h_young[i] = 0.;
@@ -5835,15 +5844,12 @@ FiniteElement::thermo(int dt)
 //! Transfers young ice to old ice if young ice is too thick
 //! called by thermo() and update()
 void
-FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young,
-      double & del_c, double & newice, double & newsnow)
+FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young)
 {
       double const h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
-      del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
+      double const del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
       double const del_h_young = del_c*(h0+h_young_max)/2.;
       double const del_hs_young = del_c*hs_young/conc_young;
-      newice  = del_h_young;
-      newsnow = del_hs_young;
 
       // std::max is to prevent round-off error giving negative values
       h_young += del_h_young;
