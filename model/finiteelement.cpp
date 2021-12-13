@@ -3955,15 +3955,16 @@ FiniteElement::update(std::vector<double> const & UM_P)
             if(M_conc_young[cpt]>0. )
             {
                 new_conc_young = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
-                new_h_young = M_h_young[i];
-                new_hs_young = M_hs_young[i];
+                new_h_young = M_h_young[cpt];
+                new_hs_young = M_hs_young[cpt];
 
                 // Ridging
                 if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
                 {
+                    // keep the same absolute ice and snow thicknesses, no preferences for the ridging
                     double const surf_ratio = new_conc_young/M_conc_young[cpt];
-                    new_h_young = surf_ratio*M_h_young[cpt][cpt]; // so that we keep the same absolute thickness, no preferences for the ridging
-                    new_hs_young = surf_ratio*M_hs_young[cpt][cpt];
+                    new_h_young = surf_ratio * M_h_young[cpt];
+                    new_hs_young = surf_ratio * M_hs_young[cpt];
                 }
 
                 //transfer young ice to old if necessary
