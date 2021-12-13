@@ -5363,28 +5363,8 @@ FiniteElement::thermo(int dt)
                         M_conc_young[i] = M_h_young[i]/h_young_min;
                         young_ice_growth =M_conc_young[i] - old_conc_young ;
                     }
-                    else
-                    {
-                        double h0 = h_young_min + 2.*(M_h_young[i]-h_young_min*M_conc_young[i])/(M_conc_young[i]);
-                        if(h0>h_young_max)
-                        {
-                            del_c = M_conc_young[i]/(h0-h_young_min) * (h0-h_young_max);
-                            double del_h_young = del_c*(h0+h_young_max)/2.;
-                            double del_hs_young = del_c*M_hs_young[i]/M_conc_young[i];
-
-                            M_thick[i] += del_h_young;
-                            // M_conc[i]  += del_c; ; <- this is done properly below
-
-                            newice  = del_h_young; // Reset newice to use below
-                            newsnow = del_hs_young;
-                            // M_snow_thick[i] += newsnow; <- this is done properly below
-
-                            // std::max is to prevent round-off error giving negative values
-                            M_conc_young[i] = std::max( 0., M_conc_young[i] - del_c );
-                            M_h_young[i]    = std::max( 0., M_h_young[i] - del_h_young );
-                            M_hs_young[i]   = std::max( 0., M_hs_young[i] - del_hs_young );
-                        }
-                    }
+                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))
+                        this->transferYoungIce(M_conc_young[i], M_h_young[i], M_hs_young[i], del_c, newice, newsnow);
                 }
                 else // we should not have young ice, no space for it
                 {
@@ -5829,6 +5809,32 @@ FiniteElement::thermo(int dt)
     M_timer.tock("slab");
 
 }//thermo
+
+
+//------------------------------------------------------------------------------------------------------
+//! Transfers young ice to old ice if young ice is too thick
+//! called by thermo() and update()
+void
+FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young,
+      double & del_c, double & newice, double & newsnow)
+{
+      double h0 = h_young_min + 2.*(h_young - h_young_min*conc_young)/(conc_young);
+      del_c = conc_young/(h0-h_young_min) * (h0-h_young_max);
+      double del_h_young = del_c*(h0+h_young_max)/2.;
+      double del_hs_young = del_c*hs_young/conc_young;
+
+      M_thick[i] += del_h_young;
+      // M_conc[i]  += del_c; ; <- this is done properly below
+
+      newice  = del_h_young; // Reset newice to use below
+      newsnow = del_hs_young;
+      // M_snow_thick[i] += newsnow; <- this is done properly below
+
+      // std::max is to prevent round-off error giving negative values
+      conc_young = std::max( 0., conc_young - del_c );
+      h_young    = std::max( 0., h_young - del_h_young );
+      hs_young   = std::max( 0., hs_young - del_hs_young );
+}
 
 
 //------------------------------------------------------------------------------------------------------
