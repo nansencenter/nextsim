@@ -5846,11 +5846,14 @@ FiniteElement::thermo(int dt)
 void
 FiniteElement::transferYoungIce(double & conc_young, double & h_young, double & hs_young)
 {
-      double const h_young_abs = h_young/conc_young;
-      double const hs_young_abs = hs_young/conc_young;
-      conc_young *= (h_young_max - h_young_min)/(h_young_abs - h_young_min);//young ice concentration drops (somewhat arbitrarily)
-      h_young = conc_young * h_young_max;
-      hs_young = std::max(0., conc_young * hs_young_abs);//heep the same absolute snow thickness
+    double const h_young_abs = h_young/conc_young;
+    double const hs_young_abs = hs_young/conc_young;
+    // drop young ice concentration as well as thickness
+    // - done somewhat arbitrarily
+    // - should it be done differently if ridging or freezing?
+    conc_young *= (h_young_max - h_young_min)/(h_young_abs - h_young_min);
+    h_young = conc_young * h_young_max;
+    hs_young = std::max(0., conc_young * hs_young_abs);//heep the same absolute snow thickness
 }
 
 
