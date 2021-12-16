@@ -2190,7 +2190,9 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            if ((M_conc[i] + M_conc_young[i]) > 1.) M_conc_young[i] = 1. - M_conc[i];
+            M_conc_young[i] = std::min(M_conc_young[i], 1. - M_conc[i]);
+            M_h_young[i] = std::min(M_h_young[i],
+                    .5*M_conc_young[i]*(h_young_min + h_young_max));
         }
     }//loop over i
 }//redistributeVariables
@@ -3973,7 +3975,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     newice = M_h_young[cpt] - new_h_young;
                     newsnow = M_hs_young[cpt] - new_hs_young;
 
-                    M_conc_young[cpt] = new_conc_young;
                     M_h_young[cpt]   = new_h_young;
                     M_hs_young[cpt]  = new_hs_young;
 
@@ -3984,6 +3985,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt] + del_c,0.));
                     M_snow_thick[cpt] += newsnow;
                 }
+
+                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
