@@ -2175,7 +2175,9 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            if ((M_conc[i] + M_conc_young[i]) > 1.) M_conc_young[i] = 1. - M_conc[i];
+            M_conc_young[i] = std::min(M_conc_young[i], 1. - M_conc[i]);
+            M_h_young[i] = std::min(M_h_young[i],
+                    .5*M_conc_young[i]*(h_young_min + h_young_max));
         }
     }//loop over i
 }//redistributeVariables
