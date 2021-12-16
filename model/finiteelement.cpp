@@ -3944,31 +3944,33 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 new_hs_young = M_hs_young[cpt];
 
                 // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
+                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>())
+                        && (M_thick[cpt] > vm["dynamics.min_h"].as<double>())
+                        && (new_conc_young < M_conc_young[cpt] ))
                 {
                     // keep the same absolute ice and snow thicknesses, no preferences for the ridging
                     double const surf_ratio = new_conc_young/M_conc_young[cpt];
                     new_h_young = surf_ratio * M_h_young[cpt];
                     new_hs_young = surf_ratio * M_hs_young[cpt];
+
+                    //transfer young ice to old if necessary
+                    if(new_h_young > .5*new_conc_young*(h_young_min + h_young_max))
+                        this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
+                    del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
+                    newice = M_h_young[cpt] - new_h_young;
+                    newsnow = M_hs_young[cpt] - new_hs_young;
+
+                    M_conc_young[cpt] = new_conc_young;
+                    M_h_young[cpt]   = new_h_young;
+                    M_hs_young[cpt]  = new_hs_young;
+
+                    // Ridging of young ice - conserve level ice volume, but now area is constant
+                    // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
+                    M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
+                    M_thick[cpt] += newice;
+                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt] + del_c,0.));
+                    M_snow_thick[cpt] += newsnow;
                 }
-
-                //transfer young ice to old if necessary
-                if(new_h_young > .5*new_conc_young*(h_young_min + h_young_max))
-                    this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
-                del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
-                newice = M_h_young[cpt] - new_h_young;
-                newsnow = M_hs_young[cpt] - new_hs_young;
-
-                M_conc_young[cpt] = new_conc_young;
-                M_h_young[cpt]   = new_h_young;
-                M_hs_young[cpt]  = new_hs_young;
-
-                // Ridging of young ice - conserve level ice volume, but now area is constant
-                // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
-                M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-                M_thick[cpt] += newice;
-                M_conc[cpt] = std::min(1.,std::max(M_conc[cpt] + del_c,0.));
-                M_snow_thick[cpt] += newsnow;
             }
             else
             {
@@ -3980,10 +3982,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
         }
 
         double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
-
         if((new_conc+conc_young)>1.)
             new_conc=1.-conc_young;
-
         M_conc[cpt]=new_conc;
 
         double max_true_thickness = 50.;
