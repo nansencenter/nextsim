@@ -3958,7 +3958,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     newice = M_h_young[cpt] - new_h_young;
                     newsnow = M_hs_young[cpt] - new_hs_young;
 
-                    M_conc_young[cpt] = new_conc_young;
                     M_h_young[cpt]   = new_h_young;
                     M_hs_young[cpt]  = new_hs_young;
 
@@ -3969,6 +3968,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_conc[cpt] = std::min(1.,std::max(M_conc[cpt] + del_c,0.));
                     M_snow_thick[cpt] += newsnow;
                 }
+
+                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
