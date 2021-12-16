@@ -3940,8 +3940,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
             if(M_conc_young[cpt]>0. )
             {
                 new_conc_young = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
-                new_h_young = M_h_young[cpt];
-                new_hs_young = M_hs_young[cpt];
 
                 // Ridging
                 if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>())
