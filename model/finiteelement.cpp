@@ -1174,8 +1174,15 @@ FiniteElement::initOptAndParam()
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
 
     //! Sets the minimum and maximum thickness of young ice
-    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
+    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
+    // M_h_young/M_conc_young was originally defined in terms of a linear distribution
+    // of young ice thickness, with min val h_young_min and mean value M_h_young.
+    // The top limit could not exceed h_young_max.
+    // However, this is equivalent to having a sharp distribution at M_h_young,
+    // and M_h_young <= M_conc_young*h_young_max_sharp = .5*M_conc_young*(h_young_min + h_young_max)
+    // TODO make h_young_max_sharp be in the config file, not h_young_max
+    h_young_max_sharp = .5*(h_young_min + h_young_max); //! \param h_young_max_sharp (double) Maximum thickness of young ice when the young ice thickness distribution is considered sharp [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
 
 
@@ -5387,27 +5394,21 @@ FiniteElement::thermo(int dt)
                         M_conc_young[i] = M_h_young[i]/h_young_min;
                         young_ice_growth =M_conc_young[i] - old_conc_young ;
                     }
-                    else
+                    else if(M_h_young[i] > (M_conc_young[i]*h_young_max_sharp))
                     {
-                        double h0 = h_young_min + 2.*(M_h_young[i]-h_young_min*M_conc_young[i])/(M_conc_young[i]);
-                        if(h0>h_young_max)
-                        {
-                            del_c = M_conc_young[i]/(h0-h_young_min) * (h0-h_young_max);
-                            double del_h_young = del_c*(h0+h_young_max)/2.;
-                            double del_hs_young = del_c*M_hs_young[i]/M_conc_young[i];
-
-                            M_thick[i] += del_h_young;
-                            // M_conc[i]  += del_c; ; <- this is done properly below
-
-                            newice  = del_h_young; // Reset newice to use below
-                            newsnow = del_hs_young;
-                            // M_snow_thick[i] += newsnow; <- this is done properly below
-
-                            // std::max is to prevent round-off error giving negative values
-                            M_conc_young[i] = std::max( 0., M_conc_young[i] - del_c );
-                            M_h_young[i]    = std::max( 0., M_h_young[i] - del_h_young );
-                            M_hs_young[i]   = std::max( 0., M_hs_young[i] - del_hs_young );
-                        }
+                        double const fac = (h_young_max_sharp - h_young_min)
+                            / (M_h_young[i] - h_young_min);
+                        // drop young ice concentration as well as thickness
+                        // - done somewhat arbitrarily
+                        M_conc_young[i] *= fac;
+                        M_h_young[i] = M_conc_young[i] * h_young_max_sharp;
+                        // drop M_hs_young in proportion to M_conc_young
+                        // (keep same absolute snow thickness)
+                        M_hs_young[i] *= fac;
+                        // add the losses to the old ice later
+                        del_c = -(M_conc_young[i] - old_conc_young);
+                        newice = -(M_h_young[i] - old_h_young);
+                        newsnow = -(M_hs_young[i] - old_hs_young);
                     }
                 }
                 else // we should not have young ice, no space for it
