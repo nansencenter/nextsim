@@ -6522,7 +6522,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
-    if ( conc <=0. || voli<=0.)
+    if ( conc <=1.e-10 || voli<=1.e-10)
     {
         hi      = 0.;
         hi_old  = 0.;
