@@ -1166,6 +1166,8 @@ FiniteElement::initOptAndParam()
     h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
+    //TODO make this what goes in the config file
+    h_young_max_true = .5*(h_young_min + h_young_max);//! \param h_young_max_true (double) True maximum thickness of young ice [m]
 
 
     //! Sets mechanical parameter values
@@ -2175,9 +2177,10 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
 
         if(apply_maxima && M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
+            // check numerical errors from remeshing haven't pushed total conc > 1
+            // or M_h_young over it's limit
             M_conc_young[i] = std::min(M_conc_young[i], 1. - M_conc[i]);
-            M_h_young[i] = std::min(M_h_young[i],
-                    .5*M_conc_young[i]*(h_young_min + h_young_max));
+            M_h_young[i] = std::min(M_h_young[i], M_conc_young[i]*h_young_max_true);
         }
     }//loop over i
 }//redistributeVariables
@@ -3954,7 +3957,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     new_hs_young = surf_ratio * M_hs_young[cpt];
 
                     //transfer young ice to old if necessary
-                    if(new_h_young > .5*new_conc_young*(h_young_min + h_young_max))
+                    if(new_h_young > new_conc_young*h_young_max_true)
                         this->transferYoungIce(new_conc_young, new_h_young, new_hs_young);
                     del_c = (M_conc_young[cpt] - new_conc_young)/ridge_young_ice_aspect_ratio;
                     newice = M_h_young[cpt] - new_h_young;
@@ -5367,7 +5370,7 @@ FiniteElement::thermo(int dt)
                         M_conc_young[i] = M_h_young[i]/h_young_min;
                         young_ice_growth = M_conc_young[i] - old_conc_young ;
                     }
-                    else if(M_h_young[i] > .5*M_conc_young[i]*(h_young_min + h_young_max))//TODO redefine h_young_max as the average
+                    else if(M_h_young[i] > M_conc_young[i]*h_young_max_true)
                     {
                         double const old_conc_young = M_conc_young[i];
                         double const old_s_young = M_h_young[i];
@@ -13579,10 +13582,8 @@ FiniteElement::checkFieldsFast()
 
     if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        double const h_young_max = vm["thermo.h_young_max"].as<double>();
-
         minmax.emplace("M_tsurf_young", std::make_pair(-100.,  0.));
-        minmax.emplace("M_h_young",     std::make_pair(   0.,  h_young_max));
+        minmax.emplace("M_h_young",     std::make_pair(   0.,  h_young_max_true));
         minmax.emplace("M_hs_young",    std::make_pair(   0.,  h_young_max));
         minmax.emplace("M_conc_young",  std::make_pair(   0.,  1.));
     }
@@ -13604,10 +13605,11 @@ FiniteElement::checkFieldsFast()
         double const max = minmax[name].second;
         for(int i=0; i<M_num_elements; i++)
         {
-            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
+            double const val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
+            double const max_fac = (name != "M_h_young")? 1. : M_conc_young[i];
 
             // check if it is too high for common sense
-            if( val > max )
+            if( val > max_fac * max )
             {
                 crash = true;
                 crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "

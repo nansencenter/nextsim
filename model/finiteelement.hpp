@@ -562,6 +562,7 @@ private:
 
     double h_young_min;
     double h_young_max;
+    double h_young_max_true;
     double M_ks;
 
     double compr_strength;
