@@ -5396,15 +5396,15 @@ FiniteElement::thermo(int dt)
                     }
                     else if(M_h_young[i] > (M_conc_young[i]*h_young_max_sharp))
                     {
-                        double const fac = (h_young_max_sharp - h_young_min)
-                            / (M_h_young[i] - h_young_min);
-                        // drop young ice concentration as well as thickness
-                        // - done somewhat arbitrarily
-                        M_conc_young[i] *= fac;
+                        double const hi = M_h_young[i]/M_conc_young[i];
+                        double const hs = M_hs_young[i]/M_conc_young[i];
+                        // drop YI concentration as well as thickness
+                        // - concentration reduction done somewhat arbitrarily
+                        M_conc_young[i] *= (h_young_max_sharp - h_young_min)/(hi - h_young_min);
+                        // YI thickness drops to max value
                         M_h_young[i] = M_conc_young[i] * h_young_max_sharp;
-                        // drop M_hs_young in proportion to M_conc_young
-                        // (keep same absolute snow thickness)
-                        M_hs_young[i] *= fac;
+                        // keep same absolute snow thickness
+                        M_hs_young[i] = M_conc_young[i] * hs;
                         // add the losses to the old ice later
                         del_c = -(M_conc_young[i] - old_conc_young);
                         newice = -(M_h_young[i] - old_h_young);
