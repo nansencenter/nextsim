@@ -5408,16 +5408,15 @@ FiniteElement::thermo(int dt)
                             // keep same absolute snow thickness
                             M_hs_young[i] = M_conc_young[i] * hs;
                             // add the losses to the old ice later
-                            del_c = -(M_conc_young[i] - old_conc_young);
-                            newice = -(M_h_young[i] - old_h_young);
-                            newsnow = -(M_hs_young[i] - old_hs_young);
+                            del_c = std::max(0., old_conc_young - M_conc_young[i]);
+                            newice = std::max(0., old_h_young -M_h_young[i]);
+                            newsnow = std::max(0., old_hs_young -M_hs_young[i]);
                         }
                     }
                 }
                 else // we should not have young ice, no space for it
                 {
                     M_thick[i] += M_h_young[i];
-
                     newice  = M_h_young[i];
                     newsnow = M_hs_young[i];
                     M_h_young[i] = 0.;
