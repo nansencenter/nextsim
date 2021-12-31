@@ -5402,15 +5402,17 @@ FiniteElement::thermo(int dt)
                             double const hs = std::max(0., M_hs_young[i]/M_conc_young[i]);
                             // drop YI concentration as well as thickness
                             // - concentration reduction done somewhat arbitrarily
-                            M_conc_young[i] *= (h_young_max_sharp - h_young_min)/(hi - h_young_min);
+                            double tmp = M_conc_young[i]*(h_young_max_sharp - h_young_min)/(hi - h_young_min);// new conc
+                            del_c = std::max(0., M_conc_young[i] - tmp);// added to old ice later
+                            M_conc_young[i] = tmp;
                             // YI thickness drops to max value
-                            M_h_young[i] = M_conc_young[i] * h_young_max_sharp;
+                            tmp = M_conc_young[i] * h_young_max_sharp;// new ice vol
+                            newice = std::max(0., M_h_young[i] - tmp);// added to old ice later
+                            M_h_young[i] = tmp;
                             // keep same absolute snow thickness
-                            M_hs_young[i] = M_conc_young[i] * hs;
-                            // add the losses to the old ice later
-                            del_c = std::max(0., old_conc_young - M_conc_young[i]);
-                            newice = std::max(0., old_h_young -M_h_young[i]);
-                            newsnow = std::max(0., old_hs_young -M_hs_young[i]);
+                            tmp = M_conc_young[i] * hs;// new snow vol
+                            newsnow = std::max(0., M_hs_young[i] - tmp);// added to old ice later
+                            M_hs_young[i] = tmp;
                         }
                     }
                 }
