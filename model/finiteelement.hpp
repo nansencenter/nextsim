@@ -577,7 +577,6 @@ private:
     double ridge_h;
     double M_current_time;
     bool M_reuse_prec;
-    bool M_regrid;
     int M_nb_regrid;
 
     bool M_use_assimilation;

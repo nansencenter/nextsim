@@ -7351,14 +7351,14 @@ FiniteElement::step()
     M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
-    M_regrid = false;
+    bool regridding = false;
     if (vm["numerics.regrid"].as<std::string>() == "bamg")
     {
         M_timer.tick("checkRegridding");
-        M_regrid = this->checkRegridding();
+        regridding = this->checkRegridding();
         M_timer.tock("checkRegridding");
 
-        if ( M_regrid )
+        if ( regridding )
         {
             if(vm["restart.write_restart_before_regrid"].as<bool>())
             {
@@ -7400,9 +7400,9 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
@@ -7426,14 +7426,14 @@ FiniteElement::step()
                 M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements,
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
                 if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
                 else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements);
 
                 M_timer.tock("resetMeshMean");
             }
@@ -7441,7 +7441,7 @@ FiniteElement::step()
             ++M_nb_regrid;
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
-        }//M_regrid
+        }//regridding
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
@@ -7459,7 +7459,7 @@ FiniteElement::step()
 
     M_timer.tick("auxiliary");
 
-    if (M_regrid)
+    if (regridding)
     {
         // calculate the cohesion, coriolis force etc
         this->calcAuxiliaryVariables();
@@ -7491,12 +7491,6 @@ FiniteElement::step()
                 )
             this->checkFields();
             LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
-    }
-    else if(pcpt==0)
-    {
-        // The first time step we also behave as if we just did a regrid
-        // (after this point)
-        M_regrid = true;
     }
 
     M_timer.tock("auxiliary");
