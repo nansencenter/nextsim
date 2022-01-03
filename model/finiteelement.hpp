@@ -136,6 +136,7 @@ public:
     bool checkRegridding();
     void remesh();
     void regrid();
+    void postRegrid();
     void adaptMesh();
     void updateNodeIds();
     void updateBoundaryFlags();

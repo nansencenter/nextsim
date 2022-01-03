@@ -3783,6 +3783,47 @@ FiniteElement::regrid()
 
 
 //------------------------------------------------------------------------------------------------------
+//! Performs the re-gridding.
+//! Called by the step() function.
+void
+FiniteElement::postRegrid()
+{
+    // calculate the cohesion, coriolis force etc
+    this->calcAuxiliaryVariables();
+
+#ifdef OASIS
+    // Update FSD in case conc. has been modified during regrid.
+    if (M_num_fsd_bins>0) this ->updateFSD();
+#endif
+
+    this->updateIceDiagnostics();
+
+    // save outputs after regrid
+    if(vm["restart.write_restart_after_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+        this->writeRestart(str);
+    }
+    if(vm["output.export_after_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
+        this->exportResults(str, true, true, true);
+    }
+
+    // check the fields for nans etc after regrid
+    if( (vm["debugging.check_fields"].as<bool>())
+#ifdef OASIS
+            && M_debug_fsd
+#endif
+            )
+    {
+        this->checkFields();
+        LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
+    }
+}//postRegrid
+
+
+//------------------------------------------------------------------------------------------------------
 //! Adapts the mesh grid.
 //! Called by the regrid() function.
 void
@@ -6634,7 +6675,7 @@ FiniteElement::init()
 // ==============================================================================
 //! calculate the cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
-//! called by init() and step()
+//! called by init() and postRegrid()
 void
 FiniteElement::calcAuxiliaryVariables()
 {
@@ -7443,54 +7484,17 @@ FiniteElement::step()
         if (regridding) this->remesh();
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
-
     M_comm.barrier();
     M_timer.tock("remesh");
 
     M_timer.tick("checkReload");
-
     LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
     this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
     LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
-
     M_timer.tock("checkReload");
 
     M_timer.tick("auxiliary");
-
-    if (regridding)
-    {
-        // calculate the cohesion, coriolis force etc
-        this->calcAuxiliaryVariables();
-
-#ifdef OASIS
-        // Update FSD in case conc. has been modified during regrid.
-        if (M_num_fsd_bins>0)
-            this ->updateFSD();
-#endif
-        this->updateIceDiagnostics();
-
-        // save outputs after regrid
-        if(vm["restart.write_restart_after_regrid"].as<bool>())
-        {
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->writeRestart(str);
-        }
-        if(vm["output.export_after_regrid"].as<bool>())
-        {
-            std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
-        }
-
-        // check the fields for nans etc after regrid
-        if( (vm["debugging.check_fields"].as<bool>())
-#ifdef OASIS
-                && M_debug_fsd
-#endif
-                )
-            this->checkFields();
-            LOG(DEBUG) <<"["<<M_rank<<"], Post-regrid checkfields is a success \n";
-    }
-
+    if (regridding) this->postRegrid();
     M_timer.tock("auxiliary");
 
     //======================================================================
