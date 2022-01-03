@@ -7470,27 +7470,6 @@ FiniteElement::step()
     M_timer.tock("check_fields");
 
 
-    //! 1) Remeshes and remaps the prognostic variables
-    M_timer.tick("remesh");
-    bool regridding = false;
-    M_timer.tick("checkRegridding");
-    regridding = this->checkRegridding();
-    M_timer.tock("checkRegridding");
-    if (regridding) this->remesh();
-    LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-    M_comm.barrier();
-    M_timer.tock("remesh");
-
-    M_timer.tick("checkReload");
-    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
-    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
-    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
-    M_timer.tock("checkReload");
-
-    M_timer.tick("auxiliary");
-    if (regridding) this->postRegrid();
-    M_timer.tock("auxiliary");
-
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
@@ -7627,27 +7606,53 @@ FiniteElement::step()
 #endif
 
     //======================================================================
-    //! 7) Update the time
+    //! 6) Update the time
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
 
+    //======================================================================
+    //! 7) Remeshes and remaps the prognostic variables
+    //======================================================================
+    M_timer.tick("remesh");
+    bool regridding = false;
+    M_timer.tick("checkRegridding");
+    regridding = this->checkRegridding();
+    M_timer.tock("checkRegridding");
+    if (regridding) this->remesh();
+    LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+    M_comm.barrier();
+    M_timer.tock("remesh");
 
     //======================================================================
-    //! 8) Does the post-processing, checks the output and updates moorings.
+    //! 8) Check and reload exernal datasets
     //======================================================================
+    M_timer.tick("checkReload");
+    LOG(DEBUG) << "step - time-dependant ExternalData objects\n";
+    this->checkReloadMainDatasets(M_current_time+time_step/(24*3600.0));
+    LOG(VERBOSE) <<"---timer check_and_reload:     "<< M_timer.lap("checkReload") <<"s\n";
+    M_timer.tock("checkReload");
 
+    //======================================================================
+    //! 10) Post-regrid tasks: calcAuxiliaryVariables() and debugging outputs
+    //======================================================================
+    M_timer.tick("auxiliary");
+    if (regridding) this->postRegrid();
+    M_timer.tock("auxiliary");
+
+    //======================================================================
+    //! 11) Does the post-processing, checks the output and updates moorings.
+    //======================================================================
     // 1. moorings:
     // - update fields on grid if outputting mean fields
     // - check if we are adding records to netcdf file
     // 2. check if writing outputs, and do it if it's time
     // 3. check if writing restart, and do it if it's time
-    // TODO also add drifter check here
-    // - if we move at restart output time we can remove M_UT from
-    //   restart files (then it would always be 0)
+    // 4. check if updating drifters
     M_timer.tick("output");
     this->checkOutputs(false);
     M_timer.tock("output");
+
 }//step
 
 
