@@ -7,7 +7,6 @@ ifeq ($(KERNEL),Linux)
 else
 	LIBRARYNAME=liboasis.dylib
 endif
-
 # ========================================================
 
 # ========================================================
@@ -25,8 +24,6 @@ CXXSRC=$(wildcard $(CXXSRCDIR)/*.cpp)
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
-
-#CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
@@ -46,8 +43,6 @@ FCSRC=$(wildcard $(FCSRCDIR)/*.F90)
 FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
-FC = mpif90
-FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
 FFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
 FFLAGS += -I$(OASIS_DIR)/build/lib/mct -I$(OASIS_DIR)/build/lib/psmile.MPI1
 FFLAGS += -I$(NETCDF_FOR_DIR)/include
@@ -58,8 +53,6 @@ FFLAGS += -I$(NETCDF_FOR_DIR)/include
 LDFLAGS += -fopenmp
 LDFLAGS += -ldl -lstdc++ -lpthread
 LDFLAGS += -L$(OASIS_DIR)/lib
-#LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
-#LDFLAGS += -L/Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib
 LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
@@ -146,5 +139,5 @@ endif
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
--include $(DEPS)
--include $(FCDEPS)
+#-include $(DEPS)
+#-include $(FCDEPS)

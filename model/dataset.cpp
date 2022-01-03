@@ -2170,6 +2170,424 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
+    else if (strcmp (DatasetName, "glorys12_nodes") == 0)
+    {
+        // Definition of glorys12 grid and datasets
+        Dimension dimension_x={
+        name:"longitude",
+        cyclic:false//true
+        };
+
+        Dimension dimension_y={
+        name:"latitude",
+        cyclic:false
+        };
+
+        Dimension dimension_time={
+        name:"time",
+        cyclic:false
+        };
+
+        Dimension dimension_depth={
+        name:"depth",
+        cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions_uv(4);
+        dimensions_uv[0] = dimension_time;
+        dimensions_uv[1] = dimension_depth;
+        dimensions_uv[2] = dimension_y;
+        dimensions_uv[3] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        //VARIABLES:
+        Variable latitude={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "latitude",
+        dimensions: dimensions_lat,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "longitude",
+        dimensions: dimensions_lon,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable time_tmp={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "time",
+        dimensions: dimensions_time,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable u={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "uo",
+        dimensions: dimensions_uv,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "vo",
+        dimensions: dimensions_uv,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m/s",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable ssh={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "zos",
+        dimensions: dimensions,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+        interpolation_method: InterpolationType::FromGridToMesh,
+        interp_type : BilinearInterpEnum,
+        //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+        //interp_type: -1,
+        dirname: "",
+        filename_mask: "GLORYS12V1_%Y_30m.nc",
+        gridfile: "",
+        reference_date: "1950-01-01",
+
+        latitude: latitude,
+        longitude: longitude,
+
+        dimension_x: dimension_x,
+        dimension_y: dimension_y,
+
+        mpp_file: "",
+        interpolation_in_latlon: true,
+
+        loaded: false,
+        dataset_frequency:"yearly",
+
+        waveOptions: wavopt_none,
+
+        masking: false,
+        //masking_variable:
+        };
+
+        //VAR
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = u;
+        variables_tmp[1] = v;
+        variables_tmp[2] = ssh;
+
+        //VECTOR
+        std::vector<int> uv_tmp(2);
+        uv_tmp[0] = 0;
+        uv_tmp[1] = 1;
+
+        Vectorial_Variable uv={
+        components_Id: uv_tmp,
+        east_west_oriented: true
+        };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+        vectorial_variables_tmp[0] = uv;
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=1.; // days lolo?
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "glorys12_elements") == 0)
+    {
+        // Definition of glorys12 grid and datasets
+        Dimension dimension_x={
+        name:"longitude",
+        cyclic:false//true
+        };
+
+        Dimension dimension_y={
+        name:"latitude",
+        cyclic:false
+        };
+
+        Dimension dimension_time={
+        name:"time",
+        cyclic:false
+        };
+
+        Dimension dimension_depth={
+        name:"depth",
+        cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions_uv(4);
+        dimensions_uv[0] = dimension_time;
+        dimensions_uv[1] = dimension_depth;
+        dimensions_uv[2] = dimension_y;
+        dimensions_uv[3] = dimension_x;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        //VARIABLES:
+        Variable latitude={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "latitude",
+        dimensions: dimensions_lat,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_north",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "longitude",
+        dimensions: dimensions_lon,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "degree_east",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable time_tmp={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "time",
+        dimensions: dimensions_time,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "hours",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable sst={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "thetao",
+        dimensions: dimensions_uv,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units:"C",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable sss={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "so",
+        dimensions: dimensions_uv,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable mld={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "mlotst",
+        dimensions: dimensions,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+        interpolation_method: InterpolationType::FromGridToMesh,
+        interp_type : BilinearInterpEnum,
+        //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+        //interp_type: -1,
+        dirname: "",
+        filename_mask: "GLORYS12V1_%Y_3m.nc",
+        gridfile: "",
+        reference_date: "1950-01-01",
+
+        latitude: latitude,
+        longitude: longitude,
+
+        dimension_x: dimension_x,
+        dimension_y: dimension_y,
+
+        mpp_file: "",
+        interpolation_in_latlon: true,
+
+        loaded: false,
+        dataset_frequency:"yearly",
+
+        waveOptions: wavopt_none,
+
+        masking: false,
+        //masking_variable: sss
+        };
+
+        //VAR
+        std::vector<Variable> variables_tmp(3);
+        variables_tmp[0] = sst;
+        variables_tmp[1] = sss;
+        variables_tmp[2] = mld;
+
+        //VECTOR
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        grid= grid_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=1.; // days lolo?
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
 #ifdef OASIS
     else if (strcmp (DatasetName, "ocean_cpl_nodes") == 0)
     {
@@ -2734,8 +3152,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
-            interpolation_method: InterpolationType::FromMeshToMeshQuick,
+        Grid grid_tmp = {
+            //interpolation_method: InterpolationType::FromMeshToMeshQuick,
+            interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
             filename_mask: exchange_grid_file.filename().string(),
@@ -2771,6 +3190,8 @@ DataSet::DataSet(char const *DatasetName)
                 // following the mpp_file defined for the grid
             };
         vectorial_variables = {tau_xy};
+
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -2935,7 +3356,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
+        Grid grid_tmp = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
@@ -2966,6 +3387,8 @@ DataSet::DataSet(char const *DatasetName)
 
         variables = {wlbk};
         vectorial_variables = {};
+
+        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -6709,7 +7132,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ice_creg_elements") == 0)
+    else if (strcmp (DatasetName, "ice_nemo_elements") == 0)
     {
         // Definition of the icesat grid and datasets
         Dimension dimension_x={
@@ -6820,7 +7243,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "CREG025_icemod.nc",
+            filename_mask: "NEMO_icemod.nc",
             gridfile: "",
             reference_date: "",
 
@@ -7893,8 +8316,7 @@ DataSet::DataSet(char const *DatasetName)
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-        }; // Q2M
-
+        }; // D2M
         Variable mslp={
             filename_string: "", // All variables are in the same (grid) file
             name:"msl",
@@ -8339,8 +8761,7 @@ DataSet::DataSet(char const *DatasetName)
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-        }; // Q2M
-
+        }; // D2M
         Variable mslp={
             filename_string: "msl",
             name:"msl",
