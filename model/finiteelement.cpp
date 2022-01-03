@@ -3555,11 +3555,6 @@ void
 FiniteElement::regrid(bool step)
 {
 
-    //move any active drifters before we reset the mesh
-    M_timer.tick("checkMoveDrifters_regrid");
-    this->checkMoveDrifters();
-    M_timer.tock("checkMoveDrifters_regrid");
-
     chrono.restart();
 
     double displacement_factor = 2.;
@@ -7746,32 +7741,88 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 }//checkOutputs
 
 
-// -----------------------------------------------------------------------
-//! move any active drifters and move them by the amount specified by M_UT
-//! Called by regrid() and checkUpdateDrifters()
-void FiniteElement::checkMoveDrifters()
+//------------------------------------------------------------------------------------------------------
+//! Check if M_UT is zero
+//! Called by checkDrifters()
+bool const
+FiniteElement::isUTZero()
 {
-    LOG(DEBUG) << "in checkMoveDrifters\n";
-    //! - check if we have any active drifters
-    int n_drifters = 0;
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        n_drifters += it->isInitialised();
-    boost::mpi::broadcast(M_comm, n_drifters, 0);
-    if(n_drifters==0)
-        return;
-    LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
+    float const min_ut = *std::min_element(M_UT.begin(), M_UT.end());
+    float const max_ut = *std::max_element(M_UT.begin(), M_UT.end());
+    bool const no_ut = (
+            std::max(std::abs(min_ut), std::abs(max_ut)) < 1e-8
+            );
+    return boost::mpi::all_reduce(M_comm, no_ut, std::plus<bool>());
+}//isUTZero
+
+
+//------------------------------------------------------------------------------------------------------
+//! Check if we need to move, init, or output any drifters
+//! Called by checkUpdateDrifters()
+void
+FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
+{
+    // don't move if M_UT is zero
+    bool const have_ut = ! this->isUTZero();
+    move = false;
+
+    int n_active = 0;
+    n_init = 0;
+    n_output = 0;
+    if(M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        {
+            n_active += it->isInitialised();
+            n_init += it->initialising(M_current_time);
+            n_output += it->isOutputTime(M_current_time);
+        }
+
+        // If any active drifters and M_UT not zero, need to move if
+        //  1. it has been too long since the last move
+        //  2. initialising
+        //  3. outputting
+        //  4. inputting
+        //  5. resetting (eg OSISAF drifters reset after 2 days)
+        // any drifters. NB inputting and resetting always happen
+        // at output time so don't need to check for these.
+        if(n_active > 0 && have_ut)
+        {
+            move = (M_current_time - M_drifters_move_time >= M_drifters_move_limit)
+                || (n_init + n_output > 0);
+            if(move)
+                M_drifters_move_time = M_current_time;
+        }
+        else
+            // no active drifters or M_UT is zero so increment M_drifters_move_time
+            M_drifters_move_time = M_current_time;
+    }
+
+    boost::mpi::broadcast(M_comm, M_drifters_move_time, 0);
+    boost::mpi::broadcast(M_comm, move, 0);
+    boost::mpi::broadcast(M_comm, n_init, 0);
+    boost::mpi::broadcast(M_comm, n_output, 0);
+
+}//checkDrifters
+
+
+// -----------------------------------------------------------------------
+//! move any active drifters by the amount specified by M_UT
+//! Called by checkUpdateDrifters()
+void FiniteElement::moveDrifters()
+{
+    LOG(DEBUG) << "in moveDrifters\n";
 
     //! - gather M_UT to root processor
     std::vector<double> UT_root;
     this->gatherNodalField(M_UT, UT_root);
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
     if(M_rank!=0)
         return;
 
     //! - move drifters on root processor
     for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
         it->move(M_mesh_root, UT_root);
-}//checkMoveDrifters
+}//moveDrifters
 
 
 // ---------------------------------------------
@@ -7779,34 +7830,34 @@ void FiniteElement::checkMoveDrifters()
 //! called by checkOutputs()
 void FiniteElement::checkUpdateDrifters()
 {
-    int n_update = 0;
-    if(M_rank == 0)
-    {
-        //need to move if initialising, outputting, inputting or resetting
-        //(eg OSISAF drifters reset after 2 days) any drifters
-        //NB inputting and resetting always happen at output time
-        //so don't need to check
-        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            n_update += (it->initialising(M_current_time)
-                || it->isOutputTime(M_current_time));
-    }
-    boost::mpi::broadcast(M_comm, n_update, 0);
-    if(n_update==0)
-        return;
-    LOG(DEBUG) << "updating " << n_update << " drifters\n";
 
-    // Move any active drifters
-    this->checkMoveDrifters();
+    bool move;
+    int n_init, n_output;
+    this->checkDrifters(move, n_init, n_output);
+    LOG(DEBUG) << "moving drifters? " << move << "\n";
+    LOG(DEBUG) << "initialising " << n_init << " drifters\n";
+    LOG(DEBUG) << "outputting " << n_output << " drifters\n";
+
+    // Move drifters?
+    if(move) this->moveDrifters();
+
+    // Reset M_UT
+    if(move || n_init>0)
+        // 2nd case arises for the first active drifter
+        // - no need to move yet but need to start from scratch
+        std::fill(M_UT.begin(), M_UT.end(), 0.);
+
+    // Can quit if not initialising or outputting any drifters this time
+    if(n_init + n_output == 0) return;
 
     // Gather the fields needed by the drifters
     std::vector<double> UM_root, conc_root;
     this->gatherNodalField(M_UM, UM_root);
     this->gatherElementField(M_conc, conc_root);
-    if(M_rank!=0)
-        return;
+    if(M_rank != 0) return;
 
-    //updateDrifters does initialising, resetting, inputting,
-    //outputting (if needed)
+    // updateDrifters does initialising, resetting, inputting,
+    // outputting (if needed)
     auto movedmesh_root = M_mesh_root;
     movedmesh_root.move(UM_root, 1.);
     for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -12740,6 +12791,11 @@ FiniteElement::instantiateDrifters()
     double const drifters_time_init = std::ceil(time_init + M_spinup_duration);
     double const drifters_conc_lim = vm["drifters.concentration_limit"].as<double>();
 
+    // remember when drifters were last moved
+    M_drifters_move_time = time_init;//! param M_drifters_move_time (float) last time drifters were moved
+    // don't let drifters go more than 3h without moving them
+    M_drifters_move_limit = .125;//! param M_drifters_move_limit (float) move drifters after this time in days
+
     // use OSISAF drifters
     // - every day at 12:00 start a new set of drifters which run for 48h
     // - output time step is an option
@@ -12750,7 +12806,7 @@ FiniteElement::instantiateDrifters()
         int i0 = M_drifters.size();
         M_osisaf_drifters_indices = {i0, i0+1};
 
-        double const output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.osisaf_drifters_output_time_step"].as<double>();
         std::string osi_grid_file = Environment::nextsimDataDir().string() + "/";
         std::string osi_outfile_prefix = M_export_path + "/";
         if(vm["drifters.use_refined_osisaf_grid"].as<bool>())
@@ -12769,7 +12825,7 @@ FiniteElement::instantiateDrifters()
         Drifters::NetCDFInputInfo netcdf_input_info(osi_grid_file, "xc", "yc", "lat", "lon");
         Drifters::TimingInfo timing_info(
                 drifters_time_init + .5, //init time
-                output_time_step,        //output interval
+                dr_output_time_step,     //output interval
                 true,                    //has finite lifetime?
                 2.,                      //lifetime before re-initialising
                 false                    //fixed init time? (like RGPS, SIDFEX)
@@ -12792,14 +12848,14 @@ FiniteElement::instantiateDrifters()
     // equally spaced drifters
     if (vm["drifters.use_equally_spaced_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.equally_spaced_drifters_output_time_step"].as<double>();
         std::string const output_prefix = M_export_path + "/Equally_Spaced_Drifters_";
         Drifters::TimingInfo const timing_info(
-                drifters_time_init, //init time
-                output_time_step,   //output interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                false               //fixed init time? (like RGPS, SIDFEX)
+                drifters_time_init,     //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                false                   //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12814,18 +12870,18 @@ FiniteElement::instantiateDrifters()
     // RGPS drifters
     if (vm["drifters.use_rgps_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.rgps_drifters_output_time_step"].as<double>();
         std::string const time_str = vm["drifters.RGPS_time_init"].as<std::string>();
         double const rgps_time_init = Nextsim::stringToDatenum(time_str);
         std::string const rgps_file = Environment::nextsimDataDir().string()
             + "/RGPS_" + time_str + ".txt";
         std::string const output_prefix = M_export_path + "/RGPS_Drifters_";
         Drifters::TimingInfo const timing_info(
-                rgps_time_init,   //init time
-                output_time_step, //output interval
-                false,            //has finite lifetime?
-                0.,               //lifetime before re-initialising
-                true              //fixed init time? (like RGPS, SIDFEX)
+                rgps_time_init,         //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                true                    //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12839,7 +12895,7 @@ FiniteElement::instantiateDrifters()
     // SIDFEX drifters
     if (vm["drifters.use_sidfex_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.sidfex_drifters_output_time_step"].as<double>();
         std::string const infile = Environment::nextsimDataDir().string() +"/"
             + vm["drifters.sidfex_filename"].as<std::string>();
         std::string const output_prefix = M_export_path + "/SIDFEx_Drifters_";
@@ -12854,11 +12910,11 @@ FiniteElement::instantiateDrifters()
         }
 
         Drifters::TimingInfo const timing_info(
-                sidfex_time_init, //init time
-                output_time_step, //output interval
-                false,            //has finite lifetime?
-                0.,               //lifetime before re-initialising
-                fix_time_init     //fixed init time? (like RGPS, SIDFEX)
+                sidfex_time_init,       //init time
+                dr_output_time_step,    //output interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                fix_time_init           //fixed init time? (like RGPS, SIDFEX)
                 );
 
         // add drifter to the list of drifters
@@ -12871,19 +12927,19 @@ FiniteElement::instantiateDrifters()
 
     if (vm["drifters.use_iabp_drifters"].as<bool>())
     {
-        double const output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
+        double const dr_output_time_step = vm["drifters.iabp_drifters_output_time_step"].as<double>();
         double const input_time_step = 0.5;
         std::string const infile = Environment::nextsimDataDir().string() + "/IABP_drifters.txt";
         std::string const outfile_prefix = M_export_path + "/IABP_Drifters_";
 
         // add drifter to the list of drifters
         Drifters::TimingInfo const timing_info(
-                drifters_time_init, //init time
-                output_time_step,   //output interval
-                input_time_step,    //input interval
-                false,              //has finite lifetime?
-                0.,                 //lifetime before re-initialising
-                false               //fixed init time? (like RGPS, SIDFEX)
+                drifters_time_init,     //init time
+                dr_output_time_step,    //output interval
+                input_time_step,        //input interval
+                false,                  //has finite lifetime?
+                0.,                     //lifetime before re-initialising
+                false                   //fixed init time? (like RGPS, SIDFEX)
                 );
         bool const ignore_restart = vm["drifters.iabp_ignore_restart"].as<bool>();
         M_drifters.push_back(
@@ -12896,7 +12952,6 @@ FiniteElement::instantiateDrifters()
     for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
         it->checkOutputTimeStep(time_step);
 }//instantiateDrifters
-
 
 
 // -----------------------------------------------------------------------------------------------------------

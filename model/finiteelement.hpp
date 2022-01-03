@@ -674,6 +674,8 @@ private:
     external_data M_element_depth;
 
     // Drifters
+    float M_drifters_move_time;
+    float M_drifters_move_limit;
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters
 
@@ -870,7 +872,9 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
-    void checkMoveDrifters();
+    bool const isUTZero();
+    void checkDrifters(bool &move, int &n_init, int &n_output);
+    void moveDrifters();
     void checkUpdateDrifters();
     void instantiateDrifters();
     void synchroniseOsisafDrifters();
