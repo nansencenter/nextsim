@@ -3552,7 +3552,7 @@ FiniteElement::gatherUM(std::vector<double>& um)
 //! Performs the re-gridding.
 //! -Called by the step() function.
 void
-FiniteElement::regrid(bool step)
+FiniteElement::regrid()
 {
 
     chrono.restart();
@@ -6468,13 +6468,10 @@ FiniteElement::init()
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
         if ( this->checkRegridding() )
-            this->regrid(pcpt); // The input for this function is no longer active
+            this->regrid();
     }
     else
     {
-        // Do one regrid to get the mesh right
-        //this->regrid(pcpt);
-
         //! - 3) Initializes variables using the initVariables() function,
         chrono.restart();
         LOG(DEBUG) <<"Initialize variables\n";
@@ -7386,11 +7383,7 @@ FiniteElement::step()
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
             M_timer.tick("regrid");
-            if ( M_use_restart && pcpt==0)
-                this->regrid(1); // Special case where the restart conditions imply to remesh
-            else
-                this->regrid(pcpt);
-
+            this->regrid();
             LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
             M_timer.tock("regrid");
 
