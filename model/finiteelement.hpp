@@ -134,6 +134,7 @@ public:
             std::vector<double> const& um, double const& factor=1);
 
     bool checkRegridding();
+    void remesh();
     void regrid();
     void adaptMesh();
     void updateNodeIds();

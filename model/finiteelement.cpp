@@ -3550,7 +3550,93 @@ FiniteElement::gatherUM(std::vector<double>& um)
 
 //------------------------------------------------------------------------------------------------------
 //! Performs the re-gridding.
-//! -Called by the step() function.
+//! Called by the step() function.
+void
+FiniteElement::remesh()
+{
+    bool const regridding = true;
+    if(vm["restart.write_restart_before_regrid"].as<bool>())
+    {
+        std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+        this->writeRestart(str);
+    }
+    if(vm["output.export_before_regrid"].as<bool>())
+    {
+        this->updateIceDiagnostics();
+        std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
+        this->exportResults(str, true, true, true);
+    }
+
+    if ( M_use_moorings && !M_moorings_snapshot )
+    {
+        M_timer.tick("updateGridMean");
+        M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+        M_timer.tock("updateGridMean");
+    }
+
+#ifdef OASIS
+    M_timer.tick("updateGridMean_cpl");
+    M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+    M_timer.tock("updateGridMean_cpl");
+#endif
+    LOG(DEBUG) <<"Regridding starts\n";
+    M_timer.tick("regrid");
+    this->regrid();
+    LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
+    M_timer.tock("regrid");
+
+#ifdef OASIS
+    /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+     * are needed iff we do conservative remapping and this is only supported in the coupled
+     * case (so far). */
+    M_timer.tick("resetMeshMean_cpl");
+    if ( M_rank==0 )
+        M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+    else
+        M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt());
+
+    if ( M_ocean_type == setup::OceanType::COUPLED )
+    {
+        M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        M_ocean_nodes_dataset.calc_nodal_weights = true;
+    }
+    if (M_couple_waves)
+    {
+        M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
+                M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        if(M_recv_wave_stress)
+            M_wave_nodes_dataset.calc_nodal_weights = true;
+    }
+
+    M_timer.tock("resetMeshMean_cpl");
+#endif
+
+    if ( M_use_moorings )
+    {
+        M_timer.tick("resetMeshMean");
+#ifdef OASIS
+        if(vm["moorings.grid_type"].as<std::string>()=="coupled")
+            M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements,
+                    M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
+        else
+#endif
+        if ( vm["moorings.use_conservative_remapping"].as<bool>() )
+            M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+        else
+            M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements);
+
+        M_timer.tock("resetMeshMean");
+    }
+
+    ++M_nb_regrid;
+    LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
+}// remesh()
+
+
+//------------------------------------------------------------------------------------------------------
+//! Performs the re-gridding.
+//! Called by the init() and remesh() functions.
 void
 FiniteElement::regrid()
 {
@@ -7354,88 +7440,7 @@ FiniteElement::step()
         M_timer.tick("checkRegridding");
         regridding = this->checkRegridding();
         M_timer.tock("checkRegridding");
-
-        if ( regridding )
-        {
-            if(vm["restart.write_restart_before_regrid"].as<bool>())
-            {
-                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->writeRestart(str);
-            }
-            if(vm["output.export_before_regrid"].as<bool>())
-            {
-                this->updateIceDiagnostics();
-                std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
-            }
-
-            if ( M_use_moorings && !M_moorings_snapshot )
-            {
-                M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
-                M_timer.tock("updateGridMean");
-            }
-
-#ifdef OASIS
-            M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
-            M_timer.tock("updateGridMean_cpl");
-#endif
-            LOG(DEBUG) <<"Regridding starts\n";
-            M_timer.tick("regrid");
-            this->regrid();
-            LOG(DEBUG) <<"Regridding done in "<< M_timer.lap("regrid") <<"s\n";
-            M_timer.tock("regrid");
-
-#ifdef OASIS
-            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
-             * are needed iff we do conservative remapping and this is only supported in the coupled
-             * case (so far). */
-            M_timer.tick("resetMeshMean_cpl");
-            if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
-            else
-                M_cpl_out.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt());
-
-            if ( M_ocean_type == setup::OceanType::COUPLED )
-            {
-                M_ocean_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
-                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                M_ocean_nodes_dataset.calc_nodal_weights = true;
-            }
-            if (M_couple_waves)
-            {
-                M_wave_elements_dataset.setElementWeights(M_cpl_out.getGridP(),
-                        M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                if(M_recv_wave_stress)
-                    M_wave_nodes_dataset.calc_nodal_weights = true;
-            }
-
-            M_timer.tock("resetMeshMean_cpl");
-#endif
-
-            if ( M_use_moorings )
-            {
-                M_timer.tick("resetMeshMean");
-#ifdef OASIS
-                if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements,
-                            M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
-                else
-#endif
-                if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
-                else
-                    M_moorings.resetMeshMean(bamgmesh, regridding, M_local_nelements);
-
-                M_timer.tock("resetMeshMean");
-            }
-
-            ++M_nb_regrid;
-
-            LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
-        }//regridding
-
+        if (regridding) this->remesh();
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg-regrid
 
