@@ -6672,6 +6672,7 @@ FiniteElement::init()
     M_timer = Timer();
 }//init
 
+
 // ==============================================================================
 //! calculate the cohesion, and Coriolis force
 //! - needs to be done at init and after regrid
@@ -7457,33 +7458,26 @@ void
 FiniteElement::step()
 {
     M_timer.tick("check_fields");
-
     if (vm["debugging.check_fields"].as<bool>())
         // check fields for nans and if thickness is too big
         this->checkFields();
-
-    // check velocity fields if speed exceed a threshold
     if (vm["debugging.check_velocity_fields"].as<bool>())
+        // check if ice speed exceeds a threshold
         this->checkVelocityFields();
-
     if (vm["debugging.check_fields_fast"].as<bool>())
         // quick sanity check of select fields
         this->checkFieldsFast();
-
     M_timer.tock("check_fields");
 
-    M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
+    M_timer.tick("remesh");
     bool regridding = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg")
-    {
-        M_timer.tick("checkRegridding");
-        regridding = this->checkRegridding();
-        M_timer.tock("checkRegridding");
-        if (regridding) this->remesh();
-        LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-    }//bamg-regrid
+    M_timer.tick("checkRegridding");
+    regridding = this->checkRegridding();
+    M_timer.tock("checkRegridding");
+    if (regridding) this->remesh();
+    LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     M_comm.barrier();
     M_timer.tock("remesh");
 

@@ -77,8 +77,6 @@ namespace Nextsim
 
 
             // remeshing
-            ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
-                "Options for regridding: No-regridding or bamg")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
