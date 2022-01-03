@@ -6472,6 +6472,8 @@ FiniteElement::init()
         if ( res_str.empty() )
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
+        if ( this->checkRegridding() )
+            this->regrid(pcpt); // The input for this function is no longer active
     }
     else
     {
