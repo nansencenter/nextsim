@@ -13693,11 +13693,9 @@ FiniteElement::checkFieldsFast()
 
     if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        double const h_young_max = vm["thermo.h_young_max"].as<double>();
-
         minmax.emplace("M_tsurf_young", std::make_pair(-100.,  0.));
-        minmax.emplace("M_h_young",     std::make_pair(   0.,  h_young_max));
-        minmax.emplace("M_hs_young",    std::make_pair(   0.,  h_young_max));
+        minmax.emplace("M_h_young",     std::make_pair(   0.,  2.));
+        minmax.emplace("M_hs_young",    std::make_pair(   0.,  2.));
         minmax.emplace("M_conc_young",  std::make_pair(   0.,  1.));
     }
 
