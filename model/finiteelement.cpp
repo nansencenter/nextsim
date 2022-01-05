@@ -7740,33 +7740,16 @@ FiniteElement::checkOutputs(bool const& at_init_time)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Check if M_UT is zero
-//! Called by checkDrifters()
-bool const
-FiniteElement::isUTZero()
-{
-    float const min_ut = *std::min_element(M_UT.begin(), M_UT.end());
-    float const max_ut = *std::max_element(M_UT.begin(), M_UT.end());
-    bool const no_ut = (
-            std::max(std::abs(min_ut), std::abs(max_ut)) < 1e-8
-            );
-    return boost::mpi::all_reduce(M_comm, no_ut, std::plus<bool>());
-}//isUTZero
-
-
-//------------------------------------------------------------------------------------------------------
 //! Check if we need to move, init, or output any drifters
 //! Called by checkUpdateDrifters()
 void
 FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
 {
-    // don't move if M_UT is zero
-    bool const have_ut = ! this->isUTZero();
     move = false;
-
     int n_active = 0;
     n_init = 0;
     n_output = 0;
+
     if(M_rank == 0)
     {
         for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -7784,7 +7767,7 @@ FiniteElement::checkDrifters(bool &move, int &n_init, int &n_output)
         //  5. resetting (eg OSISAF drifters reset after 2 days)
         // any drifters. NB inputting and resetting always happen
         // at output time so don't need to check for these.
-        if(n_active > 0 && have_ut)
+        if(n_active > 0)
         {
             move = (M_current_time - M_drifters_move_time >= M_drifters_move_limit)
                 || (n_init + n_output > 0);
@@ -7832,17 +7815,20 @@ void FiniteElement::checkUpdateDrifters()
     bool move;
     int n_init, n_output;
     this->checkDrifters(move, n_init, n_output);
-    LOG(DEBUG) << "moving drifters? " << move << "\n";
     LOG(DEBUG) << "initialising " << n_init << " drifters\n";
     LOG(DEBUG) << "outputting " << n_output << " drifters\n";
+    LOG(DEBUG) << "moving drifters? " << move << "\n";
+    LOG(DEBUG) << "last drifter move? "
+        << Nextsim::datenumToString(M_drifters_move_time) << "\n";
 
     // Move drifters?
     if(move) this->moveDrifters();
 
     // Reset M_UT
     if(move || n_init>0)
-        // 2nd case arises for the first active drifter
-        // - no need to move yet but need to start from scratch
+        // 2nd case arises when initialising the first set of drifters
+        // - only time n_init>0 does not imply a move
+        // - need to start from M_UT=0
         std::fill(M_UT.begin(), M_UT.end(), 0.);
 
     // Can quit if not initialising or outputting any drifters this time
