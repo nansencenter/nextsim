@@ -3229,16 +3229,22 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+        int tmp_nb_var = 0;
+        M_VT[i] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
+        ++tmp_nb_var;
+        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+        ++tmp_nb_var;
+        M_UM[i] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
+        ++tmp_nb_var;
+        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+        ++tmp_nb_var;
+        M_UT[i] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
+        ++tmp_nb_var;
+        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i + tmp_nb_var];
     }
 
 
