@@ -873,7 +873,6 @@ private:
     void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
-    bool const isUTZero();
     void checkDrifters(bool &move, int &n_init, int &n_output);
     void moveDrifters();
     void checkUpdateDrifters();
