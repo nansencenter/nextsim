@@ -493,6 +493,7 @@ FiniteElement::initVariables()
     //nodal var's
     M_VT.resize(2*M_num_nodes); //! \param M_VT (double) Instantaneous velocity vector at the (n+1)th (current) t-step [m/s]
     M_UM.resize(2*M_num_nodes); //! \param M_UM (double) Total mesh displacement [m]
+    M_UT.assign(2*M_num_nodes, 0.); //! \param M_UT (double) Total ice displacement for drifters [m]
     D_tau_w.resize(2*M_num_nodes); //! \param D_tau_w (double) Ice-ocean drag [Pa]
     D_tau_a.resize(2*M_num_nodes); //! \param D_tau_a (double) Ice-atmosphere drag [Pa]
 
@@ -553,11 +554,7 @@ FiniteElement::assignVariables()
 {
     M_delta_x.resize(M_num_nodes);
     M_surface = this->surface(M_mesh);
-
     M_UM.assign(2*M_num_nodes,0.);
-
-    // For drifters:
-    M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
     M_fcor.assign(M_num_elements, 0.);
 
