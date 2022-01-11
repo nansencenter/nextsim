@@ -8380,7 +8380,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        Variable tair={
+        Variable tair={ // 2m air temperature
             filename_prefix: "ERA5_t2m_y",
             name:"t2m",
             dimensions: dimensions,
@@ -8397,7 +8397,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; // T2M
-        Variable dair={
+        Variable dair={ //2m dew point temperature of air
             filename_prefix: "ERA5_d2m_y",
             name:"d2m",
             dimensions: dimensions,
@@ -8415,7 +8415,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // Q2M
 
-        Variable mslp={
+        Variable mslp={ //mean_sea_level_pressure
             filename_prefix: "ERA5_msl_y",
             name:"msl",
             dimensions: dimensions,
@@ -8433,7 +8433,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; //PSFC, a=1.
 
-        Variable Qsw_in={
+        Variable Qsw_in={  //mean_surface_downward_short_wave_radiation_flux
             filename_prefix: "ERA5_msdwswrf_y",
             name:"msdwswrf",
             dimensions: dimensions,
@@ -8451,7 +8451,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        Variable Qlw_in={
+        Variable Qlw_in={  //mean_surface_downward_long_wave_radiation_flux
             filename_prefix: "ERA5_msdwlwrf_y",
             name:"msdwlwrf",
             dimensions: dimensions,

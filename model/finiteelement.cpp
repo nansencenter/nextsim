@@ -14718,8 +14718,6 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     double const _YIF = 0.2;
     // Maximum Thickness of new ice
     double const _HNULL = 0.25;
-
-
     // get model variables
     double sic_mod(M_conc[i]);
     double sit_mod(M_thick[i]);
@@ -14872,43 +14870,14 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             sic_new_tot += sic_mod_thin; 
         }
         
-        // codes identifying where ice was present before and after assim
         sit_tot_est = std::fmax(0, sit_tot_est);
-        ice00 = (sit_mod_tot < physical::hmin) && (sit_tot_est < physical::hmin);  
-        ice01 = (sit_mod_tot < physical::hmin) && (sit_tot_est  >= physical::hmin);
-        ice10 = (sit_mod_tot >= physical::hmin) && (sit_tot_est < physical::hmin);
-        ice11 = (sit_mod_tot >= physical::hmin) && (sit_tot_est >= physical::hmin);
-
         // calculate update factor 
-
-        // update_factor = (ice10 || ice11) ? sit_tot_est/sit_mod_tot : 0;
         update_factor = sic_mod_thin/sic_new_tot;
         // update ice thickness 
         if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
         {
-            // for two ice categories
-            // sit_new = sit_mod;    
-            // sit_new_thin = sit_mod_thin;
             sit_new = sit_tot_est*(1 - update_factor);
             sit_new_thin = sit_tot_est*update_factor;
-
-
-            // // where ice was present
-            // if (ice10 || ice11)
-            // {
-            //     sit_new = sit_mod * update_factor;
-            //     sit_new_thin = sit_mod_thin * update_factor;           
-            // }
-            // // where new ice was added
-            // // similar to initialiation:
-            // // SIT YOUNG is 20% of total SIT until it reaches _HNULL
-            // // SIT OLDER - remaining part
-            // if (ice01)
-            // {
-            //     sit_new_thin = sit_tot_est * _YIF;
-            //     sit_new_thin = std::min(sit_new_thin, _HNULL); 
-            //     sit_new = sit_tot_est - sit_new_thin;
-            // }
         }
         else
         {   
