@@ -532,7 +532,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
             << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
             << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
             << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-            << " -string " << "\"General.Verbosity=0;\""
+            << " -string " << "\"General.Verbosity="<< Environment::vm()["debugging.gmsh_verbose"].as<int>() << ";\""
             << " " << mshfile;
 
     LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";

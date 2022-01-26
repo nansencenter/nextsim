@@ -2,20 +2,17 @@ KERNEL := $(shell uname -s)
 
 PROGNAME=laplacian.exec
 
-#NEXTSIMDIR=..
-
-CXX = mpicxx
-CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -g -pthread -v -DHAVE_CONFIG_H
+CXXFLAGS += -std=c++14 -pedantic -ftemplate-depth-256 -Wno-inline -g -v -DHAVE_CONFIG_H
 
 ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I. -I $(NEXTSIMDIR)/core/include  -I $(PETSC_DIR)/include #-I headers
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
+	CXXFLAGS += -I. -I$(NEXTSIMDIR)/core/include  -I$(PETSC_DIR)/include #-Iheaders
+	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I$(NEXTSIMDIR)/contrib/mapx/include
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib -Wl,-rpath,$(NEXTSIMDIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
-	CXXFLAGS += -I $(GMSH_DIR)/include/gmsh
+	LDFLAGS += -L$(PETSC_DIR)/lib -lpetsc -L$(NEXTSIMDIR)/lib -lnextsim
+	CXXFLAGS += -I$(GMSH_DIR)/include/gmsh
 
-	CXXFLAGS += -I $(BOOST_INCDIR)
-	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR) -L $(BOOST_LIBDIR)
+	CXXFLAGS += -I$(BOOST_INCDIR)
+	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR) -L$(BOOST_LIBDIR)
 	LDFLAGS += -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi -lm -ldl -lhwloc
 
 	LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
@@ -26,28 +23,28 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I $(NEXTSIMDIR)/contrib/bamg/include -I $(NEXTSIMDIR)/contrib/mapx/include
-	CXXFLAGS += -I /usr/local/include
-	CXXFLAGS +=	-I $(PETSC_DIR)/include -I $(BOOST_INCDIR) -I .
-	CXXFLAGS +=	-I $(NETCDF_DIR)/include -I $(GMSH_DIR)/include/gmsh
+	CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I$(NEXTSIMDIR)/contrib/bamg/include -I$(NEXTSIMDIR)/contrib/mapx/include
+	CXXFLAGS += -I/usr/local/include
+	CXXFLAGS +=	-I$(PETSC_DIR)/include -I$(BOOST_INCDIR) -I.
+	CXXFLAGS +=	-I$(NETCDF_DIR)/include -I$(GMSH_DIR)/include/gmsh
 
 	LDFLAGS += -Wl,-rpath,/usr/local/lib
-	LDFLAGS += -L /usr/local/lib -ldl -lstdc++
-	LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf_c++4
+	LDFLAGS += -L/usr/local/lib -ldl -lstdc++
+	LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf_c++4
 
 	ifeq ($(CXX),clang)
 	LDFLAGS += -stdlib=libc++
 	endif
 
 	LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-	LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
+	LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_mpi
 
 	LDFLAGS += -Wl,-rpath,$(PETSC_DIR)/lib
-	LDFLAGS += -L $(PETSC_DIR)/lib -lpetsc
+	LDFLAGS += -L$(PETSC_DIR)/lib -lpetsc
 
 	LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
+	LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
+	LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
 
 endif
 

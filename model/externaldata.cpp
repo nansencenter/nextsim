@@ -53,10 +53,6 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_log_all(Environment::logAll()),
     M_comm(Environment::comm())
 {
-    M_datasetname = (boost::format( "%1%...%2%" )
-                    % M_dataset->grid.prefix
-                    % M_dataset->grid.postfix
-                    ).str();
     fcoeff.resize(2);
 }
 
@@ -228,7 +224,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // ---------------------------------
                 // Load grid if unloaded
                 // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
-                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_current_time); //, RX_min, RX_max, RY_min, RY_max);
 
                 // closing maps
                 close_mapx(mapNextsim);
@@ -237,11 +233,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             this->receiveCouplingData(M_dataset, cpl_time, comm);
             this->transformData(M_dataset);
             M_dataset->interpolated = false;
-            M_dataset->itime_range[0] = cpl_time;
-            M_dataset->itime_range[1] = cpl_time + cpl_dt;
+            int const cpl_time_last = (cpl_time/cpl_dt)*cpl_dt;
+            M_dataset->itime_range[0] = cpl_time_last;
+            M_dataset->itime_range[1] = cpl_time_last + cpl_dt;
+            //TODO ftime_range doesn't seem to be used in coupling code
             M_dataset->ftime_range[0] = M_current_time;
             M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
-        }
+        }//reload coupling data
         else {
 #endif
             LOG(DEBUG) << "Load " << M_datasetname << "\n";   
@@ -394,7 +392,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 
     if (!M_dataset->interpolated)
     {
-        LOG(DEBUG) << "Interpolate " << M_datasetname << "\n";
+        LOG(DEBUG) << "Interpolate " << M_dataset->name << "\n";
         this->interpolateDataset(M_dataset, RX_in, RY_in);
         LOG(DEBUG) << "Done\n";
     }
@@ -470,7 +468,7 @@ ExternalData::get(const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_target_size, "invalid index for scalar id = "
-                        + std::to_string(M_VariableId)+" ("+M_datasetname+"): i = "
+                        + std::to_string(M_VariableId)+" ("+M_dataset->name+"): i = "
                         + std::to_string(i)+"; M_target_size = "
                         + std::to_string(M_target_size));
                 i_tmp=i;
@@ -479,7 +477,7 @@ ExternalData::get(const size_type i)
             else
             {
                 ASSERT(i < 2*M_target_size, "invalid index for vector id = "
-                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
+                        +std::to_string(M_VariableId)+" ("+M_dataset->name+")");
                 if(i < M_target_size)
                 {
                     i_tmp=i;
@@ -503,14 +501,14 @@ ExternalData::get(const size_type i)
             if(!M_is_vector)
             {
                 ASSERT(i < M_target_size, "invalid index for scalar id = "
-                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
+                        +std::to_string(M_VariableId)+" ("+M_dataset->name+")");
                 i_tmp=i;
                 VariableId_tmp=M_VariableId;
             }
             else
             {
                 ASSERT(i < 2*M_target_size, "invalid index for vector id = "
-                        +std::to_string(M_VariableId)+" ("+M_datasetname+")");
+                        +std::to_string(M_VariableId)+" ("+M_dataset->name+")");
 
                 if(i < M_target_size)
                 {
@@ -614,6 +612,7 @@ void
 ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<double> const& RY_in)//(double const& u, double const& v)
 {
+
     // ---------------------------------
     // Define the mapping and rotation_angle
     mapx_class *mapNextsim;
@@ -643,35 +642,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }
     // ---------------------------------
     // Load grid if unloaded
-    LOG(DEBUG) << dataset->grid.loaded << "\n";
-
     if(!dataset->grid.loaded)
-    {
-        bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
-        bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
-        bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
-        double init_time = M_StartingTime;
-        if((is_ec_fc||is_topaz_fc)&&true_forecast)
-        {
-            if (is_ec_fc)
-            {
-                // use forecast.time_init_atm_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-            else
-            {
-                // use forecast.time_init_ocean_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-        }
-        //only need init_time to get grid
-        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);  // load a portion of grid based on sea ice area RX_in,RY_in for efficiency
-        // dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time);  //, RX_in, RY_in);
-    }
+        dataset->loadGrid(mapNextsim, &(dataset->grid), M_current_time, RX_in, RY_in);
 
     // closing maps
     close_mapx(mapNextsim);
@@ -723,9 +695,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     std::vector<int> index_fstep;
 
     std::string f_timestr;
-    bool is_topaz_fc = (dataset->grid.dataset_frequency=="daily_forecast");//topaz forecast
-    bool is_ec_fc = ((dataset->grid.prefix).find("start") != std::string::npos);//ec_[nodes,elements],ec2_[nodes,elements]
-    bool true_forecast = (Environment::vm()["forecast.true_forecast"].as<bool>());
     double init_time = M_StartingTime;
         // - for forecasts, filename depends on start time
 
@@ -740,42 +709,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<datenumToString(init_time)<<"\n";
         LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<datenumToString(M_current_time)<<"\n";
         LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<datenumToString(ftime)<<"\n";
-        if((is_ec_fc||is_topaz_fc)&&true_forecast)
-        {
-            // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
-            if (is_ec_fc)
-            {
-                // - one file for all records
-                // - ftime not used (only init_time)
-                file_jump ={0};
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-            else
-            {
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-        }//forecasts
 
         for (int jump: file_jump)
         {
-            if(is_ec_fc||is_topaz_fc)
-            {
-                double inittime = init_time;
-                if(!true_forecast)
-                    // * if(!true_forecast), take the forecast that started at the start of
-                    //   the "current day" (ftime+jump)
-                    // * also can't have init_time before start of
-                    //   the "current day" (ftime+jump)
-                    // NB jump is in days for these datasets
-                    inittime = std::floor(ftime+jump);
-                filename = dataset->getFilename(&(dataset->grid),inittime,ftime+jump);
-            }
-            else
-                filename = dataset->getFilename(&(dataset->grid),init_time,ftime,jump);
+            filename = dataset->getFilename(ftime, jump);
 
             LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
                 << ". Exists? " << boost::filesystem::exists(filename)
@@ -807,8 +744,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const dt = t1 - t0;
                 int ntimes = timeDim.getSize();
-                if(is_ec_fc && !true_forecast)
-                    ntimes = std::round(1/dt);//only use 1st day of file
 
                 // This is a double because we're most likely in between integer indices
                 double const indx = (M_current_time - t0)/dt;
@@ -907,23 +842,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     }//not nearest_daily or constant
     else
     {
+        double const f= std::floor(M_current_time);
         if(dataset->grid.dataset_frequency=="nearest_daily")
-        {
-            ftime = M_current_time;
-            double f= std::floor(ftime);
-            f_timestr = datenumToString(f, "%Y%m%d");
             dataset->ftime_range = {f+.5};
-        }
-        else
-            f_timestr ="";
-
-        filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                    % Environment::nextsimDataDir().string()
-                    % dataset->grid.dirname
-                    % dataset->grid.prefix
-                    % f_timestr
-                    % dataset->grid.postfix
-                    ).str();
+        filename = dataset->getFilename(f);
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
@@ -939,25 +861,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             filename=filename_fstep[fstep];
             index=index_fstep[fstep];
 
-            // Replace the "prefix" if we have one variable per file
-            if ( dataset->variables[j].filename_prefix != "" )
+            // If we have one variable per file, determine the name of each
+            if ( dataset->variables[j].filename_string != "" )
             {
-                // extract the f_timestr for this fstep ( +1 for the directory / )
-                std::string::size_type start = Environment::nextsimDataDir().string().size() + 1
-                    + dataset->grid.dirname.size() + 1
-                    + dataset->grid.prefix.size();
-
-                std::string::size_type end = filename.find(dataset->grid.postfix, start);
-                f_timestr = filename.substr(start, end-start);
-
-                // Re-build filename with grid.prefix replaced with variables[j].filename_prefix
-                filename = (boost::format( "%1%/%2%/%3%%4%%5%" )
-                            % Environment::nextsimDataDir().string()
-                            % dataset->grid.dirname
-                            % dataset->variables[j].filename_prefix
-                            % f_timestr
-                            % dataset->grid.postfix
-                            ).str();
+                //for safety, we don't try to replace inside the parent directory
+                auto const fpath = boost::filesystem::path(filename);
+                auto const basedir = fpath.parent_path().string();
+                auto basename = fpath.filename().string();
+                boost::replace_all(basename, dataset->variables[0].filename_string,
+                        dataset->variables[j].filename_string);
+                filename = (boost::format( "%1%/%2%" )
+                            % basedir % basename).str();
             }
 
             LOG(DEBUG)<<"FILENAME= "<< filename <<"\n";

@@ -103,6 +103,7 @@ public:
 #endif
 
     bool isInitialized() const { return M_initialized; }
+    bool isVector() const { return M_is_vector; }
 
     std::string getDatasetName() const {
         if(M_is_constant)
@@ -129,7 +130,6 @@ private:
     bool M_is_vector;
     int M_target_size;
 
-    std::string M_datasetname;
     int M_VariableId;
     double M_current_time;
     double M_constant_value;

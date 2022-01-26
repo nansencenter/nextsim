@@ -16,7 +16,7 @@ namespace setup
     enum class AtmosphereType
     {
         CONSTANT           = 0,
-        GENERIC            = 1,
+        GENERIC_PS         = 1,
         ASR                = 2,
         ERAi               = 3,
         EC2                = 4,
@@ -28,42 +28,44 @@ namespace setup
         ERA5               = 10
     };
 
-	enum class OceanType
-	{
-		CONSTANT = 0,
-		TOPAZR   = 1,
-		TOPAZF   = 2,
-        MITGCM   = 3,
-        TOPAZR_atrest   = 4,
+    enum class OceanType
+    {
+        CONSTANT           = 0,
+        TOPAZR             = 1,
+        TOPAZF             = 2,
+        MITGCM             = 3,
+        TOPAZR_atrest      = 4,
         TOPAZR_ALTIMETER   = 5,
-        COUPLED  = 6
+        COUPLED            = 6,
+        GLORYS12R          = 7
     };
 
     enum class IceType
-	{
-		CONSTANT            = 0,
-		CONSTANT_PARTIAL    = 1,
-		AMSRE               = 2,
-		TOPAZ4              = 3,
-        ARBITRARY           = 5,
-        AMSR2               = 6,
-        TOPAZ4F             = 7,
-        MITGCM              = 8,
-        TARGET              = 9,
-        OSISAF              = 10,
-        PIOMAS              = 11,
-        TOPAZ4FAMSR2        = 12,
-        TOPAZ4FAMSR2OSISAF  = 13,
-        CS2_SMOS            = 14,
-        CS2_SMOS_AMSR2      = 15,
-        SMOS                = 16,
-        BINARY              = 17,
-        TOPAZ4OSISAFICESAT  = 18,
-        TOPAZ4FAMSR2OSISAFNIC= 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY= 20,
-        CREG                = 21,
-        AMSR2CSTTHICK     =22
-	};
+    {
+        CONSTANT                    = 0,
+        CONSTANT_PARTIAL            = 1,
+        AMSRE                       = 2,
+        TOPAZ4                      = 3,
+        ARBITRARY                   = 5,
+        AMSR2                       = 6,
+        TOPAZ4F                     = 7,
+        MITGCM                      = 8,
+        TARGET                      = 9,
+        OSISAF                      = 10,
+        PIOMAS                      = 11,
+        TOPAZ4FAMSR2                = 12,
+        TOPAZ4FAMSR2OSISAF          = 13,
+        CS2_SMOS                    = 14,
+        CS2_SMOS_AMSR2              = 15,
+        SMOS                        = 16,
+        BINARY                      = 17,
+        TOPAZ4OSISAFICESAT          = 18,
+        TOPAZ4FAMSR2OSISAFNIC       = 19,
+        TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
+        NEMO                        = 21,
+        CICE                        = 22,
+        AMSR2CSTTHICK               = 23
+    };
 
     enum class WaveType
     {
@@ -90,7 +92,7 @@ namespace setup
     enum class IceCategoryType
     {
         CLASSIC     = 0,
-        THIN_ICE    = 1,
+        YOUNG_ICE   = 1,
         MULTI       = 2
     };
 
@@ -127,7 +129,7 @@ namespace setup
     enum class FreezingPointType
     {
         LINEAR     = 0,
-        NON_LINEAR = 1
+        UNESCO     = 1
     };
 
 
@@ -150,19 +152,6 @@ namespace setup
 
 namespace schemes
 {
-    enum class damageDiscretisation
-    {
-        EXPLICIT    = 0,
-        IMPLICIT    = 1,
-        RECURSIVE   = 2
-    };
-
-    enum class tdType
-    {
-        FIXED            = 0,
-        DAMAGE_DEPENDENT = 1,
-    };
-
     enum class specificHumidity
     {
         ATMOSPHERE = 0,

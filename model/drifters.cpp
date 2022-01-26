@@ -22,6 +22,7 @@ namespace Nextsim
 // ------------------------------------------
 //! Main drifter interface to FiniteElement
 //! Called from FiniteElement::checkUpdateDrifters()
+//! \note call after moving
 void
 Drifters::updateDrifters(GmshMeshSeq const& movedmesh_root,
         std::vector<double> & conc_root, double const& current_time)
@@ -441,7 +442,7 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 // -------------------------------------------------------------------------------------
 //! reset drifters
 //! - so far only used by OSISAF drifters (reset them after 2 days)
-//! Called by FiniteElement::updateDrifters()
+//! Called by FiniteElement::checkUpdateDrifters()
 void
 Drifters::reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
         double const& current_time)
@@ -471,13 +472,13 @@ Drifters::move(GmshMeshSeq const& mesh,
     // Do nothing if we don't have to
     if ( !M_is_initialised )
         return;
-    int num_drifters = M_i.size();
+    int const num_drifters = M_i.size();
     if ( num_drifters == 0 )
         return;
 
     // Interpolate the total displacement onto the drifter positions
-    int nb_var=2;
-    int numNodes = mesh.numNodes();
+    int const nb_var=2;
+    int const numNodes = mesh.numNodes();
     std::vector<double> interp_drifter_in(nb_var*numNodes);
     for (int i=0; i<numNodes; ++i)
     {
@@ -509,7 +510,7 @@ Drifters::move(GmshMeshSeq const& mesh,
 //! interp conc onto drifter positions
 //! called by updateDrifters(), reset() and initialise()
 void
-Drifters::updateConc(GmshMeshSeq const& movedmesh,
+Drifters::updateConc(GmshMeshSeq const& moved_mesh,
         std::vector<double> & conc, std::vector<double> &conc_drifters)
 {
     // Do nothing if we don't have to
@@ -519,14 +520,14 @@ Drifters::updateConc(GmshMeshSeq const& movedmesh,
     conc_drifters.resize(num_drifters);
 
     // move the mesh before interpolating
-    int numNodes = movedmesh.numNodes();
-    int numElements = movedmesh.numTriangles();
+    int const numNodes = moved_mesh.numNodes();
+    int const numElements = moved_mesh.numTriangles();
 
     // Interpolate the concentration onto the drifter positions
     int nb_var=1;
     double* interp_drifter_out;
     InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &movedmesh.indexTr()[0], &movedmesh.coordX()[0], &movedmesh.coordY()[0],
+                            &moved_mesh.indexTr()[0], &moved_mesh.coordX()[0], &moved_mesh.coordY()[0],
                             numNodes, numElements,
                             &conc[0],
                             numElements, nb_var,

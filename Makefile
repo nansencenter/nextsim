@@ -22,7 +22,7 @@ ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE)
 endif
 
-core: contrib
+core: contrib modules
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel

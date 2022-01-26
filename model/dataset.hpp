@@ -12,7 +12,6 @@
 #include <environment.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToGridx.h>
@@ -45,11 +44,10 @@ namespace Nextsim
         None = -1,
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
-        FromMeshToMesh2dCavities = 2,
-#if defined (OASIS) || defined (ENSEMBLE)
-        ConservativeRemapping = 3,
+#if defined OASIS || defined (ENSEMBLE)
+        ConservativeRemapping = 2,
 #endif
-        FromMeshToMeshQuick = 4
+        FromMeshToMeshQuick = 3
     };
 
     typedef struct WaveOptions
@@ -83,7 +81,7 @@ public:
     typedef struct Variable
     {
         // Information on the input data
-        std::string filename_prefix; // In case the dataset is composed of one file per variable - leave empty "" if everything is in the same (grid) file
+        std::string filename_string; // In case the dataset is composed of one file per variable - leave empty "" if everything is in the same (grid) file
 
         std::string name;   //! name of the variable in the input file
         std::vector<Dimension> dimensions; //! dimensions in the input file
@@ -139,8 +137,11 @@ public:
         InterpolationType interpolation_method;
         int interp_type;
         std::string dirname;
-        std::string prefix;
-        std::string postfix;
+        std::string filename_mask;
+            // mask to be converted to filename with datenameToString
+            // eg "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b${INITTIME}-fv02.0.nc" for topaz forecast
+            // can also contain keywords ${INITTIME} (needed by forecasts)
+            // and ${VARSTRING} (when variables are stored in separate files - see ERA5)
         std::string gridfile;
         std::string reference_date;
 
@@ -215,11 +216,13 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    std::string getFilename(Grid *grid, double init_time, double current_time, int jump=0); 
+    std::string getFilename(double const& current_time) const;
+    std::string getFilename(double const& current_time, int const& jump) const;
+    void shiftDates(double const& current_time, int const& jump, double& ftime) const;
 
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time);
-
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time,
+            std::vector<double> const& RX_in, std::vector<double> const& RY_in);
 
     void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
         std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);

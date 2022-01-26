@@ -32,7 +32,6 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -47,7 +46,6 @@ ModelVariable::initElemental()
             M_export_name = "Thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -60,7 +58,6 @@ ModelVariable::initElemental()
             M_export_name = "Snow_thick_ice";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -73,7 +70,6 @@ ModelVariable::initElemental()
             M_export_name = "M_sigma";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             if(M_component_number<0 || M_component_number>2)
@@ -88,13 +84,12 @@ ModelVariable::initElemental()
             M_export_name = "Damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
             M_has_max = true;
-            M_max_val = 1.;
+            M_max_val = 1.0 - 1e-10;
             break;
 
         case (variableID::M_cum_damage):
@@ -103,7 +98,6 @@ ModelVariable::initElemental()
             M_export_name = "Cumulated_damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -116,7 +110,6 @@ ModelVariable::initElemental()
             M_export_name = "Cumulated_wave_damage";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -129,7 +122,6 @@ ModelVariable::initElemental()
             M_export_name = "Ridge_ratio";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -151,19 +143,16 @@ ModelVariable::initElemental()
             {
                 case(0):
                     // surface temperature
-                    M_interp_method = interpMethod::nearest_neighbour;
                     M_interp_transformation = interpTransformation::none;
                     break;
 
                 case(1):
                     // mean temperature of top layer
-                    M_interp_method = interpMethod::conservative;
                     M_interp_transformation = interpTransformation::enthalpy; // (Winton, 2000: eq 39) times volume with f1=1
                     break;
 
                 case(2):
                     // mean temperature of lower layer
-                    M_interp_method = interpMethod::conservative;
                     M_interp_transformation = interpTransformation::thick; // (Winton, 2000: eq 39) times volume with f1=0
                     break;
 
@@ -180,7 +169,6 @@ ModelVariable::initElemental()
             M_export_name = "SST";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sst"].as<double>();
             break;
@@ -191,55 +179,50 @@ ModelVariable::initElemental()
             M_export_name = "SSS";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = Environment::vm()["thermo.diffusivity_sss"].as<double>();
             break;
 
-        case (variableID::M_tsurf_thin):
-            // surface temperature above thin ice [deg C]
-            M_name = "M_tsurf_thin";
-            M_export_name = "Tsurf_thin_ice";
+        case (variableID::M_tsurf_young):
+            // surface temperature above young ice [deg C]
+            M_name = "M_tsurf_young";
+            M_export_name = "Tsurf_young_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
 
-        case (variableID::M_h_thin):
-            // thickness of thin ice [m]
-            M_name = "M_h_thin";
-            M_export_name = "Thin_ice";
+        case (variableID::M_h_young):
+            // thickness of young ice [m]
+            M_name = "M_h_young";
+            M_export_name = "Thickness_young_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
             break;
 
-        case (variableID::M_hs_thin):
-            // snow thickness on thin ice [m]
-            M_name = "M_hs_thin";
-            M_export_name = "Snow_thin_ice";
+        case (variableID::M_hs_young):
+            // snow thickness on young ice [m]
+            M_name = "M_hs_young";
+            M_export_name = "Snow_young_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
             M_min_val = 0.;
             break;
 
-        case (variableID::M_conc_thin):
-            // concentration of thin ice
-            M_name = "M_conc_thin";
-            M_export_name = "Concentration_thin_ice";
+        case (variableID::M_conc_young):
+            // concentration of young ice
+            M_name = "M_conc_young";
+            M_export_name = "Concentration_young_ice";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -255,18 +238,16 @@ ModelVariable::initElemental()
             M_export_name = "M_random_number";
             M_prognostic = true;
             M_exporting = false;
-            M_interp_method = interpMethod::nearest_neighbour;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0;
             break;
 
         case (variableID::M_conc_fsd):
-            // concentration of thin ice
+            // concentration of young ice
             M_name = "M_conc_fsd";
             M_export_name = "Concentration_fsd";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -276,12 +257,11 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::M_conc_mech_fsd):
-            // concentration of thin ice
+            // concentration of young ice
             M_name = "M_conc_mech_fsd";
             M_export_name = "Concentration_mech_fsd";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -295,7 +275,6 @@ ModelVariable::initElemental()
             M_export_name = "Fyi_fraction";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -309,7 +288,6 @@ ModelVariable::initElemental()
             M_export_name = "Age_d";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -321,7 +299,6 @@ ModelVariable::initElemental()
             M_export_name = "Age";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -334,7 +311,6 @@ ModelVariable::initElemental()
             M_export_name = "Divergence";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             break;
@@ -345,7 +321,6 @@ ModelVariable::initElemental()
             M_export_name = "Concentration_update";
             M_prognostic = true;
             M_exporting = true;
-            M_interp_method = interpMethod::conservative;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             M_has_min = true;
@@ -356,7 +331,7 @@ ModelVariable::initElemental()
 
         // Diagnostic variables
         case (variableID::D_conc):
-            // total concentration (thin + thick ice)
+            // total concentration (young + thick ice)
             M_name = "D_conc";
             M_export_name = "Concentration";
             M_prognostic = false;
@@ -364,7 +339,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_thick):
-            // total thickness (thin + thick ice) [m]
+            // total thickness (young + thick ice) [m]
             M_name = "D_thick";
             M_export_name = "Thickness";
             M_prognostic = false;
@@ -372,7 +347,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_snow_thick):
-            // total snow thickness (thin + thick ice) [m]
+            // total snow thickness (young + thick ice) [m]
             M_name = "D_snow_thick";
             M_export_name = "Snow";
             M_prognostic = false;
@@ -380,7 +355,7 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_tsurf):
-            // mean surface temperature (ocean + thin ice + thick ice) [deg C]
+            // mean surface temperature (ocean + young ice + thick ice) [deg C]
             M_name = "D_tsurf";
             M_export_name = "Tsurf";
             M_prognostic = false;
@@ -496,9 +471,65 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_vice_melt):
-            // ice volume gain/loss by freezing/melt
+            // ice volume gain/loss by freezing/melt [m/day]
             M_name = "D_vice_melt";
             M_export_name = "D_vice_melt";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_vi_young):
+            // Young ice volume gain/loss by freezing/melt [m/day]
+            M_name = "D_del_vi_young";
+            M_export_name = "D_del_vi_young";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_hi):
+            // ice growth/melt rate [m/day]
+            M_name = "D_del_hi";
+            M_export_name = "D_del_hi";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_hi_young):
+            //young ice growth/melt rate [m/day]
+            M_name = "D_del_hi_young";
+            M_export_name = "D_del_hi_young";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_newice):
+            // ice growth in open water [m/day]
+            M_name = "D_newice";
+            M_export_name = "D_newice";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_mlt_bot):
+            // ice melt at bottom [m/day]
+            M_name = "D_mlt_bot";
+            M_export_name = "D_mlt_bot";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_mlt_top):
+            // ice melt at top [m/day]
+            M_name = "D_mlt_top";
+            M_export_name = "D_mlt_top";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_snow2ice):
+            // ice formed from snow by flooding [m/day]
+            M_name = "D_snow2ice";
+            M_export_name = "D_snow2ice";
             M_prognostic = false;
             M_exporting = false;
             break;
