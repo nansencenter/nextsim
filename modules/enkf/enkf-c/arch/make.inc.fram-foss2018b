@@ -16,15 +16,17 @@
 #   >ln -s /usr/lib64/blas/libblas.so.3.5.0 /usr/lib64/libblas.so
 # and add /usr/lib64/mpi/gcc/openmpi/bin to $PATH.
 
-LD_PATH = -L/opt/netcdf/lib -L/opt/hdf5/1.8.15/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial -L../gridutils-c
-LD_PATH += -L/cluster/software/LAPACK/3.8.0-foss-2018b/lib -L/cluster/software/OpenBLAS/0.3.1-GCC-7.3.0-2.30/lib
+LD_PATH = -L$(EBROOTHDF5)/lib
+LD_PATH += -L$(EBROOTNETCDF)/lib64
+LD_PATH += -L$(EBROOTOPENBLAS)/lib
 
 LIB_NC = -lnetcdf -lhdf5 -lhdf5_hl
-#LIB_LAPACK = -llapack -lblas -lgfortran
-LIB_LAPACK = -llapack -lopenblas -lgfortran
+LIB_LAPACK = -lopenblas -lgfortran
+# NB lapack is now in openblas
 LIB_M = -lm
 
-#INC_NC  = -I/opt/netcdf/include
+INC_NC = -I$(EBROOTNETCDF)/include
+INC_NC += -I$(EBROOTHDF5)/include
 # with gridutils (default) (comment out below to compile without):
 #
 #
@@ -40,10 +42,10 @@ LIB_GU =$(NEXTSIMDIR)/modules/enkf/gridutils-c/libgu.so
 # which compiler/flags to use without MPI
 # choose gcc if you do not have clang
 #
-CC = gcc
-CFLAGS = -g -pedantic -Wall -std=c99 -D_GNU_SOURCE -O2
+CFLAGS += -pedantic -Wall -std=c99 -D_GNU_SOURCE
 
 # which compiler/flags to use with MPI
 #
-CCMPI = OMPI_MPICC=$(CC) mpicc
+CCMPI = OMPI_MPICC=gcc $(CC)
+# NB $(CC) usually mpicc or else intel equivalent
 CFLAGSMPI = -g -pedantic -Wall -std=c99 -D_GNU_SOURCE -DMPI -O2

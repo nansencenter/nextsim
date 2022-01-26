@@ -28,9 +28,6 @@ CXXSRC=$(wildcard $(CXXSRCDIR)*.cpp)
 OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
-BOOST_LIBDIR=/cluster/software/Boost/1.71.0-iimpi-2019b/lib
-FFTW_DIR=/cluster/software/FFTW/3.3.8-intel-2019b
-
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
