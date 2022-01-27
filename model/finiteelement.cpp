@@ -87,7 +87,6 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_nodes = M_mesh.nodes();
 
     M_num_elements = M_mesh.numTriangles();
-    LOG(DEBUG)<<"-------------------M_num_elements "<< M_num_elements <<"\n";
     M_ndof = M_mesh.numGlobalNodes();
 
     M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
@@ -947,7 +946,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
         std::string msg = "checkReloadDatasets: ExternalData object "
                 + (*it)->getDatasetName() + " is not initialised yet";
         if(!(*it)->isInitialized())
-            throw std::runtime_error(msg);     
+            throw std::runtime_error(msg);
 #ifdef OASIS
         (*it)->check_and_reload(RX, RY, CRtime, M_comm, pcpt*time_step, cpl_time_step);
 #else
@@ -975,7 +974,6 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     auto RY = M_mesh.coordY();
     M_timer.tock("Coord");
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
-
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 
     // - mesh elements
@@ -993,7 +991,13 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
 //! Called by the initMesh() function.
 void
 FiniteElement::initBamg()
+{
+    bamgopt = new BamgOpts();
+
     bamgopt->Crack             = 0;
+    bamgopt->anisomax          = 1e30;
+    bamgopt->coeff             = 1;
+    bamgopt->cutoff            = 1e-5;
     //bamgopt->err               = 0.01;
     bamgopt->errg              = 0.1;
     bamgopt->field             = NULL;
@@ -1079,7 +1083,7 @@ FiniteElement::initOptAndParam()
 
     time_step = vm["simul.timestep"].as<int>(); //! \param time_step (int) Model time step [s]
     dtime_step = double(time_step); //! \param dtime_step (double) Model time step [s]
-    
+
 #ifdef OASIS
     cpl_time_step = vm["coupler.timestep"].as<int>();
 
@@ -1443,10 +1447,11 @@ FiniteElement::initOptAndParam()
     if(!M_moorings_snapshot)
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
 
+    M_ensemble_member = vm["statevector.ensemble_member"].as<int>(); //! // ensemble member run id
 #ifdef ENSEMBLE
+    LOG(DEBUG) << "M_ensemble_member: " << M_ensemble_member<<"\n";
     M_use_statevector = vm["statevector.use_statevector"].as<bool>(); //! \param M_use_statevector (boolean) Option on the use of statevector
     M_restart_from_analysis = vm["statevector.restart_from_analysis"].as<bool>(); //M_restart_from_analysis, use annalysis as restart for new simulation    
-    M_ensemble_member = vm["statevector.ensemble_member"].as<int>(); //! // ensemble member run id
     //M_id_statevector = vm["statevector.id"].as<std::string>(); //same as ensemble_member
     M_statevector_DAtype = vm["statevector.DAtype"].as<std::string>();   // indicates assimilation type (assimlated variable(s))
     M_statevector_prefix = vm["statevector.prefix"].as<std::string>();
@@ -1454,7 +1459,6 @@ FiniteElement::initOptAndParam()
     M_statevector_false_easting = vm["statevector.false_easting"].as<bool>();
     M_statevector_parallel_output = vm["statevector.parallel_output"].as<bool>(); //! \param M_statevector_parallel_output (boolean) Option on parallel outputs
     M_statevector_averaging_period = 0.;
-    LOG(DEBUG) << "M_ensemble_member: " << M_ensemble_member<<"\n";
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2statevectorfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -5342,6 +5346,7 @@ FiniteElement::thermo(int dt)
             Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_young*old_conc_young) *
                     (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
         }
+
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
@@ -8087,6 +8092,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
+
             // forcing variables
             case (GridOutput::variableID::tair):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8351,6 +8357,7 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("damage",GridOutput::variableID::damage)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
