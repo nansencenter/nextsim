@@ -18,7 +18,7 @@ ifdef USE_OASIS
 endif
 ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make
-	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; $(MAKE)
+	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; make
 	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE)
 endif
 
@@ -32,8 +32,8 @@ ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
 endif
 ifdef USE_ENSEMBLE
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) clean
-	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; $(MAKE) clean
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make clean
+	@cd $(NEXTSIMDIR)/modules/enkf/gridutils-c; make clean
 	@cd $(NEXTSIMDIR)/modules/enkf/enkf-c; $(MAKE) clean
 endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) clean
@@ -48,7 +48,7 @@ ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
 endif
 ifdef USE_ENSEMBLE
-	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE) mrproper
+	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; make mrproper
 endif
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE) mrproper
 	@cd $(NEXTSIMDIR)/model; $(MAKE) mrproper
