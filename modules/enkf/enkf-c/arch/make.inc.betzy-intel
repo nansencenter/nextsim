@@ -1,0 +1,49 @@
+# This is an example of the system-dependent part of the Makefile for a Linux
+# desktop. You need to install the following packages (components):
+#
+#   gcc (or clang)
+#   openmpi 
+#   netcdf
+#   hdf5
+#   lapack
+#   blas -- if not bundled with lapack
+#
+# On libgu -- see ../README.
+#
+# It may also be necessary to add a few minor tweaks. For example, on OpenSUSE
+# desktops one may need to make a couple softlinks, e.g.
+#   >ln -s /usr/lib64/lapack/liblapack.so.3.5.0 /usr/lib64/liblapack.so
+#   >ln -s /usr/lib64/blas/libblas.so.3.5.0 /usr/lib64/libblas.so
+# and add /usr/lib64/mpi/gcc/openmpi/bin to $PATH.
+
+LD_PATH = -L/opt/netcdf/lib -L/opt/hdf5/1.8.15/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial -L../gridutils-c
+LD_PATH += -L/cluster/software/ScaLAPACK/2.0.2-gompi-2019b/lib/ -L/cluster/software/OpenBLAS/0.3.7-GCC-8.3.0/lib
+
+LIB_NC = -lnetcdf -lhdf5 -lhdf5_hl
+#LIB_LAPACK = -llapack -lblas -lgfortran
+LIB_LAPACK = -lscalapack -lopenblas -lgfortran
+LIB_M = -lm
+
+#INC_NC  = -I/opt/netcdf/include
+# with gridutils (default) (comment out below to compile without):
+#
+#
+INC_GU = -I../gridutils-c
+LIB_GU =$(NEXTSIMDIR)/modules/enkf/gridutils-c/libgu.so 
+#LIB_GU = -lgu
+#
+# without gridutils (uncomment below):
+#
+#INC_GU = -DNO_GRIDUTILS
+#LIB_GU =
+
+# which compiler/flags to use without MPI
+# choose gcc if you do not have clang
+#
+CC = gcc
+CFLAGS = -g -pedantic -Wall -std=c99 -D_GNU_SOURCE -O2
+
+# which compiler/flags to use with MPI
+#
+CCMPI = OMPI_MPICC=$(CC) mpicc
+CFLAGSMPI = -g -pedantic -Wall -std=c99 -D_GNU_SOURCE -DMPI -O2
