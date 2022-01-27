@@ -9124,7 +9124,7 @@ FiniteElement::stateVectorAppendNetcdf(double const &output_time)
         M_statevector_file = M_statevector.initNetCDF(filename_root, M_statevector_file_length, output_time, M_use_restart);
     }
     // update data on grid
-    M_statevector.updateGridMean(bamgmesh);
+    M_statevector.updateGridMean(bamgmesh, M_local_nelements, M_UM);
 
     if ( ! M_statevector_parallel_output )
     {
