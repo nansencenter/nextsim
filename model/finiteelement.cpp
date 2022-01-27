@@ -507,7 +507,7 @@ FiniteElement::initVariables()
 //! Calls the functions for assimilation of ocean and ice data: assimilateSlabOcean() and assimilateIce().
 //! Called by the init() function.
 void
-FiniteElement::DataAssimilation()
+FiniteElement::dataAssimilation()
 {
 
     LOG(DEBUG) << "assimilateSlabOcean\n";
@@ -515,7 +515,7 @@ FiniteElement::DataAssimilation()
 
     LOG(DEBUG) << "assimilateIce\n";
     this->assimilateIce();
-}//DataAssimilation
+}//dataAssimilation
 
 
 //--------------------------------------------------------------------------------------------------
@@ -6563,8 +6563,8 @@ FiniteElement::init()
         if ( M_use_assimilation )
         {
             chrono.restart();
-            this->DataAssimilation();
-            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
+            this->dataAssimilation();
+            LOG(DEBUG) <<"dataAssimilation done in "<< chrono.elapsed() <<"s\n";
         }
 #ifdef OASIS
         if (M_couple_waves)
@@ -9197,13 +9197,13 @@ FiniteElement::readStateVector()
         M_sss[i]  = std::min(41.,std::max(M_analysis_sss[i],5.));
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp, effective_thickness;        
-        this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
+        this->assimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
         effective_thickness = std::max(0.0, M_analysis_thick[i])*(M_conc_young[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
         else
-           this->AssimThick(i,effective_thickness,sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_young,sit_tmp_young,snt_tmp_young
-        this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
+           this->assimThick(i,effective_thickness,sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_young,sit_tmp_young,snt_tmp_young
+        this->checkConsistencyAssim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 }//readStateVector
 
@@ -11104,7 +11104,7 @@ FiniteElement::initSlabOcean()
 
 //------------------------------------------------------------------------------------------------------
 //! Performs data assimilation (of sss and sst) in the slab ocean.
-//! Called by the DataAssimilation() function.
+//! Called by the dataAssimilation() function.
 void
 FiniteElement::assimilateSlabOcean()
 {
@@ -11375,7 +11375,7 @@ FiniteElement::checkConsistency()
 
 //------------------------------------------------------------------------------------------------------
 //! Performs the sea ice data assimilation. Different data sets available. Calls the appropriate function depending on the dataset.
-//! Called by the DataAssimilation() function.
+//! Called by the dataAssimilation() function.
 void
 FiniteElement::assimilateIce()
 {
@@ -14597,7 +14597,7 @@ FiniteElement::finalise(std::string current_time_system)
 
 #ifdef ENSEMBLE
 void
-FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, double &snt_mod, double &rir_mod)
+FiniteElement::checkConsistencyAssim(int i, double &sic_mod, double &sit_mod, double &snt_mod, double &rir_mod)
 {
     //check consistency of fields after init/assimilation
     //1. set things to zero if conc/abs thickness are too small
@@ -14784,11 +14784,11 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
         M_conc_upd[i] = std::fmin(M_conc_upd[i], 1);
     // }
 
-}//checkConsistency_assim
+}//checkConsistencyAssim
 
 
 void
-FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
+FiniteElement::assimConc(int i,double sic_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {
     // refer to pynextismf/assimilation.py
     // sic_new,sit_new, snt_new, rir_new are temporary variables as return. 
@@ -14916,10 +14916,10 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 
 
 void 
-FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
+FiniteElement::assimThick(int i, double sit_tot_est, double &sic_new, double &sit_new, double &snt_new, double &rir_new)
 {   
     // post processing of analysis SIT: sit_tot_est from enkf
-    // refer to pynextsimf/assimilation.py->AssimThick()
+    // refer to pynextsimf/assimilation.py->assimThick()
     // Where ice in nextsim is present:
     //     *  new total thickness is calculated using enkf-c
     //     *  thick and young ice thickness is changed proportionally
