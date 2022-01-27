@@ -24,3 +24,5 @@ expt_*/
 profile.pdf
 .DS_Store
 modules/enkf/enkf-c/make.inc
+.vscode/settings.json
+Desktop
