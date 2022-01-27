@@ -242,7 +242,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
         }//reload coupling data
         else {
 #endif
-            LOG(DEBUG) << "Load " << M_datasetname << "\n";   
+            LOG(DEBUG) << "Load " << (boost::format("%1%")%M_dataset->grid.filename_mask).str() << "\n";   
             this->loadDataset(M_dataset, RX_in, RY_in);       
             this->transformData(M_dataset);
 #ifdef ENSEMBLE 

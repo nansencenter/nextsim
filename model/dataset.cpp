@@ -6367,7 +6367,7 @@ DataSet::DataSet(char const *DatasetName)
         dimensions_time[0] = dimension_time;
 
         Variable latitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "plat",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6384,7 +6384,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable longitude={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "plon",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6401,7 +6401,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable time_tmp={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "time",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6418,7 +6418,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable thickness={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "sit",         // it loads the absolute ice thickness, used in readstatevector
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6435,7 +6435,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
         Variable conc={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "sic", //sea_ice_concentration
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6453,7 +6453,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Variable sst={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "sst",  //sea_surface_temperature
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6469,25 +6469,25 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         };
-        Variable Q_assm={
-            filename_prefix: "", // All variables are in the same (grid) file
-            name: "Q_assm",  //Heat flux compensation
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "J m s-1",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
+        // Variable Q_assm={
+        //     filename_string: "", // All variables are in the same (grid) file
+        //     name: "Q_assm",  //Heat flux compensation
+        //     dimensions: dimensions,
+        //     land_mask_defined: false,
+        //     land_mask_value: 0.,
+        //     NaN_mask_defined: false,
+        //     NaN_mask_value: 0.,
+        //     use_FillValue: true,
+        //     use_missing_value: true,
+        //     a: 1.,
+        //     b: 0.,
+        //     Units: "J m s-1",
+        //     loaded_data: loaded_data_tmp,
+        //     interpolated_data: interpolated_data_tmp,
+        //     wavDirOptions: wavdiropt_none
+        // };
         Variable sss={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "sss",  //sea_surface_salinity
             dimensions: dimensions,
             land_mask_defined: false,
@@ -6506,7 +6506,7 @@ DataSet::DataSet(char const *DatasetName)
 
         // The masking, lon, and lat variables in NEMO.nc
         Variable mask={
-            filename_prefix: "", // All variables are in the same (grid) file
+            filename_string: "", // All variables are in the same (grid) file
             name: "mask",
             dimensions: dimensions_latlon,
             land_mask_defined: true,
@@ -6531,8 +6531,7 @@ DataSet::DataSet(char const *DatasetName)
             // postfix: ".nc.analysis",
             // gridfile: std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>()),
             dirname: "",
-            prefix: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
-            postfix: "",
+            filename_mask: "mem"+std::to_string(Environment::vm()["statevector.ensemble_member"].as<int>())+".nc.analysis",
             gridfile:"",
             reference_date: "1979-01-01",
 
