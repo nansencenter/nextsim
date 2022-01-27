@@ -8791,9 +8791,9 @@ FiniteElement::initStateVector()
             ("Qsh", GridOutput::variableID::Qsh)
             ("Qlh", GridOutput::variableID::Qlh)
             ("delS", GridOutput::variableID::delS)
-            ("conc_thin", GridOutput::variableID::conc_thin)
-            ("h_thin", GridOutput::variableID::h_thin)
-            ("hs_thin", GridOutput::variableID::hs_thin)
+            ("conc_young", GridOutput::variableID::conc_young)
+            ("h_young", GridOutput::variableID::h_young)
+            ("hs_young", GridOutput::variableID::hs_young)
             ("sst", GridOutput::variableID::sst)
             ("sss", GridOutput::variableID::sss)
             // Primarily coupling variables, but perhaps useful for debugging
@@ -8830,7 +8830,7 @@ FiniteElement::initStateVector()
     std::vector<std::string> names = vm["statevector.variables"].as<std::vector<std::string>>();
 
     //error checking
-    std::vector<std::string> names_thin = {"conc_thin", "h_thin", "hs_thin"};
+    std::vector<std::string> names_young = {"conc_young", "h_young", "hs_young"};
 
     // - these are not always initialised, depending on the atmospheric forcing
     boost::unordered_map<std::string, bool>
@@ -8862,12 +8862,12 @@ FiniteElement::initStateVector()
     int vector_counter = 0;
     for ( auto it=names.begin(); it!=names.end(); ++it )
     {
-        // error if trying to output thin ice variables if not using thin ice category
-        if (std::count(names_thin.begin(), names_thin.end(), *it) > 0)
+        // error if trying to output young ice variables if not using young ice category
+        if (std::count(names_young.begin(), names_young.end(), *it) > 0)
         {
-            if(M_ice_cat_type!=setup::IceCategoryType::THIN_ICE)
+            if(M_ice_cat_type!=setup::IceCategoryType::YOUNG_ICE)
             {
-                LOG(ERROR)<<"initStateVector: trying to output <<"<< *it<<">> but not running with thin ice\n";
+                LOG(ERROR)<<"initStateVector: trying to output <<"<< *it<<">> but not running with young ice\n";
                 throw std::runtime_error("Invalid StateVector name");
             }
         }
@@ -9198,11 +9198,11 @@ FiniteElement::readStateVector()
         M_sst[i]  = std::min(35.,std::max(M_analysis_sst[i],-0.057*M_sss[i]));
         double sic_tmp,sit_tmp,snt_tmp,rir_tmp, effective_thickness;        
         this->AssimConc (i,M_analysis_conc[i], sic_tmp,sit_tmp,snt_tmp,rir_tmp);
-        effective_thickness = std::max(0.0, M_analysis_thick[i])*(M_conc_thin[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
+        effective_thickness = std::max(0.0, M_analysis_thick[i])*(M_conc_young[i] + sic_tmp); // reconstruct the effective SIT since M_analysis_thick is absolute SIT
         if (M_analysis_conc[i]>0.9 && M_statevector_DAtype=="sic")
         {}
         else
-           this->AssimThick(i,effective_thickness,sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_thin,sit_tmp_thin,snt_tmp_thin      
+           this->AssimThick(i,effective_thickness,sic_tmp,sit_tmp,snt_tmp,rir_tmp); //sic_tmp_young,sit_tmp_young,snt_tmp_young
         this->checkConsistency_assim(i,sic_tmp,sit_tmp,snt_tmp,rir_tmp);
     }
 }//readStateVector
@@ -14621,9 +14621,9 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
         double sic_mod_tot(sic_mod);
         double sit_mod_tot(sit_mod);
         double snt_mod_tot(snt_mod);
-        double sic_mod_thin(0);
-        double sit_mod_thin(0);
-        double snt_mod_thin(0);
+        double sic_mod_young(0);
+        double sit_mod_young(0);
+        double snt_mod_young(0);
 
         // original variables (before assimilation)
         double sic_orig(M_conc[i]);
@@ -14631,46 +14631,46 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
         double sit_orig_tot(M_thick[i]);
         double snt_orig_tot(M_snow_thick[i]);
 
-        double sic_new_thin(0);
-        double sit_new_thin(0);
-        double snt_new_thin(0);
-        double ist_new_thin(0);        
+        double sic_new_young(0);
+        double sit_new_young(0);
+        double snt_new_young(0);
+        double ist_new_young(0);        
 
         double it1_new(0);
         double it2_new(0);
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            sic_mod_thin = M_conc_thin[i];
-            sit_new_thin = M_h_thin[i];
-            snt_new_thin = M_hs_thin[i];
+            sic_mod_young = M_conc_young[i];
+            sit_new_young = M_h_young[i];
+            snt_new_young = M_hs_young[i];
 
-            sic_mod_tot = sic_mod + sic_mod_thin;
+            sic_mod_tot = sic_mod + sic_mod_young;
             // remove excess of young ice
-            sic_new_thin = sic_mod_thin;
+            sic_new_young = sic_mod_young;
             if (sic_mod_tot > 1)
             {
-                sic_new_thin -= (sic_mod_tot - 1);
+                sic_new_young -= (sic_mod_tot - 1);
 
-                // reduce thin ice thickness proportionally to concentration reduction
-                double factor(sic_new_thin / sic_mod_thin);
-                sit_new_thin *= factor;
-                snt_new_thin *= factor;
+                // reduce young ice thickness proportionally to concentration reduction
+                double factor(sic_new_young / sic_mod_young);
+                sit_new_young *= factor;
+                snt_new_young *= factor;
 
             }
             // recalculate total conc and thickness
-            sic_mod_tot = sic_mod + sic_new_thin;
-            sit_mod_tot = sit_mod + sit_new_thin;
-            snt_mod_tot = snt_mod + snt_new_thin;
+            sic_mod_tot = sic_mod + sic_new_young;
+            sit_mod_tot = sit_mod + sit_new_young;
+            snt_mod_tot = snt_mod + snt_new_young;
 
-            sic_orig_tot += M_conc_thin[i];
-            sit_orig_tot += M_h_thin[i];
-            snt_orig_tot += M_hs_thin[i];
+            sic_orig_tot += M_conc_young[i];
+            sit_orig_tot += M_h_young[i];
+            snt_orig_tot += M_hs_young[i];
 
-            ist_new_thin = M_tsurf_thin[i];
+            ist_new_young = M_tsurf_young[i];
             if ( (sic_orig_tot < physical::cmin) && 
                  (sic_mod_tot >= physical::cmin) )
             {
-                ist_new_thin = std::min(ist_new_thin, Tfr_ice);
+                ist_new_young = std::min(ist_new_young, Tfr_ice);
             }
         }
 
@@ -14738,12 +14738,12 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
             (sit_mod_tot < sic_mod_tot * physical::hmin) )
         {
             rir_mod = 0;
-            if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+            if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
             {
                 // young ice
-                sic_new_thin = 0;
-                sit_new_thin = 0;
-                snt_new_thin = 0;
+                sic_new_young = 0;
+                sit_new_young = 0;
+                snt_new_young = 0;
             }
 
         }
@@ -14755,12 +14755,12 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
         M_tice[0][i] = it0_new;
         M_sst[i] = sst_mod;
 
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            M_tsurf_thin[i] = ist_new_thin;
-            M_conc_thin[i] =  sic_new_thin;
-            M_h_thin[i] = sit_new_thin;
-            M_hs_thin[i] = snt_new_thin;
+            M_tsurf_young[i] = ist_new_young;
+            M_conc_young[i] =  sic_new_young;
+            M_h_young[i] = sit_new_young;
+            M_hs_young[i] = snt_new_young;
         }
 
         if ( M_thermo_type == setup::ThermoType::WINTON )
@@ -14773,13 +14773,13 @@ FiniteElement::checkConsistency_assim(int i, double &sic_mod, double &sit_mod, d
         M_thick[i] = std::fmax(M_thick[i], 0);
         M_ridge_ratio[i] = std::fmax(M_ridge_ratio[i], 0);
         M_snow_thick[i] = std::fmax(M_snow_thick[i], 0);
-        M_conc_thin[i] = std::fmax(M_conc_thin[i], 0);
-        M_h_thin[i] = std::fmax(M_h_thin[i], 0);
-        M_hs_thin[i] = std::fmax(M_hs_thin[i], 0);
+        M_conc_young[i] = std::fmax(M_conc_young[i], 0);
+        M_h_young[i] = std::fmax(M_h_young[i], 0);
+        M_hs_young[i] = std::fmax(M_hs_young[i], 0);
         M_conc_upd[i] = std::fmax(M_conc_upd[i], -1);
        
         M_conc[i] = std::fmin(M_conc[i], 1);
-        M_conc_thin[i] = std::fmin(M_conc_thin[i], 1);
+        M_conc_young[i] = std::fmin(M_conc_young[i], 1);
         M_ridge_ratio[i] = std::fmin(M_ridge_ratio[i], 1);
         M_conc_upd[i] = std::fmin(M_conc_upd[i], 1);
     // }
@@ -14792,9 +14792,9 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
 {
     // refer to pynextismf/assimilation.py
     // sic_new,sit_new, snt_new, rir_new are temporary variables as return. 
-    // Other modified variables are transfered by global variables like M_h_thin
+    // Other modified variables are transfered by global variables like M_h_young
 
-    // Young (thin) ice fraction from the total sic
+    // Young ice fraction from the total sic
     double const _YIF = 0.2;
     // Maximum Thickness of new ice
     double const _HNULL = 0.25;
@@ -14809,19 +14809,19 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     double sic_mod_tot(sic_mod);
     double sit_mod_tot(sit_mod);
     
-    // for thin ice declaration
-    double sic_mod_thin, sit_mod_thin, snt_mod_thin;
-    double sit_new_thin, snt_new_thin, sic_new_thin;
-    double h_thin_new = _HNULL;
+    // for young ice declaration
+    double sic_mod_young, sit_mod_young, snt_mod_young;
+    double sit_new_young, snt_new_young, sic_new_young;
+    double h_young_new = _HNULL;
 
-    // in case of using thin (young) ice category, total concentration is sum of old and young ice conc
-    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    // in case of using young (young) ice category, total concentration is sum of old and young ice conc
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        sic_mod_thin = M_conc_thin[i];
-        sit_mod_thin = M_h_thin[i];
-        snt_mod_thin = M_hs_thin[i];
-        sic_mod_tot += sic_mod_thin;
-        sit_mod_tot += sit_mod_thin;
+        sic_mod_young = M_conc_young[i];
+        sit_mod_young = M_h_young[i];
+        snt_mod_young = M_hs_young[i];
+        sic_mod_tot += sic_mod_young;
+        sit_mod_tot += sit_mod_young;
     }
 
     // add OBSERVED concentration
@@ -14839,26 +14839,26 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     sic_new = sic_mod;
 
     // Update concentration and thickness
-    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
         // Split updated total concentration into old and young
-        sit_new_thin=sit_mod_thin;
-        sic_new_thin = sic_mod_thin + sic_added;
+        sit_new_young=sit_mod_young;
+        sic_new_young = sic_mod_young + sic_added;
 
         if (sic_new_tot < physical::cmin)
         {
             sic_new = 0;
-            sic_new_thin = 0;
-            sit_new_thin=0;
+            sic_new_young = 0;
+            sit_new_young=0;
             sit_new=0;
         }
         else
         {
-            if (sic_new_thin < 0)
+            if (sic_new_young < 0)
             {   
-                sic_new_thin=0;
-                sit_new_thin=0;
-                sic_new=sic_mod + (sic_mod_thin+sic_added);
+                sic_new_young=0;
+                sit_new_young=0;
+                sic_new=sic_mod + (sic_mod_young+sic_added);
             }
         }
     }
@@ -14871,8 +14871,8 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     // where ice was present:        
     rir_new = rir_mod * update_factor;
     snt_new = snt_mod * update_factor;
-    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        snt_new_thin = snt_mod_thin * update_factor;
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+        snt_new_young = snt_mod_young * update_factor;
 
     // in brand new ice:
     if ((sic_mod_tot < physical::cmin) &&
@@ -14880,14 +14880,14 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     {
         rir_new = 0;
         snt_new = 0;
-        if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            sit_new_thin=sit_mod_thin + h_thin_new*sic_added;
-            snt_new_thin = 0;
+            sit_new_young=sit_mod_young + h_young_new*sic_added;
+            snt_new_young = 0;
         }
         else
         {
-            sit_new=sit_mod + h_thin_new*sic_added;
+            sit_new=sit_mod + h_young_new*sic_added;
         }
     }
 
@@ -14896,21 +14896,21 @@ FiniteElement::AssimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     double snt_new_tot(snt_new);
     // How much concentration was added/removed (positive - concentration added by assimilation)
     double sic_upd_new(sic_new - sic_mod);
-    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
         // also add young ice
-        sic_upd_new += sic_new_thin - sic_mod_thin;
+        sic_upd_new += sic_new_young - sic_mod_young;
     }
         
     // weighted average with previous sic_upd
     sic_upd_new = sic_upd_mod * 0.25 + sic_upd_new * 0.75;
 
     M_conc_upd[i]=sic_upd_new;
-    if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
-        M_conc_thin[i]=sic_new_thin;
-        M_h_thin[i]=sit_new_thin;
-        M_hs_thin[i]=snt_new_thin;
+        M_conc_young[i]=sic_new_young;
+        M_h_young[i]=sit_new_young;
+        M_hs_young[i]=snt_new_young;
     }
 }
 
@@ -14922,16 +14922,16 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
     // refer to pynextsimf/assimilation.py->AssimThick()
     // Where ice in nextsim is present:
     //     *  new total thickness is calculated using enkf-c
-    //     *  thick and thin/young ice thickness is changed proportionally
-    // Young (thin) ice fraction
+    //     *  thick and young ice thickness is changed proportionally
+    // Young ice fraction
     
     // modified sice variables due to enkf: sic_new, sit_new, snt_new, rir_new
     double const _YIF = 0.2;
     // Thickness of new ice
     double const _HNULL = 0.25;
     double update_factor;
-    double sit_mod_tot, sic_mod_tot, sit_mod, sic_mod, snt_mod, rir_mod, sit_mod_thin, sic_mod_thin, snt_mod_thin;
-    double sic_new_tot, sit_new_thin, sic_new_thin, snt_new_thin;
+    double sit_mod_tot, sic_mod_tot, sit_mod, sic_mod, snt_mod, rir_mod, sit_mod_young, sic_mod_young, snt_mod_young;
+    double sic_new_tot, sit_new_young, sic_new_young, snt_new_young;
     bool ice00,ice01,ice10,ice11;
     //the variables have been modified in assimConc
         sic_mod = sic_new;
@@ -14941,23 +14941,23 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
         sit_mod_tot = sit_mod; 
         sic_new_tot = sic_mod; 
         //        
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            sit_mod_thin= M_h_thin[i];
-            sic_mod_thin= M_conc_thin[i];
-            snt_mod_thin = M_hs_thin[i];
-            sit_mod_tot += sit_mod_thin;
-            sic_new_tot += sic_mod_thin; 
+            sit_mod_young= M_h_young[i];
+            sic_mod_young= M_conc_young[i];
+            snt_mod_young = M_hs_young[i];
+            sit_mod_tot += sit_mod_young;
+            sic_new_tot += sic_mod_young;
         }
         
         sit_tot_est = std::fmax(0, sit_tot_est);
         // calculate update factor 
-        update_factor = sic_mod_thin/sic_new_tot;
+        update_factor = sic_mod_young/sic_new_tot;
         // update ice thickness 
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
             sit_new = sit_tot_est*(1 - update_factor);
-            sit_new_thin = sit_tot_est*update_factor;
+            sit_new_young = sit_tot_est*update_factor;
         }
         else
         {   
@@ -14965,7 +14965,7 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             sit_new = sit_tot_est;
         }
         
-        // tune other ice properties based on new ice thickness (sit_new, sit_new_thin) obtained above
+        // tune other ice properties based on new ice thickness (sit_new, sit_new_young) obtained above
         // REMOVE ice where it has disappeared (total thickness below threshold)
         sic_new = sic_mod;
         snt_new = snt_mod;
@@ -14976,31 +14976,31 @@ FiniteElement::AssimThick(int i, double sit_tot_est, double &sic_new, double &si
             snt_new = 0;
             rir_new = 0;           
         }
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
-            sic_new_thin = sic_mod_thin;
-            snt_new_thin = snt_mod_thin;
-            if (sit_new_thin < physical::hmin)
+            sic_new_young = sic_mod_young;
+            snt_new_young = snt_mod_young;
+            if (sit_new_young < physical::hmin)
             {
-                sit_new_thin = 0;
-                sic_new_thin = 0;
-                snt_new_thin = 0;
+                sit_new_young = 0;
+                sic_new_young = 0;
+                snt_new_young = 0;
             }
         }
 
         // increase SIC where ice appeared: linear interpolation from ice to no ice
         // new_ice_mask = (sic_mod < _CMIN)*(sic_new >0)
         // sic_new = self.interpolate_gap(sic_new, new_ice_mask)
-        // if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
-        //     new_thin_ice_mask = (sic_mod_thin < _CMIN)*(sic_new_thin>0)
-        //     sic_new_thin = self.interpolate_gap(sic_new_thin, new_thin_ice_mask)
+        // if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+        //     new_young_ice_mask = (sic_mod_young < _CMIN)*(sic_new_young>0)
+        //     sic_new_young = self.interpolate_gap(sic_new_young, new_young_ice_mask)
 
         // update variables
         // sic_new, sit_new, snt_new, rir_new;
-        if(M_ice_cat_type==setup::IceCategoryType::THIN_ICE){
-            M_conc_thin[i]=sic_new_thin;
-            M_h_thin[i]=sit_new_thin;
-            M_hs_thin[i]=snt_new_thin;
+        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE){
+            M_conc_young[i]=sic_new_young;
+            M_h_young[i]=sit_new_young;
+            M_hs_young[i]=snt_new_young;
         }
 }
 #endif
