@@ -284,7 +284,7 @@ public:
     void initModelVariables();
     void sortPrognosticVars();
     void initModelState();
-    void DataAssimilation();
+    void dataAssimilation();
 
     void calcCohesion();
     void updateFreeDriftVelocity();
@@ -575,7 +575,7 @@ private:
     double compr_strength;
     double tract_coef;
     double scale_coef;
-    double C_perturb;
+    double C_perturb_factor;
     double C_lab;
     double C_fix;
     double C_alea;

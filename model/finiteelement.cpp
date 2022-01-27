@@ -14702,9 +14702,9 @@ FiniteElement::checkConsistencyAssim(int i, double &sic_mod, double &sit_mod, do
                 // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
                 // => a*Ti = b
                 double const a = physical::ki*snt_mod
-                    + physical::ks*sit_mod;
+                    + M_ks*sit_mod;
                 double const b = physical::ki*snt_mod*Tfr_wtr
-                    + physical::ks*sit_mod*it0_new;
+                    + M_ks*sit_mod*it0_new;
                 Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
 
                 // Then use linear interpolation between bottom and top of ice
