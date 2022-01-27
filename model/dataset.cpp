@@ -5911,9 +5911,9 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
     else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
-     {
+    {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"xc",
@@ -6054,9 +6054,9 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
     else if (strcmp (DatasetName, "ice_smos_elements") == 0)
-     {
+    {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
@@ -6332,7 +6332,7 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
 #ifdef ENSEMBLE
     else if (strcmp (DatasetName, "enkf_analysis_elements") == 0)
     {   // structure is similar to ice_amsr2_elements
@@ -6569,7 +6569,7 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
 #endif
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
@@ -6892,7 +6892,7 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
     else if (strcmp (DatasetName, "ice_nic_elements") == 0)
     {
         // Definition of topaz grid and datasets
@@ -7053,9 +7053,9 @@ DataSet::DataSet(char const *DatasetName)
 #ifdef OASIS
         coupled = false;
 #endif
-     }
+    }
     else if (strcmp (DatasetName, "ice_icesat_elements") == 0)
-     {
+    {
         // Definition of the icesat grid and datasets
          Dimension dimension_x={
              name:"x",
@@ -10471,18 +10471,18 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, s
 
     //std::cout <<"GRID : READ NETCDF starts\n";
     if ( ! boost::filesystem::exists(filename) )
-        throw std::runtime_error("File not found: 9970" + filename);
+        throw std::runtime_error("File not found: " + filename);
     netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
     netCDF::NcDim tmpDim;
 
     // We initially set the size of the data domain to the full dataset domain, it will be reduce to the model domain in a second step.
     tmpDim = dataFile.getDim(grid_ptr->dimension_y.name);
-    grid_ptr->dimension_y_count_netcdf =  tmpDim.getSize();
+    grid_ptr->dimension_y_count_netcdf = tmpDim.getSize();
     grid_ptr->dimension_y_count = grid_ptr->dimension_y_count_netcdf;
     grid_ptr->dimension_y_start = 0;
 
     tmpDim = dataFile.getDim(grid_ptr->dimension_x.name);
-	grid_ptr->dimension_x_count_netcdf =  tmpDim.getSize();
+    grid_ptr->dimension_x_count_netcdf = tmpDim.getSize();
     grid_ptr->dimension_x_count = grid_ptr->dimension_x_count_netcdf;
     grid_ptr->dimension_x_start = 0;
 
@@ -10716,7 +10716,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, s
 
             //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: 10216" + filename);
+                throw std::runtime_error("File not found: " + filename);
 
             netCDF::NcFile dataFile(filename, netCDF::NcFile::read);
 
@@ -10772,7 +10772,7 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, s
 
             //std::cout <<"GRID : READ NETCDF starts\n";
             if ( ! boost::filesystem::exists(filename) )
-                throw std::runtime_error("File not found: 10272" + filename);
+                throw std::runtime_error("File not found: " + filename);
 
             netCDF::NcFile dataFile2(filename, netCDF::NcFile::read);
 

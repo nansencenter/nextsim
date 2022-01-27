@@ -115,11 +115,11 @@ public:
             return "constant";
         return M_dataset->variables[M_VariableId].name;
     }
-#ifdef ENSEMBLE     
-    Dataset* get_M_dataset(){ 
+#ifdef ENSEMBLE    
+    Dataset* get_M_dataset(){
         return M_dataset;
     }
-#endif   
+#endif
  
 private:
     double fdt;
