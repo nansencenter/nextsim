@@ -169,6 +169,7 @@ public:
         mlt_top      = 115,
         mlt_bot      = 116,
         del_vi_young = 117,
+        Q_assm       = 118,
 
         // Forcing variables
         tair     = 200,
