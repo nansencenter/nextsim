@@ -231,10 +231,10 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             this->loadDataset(M_dataset, RX_in, RY_in);       
             this->transformData(M_dataset);
 #ifdef ENSEMBLE 
-            //Todo: use float variable to save sources, since it's no need to have high precision perturbations.   
+            //TODO: use float variable to save sources, since it's no need to have high precision perturbations.
             // variables on nodes and elements are perturbed at the same time by default, but perturbation on  the elements can be turned off.
             // Load generic_atm_....nc is loaded twice for a given time, one for variables saved on elements, one for nodes. We only active perturbation after loaded atm node, since perturbation is independent on physical data.
-            // todo, if it needs to avoid unexpected perturbation due to remesh process.  
+            // TODO, if it needs to avoid unexpected perturbation due to remesh process.
             LOG(DEBUG) << "adding perturbations to loaded data\n"; 
             M_comm.barrier();
             if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
@@ -298,7 +298,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                             i = x_start + (y_start + j)*N_full + i;
                             M_dataset->variables[0].loaded_data[it][n] += synforc1[i]*( 1- M_dataset->variables[3].loaded_data[it][n]); //limit sst perturbation to ice covered area, variables[3] is conc, variables[0] is sst
                             M_dataset->variables[1].loaded_data[it][n] += synforc2[i]; 
-                            if (i >= MN_full) {LOG(DEBUG)<<"maxmium synforc exceeded\n";}
+                            if (i >= MN_full) {LOG(DEBUG)<<"maximum synforc exceeded\n";}
                         }
                     }
                 }                
@@ -359,7 +359,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 M_comm.barrier();
             }
 #endif
-        //interpolate the loaded external data onto the model grid
+            //need to interpolate again if reloading
             M_dataset->interpolated = false;            
 #ifdef OASIS
         }
