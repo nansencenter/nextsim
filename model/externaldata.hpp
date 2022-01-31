@@ -119,7 +119,7 @@ public:
             return "constant";
         return M_dataset->variables[M_VariableId].name;
     }
-#ifdef ENSEMBLE    
+#ifdef ENSEMBLE
     Dataset* get_M_dataset(){
         return M_dataset;
     }
@@ -148,6 +148,10 @@ private:
     LogLevel M_log_level;
     bool M_log_all;
     Communicator M_comm;
+
+#ifdef ENSEMBLE
+    void perturbLoadedData();
+#endif
 };
 
 } // Nextsim
