@@ -950,7 +950,7 @@ FiniteElement::checkReloadDatasets(external_data_vec const& ext_data_vec,
 #ifdef OASIS
         (*it)->check_and_reload(RX, RY, CRtime, M_comm, pcpt*time_step, cpl_time_step);
 #else
-        (*it)->check_and_reload(RX, RY, CRtime, M_ensemble_member);
+        (*it)->check_and_reload(RX, RY, CRtime);
 #endif
         M_timer.tock((*it)->getDatasetName());
     }
@@ -10717,21 +10717,21 @@ FiniteElement::forcingAtmosphere()
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
             M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
-                time_init, M_spinup_duration, 0, M_ensemble_member);
+                time_init, M_spinup_duration);
             M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_sphuma=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 2, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 3, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 4, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 5, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
             M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
-                    time_init, 0, 0, M_ensemble_member);
+                    time_init, 0);
         break;
 
         default:
@@ -10809,6 +10809,14 @@ FiniteElement::forcingAtmosphere()
     }
     else
         throw std::runtime_error("forcingAtmosphere: One of M_sphuma, M_mixrat or M_dair should be initialised");
+
+    if (M_ensemble_member > 0)
+    {
+        for (auto it: M_external_data_elements)
+            it->setEnsembleMember(M_ensemble_member);
+        for (auto it: M_external_data_nodes)
+            it->setEnsembleMember(M_ensemble_member);
+    }
 
 }//forcingAtmosphere
 

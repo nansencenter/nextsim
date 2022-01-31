@@ -73,19 +73,6 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
         M_bias_correction= bias_correction ;
     }
 
-ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int VariableId, bool is_vector,
-        double StartingTime, double SpinUpDuration, double bias_correction,
-        int const& ensemble_member )//8 args
-    :
-    ExternalData(dataset, mesh, VariableId, is_vector,
-            StartingTime, SpinUpDuration, bias_correction )
-    {
-        if(ensemble_member<=0)
-            throw std::runtime_error(
-                    "option statevector.ensemble_member<=0; should be >= 1");
-        M_ensemble_member = ensemble_member ;
-    }
-
 ExternalData::ExternalData( double ConstantValue )
 	:
     M_is_constant( true ),
@@ -133,7 +120,7 @@ ExternalData::~ExternalData()
 
 // add ensemble_member for ensemble run, otherwise, add ensemble_member in M_dataset in finiteelement.cpp
 void ExternalData::check_and_reload(std::vector<double> const& RX_in,
-            std::vector<double> const& RY_in, const double current_time, const int ensemble_member)
+            std::vector<double> const& RY_in, const double current_time)
 #ifdef OASIS
 {
     Communicator comm;
@@ -145,13 +132,11 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             Communicator comm, const int cpl_time, const int cpl_dt)
 #endif
 {
-    M_target_size = RX_in.size();
-    M_ensemble_member = ensemble_member;
     // Don't need to do nothing more for a constant dataset
     if (M_is_constant) return;
 
+    M_target_size = RX_in.size();
     M_current_time = current_time;
-
     double current_time_tmp=M_current_time;
 
     M_factor=1.;

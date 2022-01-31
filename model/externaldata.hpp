@@ -62,9 +62,6 @@ public:
     ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
             bool is_vector, double StartingTime, double SpinUpDuration,
             double bias_correction );// 7 args
-    ExternalData(Dataset *dataset, GmshMesh const& mesh, int VariableId,
-            bool is_vector, double StartingTime, double SpinUpDuration,
-            double bias_correction, int const& ensemble_member );// 8 args
 
     //constructors for constant forcing
     ExternalData(double ConstantValue );
@@ -76,8 +73,15 @@ public:
 
     ~ExternalData();
 
+    void setEnsembleMember(int const& ensemble_member)
+    {
+        if(ensemble_member <= 0)
+            throw std::runtime_error("ensemble_member should be >= 1");
+        M_ensemble_member = ensemble_member;
+    }
+
     void check_and_reload(std::vector<double> const& RX,
-            std::vector<double> const& RY, const double current_time, const int ensemble_member );
+            std::vector<double> const& RY, const double current_time);
 
     value_type operator[] (const size_type i);
     value_type get(const size_type i);
