@@ -691,7 +691,21 @@ FiniteElement::initExternalData()
     this->initBathymetry();
 
     //! - 4) Check the external data objects
-    //       TODO add the nodes
+    if(M_external_data_nodes.size() != M_external_data_nodes_names.size())
+        throw std::runtime_error(
+                "M_external_data_nodes and M_external_data_nodes_names should be the same size");
+    for(int i=0; i<M_external_data_nodes.size(); i++)
+    {
+        // check all the forcings on the elements are initialised
+        std::string const msg = "ExternalData object "
+            + M_external_data_nodes_names[i] + " is not initialized";
+        auto it = M_external_data_nodes[i];
+        if(!it->isInitialized())
+            throw std::logic_error(msg);
+        if(M_ensemble_member > 0)
+            it->setEnsembleMember(M_ensemble_member);
+    }
+
     if(M_external_data_elements.size() != M_external_data_elements_names.size())
         throw std::runtime_error(
                 "M_external_data_elements and M_external_data_elements_names should be the same size");
@@ -700,8 +714,11 @@ FiniteElement::initExternalData()
         // check all the forcings on the elements are initialised
         std::string const msg = "ExternalData object "
             + M_external_data_elements_names[i] + " is not initialized";
-        if(!M_external_data_elements[i]->isInitialized())
+        auto it = M_external_data_elements[i];
+        if(!it->isInitialized())
             throw std::logic_error(msg);
+        if(M_ensemble_member > 0)
+            it->setEnsembleMember(M_ensemble_member);
     }
 
     //! - 5) Initialise coupler interface (this can be considered "external data" too)
@@ -10809,14 +10826,6 @@ FiniteElement::forcingAtmosphere()
     }
     else
         throw std::runtime_error("forcingAtmosphere: One of M_sphuma, M_mixrat or M_dair should be initialised");
-
-    if (M_ensemble_member > 0)
-    {
-        for (auto it: M_external_data_elements)
-            it->setEnsembleMember(M_ensemble_member);
-        for (auto it: M_external_data_nodes)
-            it->setEnsembleMember(M_ensemble_member);
-    }
 
 }//forcingAtmosphere
 
