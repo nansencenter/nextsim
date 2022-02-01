@@ -15,18 +15,14 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 # add gcc option flags
 CCFLAGS += -pedantic -Wno-inline
 ifdef NEXTSIM_COMPILE_VERBOSE
-	CXXFLAGS += -v
+	CCFLAGS += -v
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	#CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CCFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif
-else
-	CCFLAGS += -O3 -pthread
 endif
 
 
@@ -91,7 +87,7 @@ $(LIBRARYNAME): $(OBJS) #$(CCOBJS)
 	@ln -sf $@ $(LIBRARYDIR)libmapx.dylib.1
 endif
 
-# Rules for object files from cpp files
+# Rules for object files from c files
 $(OBJECTDIR)%.o: %.c
 	@mkdir -p $(OBJECTDIR) # $(dir $@)
 	$(CC) -o $@ -c $< $(CCFLAGS)
