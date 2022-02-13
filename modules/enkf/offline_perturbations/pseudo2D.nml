@@ -2,18 +2,19 @@
 
 &setup
 iopath = '.'
-debug = .true.
+debug = .false.
 /
 
 &pseudo2D
 randf    = .true.
 seed     =  11
+!!    variances of variables (std**2)
 vslp     =  10
 vwndspd  =  3
 vsnowfall=  1
 vdwlongw =  50
-vsss     =  0.3
-vsst     =  1
+vsss     =  1
+vsst     =  .01
 scorr    =  250
 scorr_dx=10
 tcorr    =  2

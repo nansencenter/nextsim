@@ -15,7 +15,7 @@ def read_and_plot(filename, varnames, figname, matrix_size):
     fig.savefig(figname)
 
 if __name__ == "__main__":
-    filename = "synforc_2.dat"
+    filename = "result/mem1/synforc_63.nc"
     varnames=['u', 'v', 'snowfall', 'longwave radiation', 'SSS', 'SST']
     figname = 'display_result.png'
     matrix_size = (1024, 1024)

@@ -1,11 +1,19 @@
-# Instruction
-This is an offline FORTRAN version that can create sequential perturbations. It is derived from the online perturbation in neXtSIM modules/enkf/perturbation
+# Instruction _7-Feb-2020_
+This is a stand-alone FORTRAN version that can create sequential perturbations offline. The code is a subset of the original perturbation code obtained by Sukun. 
+- A more complete version is in nextsim/modules/enkf/perturbation.
+The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintainence is in nextsim's git repository: IOperturbation/bf1686de6b8757da947448aaf9a0c4b5e22cd51c
 
-__The size of the perturbation series is set in main_pseudo2D.F90, i_step.__
+- In ./report folder, it saves previous relevant studies. The estimation of the amplification is in ./report/calculate_ratio.m 
 
-__Use run_script.sh to compile the fortran codes and execute to create perturbation__
+- In ./src folder,     
+    - Set the length of a sequential perturbations for one member to variable i_step in ./src/main_pseudo2D.F90.
+    - Set domain size in main_pseudo2D.F90.
+    - Compile the code by makefile.
 
-To the FORTRAN code, the origianl purpose is to estimate the amplification of wind velocity by perturbing wind fields in ensemble simulations. See details in  run_script.sh.
+- In ./result folder, pertubation series are saved in seperated subfolders distincted by ensemble id
 
-The estimation of the amlification is in calculate_ratio.m 
-Dignostic output of an perturbation is given in display_perturbation.m
+- Configuration of perturbations are set i pseudo2D.nml
+
+Use run_script.sh for a fresh compilation the fortran codes and generating perturbations in parallel by sbatch, where ensemble size is set.
+
+slurm_script.sh is missing

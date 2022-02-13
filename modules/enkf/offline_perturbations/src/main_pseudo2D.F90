@@ -25,7 +25,7 @@ program main_pseudo2D
       randfld=0. ! note: randfld is not saved but variables in synforc are saved to file.
   endif
   !
-  do i_step = 0,240*4 ! create a series of perturbations for one member
+  do i_step = 0,10*4 ! create a series of perturbations for one member
       synforc=0.
       !-------------------------------
       call limits_randf(xdim, ydim)  ! read in setting from pseudo2D.nml

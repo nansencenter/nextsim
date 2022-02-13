@@ -1,3 +1,5 @@
+
+#  this script is used to calculate the ratio of averaged original velocity/perturbed velocity
 import netCDF4
 import datetime as dt
 import os
