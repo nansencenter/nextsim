@@ -759,8 +759,14 @@ FiniteElement::initDatasets()
             break;
 
         case setup::AtmosphereType::ERA5:
-            M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERA5_elements");
+            M_atmosphere_nodes_dataset=DataSet("era5_nodes");
+            M_atmosphere_elements_dataset=DataSet("era5_elements");
+            break;
+        
+        case setup::AtmosphereType::TIGGE:
+            M_atmosphere_nodes_dataset=DataSet("tigge_nodes");
+            // M_atmosphere_elements_dataset=DataSet("tigge_elements");
+            M_atmosphere_elements_dataset=DataSet("era5_elements");
             break;
 
         case setup::AtmosphereType::EC2:
@@ -1278,6 +1284,7 @@ FiniteElement::initOptAndParam()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
+        ("tigge", setup::AtmosphereType::TIGGE)
         ("ec2", setup::AtmosphereType::EC2)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
@@ -1297,6 +1304,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
+        case setup::AtmosphereType::TIGGE:       quad_drag_coef_air = vm["dynamics.TIGGE_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::GENERIC_PS:
         case setup::AtmosphereType::EC2:
         case setup::AtmosphereType::EC_ERAi:
@@ -10668,6 +10676,23 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
+        case setup::AtmosphereType::TIGGE:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
+                M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            else
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=TIGGE. Use thermo.use_parameterised_long_wave_radiation=false");
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
         case setup::AtmosphereType::EC2:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
@@ -14859,7 +14884,7 @@ FiniteElement::assimConc(int i,double sic_tot_est, double &sic_new, double &sit_
     if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
         // Split updated total concentration into old and young
-        sit_new_young=sit_mod_young;
+        sit_new_young = sit_mod_young;
         sic_new_young = sic_mod_young + sic_added;
 
         if (sic_new_tot < physical::cmin)

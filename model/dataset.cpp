@@ -4741,7 +4741,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b%Y%m%d-fv02.0.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4997,7 +4997,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "%Y%m%d_dm-metno-MODEL-topaz4-ARC-b%Y%m%d-fv02.0.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -8826,7 +8826,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ERA5_elements") == 0)
+    else if (strcmp (DatasetName, "era5_elements") == 0)
     {
         // Definition of dimensions
         Dimension dimension_x={
@@ -9090,7 +9090,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ERA5_nodes") == 0)
+    else if (strcmp (DatasetName, "era5_nodes") == 0)
     {
         // Definition of dimensions
         Dimension dimension_x={
@@ -9155,6 +9155,451 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : NearestInterpEnum,
             dirname:"ERA5",
             filename_mask: "ERA5_${VARSTRING}_y%Y.nc",
+            gridfile: "",
+            reference_date:"1900-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+
+            loaded: false,
+
+            dataset_frequency:"yearly",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+        grid= grid_tmp;
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        Variable time_tmp={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        // conversion factors: xnew = a*x + b
+        Variable u={
+            filename_string: "u10",
+            name: "u10", //U10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+            filename_string: "v10",
+            name: "v10", //V10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        std::vector<Variable> variables_tmp(2);
+        variables_tmp[0] = u;
+        variables_tmp[1] = v;
+
+        std::vector<int> uv_tmp(2);
+            uv_tmp[0] = 0;
+            uv_tmp[1] = 1;
+
+        Vectorial_Variable uv={
+            components_Id: uv_tmp,
+            east_west_oriented: true
+        };
+
+        std::vector<Vectorial_Variable> vectorial_variables_tmp(1);
+        vectorial_variables_tmp[0] = uv;
+
+        variables= variables_tmp;
+        vectorial_variables= vectorial_variables_tmp;
+
+        loaded=false;
+        interpolated=false;
+
+        averaging_period=0.;
+        time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "tigge_elements") == 0)
+    {
+        // Definition of dimensions
+        Dimension dimension_x={
+             name:"longitude",
+             cyclic:true
+        };
+
+        Dimension dimension_y={
+             name:"latitude",
+             cyclic:false
+        };
+
+        Dimension dimension_time={
+             name:"time",
+             cyclic:false
+        };
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        Variable latitude={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "latitude",
+            dimensions: dimensions_lat,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable longitude={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "longitude",
+            dimensions: dimensions_lon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            dirname:"TIGGE",
+            filename_mask: "TIGGE_y%Y.nc",
+            gridfile: "",
+            reference_date:"1900-01-01",
+
+            latitude: latitude,
+            longitude: longitude,
+
+            dimension_x: dimension_x,
+            dimension_y: dimension_y,
+
+            mpp_file: "",
+            interpolation_in_latlon: true,
+
+            loaded: false,
+            dataset_frequency:"yearly",
+
+            waveOptions: wavopt_none,
+
+            masking: false
+        };
+
+        grid= grid_tmp;
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        Variable time_tmp={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable tair={
+            filename_string: "t2m",
+            name:"t2m",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:-273.15,
+            Units:"C",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // T2M
+        Variable dair={
+            filename_string: "d2m",
+            name:"d2m",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:-273.15,
+            Units:"C",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; // D2M
+        Variable mslp={
+            filename_string: "msl",
+            name:"msl",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"Pa",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        }; //PSFC, a=1.
+
+        Variable Qsw_in={
+            filename_string: "msdwswrf",
+            name:"msdwswrf",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable Qlw_in={
+            filename_string: "msdwlwrf",
+            name:"msdwlwrf",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"W/m^2",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable precip={
+            filename_string: "mtpr",
+            name:"mtpr",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable snowfall={
+            filename_string: "msr",
+            name:"msr",
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a:1.,
+            b:0.,
+            Units:"kg/m^2/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp
+        };
+
+        std::vector<Variable> variables_tmp(7);
+        variables_tmp[0] = tair;
+        variables_tmp[1] = dair;
+        variables_tmp[2] = mslp;
+        variables_tmp[3] = Qsw_in;
+        variables_tmp[4] = Qlw_in;
+        variables_tmp[5] = precip;
+        variables_tmp[6] = snowfall;
+
+         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
+
+         variables= variables_tmp;
+         vectorial_variables= vectorial_variables_tmp;
+
+         loaded=false;
+         interpolated=false;
+
+         averaging_period=0.;
+         time= time_tmp;
+#ifdef OASIS
+        coupled = false;
+#endif
+    }
+    else if (strcmp (DatasetName, "tigge_nodes") == 0)
+    {
+        // Definition of dimensions
+        Dimension dimension_x={
+            name:"longitude",
+            cyclic:true
+        };
+
+        Dimension dimension_y={
+            name:"latitude",
+            cyclic:false
+        };
+
+        Dimension dimension_time={
+            name:"time",
+            cyclic:false};
+
+        // Definition of the grid
+        std::vector<Dimension> dimensions_lon(1);
+        dimensions_lon[0] = dimension_x;
+
+        std::vector<Dimension> dimensions_lat(1);
+        dimensions_lat[0] = dimension_y;
+
+        Variable latitude={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "latitude",
+            dimensions: dimensions_lat,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_north",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Variable longitude={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "longitude",
+            dimensions: dimensions_lon,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "degree_east",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none};
+
+        Grid grid_tmp={
+            interpolation_method: InterpolationType::FromGridToMesh,
+            //interp_type : TriangleInterpEnum, // slower
+            interp_type : BilinearInterpEnum,
+            //interp_type : NearestInterpEnum,
+            dirname:"TIGGE",
+            filename_mask: "TIGGE_y%Y.nc",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -10263,6 +10708,8 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "ec2_arome_elements\n");
         fprintf (stderr, "ec2_arome_ensemble_nodes\n");
         fprintf (stderr, "ec2_arome_ensemble_elements\n");
+        fprintf (stderr, "era5_nodes\n");
+        fprintf (stderr, "era5_elements\n");
         fprintf (stderr, "cfsr_nodes\n");
         fprintf (stderr, "cfsr_elements\n");
         fprintf (stderr, "cfsr_nodes_hi\n");
@@ -10273,6 +10720,8 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "nesting_distance_nodes\n");
         fprintf (stderr, "nesting_distance_elements\n");
         fprintf (stderr, "topaz_elements\n");
+        fprintf (stderr, "tigge_nodes\n");
+        fprintf (stderr, "tigge_elements\n");
         fprintf (stderr, "ocean_cpl_nodes\n");
         fprintf (stderr, "ocean_cpl_elements\n");
         fprintf (stderr, "ice_topaz_elements\n");

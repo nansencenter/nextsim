@@ -230,17 +230,17 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             LOG(DEBUG) << "Load " << (boost::format("%1%")%M_dataset->grid.filename_mask).str() << "\n";   
             this->loadDataset(M_dataset, RX_in, RY_in);       
             this->transformData(M_dataset);
-#ifdef ENSEMBLE 
-            if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
-                strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
-                strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
-                strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
-            {
-                LOG(DEBUG) << "adding perturbations to loaded data\n";
-                this->perturbLoadedData();
-            }
-#endif
+// #ifdef ENSEMBLE 
+//             if (strcmp (M_dataset->name.c_str(), "topaz_forecast_elements") == 0 || \
+//                 strcmp (M_dataset->name.c_str(), "asr_nodes") == 0 || \
+//                 strcmp (M_dataset->name.c_str(), "generic_atm_nodes") == 0 || \
+//                 strcmp (M_dataset->name.c_str(), "asr_elements") == 0 || \
+//                 strcmp (M_dataset->name.c_str(), "generic_atm_elements") == 0 )    
+//             {
+//                 LOG(DEBUG) << "adding perturbations to loaded data\n";
+//                 this->perturbLoadedData();
+//             }
+// #endif
             //need to interpolate again if reloading
             M_dataset->interpolated = false;            
 #ifdef OASIS
