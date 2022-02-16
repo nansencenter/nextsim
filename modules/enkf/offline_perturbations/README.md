@@ -7,7 +7,7 @@ The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintai
 
 - In ./src folder,     
     - Set the length of a sequential perturbations for one member to variable i_step in ./src/main_pseudo2D.F90.
-    - Set domain size in main_pseudo2D.F90.
+    - Set domain size in main_pseudo2D.F90. (integer, parameter:: xdim = 1024, ydim = 1024,xy_full = xdim*ydim)
     - Compile the code by makefile.
 
 - In ./result folder, pertubation series are saved in seperated subfolders distincted by ensemble id
