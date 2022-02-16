@@ -9623,7 +9623,7 @@ FiniteElement::readRestart(std::string const& name_str)
         {
             if(field_map_dbl.count(name)==0)
             {
-                std::string msg = name + "is not in the restart file";
+                std::string msg = name + " is not in the restart file";
                 throw std::runtime_error(msg);
             }
             data_elements_root.push_back(&(field_map_dbl[name]));
