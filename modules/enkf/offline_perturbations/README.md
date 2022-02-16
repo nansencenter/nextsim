@@ -14,6 +14,6 @@ The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintai
 
 - Configuration of perturbations are set i pseudo2D.nml
 
-Use run_script.sh for a fresh compilation the fortran codes and generating perturbations in parallel by sbatch, where ensemble size is set.
+Use run_script.sh for a fresh compilation the fortran codes and generating perturbations, where ensemble size is set.
 
-slurm_script.sh is missing
+slurm_script.sh is missing, we cannot run in parallel by sbatch
