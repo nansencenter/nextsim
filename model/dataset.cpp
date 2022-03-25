@@ -4609,17 +4609,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
-
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
@@ -4686,7 +4675,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable u={
             filename_string: "", // All variables are in the same (grid) file
             name: "u",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4704,7 +4693,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable v={
             filename_string: "", // All variables are in the same (grid) file
             name: "v",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4738,7 +4727,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromGridToMesh,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
@@ -4811,17 +4801,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
-
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
@@ -4888,7 +4867,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable sst={
             filename_string: "", // All variables are in the same (grid) file
             name: "temperature",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4906,7 +4885,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable sss={
             filename_string: "", // All variables are in the same (grid) file
             name: "salinity",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4994,7 +4973,8 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            interpolation_method: InterpolationType::FromGridToMesh,
             interp_type: -1,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
