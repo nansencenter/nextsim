@@ -4729,7 +4729,7 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             //interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interpolation_method: InterpolationType::FromGridToMesh,
-            interp_type: -1,
+            interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
@@ -4975,7 +4975,7 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             //interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interpolation_method: InterpolationType::FromGridToMesh,
-            interp_type: -1,
+            interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
