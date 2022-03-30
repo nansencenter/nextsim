@@ -4728,6 +4728,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Grid grid_tmp={
             //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
@@ -4974,6 +4975,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Grid grid_tmp={
             //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
