@@ -1,4 +1,4 @@
-# Instruction _7-Feb-2020_
+# Instruction _31-March-2022_
 This is a stand-alone FORTRAN version that can create sequential perturbations offline. The code is a subset of the original perturbation code obtained by Sukun. 
 - A more complete version is in nextsim/modules/enkf/perturbation.
 The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintainence is in nextsim's git repository: IOperturbation/bf1686de6b8757da947448aaf9a0c4b5e22cd51c
