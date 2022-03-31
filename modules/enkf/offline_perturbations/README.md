@@ -5,7 +5,7 @@ The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintai
 
 - In ./src/main_pseudo2D.F90,     
     - Set the length of a sequential perturbations for one member to variable i_step.
-    - Set domain size to xdim = 1024, ydim = 1024,xy_full = xdim*ydim
+    - Set domain size to xdim = 1024, ydim = 1024,xy_full = xdim*ydim.  It uses FFT, which generates faster when using power of 2.
 
 - THEN, compile the code by makefile in ./src.
 
