@@ -9,7 +9,7 @@ The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintai
 
 - THEN, compile the code by makefile in ./src.
 
-- Configuration of perturbations are set i pseudo2D.nml
+- Configuration of perturbations are set in pseudo2D.nml
 
 - In ./result folder, pertubation series are saved in subfolders distincted by ensemble id. For examples,
     -mem1 containts perturbations in netcdf as synforc_i.nc
