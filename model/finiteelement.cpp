@@ -7990,6 +7990,21 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::sigma_11):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_sigma[0][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::sigma_22):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_sigma[1][i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::sigma_12):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_sigma[2][i]*time_factor;
+                break;
+
             // Diagnostic variables
             case (GridOutput::variableID::Qa):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8304,6 +8319,9 @@ FiniteElement::initMoorings()
             ("hs_young", GridOutput::variableID::hs_young)
             ("sst", GridOutput::variableID::sst)
             ("sss", GridOutput::variableID::sss)
+            ("sigma_11", GridOutput::variableID::sigma_11)
+            ("sigma_22", GridOutput::variableID::sigma_22)
+            ("sigma_12", GridOutput::variableID::sigma_12)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)

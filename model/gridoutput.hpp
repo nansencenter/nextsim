@@ -148,6 +148,9 @@ public:
         age_d        = 18,
         age          = 19,
         conc_upd     = 20,
+        sigma_11     = 21,
+        sigma_22     = 22,
+        sigma_12     = 23,
 
         // Diagnostic variables
         Qa     = 100,
@@ -373,6 +376,27 @@ public:
                     longName = "conc_upd";
                     stdName  = "conc_upd";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_11):
+                    name     = "sigma_11";
+                    longName = "Stress tensor 11";
+                    stdName  = "stress_tensor_11";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_22):
+                    name     = "sigma_22";
+                    longName = "Stress tensor 22";
+                    stdName  = "stress_tensor_22";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_12):
+                    name     = "sigma_12";
+                    longName = "Stress tensor 12";
+                    stdName  = "stress_tensor_12";
+                    Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
 
