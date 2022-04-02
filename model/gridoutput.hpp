@@ -171,6 +171,8 @@ public:
         mlt_top      = 115,
         mlt_bot      = 116,
         del_vi_young = 117,
+        sigma_n      = 118,
+        sigma_s      = 119,
 
         // Forcing variables
         tair     = 200,
@@ -525,6 +527,20 @@ public:
                     longName = "Ice formed from snow by flooding";
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_n):
+                    name     = "sigma_n";
+                    longName = "Normal internal stress";
+                    stdName  = "normal_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_s):
+                    name     = "sigma_s";
+                    longName = "Shear internal stress";
+                    stdName  = "shear_internal_stress";
+                    Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
 
