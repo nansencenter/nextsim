@@ -6689,6 +6689,8 @@ FiniteElement::initModelVariables()
         D_sigma[k] = ModelVariable(ModelVariable::variableID::D_sigma, k);
         M_variables_elt.push_back(&(D_sigma[k]));
     }
+    D_divergence = ModelVariable(ModelVariable::variableID::D_divergence);//! \param D_divergence (double) Divergence of ice flow
+    M_variables_elt.push_back(&D_divergence);
     D_Qa = ModelVariable(ModelVariable::variableID::D_Qa);//! \param D_Qa (double) Total heat flux to the atmosphere
     M_variables_elt.push_back(&D_Qa);
     D_Qsw = ModelVariable(ModelVariable::variableID::D_Qsw);//! \param D_Qsw (double) Short wave heat flux to the atmosphere
@@ -7274,6 +7276,20 @@ FiniteElement::updateIceDiagnostics()
         // principal stresses
         D_sigma[0][i] =            (M_sigma[0][i]+M_sigma[1][i])/2.;
         D_sigma[1][i] = std::hypot((M_sigma[0][i]-M_sigma[1][i])/2.,M_sigma[2][i]);
+
+        // Divergence: div(u) = du/dx + dv/dy
+        // Sum up over the nodes of this element
+        D_divergence[i] = 0.;
+        std::vector<double> const shape_coeff = this->shapeCoeff(M_elements[i]);
+        for(int j=0; j<3; j++)
+        {
+            double const u = M_VT[(M_elements[i]).indices[j]-1];
+            double const v = M_VT[(M_elements[i]).indices[j]-1 + M_num_nodes];
+            double const dxN = shape_coeff[j];
+            double const dyN = shape_coeff[j+3];
+            D_divergence[i] += dxN*u + dyN*v;
+        }
+
         // FSD relative parameters
         D_dmean[i] = 0. ;
         D_dmax[i]  = 0. ;
@@ -8052,6 +8068,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_sigma[1][i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::divergence):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_divergence[i]*time_factor;
+                break;
+
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8344,6 +8365,7 @@ FiniteElement::initMoorings()
             ("sigma_12", GridOutput::variableID::sigma_12)
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
+            ("divergence", GridOutput::variableID::divergence)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)

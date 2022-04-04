@@ -765,6 +765,7 @@ private:
     ModelVariable D_snow_thick;// total snow thickness [m]
     ModelVariable D_tsurf; //mean surface temperature (thick + young ice + slab ocean) [deg C]
     std::vector<ModelVariable> D_sigma; //principal stresses [Pa]
+    ModelVariable D_divergence; // ice velocity divergence [1/s]
     ModelVariable D_Qa; // Heat loss to atmosphere [W/m2]
     ModelVariable D_Qsw; // Total short wave at surface [W/m2]
     ModelVariable D_Qlw; // Total long wave at surface [W/m2]

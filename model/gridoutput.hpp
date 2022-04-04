@@ -173,6 +173,7 @@ public:
         del_vi_young = 117,
         sigma_n      = 118,
         sigma_s      = 119,
+        divergence   = 120,
 
         // Forcing variables
         tair     = 200,
@@ -557,6 +558,13 @@ public:
                     longName = "Northward Stress at Ice Surface";
                     stdName  = "northward_stress_at_ice_surface";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::divergence):
+                    name     = "divergence";
+                    longName = "Ice Velocity Divergence";
+                    stdName  = "ice_velocity_divergence";
+                    Units    = "1/s";
                     cell_methods = "area: mean";
                     break;
 

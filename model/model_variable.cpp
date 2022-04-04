@@ -374,6 +374,14 @@ ModelVariable::initElemental()
                         +std::to_string(M_component_number));
             break;
 
+        case (variableID::D_divergence):
+            // Divergence of ice flow [1/s]
+            M_name = "D_divergence";
+            M_export_name = "Divergence";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_Qa):
             // Total heat flux to the atmosphere [W/m^2]
             M_name = "D_Qa";
