@@ -8208,6 +8208,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_wind[i+M_num_nodes]*time_factor;
                 break;
 
+            case (GridOutput::variableID::tau_ax):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += D_tau_a[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::tau_ay):
+                for (int i=0; i<M_num_nodes; i++)
+                    it->data_mesh[i] += D_tau_a[i+M_num_nodes]*time_factor;
+                break;
+
 #ifdef OASIS
             case (GridOutput::variableID::tauwix):
                 for (int i=0; i<M_num_nodes; i++)
@@ -8447,6 +8457,20 @@ FiniteElement::initMoorings()
             vector_counter += 2;
 
             vectorial_variables.push_back(wnd);
+        }
+
+        else if (*it == "tau_a")
+        {
+            use_ice_mask = true; // Needs to be set so that an ice_mask variable is added to elemental_variables below
+            GridOutput::Variable tauax(GridOutput::variableID::tau_ax);
+            GridOutput::Variable tauay(GridOutput::variableID::tau_ay);
+            nodal_variables.push_back(tauax);
+            nodal_variables.push_back(tauay);
+
+            GridOutput::Vectorial_Variable taua(std::make_pair(vector_counter,vector_counter+1));
+            vector_counter += 2;
+
+            vectorial_variables.push_back(taua);
         }
 
         // Primarily coupling variables, but perhaps useful for debugging
@@ -9564,7 +9588,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Prepping the explicit solver (nodes)\n";
     M_timer.tick("prep nodes");
 
-    std::vector<double> tau_a(2*M_num_nodes);
+    // std::vector<double> tau_a(2*M_num_nodes);
     // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
@@ -9590,8 +9614,8 @@ FiniteElement::explicitSolve()
 
         // Atmospheric drag
         const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
-        tau_a[u_indx] = drag * M_wind[u_indx];
-        tau_a[v_indx] = drag * M_wind[v_indx];
+        D_tau_a[u_indx] = drag * M_wind[u_indx];
+        D_tau_a[v_indx] = drag * M_wind[v_indx];
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
@@ -9706,12 +9730,12 @@ FiniteElement::explicitSolve()
             double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
-            double const tau_x = tau_a[u_indx]
+            double const tau_x = D_tau_a[u_indx]
 #ifdef OASIS
                 + tau_wi[u_indx]
 #endif
                 + c_prime*( M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle );
-            double const tau_y = tau_a[v_indx]
+            double const tau_y = D_tau_a[v_indx]
 #ifdef OASIS
                 + tau_wi[v_indx]
 #endif

@@ -189,6 +189,8 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
+        tau_ax   = 214,
+        tau_ay   = 215,
 
         // WIM variables
         dmax        = 300,
@@ -540,6 +542,20 @@ public:
                     name     = "sigma_s";
                     longName = "Shear internal stress";
                     stdName  = "shear_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ax):
+                    name     = "tau_ax";
+                    longName = "Eastward Stress at Ice Surface";
+                    stdName  = "eastward_stress_at_ice_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ay):
+                    name     = "tau_ay";
+                    longName = "Northward Stress at Ice Surface";
+                    stdName  = "northward_stress_at_ice_surface";
                     Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
