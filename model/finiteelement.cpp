@@ -7814,12 +7814,12 @@ void FiniteElement::checkUpdateDrifters()
 
     bool move;
     int n_init, n_output;
+    LOG(DEBUG) << "last drifter move? "
+        << Nextsim::datenumToString(M_drifters_move_time) << "\n";
     this->checkDrifters(move, n_init, n_output);
     LOG(DEBUG) << "initialising " << n_init << " drifters\n";
     LOG(DEBUG) << "outputting " << n_output << " drifters\n";
     LOG(DEBUG) << "moving drifters? " << move << "\n";
-    LOG(DEBUG) << "last drifter move? "
-        << Nextsim::datenumToString(M_drifters_move_time) << "\n";
 
     // Move drifters?
     if(move) this->moveDrifters();
