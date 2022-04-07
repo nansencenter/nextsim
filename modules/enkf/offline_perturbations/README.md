@@ -1,7 +1,11 @@
 # Instruction _31-March-2022_
-This is a stand-alone FORTRAN version that can create sequential perturbations offline. The code is a subset of the original perturbation code obtained by Sukun. 
-- A more complete version is in nextsim/modules/enkf/perturbation.
-The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintainence is in nextsim's git repository: IOperturbation/bf1686de6b8757da947448aaf9a0c4b5e22cd51c
+This is a stand-alone FORTRAN version that can create sequential perturbations offline. 
+
+- This offline version only keeps the necessary code for generating perturbations. The online perturbation in neXtSIM modules/enkf/perturbation. The latest maintainence is in nextsim's git repository: IOperturbation/bf1686de6b8757da947448aaf9a0c4b5e22cd51c. Both code are subsets of the perturbation code, originally from HYCOM https://svn.nersc.no/hycom/browser/HYCOM_2.2.37/CodeOnly/src_2.2.37/nersc/mod_random_forcing.F. About details about the developmet in the original code could contact Laurent Bertino laurent.bertino@nersc.no
+
+The core algorithm is in mod_pseudo.F90, which doesn't need to modify.
+
+For operational purpose,
 
 - In ./src/main_pseudo2D.F90,     
     - Set the length of a sequential perturbations for one member to variable i_step.
