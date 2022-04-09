@@ -148,6 +148,9 @@ public:
         age_d        = 18,
         age          = 19,
         conc_upd     = 20,
+        sigma_11     = 21,
+        sigma_22     = 22,
+        sigma_12     = 23,
 
         // Diagnostic variables
         Qa     = 100,
@@ -168,6 +171,9 @@ public:
         mlt_top      = 115,
         mlt_bot      = 116,
         del_vi_young = 117,
+        sigma_n      = 118,
+        sigma_s      = 119,
+        divergence   = 120,
 
         // Forcing variables
         tair     = 200,
@@ -184,6 +190,8 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
+        tau_ax   = 214,
+        tau_ay   = 215,
 
         // WIM variables
         dmax        = 300,
@@ -375,6 +383,27 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::sigma_11):
+                    name     = "sigma_11";
+                    longName = "Stress tensor 11";
+                    stdName  = "stress_tensor_11";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_22):
+                    name     = "sigma_22";
+                    longName = "Stress tensor 22";
+                    stdName  = "stress_tensor_22";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_12):
+                    name     = "sigma_12";
+                    longName = "Stress tensor 12";
+                    stdName  = "stress_tensor_12";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
 
                 // Diagnostic variables
                 case (variableID::Qa):
@@ -501,6 +530,41 @@ public:
                     longName = "Ice formed from snow by flooding";
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_n):
+                    name     = "sigma_n";
+                    longName = "Normal internal stress";
+                    stdName  = "normal_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_s):
+                    name     = "sigma_s";
+                    longName = "Shear internal stress";
+                    stdName  = "shear_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ax):
+                    name     = "tau_ax";
+                    longName = "Eastward Stress at Ice Surface";
+                    stdName  = "eastward_stress_at_ice_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ay):
+                    name     = "tau_ay";
+                    longName = "Northward Stress at Ice Surface";
+                    stdName  = "northward_stress_at_ice_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::divergence):
+                    name     = "divergence";
+                    longName = "Ice Velocity Divergence";
+                    stdName  = "ice_velocity_divergence";
+                    Units    = "1/s";
                     cell_methods = "area: mean";
                     break;
 
