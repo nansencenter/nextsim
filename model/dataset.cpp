@@ -6293,7 +6293,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "cs2_smos_ice_thickness_%Y%m%d-fv2p2.nc",
+            filename_mask: "cs2_smos_ice_thickness_%Y%m%d.nc",
             gridfile: "",
             reference_date: "",
 
