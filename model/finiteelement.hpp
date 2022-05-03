@@ -179,9 +179,13 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
-                 std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
-                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
+    void IABulkFluxes(
+            const std::vector<double>& Tsurf, const std::vector<double>& snow_thick,
+            const std::vector<double>& conc, std::vector<double>& Qia,
+            std::vector<double>& Qlw, std::vector<double>& Qsw,
+            std::vector<double>& Qlh, std::vector<double>& Qsh,
+            std::vector<double>& subl, std::vector<double>& dQiadT,
+            std::vector<double>& alb_tot);
     inline double albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -565,6 +569,7 @@ private:
     double h_young_min;
     double h_young_max;
     double M_ks;
+    double M_ocean_albedo;
 
     double compr_strength;
     double tract_coef;
@@ -792,6 +797,7 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
+    ModelVariable D_albedo; // total albedo
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
