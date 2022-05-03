@@ -153,16 +153,16 @@ public:
         sigma_12     = 23,
 
         // Diagnostic variables
-        Qa     = 100,
-        Qsw    = 101,
-        Qlw    = 102,
-        Qsh    = 103,
-        Qlh    = 104,
-        Qo     = 105,
-        delS   = 106,
-        rain   = 107,
-        evap   = 108,
-        d_crit = 109,
+        Qa           = 100,
+        Qsw          = 101,
+        Qlw          = 102,
+        Qsh          = 103,
+        Qlh          = 104,
+        Qo           = 105,
+        delS         = 106,
+        rain         = 107,
+        evap         = 108,
+        d_crit       = 109,
         vice_melt    = 110,
         del_hi       = 111,
         del_hi_young = 112,
@@ -174,6 +174,7 @@ public:
         sigma_n      = 118,
         sigma_s      = 119,
         divergence   = 120,
+        albedo       = 121,
 
         // Forcing variables
         tair     = 200,
@@ -530,6 +531,13 @@ public:
                     longName = "Ice formed from snow by flooding";
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::albedo):
+                    name     = "albedo";
+                    longName = "albedo";
+                    stdName  = "albedo";
+                    Units    = "";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::sigma_n):

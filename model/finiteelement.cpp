@@ -8077,6 +8077,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
+            case (GridOutput::variableID::albedo):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_albedo[i]*time_factor;
+                break;
             case (GridOutput::variableID::sigma_n):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_sigma[0][i]*time_factor;
@@ -8414,6 +8418,7 @@ FiniteElement::initMoorings()
             ("precip", GridOutput::variableID::precip)
             ("rain", GridOutput::variableID::rain)
             ("evap", GridOutput::variableID::evap)
+            ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
