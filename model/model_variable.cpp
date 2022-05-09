@@ -591,6 +591,14 @@ ModelVariable::initElemental()
             M_diffusivity = 0;
             break;
 
+        case (variableID::D_albedo):
+            // Total albedo
+            M_name = "D_albedo";
+            M_export_name = "D_albedo";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
         case (variableID::D_dcrit):
             // diagnostic variable to tell use how far outside the
             // Mohr-Coulomb envelope we are

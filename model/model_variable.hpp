@@ -110,6 +110,7 @@ public:
         D_snow2ice     = 131,
         D_del_vi_young = 132,
         D_divergence   = 133,
+        D_albedo       = 134,
     };
 
 

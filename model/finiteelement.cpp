@@ -1188,6 +1188,7 @@ FiniteElement::initOptAndParam()
     h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
+    M_ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
 
 
     //! Sets mechanical parameter values
@@ -4941,7 +4942,6 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     // Constants
     double const drag_ocean_t = vm["thermo.drag_ocean_t"].as<double>(); //! \param drag_ocean_t (double const) Ocean drag parameter, to calculate sensible heat flux
     double const drag_ocean_q = vm["thermo.drag_ocean_q"].as<double>(); //! \param drag_ocean_q (double const) Ocean drag parameter, to calculate latent heat flux
-    double const ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
 
     /* Turbulent fluxes and drag */
 #ifdef AEROBULK
@@ -5042,7 +5042,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
     for ( int i=0; i<M_num_elements; ++i )
     {
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-ocean_albedo);
+        Qsw[i] = -M_Qsw_in[i]*(1. - M_ocean_albedo);
 
         /* Out-going long-wave flux */
         double Qlw_out = physical::eps*physical::sigma_sb*std::pow(M_sst[i]+physical::tfrwK,4.);
@@ -5134,7 +5134,9 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qshi(M_num_elements);
     std::vector<double> subl(M_num_elements);
     std::vector<double> dQiadT(M_num_elements);
-    this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi, Qswi, Qlhi, Qshi, subl, dQiadT);
+    std::vector<double> albedo(M_num_elements);
+    this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
+            Qswi, Qlhi, Qshi, subl, dQiadT, albedo);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5144,9 +5146,12 @@ FiniteElement::thermo(int dt)
     std::vector<double> Qsh_young(M_num_elements);
     std::vector<double> subl_young(M_num_elements);
     std::vector<double> dQiadT_young(M_num_elements);
+    std::vector<double> albedo_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
     {
-        this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young, Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young, subl_young, dQiadT_young);
+        this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
+                Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
+                subl_young, dQiadT_young, albedo_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -5809,6 +5814,12 @@ FiniteElement::thermo(int dt)
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*86400/ddt;
 
+        // albedo
+        D_albedo[i] = std::max(0., 1. - old_conc - old_conc_young) * M_ocean_albedo
+            + old_conc * albedo[i];
+        if ( M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE )
+            D_albedo[i] += old_conc_young * albedo_young[i];
+
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
@@ -5871,9 +5882,13 @@ FiniteElement::thermo(int dt)
 //! \param Qsh (double) Sensible atmosphere-ice heat flux [W/m^2]
 //! \param Qlh (double) Long-wave atmosphere-ice heat flux [W/m^2]
 void
-FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
-        std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
-        std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT)
+FiniteElement::IABulkFluxes(
+        const std::vector<double>& Tsurf, const std::vector<double>& snow_thick,
+        const std::vector<double>& conc, std::vector<double>& Qia,
+        std::vector<double>& Qlw, std::vector<double>& Qsw,
+        std::vector<double>& Qlh, std::vector<double>& Qsh,
+        std::vector<double>& subl, std::vector<double>& dQiadT,
+        std::vector<double>& alb_tot)
 {
     // Constants
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -5933,7 +5948,9 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
         else
             hs = 0;
 
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.-this->albedo(Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0));
+        alb_tot[i] = this->albedo(
+                Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0);
+        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.- alb_tot[i]);
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -6739,6 +6756,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
+    D_albedo = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_albedo (double) Total albedo - area-weighted average of ocean, young and old ice albedo
+    M_variables_elt.push_back(&D_albedo);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -8058,6 +8077,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
+            case (GridOutput::variableID::albedo):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_albedo[i]*time_factor;
+                break;
             case (GridOutput::variableID::sigma_n):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_sigma[0][i]*time_factor;
@@ -8395,6 +8418,7 @@ FiniteElement::initMoorings()
             ("precip", GridOutput::variableID::precip)
             ("rain", GridOutput::variableID::rain)
             ("evap", GridOutput::variableID::evap)
+            ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)
