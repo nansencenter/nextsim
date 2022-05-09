@@ -4609,17 +4609,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
-
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
@@ -4677,7 +4666,7 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a: 1.,
-            b: 12., // to center the time on the middle of the day
+            b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
@@ -4686,7 +4675,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable u={
             filename_string: "", // All variables are in the same (grid) file
             name: "u",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4704,7 +4693,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable v={
             filename_string: "", // All variables are in the same (grid) file
             name: "v",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4738,8 +4727,10 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
-            interp_type: -1,
+            //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interp_type : -1,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
@@ -4811,17 +4802,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
-
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
@@ -4879,7 +4859,7 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a: 1.,
-            b: 12., // to center the time on the middle of the day
+            b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
@@ -4888,7 +4868,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable sst={
             filename_string: "", // All variables are in the same (grid) file
             name: "temperature",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4906,7 +4886,7 @@ DataSet::DataSet(char const *DatasetName)
         Variable sss={
             filename_string: "", // All variables are in the same (grid) file
             name: "salinity",
-            dimensions: dimensions_uv,
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -4994,8 +4974,10 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Grid grid_tmp={
-            interpolation_method: InterpolationType::FromMeshToMesh2dx,
-            interp_type: -1,
+            //interpolation_method: InterpolationType::FromMeshToMesh2dx,
+            //interp_type : -1,
+            interpolation_method: InterpolationType::FromGridToMesh,
+            interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
             filename_mask: "topaz_forecast_%Y%m%d.nc",
             gridfile: "",
