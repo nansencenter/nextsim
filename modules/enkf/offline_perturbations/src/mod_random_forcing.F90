@@ -270,7 +270,7 @@ contains
 
       real, parameter :: wlat = 60.
       integer i, j
-      real*8, save :: rdtime = 8.d0/24.d0    ! Time step of forcing update
+      real*8, save :: rdtime = 6.d0/24.d0    ! Time step of forcing update
 
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
