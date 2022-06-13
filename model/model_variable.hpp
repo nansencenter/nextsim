@@ -74,6 +74,15 @@ public:
         M_cum_damage      = 21,
         M_cum_wave_damage = 22,
         M_divergence      = 23,
+        M_conc_myi        = 24,
+        M_melt_seconds    = 25,
+        M_conc_summer     = 26,
+        M_freeze_seconds  = 27,
+        M_melt_onset      = 28,
+        M_freeze_onset    = 29,
+        M_del_hi_tend     = 30,
+        M_thick_myi       = 31,
+        M_thick_summer    = 32,
 
         // Diagnostic variables
         D_conc         = 100,
@@ -111,6 +120,11 @@ public:
         D_del_vi_young = 132,
         D_divergence   = 133,
         D_albedo       = 134,
+        D_del_ci_mlt_myi   = 135,
+        D_del_vi_mlt_myi   = 136,
+        D_del_ci_rplnt_myi = 137,
+        D_del_vi_rplnt_myi = 138,
+        D_del_ci_ridge_myi = 139,
     };
 
 
