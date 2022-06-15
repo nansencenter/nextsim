@@ -7907,7 +7907,12 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
-
+    if (M_fullday_counter >= 86400.)
+        M_fullday_counter = 0.;
+    else
+        M_fullday_counter = M_fullday_counter + dtime_step; 
+    //std::cout << "M_fullday_counter= " << M_fullday_counter << "\n";
+    //std::cout << "M_current_time= " << M_current_time << "\n";
 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
@@ -8291,9 +8296,30 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 break;
             case (GridOutput::variableID::dci_ridge_myi):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_sigma[0][i]*time_factor;
+                    it->data_mesh[i] += D_del_ci_ridge_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_mlt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_mlt_myi[i]*time_factor;
                 break;
 
+            //End of MYI quantities
+            case (GridOutput::variableID::sigma_11):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_sigma[0][i]*time_factor;
+                break;
             case (GridOutput::variableID::sigma_22):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sigma[1][i]*time_factor;
