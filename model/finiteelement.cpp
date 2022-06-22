@@ -5300,14 +5300,36 @@ FiniteElement::thermo(int dt)
         // conc before assimilation
         double conc_pre_assim = old_conc + old_conc_young - M_conc_upd[i];
         // if before assimilation there was ice and it was reduced
-        if ( (M_use_assim_flux) && (conc_pre_assim > 0) && (M_conc_upd[i] < 0))
-        {
-            // compensating heat flux is a product of:
-            // * total flux out of the ocean
-            // * relative change in concentration (dCrel)
-            // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-            Qassm = (Qow[i]*old_ow_fraction + Qio*old_conc + Qio_young*old_conc_young) *
-                    (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
+        if (M_use_assim_flux)
+        {   if ((conc_pre_assim > 0) && (M_conc_upd[i] < 0))
+            {
+                // Ice was removed so add heat to stop it refreezing.
+                // Compensating heat flux (Qassm < 0) is a product of:
+                // * total flux out of the ocean
+                // * relative change in concentration (dCrel)
+                // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+                double const Qtot = Qow[i]*old_ow_fraction + Qio*old_conc
+                    + Qio_young*old_conc_young;
+                if (Qtot > 0)
+                {
+                    Qassm = Qtot *
+                        (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
+                }
+            }
+            if (M_conc_upd[i] > 0)
+            {
+                // Ice was added - relax to freezing point
+                // (T1 - T0)/ddt = - (T0-Tfrw) / timescale
+                // (Qassm > 0)
+                if (M_sst[i] > tfrw)
+                {
+                    // time scale = 6h
+                    // flux scaled by M_conc_upd - add exponent (<1? >1?)
+                    double const timescale = 6 * 3600.;
+                    Qassm = (mld*physical::rhow*physical::cpw) * (M_sst[i]- tfrw)
+                        * M_conc_upd[i] / timescale;
+                }
+            }
         }
 
         //relaxation of concentration update with time
