@@ -5095,7 +5095,7 @@ FiniteElement::thermo(int dt)
     int const melt_type = vm["thermo.melt_type"].as<int>(); //! \param melt_type (int const) Type of melting scheme (3 diff. cases : Hibler 1979, Mellor and Kantha 1989, or Rothrock and Thorndike 1984 with a dependency on floe size)
     double const PhiM = vm["thermo.PhiM"].as<double>(); //! \param PhiM (double const) Parameter for melting?
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
-    bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration
+    bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration (when ice removed)
     double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
@@ -5190,7 +5190,7 @@ FiniteElement::thermo(int dt)
         double  Qio=0.;         //! \param Qio (double) Ice-ocean heat flux
         double  Qio_young=0.;    //! \param Qio_young (double) Ice-ocean heat flux through young ice
 
-        double  Qassm=0.;       //! \param Qassm (double) compensating flux to ocean due to assimilation [W/m^2]
+        double  Qo_assim=0.;       //! \param Qo_assim (double) compensating flux to ocean due to assimilation [W/m^2]
 
         //! 3.2) Saves old _volumes_ and concentrations
         double  old_vol=M_thick[i];
@@ -5304,30 +5304,16 @@ FiniteElement::thermo(int dt)
         {   if ((conc_pre_assim > 0) && (M_conc_upd[i] < 0))
             {
                 // Ice was removed so add heat to stop it refreezing.
-                // Compensating heat flux (Qassm < 0) is a product of:
+                // Compensating heat flux (Qo_assim < 0) is a product of:
                 // * total flux out of the ocean
                 // * relative change in concentration (dCrel)
                 // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-                double const Qtot = Qow[i]*old_ow_fraction + Qio*old_conc
-                    + Qio_young*old_conc_young;
+                double const Qtot = Qow[i]*old_ow_fraction
+                    + Qio*old_conc + Qio_young*old_conc_young;
                 if (Qtot > 0)
                 {
-                    Qassm = Qtot *
+                    Qo_assim = Qtot *
                         (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-                }
-            }
-            if (M_conc_upd[i] > 0)
-            {
-                // Ice was added - relax to freezing point
-                // (T1 - T0)/ddt = - (T0-Tfrw) / timescale
-                // (Qassm > 0)
-                if (M_sst[i] > tfrw)
-                {
-                    // time scale = 6h
-                    // flux scaled by M_conc_upd - add exponent (<1? >1?)
-                    double const timescale = 6 * 3600.;
-                    Qassm = (mld*physical::rhow*physical::cpw) * (M_sst[i]- tfrw)
-                        * M_conc_upd[i] / timescale;
                 }
             }
         }
@@ -5339,7 +5325,7 @@ FiniteElement::thermo(int dt)
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qassm)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qo_assim)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
@@ -5694,7 +5680,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
-            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qassm)/(physical::rhow*physical::cpw*mld);
+            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qo_assim)/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
@@ -5792,7 +5778,7 @@ FiniteElement::thermo(int dt)
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
 
         // flux from assim
-        D_Qassim[i] = Qassm;
+        D_Qo_assim[i] = Qo_assim;
 
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
         D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
@@ -6768,8 +6754,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux_ice);
-    D_Qassim = ModelVariable(ModelVariable::variableID::D_Qassim);//! \param D_Qassim (double) flux from assimilation [W/m2]
-    M_variables_elt.push_back(&D_Qassim);
+    D_Qo_assim = ModelVariable(ModelVariable::variableID::D_Qo_assim);//! \param D_Qo_assim (double) flux from assimilation [W/m2]
+    M_variables_elt.push_back(&D_Qo_assim);
     D_brine = ModelVariable(ModelVariable::variableID::D_brine);//! \param D_brine (double) Brine release into the ocean [kg/m2/s]
     M_variables_elt.push_back(&D_brine);
     D_tau_ow = ModelVariable(ModelVariable::variableID::D_tau_ow);//! \param D_tau_ow (double) Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
@@ -8103,6 +8089,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_albedo[i]*time_factor;
                 break;
+            case (GridOutput::variableID::Qo_assim):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_Qo_assim[i]*time_factor;
+                break;
             case (GridOutput::variableID::sigma_n):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_sigma[0][i]*time_factor;
@@ -8441,6 +8431,7 @@ FiniteElement::initMoorings()
             ("rain", GridOutput::variableID::rain)
             ("evap", GridOutput::variableID::evap)
             ("albedo", GridOutput::variableID::albedo)
+            ("Qo_assim", GridOutput::variableID::Qo_assim)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
             ("age", GridOutput::variableID::age)

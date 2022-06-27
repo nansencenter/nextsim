@@ -97,7 +97,7 @@ public:
         D_rain         = 118,
         D_dmax         = 119,
         D_dmean        = 120,
-        D_Qassim       = 121,
+        D_Qo_assim     = 121,
         D_fwflux_ice   = 122,
         D_dcrit        = 123,
         D_sigma_p      = 124,
