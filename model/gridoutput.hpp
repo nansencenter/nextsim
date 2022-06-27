@@ -175,6 +175,7 @@ public:
         sigma_s      = 119,
         divergence   = 120,
         albedo       = 121,
+        Qo_assim     = 122,
 
         // Forcing variables
         tair     = 200,
@@ -538,6 +539,13 @@ public:
                     longName = "Surface albedo";
                     stdName  = "surface_albedo";
                     Units    = "";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::Qo_assim):
+                    name     = "qo_assim";
+                    longName = "Heat flux out of ocean due to assimilation";
+                    stdName  = "qo_assim";
+                    Units    = "W/m^2";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::sigma_n):

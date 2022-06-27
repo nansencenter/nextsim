@@ -446,10 +446,10 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_Qassim):
+        case (variableID::D_Qo_assim):
             // flux from assim [W/m^2]
-            M_name = "D_Qassim";
-            M_export_name = "Qassim";
+            M_name = "D_Qo_assim";
+            M_export_name = "Qo_assim";
             M_prognostic = false;
             M_exporting = true;
             break;
