@@ -5133,6 +5133,7 @@ FiniteElement::thermo(int dt)
     bool melt_myi_and_fyi = vm["age.melt_myi_and_fyi"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string assign_by_time_or_integral = vm["age.assign_by_time_or_integral"].as<std::string>(); // decides if melt days should be based on just time, or integral of field 
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
+    double const frac_thresh_for_onset = vm["age.frac_thresh_for_onset"].as<double>(); //! \param frac_thresh_for_onset is a value between 0 and 1 that decides whether cell has onset or not 
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5565,13 +5566,13 @@ FiniteElement::thermo(int dt)
         // Keep track of melt/freeze days
         if (assign_by_time_or_integral == "time")
         {
-            if (del_hi > 0.) // freezing
+            if (del_vi > 0.) // freezing
                 M_del_hi_tend[i] = M_del_hi_tend[i] + ddt;
-            else if (del_hi < 0.) // melting
+            else if (del_vi < 0.) // melting
                 M_del_hi_tend[i] = M_del_hi_tend[i] - ddt;
         }
         else if (assign_by_time_or_integral == "integral")
-            M_del_hi_tend[i] = M_del_hi_tend[i] + del_hi*ddt;
+            M_del_hi_tend[i] = M_del_hi_tend[i] + del_vi*ddt;
 
         const double day_seconds = 86400.;
         //if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
@@ -5897,6 +5898,8 @@ FiniteElement::thermo(int dt)
             M_conc_myi[i] = 0.;
             M_melt_seconds[i] = 0.; // If there is no ice, the melt counter for myi should be reset as no myi to tag
             M_freeze_seconds[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
+            M_melt_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
+            M_freeze_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
         }
         else    //If there is ice
         {
@@ -5948,7 +5951,7 @@ FiniteElement::thermo(int dt)
                 { 
                     if (M_melt_seconds[i] >= melt_seconds_threshold) // if melting for n days
                     {
-                        if (M_melt_onset[i] == 0.) // if not yet reset this season
+                        if (M_melt_onset[i] <= frac_thresh_for_onset) // if not yet reset this season
                         {
                             reset_myi = true;
                             M_melt_onset[i] = 1.;
@@ -5959,7 +5962,7 @@ FiniteElement::thermo(int dt)
                 { 
                     if (M_freeze_seconds[i] >= freeze_seconds_threshold) // if freezing for n days
                     {
-                        if (M_freeze_onset[i] == 0.) // if not yet reset this season
+                        if (M_freeze_onset[i] <= frac_thresh_for_onset) // if not yet reset this season
                         {
                                 reset_myi = true;
                                 M_freeze_onset[i] = 1.;
@@ -5975,6 +5978,10 @@ FiniteElement::thermo(int dt)
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
+                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && (M_conc[i] + M_conc_young[i] == 0) )
+                    M_freeze_onset[i] = 1.;
+                else if (M_conc[i] == 0.)
+                    M_freeze_onset[i] = 1.;
                 M_conc_summer[i]  = M_conc[i]  ;
                 M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
                 // Lines below should have no impact
@@ -5985,6 +5992,15 @@ FiniteElement::thermo(int dt)
                 //}
 
             }
+            // Now ensure that freeze and melt onsets are 0 or 1
+            if (M_freeze_onset[i] >= 0.5)
+                M_freeze_onset[i] = 1.;
+            else
+                M_freeze_onset[i] = 0.;
+            if (M_melt_onset[i] >= 0.5)
+                M_melt_onset[i] = 1.;
+            else
+                M_melt_onset[i] = 0.;
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
             double ctot = M_conc[i];
@@ -7909,11 +7925,11 @@ FiniteElement::step()
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
     if (M_fullday_counter >= 86400.)
         M_fullday_counter = 0.;
-    else
-        M_fullday_counter = M_fullday_counter + dtime_step; 
+    M_fullday_counter = M_fullday_counter + dtime_step; 
     //std::cout << "M_fullday_counter= " << M_fullday_counter << "\n";
     //std::cout << "M_current_time= " << M_current_time << "\n";
-
+    LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
+ 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
