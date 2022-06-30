@@ -5245,7 +5245,7 @@ FiniteElement::thermo(int dt)
         else
         {
             // nudgeFlux
-            Qdw = -(M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
+            Qdw = (M_sst[i]-M_ocean_temp[i]) * mld * physical::rhow * physical::cpw/timeT;
 
             double const delS = M_sss[i] - M_ocean_salt[i];
             Fdw = delS * mld * physical::rhow /(timeS*M_sss[i] - ddt*delS);
@@ -5680,7 +5680,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
         if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
-            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qo_assim)/(physical::rhow*physical::cpw*mld);
+            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean + Qdw + Qo_assim)/(physical::rhow*physical::cpw*mld);
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
