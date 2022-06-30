@@ -5097,6 +5097,7 @@ FiniteElement::thermo(int dt)
     double const PhiF = vm["thermo.PhiF"].as<double>(); //! \param PhiF (double const) Parameter for freezing?
     bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration (when ice removed)
     double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
+    bool const M_use_assim_flux_addice = vm["thermo.use_assim_flux_addice"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration (when ice added)
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
 
@@ -5263,25 +5264,96 @@ FiniteElement::thermo(int dt)
         /* Temperature at the base of the ice */
         const double tfrw = this->freezingPoint(M_sss[i]);
 
+        // Assimilation
+        double Qow_assim = 0.;
+        double Qio_assim = 0.;
+        double Qio_young_assim = 0.;
+        double Qdw_assim = 0.;
+        double const conc_upd = M_conc_upd[i];
+        if (
+                M_use_assim_flux_addice
+                && conc_upd > 0 // ice added by assimilation
+                )
+        {
+            // -1 <= modifier <= 0
+            // - 0 if old_conc_tot >= conc_upd (assume
+            // - 1 if old_conc_tot = 0
+            // usual case is conc_pre_assim = 0
+            // and conc_post_assim = conc_upd
+            // so cooling flux starts if conc drops below conc_post_assim
+            // TODO also pass in conc_pre_assim via restart?
+            double const old_conc_tot = old_conc + old_conc_young;
+            double const modifier = -1. + std::pow(std::max(0.,
+                        1. - (old_conc_tot/conc_upd)),
+                        M_assim_flux_exponent);
+            // ice melting due to water (Qio>0)
+            // - need to return heat to water
+            Qio_assim = std::max(Qio, 0.) * modifier;
+            Qio_young_assim = std::max(Qio_young, 0.) * modifier;
+            // add positive flux if water warming due to atmosphere (Qow<0)
+            Qow_assim = std::min(0., Qow[i]) * modifier;
+            // add positive flux if water warming due to forcing (QdW<0)
+            Qdw_assim = std::min(0., Qdw) * modifier;
+        }
+        if (M_use_assim_flux)
+        {
+            // conc before assimilation (approx)
+            double const conc_pre_assim = old_conc + old_conc_young - M_conc_upd[i];
+            if ((conc_pre_assim > 0) && (conc_upd < 0))
+            {
+                // Ice was removed so add heat to stop it refreezing.
+                // Compensating heat flux (Qo_assim < 0) is a product of:
+                // total flux out of the ocean (if > 0) and modifier
+                // -1 <= modifier = alpha^n - 1 <= 0,
+                // where 0 <= alpha = 1 + dCrel <= 1,
+                // and dCrel is relative change in concentration
+                // dCrel = -1 => all ice removed
+                // dCrel ~ 0 => little ice removed
+                //   exponent n effects this extreme - if n>1,
+                //   removing little ice quickly has the strong effect
+                //   of nearly cancelling the flux out of the ocean
+                // * relative change in concentration (dCrel)
+                // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
+                double const modifier = -1 + std::pow(
+                        (conc_upd / conc_pre_assim) + 1,
+                        M_assim_flux_exponent);
+                // if freezing (Qio<0), water warming to freezing point
+                // - add positive flux to slow the warming
+                Qio_assim = modifier *std::min(0., Qio);
+                Qio_young_assim = modifier *std::min(0., Qio_young);
+                // add negative flux if water cooling due to atmosphere (Qow>0)
+                Qow_assim = modifier * std::max(0., Qow[i]);
+                // add negative flux if water cooling due to forcing (Qdw>0)
+                Qdw_assim = modifier * std::max(0., Qdw);
+            }
+        }
+        Qo_assim = old_conc * Qio_assim
+            + old_conc_young * Qio_young_assim
+            + old_ow_fraction * Qow_assim
+            + Qdw_assim;
+
         /* Tracking ice melt/formation components */
         double del_hs_mlt = 0;
         double mlt_hi_top = 0;
         double mlt_hi_bot = 0;
         double del_hi_s2i = 0;
+        double Qeff_old = Qio + Qio_assim;
+        double Qeff_new = Qeff_old;//changed by thermoIce*
         switch ( M_thermo_type )
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i, M_tice[0][i]);
+                        Qeff_new, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
                 this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
                         mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
-                        Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i,
+                        Qeff_new, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
         }
+        Qio += Qeff_new - Qeff_old;
 
         double del_hs_young_mlt = 0;
         double mlt_hi_top_young = 0;
@@ -5289,33 +5361,14 @@ FiniteElement::thermo(int dt)
         double del_hi_s2i_young = 0;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
+            Qeff_old = Qio_young + Qio_young_assim;
+            Qeff_new = Qeff_old;//changed by thermoIce*
             this->thermoIce0(ddt, M_conc_young[i], M_h_young[i], M_hs_young[i],
                     mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
-                    Qio_young, hi_young, hs_young, hi_young_old, del_hi_young, del_hs_young_mlt, mlt_hi_top_young, mlt_hi_bot_young, del_hi_s2i_young, M_tsurf_young[i]);
+                    Qeff_old, hi_young, hs_young, hi_young_old, del_hi_young, del_hs_young_mlt, mlt_hi_top_young, mlt_hi_bot_young, del_hi_s2i_young, M_tsurf_young[i]);
             M_h_young[i]  = hi_young * old_conc_young;
             M_hs_young[i] = hs_young * old_conc_young;
-        }
-
-        // Compensation of heatflux for concentration reduced by assimilation
-        // conc before assimilation
-        double conc_pre_assim = old_conc + old_conc_young - M_conc_upd[i];
-        // if before assimilation there was ice and it was reduced
-        if (M_use_assim_flux)
-        {   if ((conc_pre_assim > 0) && (M_conc_upd[i] < 0))
-            {
-                // Ice was removed so add heat to stop it refreezing.
-                // Compensating heat flux (Qo_assim < 0) is a product of:
-                // * total flux out of the ocean
-                // * relative change in concentration (dCrel)
-                // the flux is scaled by ((dCrel+1)^n-1) to be linear (n=1) or fast-growing (n>1)
-                double const Qtot = Qow[i]*old_ow_fraction
-                    + Qio*old_conc + Qio_young*old_conc_young;
-                if (Qtot > 0)
-                {
-                    Qo_assim = Qtot *
-                        (std::pow(M_conc_upd[i] / conc_pre_assim + 1, M_assim_flux_exponent) - 1);
-                }
-            }
+            Qio_young += Qeff_new - Qeff_old;
         }
 
         //relaxation of concentration update with time
@@ -5325,7 +5378,7 @@ FiniteElement::thermo(int dt)
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
         /* dT/dt due to heatflux ocean->atmosphere */
-        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qo_assim)/(mld*physical::rhow*physical::cpw);
+        double const tw_new = M_sst[i] - ddt*(Qow[i] + Qow_assim)/(mld*physical::rhow*physical::cpw);
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
@@ -5777,7 +5830,7 @@ FiniteElement::thermo(int dt)
         // SW fluxes to ocean - TODO: Add penetrating SW
         D_Qsw_ocean[i] = old_ow_fraction*Qsw_ow[i];
 
-        // flux from assim
+        // flux out of ocean from assim
         D_Qo_assim[i] = Qo_assim;
 
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
@@ -6435,19 +6488,17 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         {
             if (del_hi < 0.)
             {
-                mlt_hi_top*=-hi_old/del_hi;
-                mlt_hi_bot*=-hi_old/del_hi;
+                mlt_hi_top *= - hi_old / del_hi;
+                mlt_hi_bot *= - hi_old / del_hi;
             }
 
             del_hi_s2i =0. ;
-
-
-            del_hi  = -hi_old; //del_hi-hi;
-            Qio     = Qio + hi*qi/dt + hs*qs/dt;
-
-            hi      = 0.;
-            hs      = 0.;
-            Tsurf   = Tfr_ice;
+            del_hi = -hi_old;
+            //need more energy from ocean to melt this small amount of ice and snow
+            Qio += (hi*qi + hs*qs)/dt;
+            hi = 0.;
+            hs = 0.;
+            Tsurf = Tfr_ice;
         }
     }
 }//thermoIce0
