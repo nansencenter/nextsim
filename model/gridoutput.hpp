@@ -649,8 +649,8 @@ public:
                     break;
                 case (variableID::albedo):
                     name     = "albedo";
-                    longName = "albedo";
-                    stdName  = "albedo";
+                    longName = "Surface albedo";
+                    stdName  = "surface_albedo";
                     Units    = "";
                     cell_methods = "area: mean";
                     break;
