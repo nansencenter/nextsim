@@ -23,7 +23,7 @@ export NEXTSIMDIR=`pwd`
 
 # AeroBulk turbulent air-sea flux computation
 #--------------------------------------------
-l_aerobulk=false ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
     # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
