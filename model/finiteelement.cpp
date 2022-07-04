@@ -3942,7 +3942,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_myi[cpt] *= surf_ratio;
             else
             {
-                double conc_ratio = std::min(1.,M_conc[cpt])/old_conc; // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
+                double const conc_ratio = std::min(1.,M_conc[cpt])/old_conc; // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
                 M_conc_myi[cpt] *= conc_ratio; // Adjusting myi rather than fyi as this is what we want to conserve. Using conc_ratio means M_conc_myi does not exceed 1
             } 
         }
