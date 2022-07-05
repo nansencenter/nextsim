@@ -592,9 +592,17 @@ ModelVariable::initElemental()
             break;
 
         case (variableID::D_albedo):
-            // Total albedo
+            // Surface albedo
             M_name = "D_albedo";
-            M_export_name = "D_albedo";
+            M_export_name = "albedo";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_sialb):
+            // Sea ice albedo
+            M_name = "D_sialb";
+            M_export_name = "sialb";
             M_prognostic = false;
             M_exporting = false;
             break;
