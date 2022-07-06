@@ -5973,6 +5973,7 @@ FiniteElement::thermo(int dt)
             // Only reset if we have not already reset this season. So need to check if this is the case 
             if (date_string_md == "0101" && std::fmod(M_current_time, 1.) == 0.)
                 M_melt_onset[i] = 0.;
+
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
