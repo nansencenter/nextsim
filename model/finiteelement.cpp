@@ -5993,6 +5993,7 @@ FiniteElement::thermo(int dt)
                 M_melt_onset[i] = 1.;
             else
                 M_melt_onset[i] = 0.;
+
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
             double ctot = M_conc[i];
