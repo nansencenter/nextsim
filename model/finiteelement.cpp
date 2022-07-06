@@ -5580,7 +5580,7 @@ FiniteElement::thermo(int dt)
         {
             if (M_del_hi_tend[i] > 0.) // It's freezing 
             {   
-                M_freeze_seconds[i] = floor(M_freeze_seconds[i]) + day_seconds;
+                M_freeze_seconds[i] += day_seconds;
                 M_melt_seconds[i] = 0.;
             }
             else if (M_del_hi_tend[i] < 0.)     
