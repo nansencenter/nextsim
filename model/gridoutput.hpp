@@ -155,7 +155,7 @@ public:
         freeze_days  = 25,
         freeze_onset = 26,
         conc_summer  = 27,
-        del_hi_tend  = 28,
+        del_vi_tend  = 28,
         thick_myi    = 29,
         thick_summer = 30,
 
@@ -461,10 +461,10 @@ public:
                     Units    = "binary";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_hi_tend):
-                    name     = "del_hi_tend";
+                case (variableID::del_vi_tend):
+                    name     = "del_vi_tend";
                     longName = "Daily total ice volume tendency";
-                    stdName  = "del_hi_tend";
+                    stdName  = "del_vi_tend";
                     Units    = "binary";
                     cell_methods = "area: mean";
                     break;

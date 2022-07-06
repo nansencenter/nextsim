@@ -4049,13 +4049,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        /* This del_ci_ridge only works for equal_ridging=false*/ 
         D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
         if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
+        /* This del_ci_ridge only works for equal_ridging=false*/ 
+        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];         
     }//loop over elements
 }//update
 
@@ -5563,23 +5563,23 @@ FiniteElement::thermo(int dt)
             bool const use_young_ice_in_myi_reset = false;
 
         // Keep track of freeze days
-        M_del_hi_tend[i] = M_del_hi_tend[i] + del_vi*ddt;
+        M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
 
         const double day_seconds = 86400.;
         if (M_fullday_counter >= day_seconds) // end of day 
         {
-            if (M_del_hi_tend[i] > 0.) // It's freezing 
+            if (M_del_vi_tend[i] > 0.) // It's freezing 
             {   
                 M_freeze_days[i] += 1.;
             }
-            else if (M_del_hi_tend[i] < 0.) // It's melting    
+            else if (M_del_vi_tend[i] < 0.) // It's melting    
             {
                 M_freeze_days[i] = 0.;
                 M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
                 if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
                     M_conc_summer[i]+=M_conc_young[i];
             }
-            M_del_hi_tend[i] = 0.;
+            M_del_vi_tend[i] = 0.;
         }
 
 
@@ -6862,8 +6862,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_thick_summer);
     M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Binary for if freeze onset has occurred for this year or not
     M_variables_elt.push_back(&M_freeze_onset);
-    M_del_hi_tend = ModelVariable(ModelVariable::variableID::M_del_hi_tend);//! \param M_del_hi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
-    M_variables_elt.push_back(&M_del_hi_tend);
+    M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
+    M_variables_elt.push_back(&M_del_vi_tend);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -8238,9 +8238,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_freeze_onset[i]*time_factor;
                 break;
-            case (GridOutput::variableID::del_hi_tend):
+            case (GridOutput::variableID::del_vi_tend):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_del_hi_tend[i]*time_factor;
+                    it->data_mesh[i] += M_del_vi_tend[i]*time_factor;
                 break;
             case (GridOutput::variableID::dci_ridge_myi):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8669,7 +8669,7 @@ FiniteElement::initMoorings()
             ("thick_summer", GridOutput::variableID::thick_summer)
             ("conc_summer", GridOutput::variableID::conc_summer)
             ("freeze_onset", GridOutput::variableID::freeze_onset)
-            ("del_hi_tend", GridOutput::variableID::del_hi_tend)
+            ("del_vi_tend", GridOutput::variableID::del_vi_tend)
             ("dvi_mlt_myi", GridOutput::variableID::dvi_mlt_myi)
             ("dci_mlt_myi", GridOutput::variableID::dci_mlt_myi)
             ("dci_rplnt_myi", GridOutput::variableID::dci_rplnt_myi)
@@ -11056,7 +11056,7 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_thick_summer);
     vars_to_zero.push_back(&M_conc_summer);
     vars_to_zero.push_back(&M_freeze_onset);
-    vars_to_zero.push_back(&M_del_hi_tend);
+    vars_to_zero.push_back(&M_del_vi_tend);
     for (int k=0; k<3; k++)
         vars_to_zero.push_back(&(M_sigma[k]));
     for (auto ptr: vars_to_zero)

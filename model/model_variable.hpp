@@ -78,7 +78,7 @@ public:
         M_conc_summer     = 25,
         M_freeze_days     = 26,
         M_freeze_onset    = 27,
-        M_del_hi_tend     = 28,
+        M_del_vi_tend     = 28,
         M_thick_myi       = 29,
         M_thick_summer    = 30,
 

@@ -401,8 +401,8 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
-        case (variableID::M_del_hi_tend):
-            M_name = "M_del_hi_tend";
+        case (variableID::M_del_vi_tend):
+            M_name = "M_del_vi_tend";
             M_export_name = "Ice_volume_tendency_daily";
             M_prognostic = true;
             M_exporting = true;
