@@ -5098,6 +5098,8 @@ FiniteElement::thermo(int dt)
     bool const M_use_assim_flux = vm["thermo.use_assim_flux"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration (when ice removed)
     double const M_assim_flux_exponent = vm["thermo.assim_flux_exponent"].as<double>(); //! \param M_assim_flux_exponent (double const) Exponent of factor for reducing flux that compensates assimilation of concentration
     bool const M_use_assim_flux_addice = vm["thermo.use_assim_flux_addice"].as<bool>(); //! \param M_use_assim_flux (bool const) Add a flux that compensates assimilation of concentration (when ice added)
+    bool const M_use_assim_flux_forcing = vm["thermo.use_assim_flux_forcing"].as<bool>(); //! \param M_use_assim_flux_forcing (bool const) Add a forcing flux that compensates assimilation of concentration
+    bool const M_use_assim_flux_io = vm["thermo.use_assim_flux_io"].as<bool>(); //! \param M_use_assim_flux_io (bool const) Add an ocean-ice flux that compensates assimilation of concentration
 
     double mld = vm["ideal_simul.constant_mld"].as<double>(); //! \param mld (double) the mixed layer depth to use, if we're using a constant mixed layer [m]
 
@@ -5286,14 +5288,20 @@ FiniteElement::thermo(int dt)
             double const modifier = -1. + std::pow(std::max(0.,
                         1. - (old_conc_tot/conc_upd)),
                         M_assim_flux_exponent);
-            // ice melting due to water (Qio>0)
-            // - need to return heat to water
-            Qio_assim = std::max(Qio, 0.) * modifier;
-            Qio_young_assim = std::max(Qio_young, 0.) * modifier;
+            if(M_use_assim_flux_io)
+            {
+                // ice melting due to water (Qio>0)
+                // - need to return heat to water
+                Qio_assim = std::max(Qio, 0.) * modifier;
+                Qio_young_assim = std::max(Qio_young, 0.) * modifier;
+            }
             // add positive flux if water warming due to atmosphere (Qow<0)
             Qow_assim = std::min(0., Qow[i]) * modifier;
-            // add positive flux if water warming due to forcing (QdW<0)
-            Qdw_assim = std::min(0., Qdw) * modifier;
+            if(M_use_assim_flux_forcing)
+            {
+                // add positive flux if water warming due to forcing (QdW<0)
+                Qdw_assim = std::min(0., Qdw) * modifier;
+            }
         }
         if (M_use_assim_flux)
         {
@@ -5317,14 +5325,20 @@ FiniteElement::thermo(int dt)
                 double const modifier = -1 + std::pow(
                         (conc_upd / conc_pre_assim) + 1,
                         M_assim_flux_exponent);
-                // if freezing (Qio<0), water warming to freezing point
-                // - add positive flux to slow the warming
-                Qio_assim = modifier *std::min(0., Qio);
-                Qio_young_assim = modifier *std::min(0., Qio_young);
+                if(M_use_assim_flux_forcing)
+                {
+                    // if freezing (Qio<0), water warming to freezing point
+                    // - add positive flux to slow the warming
+                    Qio_assim = modifier *std::min(0., Qio);
+                    Qio_young_assim = modifier *std::min(0., Qio_young);
+                }
                 // add negative flux if water cooling due to atmosphere (Qow>0)
                 Qow_assim = modifier * std::max(0., Qow[i]);
-                // add negative flux if water cooling due to forcing (Qdw>0)
-                Qdw_assim = modifier * std::max(0., Qdw);
+                if(M_use_assim_flux_forcing)
+                {
+                    // add negative flux if water cooling due to forcing (Qdw>0)
+                    Qdw_assim = modifier * std::max(0., Qdw);
+                }
             }
         }
         Qo_assim = old_conc * Qio_assim
