@@ -5584,7 +5584,7 @@ FiniteElement::thermo(int dt)
             }
             else if (M_del_hi_tend[i] < 0.)     
             {
-                M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
+                M_melt_seconds[i] += day_seconds;
                 M_freeze_seconds[i] = 0.;
                 M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
                 if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
