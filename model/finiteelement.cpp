@@ -7907,6 +7907,7 @@ FiniteElement::step()
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
     if (M_fullday_counter >= 86400.)
         M_fullday_counter = 0.;
+
     M_fullday_counter = M_fullday_counter + dtime_step; 
     LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
  
