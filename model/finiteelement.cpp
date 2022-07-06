@@ -7909,8 +7909,6 @@ FiniteElement::step()
     if (M_fullday_counter >= 86400.)
         M_fullday_counter = 0.;
     M_fullday_counter = M_fullday_counter + dtime_step; 
-    //std::cout << "M_fullday_counter= " << M_fullday_counter << "\n";
-    //std::cout << "M_current_time= " << M_current_time << "\n";
     LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
  
     //======================================================================
