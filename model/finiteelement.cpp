@@ -5950,7 +5950,7 @@ FiniteElement::thermo(int dt)
                 { 
                     if (M_melt_seconds[i] >= melt_seconds_threshold) // if melting for n days
                     {
-                        if (M_melt_onset[i] <= frac_thresh_for_onset) // if not yet reset this season
+                        if (M_melt_onset[i] < 0.5) // if not yet reset this season
                         {
                             reset_myi = true;
                             M_melt_onset[i] = 1.;
@@ -5961,7 +5961,7 @@ FiniteElement::thermo(int dt)
                 { 
                     if (M_freeze_seconds[i] >= freeze_seconds_threshold) // if freezing for n days
                     {
-                        if (M_freeze_onset[i] <= frac_thresh_for_onset) // if not yet reset this season
+                        if (M_freeze_onset[i] <= 0.5) // if not yet reset this season
                         {
                                 reset_myi = true;
                                 M_freeze_onset[i] = 1.;

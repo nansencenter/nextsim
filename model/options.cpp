@@ -518,7 +518,6 @@ namespace Nextsim
             ("age.melt_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
             ("age.reset_by_freeze_or_melt", po::value<std::string>()->default_value( "melt" ), "If reset_by_date is false, this chooses how to reset all ice to multiyear ice")
             ("age.assign_by_time_or_integral", po::value<std::string>()->default_value( "integral" ), "When doing daily average melt/freeze days, decides whether to base just on time or time integral of property")
-            ("age.frac_thresh_for_onset", po::value<double>()->default_value( 0.5 ), "When doing daily average melt/freeze days, this is the threshold to check whether a cell has begun melt/freeze onset or not")
 
 #if defined(WAVES)
         ;
