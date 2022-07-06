@@ -510,14 +510,11 @@ namespace Nextsim
             //!Age settings
             //-----------------------------------------------------------------------------------
             ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
-            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
-            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
             ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
-            ("age.reset_melt_seconds", po::value<double>()->default_value( 432000. ), "If reset by melt days, this is number of seconds after which ice becomes myi")
-            ("age.reset_freeze_seconds", po::value<double>()->default_value( 432000. ), "If reset by freeze days, this is number of seconds before which ice becomes myi")
+            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
+            ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
+            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
             ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
-            ("age.reset_by_freeze_or_melt", po::value<std::string>()->default_value( "melt" ), "If reset_by_date is false, this chooses how to reset all ice to multiyear ice")
-            ("age.assign_by_time_or_integral", po::value<std::string>()->default_value( "integral" ), "When doing daily average melt/freeze days, decides whether to base just on time or time integral of property")
 
 #if defined(WAVES)
         ;

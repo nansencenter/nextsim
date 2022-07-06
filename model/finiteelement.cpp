@@ -5127,13 +5127,9 @@ FiniteElement::thermo(int dt)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
     const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset) 
     bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
-    const std::string reset_by_freeze_or_melt = vm["age.reset_by_freeze_or_melt"].as<std::string>(); //! \param if reset_by_date = false, this determines reset myi by melt days or freeze days
-    double const melt_seconds_threshold = vm["age.reset_melt_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of melting to reset myi, if reset_by_date is false
-    double const freeze_seconds_threshold = vm["age.reset_freeze_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of freezeing to reset myi, if reset_by_date is false
+    double const freeze_days_threshold = vm["age.reset_freeze_days"].as<double>(); //! \param freeze_days_threshold determines after how many days of freezing to reset myi, if reset_by_date is false
     bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
-    const std::string assign_by_time_or_integral = vm["age.assign_by_time_or_integral"].as<std::string>(); // decides if melt days should be based on just time, or integral of field 
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
-    double const frac_thresh_for_onset = vm["age.frac_thresh_for_onset"].as<double>(); //! \param frac_thresh_for_onset is a value between 0 and 1 that decides whether cell has onset or not 
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5563,30 +5559,22 @@ FiniteElement::thermo(int dt)
         }
         
         // ICE AGE 
+        if (reset_by_date == false)
+            bool const use_young_ice_in_myi_reset = false;
 
-        // Keep track of melt/freeze days
-        if (assign_by_time_or_integral == "time")
-        {
-            if (del_vi > 0.) // freezing
-                M_del_hi_tend[i] = M_del_hi_tend[i] + ddt;
-            else if (del_vi < 0.) // melting
-                M_del_hi_tend[i] = M_del_hi_tend[i] - ddt;
-        }
-        else if (assign_by_time_or_integral == "integral")
-            M_del_hi_tend[i] = M_del_hi_tend[i] + del_vi*ddt;
+        // Keep track of freeze days
+        M_del_hi_tend[i] = M_del_hi_tend[i] + del_vi*ddt;
 
         const double day_seconds = 86400.;
         if (M_fullday_counter >= day_seconds) // end of day 
         {
             if (M_del_hi_tend[i] > 0.) // It's freezing 
             {   
-                M_freeze_seconds[i] += day_seconds;
-                M_melt_seconds[i] = 0.;
+                M_freeze_days[i] += 1.;
             }
-            else if (M_del_hi_tend[i] < 0.)     
+            else if (M_del_hi_tend[i] < 0.) // It's melting    
             {
-                M_melt_seconds[i] += day_seconds;
-                M_freeze_seconds[i] = 0.;
+                M_freeze_days[i] = 0.;
                 M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
                 if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
                     M_conc_summer[i]+=M_conc_young[i];
@@ -5895,9 +5883,7 @@ FiniteElement::thermo(int dt)
             M_age[i] =  0.;
             M_thick_myi[i] = 0.;
             M_conc_myi[i] = 0.;
-            M_melt_seconds[i] = 0.; // If there is no ice, the melt counter for myi should be reset as no myi to tag
-            M_freeze_seconds[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
-            M_melt_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
+            M_freeze_days[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
             M_freeze_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
         }
         else    //If there is ice
@@ -5946,35 +5932,17 @@ FiniteElement::thermo(int dt)
             }
             else
             {
-                if (reset_by_freeze_or_melt == "melt")
-                { 
-                    if (M_melt_seconds[i] >= melt_seconds_threshold) // if melting for n days
+                if (M_freeze_days[i] >= freeze_days_threshold) // if freezing for n days
+                {
+                    if (M_freeze_onset[i] <= 0.5) // if not yet reset this season
                     {
-                        if (M_melt_onset[i] < 0.5) // if not yet reset this season
-                        {
-                            reset_myi = true;
-                            M_melt_onset[i] = 1.;
-                        }
+                        reset_myi = true;
+                        M_freeze_onset[i] = 1.;
                     }
                 }
-               else if (reset_by_freeze_or_melt == "freeze")
-                { 
-                    if (M_freeze_seconds[i] >= freeze_seconds_threshold) // if freezing for n days
-                    {
-                        if (M_freeze_onset[i] <= 0.5) // if not yet reset this season
-                        {
-                                reset_myi = true;
-                                M_freeze_onset[i] = 1.;
-                        }
-                    }
-                }
-
             }
 
             // Only reset if we have not already reset this season. So need to check if this is the case 
-            if (date_string_md == "0101" && std::fmod(M_current_time, 1.) == 0.)
-                M_melt_onset[i] = 0.;
-
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
@@ -5992,11 +5960,6 @@ FiniteElement::thermo(int dt)
             else
                 M_freeze_onset[i] = 0.;
 
-            if (M_melt_onset[i] >= 0.5)
-                M_melt_onset[i] = 1.;
-            else
-                M_melt_onset[i] = 0.;
-
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
             double ctot = M_conc[i];
@@ -6009,7 +5972,7 @@ FiniteElement::thermo(int dt)
 
             if (reset_myi) // 
             {
-                if (reset_by_date == false && reset_by_freeze_or_melt == "freeze") //NANUK default
+                if (reset_by_date)
                 {
                     // summer thickness and concentration might be a bit dodgy in places.
                     // Replenishment should be positive
@@ -6889,19 +6852,15 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_age);
     M_conc_myi = ModelVariable(ModelVariable::variableID::M_conc_myi);//! \param M_conc_myi (double) Concentration of MYI
     M_variables_elt.push_back(&M_conc_myi);
-    M_thick_myi = ModelVariable(ModelVariable::variableID::M_thick_myi);//! \param M_thick_myi (double) Concentration of MYI
+    M_thick_myi = ModelVariable(ModelVariable::variableID::M_thick_myi);//! \param M_thick_myi (double) Thickness of MYI
     M_variables_elt.push_back(&M_thick_myi);
-    M_melt_seconds = ModelVariable(ModelVariable::variableID::M_melt_seconds);//! \param M_melt_seconds (double) Counter of time (seconds) of ice melting for myi reset
-    M_variables_elt.push_back(&M_melt_seconds);
-    M_freeze_seconds = ModelVariable(ModelVariable::variableID::M_freeze_seconds);//! \param M_freeze_seconds (double) Counter of time (seconds) of ice freezeing for myi reset
-    M_variables_elt.push_back(&M_freeze_seconds);
-    M_conc_summer = ModelVariable(ModelVariable::variableID::M_conc_summer);//! \param M_conc_summer (double) Counter of time (seconds) of ice melting for myi reset
+    M_freeze_days = ModelVariable(ModelVariable::variableID::M_freeze_days);//! \param M_freeze_days (double) Counter of time (days) of ice freezeing for myi reset
+    M_variables_elt.push_back(&M_freeze_days);
+    M_conc_summer = ModelVariable(ModelVariable::variableID::M_conc_summer);//! \param M_conc_summer (double) Concentration at end of summer
     M_variables_elt.push_back(&M_conc_summer);
-    M_thick_summer = ModelVariable(ModelVariable::variableID::M_thick_summer);//! \param M_thick_summer (double) Counter of time (seconds) of ice melting for myi reset
+    M_thick_summer = ModelVariable(ModelVariable::variableID::M_thick_summer);//! \param M_thick_summer (double) Thickness at end of summer
     M_variables_elt.push_back(&M_thick_summer);
-    M_melt_onset = ModelVariable(ModelVariable::variableID::M_melt_onset);//! \param M_melt_onset (double) Counter of time (onset) of ice melting for myi reset
-    M_variables_elt.push_back(&M_melt_onset);
-    M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Counter of time (onset) of ice freezing for myi reset
+    M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Binary for if freeze onset has occurred for this year or not
     M_variables_elt.push_back(&M_freeze_onset);
     M_del_hi_tend = ModelVariable(ModelVariable::variableID::M_del_hi_tend);//! \param M_del_hi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
     M_variables_elt.push_back(&M_del_hi_tend);
@@ -8263,13 +8222,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_thick_myi[i]*time_factor;
                 break;
-            case (GridOutput::variableID::melt_seconds):
+            case (GridOutput::variableID::freeze_days):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_melt_seconds[i]*time_factor;
-                break;
-            case (GridOutput::variableID::freeze_seconds):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_freeze_seconds[i]*time_factor;
+                    it->data_mesh[i] += M_freeze_days[i]*time_factor;
                 break;
             case (GridOutput::variableID::conc_summer):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8278,10 +8233,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::thick_summer):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_thick_summer[i]*time_factor;
-                break;
-            case (GridOutput::variableID::melt_onset):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_melt_onset[i]*time_factor;
                 break;
             case (GridOutput::variableID::freeze_onset):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8714,11 +8665,9 @@ FiniteElement::initMoorings()
             ("wspeed", GridOutput::variableID::wspeed)
             ("thick_myi", GridOutput::variableID::thick_myi)
             ("conc_myi", GridOutput::variableID::conc_myi)
-            ("melt_seconds", GridOutput::variableID::melt_seconds)
-            ("freeze_seconds", GridOutput::variableID::freeze_seconds)
+            ("freeze_days", GridOutput::variableID::freeze_days)
             ("thick_summer", GridOutput::variableID::thick_summer)
             ("conc_summer", GridOutput::variableID::conc_summer)
-            ("melt_onset", GridOutput::variableID::melt_onset)
             ("freeze_onset", GridOutput::variableID::freeze_onset)
             ("del_hi_tend", GridOutput::variableID::del_hi_tend)
             ("dvi_mlt_myi", GridOutput::variableID::dvi_mlt_myi)
@@ -11103,11 +11052,9 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_conc_upd);
     vars_to_zero.push_back(&M_thick_myi);
     vars_to_zero.push_back(&M_conc_myi);
-    vars_to_zero.push_back(&M_melt_seconds);
-    vars_to_zero.push_back(&M_freeze_seconds);
+    vars_to_zero.push_back(&M_freeze_days);
     vars_to_zero.push_back(&M_thick_summer);
     vars_to_zero.push_back(&M_conc_summer);
-    vars_to_zero.push_back(&M_melt_onset);
     vars_to_zero.push_back(&M_freeze_onset);
     vars_to_zero.push_back(&M_del_hi_tend);
     for (int k=0; k<3; k++)

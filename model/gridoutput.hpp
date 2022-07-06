@@ -152,14 +152,12 @@ public:
         sigma_22     = 22,
         sigma_12     = 23,
         conc_myi     = 24,
-        melt_seconds = 25,
-        freeze_seconds=26,
-        melt_onset   = 27,
-        freeze_onset = 28,
-        conc_summer  = 29,
-        del_hi_tend  = 30,
-        thick_myi    = 31,
-        thick_summer = 32,
+        freeze_days  = 25,
+        freeze_onset = 26,
+        conc_summer  = 27,
+        del_hi_tend  = 28,
+        thick_myi    = 29,
+        thick_summer = 30,
 
         // Diagnostic variables
         Qa           = 100,
@@ -449,25 +447,11 @@ public:
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::melt_seconds):
-                    name     = "melt_seconds";
-                    longName = "Time (seconds) of ice melting";
-                    stdName  = "melt_seconds";
+                case (variableID::freeze_days):
+                    name     = "freeze_days";
+                    longName = "Time (days) of ice freezing";
+                    stdName  = "freeze_days";
                     Units    = "s";
-                    cell_methods = "area: mean";
-                    break;
-                case (variableID::freeze_seconds):
-                    name     = "freeze_seconds";
-                    longName = "Time (seconds) of ice freezing";
-                    stdName  = "freeze_seconds";
-                    Units    = "s";
-                    cell_methods = "area: mean";
-                    break;
-                case (variableID::melt_onset):
-                    name     = "melt_onset";
-                    longName = "Onset of ice melting has happened";
-                    stdName  = "melt_onset";
-                    Units    = "binary";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::freeze_onset):

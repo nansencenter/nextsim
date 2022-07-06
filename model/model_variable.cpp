@@ -377,20 +377,9 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
 
-        case (variableID::M_melt_seconds):
-            M_name = "M_melt_seconds";
-            M_export_name = "Ice_melting_seconds";
-            M_prognostic = true;
-            M_exporting = true;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0.;
-            M_has_min = true;
-            M_min_val = 0.;
-            break;
-
-        case (variableID::M_freeze_seconds):
-            M_name = "M_freeze_seconds";
-            M_export_name = "Ice_freezing_seconds";
+        case (variableID::M_freeze_days):
+            M_name = "M_freeze_days";
+            M_export_name = "Ice_freezing_days";
             M_prognostic = true;
             M_exporting = true;
             M_interp_transformation = interpTransformation::none;
@@ -399,19 +388,6 @@ ModelVariable::initElemental()
             M_min_val = 0.;
             break;
         
-        case (variableID::M_melt_onset):
-            M_name = "M_melt_onset";
-            M_export_name = "Ice_melting_onset";
-            M_prognostic = true;
-            M_exporting = true;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0.;
-            M_has_min = true;
-            M_min_val = 0.;
-            M_has_max = true;
-            M_max_val = 1.;
-            break;
-
         case (variableID::M_freeze_onset):
             M_name = "M_freeze_onset";
             M_export_name = "Ice_freezing_onset";
