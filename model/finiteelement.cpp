@@ -6046,17 +6046,6 @@ FiniteElement::thermo(int dt)
                     {    
                         del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
-
-                        //conc_loss_ratio  = std::max(0., std::min(M_conc[i]/old_conc,1.)); // Here i need a scaling factor to multiply the ice by
-                        //thick_loss_ratio = std::max(0., std::min(M_thick[i]/old_vol,1.)); // could use already defined del_vi
-                        //if (M_conc[i]/old_conc>1.)
-                        //{
-                        //    LOG(INFO) << "Melt and increase in concentration, newice "<< newice <<"\n";
-                        //    LOG(INFO) << "Melt and increase in concentration, del_hi "<< del_hi <<"\n";
-                        //    LOG(INFO) << "Melt and increase in concentration, M_conc[i] "<< M_conc[i] <<"\n";
-                        //    LOG(INFO) << "Melt and increase in concentration, old_conc "<< old_conc <<"\n";
-                        //    LOG(INFO) << "Melt and increase in concentration, END\n\n\n";
-                        //}
                     }
                     // Check it does not get crazy
                     M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
