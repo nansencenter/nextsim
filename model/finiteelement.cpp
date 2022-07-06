@@ -5562,7 +5562,8 @@ FiniteElement::thermo(int dt)
             }
         }
         
-        // ICE AGE HEATHER
+        // ICE AGE 
+
         // Keep track of melt/freeze days
         if (assign_by_time_or_integral == "time")
         {
@@ -6008,22 +6009,19 @@ FiniteElement::thermo(int dt)
 
             if (reset_myi) // 
             {
-                if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE && use_young_ice_in_myi_reset == true) //NANUK default
+                if (reset_by_date == false && reset_by_freeze_or_melt == "freeze") //NANUK default
                 {
-                    if (reset_by_date == false && reset_by_freeze_or_melt == "freeze") //NANUK default
-                    {
-                        // summer thickness and concentration might be a bit dodgy in places.
-                        // Replenishment should be positive
-                        double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
-                        double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
-                        M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
-                        M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
-                    }
-                    else
-                    {
-                        M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
-                        M_thick_myi[i] = vtot;
-                    }
+                    // summer thickness and concentration might be a bit dodgy in places.
+                    // Replenishment should be positive
+                    double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
+                    double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
+                    M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
+                    M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
+                }
+                else
+                {
+                    M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
+                    M_thick_myi[i] = vtot;
                 }
                 M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
