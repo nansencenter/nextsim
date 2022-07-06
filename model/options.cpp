@@ -512,7 +512,7 @@ namespace Nextsim
             ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
             ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
             ("age.ridge_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
-            ("age.reset_by_date", po::value<bool>()->default_value( true ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
+            ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
             ("age.reset_melt_seconds", po::value<double>()->default_value( 432000. ), "If reset by melt days, this is number of seconds after which ice becomes myi")
             ("age.reset_freeze_seconds", po::value<double>()->default_value( 432000. ), "If reset by freeze days, this is number of seconds before which ice becomes myi")
             ("age.melt_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
