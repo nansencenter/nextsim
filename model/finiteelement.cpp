@@ -5990,6 +5990,7 @@ FiniteElement::thermo(int dt)
                 M_freeze_onset[i] = 1.;
             else
                 M_freeze_onset[i] = 0.;
+
             if (M_melt_onset[i] >= 0.5)
                 M_melt_onset[i] = 1.;
             else
