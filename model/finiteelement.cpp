@@ -5984,12 +5984,6 @@ FiniteElement::thermo(int dt)
                     M_freeze_onset[i] = 1.;
                 M_conc_summer[i]  = M_conc[i]  ;
                 M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
-                // Lines below should have no impact
-                //if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
-                //{
-                //    M_conc_summer += M_conc_young[i];
-                //    M_thick_summer+= M_h_young[i];
-                //}
 
             }
             // Now ensure that freeze and melt onsets are 0 or 1
