@@ -3888,7 +3888,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
-    bool ridge_myi_and_fyi = vm["age.ridge_myi_and_fyi"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
+    bool equal_ridging = vm["age.equal_ridging"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
@@ -3938,7 +3938,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
-            if(ridge_myi_and_fyi==false)
+            if(equal_ridging==false)
                 M_conc_myi[cpt] *= surf_ratio;
             else
             {
@@ -4049,7 +4049,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
+        /* This del_ci_ridge only works for equal_ridging=false*/ 
         D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
         if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
@@ -5130,7 +5130,7 @@ FiniteElement::thermo(int dt)
     const std::string reset_by_freeze_or_melt = vm["age.reset_by_freeze_or_melt"].as<std::string>(); //! \param if reset_by_date = false, this determines reset myi by melt days or freeze days
     double const melt_seconds_threshold = vm["age.reset_melt_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of melting to reset myi, if reset_by_date is false
     double const freeze_seconds_threshold = vm["age.reset_freeze_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of freezeing to reset myi, if reset_by_date is false
-    bool melt_myi_and_fyi = vm["age.melt_myi_and_fyi"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
+    bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string assign_by_time_or_integral = vm["age.assign_by_time_or_integral"].as<std::string>(); // decides if melt days should be based on just time, or integral of field 
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
     double const frac_thresh_for_onset = vm["age.frac_thresh_for_onset"].as<double>(); //! \param frac_thresh_for_onset is a value between 0 and 1 that decides whether cell has onset or not 
@@ -6035,7 +6035,7 @@ FiniteElement::thermo(int dt)
                 double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
                 if  (del_v_ratio < 1.) // if there is some melt of old ice
                 {   
-                    if (melt_myi_and_fyi)
+                    if (equal_melting)
                     {    
                         del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
