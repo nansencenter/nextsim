@@ -5576,7 +5576,6 @@ FiniteElement::thermo(int dt)
 
         const double day_seconds = 86400.;
         if (M_fullday_counter >= day_seconds) // end of day 
-        //if (std::fmod(M_current_time + ddt, 1.) == 0.) // we're not in the same day as next timestep
         {
             if (M_del_hi_tend[i] > 0.) // It's freezing 
             {   
