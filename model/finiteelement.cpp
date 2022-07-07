@@ -5560,7 +5560,7 @@ FiniteElement::thermo(int dt)
         
         // ICE AGE 
         if (reset_by_date == false)
-            bool const use_young_ice_in_myi_reset = false;
+            use_young_ice_in_myi_reset = false;
 
         // Keep track of freeze days
         M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
