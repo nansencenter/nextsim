@@ -5955,10 +5955,7 @@ FiniteElement::thermo(int dt)
 
             }
             // Now ensure that freeze and melt onsets are 0 or 1
-            if (M_freeze_onset[i] >= 0.5)
-                M_freeze_onset[i] = 1.;
-            else
-                M_freeze_onset[i] = 0.;
+            M_freeze_onset[i] = std::round(M_freeze_onset[i]);
 
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
