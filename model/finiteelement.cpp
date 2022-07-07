@@ -6026,7 +6026,7 @@ FiniteElement::thermo(int dt)
         // myi replenished  volume per surface area rate [m/day]
         D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
         // Convert "m per time step" to "m per day" for term computed un update()       
-        D_del_ci_ridge_myi[cpt]*=86400/ddt;         
+        D_del_ci_ridge_myi[i]*=86400/ddt;         
     }// end for loop
 
     M_timer.tock("slab");
