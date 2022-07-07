@@ -4056,6 +4056,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         /* This del_ci_ridge only works for equal_ridging=false*/ 
         D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];
+        
+        if (equal_ridging) // Equal ridging means only half the MYI is actually ridged
+            D_del_ci_ridge_myi[cpt] *= 0.5;
     }//loop over elements
 }//update
 
