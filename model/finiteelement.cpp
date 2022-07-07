@@ -4055,7 +4055,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         /* This del_ci_ridge only works for equal_ridging=false*/ 
-        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];         
+        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];
     }//loop over elements
 }//update
 
@@ -6025,7 +6025,8 @@ FiniteElement::thermo(int dt)
         D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
         // myi replenished  volume per surface area rate [m/day]
         D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
-
+        // Convert "m per time step" to "m per day" for term computed un update()       
+        D_del_ci_ridge_myi[cpt]*=86400/ddt;         
     }// end for loop
 
     M_timer.tock("slab");
