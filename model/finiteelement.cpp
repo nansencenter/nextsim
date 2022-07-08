@@ -4049,16 +4049,16 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+        /* This del_ci_ridge only works for equal_ridging=false*/ 
         D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
         if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        /* This del_ci_ridge only works for equal_ridging=false*/ 
         D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];
         
-        if (equal_ridging) // Equal ridging means only half the MYI is actually ridged
-            D_del_ci_ridge_myi[cpt] *= 0.5;
+        D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
+
     }//loop over elements
 }//update
 
@@ -5127,7 +5127,7 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
-    bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    bool use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
     const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset) 
     bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
     double const freeze_days_threshold = vm["age.reset_freeze_days"].as<double>(); //! \param freeze_days_threshold determines after how many days of freezing to reset myi, if reset_by_date is false
@@ -5562,7 +5562,7 @@ FiniteElement::thermo(int dt)
         }
         
         // ICE AGE 
-        if (reset_by_date == false)
+        if ( reset_by_date == false )
             use_young_ice_in_myi_reset = false;
 
         // Keep track of freeze days
@@ -5972,7 +5972,7 @@ FiniteElement::thermo(int dt)
 
             if (reset_myi) // 
             {
-                if (reset_by_date)
+                if (reset_by_date == false)
                 {
                     // summer thickness and concentration might be a bit dodgy in places.
                     // Replenishment should be positive
@@ -6025,8 +6025,6 @@ FiniteElement::thermo(int dt)
         D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
         // myi replenished  volume per surface area rate [m/day]
         D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
-        // Convert "m per time step" to "m per day" for term computed un update()       
-        D_del_ci_ridge_myi[i]*=86400/ddt;         
     }// end for loop
 
     M_timer.tock("slab");
