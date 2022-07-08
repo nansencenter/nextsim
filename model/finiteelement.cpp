@@ -3941,20 +3941,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
-            if(equal_ridging==false)
-            {
-                /* Here we conserve the area of multi-year ice:
-                 * C_M^n A^n = C_M^{n+1} A^{n+1} => C_M^{n+1} = C_M^n A^{n+1}/A^n.
-                 * It is the same operation as for M_conc, M_thick, etc.
-                 * We need to cap M_conc_myi to make sure it doesn't exceed 1 */
-                M_conc_myi[cpt] *= surf_ratio;
-
-                // We get ridging when we cap
-                D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
-                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
-                D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
-            }
-            else
+            if ( equal_ridging )
             {
                 /* Here we conserve the ratio of multi-year ice area vs. total
                  * ice area (or first-year ice area):
@@ -3970,6 +3957,19 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 if ( M_conc[cpt] > 1. )
                     D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
             } 
+            else
+            {
+                /* Here we conserve the area of multi-year ice:
+                 * C_M^n A^n = C_M^{n+1} A^{n+1} => C_M^{n+1} = C_M^n A^{n+1}/A^n.
+                 * It is the same operation as for M_conc, M_thick, etc.
+                 * We need to cap M_conc_myi to make sure it doesn't exceed 1 */
+                M_conc_myi[cpt] *= surf_ratio;
+
+                // We get ridging when we cap
+                D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
+                D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
+            }
             D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
