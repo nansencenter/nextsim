@@ -3909,6 +3909,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
+        // We need to make sure D_del_ci_ridge_myi is 0. where there's no ice.
+        D_del_ci_ridge_myi[cpt] = 0.;
+
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
         double const old_conc = M_conc[cpt];
@@ -3939,12 +3942,35 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
             if(equal_ridging==false)
+            {
+                /* Here we conserve the area of multi-year ice:
+                 * C_M^n A^n = C_M^{n+1} A^{n+1} => C_M^{n+1} = C_M^n A^{n+1}/A^n.
+                 * It is the same operation as for M_conc, M_thick, etc.
+                 * We need to cap M_conc_myi to make sure it doesn't exceed 1 */
                 M_conc_myi[cpt] *= surf_ratio;
+
+                // We get ridging when we cap
+                D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
+                D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
+            }
             else
             {
-                double const conc_ratio = std::min(1.,M_conc[cpt])/old_conc; // when rearranging M_conc *= surf_ratio, this results in surf_ratio but with the difference that M_conc is limited to 1
-                M_conc_myi[cpt] *= conc_ratio; // Adjusting myi rather than fyi as this is what we want to conserve. Using conc_ratio means M_conc_myi does not exceed 1
+                /* Here we conserve the ratio of multi-year ice area vs. total
+                 * ice area (or first-year ice area):
+                 * C_M^n / C^n = C_M^{n+1} / C^{n+1} => C_M^{n+1} = C_M^n C^{n+1}/C^n.
+                 * We don't need to cap M_conc_myi, because we already cap
+                 * M_conc (C^{n+1}). */
+                double const conc_ratio = std::min(1.,M_conc[cpt])/old_conc;
+                M_conc_myi[cpt] *= conc_ratio;
+
+                /* We get ridging if M_conc >= 1. The area change due to
+                 * ridging is half the excessive concentration (before
+                 * capping). */
+                if ( M_conc[cpt] > 1. )
+                    D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
             } 
+            D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
         /*======================================================================
@@ -4049,15 +4075,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        /* This del_ci_ridge only works for equal_ridging=false*/ 
-        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
-        if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        else
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];
-        
-        D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
 
     }//loop over elements
 }//update
