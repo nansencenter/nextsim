@@ -797,7 +797,8 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
-    ModelVariable D_albedo; // total albedo
+    ModelVariable D_albedo; // surface albedo
+    ModelVariable D_sialb; // sea ice albedo
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]

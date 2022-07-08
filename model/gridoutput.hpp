@@ -175,6 +175,7 @@ public:
         sigma_s      = 119,
         divergence   = 120,
         albedo       = 121,
+        sialb        = 122,
 
         // Forcing variables
         tair     = 200,
@@ -539,6 +540,13 @@ public:
                     stdName  = "surface_albedo";
                     Units    = "";
                     cell_methods = "area: mean";
+                    break;
+                case (variableID::sialb):
+                    name     = "sialb";
+                    longName = "Sea ice albedo";
+                    stdName  = "sea_ice_albedo";
+                    Units    = "";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::sigma_n):
                     name     = "sigma_n";
