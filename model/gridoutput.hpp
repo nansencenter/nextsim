@@ -187,6 +187,7 @@ public:
         dvi_mlt_myi  = 124,
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
+        sialb        = 127,
 
         // Forcing variables
         tair     = 200,
@@ -637,6 +638,13 @@ public:
                     stdName  = "surface_albedo";
                     Units    = "";
                     cell_methods = "area: mean";
+                    break;
+                case (variableID::sialb):
+                    name     = "sialb";
+                    longName = "Sea ice albedo";
+                    stdName  = "sea_ice_albedo";
+                    Units    = "";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::sigma_n):
                     name     = "sigma_n";
