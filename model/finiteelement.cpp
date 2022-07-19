@@ -3954,8 +3954,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 /* We get ridging if M_conc >= 1. The area change due to
                  * ridging is half the excessive concentration (before
                  * capping). */
-                if ( M_conc[cpt] > 1. )
-                    D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
+                D_del_ci_ridge_myi[cpt] = 0.; // TO DO
+                // if ( M_conc[cpt] > 1. )
+                //     D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
             } 
             else
             {
