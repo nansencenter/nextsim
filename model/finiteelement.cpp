@@ -5239,19 +5239,20 @@ FiniteElement::thermo(int dt)
         double  Qassm=0.;       //! \param Qassm (double) compensating flux to ocean due to assimilation [W/m^2]
 
         //! 3.2) Saves old _volumes_ and concentrations
-        double  old_vol=M_thick[i];
-        double  old_snow_vol=M_snow_thick[i];
-        double  old_conc=M_conc[i];
-        double  old_h_young = 0.;
-        double  old_hs_young = 0.;
-        double  old_conc_young=0.;
+        double const old_vol = M_thick[i];
+        double const old_snow_vol = M_snow_thick[i];
+        double const old_conc = M_conc[i];
+        double old_h_young = 0.;
+        double old_hs_young = 0.;
+        double old_conc_young=0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             old_h_young  = M_h_young[i];
             old_conc_young  = M_conc_young[i];
             old_hs_young = M_hs_young[i];
         }
-        double old_ow_fraction = 1. - old_conc - old_conc_young;
+        double const old_conc_tot = old_conc + old_conc_young;
+        double const old_ow_fraction = 1. - old_conc_tot;
 
         // definition of the snow fall in kg/m^2/s
         double tmp_snowfall = 0.;
@@ -5885,11 +5886,12 @@ FiniteElement::thermo(int dt)
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*86400/ddt;
 
-        // albedo
-        D_albedo[i] = std::max(0., 1. - old_conc - old_conc_young) * M_ocean_albedo
-            + old_conc * albedo[i];
+        // sea ice albedo
+        double sialb = old_conc * albedo[i];
         if ( M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE )
-            D_albedo[i] += old_conc_young * albedo_young[i];
+            sialb += old_conc_young * albedo_young[i];
+        D_albedo[i] = sialb + std::max(0., old_ow_fraction) * M_ocean_albedo;
+        D_sialb[i] = (old_conc_tot > 0.) ? (sialb / old_conc_tot) : 0.;
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
@@ -6957,8 +6959,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_evap);
     D_rain = ModelVariable(ModelVariable::variableID::D_rain);//! \param D_rain (double) Rain into the ocean
     M_variables_elt.push_back(&D_rain);
-    D_albedo = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_albedo (double) Total albedo - area-weighted average of ocean, young and old ice albedo
+    D_albedo = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_albedo (double) Surface albedo - area-weighted average of ocean, young and old ice albedo
     M_variables_elt.push_back(&D_albedo);
+    D_sialb = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_sialb (double) Sea ice albedo - mean albedo where ice
+    M_variables_elt.push_back(&D_sialb);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -8332,6 +8336,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_rain[i]*time_factor;
                 break;
+            case (GridOutput::variableID::sialb):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_sialb[i]*time_factor;
+                break;
             case (GridOutput::variableID::albedo):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_albedo[i]*time_factor;
@@ -8673,6 +8681,7 @@ FiniteElement::initMoorings()
             ("precip", GridOutput::variableID::precip)
             ("rain", GridOutput::variableID::rain)
             ("evap", GridOutput::variableID::evap)
+            ("sialb", GridOutput::variableID::sialb)
             ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
             ("age_d", GridOutput::variableID::age_d)
