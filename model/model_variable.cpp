@@ -328,7 +328,88 @@ ModelVariable::initElemental()
             M_has_max = true;
             M_max_val = 1.;
             break;
+        // MYI Variables    
+        case (variableID::M_conc_myi):
+            M_name = "M_conc_myi";
+            M_export_name = "Concentration_myi";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
 
+        case (variableID::M_thick_myi):
+            M_name = "M_thick_myi";
+            M_export_name = "Thickness_myi";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
+        case (variableID::M_conc_summer):
+            M_name = "M_conc_summer";
+            M_export_name = "Concentration_summer";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
+        case (variableID::M_thick_summer):
+            M_name = "M_thick_summer";
+            M_export_name = "Thickness_summer";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+
+        case (variableID::M_freeze_days):
+            M_name = "M_freeze_days";
+            M_export_name = "Ice_freezing_days";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            break;
+        
+        case (variableID::M_freeze_onset):
+            M_name = "M_freeze_onset";
+            M_export_name = "Ice_freezing_onset";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = true;
+            M_min_val = 0.;
+            M_has_max = true;
+            M_max_val = 1.;
+            break;
+
+        case (variableID::M_del_vi_tend):
+            M_name = "M_del_vi_tend";
+            M_export_name = "Ice_volume_tendency_daily";
+            M_prognostic = true;
+            M_exporting = true;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            break;
+        
         // Diagnostic variables
         case (variableID::D_conc):
             // total concentration (young + thick ice)
@@ -589,6 +670,41 @@ ModelVariable::initElemental()
             M_prognostic = false;
             M_exporting = false;
             M_diffusivity = 0;
+            break;
+
+        case (variableID::D_del_ci_ridge_myi):
+            M_name = "D_del_ci_ridge_myi";
+            M_export_name = "MYI_area_ridging_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_vi_mlt_myi):
+            M_name = "D_del_vi_mlt_myi";
+            M_export_name = "MYI_volume_melt_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_ci_mlt_myi):
+            M_name = "D_del_ci_mlt_myi";
+            M_export_name = "MYI_area_melt_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_vi_rplnt_myi):
+            M_name = "D_del_vi_rplnt_myi";
+            M_export_name = "MYI_volume_replenishment_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_ci_rplnt_myi):
+            M_name = "D_del_ci_rplnt_myi";
+            M_export_name = "MYI_area_replenishment_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         case (variableID::D_albedo):

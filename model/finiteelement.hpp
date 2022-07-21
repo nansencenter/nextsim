@@ -581,6 +581,7 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
+    double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
@@ -717,6 +718,13 @@ private:
     ModelVariable M_age_det;
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_conc_myi;           // Concentration of multiyear ice
+    ModelVariable M_thick_myi;          // Thickness of multiyear ice
+    ModelVariable M_freeze_days;        // Days of consecutive freezing
+    ModelVariable M_freeze_onset;       // Onset of freezing
+    ModelVariable M_conc_summer;        // Concentration at end of summer
+    ModelVariable M_thick_summer;       // Thickness at end of summer
+    ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -787,6 +795,11 @@ private:
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
     ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
     ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_del_vi_mlt_myi;   //myi ice volume (/element_area) melted [m/day]
+    ModelVariable D_del_vi_rplnt_myi;  //myi ice vol change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_rplnt_myi;  //myi ice area change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_mlt_myi;    //myi ice area (/element_area) melted   [m/day]
+    ModelVariable D_del_ci_ridge_myi; //myi ice area change (/element_area) due to ridging [./day]
     ModelVariable D_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
@@ -814,6 +827,10 @@ private:
     std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
+    std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_thick_myi_mean;  // Mean thickness of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_freeze_days_mean;  // Mean number of consecutive days freezing has been occurring (on the mesh)
+    std::vector<double> M_freeze_onset_mean;  // 1 if freezeing has been occurring (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
@@ -822,6 +839,11 @@ private:
     std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
+    // NDGB: Not sure the lines below are needed, what are these grid useful?
+    std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_thick_myi_grid;  // Mean thickness of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_freeze_days_grid;  // Mean number of consecutive days freezing has been occurring (on the grid)
+    std::vector<double> M_freeze_onset_grid;  // 1 if freezing has been occurring (on the grid)
 
 private:
     // Variables for the moorings

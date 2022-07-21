@@ -151,6 +151,13 @@ public:
         sigma_11     = 21,
         sigma_22     = 22,
         sigma_12     = 23,
+        conc_myi     = 24,
+        freeze_days  = 25,
+        freeze_onset = 26,
+        conc_summer  = 27,
+        del_vi_tend  = 28,
+        thick_myi    = 29,
+        thick_summer = 30,
 
         // Diagnostic variables
         Qa           = 100,
@@ -175,7 +182,12 @@ public:
         sigma_s      = 119,
         divergence   = 120,
         albedo       = 121,
-        sialb        = 122,
+        dci_ridge_myi= 122,
+        dci_mlt_myi  = 123,
+        dvi_mlt_myi  = 124,
+        dci_rplnt_myi= 125,
+        dvi_rplnt_myi= 126,
+        sialb        = 127,
 
         // Forcing variables
         tair     = 200,
@@ -407,6 +419,57 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+                // MYI variables
+                case (variableID::conc_myi):
+                    name     = "conc_myi";
+                    longName = "Concentration of Multiyear Ice";
+                    stdName  = "conc_myi";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::thick_myi):
+                    name     = "thick_myi";
+                    longName = "Cell-average thickness of Multiyear Ice";
+                    stdName  = "thick_myi";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_summer):
+                    name     = "conc_summer";
+                    longName = "Concentration of ice at end of summer";
+                    stdName  = "conc_summer";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::thick_summer):
+                    name     = "thick_summer";
+                    longName = "Cell-average thickness of ice at end of summer";
+                    stdName  = "thick_summer";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_days):
+                    name     = "freeze_days";
+                    longName = "Time (days) of ice freezing";
+                    stdName  = "freeze_days";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_onset):
+                    name     = "freeze_onset";
+                    longName = "Onset of ice freezing has happened";
+                    stdName  = "freeze_onset";
+                    Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_vi_tend):
+                    name     = "del_vi_tend";
+                    longName = "Daily total ice volume tendency";
+                    stdName  = "del_vi_tend";
+                    Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+
                 // Diagnostic variables
                 case (variableID::Qa):
                     name     = "hfs";
@@ -532,6 +595,41 @@ public:
                     longName = "Ice formed from snow by flooding";
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_rplnt_myi):
+                    name     = "dci_rplnt_myi";
+                    longName = "myi area change rate due to replenishment";
+                    stdName  = "myi_area_change_rate_due_to_replenishment";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_rplnt_myi):
+                    name     = "dvi_rplnt_myi";
+                    longName = "myi volume_change rate due to replenishment";
+                    stdName  = "myi_volume_change_rate_due_to_replenishment";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_mlt_myi):
+                    name     = "dvi_mlt_myi";
+                    longName = "myi volume_change rate due to melt";
+                    stdName  = "myi_volume_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_mlt_myi):
+                    name     = "dci_mlt_myi";
+                    longName = "myi area_change rate due to melt";
+                    stdName  = "myi_area_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge_myi):
+                    name     = "dci_ridge_myi";
+                    longName = "myi area_change rate due to ridging";
+                    stdName  = "myi_area_change_rate_due_to_ridging";
+                    Units    = " /day";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::albedo):

@@ -3888,6 +3888,10 @@ FiniteElement::update(std::vector<double> const & UM_P)
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
+    bool equal_ridging = vm["age.equal_ridging"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
+    int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
+    bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -3905,6 +3909,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
            std::binary_search(M_neumann_flags.begin(),M_neumann_flags.end(),(M_elements[cpt]).indices[2]-1))
             to_be_updated=false;
 
+        // We need to make sure D_del_ci_ridge_myi is 0. where there's no ice.
+        D_del_ci_ridge_myi[cpt] = 0.;
+
         // We update only elements where there's ice. Not strictly neccesary, but may improve performance.
         double const surface_old = M_surface[cpt];
         double const old_conc = M_conc[cpt];
@@ -3915,6 +3922,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
             M_snow_thick[cpt] *= surf_ratio;
+            M_thick_myi[cpt]  *= surf_ratio;
+
             for(int k=0; k<3; k++)
                 M_sigma[k][cpt] *= surf_ratio;
 
@@ -3932,6 +3941,37 @@ FiniteElement::update(std::vector<double> const & UM_P)
             for(int k=0; k<M_num_fsd_bins; k++)
                 M_conc_fsd[k][cpt] *= surf_ratio;
 #endif
+            if ( equal_ridging )
+            {
+                /* Here we conserve the ratio of multi-year ice area vs. total
+                 * ice area (or first-year ice area):
+                 * C_M^n / C^n = C_M^{n+1} / C^{n+1} => C_M^{n+1} = C_M^n C^{n+1}/C^n.
+                 * We don't need to cap M_conc_myi, because we already cap
+                 * M_conc (C^{n+1}). */
+                double const conc_ratio = std::min(1.,M_conc[cpt])/old_conc;
+                M_conc_myi[cpt] *= conc_ratio;
+
+                /* We get ridging if M_conc >= 1. The area change due to
+                 * ridging is half the excessive concentration (before
+                 * capping). */
+                D_del_ci_ridge_myi[cpt] = 0.; // TO DO
+                // if ( M_conc[cpt] > 1. )
+                //     D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
+            } 
+            else
+            {
+                /* Here we conserve the area of multi-year ice:
+                 * C_M^n A^n = C_M^{n+1} A^{n+1} => C_M^{n+1} = C_M^n A^{n+1}/A^n.
+                 * It is the same operation as for M_conc, M_thick, etc.
+                 * We need to cap M_conc_myi to make sure it doesn't exceed 1 */
+                M_conc_myi[cpt] *= surf_ratio;
+
+                // We get ridging when we cap
+                D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
+                D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
+            }
+            D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
         /*======================================================================
@@ -4034,6 +4074,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         /* lower bounds */
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
 
     }//loop over elements
@@ -5104,6 +5145,11 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
+    bool use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset) 
+    bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
+    double const freeze_days_threshold = vm["age.reset_freeze_days"].as<double>(); //! \param freeze_days_threshold determines after how many days of freezing to reset myi, if reset_by_date is false
+    bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     M_timer.tick("fluxes");
@@ -5533,6 +5579,31 @@ FiniteElement::thermo(int dt)
                     throw std::logic_error("Wrong melt_type");
             }
         }
+        
+        // ICE AGE 
+        if ( reset_by_date == false )
+            use_young_ice_in_myi_reset = false;
+
+        // Keep track of freeze days
+        M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
+
+        const double day_seconds = 86400.;
+        if (M_fullday_counter >= day_seconds) // end of day 
+        {
+            if (M_del_vi_tend[i] > 0.) // It's freezing 
+            {   
+                M_freeze_days[i] += 1.;
+            }
+            else if (M_del_vi_tend[i] < 0.) // It's melting    
+            {
+                M_freeze_days[i] = 0.;
+                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
+                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
+                    M_conc_summer[i]+=M_conc_young[i];
+            }
+            M_del_vi_tend[i] = 0.;
+        }
+
 
         /* New concentration */
         M_conc[i] += del_c;
@@ -5824,11 +5895,19 @@ FiniteElement::thermo(int dt)
 
         //! 10) Computes tracers (ice age/type tracers)
         // If there is no ice
+        double del_vi_rplnt_myi =0.;
+        double del_ci_rplnt_myi =0.;
+        double del_vi_mlt_myi =0.;
+        double del_ci_mlt_myi =0.;
         if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
         {
             M_fyi_fraction[i] = 0.;
             M_age_det[i] = 0.;
             M_age[i] =  0.;
+            M_thick_myi[i] = 0.;
+            M_conc_myi[i] = 0.;
+            M_freeze_days[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
+            M_freeze_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
         }
         else    //If there is ice
         {
@@ -5866,8 +5945,106 @@ FiniteElement::thermo(int dt)
             {
                 M_age[i] =  dt;
             }
-        }
+            // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
+            bool reset_myi = false;
 
+            if (reset_by_date)
+            {
+                if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
+                    reset_myi = true;
+            }
+            else
+            {
+                if (M_freeze_days[i] >= freeze_days_threshold) // if freezing for n days
+                {
+                    if (M_freeze_onset[i] <= 0.5) // if not yet reset this season
+                    {
+                        reset_myi = true;
+                        M_freeze_onset[i] = 1.;
+                    }
+                }
+            }
+
+            // Only reset if we have not already reset this season. So need to check if this is the case 
+            if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
+            {
+                M_freeze_onset[i] = 0.;
+                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && (M_conc[i] + M_conc_young[i] == 0) )
+                    M_freeze_onset[i] = 1.;
+                else if (M_conc[i] == 0.)
+                    M_freeze_onset[i] = 1.;
+                M_conc_summer[i]  = M_conc[i]  ;
+                M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
+
+            }
+            // Now ensure that freeze and melt onsets are 0 or 1
+            M_freeze_onset[i] = std::round(M_freeze_onset[i]);
+
+            double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
+            double old_thick_myi =  M_thick_myi[i];
+            double ctot = M_conc[i];
+            double vtot = M_thick[i];
+            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
+            {
+                vtot+=M_h_young[i];
+                ctot+=M_conc_young[i];
+            }
+
+            if (reset_myi) // 
+            {
+                if (reset_by_date == false)
+                {
+                    // summer thickness and concentration might be a bit dodgy in places.
+                    // Replenishment should be positive
+                    double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
+                    double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
+                    M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
+                    M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
+                }
+                else
+                {
+                    M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
+                    M_thick_myi[i] = vtot;
+                }
+                M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
+                M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
+                del_ci_rplnt_myi =M_conc_myi[i]  - old_conc_myi; 
+                del_vi_rplnt_myi =M_thick_myi[i] - old_thick_myi;
+            }
+            else // on a non-reset day, myi is only modified by melting, not freezing
+            {
+                // We ignore the young ice for now
+                double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
+                double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
+                if  (del_v_ratio < 1.) // if there is some melt of old ice
+                {   
+                    if (equal_melting)
+                    {    
+                        del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
+                        del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
+                    }
+                    // Check it does not get crazy
+                    M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
+                    M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]+del_vi_mlt_myi));                  
+                    //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include young ice in total ice conc
+                    //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
+                    // Same logic for the volume 
+                    //M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
+                    // Recompute effective change
+                    del_ci_mlt_myi = M_conc_myi[i] - old_conc_myi; 
+                    del_vi_mlt_myi = M_thick_myi[i]- old_thick_myi;
+                }
+            }
+        }
+        // Tracers quantities to output
+        // myi melted area per surface area rate [/day]
+        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*86400/ddt;
+        // myi melted  volume per surface area rate [m/day]
+        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*86400/ddt;
+        // myi replenished area per surface area rate [/day]
+        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
+        // myi replenished  volume per surface area rate [m/day]
+        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
     }// end for loop
 
     M_timer.tock("slab");
@@ -6692,6 +6869,20 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_age_det);
     M_age = ModelVariable(ModelVariable::variableID::M_age);//! \param M_age (double) Sea ice age (volumetric) [s]
     M_variables_elt.push_back(&M_age);
+    M_conc_myi = ModelVariable(ModelVariable::variableID::M_conc_myi);//! \param M_conc_myi (double) Concentration of MYI
+    M_variables_elt.push_back(&M_conc_myi);
+    M_thick_myi = ModelVariable(ModelVariable::variableID::M_thick_myi);//! \param M_thick_myi (double) Thickness of MYI
+    M_variables_elt.push_back(&M_thick_myi);
+    M_freeze_days = ModelVariable(ModelVariable::variableID::M_freeze_days);//! \param M_freeze_days (double) Counter of time (days) of ice freezeing for myi reset
+    M_variables_elt.push_back(&M_freeze_days);
+    M_conc_summer = ModelVariable(ModelVariable::variableID::M_conc_summer);//! \param M_conc_summer (double) Concentration at end of summer
+    M_variables_elt.push_back(&M_conc_summer);
+    M_thick_summer = ModelVariable(ModelVariable::variableID::M_thick_summer);//! \param M_thick_summer (double) Thickness at end of summer
+    M_variables_elt.push_back(&M_thick_summer);
+    M_freeze_onset = ModelVariable(ModelVariable::variableID::M_freeze_onset);//! \param M_freeze_onset (double) Binary for if freeze onset has occurred for this year or not
+    M_variables_elt.push_back(&M_freeze_onset);
+    M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
+    M_variables_elt.push_back(&M_del_vi_tend);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -6744,6 +6935,16 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_del_hi_young);
     D_del_hi = ModelVariable(ModelVariable::variableID::D_del_hi);//! \param D_del_hi (double) Ice growth/melt rate  [m/day]
     M_variables_elt.push_back(&D_del_hi);
+    D_del_vi_mlt_myi = ModelVariable(ModelVariable::variableID::D_del_vi_mlt_myi);//! \param D_del_vi_mlt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_vi_mlt_myi);
+    D_del_ci_mlt_myi = ModelVariable(ModelVariable::variableID::D_del_ci_mlt_myi);//! \param D_del_ci_mlt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_mlt_myi);
+    D_del_ci_rplnt_myi = ModelVariable(ModelVariable::variableID::D_del_ci_rplnt_myi);//! \param D_del_ci_rplnt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_rplnt_myi);
+    D_del_vi_rplnt_myi = ModelVariable(ModelVariable::variableID::D_del_vi_rplnt_myi);//! \param D_del_vi_rplnt_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_vi_rplnt_myi);
+    D_del_ci_ridge_myi = ModelVariable(ModelVariable::variableID::D_del_ci_ridge_myi);//! \param D_del_ci_ridge_myi (double) Ice growth/melt rate  [m/day]
+    M_variables_elt.push_back(&D_del_ci_ridge_myi);
     D_fwflux = ModelVariable(ModelVariable::variableID::D_fwflux);//! \param D_fwflux (double) Fresh-water flux at ocean surface [kg/m2/s]
     M_variables_elt.push_back(&D_fwflux);
     D_fwflux_ice = ModelVariable(ModelVariable::variableID::D_fwflux_ice);//! \param D_fwflux_ice (double) Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -7684,8 +7885,12 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
+    if (M_fullday_counter >= 86400.)
+        M_fullday_counter = 0.;
 
-
+    M_fullday_counter = M_fullday_counter + dtime_step; 
+    LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
+ 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
@@ -8029,11 +8234,61 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            // MYI code
+            case (GridOutput::variableID::conc_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::thick_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_thick_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::freeze_days):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_freeze_days[i]*time_factor;
+                break;
+            case (GridOutput::variableID::conc_summer):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc_summer[i]*time_factor;
+                break;
+            case (GridOutput::variableID::thick_summer):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_thick_summer[i]*time_factor;
+                break;
+            case (GridOutput::variableID::freeze_onset):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_freeze_onset[i]*time_factor;
+                break;
+            case (GridOutput::variableID::del_vi_tend):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_del_vi_tend[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_ridge_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_ridge_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_rplnt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_rplnt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dvi_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_vi_mlt_myi[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dci_mlt_myi):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_del_ci_mlt_myi[i]*time_factor;
+                break;
+
+            //End of MYI quantities
             case (GridOutput::variableID::sigma_11):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sigma[0][i]*time_factor;
                 break;
-
             case (GridOutput::variableID::sigma_22):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_sigma[1][i]*time_factor;
@@ -8434,6 +8689,18 @@ FiniteElement::initMoorings()
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
             ("wspeed", GridOutput::variableID::wspeed)
+            ("thick_myi", GridOutput::variableID::thick_myi)
+            ("conc_myi", GridOutput::variableID::conc_myi)
+            ("freeze_days", GridOutput::variableID::freeze_days)
+            ("thick_summer", GridOutput::variableID::thick_summer)
+            ("conc_summer", GridOutput::variableID::conc_summer)
+            ("freeze_onset", GridOutput::variableID::freeze_onset)
+            ("del_vi_tend", GridOutput::variableID::del_vi_tend)
+            ("dvi_mlt_myi", GridOutput::variableID::dvi_mlt_myi)
+            ("dci_mlt_myi", GridOutput::variableID::dci_mlt_myi)
+            ("dci_rplnt_myi", GridOutput::variableID::dci_rplnt_myi)
+            ("dvi_rplnt_myi", GridOutput::variableID::dvi_rplnt_myi)
+            ("dci_ridge_myi", GridOutput::variableID::dci_ridge_myi)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
@@ -10809,6 +11076,13 @@ FiniteElement::initIce()
     vars_to_zero.push_back(&M_age_det);
     vars_to_zero.push_back(&M_age);
     vars_to_zero.push_back(&M_conc_upd);
+    vars_to_zero.push_back(&M_thick_myi);
+    vars_to_zero.push_back(&M_conc_myi);
+    vars_to_zero.push_back(&M_freeze_days);
+    vars_to_zero.push_back(&M_thick_summer);
+    vars_to_zero.push_back(&M_conc_summer);
+    vars_to_zero.push_back(&M_freeze_onset);
+    vars_to_zero.push_back(&M_del_vi_tend);
     for (int k=0; k<3; k++)
         vars_to_zero.push_back(&(M_sigma[k]));
     for (auto ptr: vars_to_zero)

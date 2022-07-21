@@ -506,6 +506,16 @@ namespace Nextsim
             ("statevector.ensemble_member", po::value<int>()->default_value(0),
                 "id of ensemble member (NB starts from 1)")
 
+            //-----------------------------------------------------------------------------------
+            //!Age settings
+            //-----------------------------------------------------------------------------------
+            ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
+            ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
+            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
+            ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
+            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
+            ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
+
 #if defined(WAVES)
         ;
         return desc.add( Wim::descrWimOptions() );
