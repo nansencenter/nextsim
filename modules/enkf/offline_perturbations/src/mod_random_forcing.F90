@@ -143,7 +143,6 @@ contains
       else
          if (debug) print *, 'generating initial random field...'
          call ranfields(ran, rh)
-         if (debug) print *, 'rand_update'
          call rand_update() ! update ran1, ran (final nondimensional fields, ran1 is temporary variable)
       end if
       call rand_update()
@@ -271,7 +270,7 @@ contains
 
       real, parameter :: wlat = 60.
       integer i, j
-      real*8, save :: rdtime = 8.d0/24.d0    ! Time step of forcing update
+      real*8, save :: rdtime = 6.d0/24.d0    ! Time step of forcing update
 
       ! Autocorrelation between two times "tcorr"
       !KAL - quite high? - autocorr = 0.95
@@ -444,11 +443,9 @@ contains
       type(forcing_fields), intent(inout) :: ranfld
       real, intent(in)    :: scorr
       ! real, dimension(idm,jdm) :: gtmp, tmp
-      if (debug) print *, 'enter ranfields...'
+
       ranfld = 0.
-      
       call pseudo2D(ranfld%slp, idm, jdm, 1, scorr, fnx, fny)
-      if (debug) print *, '451.'
       call pseudo2D(ranfld%wndspd, idm, jdm, 1, scorr, fnx, fny)
       call pseudo2D(ranfld%snowfall, idm, jdm, 1, scorr, fnx, fny)
       call pseudo2D(ranfld%dwlongw, idm, jdm, 1, scorr, fnx, fny)

@@ -1,4 +1,4 @@
-INCPATH = .:../include
+INCPATH = .:../
 
 OBJS=../objs
 
@@ -23,7 +23,9 @@ LD =  $(CF90)   #Linker
 # ARCHO= -xCORE-AVX2 -O2 -no-prec-div -qopt-prefetch=2 -auto-p32 -no-ansi-alias -qopt-mem-layout-trans=2 
 #
 # #Optimalization opts
-OPTO= -g -fpic -nofor-main -convert big_endian -assume byterecl -cm -vec_reprot0 -w -O2 -r8 -g -traceback
+# OPTO = -g -traceback
+OPTO= -g -fpic -convert big_endian -assume byterecl -cm -w -O2 -r8 -traceback
+# OPTO= -fPIC -O3 -fconvert=big-endian -fdefault-real-8 -g 
 #
 #
 F77FLG = -nofree
@@ -32,10 +34,10 @@ CPPFLAGS += $(CPPARCH) -DFFTW -DIARGC -DLAPACK # -DQMPI
 #
 #
 # This uses the OpenMPI implementation of mpi-2
-FLIBS = -mkl=parallel -lfftw3 -lgsl -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lsz -lz -ldl -lm -liomp5 -lpthread -lcurl
+FLIBS = -L/cluster/software/netCDF-Fortran/4.5.2-iimpi-2019b/lib -lfftw3 -lnetcdf -lnetcdff -lhdf5_hl -lhdf5 -lsz -lz -ldl -lm -liomp5 -lpthread -lcurl
 #
 # Include dir for header and module files
-INCLUDEDIR= -I/local/netcdf/include -I/local/fftw/include
+INCLUDEDIR= -I/cluster/software/netCDF-Fortran/4.5.2-iimpi-2019b/include -I/cluster/software/FFTW/3.3.8-intel-2019b/include # -I/local/netcdf/include -I/cluster/software/FFTW/3.3.8-intel-2019b/include # -I/local/fftw/include
 #
 #
 # # Put together flags
