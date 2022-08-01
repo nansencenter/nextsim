@@ -889,6 +889,7 @@ private:
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void smosIce();
+    void glorys12Ice();
 
     //no ice-type option to activate these
     void topazAmsreIce();
