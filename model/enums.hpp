@@ -36,7 +36,8 @@ namespace setup
         MITGCM             = 3,
         TOPAZR_atrest      = 4,
         TOPAZR_ALTIMETER   = 5,
-        COUPLED            = 6
+        COUPLED            = 6,
+        GLORYS12R          = 7
     };
 
     enum class IceType
@@ -61,7 +62,7 @@ namespace setup
         TOPAZ4OSISAFICESAT          = 18,
         TOPAZ4FAMSR2OSISAFNIC       = 19,
         TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
-        CREG                        = 21,
+        NEMO                        = 21,
         CICE                        = 22,
         AMSR2CSTTHICK               = 23
     };
@@ -91,7 +92,7 @@ namespace setup
     enum class IceCategoryType
     {
         CLASSIC     = 0,
-        THIN_ICE    = 1,
+        YOUNG_ICE   = 1,
         MULTI       = 2
     };
 

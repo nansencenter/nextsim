@@ -1,14 +1,11 @@
-KERNEL := $(shell uname -s)
+#KERNEL := $(shell uname -s)
 
 PROGNAME=nextsim.exec
-
-CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
-		-fPIC -fopenmp \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
 ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
@@ -16,63 +13,56 @@ endif
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
-	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	LDFLAGS += $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
+	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
-ifneq ($(KERNEL),Linux)
-	CXXFLAGS += -Wl,-no_pie
-endif
-else
-	CXXFLAGS += -O3 -pthread
 endif
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
-# CXXFLAGS += -I $(NEXTSIMDIR)/contrib/interp/include
+CXXFLAGS += -I$(NEXTSIMDIR)/core/include
+CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
+CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
 ifdef USE_ENSEMBLE
 	CXXFLAGS += -DENSEMBLE
-	CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
+	CXXFLAGS += -I$(NEXTSIMDIR)/modules/enkf/perturbation/include
 endif
 
 # include with -isystem instead of -I to suppress warnings and to not
 # add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
-		CXXFLAGS += -isystem $(AEROBULK_DIR)/include
-		CXXFLAGS += -DAEROBULK
+	CXXFLAGS += -isystem $(AEROBULK_DIR)/include
+	CXXFLAGS += -DAEROBULK
 endif
 
-# openmpi
-CXXFLAGS += -isystem $(OPENMPI_INCLUDE_DIR)/
-
 # boost
-CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I .
+CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
 
 # netcdf
 ifeq ($(NETCDF_CXX_DIR),)
 	NETCDF_CXX_DIR=$(NETCDF_DIR)
-else
-	# separate dirs on datarmor
-	# - also datarmor needs this lib too
-	LDFLAGS += -lnetcdff
 endif
+ifeq ($(NETCDF_FOR_DIR),)
+	NETCDF_FOR_DIR=$(NETCDF_DIR)
+endif
+LDFLAGS += -L$(NETCDF_DIR)/lib -lnetcdf -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+ifdef USE_OASIS
+	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
+endif
+
 ifeq ($(NETCDF_DIR),/usr)
-	#needed for maud: need -I /usr/include otherwise have problems with stdlib.h
-	CXXFLAGS += -I $(NETCDF_DIR)/include
-	CXXFLAGS += -I $(NETCDF_CXX_DIR)/include
+	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
+	CXXFLAGS += -I$(NETCDF_DIR)/include
+	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
 else
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
@@ -81,66 +71,37 @@ endif
 # gmsh
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
-CXXFLAGS += -isystem /opt/local/include
-
-ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I /usr/include
-
-else
-
-	ifeq ($(CXX),clang)
-	CXXFLAGS += -stdlib=libc++
-	endif
-
-	CXXFLAGS += -isystem /usr/local/include
-
-	ifeq ($(CXX),clang)
-	LDFLAGS += -stdlib=libc++
-	endif
-
-endif
-
-LDFLAGS += -L /usr/local/lib
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-ifneq ($(OPENMPI_DIR),)
-	LDFLAGS += -Wl,-rpath,$(OPENMPI_DIR)/lib -L $(OPENMPI_DIR)/lib -lmpi_mpifh
-endif
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L $(NETCDF_DIR)/lib -lnetcdf
-LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L $(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
-ifneq ($(NETCDF_FOR_DIR),)
-	LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib -L $(NETCDF_FOR_DIR)/lib -lnetcdff
-endif
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
+LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lbamg
-#LDFLAGS += -L $(NEXTSIMDIR)/lib -linterp
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
-#LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
 
 ifdef USE_ENSEMBLE
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -lpseudo2D
-	LDFLAGS += -lgfortran
+	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D
 endif
 
 ifdef USE_AEROBULK
-		LDFLAGS += -L $(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
-		LDFLAGS += -lgfortran
+	LDFLAGS += -L$(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
+	LDFLAGS += $(LD_EXTRA_AEROBULK)
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	LDFLAGS += -L /opt/local/lib -lprofiler
+	LDFLAGS += -L/opt/local/lib -lprofiler
 endif
 endif
 
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lnextsim
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
@@ -169,7 +130,7 @@ version.hpp: version.sh $(CXXSRC) $(CXXHDR)
 # Delete the object files.
 clean:
 	@echo " "
-	$(RM) $(OBJS) $(DEPS)
+	$(RM) $(OBJS) $(DEPS) version.hpp
 	@echo " "
 
 mrproper: clean

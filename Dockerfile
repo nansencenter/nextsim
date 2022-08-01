@@ -1,9 +1,21 @@
-ARG BASE_IMAGE=nansencenter/nextsim_base_dev:latest
+ARG BASE_IMAGE=nansencenter/nextsim_base:latest
 FROM $BASE_IMAGE
 
+# Prepare environment
 ENV NEXTSIM_MESH_DIR=/mesh \
     NEXTSIM_DATA_DIR=/data \
-    NEXTSIMDIR=/nextsim
+    NEXTSIMDIR=/nextsim \
+# Compiler names
+    CC=mpicc \
+    CXX=mpicxx \
+    FC=mpifort \
+# Compiler options
+    MPI_INC_DIR=/usr/lib/openmpi/include \
+    CFLAGS="-O3 -fPIC" \
+    CXXFLAGS="-O3 -pthread -fPIC -fopenmp "
+
+# Compiler options
+ENV CCFLAGS=$CFLAGS
 
 # copy source, compile and copy libs of mapx and bamg
 COPY contrib $NEXTSIMDIR/contrib

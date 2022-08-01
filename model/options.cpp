@@ -145,8 +145,8 @@ namespace Nextsim
                 "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
+                            {"conc", "thick", "snow", "conc_young", "h_young", "hs_young", "velocity"},
+                             "conc    thick    snow    conc_young    h_young    hs_young    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
@@ -265,7 +265,7 @@ namespace Nextsim
             // - if setup.ice-type = constant
             ("ideal_simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_young_conc", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_SST_limit", po::value<double>()->default_value( 2. ), "")
 
@@ -307,9 +307,10 @@ namespace Nextsim
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
-            ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
+            ("dynamics.C_lab", po::value<double>()->default_value( 2.0e6 ), "Pa")       // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1e10 ), "Pa")
             ("dynamics.compaction_param", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
@@ -348,7 +349,7 @@ namespace Nextsim
 
             // - Pressure term parameters
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
-            ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 10e3 ), "Max pressure for damaged converging ice")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
@@ -381,13 +382,15 @@ namespace Nextsim
             ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
-            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: THIN_ICE; else CLASSIC")
+            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
             ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.h_young_max", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.h_young_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.snow_cond", po::value<double>()->default_value( 0.3096 ),
+                "snow conductivity (W/(K m)")
 
             ("thermo.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
@@ -470,6 +473,8 @@ namespace Nextsim
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
+            ("wave_coupling.receive_wave_stress", po::value<bool>()->default_value( true ),
+             "Do we receive the wave stress from the wave model?")
             // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
             ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
@@ -503,6 +508,16 @@ namespace Nextsim
             // for ensemble forcing
             ("statevector.ensemble_member", po::value<int>()->default_value(0),
                 "id of ensemble member (NB starts from 1)")
+
+            //-----------------------------------------------------------------------------------
+            //!Age settings
+            //-----------------------------------------------------------------------------------
+            ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
+            ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
+            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
+            ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
+            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
+            ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
 
 #if defined(WAVES)
         ;
