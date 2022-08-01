@@ -281,7 +281,7 @@ FiniteElement::rootMeshProcessing()
     {
 
         // read the original input mesh
-        M_mesh_root.setOrdering("gmsh");
+        M_mesh_root.setOrdering(M_mesh_ordering);
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
@@ -1422,7 +1422,12 @@ FiniteElement::initOptAndParam()
             % M_mesh_basename
             ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
-    M_mesh.setOrdering("bamg");
+
+    // mesh ordering
+    std::vector<std::string> order_opts = {"gmsh", "bamg"};
+    M_mesh_ordering = this->getAllowedOption("mesh.ordering", order_opts);
+        //! \param M_mesh_ordering (std::string) Mesh ordering ("gmsh" or "bamg")
+    LOG(DEBUG) <<"MESH_ORDERING = "<< M_mesh_ordering <<"\n";
 
 
     //! Sets options on the use of moorings
@@ -1496,10 +1501,10 @@ FiniteElement::initFETensors()
 //! and an option name opt_name eg "setup.atmosphere-type" with
 //! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
 //! Called by initOptAndParam()
-template<typename enum_type>
-enum_type
+template<typename option_type>
+option_type
 FiniteElement::getOptionFromMap(std::string const &opt_name,
-        boost::unordered_map<const std::string, enum_type> map)
+        boost::unordered_map<const std::string, option_type> map)
 {
 
     if(vm.count(opt_name)==0)
@@ -1510,7 +1515,7 @@ FiniteElement::getOptionFromMap(std::string const &opt_name,
     std::string const option_str = vm[opt_name].as<std::string>();
     if ( map.count(option_str) == 0 )
     {
-        LOG(ERROR)<< "FiniteElement::checkOptions: Unknown option for "
+        LOG(ERROR)<< "FiniteElement::getOptionFromMap: Unknown option for "
                 << opt_name << ": " << option_str<< "\n";
         LOG(ERROR)<<"Valid options are:\n";
         for (auto ptr=map.begin(); ptr!=map.end(); ptr++)
@@ -1520,6 +1525,35 @@ FiniteElement::getOptionFromMap(std::string const &opt_name,
     }
     return map[option_str];
 }
+
+
+//------------------------------------------------------------------------------------------------------
+//! return an option, checking if it is allowed
+//! Called by initOptAndParam()
+template<typename option_type>
+option_type
+FiniteElement::getAllowedOption(std::string const &opt_name,
+        const std::vector<option_type> &options)
+{
+
+    if(vm.count(opt_name)==0)
+        throw std::runtime_error(
+                "FiniteElement::getOptionFromMap: Unknown option name: "
+                + opt_name+"\n");
+
+    option_type const option = vm[opt_name].as<option_type>();
+    if(std::count(options.begin(), options.end(), option) == 0)
+    {
+        LOG(ERROR)<< "FiniteElement::getAllowedOption: Unknown option for "
+                << opt_name << ": " << option << "\n";
+        LOG(ERROR)<<"Valid options are:\n";
+        for (auto opt : options)
+            LOG(ERROR)<<"  "<< opt <<"\n";
+        throw std::runtime_error("Invalid option for "
+                +opt_name + ": " + option+"\n");
+    }
+    return option;
+}//getAllowedOption
 
 
 //------------------------------------------------------------------------------------------------------
