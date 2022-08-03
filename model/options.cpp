@@ -121,7 +121,9 @@ namespace Nextsim
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
-                "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
+                "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
+            ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
+                "ordering: gmsh (default) or bamg - try bamg if you get negative areas")
 
 
             // -- moorings
@@ -300,7 +302,8 @@ namespace Nextsim
 
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ),
+                "relative size of random perturbation to cohesion") // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
