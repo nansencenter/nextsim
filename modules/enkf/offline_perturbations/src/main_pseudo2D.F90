@@ -4,7 +4,10 @@ program main_pseudo2D
   use m_set_random_seed
   use mod_random_forcing
   implicit none
-  integer, parameter:: xdim = 1024, ydim = 1024,xy_full = xdim*ydim
+! key inputs
+integer, parameter:: length_of_perturbation=960, xdim=1024,ydim=1024
+  
+  integer, parameter:: xy_full = xdim*ydim
   real(8) :: synforc(xy_full, 6), randfld(xy_full, 6)
   integer :: i_step, i, id, file_exist
   integer :: ncid, stat
@@ -26,7 +29,8 @@ program main_pseudo2D
       randfld=0. ! note: randfld is not saved but variables in synforc are saved to file.
   endif
   !
-  do i_step = 0,10*4 ! create a series of perturbations for one member
+
+  do i_step = 0, length_of_perturbation ! create a series of perturbations for one member
       synforc=0.
       !-------------------------------
       call limits_randf(xdim, ydim)  ! read in setting from pseudo2D.nml
