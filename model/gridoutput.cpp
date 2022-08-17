@@ -937,7 +937,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // - set the global attributes
     dataFile.putAtt("Conventions", "CF-1.6");
-    dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
+    dataFile.putAtt("institution", "NERSC, Jahnebakken 3, N-5007 Bergen, Norway");
     dataFile.putAtt("source", "neXtSIM model fields");
 
     return filename.str();
