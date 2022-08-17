@@ -24,6 +24,7 @@ namespace Nextsim
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
 FiniteElement::FiniteElement(Communicator const& comm)
     :
+    MeshHandler(),
     vm(Environment::vm()),
     M_comm(comm),
     M_mesh(mesh_type(comm))
@@ -36,7 +37,22 @@ FiniteElement::FiniteElement(Communicator const& comm)
 void
 FiniteElement::initMesh()
 {
-    this->initBamg();
+    bamgopt = new BamgOpts();
+
+    bamggeom = new BamgGeom();
+    bamgmesh = new BamgMesh();
+
+    if ( M_rank == 0 )
+    {
+        bamggeom_root = new BamgGeom();
+        bamgmesh_root = new BamgMesh();
+
+        bamggeom_previous = new BamgGeom();
+        bamgmesh_previous = new BamgMesh();
+    }
+
+    this->initBamg(bamgopt, bamggeom, bamgmesh, bamggeom_root, bamgmesh_root,
+            bamggeom_previous, bamgmesh_previous, M_rank);
     this->rootMeshProcessing();
     if (!M_use_restart)
         this->distributedMeshProcessing(true);
@@ -982,61 +998,6 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     LOG(DEBUG) <<"checkReloadDatasets (time-dependant nodes)\n";
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
-
-
-//------------------------------------------------------------------------------------------------------
-//! Initializes a Bamg mesh grid.
-//! Called by the initMesh() function.
-void
-FiniteElement::initBamg()
-{
-    bamgopt = new BamgOpts();
-
-    bamgopt->Crack             = 0;
-    bamgopt->anisomax          = 1e30;
-    bamgopt->coeff             = 1;
-    bamgopt->cutoff            = 1e-5;
-    //bamgopt->err               = 0.01;
-    bamgopt->errg              = 0.1;
-    bamgopt->field             = NULL;
-    bamgopt->gradation         = 1.5;
-    bamgopt->Hessiantype       = 0;
-    bamgopt->hmin              = 1e-100;
-    bamgopt->hmax              = 1e100;
-    bamgopt->hminVertices      = NULL;
-    bamgopt->hmaxVertices      = NULL;
-    bamgopt->hVertices         = NULL;
-    bamgopt->KeepVertices      = 1;
-    bamgopt->MaxCornerAngle    = 10;
-    bamgopt->maxnbv            = 1e7;
-    bamgopt->maxsubdiv         = 10;
-    bamgopt->metric            = NULL;
-    bamgopt->Metrictype        = 0;
-    bamgopt->nbjacobi          = 1;
-    bamgopt->nbsmooth          = 3;
-    bamgopt->omega             = 1.8;
-    bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
-    bamgopt->geometricalmetric = 0;
-    bamgopt->random            = true;
-    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
-
-    bamggeom = new BamgGeom();
-    bamgmesh = new BamgMesh();
-
-    if (M_mesh.comm().rank() == 0)
-    {
-        bamggeom_root = new BamgGeom();
-        bamgmesh_root = new BamgMesh();
-
-        bamgopt_previous = new BamgOpts();
-        bamggeom_previous = new BamgGeom();
-        bamgmesh_previous = new BamgMesh();
-    }
-
-    bamgopt->Check();
-}//initBamg
-
 
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
@@ -3097,7 +3058,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         // std::cout<<"InterpFromMeshToMesh2dx starts\n";
 
         // bamg::Mesh* Th;
-        // Th = new bamg::Mesh(bamggeom_previous, bamgmesh_previous, bamgopt_previous);
+        // Th = new bamg::Mesh(bamggeom_previous, bamgmesh_previous, bamgopt);
 
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 //Th,&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
@@ -3742,17 +3703,14 @@ FiniteElement::regrid(bool step)
 void
 FiniteElement::adaptMesh()
 {
-    delete bamgopt_previous;
     delete bamggeom_previous;
     delete bamgmesh_previous;
 
-    bamgopt_previous = new BamgOpts();
     bamggeom_previous = new BamgGeom();
     bamgmesh_previous = new BamgMesh();
 
     *bamgmesh_previous = *bamgmesh_root;
     *bamggeom_previous = *bamggeom_root;
-    *bamgopt_previous = *bamgopt;
 
     // set dirichlet flags
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
@@ -3772,7 +3730,7 @@ FiniteElement::adaptMesh()
     }
 
     chrono.restart();
-    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
+    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt);
     LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
@@ -14451,14 +14409,8 @@ FiniteElement::finalise(std::string current_time_system)
         delete bamggeom_root;
         delete bamgmesh_root;
 
-        // We need to point these to NULL because 'delete bamgopt' clears the
-        // memory they were pointing to before
-        bamgopt_previous->hminVertices      = NULL;
-        bamgopt_previous->hmaxVertices      = NULL;
-
         delete bamgmesh_previous;
         delete bamggeom_previous;
-        delete bamgopt_previous;
 
         // clear GModel from mesh data structure
         if (M_partition_space == mesh::PartitionSpace::MEMORY)

@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include <meshhandler.hpp>
 #include "version.hpp"
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/program_options.hpp>
@@ -56,7 +57,7 @@ extern "C"
 namespace Nextsim
 {
 
-class FiniteElement
+class FiniteElement : public MeshHandler
 {
 public:
 
@@ -248,7 +249,6 @@ public:
     std::vector<double> hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
-    void initBamg();
     void initOptAndParam();
     void initFETensors();
     template<typename option_type>
@@ -632,7 +632,6 @@ private: // only on root process (rank 0)
     BamgMesh *bamgmesh_root;
     BamgGeom *bamggeom_root;
 
-    BamgOpts *bamgopt_previous;
     BamgMesh *bamgmesh_previous;
     BamgGeom *bamggeom_previous;
 
