@@ -611,9 +611,9 @@ private: // update solution from explicit solver
 
 private:
 
-    BamgOpts *bamgopt;
-    BamgMesh *bamgmesh;
-    BamgGeom *bamggeom;
+    BamgOpts bamgopt;
+    BamgMesh bamgmesh;
+    BamgGeom bamggeom;
 
 private: // only on root process (rank 0)
 
@@ -630,11 +630,11 @@ private: // only on root process (rank 0)
 
     std::vector<std::vector<double>> M_B0T_root;
 
-    BamgMesh *bamgmesh_root;
-    BamgGeom *bamggeom_root;
+    BamgMesh bamgmesh_root;
+    BamgGeom bamggeom_root;
 
-    BamgMesh *bamgmesh_previous;
-    BamgGeom *bamggeom_previous;
+    BamgMesh bamgmesh_previous;
+    BamgGeom bamggeom_previous;
 
 private:
 

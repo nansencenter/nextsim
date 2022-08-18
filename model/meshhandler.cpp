@@ -17,41 +17,39 @@ namespace Nextsim
 //! Initializes a Bamg mesh grid.
 //! Called by the initMesh() function.
 void
-MeshHandler::initBamg(BamgOpts *bamgopt, BamgGeom *bamggeom, BamgMesh *bamgmesh,
-        BamgGeom *bamggeom_root, BamgMesh *bamgmesh_root,
-        BamgGeom *bamggeom_previous, BamgMesh *bamgmesh_previous, int rank)
+MeshHandler::initBamg(BamgOpts &bamgopt)
 {
 
-    bamgopt->Crack             = 0;
-    bamgopt->anisomax          = 1e30;
-    bamgopt->coeff             = 1;
-    bamgopt->cutoff            = 1e-5;
-    //bamgopt->err               = 0.01;
-    bamgopt->errg              = 0.1;
-    bamgopt->field             = NULL;
-    bamgopt->gradation         = 1.5;
-    bamgopt->Hessiantype       = 0;
-    bamgopt->hmin              = 1e-100;
-    bamgopt->hmax              = 1e100;
-    bamgopt->hminVertices      = NULL;
-    bamgopt->hmaxVertices      = NULL;
-    bamgopt->hVertices         = NULL;
-    bamgopt->KeepVertices      = 1;
-    bamgopt->MaxCornerAngle    = 10;
-    bamgopt->maxnbv            = 1e7;
-    bamgopt->maxsubdiv         = 10;
-    bamgopt->metric            = NULL;
-    bamgopt->Metrictype        = 0;
-    bamgopt->nbjacobi          = 1;
-    bamgopt->nbsmooth          = 3;
-    bamgopt->omega             = 1.8;
-    bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
-    bamgopt->geometricalmetric = 0;
-    bamgopt->random            = true;
-    bamgopt->verbose           = bamg_verbose;
+    bamgopt.Crack             = 0;
+    bamgopt.anisomax          = 1e30;
+    bamgopt.coeff             = 1;
+    bamgopt.cutoff            = 1e-5;
+    // bamgopt.err               = 0.01;
+    bamgopt.errg              = 0.1;
+    bamgopt.field             = NULL;
+    bamgopt.gradation         = 1.5;
+    bamgopt.Hessiantype       = 0;
+    bamgopt.hmin              = 1e-100;
+    bamgopt.hmax              = 1e100;
+    bamgopt.hminVertices      = NULL;
+    bamgopt.hmaxVertices      = NULL;
+    bamgopt.hVertices         = NULL;
+    bamgopt.KeepVertices      = 1;
+    bamgopt.MaxCornerAngle    = 10;
+    bamgopt.maxnbv            = 1e7;
+    bamgopt.maxsubdiv         = 10;
+    bamgopt.metric            = NULL;
+    bamgopt.Metrictype        = 0;
+    bamgopt.nbjacobi          = 1;
+    bamgopt.nbsmooth          = 3;
+    bamgopt.omega             = 1.8;
+    bamgopt.power             = 1.;
+    bamgopt.splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt.geometricalmetric = 0;
+    bamgopt.random            = true;
+    bamgopt.verbose           = bamg_verbose;
 
-    bamgopt->Check();
+    bamgopt.Check();
 
 }//initBamg
 

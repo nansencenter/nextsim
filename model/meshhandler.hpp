@@ -32,9 +32,7 @@ namespace Nextsim
                 bamg_verbose = vm["debugging.bamg_verbose"].as<int>();
             };
 
-            void initBamg(BamgOpts *bamgopt, BamgGeom *bamggeom, BamgMesh *bamgmesh,
-                    BamgGeom *bamggeom_root = NULL, BamgMesh *bamgmes_root = NULL,
-                    BamgGeom *bamgeom_previous = NULL, BamgMesh *bamgmesh_previous = NULL, int rank = 0);
+            void initBamg(BamgOpts &bamgopt);
 
         protected:
 
