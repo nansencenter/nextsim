@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include <optionhandler.hpp>
 #include <meshhandler.hpp>
 #include "version.hpp"
 #include <boost/ptr_container/ptr_vector.hpp>
