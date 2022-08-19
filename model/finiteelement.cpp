@@ -2973,7 +2973,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         // std::cout<<"InterpFromMeshToMesh2dx starts\n";
 
         // bamg::Mesh* Th;
-        // Th = new bamg::Mesh(bamggeom_previous, bamgmesh_previous, bamgopt);
+        // Th = new bamg::Mesh(bamggeom_previous, bamgmesh_previous, bamgopt_previous);
 
         InterpFromMeshToMesh2dx(&interp_elt_out,
                                 //Th,&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
@@ -3620,6 +3620,7 @@ FiniteElement::adaptMesh()
 {
     bamgmesh_previous = bamgmesh_root;
     bamggeom_previous = bamggeom_root;
+    bamgopt_previous = bamgopt;
 
     // set dirichlet flags
     for (int edg=0; edg<bamgmesh_previous.EdgesSize[0]; ++edg)
@@ -3639,7 +3640,7 @@ FiniteElement::adaptMesh()
     }
 
     chrono.restart();
-    Bamgx(&bamgmesh_root,&bamggeom_root,&bamgmesh_previous,&bamggeom_previous,&bamgopt);
+    Bamgx(&bamgmesh_root,&bamggeom_root,&bamgmesh_previous,&bamggeom_previous,&bamgopt_previous);
     LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's

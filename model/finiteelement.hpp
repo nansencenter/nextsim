@@ -633,6 +633,7 @@ private: // only on root process (rank 0)
     BamgMesh bamgmesh_root;
     BamgGeom bamggeom_root;
 
+    BamgOpts bamgopt_previous;
     BamgMesh bamgmesh_previous;
     BamgGeom bamggeom_previous;
 
