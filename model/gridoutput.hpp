@@ -422,8 +422,8 @@ public:
                 // MYI variables
                 case (variableID::conc_myi):
                     name     = "conc_myi";
-                    longName = "Concentration of Multiyear Ice";
-                    stdName  = "conc_myi";
+                    longName = "Sea ice Area Fraction of Multi-year Ice";
+                    stdName  = "sea_ice_classification";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -636,14 +636,14 @@ public:
                     name     = "albedo";
                     longName = "Surface albedo";
                     stdName  = "surface_albedo";
-                    Units    = "";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::sialb):
                     name     = "sialb";
                     longName = "Sea ice albedo";
                     stdName  = "sea_ice_albedo";
-                    Units    = "";
+                    Units    = "1";
                     cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::sigma_n):
