@@ -6011,12 +6011,19 @@ FiniteElement::thermo(int dt)
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
-                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && (M_conc[i] + M_conc_young[i] == 0) )
-                    M_freeze_onset[i] = 1.;
-                else if (M_conc[i] == 0.)
+                double ctot = M_conc[i];
+                if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                    ctot += M_conc_young[i];
+                if ( ctot == 0. )
                     M_freeze_onset[i] = 1.;
                 M_conc_summer[i]  = M_conc[i]  ;
                 M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
+                if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        && use_young_ice_in_myi_reset)
+                {
+                    M_conc_summer[i]  += M_conc_young[i]  ;
+                    M_thick_summer[i] += M_h_young[i] ;
+                }
 
             }
             // Now ensure that freeze and melt onsets are 0 or 1
