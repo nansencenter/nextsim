@@ -585,7 +585,6 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
-    double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;

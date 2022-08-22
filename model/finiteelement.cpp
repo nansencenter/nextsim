@@ -5621,8 +5621,10 @@ FiniteElement::thermo(int dt)
         // Keep track of freeze days
         M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
 
-        const double day_seconds = 86400.;
-        if (M_fullday_counter >= day_seconds) // end of day 
+        // Update M_freeze_days on last time step of the day
+        int const steps_left = (days_in_sec / dtime_step)
+            * (1. - std::fmod(M_current_time, 1.));
+        if (steps_left == 1)
         {
             if (M_del_vi_tend[i] > 0.) // It's freezing 
             {   
@@ -7919,11 +7921,6 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
-    if (M_fullday_counter >= 86400.)
-        M_fullday_counter = 0.;
-
-    M_fullday_counter = M_fullday_counter + dtime_step; 
-    LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
  
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
