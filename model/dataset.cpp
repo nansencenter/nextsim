@@ -2602,7 +2602,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         //VAR
-        std::vector<Variable> variables_tmp(3);
+        std::vector<Variable> variables_tmp(5);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = mld;
