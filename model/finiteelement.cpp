@@ -4005,7 +4005,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
                 D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
             }
-            D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
+            D_del_ci_ridge_myi[cpt]*=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
         /*======================================================================
@@ -5879,7 +5879,7 @@ FiniteElement::thermo(int dt)
         D_Qassim[i] = Qassm;
 
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
-        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
+        D_delS[i] = delsss*physical::rhow*mld*days_in_sec/dtime_step;
 
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
         D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*si_eff)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
@@ -5897,28 +5897,28 @@ FiniteElement::thermo(int dt)
         D_rain[i] = rain;
 
         // Ice volume melt rate per day per element area  [m/day]
-        D_vice_melt[i]   = del_vi*86400/ddt;
+        D_vice_melt[i]   = del_vi*days_in_sec/ddt;
 
         // Young Ice volume melt rate per day per element area  [m/day]
-        D_del_vi_young[i]  = del_vi_young*86400/ddt;
+        D_del_vi_young[i]  = del_vi_young*days_in_sec/ddt;
 
         // Ice growth/melt rate [m/day]
-        D_del_hi[i]      = del_hi*86400/ddt;
+        D_del_hi[i]      = del_hi*days_in_sec/ddt;
 
         // New young ice growth/melt rate [m/day]
-        D_del_hi_young[i] = del_hi_young*86400/ddt;
+        D_del_hi_young[i] = del_hi_young*days_in_sec/ddt;
 
         // young ice volume per surface area rate [m/day]
-        D_newice[i]      = newice_stored*86400/ddt;
+        D_newice[i]      = newice_stored*days_in_sec/ddt;
 
         // top melt  volume per surface area rate [m/day]
-        D_mlt_top[i]      = mlt_vi_top*86400/ddt;
+        D_mlt_top[i]      = mlt_vi_top*days_in_sec/ddt;
 
         // top melt  volume per surface area rate [m/day]
-        D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
+        D_mlt_bot[i]      = mlt_vi_bot*days_in_sec/ddt;
 
         // ice from snow volume per surface area rate [m/day]
-        D_snow2ice[i]     = snow2ice*86400/ddt;
+        D_snow2ice[i]     = snow2ice*days_in_sec/ddt;
 
         // sea ice albedo
         double sialb = old_conc * albedo[i];
@@ -6072,13 +6072,13 @@ FiniteElement::thermo(int dt)
         }
         // Tracers quantities to output
         // myi melted area per surface area rate [/day]
-        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*86400/ddt;
+        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*days_in_sec/ddt;
         // myi melted  volume per surface area rate [m/day]
-        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*86400/ddt;
+        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*days_in_sec/ddt;
         // myi replenished area per surface area rate [/day]
-        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
+        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*days_in_sec/ddt;
         // myi replenished  volume per surface area rate [m/day]
-        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
+        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*days_in_sec/ddt;
     }// end for loop
 
     M_timer.tock("slab");
@@ -7330,7 +7330,7 @@ FiniteElement::initOASIS()
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -8974,7 +8974,7 @@ FiniteElement::initMoorings()
             output_time = M_current_time;
         else
             // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time + double(mooring_output_time_step)/86400./2.;
+            output_time = M_current_time + mooring_output_time_step/days_in_sec/2.;
 
         std::string filename_root;
         if ( M_moorings_parallel_output )
@@ -9009,14 +9009,14 @@ FiniteElement::updateMoorings()
         else
         {
             // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time - double(mooring_output_time_step)/86400./2.;
+            output_time = M_current_time - double(mooring_output_time_step)/days_in_sec/2.;
         }
 
         // If it's a new day we check if we need a new file
         double not_used;
         if (       (M_rank==0 || M_moorings_parallel_output)
                 && (M_moorings_file_length != GridOutput::fileLength::inf)
-                && (modf(output_time, &not_used) < double(mooring_output_time_step)/86400) )
+                && (modf(output_time, &not_used) < mooring_output_time_step/days_in_sec) )
         {
             std::string filename_root;
             if ( M_moorings_parallel_output )
