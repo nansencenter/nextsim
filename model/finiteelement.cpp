@@ -5632,10 +5632,16 @@ FiniteElement::thermo(int dt)
             }
             else if (M_del_vi_tend[i] < 0.) // It's melting    
             {
+                // melting occurring, so need to adjust to new onset
                 M_freeze_days[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
-                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
-                    M_conc_summer[i]+=M_conc_young[i];
+                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c);
+                M_thick_summer[i] = M_thick[i] + std::min(0.,del_vi);
+                if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        && use_young_ice_in_myi_reset)
+                {
+                    M_conc_summer[i] += M_conc_young[i];
+                    M_thick_summer[i] += M_h_young[i];
+                }
             }
             M_del_vi_tend[i] = 0.;
         }
