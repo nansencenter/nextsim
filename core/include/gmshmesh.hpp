@@ -26,6 +26,7 @@
 //#include <MElement.h>
 //#include <GModel.h>
 #include "debug.hpp"
+#include <meshmath.hpp>
 
 extern "C"
 {
@@ -156,6 +157,23 @@ public:
 
     void setId(std::vector<int> const& newid);
     std::vector<int> id() const;
+
+    double jacobian(element_type const& element) const
+    { return MeshMath::jacobian(GmshMesh::vertices(element.indices)); }
+
+    double jacobian(element_type const& element,
+                    std::vector<double> const& um, double factor = 1.) const
+    { return MeshMath::jacobian(GmshMesh::vertices(element.indices, um, factor)); }
+
+    //------------------------------------------------------------------------------------------------------
+    //! Calculates the area of triangular mesh elements.
+    //! Called by the advect() and other functions.
+    double measure(element_type const& element) const
+    { return (1./2)*std::abs(GmshMesh::jacobian(element)); }
+
+    double measure(element_type const& element,
+            std::vector<double> const& um, double factor = 1.) const
+    { return (1./2)*std::abs(GmshMesh::jacobian(element,um,factor)); }
 
 private:
 

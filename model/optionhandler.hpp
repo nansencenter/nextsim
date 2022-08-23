@@ -3,6 +3,7 @@
 /**
  * @file   optionhandler.hpp
  * @author Einar Olason <einar.olason@nersc.no>
+ * @author Timothy Williams <timothy.williams@nersc.no>
  * @date   Wed 17 Aug 2022 07:59:06 CEST
  */
 

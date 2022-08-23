@@ -62,12 +62,8 @@ class FiniteElement : public MeshHandler
 {
 public:
 
-    typedef typename GmshMesh::point_type point_type;
-    typedef typename GmshMesh::element_type element_type;
     typedef typename GmshMesh::bimap_type bimap_type;
 
-    typedef GmshMesh mesh_type;
-    typedef GmshMeshSeq mesh_type_root;
     typedef GraphCSR graph_type;
     typedef boost::shared_ptr<graph_type> graph_ptrtype;
 
@@ -100,34 +96,6 @@ public:
     void initDatasets();
     void createGMSHMesh(std::string const& geofilename);
 
-    double jacobian(std::vector<std::vector<double>> const& vertices) const;
-
-    template<typename FEMeshType>
-    double jacobian(element_type const& element, FEMeshType const& mesh) const
-    { return this->jacobian(mesh.vertices(element.indices)); }
-
-    template<typename FEMeshType>
-    double jacobian(element_type const& element, FEMeshType const& mesh,
-                    std::vector<double> const& um, double factor = 1.) const
-    { return this->jacobian(mesh.vertices(element.indices, um, factor)); }
-
-    std::vector<double> sides(element_type const& element, mesh_type const& mesh) const;
-    std::vector<double> sides(element_type const& element, mesh_type const& mesh,
-                              std::vector<double> const& um, double factor = 1.) const;
-
-    std::vector<double> sides(element_type const& element, mesh_type_root const& mesh) const;
-    std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
-                              std::vector<double> const& um, double factor = 1.) const;
-
-    std::vector<double> minMaxSide(mesh_type_root const& mesh) const;
-
-    template<typename FEMeshType>
-    double measure(element_type const& element, FEMeshType const& mesh) const;
-
-    template<typename FEMeshType>
-    double measure(element_type const& element, FEMeshType const& mesh,
-                   std::vector<double> const& um, double factor = 1.) const;
-
     std::vector<double> shapeCoeff(element_type const& element) const;
     template<typename FEMeshType>
     std::vector<double> surface(FEMeshType const& mesh);
@@ -137,9 +105,6 @@ public:
 
     bool checkRegridding();
     void regrid(bool step = true);
-    void adaptMesh();
-    void updateNodeIds();
-    void updateBoundaryFlags();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -245,11 +210,6 @@ public:
     template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
 
-    double resolution(mesh_type_root const& mesh) const;
-
-    std::vector<double> hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
-    std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
-
     void initOptAndParam();
     void initFETensors();
     template<typename option_type>
@@ -278,7 +238,6 @@ public:
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
-    void importBamg(BamgMesh const* bamg_mesh);
     void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
@@ -330,13 +289,9 @@ public:
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
 
-    void rootMeshProcessing();
-
     void rootMeshRenumbering();
 
     void distributedMeshProcessing(bool start = false);
-
-    void interpVertices();
 
     void bcMarkedNodes();
 
@@ -379,11 +334,9 @@ private:
 
 private:
     po::variables_map vm;
-    mesh_type M_mesh;
     graph_type M_graph;
     graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
-    mesh_type M_mesh_previous;
 
     std::map<int, point_type > M_nodes;
     //std::vector<point_type> M_nodes;
@@ -413,7 +366,6 @@ private:
     int mesh_adapt_step;
     bool had_remeshed;
     double minang;
-    double M_res_root_mesh;
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;
@@ -440,30 +392,12 @@ private:
     setup::FreezingPointType M_freezingpoint_type;
     setup::OceanHeatfluxScheme M_Qio_type;
     setup::IceCategoryType M_ice_cat_type;
-    setup::MeshType M_mesh_type;
-    std::string M_mesh_ordering;
-    mesh::Partitioner M_partitioner;
-    mesh::PartitionSpace M_partition_space;
     //fsd related
     setup::WeldingType M_welding_type    ;
     setup::BreakupType M_breakup_type    ;
     setup::FSDType M_fsd_type    ;
 
     bool M_flooding;
-
-    std::string M_mesh_basename;
-    std::string M_mesh_filename;
-    std::string M_partitioned_mesh_filename;
-    std::string M_mesh_fileformat;
-
-    int M_flag_fix;
-    // local masks
-    std::vector<bool> M_mask;
-    std::vector<bool> M_mask_dirichlet;
-
-    // global masks on root
-    std::vector<bool> M_mask_root;
-    std::vector<bool> M_mask_dirichlet_root;
 
     // diffusivity parameters
     std::vector<double> M_diffusivity_parameters;
@@ -475,9 +409,6 @@ private:
     std::vector<double> M_UT;
     std::vector<double> M_VT;
 
-
-    std::vector<double> M_hminVertices;
-    std::vector<double> M_hmaxVertices;
 
     std::vector<double> M_Vair_factor;
     std::vector<double> M_Voce_factor;
@@ -609,33 +540,11 @@ private: // update solution from explicit solver
     std::vector<int> M_local_ghosts_proc_id;
     std::vector<std::vector<int>> M_local_ghosts_local_index;
 
-private:
-
-    BamgOpts bamgopt;
-    BamgMesh bamgmesh;
-    BamgGeom bamggeom;
-
 private: // only on root process (rank 0)
 
-    mesh_type_root M_mesh_root;
-    mesh_type_root M_mesh_init_root;
-    mesh_type_root M_mesh_previous_root;
-
     std::vector<int> M_connectivity_root;
-    std::vector<int> M_dirichlet_flags_root;
-    std::vector<int> M_neumann_flags_root;
-
-    std::vector<int> M_dirichlet_nodes_root;
-    std::vector<int> M_neumann_nodes_root;
 
     std::vector<std::vector<double>> M_B0T_root;
-
-    BamgMesh bamgmesh_root;
-    BamgGeom bamggeom_root;
-
-    BamgOpts bamgopt_previous;
-    BamgMesh bamgmesh_previous;
-    BamgGeom bamggeom_previous;
 
 private:
 

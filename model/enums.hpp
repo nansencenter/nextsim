@@ -8,6 +8,9 @@
  * @date   Mon Oct 12 12:04:59 2015
  */
 
+#ifndef __ENUMS_HPP
+#define __ENUMS_HPP 1
+
 namespace Nextsim
 {
 namespace setup
@@ -161,3 +164,5 @@ namespace schemes
 } // schemes
 
 } // Nextsim
+
+#endif
