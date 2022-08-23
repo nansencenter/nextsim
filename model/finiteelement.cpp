@@ -5619,12 +5619,15 @@ FiniteElement::thermo(int dt)
             use_young_ice_in_myi_reset = false;
 
         // Keep track of freeze days
-        M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
+        int const steps_in_day = std::round(days_in_sec / dtime_step);
+        int const step_in_day = 1 + std::round(
+                steps_in_day * std::fmod(M_current_time, 1.));
+        if (step_in_day == 1)
+            M_del_vi_tend[i] = 0.;
+        M_del_vi_tend[i] += del_vi*ddt;
 
         // Update M_freeze_days on last time step of the day
-        int const steps_left = std::round((days_in_sec / dtime_step)
-            * (1. - std::fmod(M_current_time, 1.)));
-        if (steps_left == 1)
+        if (step_in_day == steps_in_day)
         {
             if (M_del_vi_tend[i] > 0.) // It's freezing 
             {   
@@ -5645,9 +5648,7 @@ FiniteElement::thermo(int dt)
                 M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
                 M_thick_summer[i] = std::max(0., thick_summer);
             }
-            M_del_vi_tend[i] = 0.;
         }
-
 
         /* New concentration */
         M_conc[i] += del_c;
