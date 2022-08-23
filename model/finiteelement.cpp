@@ -5622,8 +5622,8 @@ FiniteElement::thermo(int dt)
         M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
 
         // Update M_freeze_days on last time step of the day
-        int const steps_left = (days_in_sec / dtime_step)
-            * (1. - std::fmod(M_current_time, 1.));
+        int const steps_left = std::round((days_in_sec / dtime_step)
+            * (1. - std::fmod(M_current_time, 1.)));
         if (steps_left == 1)
         {
             if (M_del_vi_tend[i] > 0.) // It's freezing 
