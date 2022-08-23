@@ -5634,14 +5634,16 @@ FiniteElement::thermo(int dt)
             {
                 // melting occurring, so need to adjust to new onset
                 M_freeze_days[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c);
-                M_thick_summer[i] = M_thick[i] + std::min(0.,del_vi);
+                double conc_summer = M_conc[i] + std::min(0.,del_c);
+                double thick_summer = M_thick[i] + std::min(0.,del_vi);
                 if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
                         && use_young_ice_in_myi_reset)
                 {
-                    M_conc_summer[i] += M_conc_young[i];
-                    M_thick_summer[i] += M_h_young[i];
+                    conc_summer += M_conc_young[i];
+                    thick_summer += M_h_young[i];
                 }
+                M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
+                M_thick_summer[i] = std::max(0., thick_summer);
             }
             M_del_vi_tend[i] = 0.;
         }
@@ -6016,14 +6018,17 @@ FiniteElement::thermo(int dt)
                     ctot += M_conc_young[i];
                 if ( ctot == 0. )
                     M_freeze_onset[i] = 1.;
-                M_conc_summer[i]  = M_conc[i]  ;
-                M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
+
+                double conc_summer = M_conc[i];
+                double thick_summer = M_thick[i];
                 if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
                         && use_young_ice_in_myi_reset)
                 {
-                    M_conc_summer[i]  += M_conc_young[i]  ;
-                    M_thick_summer[i] += M_h_young[i] ;
+                    conc_summer += M_conc_young[i]  ;
+                    thick_summer += M_h_young[i] ;
                 }
+                M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
+                M_thick_summer[i] = std::max(0., thick_summer);
 
             }
             // Now ensure that freeze and melt onsets are 0 or 1
