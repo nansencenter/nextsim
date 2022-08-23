@@ -6029,7 +6029,6 @@ FiniteElement::thermo(int dt)
                 }
                 M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
                 M_thick_summer[i] = std::max(0., thick_summer);
-
             }
             // Now ensure that freeze and melt onsets are 0 or 1
             M_freeze_onset[i] = std::round(M_freeze_onset[i]);
@@ -6038,10 +6037,11 @@ FiniteElement::thermo(int dt)
             double old_thick_myi =  M_thick_myi[i];
             double ctot = M_conc[i];
             double vtot = M_thick[i];
-            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
+            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                    && use_young_ice_in_myi_reset)
             {
-                vtot+=M_h_young[i];
-                ctot+=M_conc_young[i];
+                vtot += M_h_young[i];
+                ctot += M_conc_young[i];
             }
 
             if (reset_myi) // 
