@@ -6036,13 +6036,13 @@ FiniteElement::thermo(int dt)
 
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
-            double ctot = M_conc[i];
-            double vtot = M_thick[i];
+            double c_myi_max = M_conc[i];
+            double v_myi_max = M_thick[i];
             if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
                     && use_young_ice_in_myi_reset)
             {
-                vtot += M_h_young[i];
-                ctot += M_conc_young[i];
+                c_myi_max += M_conc_young[i];
+                v_myi_max += M_h_young[i];
             }
 
             if (reset_myi) // 
@@ -6051,15 +6051,15 @@ FiniteElement::thermo(int dt)
                 {
                     // summer thickness and concentration might be a bit dodgy in places.
                     // Replenishment should be positive
-                    double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
-                    double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
-                    M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
-                    M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
+                    double c_myi_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
+                    double v_myi_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
+                    M_conc_myi[i]  = std::min(c_myi_max,c_myi_reset) ; // reset to sea ice summer low
+                    M_thick_myi[i] = std::min(v_myi_max,v_myi_reset); // reset to sea ice summer low
                 }
                 else
                 {
-                    M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
-                    M_thick_myi[i] = vtot;
+                    M_conc_myi[i]  = c_myi_max; // reset to M_conc: all thick ice on reset date is myi
+                    M_thick_myi[i] = v_myi_max;
                 }
                 M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
@@ -6079,8 +6079,8 @@ FiniteElement::thermo(int dt)
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
                     }
                     // Check it does not get crazy
-                    M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
-                    M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]+del_vi_mlt_myi));                  
+                    M_conc_myi[i]  = std::max(0.,std::min(c_myi_max, M_conc_myi[i] +del_ci_mlt_myi));
+                    M_thick_myi[i] = std::max(0.,std::min(v_myi_max, M_thick_myi[i]+del_vi_mlt_myi));
                     //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include young ice in total ice conc
                     //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
