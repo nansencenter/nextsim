@@ -7213,7 +7213,7 @@ FiniteElement::checkRegridding()
     LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
     bool const regrid_local =
         (minang < vm["numerics.regrid_angle"].as<double>())
-        || this->flip(M_mesh, M_UM, 1.);
+        || this->flip(M_mesh, M_UM, 1. || vm["debugging.force_regrid"].as<bool>());
     boost::mpi::all_reduce(M_comm, regrid_local, regrid,
             std::plus<bool>());//NB "+" for bools is "or"
     return regrid;

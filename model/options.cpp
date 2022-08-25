@@ -70,6 +70,8 @@ namespace Nextsim
                 "If check_velocity_fields is true: find outlier nodes with extreme velocities printed to DEBUG")
             ("debugging.check_fields_fast", po::value<bool>()->default_value( true ),
                 "Do a quick sanity check on select fields. Export binary files and stop model if the check fails.")
+            ("debugging.force_regrid", po::value<bool>()->default_value( false ),
+                "Force the model to do a regridding _every timestep_. Primarily useful with debugging.maxiteration = 1.")
 
              //-----------------------------------------------------------------------------------
              //! - Numerics
