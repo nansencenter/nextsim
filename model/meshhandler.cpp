@@ -80,37 +80,49 @@ MeshHandler::initOptAndParam()
 void
 MeshHandler::initBamg()
 {
+    bamgopt = new BamgOpts();
+    bamggeom = new BamgGeom();
+    bamgmesh = new BamgMesh();
 
-    bamgopt.Crack             = 0;
-    bamgopt.anisomax          = 1e30;
-    bamgopt.coeff             = 1;
-    bamgopt.cutoff            = 1e-5;
-    // bamgopt.err               = 0.01;
-    bamgopt.errg              = 0.1;
-    bamgopt.field             = NULL;
-    bamgopt.gradation         = 1.5;
-    bamgopt.Hessiantype       = 0;
-    bamgopt.hmin              = 1e-100;
-    bamgopt.hmax              = 1e100;
-    bamgopt.hminVertices      = NULL;
-    bamgopt.hmaxVertices      = NULL;
-    bamgopt.hVertices         = NULL;
-    bamgopt.KeepVertices      = 1;
-    bamgopt.MaxCornerAngle    = 10;
-    bamgopt.maxnbv            = 1e7;
-    bamgopt.maxsubdiv         = 10;
-    bamgopt.metric            = NULL;
-    bamgopt.Metrictype        = 0;
-    bamgopt.nbjacobi          = 1;
-    bamgopt.nbsmooth          = 3;
-    bamgopt.omega             = 1.8;
-    bamgopt.power             = 1.;
-    bamgopt.splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
-    bamgopt.geometricalmetric = 0;
-    bamgopt.random            = true;
-    bamgopt.verbose           = bamg_verbose;
+    if ( M_comm.rank() == 0 )
+    {
+        bamggeom_root = new BamgGeom();
+        bamgmesh_root = new BamgMesh();
 
-    bamgopt.Check();
+        bamggeom_previous = new BamgGeom();
+        bamgmesh_previous = new BamgMesh();
+    }
+
+    bamgopt->Crack             = 0;
+    bamgopt->anisomax          = 1e30;
+    bamgopt->coeff             = 1;
+    bamgopt->cutoff            = 1e-5;
+    // bamgopt->err               = 0.01;
+    bamgopt->errg              = 0.1;
+    bamgopt->field             = NULL;
+    bamgopt->gradation         = 1.5;
+    bamgopt->Hessiantype       = 0;
+    bamgopt->hmin              = 1e-100;
+    bamgopt->hmax              = 1e100;
+    bamgopt->hminVertices      = NULL;
+    bamgopt->hmaxVertices      = NULL;
+    bamgopt->hVertices         = NULL;
+    bamgopt->KeepVertices      = 1;
+    bamgopt->MaxCornerAngle    = 10;
+    bamgopt->maxnbv            = 1e7;
+    bamgopt->maxsubdiv         = 10;
+    bamgopt->metric            = NULL;
+    bamgopt->Metrictype        = 0;
+    bamgopt->nbjacobi          = 1;
+    bamgopt->nbsmooth          = 3;
+    bamgopt->omega             = 1.8;
+    bamgopt->power             = 1.;
+    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
+    bamgopt->geometricalmetric = 0;
+    bamgopt->random            = true;
+    bamgopt->verbose           = bamg_verbose;
+
+    bamgopt->Check();
 
 }//initBamg
 
@@ -138,7 +150,7 @@ MeshHandler::rootMeshProcessing()
 
         LOG(DEBUG) <<"Convert mesh starts\n";
         BamgConvertMeshx(
-                         &bamgmesh_root,&bamggeom_root,
+                         bamgmesh_root,bamggeom_root,
                          &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
                          M_mesh_root.numNodes(), M_mesh_root.numTriangles()
                          );
@@ -194,27 +206,27 @@ MeshHandler::rootMeshProcessing()
         {
         case setup::MeshType::FROM_UNREF:
             // For the other meshes, we use a constant hmin and hmax
-            bamgopt.hmin = h[0];
-            bamgopt.hmax = h[1];
+            bamgopt->hmin = h[0];
+            bamgopt->hmax = h[1];
             break;
         case setup::MeshType::FROM_SPLIT:
-            bamgopt.hmin = h[0];
-            bamgopt.hmax = h[1];
+            bamgopt->hmin = h[0];
+            bamgopt->hmax = h[1];
 
-            M_hminVertices = this->hminVertices(M_mesh_init_root, &bamgmesh_root);
-            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, &bamgmesh_root);
+            M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
+            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
 
             LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
             LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
             LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
             LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
 
-            bamgopt.hminVertices = new double[M_mesh_init_root.numNodes()];
-            bamgopt.hmaxVertices = new double[M_mesh_init_root.numNodes()];
+            bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
+            bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
             for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
             {
-                bamgopt.hminVertices[i] = M_hminVertices[i];
-                bamgopt.hmaxVertices[i] = M_hmaxVertices[i];
+                bamgopt->hminVertices[i] = M_hminVertices[i];
+                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
             }
             break;
         default:
@@ -228,11 +240,11 @@ MeshHandler::rootMeshProcessing()
             chrono.restart();
             LOG(DEBUG) <<"First adaptation starts\n";
             // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
-            bamgopt.KeepVertices=0;
-            bamgopt.splitcorners=1;
+            bamgopt->KeepVertices=0;
+            bamgopt->splitcorners=1;
             this->adaptMesh();
-            bamgopt.KeepVertices=1;
-            bamgopt.splitcorners=0;
+            bamgopt->KeepVertices=1;
+            bamgopt->splitcorners=0;
             LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
@@ -289,35 +301,52 @@ MeshHandler::rootMeshProcessing()
 void
 MeshHandler::adaptMesh()
 {
-    bamgopt_previous = bamgopt;
+    delete bamgmesh_previous;
+    delete bamggeom_previous;
     bamgmesh_previous = bamgmesh_root;
     bamggeom_previous = bamggeom_root;
 
     // set dirichlet flags
-    for (int edg=0; edg<bamgmesh_previous.EdgesSize[0]; ++edg)
+    for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
     {
-        int fnd = bamgmesh_previous.Edges[3*edg]/*-1*/;
+        int fnd = bamgmesh_previous->Edges[3*edg]/*-1*/;
 
         if ((std::binary_search(M_dirichlet_flags_root.begin(),M_dirichlet_flags_root.end(),fnd)))
         {
-            bamggeom_previous.Edges[3*edg+2] = M_flag_fix;
-            bamgmesh_previous.Edges[3*edg+2] = M_flag_fix;
+            bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
         }
         else
         {
-            bamggeom_previous.Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            bamgmesh_previous.Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            bamggeom_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
         }
     }
 
+    /* We need bamgopt_modified because Bamgx modifies (at least) bamgopt->hmin
+     * and hmax and we don't want anyone to use the modified values! */
+    BamgOpts *bamgopt_modified;
+    bamgopt_modified = new BamgOpts();
+    *bamgopt_modified = *bamgopt;
+
+    /* We also reset bamgmesh_root & bamggeom_root for output
+     * (bamgmesh_previous and bamggeom_prevous are pointing to the data, so
+     * nothing's lost here). */
+    bamgmesh_root = NULL; // probably only needed to convince valgrind that nothing's lost
+    bamggeom_root = NULL;
+    bamgmesh_root = new BamgMesh();
+    bamggeom_root = new BamgGeom();
+
     chrono.restart();
-    Bamgx(&bamgmesh_root,&bamggeom_root,&bamgmesh_previous,&bamggeom_previous,&bamgopt_previous);
+    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_modified);
+    delete bamgopt_modified;
+
     LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
-    this->importBamg(&bamgmesh_root);
+    this->importBamg(bamgmesh_root);
     this->updateBoundaryFlags();
-    if(bamgopt.KeepVertices)
+    if(bamgopt->KeepVertices)
         this->updateNodeIds();
 }//adaptMesh
 
@@ -351,13 +380,13 @@ MeshHandler::interpVertices()
                             &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
                             false);
 
-    bamgopt.hminVertices = new double[M_mesh_root.numNodes()];
-    bamgopt.hmaxVertices = new double[M_mesh_root.numNodes()];
+    bamgopt->hminVertices = new double[M_mesh_root.numNodes()];
+    bamgopt->hmaxVertices = new double[M_mesh_root.numNodes()];
 
     for (int i=0; i<M_mesh_root.numNodes(); ++i)
     {
-        bamgopt.hminVertices[i] = interp_Vertices_out[2*i];
-        bamgopt.hmaxVertices[i] = interp_Vertices_out[2*i+1];
+        bamgopt->hminVertices[i] = interp_Vertices_out[2*i];
+        bamgopt->hmaxVertices[i] = interp_Vertices_out[2*i+1];
     }
 
     xDelete<double>(interp_Vertices_out);
@@ -440,18 +469,18 @@ MeshHandler::updateBoundaryFlags()
     int num_nodes = M_mesh_root.numNodes();
 
     //! 3) Masks out the boundary nodes
-    M_mask_root.assign(bamgmesh_root.VerticesSize[0],false) ;
-    M_mask_dirichlet_root.assign(bamgmesh_root.VerticesSize[0],false) ;
-    for (int vert=0; vert<bamgmesh_root.VerticesOnGeomVertexSize[0]; ++vert)
-        M_mask_root[bamgmesh_root.VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+    M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+    M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
+    for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
+        M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
     //! 4) Updates Dirichlet and Neumann flags
     std::vector<int> boundary_flags_root;
-    for (int edg=0; edg<bamgmesh_root.EdgesSize[0]; ++edg)
+    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
     {
-        boundary_flags_root.push_back(bamgmesh_root.Edges[3*edg]);
-        if (bamgmesh_root.Edges[3*edg+2] == M_flag_fix)
-            M_dirichlet_flags_root.push_back(bamgmesh_root.Edges[3*edg]);
+        boundary_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
+        if (bamgmesh_root->Edges[3*edg+2] == M_flag_fix)
+            M_dirichlet_flags_root.push_back(bamgmesh_root->Edges[3*edg]);
     }
 
     std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
@@ -501,7 +530,7 @@ MeshHandler::updateNodeIds()
     // The new id's will have values higher than the previous ones
     int first_new_node = *std::max_element(old_nodes_id.begin(), old_nodes_id.end())+1;
 
-    for (int vert=0; vert<bamgmesh_root.VerticesSize[0]; ++vert)
+    for (int vert=0; vert<bamgmesh_root->VerticesSize[0]; ++vert)
     {
         if(M_mask_root[vert])
         {
@@ -510,14 +539,14 @@ MeshHandler::updateNodeIds()
         }
         else
         {
-            if(bamgmesh_root.PreviousNumbering[vert]==0)
+            if(bamgmesh_root->PreviousNumbering[vert]==0)
             {
                 nb_new_nodes++;
                 new_nodes_id[vert] = first_new_node+nb_new_nodes-1;
             }
             else
             {
-                new_nodes_id[vert] = old_nodes_id[bamgmesh_root.PreviousNumbering[vert]-1];
+                new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
             }
         }
     }

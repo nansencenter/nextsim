@@ -103,16 +103,23 @@ namespace Nextsim
             std::vector<bool> M_mask_root;
             std::vector<bool> M_mask_dirichlet_root;
 
-            BamgOpts bamgopt;
-            BamgMesh bamgmesh;
-            BamgGeom bamggeom;
+            /* These need to be pointers because the bamg routines expect
+             * pointers. We get memory leaks if we pass them references
+             * instead. */
+            // Global bamg options
+            BamgOpts *bamgopt;
 
-            BamgMesh bamgmesh_root;
-            BamgGeom bamggeom_root;
+            // Per-processor mesh
+            BamgMesh *bamgmesh;
+            BamgGeom *bamggeom;
 
-            BamgOpts bamgopt_previous;
-            BamgMesh bamgmesh_previous;
-            BamgGeom bamggeom_previous;
+            // Root mesh
+            BamgMesh *bamgmesh_root;
+            BamgGeom *bamggeom_root;
+
+            // Old root mesh
+            BamgMesh *bamgmesh_previous;
+            BamgGeom *bamggeom_previous;
 
             mesh_type_root M_mesh_root;
             mesh_type_root M_mesh_init_root;
