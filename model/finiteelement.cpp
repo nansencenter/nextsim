@@ -619,6 +619,7 @@ FiniteElement::assignVariables()
     M_ice_amsr2_elements_dataset.interpolated=false;
     M_ice_cs2_smos_elements_dataset.interpolated=false;
     M_ice_smos_elements_dataset.interpolated=false;
+    M_ice_glorys12_elements_dataset.interpolated=false;
     M_bathymetry_elements_dataset.interpolated=false;
     // --------------------------------------------------------------
 
@@ -853,6 +854,7 @@ FiniteElement::initDatasets()
     M_ice_nic_weekly_elements_dataset=DataSet("ice_nic_weekly_elements");
     M_ice_cs2_smos_elements_dataset=DataSet("ice_cs2_smos_elements");
     M_ice_smos_elements_dataset=DataSet("ice_smos_elements");
+    M_ice_glorys12_elements_dataset=DataSet("glorys12_elements");
 
     // datasets that need to be re-interpolated after regridding
     // - not needed if only used at initialisation, or if not interpolated onto
@@ -13012,8 +13014,8 @@ FiniteElement::smosIce()
 void
 FiniteElement::glorys12Ice()
 {
-    external_data M_init_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-    external_data M_init_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
+    external_data M_init_conc  = ExternalData(&M_ice_glorys12_elements_dataset,M_mesh,3,false,time_init);
+    external_data M_init_thick = ExternalData(&M_ice_glorys12_elements_dataset,M_mesh,4,false,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     int month_id=dt.month().as_number(); // 1 for January, 2 for February, and so on. This will be used to compute the snow from Warren climatology

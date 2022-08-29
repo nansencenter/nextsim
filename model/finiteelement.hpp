@@ -220,6 +220,7 @@ public:
     Dataset M_ice_nic_weekly_elements_dataset;
     Dataset M_ice_cs2_smos_elements_dataset;
     Dataset M_ice_smos_elements_dataset;
+    Dataset M_ice_glorys12_elements_dataset;
 
     // Datasets for nesting from outer domain with coarse resolution
     Dataset M_nesting_ocean_elements_dataset;
