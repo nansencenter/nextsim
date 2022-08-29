@@ -393,6 +393,7 @@ GmshMeshSeq::update(std::vector<point_type> const& nodes,
 void
 GmshMeshSeq::initGModel()
 {
+    this->clear();
     M_gmodel = new GModel();
 
     Msg::SetVerbosity(Environment::vm()["debugging.gmsh_verbose"].as<int>());
@@ -455,6 +456,7 @@ GmshMeshSeq::writeToGModel()
         ++cpt_element;
     }
 
+    this->clear();
     M_gmodel = GModel::createGModel(
                                     vertexMap,
                                     elementNum,
