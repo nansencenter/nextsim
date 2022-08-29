@@ -4005,7 +4005,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
                 D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
             }
-            D_del_ci_ridge_myi[cpt]*=86400./dtime_step; // Change in myi concentration due to ridging [/day]
+            D_del_ci_ridge_myi[cpt]*=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
         /*======================================================================
@@ -5619,10 +5619,15 @@ FiniteElement::thermo(int dt)
             use_young_ice_in_myi_reset = false;
 
         // Keep track of freeze days
-        M_del_vi_tend[i] = M_del_vi_tend[i] + del_vi*ddt;
+        int const num_steps_in_day = std::round(days_in_sec / dtime_step);
+        int const step_in_day = 1 + std::round(
+                num_steps_in_day * std::fmod(M_current_time, 1.));
+        if (step_in_day == 1)
+            M_del_vi_tend[i] = 0.;
+        M_del_vi_tend[i] += del_vi*ddt;
 
-        const double day_seconds = 86400.;
-        if (M_fullday_counter >= day_seconds) // end of day 
+        // Update M_freeze_days on last time step of the day
+        if (step_in_day == num_steps_in_day)
         {
             if (M_del_vi_tend[i] > 0.) // It's freezing 
             {   
@@ -5630,14 +5635,20 @@ FiniteElement::thermo(int dt)
             }
             else if (M_del_vi_tend[i] < 0.) // It's melting    
             {
+                // melting occurring, so need to adjust to new onset
                 M_freeze_days[i] = 0.;
-                M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
-                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
-                    M_conc_summer[i]+=M_conc_young[i];
+                double conc_summer = M_conc[i] + std::min(0.,del_c);
+                double thick_summer = M_thick[i] + std::min(0.,del_vi);
+                if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        && use_young_ice_in_myi_reset)
+                {
+                    conc_summer += M_conc_young[i];
+                    thick_summer += M_h_young[i];
+                }
+                M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
+                M_thick_summer[i] = std::max(0., thick_summer);
             }
-            M_del_vi_tend[i] = 0.;
         }
-
 
         /* New concentration */
         M_conc[i] += del_c;
@@ -5879,7 +5890,7 @@ FiniteElement::thermo(int dt)
         D_Qassim[i] = Qassm;
 
         // Virtual salt flux to the ocean (positive is salinity increase) [g/m^2/day]
-        D_delS[i] = delsss*physical::rhow*mld*86400/dtime_step;
+        D_delS[i] = delsss*physical::rhow*mld*days_in_sec/dtime_step;
 
         // Freshwater flux at the surface due to ice processes - kg/m^2/s
         D_fwflux_ice[i] = -1./ddt * ( (1.-1e-3*si_eff)*physical::rhoi*del_vi + physical::rhos*del_vs_mlt );
@@ -5897,28 +5908,28 @@ FiniteElement::thermo(int dt)
         D_rain[i] = rain;
 
         // Ice volume melt rate per day per element area  [m/day]
-        D_vice_melt[i]   = del_vi*86400/ddt;
+        D_vice_melt[i]   = del_vi*days_in_sec/ddt;
 
         // Young Ice volume melt rate per day per element area  [m/day]
-        D_del_vi_young[i]  = del_vi_young*86400/ddt;
+        D_del_vi_young[i]  = del_vi_young*days_in_sec/ddt;
 
         // Ice growth/melt rate [m/day]
-        D_del_hi[i]      = del_hi*86400/ddt;
+        D_del_hi[i]      = del_hi*days_in_sec/ddt;
 
         // New young ice growth/melt rate [m/day]
-        D_del_hi_young[i] = del_hi_young*86400/ddt;
+        D_del_hi_young[i] = del_hi_young*days_in_sec/ddt;
 
         // young ice volume per surface area rate [m/day]
-        D_newice[i]      = newice_stored*86400/ddt;
+        D_newice[i]      = newice_stored*days_in_sec/ddt;
 
         // top melt  volume per surface area rate [m/day]
-        D_mlt_top[i]      = mlt_vi_top*86400/ddt;
+        D_mlt_top[i]      = mlt_vi_top*days_in_sec/ddt;
 
         // top melt  volume per surface area rate [m/day]
-        D_mlt_bot[i]      = mlt_vi_bot*86400/ddt;
+        D_mlt_bot[i]      = mlt_vi_bot*days_in_sec/ddt;
 
         // ice from snow volume per surface area rate [m/day]
-        D_snow2ice[i]     = snow2ice*86400/ddt;
+        D_snow2ice[i]     = snow2ice*days_in_sec/ddt;
 
         // sea ice albedo
         double sialb = old_conc * albedo[i];
@@ -6003,25 +6014,35 @@ FiniteElement::thermo(int dt)
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
-                if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && (M_conc[i] + M_conc_young[i] == 0) )
+                double ctot = M_conc[i];
+                if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                    ctot += M_conc_young[i];
+                if ( ctot == 0. )
                     M_freeze_onset[i] = 1.;
-                else if (M_conc[i] == 0.)
-                    M_freeze_onset[i] = 1.;
-                M_conc_summer[i]  = M_conc[i]  ;
-                M_thick_summer[i] = M_thick[i] ;  // initialise here, for case where no melting occurs
 
+                double conc_summer = M_conc[i];
+                double thick_summer = M_thick[i];
+                if ((M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        && use_young_ice_in_myi_reset)
+                {
+                    conc_summer += M_conc_young[i]  ;
+                    thick_summer += M_h_young[i] ;
+                }
+                M_conc_summer[i] = std::max(0., std::min(1., conc_summer));
+                M_thick_summer[i] = std::max(0., thick_summer);
             }
             // Now ensure that freeze and melt onsets are 0 or 1
             M_freeze_onset[i] = std::round(M_freeze_onset[i]);
 
             double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
             double old_thick_myi =  M_thick_myi[i];
-            double ctot = M_conc[i];
-            double vtot = M_thick[i];
-            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE) && use_young_ice_in_myi_reset)
+            double c_myi_max = M_conc[i];
+            double v_myi_max = M_thick[i];
+            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                    && use_young_ice_in_myi_reset)
             {
-                vtot+=M_h_young[i];
-                ctot+=M_conc_young[i];
+                c_myi_max += M_conc_young[i];
+                v_myi_max += M_h_young[i];
             }
 
             if (reset_myi) // 
@@ -6030,15 +6051,15 @@ FiniteElement::thermo(int dt)
                 {
                     // summer thickness and concentration might be a bit dodgy in places.
                     // Replenishment should be positive
-                    double c_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
-                    double v_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
-                    M_conc_myi[i]  = std::min(c_reset,ctot) ; // reset to sea ice summer low
-                    M_thick_myi[i] = std::min(v_reset,vtot); // reset to sea ice summer low
+                    double c_myi_reset = std::max(M_conc_summer[i],M_conc_myi[i]);
+                    double v_myi_reset = std::max(M_thick_summer[i],M_thick_myi[i]);
+                    M_conc_myi[i]  = std::min(c_myi_max,c_myi_reset) ; // reset to sea ice summer low
+                    M_thick_myi[i] = std::min(v_myi_max,v_myi_reset); // reset to sea ice summer low
                 }
                 else
                 {
-                    M_conc_myi[i]  = ctot; // reset to M_conc: all thick ice on reset date is myi
-                    M_thick_myi[i] = vtot;
+                    M_conc_myi[i]  = c_myi_max; // reset to M_conc: all thick ice on reset date is myi
+                    M_thick_myi[i] = v_myi_max;
                 }
                 M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
@@ -6058,8 +6079,8 @@ FiniteElement::thermo(int dt)
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
                     }
                     // Check it does not get crazy
-                    M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
-                    M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]+del_vi_mlt_myi));                  
+                    M_conc_myi[i]  = std::max(0.,std::min(c_myi_max, M_conc_myi[i] +del_ci_mlt_myi));
+                    M_thick_myi[i] = std::max(0.,std::min(v_myi_max, M_thick_myi[i]+del_vi_mlt_myi));
                     //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include young ice in total ice conc
                     //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
@@ -6072,13 +6093,13 @@ FiniteElement::thermo(int dt)
         }
         // Tracers quantities to output
         // myi melted area per surface area rate [/day]
-        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*86400/ddt;
+        D_del_ci_mlt_myi[i]   = del_ci_mlt_myi*days_in_sec/ddt;
         // myi melted  volume per surface area rate [m/day]
-        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*86400/ddt;
+        D_del_vi_mlt_myi[i]  = del_vi_mlt_myi*days_in_sec/ddt;
         // myi replenished area per surface area rate [/day]
-        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*86400/ddt;
+        D_del_ci_rplnt_myi[i] = del_ci_rplnt_myi*days_in_sec/ddt;
         // myi replenished  volume per surface area rate [m/day]
-        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*86400/ddt;
+        D_del_vi_rplnt_myi[i] = del_vi_rplnt_myi*days_in_sec/ddt;
     }// end for loop
 
     M_timer.tock("slab");
@@ -7330,7 +7351,7 @@ FiniteElement::initOASIS()
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*86400., true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -7919,11 +7940,6 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
-    if (M_fullday_counter >= 86400.)
-        M_fullday_counter = 0.;
-
-    M_fullday_counter = M_fullday_counter + dtime_step; 
-    LOG(DEBUG) << "M_fullday_counter= " << M_fullday_counter << "\n";
  
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
@@ -8974,7 +8990,7 @@ FiniteElement::initMoorings()
             output_time = M_current_time;
         else
             // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time + double(mooring_output_time_step)/86400./2.;
+            output_time = M_current_time + mooring_output_time_step/days_in_sec/2.;
 
         std::string filename_root;
         if ( M_moorings_parallel_output )
@@ -9009,14 +9025,14 @@ FiniteElement::updateMoorings()
         else
         {
             // shift the timestamp in the file to the centre of the output interval
-            output_time = M_current_time - double(mooring_output_time_step)/86400./2.;
+            output_time = M_current_time - double(mooring_output_time_step)/days_in_sec/2.;
         }
 
         // If it's a new day we check if we need a new file
         double not_used;
         if (       (M_rank==0 || M_moorings_parallel_output)
                 && (M_moorings_file_length != GridOutput::fileLength::inf)
-                && (modf(output_time, &not_used) < double(mooring_output_time_step)/86400) )
+                && (modf(output_time, &not_used) < mooring_output_time_step/days_in_sec) )
         {
             std::string filename_root;
             if ( M_moorings_parallel_output )
