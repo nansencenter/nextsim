@@ -13030,9 +13030,9 @@ FiniteElement::glorys12Ice()
 {
     // Initialize the sea ice conc. and thick. from GLORYS12 reanalysis or forecast. 
     // Snow thickness is 0 by default (used in southern ocean, with no equivalent of Warren Climatology)
-    Dataset ice_glorys12_elements_dataset = DataSet("glorys12_elements");
-    external_data M_init_conc   = ExternalData(&ice_glorys12_elements_dataset,M_mesh,3,false,time_init);
-    external_data M_init_thick  = ExternalData(&ice_glorys12_elements_dataset,M_mesh,4,false,time_init);
+    ice_glorys12_elements_dataset = DataSet("glorys12_elements");
+    external_data M_init_conc     = ExternalData(&ice_glorys12_elements_dataset,M_mesh,3,false,time_init);
+    external_data M_init_thick    = ExternalData(&ice_glorys12_elements_dataset,M_mesh,4,false,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
     
