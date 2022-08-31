@@ -965,4 +965,29 @@ GmshMeshSeq::vertices(std::vector<int> const& indices,
     return vertices;
 }//vertices
 
+//--------------------------------------------------------------------------------------------------
+//! Calculate the surface area of all the mesh triangles
+//! Called by assignVariables(), readRestart(), exportResults()
+std::vector<double>
+GmshMeshSeq::surface(std::vector<double> const& um, double const& factor)
+{
+    std::vector<double> surface(M_num_triangles);
+    int cpt = 0;
+    for (auto it=M_triangles.begin(), end=M_triangles.end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it, um, factor);
+    return surface;
+}//surface
+
+std::vector<double>
+GmshMeshSeq::surface()
+{
+    std::vector<double> surface(M_num_triangles);
+    int cpt = 0;
+    for (auto it=M_triangles.begin(), end=M_triangles.end();
+            it!=end; ++it, ++cpt)
+        surface[cpt] = this->measure(*it);
+    return surface;
+}//surface
+
 } // Nextsim

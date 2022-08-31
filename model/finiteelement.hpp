@@ -30,7 +30,6 @@
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
 #include <graphcsr.hpp>
-#include <graphcsrmpi.hpp>
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
@@ -64,10 +63,6 @@ public:
 
     typedef typename GmshMesh::bimap_type bimap_type;
 
-    typedef GraphCSR graph_type;
-    typedef boost::shared_ptr<graph_type> graph_ptrtype;
-
-    typedef GraphCSRMPI graphmpi_type;
     typedef boost::shared_ptr<graphmpi_type> graphmpi_ptrtype;
 
     // typedef ExternalData external_data;
@@ -91,22 +86,14 @@ public:
 
     mesh_type const& mesh() const {return M_mesh;}
 
-    void initMesh();
     void initExternalData();
     void initDatasets();
-    void createGMSHMesh(std::string const& geofilename);
 
     std::vector<double> shapeCoeff(element_type const& element) const;
-    template<typename FEMeshType>
-    std::vector<double> surface(FEMeshType const& mesh);
-    template<typename FEMeshType>
-    std::vector<double> surface(FEMeshType const& mesh,
-            std::vector<double> const& um, double const& factor=1);
 
     bool checkRegridding();
     void regrid(bool step = true);
 
-    void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
 
@@ -197,27 +184,10 @@ public:
     Dataset M_nesting_dynamics_elements_dataset;
 
     template<typename FEMeshType>
-    double minAngles(element_type const& element, FEMeshType const& mesh) const;
-    template<typename FEMeshType>
-    double minAngles(element_type const& element, FEMeshType const& mesh,
-                     std::vector<double> const& um, double factor) const;
-
-    template<typename FEMeshType>
-    double minAngle(FEMeshType const& mesh) const;
-    template<typename FEMeshType>
-    double minAngle(FEMeshType const& mesh, std::vector<double> const& um, double factor, bool root = false) const;
-
-    template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
 
     void initOptAndParam();
     void initFETensors();
-    template<typename option_type>
-    option_type getOptionFromMap(std::string const &opt_name,
-        boost::unordered_map<const std::string, option_type> map);
-    template<typename option_type>
-    option_type getAllowedOption(std::string const &opt_name,
-        const std::vector<option_type> &options);
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -238,7 +208,6 @@ public:
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
-    void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
     void calcAuxiliaryVariables();
@@ -252,10 +221,6 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
-
-    void updateGhosts(std::vector<double>& mesh_nodal_vec);
-    void initUpdateGhosts();
-    int globalNumToprocId(int global_num);
 
 #ifdef OASIS
     bool M_couple_waves;
@@ -288,12 +253,6 @@ public:
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
-
-    void rootMeshRenumbering();
-
-    void distributedMeshProcessing(bool start = false);
-
-    void bcMarkedNodes();
 
     void finalise(std::string current_time_system);
 
@@ -330,26 +289,12 @@ private:
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         std::vector<ModelVariable*> &vars_elements);
 
-    void scatterElementConnectivity();
-
 private:
     po::variables_map vm;
-    graph_type M_graph;
-    graphmpi_type M_graphmpi;
     mesh_type M_mesh_init;
 
-    std::map<int, point_type > M_nodes;
-    //std::vector<point_type> M_nodes;
     std::vector<element_type> M_edges;
-    std::vector<element_type> M_elements;
 
-    int M_num_nodes;
-    int M_num_elements;
-
-    int M_ndof;
-    int M_local_ndof;
-    int M_local_ndof_ghost;
-    int M_local_nelements;
     int M_rank;
     Communicator M_comm;
 
@@ -368,10 +313,6 @@ private:
     double minang;
 
     std::vector<int> M_boundary_flags;
-    std::vector<int> M_dirichlet_flags;
-    std::vector<int> M_dirichlet_nodes;
-    std::vector<int> M_neumann_flags;
-    std::vector<int> M_neumann_nodes;
 
     boost::mpi::timer chrono, chrono_tot;
     Timer M_timer;
@@ -430,18 +371,6 @@ private:
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
-
-    std::vector<int> M_sizes_nodes;
-    std::vector<int> M_sizes_nodes_with_ghost;
-    std::vector<int> M_sizes_elements;
-    std::vector<int> M_sizes_elements_with_ghost;
-    std::vector<int> M_id_nodes;
-    std::vector<int> M_rmap_nodes;
-
-    std::vector<int> M_id_elements;
-    std::vector<int> M_rmap_elements;
-    //std::vector<double> M_speed_scaling;
-    std::vector<double> M_element_connectivity;
 
     std::vector<double> M_Dunit;
     std::vector<std::vector<double>> M_shape_coeff;
@@ -533,12 +462,6 @@ private:
     double M_spinup_duration;
 
     std::string M_export_path;
-
-private: // update solution from explicit solver
-    std::vector<std::vector<int>> M_extract_local_index;
-    std::vector<int> M_recipients_proc_id;
-    std::vector<int> M_local_ghosts_proc_id;
-    std::vector<std::vector<int>> M_local_ghosts_local_index;
 
 private: // only on root process (rank 0)
 

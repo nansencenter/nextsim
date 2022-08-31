@@ -175,6 +175,12 @@ public:
             std::vector<double> const& um, double factor = 1.) const
     { return (1./2)*std::abs(GmshMesh::jacobian(element,um,factor)); }
 
+    //--------------------------------------------------------------------------------------------------
+    //! Calculate the surface area of all the mesh triangles
+    //! Called by assignVariables(), readRestart(), exportResults()
+    std::vector<double> surface(std::vector<double> const& um, double const& factor);
+    std::vector<double> surface();
+
 private:
 
     Communicator M_comm;

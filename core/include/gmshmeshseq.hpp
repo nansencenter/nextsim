@@ -150,6 +150,12 @@ public:
             std::vector<double> const& um, double factor = 1.) const
     { return (1./2)*std::abs(GmshMeshSeq::jacobian(element,um,factor)); }
 
+    //--------------------------------------------------------------------------------------------------
+    //! Calculate the surface area of all the mesh triangles
+    //! Called by assignVariables(), readRestart(), exportResults()
+    std::vector<double> surface(std::vector<double> const& um, double const& factor);
+    std::vector<double> surface();
+
 private:
 
     void partitionMemory(std::string const& filename,

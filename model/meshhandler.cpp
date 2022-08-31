@@ -75,6 +75,18 @@ MeshHandler::initOptAndParam()
 }
 
 //------------------------------------------------------------------------------------------------------
+//! Initialisation of the mesh.
+//! Called by the init() function.
+void
+MeshHandler::initMesh()
+{
+    this->initBamg();
+    this->rootMeshProcessing();
+    if (!M_use_restart)
+        this->distributedMeshProcessing(true);
+}//initMesh
+
+//------------------------------------------------------------------------------------------------------
 //! Initializes a Bamg mesh grid.
 //! Called by the initMesh() function.
 void
@@ -294,6 +306,625 @@ MeshHandler::rootMeshProcessing()
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
 }//rootMeshProcessing
+
+//------------------------------------------------------------------------------------------------------
+//! Distribution of mesh processing for parallel computing.
+//! Called by the interpFields(), initMesh() and distributedMeshProcessing() functions.
+void
+MeshHandler::distributedMeshProcessing(bool start)
+{
+    M_comm.barrier();
+
+    if (!start)
+    {
+        M_mesh = mesh_type();
+    }
+
+    M_mesh.setOrdering("gmsh");
+
+    LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+
+    chrono.restart();
+    M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
+    LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    delete bamgmesh;
+    delete bamggeom;
+    bamgmesh = new BamgMesh();
+    bamggeom = new BamgGeom();
+    BamgConvertMeshx(
+                     bamgmesh,bamggeom,
+                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                     M_mesh.numNodes(), M_mesh.numTriangles());
+
+    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
+
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+
+    M_num_elements = M_mesh.numTriangles();
+    M_ndof = M_mesh.numGlobalNodes();
+
+    M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
+    M_local_ndof_ghost = M_mesh.numLocalNodesWithGhost();
+
+    M_local_nelements = M_mesh.numTrianglesWithoutGhost();
+    M_num_nodes = M_local_ndof_ghost;
+
+    chrono.restart();
+    this->bcMarkedNodes();
+    LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->createGraph();
+    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->gatherSizes();
+    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->scatterElementConnectivity();
+    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->initUpdateGhosts();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+
+#if 0
+    // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    // LOG(DEBUG) << ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+
+    std::cout << "[INFO]: " <<"["<< M_rank << "] NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
+    std::cout << "[INFO]: " <<"["<< M_rank << "] ELEMENTS= "<< M_mesh.numGlobalElements() << " --- "<< M_local_nelements <<"\n";
+
+    int num_nodes = boost::mpi::all_reduce(M_comm, M_local_ndof, std::plus<int>());
+    int num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
+
+    std::cout<<"NODE COMPARE: "<< M_mesh.numGlobalNodesFromSarialMesh() << " and "<< num_nodes <<"\n";
+
+    if(M_mesh.numGlobalNodesFromSarialMesh() != num_nodes)
+    {
+        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT NODAL PARTITIONS");
+    }
+
+    std::cout<<"ELEMENT COMPARE: "<< M_mesh.numGlobalElementsFromSarialMesh() << " and "<< num_elements <<"\n";
+
+    if(M_mesh.numGlobalElementsFromSarialMesh() != num_elements)
+    {
+        throw std::logic_error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@INCONSISTANT ELEMENT PARTITIONS");
+    }
+    //M_comm.barrier();
+    //std::abort();
+#endif
+
+}//distributedMeshProcessing
+
+// -------------------------------------------------------------------------------------
+//! Creates a new graphmpi_type object.
+//! Called by the distributeMeshProcessing() function.
+void
+MeshHandler::createGraph()
+{
+    auto M_local_ghost = M_mesh.localGhost();
+    auto M_transfer_map = M_mesh.transferMap();
+
+    int Nd = bamgmesh->NodalConnectivitySize[1];
+    std::vector<int> dz;
+    std::vector<int> ddz_j;
+    std::vector<int> ddz_i;
+
+    std::vector<int> d_nnz;
+    std::vector<int> o_nnz;
+
+    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
+    {
+
+        int counter_dnnz = 0;
+        int counter_onnz = 0;
+
+        int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
+        int gid = M_transfer_map.right.find(i+1)->second;
+        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
+        if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid))
+        {
+            for (int j=0; j<Ncc; ++j)
+            {
+                int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
+
+                int gid2 = M_transfer_map.right.find(currentr)->second;
+                //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
+                if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid2))
+                {
+                    ++counter_dnnz;
+                }
+                else
+                {
+                    ++counter_onnz;
+                }
+
+                //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< M_transfer_map.right.find(currentr)->second <<"\n";
+            }
+
+            d_nnz.push_back(2*(counter_dnnz+1));
+            o_nnz.push_back(2*(counter_onnz));
+        }
+    }
+
+    auto d_nnz_count = d_nnz.size();
+    d_nnz.resize(2*d_nnz_count);
+    std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
+
+    auto o_nnz_count = o_nnz.size();
+    o_nnz.resize(2*o_nnz_count);
+    std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
+
+    int sM = M_mesh.numNodes();
+
+    std::vector<int> global_indices_with_ghost = M_mesh.localDofWithGhost();
+    int glsize = global_indices_with_ghost.size();
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices_with_ghost[gl] = global_indices_with_ghost[gl]-1;
+
+    std::vector<int> global_indices_without_ghost = M_mesh.localDofWithoutGhost();
+    glsize = global_indices_without_ghost.size();
+
+    for (int gl=0; gl<glsize; ++gl)
+        global_indices_without_ghost[gl] = global_indices_without_ghost[gl]-1;
+
+    M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
+
+#if 0
+    std::cout<<"\n";
+    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ ON-DIAGONAL (per row)     = "<< *std::max_element(d_nnz.begin(),d_nnz.end()) <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ OFF-DIAGONAL (per row)    = "<< *std::min_element(o_nnz.begin(),o_nnz.end()) <<"\n";
+    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ OFF-DIAGONAL (per row)    = "<< *std::max_element(o_nnz.begin(),o_nnz.end()) <<"\n";
+    std::cout<<"\n";
+#endif
+
+#if 0
+    M_comm.barrier();
+
+    if (M_rank == 1)
+    {
+        std::cout<<"************00************\n";
+        for (int const& index : global_indices_without_ghost)
+            std::cout<<"WITHOUT GHOST "<< index+1 <<"\n";
+
+        std::cout<<"************01************\n";
+        for (int const& index : global_indices_with_ghost)
+            std::cout<<"WITH GHOST    "<< index+1 <<"\n";
+
+        std::cout<<"************02************\n";
+        for (int const& index : M_local_ghost)
+            std::cout<<"GHOST         "<< index <<"\n";
+    }
+#endif
+
+}//createGraph
+
+//------------------------------------------------------------------------------------------------------
+//! Interpolates hminVertices and hmaxVertices onto the current mesh.
+//! Called by the distributedMeshProcessing() function.
+void
+MeshHandler::gatherSizes()
+{
+
+    std::vector<int> fesizes_local(4);
+    fesizes_local = {M_local_ndof, M_num_nodes, M_local_nelements, M_num_elements};
+
+    std::vector<int> fesizes;
+
+    boost::mpi::all_gather(M_comm, &fesizes_local[0], 4, fesizes);
+
+    M_sizes_nodes.resize(M_comm.size());
+    M_sizes_nodes_with_ghost.resize(M_comm.size());
+    M_sizes_elements.resize(M_comm.size());
+    M_sizes_elements_with_ghost.resize(M_comm.size());
+
+    for (int i=0; i<M_comm.size(); ++i)
+    {
+        // nodes
+        M_sizes_nodes[i] = fesizes[4*i];
+        M_sizes_nodes_with_ghost[i] = fesizes[4*i+1];
+
+        // elements
+        M_sizes_elements[i] = fesizes[4*i+2];
+        M_sizes_elements_with_ghost[i] = fesizes[4*i+3];
+    }
+
+    std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
+
+    if (M_comm.rank() == 0)
+    {
+        int out_size_nodes = std::accumulate(sizes_nodes.begin(),sizes_nodes.end(),0);
+        M_id_nodes.resize(out_size_nodes);
+
+        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), &M_id_nodes[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), 0);
+    }
+
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+
+    if (M_comm.rank() == 0)
+    {
+        int out_size_elements = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
+        M_id_elements.resize(out_size_elements);
+
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &M_id_elements[0], sizes_elements, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
+    }
+
+    // -------------------------------------------------------------
+    if (M_comm.rank() == 0)
+    {
+        M_rmap_nodes = M_mesh.mapNodes();
+        M_rmap_elements = M_mesh.mapElements();
+    }
+    // -------------------------------------------------------------
+}//gatherSizes
+
+//------------------------------------------------------------------------------------------------------
+//! ?? Has to do with the parallel computing.
+//! Called by distributedMeshProcessing(), initMesh and  functions.
+void
+MeshHandler::scatterElementConnectivity()
+{
+    auto transfer_map_local = M_mesh.transferMapElt();
+    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
+
+    int nb_var_element = 3;
+    std::vector<double> connectivity_root;
+
+    if (M_comm.rank() == 0)
+    {
+
+        // std::cout<<"bamgmesh_root->ElementConnectivitySize[0]= "<< bamgmesh_root->ElementConnectivitySize[0] <<"\n";
+        // std::cout<<"bamgmesh_root->ElementConnectivitySize[1]= "<< bamgmesh_root->ElementConnectivitySize[1] <<"\n";
+
+        connectivity_root.resize(3*nb_var_element*M_id_elements.size());
+
+        for (int i=0; i<M_id_elements.size(); ++i)
+        {
+            int ri = M_id_elements[i]-1;
+
+            for (int j=0; j<nb_var_element; ++j)
+            {
+                double neighbour_id_db = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
+                int neighbour_id_int = (int)neighbour_id_db;
+
+                if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
+                {
+                    connectivity_root[nb_var_element*i+j] = neighbour_id_db;
+                }
+                else
+                {
+                    connectivity_root[nb_var_element*i+j] = -100.;
+                }
+            }
+        }
+    }
+
+    M_element_connectivity.resize(nb_var_element*M_num_elements);
+
+    if (M_comm.rank() == 0)
+    {
+        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
+        boost::mpi::scatterv(M_comm, connectivity_root, sizes_elements, &M_element_connectivity[0], 0);
+    }
+    else
+    {
+        boost::mpi::scatterv(M_comm, &M_element_connectivity[0], nb_var_element*M_num_elements, 0);
+    }
+
+    M_comm.barrier();
+
+    auto element_connectivity_gid = M_element_connectivity;
+
+    for (int cpt=0; cpt < M_num_elements; ++cpt)
+    {
+        for (int j=0; j<nb_var_element; ++j)
+        {
+            double neighbour_id_global_db = element_connectivity_gid[nb_var_element*cpt+j];
+            int neighbour_id_global_int = (int)element_connectivity_gid[nb_var_element*cpt+j];
+
+            if (neighbour_id_global_int>0)
+            {
+                if (transfer_map_local.left.find(neighbour_id_global_int) != transfer_map_local.left.end())
+                {
+                    int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
+                    M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
+                }
+                else
+                {
+                    M_element_connectivity[nb_var_element*cpt+j] = -100.;
+                }
+            }
+        }
+    }
+}//scatterElementConnectivity
+
+// -------------------------------------------------------------------------------------
+//! Initialise maps to update ghost nodes
+//! Called after remeshing and at init by distributedMeshProcessing
+void
+MeshHandler::initUpdateGhosts()
+{
+    auto M_transfer_map = M_mesh.transferMap();
+    auto M_local_ghost = M_mesh.localGhost();
+
+    std::vector<std::vector<int>> local_ghosts_global_index(M_comm.size());
+
+    for (int i=0; i<M_local_ghost.size(); i++)
+    {
+        int currentid = M_local_ghost[i];
+
+        // std::cout<<"["<< M_comm.rank() <<"]: Global id= "
+        //          << currentid
+        //          << " <-----> " << M_transfer_map.left.find(currentid)->second
+        //          <<" true ghost= "<< globalNumToprocId(currentid) <<"\n";
+
+        local_ghosts_global_index[this->globalNumToprocId(currentid)].push_back(currentid);
+    }
+
+    M_local_ghosts_proc_id.resize(0);
+    M_local_ghosts_local_index.resize(M_comm.size());
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if (local_ghosts_global_index[i].size() != 0)
+        {
+            M_local_ghosts_proc_id.push_back(i);
+        }
+
+        M_local_ghosts_local_index[i].resize(local_ghosts_global_index[i].size());
+
+        // std::cout<<"            ["<< M_rank <<"] <---> "<< i <<"             \n";
+
+        for (int j=0; j<local_ghosts_global_index[i].size(); j++)
+        {
+            int currentindex = local_ghosts_global_index[i][j];
+            M_local_ghosts_local_index[i][j] = M_transfer_map.left.find(currentindex)->second-1;
+            // std::cout<<" "<< M_local_ghosts_local_index[i][j] <<"  ";
+        }
+        // std::cout<<"\n";
+    }
+
+    std::vector<std::vector<int>> recipients_proc_id_extended;
+    boost::mpi::all_gather(M_comm, M_local_ghosts_proc_id, recipients_proc_id_extended);
+
+    M_recipients_proc_id.resize(0);
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if (M_comm.rank() == 0)
+        {
+            LOG(DEBUG) << "["<< i <<"]  ";
+            for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
+                LOG(DEBUG) << recipients_proc_id_extended[i][j] <<"  ";
+
+            LOG(DEBUG) << "\n";
+        }
+
+        for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
+        {
+            if (recipients_proc_id_extended[i][j] == M_comm.rank())
+                M_recipients_proc_id.push_back(i);
+        }
+    }
+
+    std::vector<std::vector<int>> extract_global_index(M_comm.size());
+
+    for (int const& proc : M_local_ghosts_proc_id)
+        M_comm.send(proc, M_comm.rank(), local_ghosts_global_index[proc]);
+
+    for (int const& proc : M_recipients_proc_id)
+        M_comm.recv(proc, proc, extract_global_index[proc]);
+
+    M_extract_local_index.resize(M_comm.size());
+
+    for (int i=0; i<extract_global_index.size(); i++)
+    {
+        int srl = extract_global_index[i].size();
+        M_extract_local_index[i].resize(srl);
+
+        for (int j=0; j<extract_global_index[i].size(); j++)
+        {
+            M_extract_local_index[i][j] = M_transfer_map.left.find(extract_global_index[i][j])->second-1;
+        }
+    }
+} //initUpdateGhosts
+
+// -------------------------------------------------------------------------------------
+//! Called by initUpdateGhosts
+int
+MeshHandler::globalNumToprocId(int global_num)
+{
+    int cpt = 0;
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if ((cpt < global_num) && (global_num <= cpt+M_sizes_nodes[i]))
+            return i;
+
+        cpt += 2*M_sizes_nodes[i];
+    }
+} //globalNumToprocId
+
+// -------------------------------------------------------------------------------------
+//! Updates the ghost nodes
+//! Called by the explicit solver
+void
+MeshHandler::updateGhosts(std::vector<double>& mesh_nodal_vec)
+{
+    std::vector<std::vector<double>> extract_local_values(M_comm.size());
+
+    for (int i=0; i<M_extract_local_index.size(); i++)
+    {
+        int const srl = M_extract_local_index[i].size();
+        extract_local_values[i].resize(2*srl);
+
+        for (int j=0; j<M_extract_local_index[i].size(); j++)
+        {
+            extract_local_values[i][j] = mesh_nodal_vec[M_extract_local_index[i][j]];
+            extract_local_values[i][j+srl] = mesh_nodal_vec[M_extract_local_index[i][j]+M_num_nodes];
+        }
+    }
+
+    std::vector<std::vector<double>> ghost_update_values(M_comm.size());
+
+    for (int const& proc : M_recipients_proc_id)
+        M_comm.send(proc, M_comm.rank(), extract_local_values[proc]);
+
+    for (int const& proc : M_local_ghosts_proc_id)
+        M_comm.recv(proc, proc, ghost_update_values[proc]);
+
+    for (int i=0; i<M_local_ghosts_local_index.size(); i++)
+    {
+        for (int j=0; j<M_local_ghosts_local_index[i].size(); j++)
+        {
+            int const srl = M_local_ghosts_local_index[i].size();
+            mesh_nodal_vec[M_local_ghosts_local_index[i][j]] = ghost_update_values[i][j];
+            mesh_nodal_vec[M_local_ghosts_local_index[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
+        }
+    }
+} //updateGhosts
+
+//------------------------------------------------------------------------------------------------------
+//! Marks the mesh nodes where boundary conditions should apply.
+//! Called by the distributedMeshProcessing() function.
+void
+MeshHandler::bcMarkedNodes()
+{
+#if 0
+    M_dirichlet_flags_root.resize(5);
+    M_neumann_flags_root.resize(11);
+
+    M_dirichlet_flags_root = {2,3,11,12,13};
+    M_neumann_flags_root = {4,5,6,7,1,8,9,10,14,15,16};
+
+    // M_dirichlet_flags_root.resize(16);
+    // std::iota(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), 1);
+    // M_neumann_flags_root.resize(0);
+
+#endif
+
+    //std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
+
+    std::vector<int> flags_size_root(2);
+    if (M_comm.rank() == 0)
+    {
+        flags_size_root = {(int)M_dirichlet_flags_root.size(), (int)M_neumann_flags_root.size()};
+    }
+
+    boost::mpi::broadcast(M_comm, &flags_size_root[0], 2, 0);
+
+    int dir_size = flags_size_root[0];
+    int nmn_size = flags_size_root[1];
+
+    std::vector<int> flags_root;
+    if (M_comm.rank() == 0)
+    {
+        std::copy(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), std::back_inserter(flags_root));
+        std::copy(M_neumann_flags_root.begin(), M_neumann_flags_root.end(), std::back_inserter(flags_root));
+
+#if 0
+        for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
+        {
+            std::cout<<"M_dirichlet_flags_root["<< i <<"]= "<< M_dirichlet_flags_root[i] <<"\n";
+        }
+
+        for (int i=0; i<M_neumann_flags_root.size(); ++i)
+        {
+            std::cout<<"M_neumann_flags_root["<< i <<"]= "<< M_neumann_flags_root[i] <<"\n";
+        }
+
+        for (int i=0; i<flags_root.size(); ++i)
+        {
+            std::cout<<"flags_root["<< i <<"]= "<< flags_root[i] <<"\n";
+        }
+#endif
+    }
+
+    if (M_comm.rank() != 0)
+    {
+        flags_root.resize(dir_size+nmn_size);
+    }
+
+    // broadcast the dirichlet and neumann nodes from master process to other processes
+    boost::mpi::broadcast(M_comm, &flags_root[0], dir_size+nmn_size, 0);
+
+    auto transfer_bimap = M_mesh.transferMapInit();
+
+    M_dirichlet_flags.resize(0);
+    M_neumann_flags.resize(0);
+
+    // We mask out the boundary nodes
+    M_mask.assign(M_num_nodes,false);
+    M_mask_dirichlet.assign(M_num_nodes,false);
+
+    for (int i=0; i<flags_root.size(); ++i)
+    {
+        if (transfer_bimap.left.find(flags_root[i]) != transfer_bimap.left.end())
+        {
+            int lindex = transfer_bimap.left.find(flags_root[i])->second-1;
+
+            if (i < dir_size)
+            {
+                // exclude ghost nodes
+                if (lindex < M_local_ndof)
+                {
+                    M_dirichlet_flags.push_back(lindex);
+                    //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
+                    // add mask for dirichlet nodes
+                    M_mask_dirichlet[lindex] = true;
+                }
+            }
+            else
+            {
+                // including ghost nodes
+                M_neumann_flags.push_back(lindex);
+                //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
+            }
+
+            // add mask for boundary nodes
+            M_mask[lindex] = true;
+        }
+    }
+
+    std::sort(M_dirichlet_flags.begin(), M_dirichlet_flags.end());
+    M_dirichlet_flags.erase(std::unique(M_dirichlet_flags.begin(), M_dirichlet_flags.end() ), M_dirichlet_flags.end());
+
+    std::sort(M_neumann_flags.begin(), M_neumann_flags.end());
+    M_neumann_flags.erase(std::unique(M_neumann_flags.begin(), M_neumann_flags.end() ), M_neumann_flags.end());
+
+    LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
+    LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
+
+
+    M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
+        M_dirichlet_nodes[2*i+1] = M_dirichlet_flags[i]+M_num_nodes;
+    }
+
+    M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        M_neumann_nodes[2*i] = M_neumann_flags[i];
+        M_neumann_nodes[2*i+1] = M_neumann_flags[i]+M_num_nodes;
+    }
+}//bcMarkedNodes
+
 
 //------------------------------------------------------------------------------------------------------
 //! Adapts the mesh grid.
@@ -739,6 +1370,140 @@ MeshHandler::sides(element_type const& element, mesh_type_root const& mesh,
 
     return side;
 }//sides
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates the minimum angle of each triangular mesh element.
+//! Called by the minAngle() function.
+double
+MeshHandler::minAngles(element_type const& element, mesh_type const& mesh) const
+{
+    std::vector<double> side = this->sides(element,mesh);
+    //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
+    std::sort(side.begin(),side.end());
+    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
+    minang = minang*45.0/std::atan(1.0);
+
+    return minang;
+}//minAngles
+
+
+double
+MeshHandler::minAngles(element_type const& element, mesh_type const& mesh,
+                         std::vector<double> const& um, double factor) const
+{
+    std::vector<double> side = this->sides(element,mesh,um,factor);
+    //std::for_each(side.begin(), side.end(), [&](double& f){ f = 1000.*f; });
+    std::sort(side.begin(),side.end());
+    double minang = std::acos( (std::pow(side[1],2.) + std::pow(side[2],2.) - std::pow(side[0],2.) )/(2*side[1]*side[2]) );
+    minang = minang*45.0/std::atan(1.0);
+
+    return minang;
+}//minAngles
+
+
+//------------------------------------------------------------------------------------------------------
+//! Finds the minimum angle within all mesh elements: condition for the remeshing.
+//! Called by the init() function.
+double
+MeshHandler::minAngle(mesh_type const& mesh) const
+{
+    std::vector<double> all_min_angle(mesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
+    {
+        all_min_angle[cpt] = this->minAngles(*it,mesh);
+        ++cpt;
+    }
+
+    double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
+    //return min_angle;
+    return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
+}//minAngle
+
+
+double
+MeshHandler::minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor, bool root) const
+{
+    std::vector<double> all_min_angle(mesh.numTriangles());
+
+    int cpt = 0;
+    for (auto it=mesh.triangles().begin(), end=mesh.triangles().end(); it!=end; ++it)
+    {
+        all_min_angle[cpt] = this->minAngles(*it,mesh,um,factor);
+        ++cpt;
+    }
+
+    double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
+
+    double res_value = min_angle;
+
+    if (!root)
+    {
+        res_value = boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
+    }
+
+    return res_value;
+}//minAngle
+
+
+#if 0
+//------------------------------------------------------------------------------------------------------
+//! Performs a re-numbering of the mesh nodes and elements
+//! !Does not seem to be used!
+void
+MeshHandler::rootMeshRenumbering()
+{
+    if (M_rank == 0)
+    {
+        M_mesh_root.reorder(M_mesh.mapNodes(),M_mesh.mapElements());
+
+        delete bamggeom_root;
+        delete bamgmesh_root;
+
+        bamggeom_root = new BamgGeom();
+        bamgmesh_root = new BamgMesh();
+
+        std::cout<<"Re-numbering: Convert mesh starts\n";
+
+        chrono.restart();
+
+        BamgConvertMeshx(
+                         bamgmesh_root,bamggeom_root,
+                         &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                         M_mesh_root.numNodes(), M_mesh_root.numTriangles()
+                         );
+        std::cout<<"Re-numbering: Convert mesh done in "<< chrono.elapsed() <<"s\n";
+    }
+}//rootMeshRenumbering
+
+//------------------------------------------------------------------------------------------------------
+//! Creates a GMSH mesh grid.
+//! !Does not seem to be used!
+void
+MeshHandler::createGMSHMesh(std::string const& geofilename)
+{
+    std::string gmshgeofile = (boost::format( "%1%/%2%" )
+            % Environment::nextsimMeshDir().string()
+            % geofilename
+            ).str();
+
+    if (fs::exists(gmshgeofile))
+    {
+        //std::cout<<"NOT FOUND " << fs::absolute( gmshgeofile ).string() <<"\n";
+        std::ostringstream gmshstr;
+        gmshstr << BOOST_PP_STRINGIZE( GMSH_EXECUTABLE )
+                << " -" << 2 << " -part " << 1 << " -clmax " << vm["mesh.hsize"].as<double>() << " " << gmshgeofile;
+
+        LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
+        auto err = ::system( gmshstr.str().c_str() );
+    }
+    else
+    {
+        throw std::runtime_error("Cannot find " + gmshgeofile + "\n");
+    }
+}//createGMSHMesh
+#endif
 
 }
 

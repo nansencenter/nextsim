@@ -20,6 +20,8 @@
 #include <enums.hpp>
 #include <optionhandler.hpp>
 #include <InterpFromMeshToMesh2dx.h>
+#include <graphcsrmpi.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace Nextsim
 {
@@ -33,6 +35,8 @@ namespace Nextsim
             typedef GmshMeshSeq mesh_type_root;
             typedef GmshMesh mesh_type;
 
+            typedef GraphCSRMPI graphmpi_type;
+
         // Methods
         public:
             MeshHandler(Communicator const& comm)
@@ -45,10 +49,13 @@ namespace Nextsim
                 this->initOptAndParam();
             };
 
-            void initBamg();
-            void rootMeshProcessing();
+            void initMesh();
 
         protected:
+            void initBamg();
+
+            void rootMeshProcessing();
+
             void updateBoundaryFlags();
 
             void importBamg(BamgMesh const* bamg_mesh);
@@ -65,12 +72,22 @@ namespace Nextsim
             std::vector<double> sides(element_type const& element, mesh_type_root const& mesh,
                                       std::vector<double> const& um, double factor = 1.) const;
 
-            template<typename FEMeshType>
-            double measure(element_type const& element, FEMeshType const& mesh) const;
+            double minAngles(element_type const& element, mesh_type const& mesh) const;
+            double minAngles(element_type const& element, mesh_type const& mesh,
+                             std::vector<double> const& um, double factor) const;
 
-            template<typename FEMeshType>
-            double measure(element_type const& element, FEMeshType const& mesh,
-                           std::vector<double> const& um, double factor = 1.) const;
+            double minAngle(mesh_type const& mesh) const;
+            double minAngle(mesh_type const& mesh, std::vector<double> const& um, double factor, bool root = false) const;
+
+            void distributedMeshProcessing(bool start = false);
+
+            void bcMarkedNodes();
+            void createGraph();//(BamgMesh const* bamg_mesh);
+            void gatherSizes();
+            void scatterElementConnectivity();
+            void initUpdateGhosts();
+            int globalNumToprocId(int global_num);
+            void updateGhosts(std::vector<double>& mesh_nodal_vec);
 
         private:
             void initOptAndParam();
@@ -141,6 +158,42 @@ namespace Nextsim
 
             std::vector<double> M_hminVertices;
             std::vector<double> M_hmaxVertices;
+
+            int M_num_elements;
+            int M_ndof;
+            int M_local_ndof;
+            int M_local_ndof_ghost;
+            int M_local_nelements;
+
+            int M_num_nodes;
+
+            std::vector<element_type> M_elements;
+            std::map<int, point_type > M_nodes;
+
+            std::vector<int> M_dirichlet_flags;
+            std::vector<int> M_dirichlet_nodes;
+            std::vector<int> M_neumann_flags;
+            std::vector<int> M_neumann_nodes;
+
+            std::vector<int> M_sizes_nodes;
+            std::vector<int> M_sizes_nodes_with_ghost;
+            std::vector<int> M_sizes_elements;
+            std::vector<int> M_sizes_elements_with_ghost;
+
+            std::vector<int> M_id_elements;
+            std::vector<int> M_id_nodes;
+            std::vector<int> M_rmap_nodes;
+
+            std::vector<int> M_rmap_elements;
+            std::vector<double> M_element_connectivity;
+
+            graphmpi_type M_graphmpi;
+
+            // update solution from explicit solver
+            std::vector<std::vector<int>> M_extract_local_index;
+            std::vector<int> M_recipients_proc_id;
+            std::vector<int> M_local_ghosts_proc_id;
+            std::vector<std::vector<int>> M_local_ghosts_local_index;
 
         private:
             int bamg_verbose;
