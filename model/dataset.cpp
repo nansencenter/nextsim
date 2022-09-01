@@ -2537,6 +2537,42 @@ DataSet::DataSet(char const *DatasetName)
         wavDirOptions: wavdiropt_none
         };
 
+        Variable conc={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "siconc",
+        dimensions: dimensions,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
+        Variable thick={
+        filename_string: "", // All variables are in the same (grid) file
+        name: "sithick",
+        dimensions: dimensions,
+        land_mask_defined: false,
+        land_mask_value: 0.,
+        NaN_mask_defined: false,
+        NaN_mask_value: 0.,
+        use_FillValue: true,
+        use_missing_value: true,
+        a: 1.,
+        b: 0.,
+        Units: "m",
+        loaded_data: loaded_data_tmp,
+        interpolated_data: interpolated_data_tmp,
+        wavDirOptions: wavdiropt_none
+        };
+
         Grid grid_tmp={
         interpolation_method: InterpolationType::FromGridToMesh,
         interp_type : BilinearInterpEnum,
@@ -2566,10 +2602,12 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         //VAR
-        std::vector<Variable> variables_tmp(3);
+        std::vector<Variable> variables_tmp(5);
         variables_tmp[0] = sst;
         variables_tmp[1] = sss;
         variables_tmp[2] = mld;
+        variables_tmp[3] = conc;
+        variables_tmp[4] = thick;
 
         //VECTOR
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);

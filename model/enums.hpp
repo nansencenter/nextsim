@@ -64,7 +64,8 @@ namespace setup
         TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
         NEMO                        = 21,
         CICE                        = 22,
-        AMSR2CSTTHICK               = 23
+        AMSR2CSTTHICK               = 23,
+        GLORYS12R                   = 24
     };
 
     enum class WaveType
