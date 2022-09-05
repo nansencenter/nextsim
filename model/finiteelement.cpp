@@ -804,7 +804,8 @@ FiniteElement::initOptAndParam()
         ("cs2_smos", setup::IceType::CS2_SMOS)
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
-        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT);
+        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)
+        ("glorys12", setup::IceType::GLORYS12R);
     M_ice_type = OptionHandler::getOptionFromMap(vm, "setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
     LOG(DEBUG) <<"IceType= "<< (int)M_ice_type <<"\n";
@@ -9776,6 +9777,9 @@ FiniteElement::initIce()
         case setup::IceType::SMOS:
             this->smosIce();
             break;
+        case setup::IceType::GLORYS12R:
+            this->glorys12Ice();
+            break;
         default:
             std::cout << "invalid initialization of the ice"<<"\n";
             throw std::logic_error("invalid initialization of the ice");
@@ -11700,6 +11704,53 @@ FiniteElement::smosIce()
     }
 }//smosIce
 
+void
+FiniteElement::glorys12Ice()
+{
+    // Initialize the sea ice conc. and thick. from GLORYS12 reanalysis or forecast. 
+    // Snow thickness is 0 by default (used in southern ocean, with no equivalent of Warren Climatology)
+    Dataset ice_glorys12_elements_dataset = DataSet("glorys12_elements");
+    external_data M_init_conc   = ExternalData(&ice_glorys12_elements_dataset,M_mesh,3,false,time_init);
+    external_data M_init_thick  = ExternalData(&ice_glorys12_elements_dataset,M_mesh,4,false,time_init);
+
+    boost::gregorian::date dt = Nextsim::parse_date(time_init);
+    
+
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_init_conc);
+    external_data_tmp.push_back(&M_init_thick);
+
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - Glorys Ice ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        tmp_var=std::min(1.,M_init_conc[i]);
+        M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; 
+        tmp_var=M_init_thick[i];
+        M_thick[i] = tmp_var ;
+        tmp_var=0.;//This is a test for the southern ocean
+        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; 
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        if(M_thick[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+
+        M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
+    }
+}//glorysIce
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from CS2, SMOS, AMSR2 data.
