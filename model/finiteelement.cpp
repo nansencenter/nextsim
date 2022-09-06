@@ -1334,6 +1334,7 @@ FiniteElement::initOptAndParam()
         ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
         ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)
+        ("osisaf_south", setup::IceType::OSISAF_SOUTH);
         ("glorys12", setup::IceType::GLORYS12R);
     M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
@@ -11098,6 +11099,9 @@ FiniteElement::initIce()
         case setup::IceType::SMOS:
             this->smosIce();
             break;
+        case setup::IceType::OSISAF_SOUTH:
+            this->osisafSouthIce();
+            break;
         case setup::IceType::GLORYS12R:
             this->glorys12Ice();
             break;
@@ -13024,6 +13028,48 @@ FiniteElement::smosIce()
         M_ridge_ratio[i]=0.;
     }
 }//smosIce
+
+void
+FiniteElement::osisafSouthIce()
+{
+    double real_thickness, init_conc_tmp;
+
+    double h_const = vm["ideal_simul.init_thickness"].as<double>();
+    double hs_const = vm["ideal_simul.init_snow_thickness"].as<double>();
+    Dataset ice_south_osisaf_elements_dataset=Dataset("ice_south_osisaf_elements");
+    external_data M_init_conc=ExternalData(&ice_south_osisaf_elements_dataset,M_mesh,0,false,time_init);
+    external_data_vec external_data_tmp;
+    external_data_tmp.push_back(&M_init_conc);
+    auto RX = M_mesh.bCoordX();
+    auto RY = M_mesh.bCoordY();
+    LOG(DEBUG)<<"init - OSI-SAF south ExternalData objects\n";
+    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+
+    double tmp_var;
+    for (int i=0; i<M_num_elements; ++i)
+    {
+        M_conc[i] = std::min(1., M_init_conc[i] ) ;
+        // TOPAZ puts very small values instead of 0.
+        tmp_var=M_init_conc[i];
+        init_conc_tmp = (tmp_var>1e-14) ? tmp_var : 0.;
+
+        //if either c or h equal zero, we set the others to zero as well
+        if(M_conc[i]<=0.)
+        {
+            M_conc[i]=0.;
+            M_thick[i]=0.;
+            M_snow_thick[i]=0.;
+        }
+        else
+        {
+            M_thick[i]=h_const*M_conc[i];
+            M_snow_thick[i]=hs_const*M_conc[i];
+        }
+        M_damage[i]=0.;
+        M_ridge_ratio[i]=0.;
+    }
+}//osisaf south
+
 
 void
 FiniteElement::glorys12Ice()

@@ -65,7 +65,8 @@ namespace setup
         NEMO                        = 21,
         CICE                        = 22,
         AMSR2CSTTHICK               = 23,
-        GLORYS12R                   = 24
+        OSISAF_SOUTH                = 24,
+        GLORYS12R                   = 25
     };
 
     enum class WaveType
