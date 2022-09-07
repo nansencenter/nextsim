@@ -12,7 +12,6 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
-#CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
@@ -22,7 +21,6 @@ CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
 endif

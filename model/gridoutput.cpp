@@ -356,14 +356,44 @@ GridOutput::initMask()
             M_ice_mask_indx = i;
 }
 
+void
+GridOutput::setProcMask(BamgMesh* bamgmesh, int nb_local_el,
+        std::vector<double> const& UM)
+{
+    assert(nb_local_el>0);
+
+    // Call the worker routine using a vector of ones and give zero for missing values and gohsts
+    std::vector<Variable> proc_mask_var(1);
+    proc_mask_var[0] = Variable(variableID::proc_mask);
+
+    proc_mask_var[0].data_grid.assign(M_grid_size,0);
+    proc_mask_var[0].data_mesh.resize(bamgmesh->TrianglesSize[0]);
+
+    std::fill( proc_mask_var[0].data_mesh.begin(), proc_mask_var[0].data_mesh.begin() + nb_local_el, 1. );
+    std::fill( proc_mask_var[0].data_mesh.begin() + nb_local_el, proc_mask_var[0].data_mesh.end(),  0. );
+
+    this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, interpMethod::meshToMesh, proc_mask_var, 0.);
+
+    M_proc_mask = proc_mask_var[0].data_grid;
+}//setProcMask
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Functions other than construction and initialisation
 ////////////////////////////////////////////////////////////////////////////////
 
 // Interpolate from the mesh values to the grid
 void
-GridOutput::updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM)
+GridOutput::updateGridMean(BamgMesh* bamgmesh, int nb_local_el,
+        std::vector<double> const& UM)
 {
+    // Need to reset M_proc_mask every time now
+    if ( M_nodal_variables.size() > 0 )
+    {
+        // Mesh displacement of zero
+        this->setProcMask(bamgmesh, nb_local_el, UM);
+    }
+
     // Call the worker routine for the elements
     this->updateGridMeanWorker(bamgmesh, UM, variableKind::elemental, M_grid.interp_method, M_elemental_variables, M_miss_val);
 
@@ -382,11 +412,14 @@ GridOutput::updateGridMean(BamgMesh* bamgmesh, std::vector<double> & UM)
             for ( int i=0; i<M_grid_size; ++i )
                 if ( M_elemental_variables[M_ice_mask_indx].data_grid[i] <= 0. && it->data_grid[i] != M_miss_val )
                     it->data_grid[i] = 0.;
-}
+}//updateGridMean
+
 
 // Interpolate from the mesh to the grid - updating the gridded mean
 void
-GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val)
+GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> const& UM,
+        variableKind kind, interpMethod method, std::vector<Variable>& variables,
+        double miss_val)
 {
     int nb_var = variables.size();
     if ( nb_var == 0 )
@@ -495,19 +528,27 @@ GridOutput::updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> & UM, v
                 for (int j=0; j<M_nrows; ++j)//y
                 {
                     int const grid_ind = i + M_ncols*j;
-                    variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
+                    if ( kind == variableKind::nodal )
+                        variables[nv].data_grid[grid_ind]
+                            += interp_out[nb_var*bamg_ind+nv]*M_proc_mask[grid_ind];
+                    else
+                        variables[nv].data_grid[grid_ind] += interp_out[nb_var*bamg_ind+nv];
                     bamg_ind++;
                 }
         }
         else
         {
             for (int j=0; j<M_grid_size; ++j)
-                variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
+                if ( kind == variableKind::nodal )
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv]*M_proc_mask[j];
+                else
+                    variables[nv].data_grid[j] += interp_out[nb_var*j+nv];
         }
     }
 
     xDelete<double>(interp_out);
-}
+}//updateGridMeanWorker
+
 
 // Set the land-sea mask
 /* This function should _only_ be called by the root and _only_ with bamgmesh_root as an argument.
@@ -896,7 +937,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
 
     // - set the global attributes
     dataFile.putAtt("Conventions", "CF-1.6");
-    dataFile.putAtt("institution", "NERSC, Thormoehlens gate 47, N-5006 Bergen, Norway");
+    dataFile.putAtt("institution", "NERSC, Jahnebakken 3, N-5007 Bergen, Norway");
     dataFile.putAtt("source", "neXtSIM model fields");
 
     return filename.str();

@@ -121,7 +121,9 @@ namespace Nextsim
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
-                "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
+                "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
+            ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
+                "ordering: gmsh (default) or bamg - try bamg if you get negative areas")
 
 
             // -- moorings
@@ -300,7 +302,8 @@ namespace Nextsim
 
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ),
+                "relative size of random perturbation to cohesion") // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
@@ -470,6 +473,8 @@ namespace Nextsim
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
+            ("wave_coupling.receive_wave_stress", po::value<bool>()->default_value( true ),
+             "Do we receive the wave stress from the wave model?")
             // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
             ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
@@ -503,6 +508,16 @@ namespace Nextsim
             // for ensemble forcing
             ("statevector.ensemble_member", po::value<int>()->default_value(0),
                 "id of ensemble member (NB starts from 1)")
+
+            //-----------------------------------------------------------------------------------
+            //!Age settings
+            //-----------------------------------------------------------------------------------
+            ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
+            ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
+            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
+            ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
+            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
+            ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
 
 #if defined(WAVES)
         ;

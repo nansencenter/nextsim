@@ -11,8 +11,6 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-#CXX = mpicxx
-
 CXXFLAGS := $(filter-out -fopenmp -pthread,$(CXXFLAGS))
 
 CXXFLAGS += -std=c++14
