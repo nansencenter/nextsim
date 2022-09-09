@@ -339,7 +339,6 @@ namespace Nextsim
             ("dynamics.lin_drag_coef_water", po::value<double>()->default_value( 0. ), "")
 
             // - Coriolis parameters
-            ("dynamics.use_coriolis", po::value<bool>()->default_value( true ), "")
             ("dynamics.oceanic_turning_angle", po::value<double>()->default_value( 25. ), "")
 
             // - Basal stress parameters
