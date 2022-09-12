@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include <datasetmanager.hpp>
 #include <variablemanager.hpp>
 #include <optionhandler.hpp>
 #include <meshhandler.hpp>
@@ -58,7 +59,7 @@ extern "C"
 namespace Nextsim
 {
 
-class FiniteElement : public MeshHandler, public VariableManager
+class FiniteElement : public VariableManager, public DataSetManager
 {
 public:
 
@@ -74,21 +75,11 @@ public:
     // typedef ExternalData::Vectorial_Variable Vectorial_Variable;
     // typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
-    typedef DataSet Dataset;
-    typedef ExternalData external_data;
-    typedef typename std::vector<external_data*> external_data_vec ;
-    typedef typename std::vector<Dataset*> Dataset_vec ;
-
-    typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
-
     FiniteElement(Communicator const& comm = Environment::comm());
 
     // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
-
-    void initExternalData();
-    void initDatasets();
 
     std::vector<double> shapeCoeff(element_type const& element) const;
 
@@ -149,54 +140,12 @@ public:
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
 
-    void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
-    void checkReloadMainDatasets(double const CRtime);
-
-    Dataset M_atmosphere_nodes_dataset;
-    Dataset M_atmosphere_elements_dataset;
-    Dataset M_atmosphere_bis_elements_dataset;
-    Dataset M_ocean_nodes_dataset;
-    Dataset M_ocean_elements_dataset;
-    Dataset M_bathymetry_elements_dataset;
-#ifdef OASIS
-    Dataset M_wave_nodes_dataset;
-    Dataset M_wave_elements_dataset;
-#endif
-
-    Dataset M_ice_topaz_elements_dataset;
-    Dataset M_ice_icesat_elements_dataset;
-    Dataset M_ice_piomas_elements_dataset;
-    Dataset M_ice_amsre_elements_dataset;
-    Dataset M_ice_osisaf_elements_dataset;
-    Dataset M_ice_osisaf_type_elements_dataset;
-    Dataset M_ice_amsr2_elements_dataset;
-    Dataset M_ice_nic_elements_dataset;
-    Dataset M_ice_nic_weekly_elements_dataset;
-    Dataset M_ice_cs2_smos_elements_dataset;
-    Dataset M_ice_smos_elements_dataset;
-
-    // Datasets for nesting from outer domain with coarse resolution
-    Dataset M_nesting_ocean_elements_dataset;
-    Dataset M_nesting_nodes_dataset;
-    Dataset M_nesting_ice_elements_dataset;
-    Dataset M_nesting_distance_nodes_dataset;
-    Dataset M_nesting_distance_elements_dataset;
-    Dataset M_nesting_dynamics_elements_dataset;
-
     template<typename FEMeshType>
     bool flip(FEMeshType const& mesh, std::vector<double> const& um, double factor) const;
 
     void initOptAndParam();
     void initFETensors();
-    void forcing();
-    void forcingAtmosphere();
-    void forcingOcean();
-#ifdef OASIS
-    void forcingWaves();
-#endif
     void forcingNesting();
-    void initBathymetry();
 
     void assimilateIce();
     void assimilateSlabOcean();
@@ -208,7 +157,6 @@ public:
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
-    void setReloadDatasets();
     void calcAuxiliaryVariables();
     void initModelState();
     void DataAssimilation();
@@ -312,16 +260,12 @@ private:
     std::vector<int> M_boundary_flags;
 
     boost::mpi::timer chrono, chrono_tot;
-    Timer M_timer;
+    Timer::timer M_timer;
 
-    setup::AtmosphereType M_atmosphere_type;
-    setup::OceanType M_ocean_type;
     setup::IceType M_ice_type;
-    setup::BathymetryType M_bathymetry_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
-    int M_ensemble_member;
 
 #ifdef AEROBULK
     aerobulk::algorithm M_ocean_bulk_formula;
@@ -353,12 +297,6 @@ private:
 //    ExternalData M_tm02;
 #endif
 
-    external_data_vec M_external_data_elements;
-    std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
-    external_data_vec M_external_data_nodes;
-    std::vector<std::string> M_external_data_nodes_names;//list of names for debugging and exporting
-    Dataset_vec M_datasets_regrid;
-
     std::vector<double> M_fcor;
 
     std::vector<double> M_Dunit;
@@ -368,10 +306,6 @@ private:
     // =============================================================================
     // variables needed for nesting
     bool M_use_nesting;
-    bool M_use_ocean_nesting;
-    std::string M_nest_outer_mesh;
-    std::string M_nest_inner_mesh;
-    std::string M_nest_method;
     std::string M_nudge_function;
     double M_nudge_timescale;
     double M_nudge_lengthscale;
@@ -389,8 +323,8 @@ private:
     double rhoi;
     double rhos;
     double const days_in_sec  = 86400.;
-    double time_init;
     int output_time_step;
+    double time_init;
     int ptime_step;
     int mooring_output_time_step;
     double mooring_time_factor;
@@ -456,52 +390,6 @@ private: // only on root process (rank 0)
     std::vector<std::vector<double>> M_B0T_root;
 
 private:
-
-    // Thermodynamic and dynamic forcing
-    // Atmosphere
-    external_data M_wind;         // Surface wind [m/s]
-    external_data M_tair;         // 2 m temperature [C]
-    external_data M_mixrat;       // Mixing ratio
-    external_data M_mslp;         // Atmospheric pressure [Pa]
-    external_data M_Qsw_in;       // Incoming short-wave radiation [W/m2]
-    external_data M_Qlw_in;       // Incoming long-wave radiation [W/m2]
-    external_data M_tcc;          // Incoming long-wave radiation [W/m2]
-    external_data M_precip;       // Total precipitation [m]
-    external_data M_snowfall;     // Snowfall rate [kg/m^2/s]
-    external_data M_snowfr;       // Fraction of precipitation that is snow
-    external_data M_dair;         // 2 m dew point [C]
-    external_data M_sphuma;       // Speciffic humidity of the atmosphere [kg/kg]
-
-    // Ocean
-    external_data M_ocean;        // "Geostrophic" ocean currents [m/s]
-    external_data M_ssh;          // Sea surface elevation [m]
-
-    external_data M_ocean_temp;   // Ocean temperature in top layer [C]
-    external_data M_ocean_salt;   // Ocean salinity in top layer [C]
-    external_data M_mld;          // Mixed-layer depth [m]
-
-    external_data M_qsrml;        // Fraction of short wave radiation absorbed by the mixed layer
-
-    // Nesting
-    external_data M_nesting_dist_elements; // Distance to the nearest open boundaries
-    external_data M_nesting_dist_nodes; // Distance to the nearest open boundaries
-    external_data M_nesting_conc; // sea_ice_area_fraction from the outer domain
-    external_data M_nesting_thick; // sea_ice_thickness from the outer domain
-    external_data M_nesting_snow_thick; // surface_snow_thickness from the outer domain
-    external_data M_nesting_h_young ; // young_ice_thickness from the outer domain
-    external_data M_nesting_conc_young ; // young_ice_area_fraction from the outer domain
-    external_data M_nesting_hs_young ; // surface_snow_thickness_on_young_ice from the outer domain
-    external_data M_nesting_damage; // damage from the outer domain
-    external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
-    external_data M_nesting_VT1; // X-velocity from the outer domain
-    external_data M_nesting_VT2; // Y-velocity from the outer domain
-    external_data M_nesting_sigma1; // 1st component stress tensor from the outer domain
-    external_data M_nesting_sigma2; // 2nd component stress tensor from the outer domain
-    external_data M_nesting_sigma3; // 3rd component stress tensor from the outer domain
-
-    // Bathymetry
-    external_data M_element_depth;
-
     // Drifters
     std::vector<Drifters> M_drifters;// vector of all the Drifters objects (including IABP ones)
     std::vector<int> M_osisaf_drifters_indices;// indices of OSISAF drifters in M_drifters

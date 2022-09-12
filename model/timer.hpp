@@ -39,6 +39,8 @@ class Timer
         const double elapsed(const std::string & name);
         const std::string printAll();
 
+        typedef Timer timer;
+
     private:
         std::string printChildren(const std::string & parent, const double wall_time);
         void printTimer(const std::string & name, const std::string & parent, const double wall_time,
