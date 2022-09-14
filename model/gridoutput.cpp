@@ -29,9 +29,7 @@ GridOutput::GridOutput()
 GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, double averaging_period, bool false_easting)
     :
         M_averaging_period(averaging_period),
-        M_false_easting(false_easting),
-        M_log_level(Environment::logLevel()),
-        M_log_all(Environment::logAll())
+        M_false_easting(false_easting)
 {
     M_vectorial_variables.resize(0);
 
@@ -64,11 +62,11 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows
 // Constructor for only one set of variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
         double averaging_period, bool false_easting,
-        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,12 +87,12 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows
 // Constructor for only one set of variables - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
         double averaging_period, bool false_easting,
-        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
     :
     GridOutput(variables, kind, averaging_period, false_easting)
 {
     M_vectorial_variables = vectorial_variables;
-    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -123,11 +121,11 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows
 // constructor for nodal and elemental variables only (no vectors) - arbitrary grid
 GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
         double averaging_period, bool false_easting,
-        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
     :
     GridOutput(nodal_variables, elemental_variables, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, bamgmesh_root, transfer_map);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -156,11 +154,11 @@ GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows
 GridOutput::GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables,
                        std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
                        double averaging_period, bool false_easting,
-        BamgMesh* bamgmesh_root, bimap_type const & transfer_map, Communicator const & comm)
+        BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
     :
     GridOutput(nodal_variables, elemental_variables, vectorial_variables, averaging_period, false_easting)
 {
-    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, comm, bamgmesh_root, transfer_map);
+    this->initArbitraryGrid(bamgmesh, nb_local_el, grid, bamgmesh_root, transfer_map);
 }
 
 GridOutput::~GridOutput()
@@ -223,12 +221,11 @@ GridOutput::initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int 
 }
 
 void
-GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
+GridOutput::initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid,
         BamgMesh* bamgmesh_root, bimap_type const & transfer_map)
 {
     M_is_regular_grid = false;
     M_grid = grid;
-    M_comm = comm;
 
     // Load the grid from file
     // Check file

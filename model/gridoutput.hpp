@@ -9,7 +9,7 @@
 #ifndef __GridOutput_H
 #define __GridOutput_H 1
 
-#include <environment.hpp>
+#include <logger.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/format.hpp>
@@ -33,7 +33,7 @@
 
 namespace Nextsim
 {
-class GridOutput
+class GridOutput : public Logger
 {
 public:
 
@@ -947,8 +947,7 @@ public:
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
-        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
-        Communicator const & comm = Environment::comm());
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
@@ -956,8 +955,7 @@ public:
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> variables, variableKind kind, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
-        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
-        Communicator const & comm = Environment::comm());
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting);
@@ -965,8 +963,7 @@ public:
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
-        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
-        Communicator const & comm = Environment::comm());
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting);
@@ -974,8 +971,7 @@ public:
     GridOutput(BamgMesh* bamgmesh, int nb_local_el, Grid grid, std::vector<Variable> nodal_variables, std::vector<Variable> elemental_variables, std::vector<Vectorial_Variable> vectorial_variables,
             double averaging_period, bool false_easting,
         BamgMesh* bamgmesh_root = NULL,
-        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
-        Communicator const & comm = Environment::comm());
+        bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
     ~GridOutput();
 
@@ -1020,10 +1016,6 @@ public:
     void info();
 
 private:
-
-    LogLevel M_log_level;
-    bool M_log_all;
-
     double M_xmin;
     double M_ymax;
 
@@ -1041,7 +1033,7 @@ private:
 
     void initRegularGrid(BamgMesh* bamgmesh, int nb_local_el, int ncols, int nrows, double mooring_spacing, double xmin, double ymin);
 
-    void initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid, Communicator const & comm,
+    void initArbitraryGrid(BamgMesh* bamgmesh, int nb_local_el, Grid& grid,
             BamgMesh* bamgmesh_root = NULL,
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>());
 
@@ -1062,8 +1054,6 @@ private:
     void setProcMask(BamgMesh* bamgmesh, int nb_local_el,
             std::vector<double> const& UM);
     std::vector<double> M_proc_mask;
-
-    Communicator M_comm;
 
     void broadcastWeights(std::vector<int>& gridP,
             std::vector<std::vector<int>>& triangles,

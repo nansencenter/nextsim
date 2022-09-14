@@ -9,7 +9,7 @@
 #ifndef __ExternalData_H
 #define __ExternalData_H 1
 
-#include <environment.hpp>
+#include <logger.hpp>
 #include <assert.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -135,10 +135,6 @@ private:
     double M_SpinUpDuration;
     double M_factor;
     int M_ensemble_member;
-
-    LogLevel M_log_level;
-    bool M_log_all;
-    Communicator M_comm;
 };
 
 } // Nextsim

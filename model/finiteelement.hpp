@@ -75,7 +75,7 @@ public:
     // typedef ExternalData::Vectorial_Variable Vectorial_Variable;
     // typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
-    FiniteElement(Communicator const& comm = Environment::comm());
+    FiniteElement();
 
     // FiniteElement(Communicator const& comm = Environment::comm());
 
@@ -241,7 +241,6 @@ private:
     std::vector<element_type> M_edges;
 
     int M_rank;
-    Communicator M_comm;
 
     int M_nb_var_node;
 
@@ -311,10 +310,6 @@ private:
     double M_nudge_lengthscale;
     bool M_nest_dynamic_vars;
     // =============================================================================
-
-    LogLevel M_log_level;
-    bool M_log_all;
-
 
 private:
 

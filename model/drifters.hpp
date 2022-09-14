@@ -9,7 +9,7 @@
 #ifndef __Drifters_H
 #define __Drifters_H 1
 
-#include <environment.hpp>
+#include <logger.hpp>
 #include <gmshmeshseq.hpp>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
@@ -30,7 +30,7 @@
 
 namespace Nextsim
 {
-    class Drifters
+    class Drifters : public Logger
     {
 public:
 
@@ -191,10 +191,7 @@ private:
             M_tag(tag),
             M_output_prefix(output_prefix),
             M_conc_lim(climit),
-            M_ignore_restart(ignore_restart),
-            M_log_level(Environment::logLevel()),
-            M_log_all(Environment::logAll()),
-            M_comm(Environment::comm())
+            M_ignore_restart(ignore_restart)
         {
             this->setTimingInfo(timing_info);
         }
@@ -313,11 +310,6 @@ private:
         std::vector<double> M_X;//x coordinates of drifters
         std::vector<double> M_Y;//y coordinates of drifters
         std::vector<int> M_i;//buoy ID of drifters
-
-        //for LOG
-        LogLevel M_log_level;
-        bool M_log_all;
-        Communicator M_comm;
     };
 } // Nextsim
 

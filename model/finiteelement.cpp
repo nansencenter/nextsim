@@ -22,11 +22,10 @@ namespace Nextsim
 
 //------------------------------------------------------------------------------------------------------
 //!Despite its name, this is the main model file. All functions pertaining to NeXtSIM are defined here.
-FiniteElement::FiniteElement(Communicator const& comm)
+FiniteElement::FiniteElement()
     :
-    DataSetManager(comm, &M_timer),
-    vm(Environment::vm()),
-    M_comm(comm)
+    DataSetManager(&M_timer),
+    vm(Environment::vm())
 {}
 
 //------------------------------------------------------------------------------------------------------
@@ -111,12 +110,6 @@ FiniteElement::setCplId_snd(std::vector<GridOutput::Variable> &cpl_var)
 void
 FiniteElement::initOptAndParam()
 {
-    //! Sets the characteristics of the output log (INFOR, WARNING, DEBUG, ERROR),
-    M_log_level = Environment::logLevel();
-
-    //! Do we output the log on all processors?
-    M_log_all = Environment::logAll();
-
     //! Defines the export (output) path.
     M_export_path = vm["output.exporter_path"].as<std::string>(); //! \param M_export_path (string) Path of the export files
     // Changes directory for outputs if the option "output.exporter_path" is not empty
@@ -5309,7 +5302,7 @@ FiniteElement::initOASIS()
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt());
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -6906,7 +6899,7 @@ FiniteElement::initMoorings()
                     "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
             M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt());
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
@@ -6927,7 +6920,7 @@ FiniteElement::initMoorings()
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
         M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt());
     }
 #endif
     else

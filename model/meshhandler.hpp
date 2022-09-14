@@ -11,6 +11,7 @@
 #ifndef __MeshHandler_HPP
 #define __MeshHandler_HPP 1
 
+#include <logger.hpp>
 #include <boost/program_options.hpp>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
@@ -26,7 +27,7 @@
 namespace Nextsim
 {
 
-    class MeshHandler
+    class MeshHandler : public Logger
     {
         // Types
         protected:
@@ -39,12 +40,9 @@ namespace Nextsim
 
         // Methods
         public:
-            MeshHandler(Communicator const& comm)
+            MeshHandler()
                 : vm(Environment::vm()),
-                    M_mesh(mesh_type(comm)),
-                    M_log_level(Environment::logLevel()),
-                    M_log_all(Environment::logAll()),
-                    M_comm(comm)
+                    M_mesh(mesh_type(M_comm))
             {
                 this->initOptAndParam();
             };
@@ -195,13 +193,10 @@ namespace Nextsim
             std::vector<int> M_local_ghosts_proc_id;
             std::vector<std::vector<int>> M_local_ghosts_local_index;
 
-        private:
-            int bamg_verbose;
             po::variables_map vm;
 
-            LogLevel M_log_level;
-            bool M_log_all;
-            Communicator M_comm;
+        private:
+            int bamg_verbose;
 
             boost::mpi::timer chrono, chrono_tot;
 

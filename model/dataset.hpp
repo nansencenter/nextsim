@@ -9,7 +9,7 @@
 #ifndef __DataSet_H
 #define __DataSet_H 1
 
-#include <environment.hpp>
+#include <logger.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
@@ -66,7 +66,7 @@ namespace Nextsim
     } WaveDirOptions;
 
 
-class DataSet
+class DataSet : public Logger
 {
 
 public:
@@ -254,10 +254,6 @@ public:
 #endif
 
 private:
-
-    LogLevel M_log_level;
-    bool M_log_all;
-    Communicator M_comm;
 
     std::vector<double> getNcVarData(netCDF::NcVar &ncvar, std::vector<size_t> const& start, std::vector<size_t> const& count);
     void getLonRange(double &lonmin, double &lonmax, netCDF::NcVar &VLON);

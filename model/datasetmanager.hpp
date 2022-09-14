@@ -36,12 +36,8 @@ namespace Nextsim
 
         // Methods
         public:
-            DataSetManager(Communicator const& comm, Timer::timer* timer)
-                : vm(Environment::vm()),
-                    MeshHandler(comm),
-                    M_log_level(Environment::logLevel()),
-                    M_log_all(Environment::logAll()),
-                    M_comm(comm)
+            DataSetManager(Timer::timer* timer)
+                : vm(Environment::vm())
             {
                 this->initOptAndParam();
                 M_timer = timer;
@@ -177,10 +173,6 @@ namespace Nextsim
             Timer::timer* M_timer;
 
             po::variables_map vm;
-
-            LogLevel M_log_level;
-            bool M_log_all;
-            Communicator M_comm;
     };
 }
 #endif

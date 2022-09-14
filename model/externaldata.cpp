@@ -43,10 +43,7 @@ ExternalData::ExternalData(Dataset * dataset, GmshMesh const& mesh, int Variable
     M_current_time( 0. ),
     M_StartingTime( StartingTime ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true),
-    M_log_level(Environment::logLevel()),
-    M_log_all(Environment::logAll()),
-    M_comm(Environment::comm())
+    M_initialized(true)
 {
     fcoeff.resize(2);
 }
@@ -90,10 +87,7 @@ ExternalData::ExternalData( double ConstantValue )
     M_current_time( 0. ),
     M_StartingTime( 0. ),
     M_SpinUpDuration( 0. ),
-    M_initialized(true),
-    M_log_level(Environment::logLevel()),
-    M_log_all(Environment::logAll()),
-    M_comm(Environment::comm())
+    M_initialized(true)
     {}
 
 ExternalData::ExternalData( double ConstantValue, double ConstantValuebis )
