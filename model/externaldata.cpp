@@ -804,7 +804,15 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 continue;
             }
 
-            NcVars[j] = dataFile.getVar(dataset->variables[j].name);
+            try
+            {
+                NcVars[j] = dataFile.getVar(dataset->variables[j].name);
+            } catch (netCDF::exceptions::NcBadId) {
+                LOG(DEBUG) << "Not loading variable "<< j <<" (aka "<<
+                    dataset->variables[j].name <<") because I couldn't find it in the file "
+                    << filename << "\n";
+                continue;
+            }
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(index_start.size());
 
