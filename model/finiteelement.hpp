@@ -147,8 +147,6 @@ public:
     void initFETensors();
     void forcingNesting();
 
-    void assimilateIce();
-    void assimilateSlabOcean();
     void initIce();
     void checkConsistency();
     void initSlabOcean();
@@ -159,7 +157,6 @@ public:
     void PwlInterp2D();
     void calcAuxiliaryVariables();
     void initModelState();
-    void DataAssimilation();
 
     void calcCohesion();
     void updateFreeDriftVelocity();
@@ -366,8 +363,6 @@ private:
     bool M_regrid;
     int M_nb_regrid;
 
-    bool M_use_assimilation;
-
     bool M_use_restart;
     bool M_check_restart;
     bool M_write_restart_interval;
@@ -472,8 +467,6 @@ private:
     void amsr2ConstThickIce();
 
     void warrenClimatology();
-    void assimilate_topazForecastAmsr2OsisafIce();
-    void assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
 
     //drifter functions
     void checkMoveDrifters();

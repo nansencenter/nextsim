@@ -29,20 +29,6 @@ FiniteElement::FiniteElement()
 {}
 
 //------------------------------------------------------------------------------------------------------
-//! Calls the functions for assimilation of ocean and ice data: assimilateSlabOcean() and assimilateIce().
-//! Called by the init() function.
-void
-FiniteElement::DataAssimilation()
-{
-
-    LOG(DEBUG) << "assimilateSlabOcean\n";
-    this->assimilateSlabOcean();
-
-    LOG(DEBUG) << "assimilateIce\n";
-    this->assimilateIce();
-}//DataAssimilation
-
-//------------------------------------------------------------------------------------------------------
 //! Initializes the physical state of the model - ocean and ice - by calling the initSlabOcean() and initIce() functions.
 //! Called by the init() function.
 void
@@ -171,8 +157,6 @@ FiniteElement::initOptAndParam()
     // Round ptime_step to the nearest multple of time_step
     ptime_step += time_step/2;
     ptime_step -= ptime_step% time_step;
-
-    M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
     M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
 
@@ -4966,12 +4950,6 @@ FiniteElement::init()
     }
     else
     {
-        if ( M_use_assimilation )
-        {
-            chrono.restart();
-            this->DataAssimilation();
-            LOG(DEBUG) <<"DataAssimilation done in "<< chrono.elapsed() <<"s\n";
-        }
 #ifdef OASIS
         if (M_couple_waves)
             this->initFsd();
@@ -8509,51 +8487,6 @@ FiniteElement::initSlabOcean()
     }
 }//initSlabOcean
 
-
-//------------------------------------------------------------------------------------------------------
-//! Performs data assimilation (of sss and sst) in the slab ocean.
-//! Called by the DataAssimilation() function.
-void
-FiniteElement::assimilateSlabOcean()
-{
-    double sigma_mod=1.;
-    double sigma_obs=1.;
-    switch (M_ocean_type)
-    {
-        case setup::OceanType::CONSTANT:
-            //std::fill(M_sst.begin(), M_sst.end(), -1.8);
-            for ( int i=0; i<M_num_elements; ++i)
-            {
-                M_sss[i]=(sigma_obs*M_sss[i]+sigma_mod*1.8/physical::mu)/(sigma_obs+sigma_mod);
-                M_sst[i]=(sigma_obs*M_sst[i]+sigma_mod*1.)/(sigma_obs+sigma_mod);
-            }
-            break;
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZF:
-        case setup::OceanType::TOPAZR_ALTIMETER:
-        case setup::OceanType::GLORYS12R:
-            double sss_obs, sst_obs;
-            for ( int i=0; i<M_num_elements; ++i)
-            {
-                // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
-                // This can still be done much better!
-                sss_obs=std::max(physical::si, M_ocean_salt[i]);
-                sst_obs=std::max(this->freezingPoint(sss_obs), M_ocean_temp[i]);
-
-                M_sss[i] = (sigma_obs*M_sss[i]+sigma_mod*sss_obs)/(sigma_obs+sigma_mod);
-                M_sst[i] = (sigma_obs*M_sst[i]+sigma_mod*sst_obs)/(sigma_obs+sigma_mod);
-
-                M_sst[i] = std::max(this->freezingPoint(M_sss[i]), M_sst[i]);
-            }
-            break;
-        default:
-            std::cout << "invalid ocean data assimilation"<<"\n";
-            throw std::logic_error("invalid ocean forcing");
-    }
-}//assimilateSlabOcean
-
-
 //------------------------------------------------------------------------------------------------------
 //! Initializes the ice state (CONSTANT, TOPAZ4, PIOMAS, SMOS, ...).
 //! Called by the initModelState() function.
@@ -8789,35 +8722,6 @@ FiniteElement::checkConsistency()
         this->initFsd();
 #endif
 }//checkConsistency
-
-
-//------------------------------------------------------------------------------------------------------
-//! Performs the sea ice data assimilation. Different data sets available. Calls the appropriate function depending on the dataset.
-//! Called by the DataAssimilation() function.
-void
-FiniteElement::assimilateIce()
-{
-    switch (M_ice_type)
-    {
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
-            this->assimilate_topazForecastAmsr2OsisafIce();
-            break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
-            break;
-        default:
-            std::cout << "invalid choice for data assimilation of the ice"<<"\n";
-            throw std::logic_error("invalid choice for data assimilation of the ice");
-    }
-
-    // Check consistency of fields and init ice temperature.
-    // We only need to initialize the ice temperature
-    // - if new ice is created by the assimilation
-    // - TODO determine where to do this in the individual assimilation routines
-    this->checkConsistency();
-}//assimilateIce
-
 
 //------------------------------------------------------------------------------------------------------
 //! Sets the ice cover to a homogeneous state.
@@ -9279,287 +9183,6 @@ FiniteElement::concBinsNic(double &young_conc_obs_min, double &young_conc_obs_ma
         }
     }
 }//concBinsNic
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Assimilates Topaz forecasts, Amsr2, Osisaf and Nic ice state data
-//! Called by the assimilateIce() function.
-void
-FiniteElement::assimilate_topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
-{
-    double real_thickness, init_conc_tmp;
-
-
-    external_data_vec external_data_tmp;
-    external_data M_nic_conc;
-    if(use_weekly_nic)
-        M_nic_conc = ExternalData(&M_ice_nic_weekly_elements_dataset,
-                M_mesh, 0, false, time_init-0.5);
-    else
-        M_nic_conc = ExternalData(&M_ice_nic_elements_dataset,
-                M_mesh, 0, false, time_init-0.5);
-    external_data_tmp.push_back(&M_nic_conc);
-
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
-    LOG(DEBUG)<<"assimilate - NIC ExternalData objects\n";
-    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
-
-    double tmp_var;
-    double sigma_mod=0.1;
-    double sigma_amsr2=0.1;
-    double sigma_osisaf=0.1;
-
-    double topaz_conc, topaz_thick;
-    double h_model, c_model;
-    double hi;
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        h_model=M_thick[i];
-        c_model=M_conc[i];
-
-        if(c_model>0.01)
-        {
-            M_thick[i]=(h_model/c_model)*M_conc[i];
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i];
-            M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
-        }
-        else
-        {
-            M_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        hi=M_thick[i]/M_conc[i];
-        if(M_conc[i]<0.1)
-            hi=M_thick[i];
-
-        if ( M_conc[i] < 0.01 || hi < physical::hmin )
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
-
-        // don't change model if NIC conc > 1
-        // - then it is masked
-        // - unfortunately, applying the mask in datasets led to masked values being treated as real values of 0.0
-        //   so we have to do it manually here
-        if(M_nic_conc[i]>1.)
-            continue;
-
-
-        // Use the NIC ice charts
-        // - get conc bins from NIC dataset
-        double young_conc_obs = 0.;
-        double young_conc_obs_min = 0.;
-        double young_conc_obs_max = 0.;
-        this->concBinsNic(young_conc_obs_min, young_conc_obs_max, M_nic_conc[i], use_weekly_nic);
-
-        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
-        {
-
-            if((M_conc[i]+M_conc_young[i])<young_conc_obs_min)
-            {
-                young_conc_obs = young_conc_obs_min-M_conc[i];//always >=0?
-                if(young_conc_obs>=0.)
-                {
-                    //increase young ice conc so total conc = young_conc_obs_min
-                    if(young_conc_obs>M_conc_young[i])
-                        //increase young ice vol
-                        M_h_young[i] = M_h_young[i]+(h_young_min + (h_young_max/2.-h_young_min)*0.5)*(young_conc_obs-M_conc_young[i]);
-                    else
-                        //reduce young ice vol
-                        M_h_young[i] = M_h_young[i]*young_conc_obs/M_conc_young[i];
-
-                    M_conc_young[i] = young_conc_obs;
-                }
-#if 0
-                else
-                {
-                    //not possible?
-                    M_conc_young[i]=0.;
-                    M_h_young[i]=0.;
-
-                    M_thick[i]=M_thick[i]/(M_conc[i])*(M_conc[i]+young_conc_obs);
-                    M_conc[i]=M_conc[i]+young_conc_obs;
-                }
-#endif
-            }
-            else if((M_conc[i]+M_conc_young[i])>young_conc_obs_max)
-            {
-                young_conc_obs = young_conc_obs_max-M_conc[i];
-                if(young_conc_obs>=0.)
-                {
-                    //some young ice
-                    if(young_conc_obs>M_conc_young[i])
-                        M_h_young[i] = M_h_young[i]+(h_young_min + (h_young_max/2.-h_young_min)*0.5)*(young_conc_obs-M_conc_young[i]);
-                    else
-                        M_h_young[i] = M_h_young[i]*young_conc_obs/M_conc_young[i];
-
-                    M_conc_young[i] = young_conc_obs;
-                }
-                else
-                {
-                    //no young ice
-                    M_conc_young[i]=0.;
-                    M_h_young[i]=0.;
-
-                    // reduce thick ice to max value
-                    M_thick[i]=M_thick[i]*(M_conc[i]+young_conc_obs)/(M_conc[i]);
-                    M_conc[i]=M_conc[i]+young_conc_obs;
-                }
-            }
-
-            /* Two cases: Young ice fills the cell or not */
-            double min_h_young = h_young_min*M_conc_young[i];
-            if ( M_h_young[i] < min_h_young )
-                M_h_young[i] = min_h_young;
-
-            double max_h_young=(h_young_min+(h_young_max+h_young_min)/2.)*M_conc_young[i];
-            if ( M_h_young[i] > max_h_young)
-                M_h_young[i] = max_h_young;
-        }//using young ice
-        else
-        {
-            if(M_conc[i]<young_conc_obs_min)
-            {
-                //young_conc_obs = .25*young_conc_obs_max + .75*young_conc_obs_min;
-                young_conc_obs = ( young_conc_obs_min + (young_conc_obs_min+young_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i] + std::max(hi,0.5)*(young_conc_obs-M_conc[i]); // 50 cm minimum for the added ice
-                M_conc[i] = young_conc_obs;
-            }
-            else if(M_conc[i]>young_conc_obs_max)
-            {
-                //young_conc_obs = .75*young_conc_obs_max + .25*young_conc_obs_min;
-                young_conc_obs = ( young_conc_obs_max + (young_conc_obs_min+young_conc_obs_max)/2.) /2.;
-                M_thick[i] = M_thick[i]*young_conc_obs/M_conc[i];
-                M_conc[i] = young_conc_obs;
-            }
-        }//not using young ice
-    }//loop over elements
-}//assimilate_topazForecastAmsr2OsisafNicIce
-
-
-// -----------------------------------------------------------------------------------------------------------
-//! Assimilates Topaz forecast, Amsr2 and Osisaf ice data.
-//! Called by the assimilateIce() function.
-void
-FiniteElement::assimilate_topazForecastAmsr2OsisafIce()
-{
-    double real_thickness, init_conc_tmp;
-
-    external_data M_osisaf_conc=ExternalData(&M_ice_osisaf_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_osisaf_type=ExternalData(&M_ice_osisaf_type_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_amsr2_conc=ExternalData(&M_ice_amsr2_elements_dataset,M_mesh,0,false,time_init-0.5);
-
-    external_data M_topaz_conc=ExternalData(&M_ocean_elements_dataset,M_mesh,3,false,time_init);
-
-    external_data M_topaz_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,4,false,time_init);
-
-    external_data M_topaz_snow_thick=ExternalData(&M_ocean_elements_dataset,M_mesh,5,false,time_init);
-    DataSet dist2coast_elements_dataset=DataSet("dist2coast_elements");
-    external_data M_dist2coast = ExternalData(&dist2coast_elements_dataset,M_mesh,0,false,time_init);
-
-    external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_osisaf_conc);
-    external_data_tmp.push_back(&M_osisaf_type);
-    external_data_tmp.push_back(&M_amsr2_conc);
-    external_data_tmp.push_back(&M_dist2coast);
-
-    auto RX = M_mesh.bCoordX();
-    auto RY = M_mesh.bCoordY();
-    LOG(DEBUG)<<"assimilate - OSISAF/AMSR2/dist2coast ExternalData objects\n";
-    this->checkReloadDatasets(external_data_tmp, time_init-0.5, RX, RY);
-
-    external_data_tmp.resize(0);
-    external_data_tmp.push_back(&M_topaz_conc);
-    external_data_tmp.push_back(&M_topaz_thick);
-    external_data_tmp.push_back(&M_topaz_snow_thick);
-    LOG(DEBUG)<<"assimilate - TOPAZ ice forecast ExternalData objects\n";
-    this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
-
-    double tmp_var;
-    double sigma_mod=1.;
-    double sigma_amsr2=0.5;
-    double sigma_osisaf=2.;
-
-    double topaz_conc, topaz_thick;
-    double h_model, c_model;
-
-    for (int i=0; i<M_num_elements; ++i)
-    {
-        //initial fields
-        h_model=M_thick[i];
-        c_model=M_conc[i];
-
-        topaz_conc = (M_topaz_conc[i]>1e-14) ? M_topaz_conc[i] : 0.; // TOPAZ puts very small values instead of 0.
-        topaz_thick = (M_topaz_thick[i]>1e-14) ? M_topaz_thick[i] : 0.; // TOPAZ puts very small values instead of 0.
-
-        if(((topaz_conc>0.)||(M_conc[i]>0.))
-                && (M_osisaf_conc[i]>.15)
-                && (M_dist2coast[i]>25.e3))
-            // use osisaf only
-            // - where topaz or the model says there is ice to avoid near land issues and fake concentration over the ocean
-            // - where its conc is > .15 (can be trusted)
-            // - also take into account distance to coast
-            M_conc[i] = (sigma_osisaf*M_conc[i]+sigma_mod*M_osisaf_conc[i])/(sigma_osisaf+sigma_mod);
-
-        if((M_amsr2_conc[i]<M_conc[i])
-                && (M_amsr2_conc[i]>.15))
-            // AMSR2 is higher resolution and sees small opening that would not be see in OSISAF
-            // NB AMSR2 = 1.15 if missing data over ocean, however this will not affect the example here
-            M_conc[i] = M_amsr2_conc[i];
-
-        //tmp_var=M_topaz_snow_thick[i];
-        //M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; // TOPAZ puts very small values instead of 0.
-        //if(M_conc[i]<M_topaz_conc[i])
-        //   M_snow_thick[i] *= M_conc[i]/M_topaz_conc[i];
-
-
-        if(c_model>0.01)
-        {
-            M_thick[i]=(h_model/c_model)*M_conc[i];
-            M_ridge_ratio[i]=(M_ridge_ratio[i]/c_model)*M_conc[i];
-            M_damage[i]=(M_damage[i]/c_model)*M_conc[i];
-        }
-        else
-        {
-            M_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
-
-        //if either c or h equal zero, we set the others to zero as well
-        if ( M_conc[i] < 0.01 || M_thick[i] < (M_conc[i]*physical::hmin) )
-        {
-            M_conc[i]=0.;
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-            M_ridge_ratio[i]=0.;
-        }
-
-        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
-        {
-            double young_conc_obs  = std::max(M_amsr2_conc[i]-M_conc[i],0.);
-
-            M_conc_young[i] = (sigma_osisaf*M_conc_young[i]+sigma_mod*young_conc_obs)/(sigma_amsr2+sigma_mod);
-
-            /* Two cases: Young ice fills the cell or not */
-            double min_h_young = h_young_min*M_conc_young[i];
-            if ( M_h_young[i] < min_h_young )
-                M_h_young[i] = min_h_young;
-
-            double max_h_young=(h_young_min+(h_young_max+h_young_min)/2.)*M_conc_young[i];
-            if ( M_h_young[i] > max_h_young)
-                M_h_young[i] = max_h_young;
-        }
-    }
-}//assimilate_topazForecastAmsr2OsisafIce
-
 
 // -----------------------------------------------------------------------------------------------------------
 //! Initializes the ice state from Topaz forecast, AMSR2 and Osisaf data.
