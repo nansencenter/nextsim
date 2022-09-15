@@ -150,8 +150,9 @@ namespace Nextsim
             external_data_vec M_external_data_nodes;
             std::vector<std::string> M_external_data_nodes_names;//list of names for debugging and exporting
 
-        private:
             double time_init;
+
+        private:
             double M_spinup_duration;
             int M_ensemble_member;
 

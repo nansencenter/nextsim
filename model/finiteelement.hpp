@@ -11,6 +11,7 @@
 #ifndef __FiniteElement_HPP
 #define __FiniteElement_HPP 1
 
+#include <initialiser.hpp>
 #include <datasetmanager.hpp>
 #include <variablemanager.hpp>
 #include <optionhandler.hpp>
@@ -40,8 +41,6 @@
 #include "enums.hpp"
 #include <debug.hpp>
 #include <omp.h>
-#include <boost/random/linear_congruential.hpp>
-#include <boost/random/uniform_01.hpp>
 #if defined OASIS
 #include<oasis_cpp_interface.h>
 #endif
@@ -59,7 +58,7 @@ extern "C"
 namespace Nextsim
 {
 
-class FiniteElement : public VariableManager, public DataSetManager
+class FiniteElement : public Initialiser
 {
 public:
 
@@ -147,16 +146,13 @@ public:
     void initFETensors();
     void forcingNesting();
 
-    void initIce();
     void checkConsistency();
-    void initSlabOcean();
 
     //void timeInterpolation(int step);
     void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
     void calcAuxiliaryVariables();
-    void initModelState();
 
     void calcCohesion();
     void updateFreeDriftVelocity();
@@ -258,7 +254,6 @@ private:
     boost::mpi::timer chrono, chrono_tot;
     Timer::timer M_timer;
 
-    setup::IceType M_ice_type;
     setup::BasalStressType M_basal_stress_type;
     setup::ThermoType M_thermo_type;
     setup::DynamicsType M_dynamics_type;
@@ -443,31 +438,6 @@ private:
 #endif
 
 private:
-
-    //ice-init functions
-    void constantIce();
-    void topazIce();
-    void topazIceOsisafIcesat();
-    void piomasIce();
-    void nemoIce();
-    void ciceIce();
-    void topazForecastIce();
-    void topazForecastAmsr2Ice();
-    void topazForecastAmsr2OsisafIce();
-    void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void concBinsNic(double &young_conc_obs_min,double &young_conc_obs_max,double ci,bool use_weekly_nic);
-    void cs2SmosIce();
-    void cs2SmosAmsr2Ice();
-    void smosIce();
-    void glorys12Ice();
-
-    //no ice-type option to activate these
-    void topazAmsreIce();
-    void topazAmsr2Ice();
-    void amsr2ConstThickIce();
-
-    void warrenClimatology();
-
     //drifter functions
     void checkMoveDrifters();
     void checkUpdateDrifters();
