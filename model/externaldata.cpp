@@ -804,15 +804,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 continue;
             }
 
-            try
-            {
-                NcVars[j] = dataFile.getVar(dataset->variables[j].name);
-            } catch (netCDF::exceptions::NcBadId) {
-                LOG(DEBUG) << "Not loading variable "<< j <<" (aka "<<
-                    dataset->variables[j].name <<") because I couldn't find it in the file "
-                    << filename << "\n";
-                continue;
-            }
+            NcVars[j] = dataFile.getVar(dataset->variables[j].name);
             index_start.resize(dataset->variables[j].dimensions.size());
             index_count.resize(index_start.size());
 
@@ -878,7 +870,15 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // Reading the netcdf
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+            try
+            {
+                NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+            } catch (netCDF::exceptions::NcBadId) {
+                LOG(DEBUG) << "Not loading variable "<< j <<" (aka "<<
+                    dataset->variables[j].name <<") because I couldn't find it in the file "
+                    << filename << "\n";
+                continue;
+            }
 
             //----------- Unit transformation ------------
             // scale factor and add offset are stored as variable attributes
