@@ -766,6 +766,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         // Load each variable and copy its data into loaded_data
+        int num_read=0;
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             filename=filename_fstep[fstep];
@@ -873,8 +874,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             try
             {
                 NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+                // Keep a count of the variables actually read
+                num_read++;
             } catch (netCDF::exceptions::NcBadId) {
-                LOG(DEBUG) << "Not loading variable "<< j <<" (aka "<<
+                LOG(WARNING) << "Not loading variable "<< j <<" (aka "<<
                     dataset->variables[j].name <<") because I couldn't find it in the file "
                     << filename << "\n";
                 continue;
@@ -927,6 +930,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
+        // We may need to resize variables if not all variables were read
+        dataset->variables.resize(num_read);
     }
 
     dataset->nb_forcing_step=nb_forcing_step;
