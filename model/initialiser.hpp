@@ -9,19 +9,17 @@
 #include <boost/random/uniform_01.hpp>
 
 #include "timer.hpp"
-#include "variablemanager.hpp"
-#include "datasetmanager.hpp"
+#include "scattergather.hpp"
 
 namespace Nextsim {
 
-    class Initialiser : public VariableManager, public DataSetManager
+    class Initialiser : public ScatterGather
     {
     public:
 
         Initialiser(Timer::timer* timer)
                 : vm(Environment::vm()),
-                    DataSetManager(timer)
-        {
+                  ScatterGather(timer) {
             this->initOptAndParams();
         }
 

@@ -23,7 +23,14 @@ namespace Nextsim
     {
         // Methods
         public:
-            VariableManager() : vm(Environment::vm()) {}
+            VariableManager() : vm(Environment::vm())
+            {
+                //! Sets options on the thermodynamics scheme
+                if ( vm["thermo.newice_type"].as<int>() == 4 )
+                    M_ice_cat_type = setup::IceCategoryType::YOUNG_ICE; //! \param M_ice_cat_type (int) Option on using ice categories (young ice or "classic")
+                else
+                    M_ice_cat_type = setup::IceCategoryType::CLASSIC;
+            }
 
             void initVariables(int num_elements, int num_nodes);
             void assignVariables(int num_elements, int num_nodes);
@@ -35,6 +42,8 @@ namespace Nextsim
 
         // Variables
         protected:
+            setup::IceCategoryType M_ice_cat_type;
+
             //Nodal variables
             std::vector<double> M_delta_x;
 

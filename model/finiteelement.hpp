@@ -85,23 +85,6 @@ public:
     bool checkRegridding();
     void regrid(bool step = true);
 
-    void gatherFieldsElement(std::vector<double>& interp_in_elements);
-    void scatterFieldsElement(double* interp_elt_out);
-
-    //void gatherUM(std::vector<double>& um);
-    void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
-    void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
-
-    // other interfaces
-    void gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
-                          std::vector<double>& field1_root, std::vector<double>& field2_root);
-
-    void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
-    void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
-
-    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
-    void scatterFieldsNode(double* interp_nd_out);
-
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
     void init();
@@ -187,10 +170,6 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
-    void partitionMeshRestart();
-    void collectNodesRestart(std::vector<double>& interp_nd_out);
-    void collectElementsRestart(std::vector<double>& interp_elt_out,
-            std::vector<std::vector<double>*> &data_elements_root);
 
     void finalise(std::string current_time_system);
 
@@ -204,29 +183,6 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
-    void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
-    void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
-
-    // IO
-    void collectVariablesIO(std::vector<double>& elt_values_local,
-            std::vector<ModelVariable*> const& vars_elements,
-            std::vector<ExternalData*> const& ext_data_elements,
-            bool const& ghosts);
-    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<ModelVariable*> const& vars_elements,
-            std::vector<ExternalData*> const& ext_data_elements);
-    void gatherFieldsElementIO(std::vector<double>& elt_values_root,
-            std::vector<ModelVariable*> const& vars_elements)
-    {
-        std::vector<ExternalData*> ext_data_elements = {};// add a place-holder
-        this->gatherFieldsElementIO(elt_values_root, vars_elements, ext_data_elements);
-    }
-
-    void redistributeVariablesIO(std::vector<double> const& out_elt_values,
-            std::vector<ModelVariable*> &vars_elements);
-    void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
-        std::vector<ModelVariable*> &vars_elements);
-
 private:
     po::variables_map vm;
     mesh_type M_mesh_init;
@@ -234,14 +190,6 @@ private:
     std::vector<element_type> M_edges;
 
     int M_rank;
-
-    int M_nb_var_node;
-
-    int M_prv_local_ndof;
-    int M_prv_num_nodes;
-    int M_prv_num_elements;
-    int M_prv_global_num_nodes;
-    int M_prv_global_num_elements;
 
     int pcpt;
     int niter;
@@ -264,7 +212,6 @@ private:
 
     setup::FreezingPointType M_freezingpoint_type;
     setup::OceanHeatfluxScheme M_Qio_type;
-    setup::IceCategoryType M_ice_cat_type;
     //fsd related
     setup::WeldingType M_welding_type    ;
     setup::BreakupType M_breakup_type    ;

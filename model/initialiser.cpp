@@ -238,7 +238,7 @@ namespace Nextsim
         bool const use_thermo = vm["thermo.use_thermo_forcing"].as<bool>();
         for (int i=0; i<M_sst.size(); ++i)
         {
-            bool set_young = vm["thermo.newice_type"].as<int>()==4;
+            bool set_young = M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE;
             if ( use_thermo
                  && M_sst[i] > -physical::mu*M_sss[i] + SST_limit )
                  // && M_sst[i] > this->freezingPoint(M_sss[i]) + SST_limit )
@@ -469,7 +469,7 @@ namespace Nextsim
                 M_snow_thick[i]=hs*M_conc[i];
             }
 
-            if(bool set_young = vm["thermo.newice_type"].as<int>()==4)
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             {
                 M_conc_young[i]=std::min(1., std::max(M_amsre_conc[i]-M_conc[i],0.));
                 M_h_young[i]=M_conc_young[i]*(h_young_min+0.5*(h_young_max-h_young_min));
@@ -807,7 +807,7 @@ namespace Nextsim
                 M_damage[i]=0.;
             }
 
-            if(bool set_young = vm["thermo.newice_type"].as<int>()==4)
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             {
                 M_conc_young[i]=std::max(M_amsr2_conc[i]-M_conc[i],0.);
                 M_h_young[i]=M_conc_young[i]*(h_young_min+0.5*(h_young_max-h_young_min));
@@ -978,7 +978,7 @@ namespace Nextsim
                     young_conc_obs_max=young_conc_obs_min;
                 }
 
-                if(bool set_young = vm["thermo.newice_type"].as<int>()==4)
+                if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
                 {
                     M_conc_young[i]=0.;
 
@@ -1474,7 +1474,7 @@ namespace Nextsim
 
             M_damage[i]=0.;
 
-            if(bool set_young = vm["thermo.newice_type"].as<int>()==4)
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             {
                 // In case of young ice
                 // Concentration is split into fy0 and 1 - fy0 for young and old ice
@@ -1587,7 +1587,7 @@ namespace Nextsim
 
             M_damage[i]=0.;
 
-            if(bool set_young = vm["thermo.newice_type"].as<int>()==4)
+            if(M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             {
                 // we assume the young ice is not seen by passive microwave
                 // so arbitrarily increase the total conc by 20%, putting this into young ice
