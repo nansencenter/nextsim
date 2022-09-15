@@ -40,7 +40,6 @@ namespace Nextsim {
         void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
         void scatterFieldsNode(double* interp_nd_out);
 
-        void partitionMeshRestart();
         void collectNodesRestart(std::vector<double>& interp_nd_out);
         void collectElementsRestart(std::vector<double>& interp_elt_out,
                                     std::vector<std::vector<double>*> &data_elements_root);

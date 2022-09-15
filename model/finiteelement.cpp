@@ -6764,6 +6764,58 @@ FiniteElement::synchroniseOsisafDrifters()
 }//synchroniseOsisafDrifters
 
 //------------------------------------------------------------------------------------------------------
+//! Partitions the mesh during a restart.
+//! Called by the readRestart() function.
+void
+FiniteElement::partitionMeshRestart()
+{
+    M_comm.barrier();
+
+    if (M_comm.rank() == 0)
+    {
+        LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+        LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+        LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+        LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+        LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
+        // Environment::logMemoryUsage("before partitioning...");
+        chrono.restart();
+        LOG(DEBUG) <<"Saving mesh starts\n";
+        if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        {
+            M_mesh_root.initGModel();
+            M_mesh_root.writeToGModel();
+        }
+        else if (M_partition_space == mesh::PartitionSpace::DISK)
+        {
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+        }
+
+        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+
+        // partition the mesh on root process (rank 0)
+        chrono.restart();
+        LOG(DEBUG) <<"Partitioning mesh starts\n";
+        M_mesh_root.partition(M_partitioned_mesh_filename,
+                              M_partitioner, M_partition_space, M_mesh_fileformat);
+        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+    }
+
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
+    std::vector<int> sizes_nodes = M_sizes_nodes;
+
+    this->distributedMeshProcessing(true);
+}//partitionMeshRestart
+
+
+//------------------------------------------------------------------------------------------------------
 //! Calculates-updates the free drift velocity (no rheology term), if option DynamicsType is set to FREE_DRIFT.
 //! Called by the step() function.
 void

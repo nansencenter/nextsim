@@ -170,6 +170,7 @@ public:
     void writeRestart();
     void writeRestart(std::string const& name_string);
     void readRestart(std::string const& name_string);
+    void partitionMeshRestart();
 
     void finalise(std::string current_time_system);
 
