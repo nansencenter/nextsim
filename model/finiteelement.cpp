@@ -10099,19 +10099,19 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*sin_ocean_turning_angle;
+            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = D_tau_a[u_indx]
 #ifdef OASIS
                 + tau_wi[u_indx]
 #endif
-                + c_prime*( M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*sin_ocean_turning_angle );
+                + c_prime*( M_ocean[u_indx]*cos_ocean_turning_angle - M_ocean[v_indx]*std::copysign(sin_ocean_turning_angle, lat[i]) );
             double const tau_y = D_tau_a[v_indx]
 #ifdef OASIS
                 + tau_wi[v_indx]
 #endif
-                + c_prime*( M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*sin_ocean_turning_angle );
+                + c_prime*( M_ocean[v_indx]*cos_ocean_turning_angle + M_ocean[u_indx]*std::copysign(sin_ocean_turning_angle, lat[i]) );
 
             // We need to divide the gradient terms with the lumped mass matrix term
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
