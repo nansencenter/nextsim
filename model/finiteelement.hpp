@@ -96,7 +96,6 @@ public:
     void initMesh();
     void initExternalData();
     void initDatasets();
-    void createGMSHMesh(std::string const& geofilename);
 
     double jacobian(std::vector<std::vector<double>> const& vertices) const;
 
@@ -143,13 +142,7 @@ public:
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
 
-    //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
-    void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
-
-    // other interfaces
-    void gatherNodalField(std::vector<double> const& field1_local, std::vector<double> const& field2_local,
-                          std::vector<double>& field1_root, std::vector<double>& field2_root);
 
     void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
@@ -263,7 +256,6 @@ public:
 #ifdef OASIS
     void forcingWaves();
 #endif
-    void forcingNesting();
     void initBathymetry();
 
     void initIce();
@@ -271,8 +263,6 @@ public:
     void initSlabOcean();
 
     void calcCoriolis();
-    //void timeInterpolation(int step);
-    void nodesToElements(double const* depth, std::vector<double>& v);
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
@@ -286,7 +276,6 @@ public:
 
     void calcCohesion();
     void updateFreeDriftVelocity();
-    void speedScaling(std::vector<double>& speed_scaling);
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
 
@@ -328,8 +317,6 @@ public:
 
     void rootMeshProcessing();
 
-    void rootMeshRenumbering();
-
     void distributedMeshProcessing(bool start = false);
 
     void interpVertices();
@@ -344,8 +331,6 @@ public:
     void writeLogFile();
 
 private:
-    void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
-    void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
