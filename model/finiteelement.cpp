@@ -980,7 +980,6 @@ FiniteElement::initBamg()
         bamggeom_root = new BamgGeom();
         bamgmesh_root = new BamgMesh();
 
-        bamgopt_previous = new BamgOpts();
         bamggeom_previous = new BamgGeom();
         bamgmesh_previous = new BamgMesh();
     }
@@ -2983,17 +2982,10 @@ FiniteElement::regrid(bool step)
 void
 FiniteElement::adaptMesh()
 {
-    delete bamgopt_previous;
     delete bamggeom_previous;
     delete bamgmesh_previous;
-
-    bamgopt_previous = new BamgOpts();
-    bamggeom_previous = new BamgGeom();
-    bamgmesh_previous = new BamgMesh();
-
-    *bamgmesh_previous = *bamgmesh_root;
-    *bamggeom_previous = *bamggeom_root;
-    *bamgopt_previous = *bamgopt;
+    bamgmesh_previous = bamgmesh_root;
+    bamggeom_previous = bamggeom_root;
 
     // set dirichlet flags
     for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
@@ -3012,9 +3004,23 @@ FiniteElement::adaptMesh()
         }
     }
 
+    /* We need bamgopt_modified because Bamgx modifies (at least) bamgopt->hmin
+     * and hmax and we don't want anyone to use the modified values! */
+    BamgOpts *bamgopt_modified;
+    bamgopt_modified = new BamgOpts();
+    *bamgopt_modified = *bamgopt;
+
+    /* We also reset bamgmesh_root & bamggeom_root for output
+     * (bamgmesh_previous and bamggeom_prevous are pointing to the data, so
+     * nothing's lost here). */
+    bamgmesh_root = NULL; // probably only needed to convince valgrind that nothing's lost
+    bamggeom_root = NULL;
+    bamgmesh_root = new BamgMesh();
+    bamggeom_root = new BamgGeom();
+
     chrono.restart();
-    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
+    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_modified);
+    delete bamgopt_modified;
 
     //! Imports the mesh from bamg, updates the boundary flags and node ID's
     this->importBamg(bamgmesh_root);
@@ -13203,14 +13209,8 @@ FiniteElement::finalise(std::string current_time_system)
         delete bamggeom_root;
         delete bamgmesh_root;
 
-        // We need to point these to NULL because 'delete bamgopt' clears the
-        // memory they were pointing to before
-        bamgopt_previous->hminVertices      = NULL;
-        bamgopt_previous->hmaxVertices      = NULL;
-
         delete bamgmesh_previous;
         delete bamggeom_previous;
-        delete bamgopt_previous;
 
         // clear GModel from mesh data structure
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
