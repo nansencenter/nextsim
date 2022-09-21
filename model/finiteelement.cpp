@@ -2891,65 +2891,105 @@ FiniteElement::regrid(bool step)
     if (M_rank == 0)
     {
         chrono.restart();
-        LOG(DEBUG) <<"Move starts\n";
-        M_mesh_root.move(um_root,displacement_factor);
-        LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"Flip starts\n";
 
-        chrono.restart();
-        LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
-        auto RX = M_mesh_root.coordX();
-        auto RY = M_mesh_root.coordY();
-
-        for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+        while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
         {
-            bamgmesh_root->Vertices[3*id] = RX[id];
-            bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+            ++substep;
+            displacement_factor /= 2.;
+            step_order++;
+
+            flip = this->flip(M_mesh_root,um_root,displacement_factor);
+
+            if (substep > 1)
+                LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+        LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
 
-        if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+        // int step_order_max = step_order;
+        // boost::mpi::reduce(M_comm, step_order, step_order_max, boost::mpi::maximum<int>(), 0);
+        // step_order = step_order_max;
+
+        LOG(DEBUG) << "STEP ORDER= "<< step_order <<"\n";
+
+        substep_nb = std::pow(2,step_order);
+
+        if(substep_nb!=1)
         {
+            LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+            LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
+        }
+
+        LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
+
+        substep_nb = 1;
+
+        for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
+        {
+            //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
+
             chrono.restart();
-            LOG(DEBUG) <<"Interp vertices starts\n";
-            this->interpVertices();
-            LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
+            LOG(DEBUG) <<"Move starts\n";
+            M_mesh_root.move(um_root,displacement_factor);
+            LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
+
+            chrono.restart();
+            LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
+            auto RX = M_mesh_root.coordX();
+            auto RY = M_mesh_root.coordY();
+
+            for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+            {
+                bamgmesh_root->Vertices[3*id] = RX[id];
+                bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+            }
+
+            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+
+            if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+            {
+                chrono.restart();
+                LOG(DEBUG) <<"Interp vertices starts\n";
+                this->interpVertices();
+                LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
+            }
+
+            M_timer.tick("adaptMesh");
+            LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
+            this->adaptMesh();
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
+
+
+            // save mesh (only root process)
+
+            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
+            M_timer.tick("partition");
+            // Environment::logMemoryUsage("before partitioning...");
+            chrono.restart();
+            LOG(DEBUG) <<"Saving mesh starts\n";
+            if (M_partition_space == mesh::PartitionSpace::MEMORY)
+                M_mesh_root.writeToGModel();
+            else if (M_partition_space == mesh::PartitionSpace::DISK)
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+
+            // partition the mesh on root process (rank 0)
+            chrono.restart();
+            LOG(DEBUG) <<"Partitioning mesh starts\n";
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
+            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
+
+            // Environment::logMemoryUsage("after partitioning...");
         }
-
-        M_timer.tick("adaptMesh");
-        LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
-        this->adaptMesh();
-        LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
-        M_timer.tock("adaptMesh");
-
-
-        // save mesh (only root process)
-
-        LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-        LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-        LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-        LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-        LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
-
-        M_timer.tick("partition");
-        // Environment::logMemoryUsage("before partitioning...");
-        chrono.restart();
-        LOG(DEBUG) <<"Saving mesh starts\n";
-        if (M_partition_space == mesh::PartitionSpace::MEMORY)
-            M_mesh_root.writeToGModel();
-        else if (M_partition_space == mesh::PartitionSpace::DISK)
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-
-        // partition the mesh on root process (rank 0)
-        chrono.restart();
-        LOG(DEBUG) <<"Partitioning mesh starts\n";
-        M_mesh_root.partition(M_partitioned_mesh_filename,
-                M_partitioner, M_partition_space, M_mesh_fileformat);
-        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-        M_timer.tock("partition");
-
-        // Environment::logMemoryUsage("after partitioning...");
     } // rank 0
 
     // --------------------------------BEGINNING-------------------------
