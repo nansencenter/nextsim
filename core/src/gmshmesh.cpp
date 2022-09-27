@@ -1921,7 +1921,7 @@ GmshMesh::vertices(std::vector<int> const& indices) const
     int const nv = indices.size();
     std::vector<std::vector<double>> vertices(nv);
     for(int i=0; i<nv; i++)
-        vertices[i] = M_nodes[indices[i]].coords;
+        vertices[i] = M_nodes.at(indices[i]).coords;
     return vertices;
 }//vertices
 

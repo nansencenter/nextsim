@@ -23,6 +23,7 @@
 #include <entities.hpp>
 #include <meshpartition.hpp>
 #include "debug.hpp"
+#include <Context.h>
 
 extern "C"
 {
