@@ -45,7 +45,11 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+ifeq ($(BOOST_DIR),/usr)
+	CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
+else
+	CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+endif
 
 # netcdf
 ifeq ($(NETCDF_CXX_DIR),)
