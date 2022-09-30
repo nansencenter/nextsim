@@ -39,7 +39,7 @@ endif
 # add include paths
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I/usr/local/include -I$(MPI_INC_DIR)/
 CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include/gmsh
-CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I$(MAPX_DIR)/include
 
 ifeq ($(KERNEL),Linux)
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
@@ -66,7 +66,7 @@ LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
 LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
 
 # mapx
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(MAPX_DIR)/lib -lmapx
 
 
 # C++ files

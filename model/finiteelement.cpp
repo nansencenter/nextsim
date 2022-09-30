@@ -12484,6 +12484,8 @@ FiniteElement::globalNumToprocId(int global_num)
 
         cpt += 2*M_sizes_nodes[i];
     }
+
+    throw std::logic_error("FiniteElement::globalNumToprocID: Couldn't find procID for global_num\n");
 } //globalNumToprocId
 
 // -------------------------------------------------------------------------------------

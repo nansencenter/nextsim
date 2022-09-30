@@ -10,7 +10,6 @@ all: modules core contrib
 
 contrib:
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE)
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE)
 
 modules:
 ifdef USE_OASIS
@@ -25,7 +24,6 @@ core: contrib modules
 
 clean: cleanmodel
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) clean
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) clean
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) clean
 endif
@@ -39,7 +37,6 @@ cleanmodel:
 
 mrproper: clean
 	@cd $(NEXTSIMDIR)/contrib/bamg/src; $(MAKE) mrproper
-	@cd $(NEXTSIMDIR)/contrib/mapx/src; $(MAKE) mrproper
 ifdef USE_OASIS
 	@cd $(NEXTSIMDIR)/modules/oasis/src; $(MAKE) mrproper
 endif

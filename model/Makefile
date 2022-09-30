@@ -30,7 +30,7 @@ endif
 # add include paths
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
-CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I$(MAPX_DIR)/include
 
 ifdef USE_ENSEMBLE
 	CXXFLAGS += -DENSEMBLE
@@ -40,12 +40,12 @@ endif
 # include with -isystem instead of -I to suppress warnings and to not
 # add them to the dependancies file (this is mainly because they are outside our control)
 ifdef USE_AEROBULK
-	CXXFLAGS += -isystem $(AEROBULK_DIR)/include
+	CXXFLAGS += -I$(AEROBULK_DIR)/include
 	CXXFLAGS += -DAEROBULK
 endif
 
 # boost
-CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
 
 # netcdf
 ifeq ($(NETCDF_CXX_DIR),)
@@ -64,12 +64,12 @@ ifeq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -I$(NETCDF_DIR)/include
 	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
 else
-	CXXFLAGS += -isystem $(NETCDF_DIR)/include
-	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
+	CXXFLAGS += -I$(NETCDF_DIR)/include
+	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I$(GMSH_DIR)/include/gmsh
 
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
@@ -82,7 +82,7 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(MAPX_DIR)/lib -lmapx
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D

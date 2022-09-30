@@ -19,12 +19,7 @@ ENV CCFLAGS=$CFLAGS
 
 # copy source, compile and copy libs of mapx and bamg
 COPY contrib $NEXTSIMDIR/contrib
-WORKDIR $NEXTSIMDIR/contrib/mapx/src
-RUN make -j8 \
-&&  mkdir -p /opt/local/mapx/lib  \
-&&  cp -d $NEXTSIMDIR/lib/libmapx* /opt/local/mapx/lib/ \
-&&  cp -r $NEXTSIMDIR/contrib/mapx/include /opt/local/mapx \
-&&  echo /opt/local/mapx/lib/ >> /etc/ld.so.conf
+
 WORKDIR $NEXTSIMDIR/contrib/bamg/src
 RUN make -j8 \
 &&  mkdir -p /opt/local/bamg/lib  \
