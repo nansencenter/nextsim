@@ -7030,8 +7030,18 @@ FiniteElement::initModelVariables()
     M_prognostic_variables_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
+
+    std::vector<std::string> requested_names = vm["output.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> available_names;
     for(auto ptr: M_variables_elt)
     {
+        // Set exporting to true if the name is in the output.variables list
+        if ( std::find(requested_names.begin(), requested_names.end(), ptr->exportName()) != requested_names.end() )
+            ptr->setExporting(true);
+
+        // Collect a list of all available export names to compare to the outpt.variables list
+        available_names.push_back(ptr->exportName());
+
         if(ptr->isPrognostic())
         {
             // restart, regrid variables
@@ -7054,6 +7064,20 @@ FiniteElement::initModelVariables()
         // otherwise model will crash
         ptr->assign(M_num_elements,0.);
     }// loop over M_variables_elt
+
+    // Check that output.variables doesn't contain a typo!
+    // Add "M_VT" and "None" to the available list before checking
+    available_names.push_back(std::string("M_VT"));
+    available_names.push_back(std::string("None"));
+    for (auto &ref: requested_names)
+    {
+        if ( std::find(available_names.begin(), available_names.end(), ref) == available_names.end() )
+        {
+            LOG(ERROR) << "'" << ref << "' is listed as output.variables, but it is not available as an output name\n";
+            M_comm.barrier();
+            throw std::runtime_error("Unknown name in output.variables\n");
+        }
+    }
 
     //! - 3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
     //! using ModelVariable::interpTransformation
@@ -13917,12 +13941,14 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             std::vector<int> regridvec = {M_nb_regrid};
 
             exporter.writeField(outbin, timevec, "Time");
-            exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            exporter.writeField(outbin, M_surface_root, "Element_area");
-            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
+            // exporter.writeField(outbin, M_surface_root, "Element_area");
+            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
             //manually export some vectors defined on the nodes
-            exporter.writeField(outbin, M_VT_root, "M_VT");
+            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+                exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (M_couple_waves && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
