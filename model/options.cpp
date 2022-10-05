@@ -254,8 +254,8 @@ namespace Nextsim
                     "float (default) or double (almost only for testing)")
             ("output.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"Damage", "Concentration", "Thickness", "Snow", "Concentration_young_ice", "Thickness_young_ice", "Snow_young_ice", "M_VT"},
-                             "Damage    Concentration    Thickness    Snow    Concentration_young_ice    Thickness_young_ice    Snow_young_ice    M_VT"
+                            {"None"},
+                             "None"
                     )->composing(), "list of variable names (put on separate lines in config file)")
 
 
