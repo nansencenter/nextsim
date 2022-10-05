@@ -23,7 +23,6 @@
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
@@ -180,9 +179,13 @@ public:
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
                  std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& evap, ModelVariable& tau);
-    void IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<double>& snow_thick, const std::vector<double>& conc,
-                 std::vector<double>& Qia, std::vector<double>& Qlw, std::vector<double>& Qsw,
-                 std::vector<double>& Qlh, std::vector<double>& Qsh, std::vector<double>& subl, std::vector<double>& dQiadT);
+    void IABulkFluxes(
+            const std::vector<double>& Tsurf, const std::vector<double>& snow_thick,
+            const std::vector<double>& conc, std::vector<double>& Qia,
+            std::vector<double>& Qlw, std::vector<double>& Qsw,
+            std::vector<double>& Qlh, std::vector<double>& Qsh,
+            std::vector<double>& subl, std::vector<double>& dQiadT,
+            std::vector<double>& alb_tot);
     inline double albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -192,9 +195,8 @@ public:
     inline double windSpeedElement(const int i);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
-                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY,
-                    const bool use_timer=false);
-    void checkReloadMainDatasets(double const CRtime, const bool use_timer=false);
+                    double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
+    void checkReloadMainDatasets(double const CRtime);
 
     Dataset M_atmosphere_nodes_dataset;
     Dataset M_atmosphere_elements_dataset;
@@ -249,9 +251,12 @@ public:
     void initBamg();
     void initOptAndParam();
     void initFETensors();
-    template<typename enum_type>
-    enum_type getOptionFromMap(std::string const &opt_name,
-        boost::unordered_map<const std::string, enum_type> map);
+    template<typename option_type>
+    option_type getOptionFromMap(std::string const &opt_name,
+        boost::unordered_map<const std::string, option_type> map);
+    template<typename option_type>
+    option_type getAllowedOption(std::string const &opt_name,
+        const std::vector<option_type> &options);
     void forcing();
     void forcingAtmosphere();
     void forcingOcean();
@@ -293,6 +298,8 @@ public:
     int globalNumToprocId(int global_num);
 
 #ifdef OASIS
+    bool M_couple_waves;
+    bool M_recv_wave_stress;
     // FSD related functions
     void initFsd();
     void redistributeFSD();
@@ -301,7 +308,7 @@ public:
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
     void weldingRoach(const int cpt, double ddt);
-    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double thin_ice_growth, double old_conc, double old_conc_thin) ;
+    void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double young_ice_growth, double old_conc, double old_conc_young) ;
     double lateralMeltFSD(const int i,double ddt) ;
 #endif
 
@@ -433,6 +440,7 @@ private:
     setup::OceanHeatfluxScheme M_Qio_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
+    std::string M_mesh_ordering;
     mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
     //fsd related
@@ -456,9 +464,6 @@ private:
     std::vector<bool> M_mask_root;
     std::vector<bool> M_mask_dirichlet_root;
 
-    // interpolation method
-    std::vector<int> M_interp_methods;
-
     // diffusivity parameters
     std::vector<double> M_diffusivity_parameters;
 
@@ -481,13 +486,15 @@ private:
 
 #ifdef OASIS
     ExternalData M_tau_wi;
+    ExternalData M_wlbk;
 //    ExternalData M_str_var;
 //    ExternalData M_tm02;
-    ExternalData M_wlbk;
 #endif
 
-    external_data_vec M_external_data_elements, M_external_data_nodes;
+    external_data_vec M_external_data_elements;
     std::vector<std::string> M_external_data_elements_names;//list of names for debugging and exporting
+    external_data_vec M_external_data_nodes;
+    std::vector<std::string> M_external_data_nodes_names;//list of names for debugging and exporting
     Dataset_vec M_datasets_regrid;
 
     std::vector<double> M_fcor;
@@ -563,8 +570,10 @@ private:
     double basal_u_0;
     double basal_Cb;
 
-    double h_thin_min;
-    double h_thin_max;
+    double h_young_min;
+    double h_young_max;
+    double M_ks;
+    double M_ocean_albedo;
 
     double compr_strength;
     double tract_coef;
@@ -659,9 +668,9 @@ private:
     external_data M_nesting_conc; // sea_ice_area_fraction from the outer domain
     external_data M_nesting_thick; // sea_ice_thickness from the outer domain
     external_data M_nesting_snow_thick; // surface_snow_thickness from the outer domain
-    external_data M_nesting_h_thin ; // thin_ice_thickness from the outer domain
-    external_data M_nesting_conc_thin ; // thin_ice_area_fraction from the outer domain
-    external_data M_nesting_hs_thin ; // surface_snow_thickness_on_thin_ice from the outer domain
+    external_data M_nesting_h_young ; // young_ice_thickness from the outer domain
+    external_data M_nesting_conc_young ; // young_ice_area_fraction from the outer domain
+    external_data M_nesting_hs_young ; // surface_snow_thickness_on_young_ice from the outer domain
     external_data M_nesting_damage; // damage from the outer domain
     external_data M_nesting_ridge_ratio; // ridge_ratio from the outer domain
     external_data M_nesting_VT1; // X-velocity from the outer domain
@@ -703,21 +712,28 @@ private:
     std::vector<ModelVariable> M_sigma; // Internal stress tensor
     ModelVariable M_sst;                // Sea-surface (slab ocean) temperature [C]
     ModelVariable M_sss;                // Sea-surface (slab ocean) salinity [psu]
-    ModelVariable M_tsurf_thin;         // Ice surface temperature of thin ice [C]
-    ModelVariable M_h_thin;
-    ModelVariable M_hs_thin;
-    ModelVariable M_conc_thin;
+    ModelVariable M_tsurf_young;        // Ice surface temperature of young ice [C]
+    ModelVariable M_h_young;
+    ModelVariable M_hs_young;
+    ModelVariable M_conc_young;
     ModelVariable M_random_number;
     ModelVariable M_fyi_fraction;
     ModelVariable M_age_det;
     ModelVariable M_age;
     ModelVariable M_conc_upd;           // Ice concentration update by assimilation
+    ModelVariable M_conc_myi;           // Concentration of multiyear ice
+    ModelVariable M_thick_myi;          // Thickness of multiyear ice
+    ModelVariable M_freeze_days;        // Days of consecutive freezing
+    ModelVariable M_freeze_onset;       // Onset of freezing
+    ModelVariable M_conc_summer;        // Concentration at end of summer
+    ModelVariable M_thick_summer;       // Thickness at end of summer
+    ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
     std::vector<ModelVariable> M_conc_fsd;
     //std::vector<ModelVariable> M_conc_fsd_thick;
-    //std::vector<ModelVariable> M_conc_fsd_thin ;
+    //std::vector<ModelVariable> M_conc_fsd_young ;
     std::vector<ModelVariable> M_conc_mech_fsd;
     int M_num_fsd_bins;
     std::vector<double> M_fsd_bin_widths;
@@ -763,8 +779,9 @@ private:
     ModelVariable D_conc; //total concentration
     ModelVariable D_thick; // total thickness [m]
     ModelVariable D_snow_thick;// total snow thickness [m]
-    ModelVariable D_tsurf; //mean surface temperature (thick + thin ice + slab ocean) [deg C]
+    ModelVariable D_tsurf; //mean surface temperature (thick + young ice + slab ocean) [deg C]
     std::vector<ModelVariable> D_sigma; //principal stresses [Pa]
+    ModelVariable D_divergence; // ice velocity divergence [1/s]
     ModelVariable D_Qa; // Heat loss to atmosphere [W/m2]
     ModelVariable D_Qsw; // Total short wave at surface [W/m2]
     ModelVariable D_Qlw; // Total long wave at surface [W/m2]
@@ -775,12 +792,17 @@ private:
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
     ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m/day]
-    ModelVariable D_del_vi_thin; // thin ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_vi_young; // young ice volume (/element_area) melted/formed [m/day]
     ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
-    ModelVariable D_del_hi_thin; // thin ice growth/melt rate [m/day]
+    ModelVariable D_del_hi_young; // young ice growth/melt rate [m/day]
     ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
     ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
     ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_del_vi_mlt_myi;   //myi ice volume (/element_area) melted [m/day]
+    ModelVariable D_del_vi_rplnt_myi;  //myi ice vol change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_rplnt_myi;  //myi ice area change (/element_area) due to replenishment  [./day]
+    ModelVariable D_del_ci_mlt_myi;    //myi ice area (/element_area) melted   [m/day]
+    ModelVariable D_del_ci_ridge_myi; //myi ice area change (/element_area) due to ridging [./day]
     ModelVariable D_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
@@ -791,6 +813,8 @@ private:
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
+    ModelVariable D_albedo; // surface albedo
+    ModelVariable D_sialb; // sea ice albedo
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
@@ -806,6 +830,10 @@ private:
     std::vector<double> M_fyi_fraction_mean;  // Fraction of the first year ice (FYI) (on the mesh)
     std::vector<double> M_age_det_mean;       // Ice age observable from space (area weighted) [timestep] (on the mesh)
     std::vector<double> M_age_mean;           // Effective ice age [timestep] (on the mesh)
+    std::vector<double> M_conc_myi_mean;  // Mean concentration of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_thick_myi_mean;  // Mean thickness of multiyear ice (MYI) (on the mesh)
+    std::vector<double> M_freeze_days_mean;  // Mean number of consecutive days freezing has been occurring (on the mesh)
+    std::vector<double> M_freeze_onset_mean;  // 1 if freezeing has been occurring (on the mesh)
 
     std::vector<double> M_conc_grid;    // Mean concentration (on the grid)
     std::vector<double> M_thick_grid;   // Mean ice thickness (on the grid)
@@ -814,6 +842,11 @@ private:
     std::vector<double> M_fyi_fraction_grid;  // Fraction of the first year ice (FYI) (on the grid)
     std::vector<double> M_age_det_grid;       // Ice age observable from space (area weighted) [timestep] (on the grid)
     std::vector<double> M_age_grid;           // Effective ice age [timestep] (on the grid)
+    // NDGB: Not sure the lines below are needed, what are these grid useful?
+    std::vector<double> M_conc_myi_grid;  // Mean concentration of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_thick_myi_grid;  // Mean thickness of multiyear ice (MYI) (on the grid)
+    std::vector<double> M_freeze_days_grid;  // Mean number of consecutive days freezing has been occurring (on the grid)
+    std::vector<double> M_freeze_onset_grid;  // 1 if freezing has been occurring (on the grid)
 
 private:
     // Variables for the moorings
@@ -849,16 +882,17 @@ private:
     void topazIce();
     void topazIceOsisafIcesat();
     void piomasIce();
-    void cregIce();
+    void nemoIce();
     void ciceIce();
     void topazForecastIce();
     void topazForecastAmsr2Ice();
     void topazForecastAmsr2OsisafIce();
     void topazForecastAmsr2OsisafNicIce(bool use_weekly_nic);
-    void concBinsNic(double &thin_conc_obs_min,double &thin_conc_obs_max,double ci,bool use_weekly_nic);
+    void concBinsNic(double &young_conc_obs_min,double &young_conc_obs_max,double ci,bool use_weekly_nic);
     void cs2SmosIce();
     void cs2SmosAmsr2Ice();
     void smosIce();
+    void glorys12Ice();
 
     //no ice-type option to activate these
     void topazAmsreIce();

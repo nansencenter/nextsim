@@ -46,13 +46,6 @@ This will, of course, crash because no configfile is given to the model. But it
 shows that the model is already compiled and stored inside the image. In the section 4 below see
 how to run the model correctly.
 
-By default the base image will be quite large, it will contain many libraries and Python packages.
-If a smaller image needs to be built with bare minimum of libraries, an extra option should be
-added to the build command:
-```
-docker build . -t nextsim --build-arg BASE_IMAGE=nansencenter/nextsim_base_prod:latest
-```
-
 ## 4. Run the neXtSIM executable inside a container
 
 The image is built to run any executable inside a container. For example, if you only want to run

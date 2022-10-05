@@ -20,7 +20,7 @@ ifdef USE_ENSEMBLE
 	@cd $(NEXTSIMDIR)/modules/enkf/perturbation/src; $(MAKE)
 endif
 
-core: contrib
+core: contrib modules
 	@cd $(NEXTSIMDIR)/core/src; $(MAKE)
 
 clean: cleanmodel

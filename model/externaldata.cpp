@@ -227,11 +227,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             this->receiveCouplingData(M_dataset, cpl_time, comm);
             this->transformData(M_dataset);
             M_dataset->interpolated = false;
-            M_dataset->itime_range[0] = cpl_time;
-            M_dataset->itime_range[1] = cpl_time + cpl_dt;
+            int const cpl_time_last = (cpl_time/cpl_dt)*cpl_dt;
+            M_dataset->itime_range[0] = cpl_time_last;
+            M_dataset->itime_range[1] = cpl_time_last + cpl_dt;
+            //TODO ftime_range doesn't seem to be used in coupling code
             M_dataset->ftime_range[0] = M_current_time;
             M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
-        }
+        }//reload coupling data
         else {
 #endif
             LOG(DEBUG) << "Load " << M_dataset->name << "\n";
@@ -764,6 +766,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         // Load each variable and copy its data into loaded_data
+        int num_read=0;
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             filename=filename_fstep[fstep];
@@ -868,7 +871,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // Reading the netcdf
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+            try
+            {
+                NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+                // Keep a count of the variables actually read
+                num_read++;
+            } catch (netCDF::exceptions::NcBadId) {
+                LOG(WARNING) << "Not loading variable "<< j <<" (aka "<<
+                    dataset->variables[j].name <<") because I couldn't find it in the file "
+                    << filename << "\n";
+                continue;
+            }
 
             //----------- Unit transformation ------------
             // scale factor and add offset are stored as variable attributes
@@ -917,6 +930,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
+        // We may need to resize variables if not all variables were read
+        dataset->variables.resize(num_read);
     }
 
     dataset->nb_forcing_step=nb_forcing_step;

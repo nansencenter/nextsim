@@ -30,7 +30,6 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 BOOST_LIBDIR=/opt/local/boost/lib
 
-CXX = mpicxx
 
 # setting the C++ standard according to the gcc compiler version (from gcc-5.2, the default is C++14)
 ifeq ($(shell echo `$(CXX) -dumpversion | cut -f1-2 -d.` \>= 5.2 | sed -e 's/\.//g' | bc),1)
@@ -40,11 +39,11 @@ CXXFLAGS += -std=c++11
 endif
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -v #-pedantic
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(BOOST_INCDIR)/
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/enkf/perturbation/include
+CXXFLAGS += -I$(BOOST_INCDIR)/
+CXXFLAGS += -I$(NEXTSIMDIR)/modules/enkf/perturbation/include
 LNKFLAGS  = -lstdc++ -lgfortran
 
 # ========================================================
@@ -67,19 +66,19 @@ FFTW_LIB   = $(FFTW_DIR)/lib
 FC = mpif90
 F90FLG= -free
 FFLAGS = -fPIC -O3 -fconvert=big-endian -fdefault-real-8
-FFLAGS += -I $(FFTW_INC)/
+FFLAGS += -I$(FFTW_INC)/
 # ========================================================
 
 # ========================================================
 # Libraries
-CXXLIBS  += -L $(BOOST_LIBDIR) -L $(OPENMPI_LIB_DIR)/
-CXXLIBS  += -L $(NEXTSIMDIR)/lib
+CXXLIBS  += -L$(BOOST_LIBDIR) -L$(OPENMPI_LIB_DIR)/
+CXXLIBS  += -L$(NEXTSIMDIR)/lib
 CXXLIBS  += -lboost_program_options -lboost_filesystem -lboost_system
 CXXLIBS  += -lboost_serialization -lboost_mpi -lboost_date_time
 CXXLIBS  += -lmpi_cxx -lmpi -ldl -lstdc++ -lpthread
 CXXLIBS  += -Wl,-rpath,$(OPENMPI_LIB_DIR)/
 
-LDFLAGS  += -L $(FFTW_LIB) -lfftw3
+LDFLAGS  += -L$(FFTW_LIB) -lfftw3
 
 # ========================================================
 # Rules to always execute.

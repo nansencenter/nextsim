@@ -11,21 +11,17 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-CXX = mpicxx
+CXXFLAGS := $(filter-out -fopenmp -pthread,$(CXXFLAGS))
 
 CXXFLAGS += -std=c++14
 
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -D_MULTITHREADING_
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -D_MULTITHREADING_
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
-else
-	CXXFLAGS += -O3 -pthread
 endif
 
 ifdef NEXTSIM_COMPILE_VERBOSE
@@ -33,7 +29,7 @@ ifdef NEXTSIM_COMPILE_VERBOSE
 endif
 
 ifeq ($(KERNEL),Linux)
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/lib/openmpi/include
+	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I$(MPI_INC_DIR)
 	LDFLAGS += -shared -Wl,-soname,libbamg.so.1
 	LDFLAGS += -lm -ldl #-lhwloc
 else
@@ -42,7 +38,7 @@ else
 	CXXFLAGS += -stdlib=libc++
 	endif
 
-	CXXFLAGS += -I $(NEXTSIMDIR)/contrib/bamg/include -I /usr/local/include
+	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I/usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
 

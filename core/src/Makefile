@@ -12,31 +12,24 @@ DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
-CXX = mpicxx
 
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fPIC -fopenmp -fpermissive
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
-	CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -lgfortran
-	LDFLAGS += -L $(NEXTSIMDIR)/lib -loasis
+	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
+	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
-	#LIBPSMILE = $(OASIS_DIR)/lib/libpsmile.${CHAN}.a $(OASIS_DIR)/lib/libmct.a $(OASIS_DIR)/lib/libmpeu.a $(OASIS_DIR)/lib/libscrip.a
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	#CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
-else
-	CXXFLAGS += -O3 -pthread
 endif
 
 ifdef NEXTSIM_COMPILE_VERBOSE
@@ -44,9 +37,9 @@ ifdef NEXTSIM_COMPILE_VERBOSE
 endif
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/core/include -I /usr/local/include -I $(OPENMPI_INCLUDE_DIR)/
-CXXFLAGS += -I $(BOOST_INCDIR)/ -I $(GMSH_DIR)/include/gmsh
-CXXFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include
+CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I/usr/local/include -I$(MPI_INC_DIR)/
+CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
 	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
@@ -66,14 +59,14 @@ LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
 
 #boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-LDFLAGS += -L $(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
+LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
 
 # gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L $(GMSH_DIR)/lib -lGmsh
+LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
 
 # mapx
-LDFLAGS += -L $(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
 
 
 # C++ files
