@@ -9593,13 +9593,36 @@ FiniteElement::explicitSolve()
         this->updateGhosts(M_VT);
         M_timer.tock("updateGhosts");
 
-        M_timer.tick("move mesh");
         // Move the mesh and update total displacement
+        // For EVP and BBM we move the mesh every sub-time step
+        if ( M_dynamics_type != setup::DynamicsType::mEVP )
+        {
+            M_timer.tick("move mesh");
+            std::vector<double> UM_P = M_UM;
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += dte*M_VT[nd];
+                M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            }
+
+            for (const int& nd : M_neumann_nodes)
+                M_UM[nd] = UM_P[nd];
+
+            M_timer.tock("move mesh");
+        }
+    }
+    M_timer.tock("sub-time stepping");
+
+    // Move the mesh and update total displacement
+    // For mEVP we move the mesh at the end of the sub-iteration
+    if ( M_dynamics_type == setup::DynamicsType::mEVP )
+    {
+        M_timer.tick("move mesh");
         std::vector<double> UM_P = M_UM;
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
-            M_UM[nd] += dte*M_VT[nd];
-            M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            M_UM[nd] += dtime_step*M_VT[nd];
+            M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         for (const int& nd : M_neumann_nodes)
@@ -9607,7 +9630,6 @@ FiniteElement::explicitSolve()
 
         M_timer.tock("move mesh");
     }
-    M_timer.tock("sub-time stepping");
 
     // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
     M_timer.tick("OW smoother");
