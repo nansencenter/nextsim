@@ -899,7 +899,7 @@ public:
                     name     = "ocean_temp";
                     longName = "ocean temperature at mixed layer base";
                     stdName  = "ocean_temperature_at_mixed_layer_base";
-                    Units    = "deggree_Celcius";
+                    Units    = "degree_Celcius";
                     cell_methods = "area: mean";
                     break;
 
