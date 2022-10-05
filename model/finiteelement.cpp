@@ -4070,7 +4070,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
         double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
         double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
 
@@ -4105,7 +4105,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
         double dcrit;
@@ -4118,8 +4118,8 @@ FiniteElement::updateSigmaDamage(double const dt)
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            double const rtd = std::sqrt(elasticity)/(M_delta_x[cpt]*sqrt_nu_rhoi);
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt*rtd;
             M_damage[cpt] += del_damage;
 
 #ifdef OASIS
@@ -4128,7 +4128,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
             // Recalculate the new state of stress by relaxing elstically
             for (int i=0;i<3;i++)
-                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt*rtd;
         }
 
         /*======================================================================
