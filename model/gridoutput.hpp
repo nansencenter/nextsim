@@ -183,6 +183,9 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
+        mld      = 214,
+        ocean_temp = 215,
+        ocean_salt = 216,
 
         // WIM variables
         dmax        = 300,
@@ -686,6 +689,30 @@ public:
                     longName = "Wind speed";
                     stdName  = "wind_speed";
                     Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mld):
+                    name     = "mld";
+                    longName = "ocean mixed layer depth";
+                    stdName  = "ocean_mixed_layer_depth";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_temp):
+                    name     = "ocean_temp";
+                    longName = "ocean temperature at mixed layer base";
+                    stdName  = "ocean_temperature_at_mixed_layer_base";
+                    Units    = "deggree_Celcius";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_salt):
+                    name     = "ocean_salt";
+                    longName = "ocean salinity at mixed layer base";
+                    stdName  = "ocean_salinity_at_mixed_layer_base";
+                    Units    = "1e-3";
                     cell_methods = "area: mean";
                     break;
 

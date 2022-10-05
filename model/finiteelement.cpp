@@ -8058,6 +8058,18 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
                 break;
+            case (GridOutput::variableID::mld):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mld[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_temp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_temp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_salt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_salt[i]*time_factor;
+                break;
 
             // WIM variables
             case (GridOutput::variableID::dmax):
@@ -8274,6 +8286,9 @@ FiniteElement::initMoorings()
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
             ("wspeed", GridOutput::variableID::wspeed)
+            ("mld", GridOutput::variableID::mld)
+            ("ocean_temp", GridOutput::variableID::ocean_temp)
+            ("ocean_salt", GridOutput::variableID::ocean_salt)
         ;
     std::vector<std::string> names = vm["moorings.variables"].as<std::vector<std::string>>();
 
