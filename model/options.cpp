@@ -252,6 +252,11 @@ namespace Nextsim
                 "Path where results should be exported")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
+            ("output.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"None"},
+                             "None"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
 
 
              //-----------------------------------------------------------------------------------
