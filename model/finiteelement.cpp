@@ -7069,15 +7069,11 @@ FiniteElement::initModelVariables()
     // Add "M_VT" and "None" to the available list before checking
     available_names.push_back(std::string("M_VT"));
     available_names.push_back(std::string("None"));
-    for (auto &requested: requested_names)
+    for (auto &ref: requested_names)
     {
-        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        if ( std::find(available_names.begin(), available_names.end(), ref) == available_names.end() )
         {
-            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
-            LOG(ERROR) << "Available names are (case sensitive):\n";
-            for (auto &available: available_names)
-                LOG(ERROR) << "     " << available << "\n";
-
+            LOG(ERROR) << "'" << ref << "' is listed as output.variables, but it is not available as an output name\n";
             M_comm.barrier();
             throw std::runtime_error("Unknown name in output.variables\n");
         }
@@ -7698,7 +7694,7 @@ FiniteElement::step()
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
+                this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -7809,7 +7805,7 @@ FiniteElement::step()
         if(vm["output.export_after_regrid"].as<bool>())
         {
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
+            this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
         }
 
         // check the fields for nans etc after regrid
@@ -8050,7 +8046,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults(true, true, true);
+        this->exportResults(true, vm["output.export_fields"].as<bool>(), true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -8197,7 +8193,7 @@ FiniteElement::run()
     // Exporting results
     // **********************************************************************
     this->updateIceDiagnostics();
-    this->exportResults("final", true, true, true);
+    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
     if (M_write_restart_end)
         this->writeRestart("final");
 
