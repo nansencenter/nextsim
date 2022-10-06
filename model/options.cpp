@@ -258,7 +258,7 @@ namespace Nextsim
                              "Damage    Concentration    Thickness    Snow    Concentration_young_ice    Thickness_young_ice    Snow_young_ice    M_VT"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("output.export_fields", po::value<bool>()->default_value( true ),
-                "Whether to write out a 'fileds_' file at all. Overrides anything in 'output.variables'.")
+                "Whether to write out a 'fields_' file at all. Overrides anything in 'output.variables'.")
 
 
              //-----------------------------------------------------------------------------------
