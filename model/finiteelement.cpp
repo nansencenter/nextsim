@@ -7069,11 +7069,15 @@ FiniteElement::initModelVariables()
     // Add "M_VT" and "None" to the available list before checking
     available_names.push_back(std::string("M_VT"));
     available_names.push_back(std::string("None"));
-    for (auto &ref: requested_names)
+    for (auto &requested: requested_names)
     {
-        if ( std::find(available_names.begin(), available_names.end(), ref) == available_names.end() )
+        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
         {
-            LOG(ERROR) << "'" << ref << "' is listed as output.variables, but it is not available as an output name\n";
+            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+            LOG(ERROR) << "Available names are (case sensitive):\n";
+            for (auto &available: available_names)
+                LOG(ERROR) << "     " << available << "\n";
+
             M_comm.barrier();
             throw std::runtime_error("Unknown name in output.variables\n");
         }
