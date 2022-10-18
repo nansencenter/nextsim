@@ -4165,8 +4165,8 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
-        double sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
+        double sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])*0.5,M_sigma[2][cpt]);
         double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
         double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
 
@@ -4181,8 +4181,7 @@ FiniteElement::updateSigmaDamage(double const dt)
             tildeP = std::min(1., M_Cohesion[cpt]/(sigma_s+sigma_n));
         }
 
-        double const multiplicator = std::min( 1. - 1e-12,
-                time_viscous/(time_viscous+dt*(1.-tildeP)) );
+        double const multiplicator = time_viscous/(time_viscous+dt*(1.-tildeP));
 
         double const elasticity = young*(1.-M_damage[cpt])*expC;
 
@@ -4200,8 +4199,8 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
+        sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])*0.5,M_sigma[2][cpt]);
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
         double dcrit;
