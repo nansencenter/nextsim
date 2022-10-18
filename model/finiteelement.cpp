@@ -4166,6 +4166,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
         //Calculating the new state of stress
         double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
         double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
         double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
 
@@ -4177,7 +4178,7 @@ FiniteElement::updateSigmaDamage(double const dt)
             // tildeP must be capped at 1 to get an elastic response
             tildeP = std::min(1., -Pmax/sigma_n);
         } else {
-            tildeP = 0.;
+            tildeP = std::min(1., M_Cohesion[cpt]/(sigma_s+sigma_n));
         }
 
         double const multiplicator = std::min( 1. - 1e-12,
@@ -4199,7 +4200,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
         sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
