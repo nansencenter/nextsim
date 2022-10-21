@@ -5557,6 +5557,7 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+                    break;
 #ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
@@ -7069,17 +7070,20 @@ FiniteElement::initModelVariables()
     // Add "M_VT" and "None" to the available list before checking
     available_names.push_back(std::string("M_VT"));
     available_names.push_back(std::string("None"));
-    for (auto &requested: requested_names)
+    if ( vm["output.export_fields"].as<bool>() )
     {
-        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        for (auto &requested: requested_names)
         {
-            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
-            LOG(ERROR) << "Available names are (case sensitive):\n";
-            for (auto &available: available_names)
-                LOG(ERROR) << "     " << available << "\n";
+            if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+            {
+                LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+                LOG(ERROR) << "Available names are (case sensitive):\n";
+                for (auto &available: available_names)
+                    LOG(ERROR) << "     " << available << "\n";
 
-            M_comm.barrier();
-            throw std::runtime_error("Unknown name in output.variables\n");
+                M_comm.barrier();
+                throw std::runtime_error("Unknown name in output.variables\n");
+            }
         }
     }
 
