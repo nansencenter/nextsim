@@ -9480,6 +9480,12 @@ FiniteElement::readRestart(std::string const& name_str)
             time_init = time_vec[0];
             M_spinup_duration = 0.; // No spinup after an "extend" restart
         }
+        else if ( vm["restart.type"].as<std::string>() == "arbitrary" )
+        {
+            // time_init is already set by reading the config file
+            pcpt = 0; // This should already be the case
+            M_spinup_duration = 0.; // No spinup after an "arbitrary" restart
+        }
         else
         {
             throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
