@@ -394,6 +394,7 @@ FiniteElement::rootMeshProcessing()
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
 
         if (!M_use_restart)
@@ -1218,8 +1219,10 @@ FiniteElement::initOptAndParam()
     //! Sets options on the ocean-atmosphere bulk formula
     const boost::unordered_map<const std::string, aerobulk::algorithm> str2oblk= boost::assign::map_list_of
         ("nextsim", aerobulk::algorithm::OTHER)
-        ("coare", aerobulk::algorithm::COARE)
-        ("coare3.5", aerobulk::algorithm::COARE35)
+        ("coare3.0", aerobulk::algorithm::COARE3p0)
+        ("coare3.6", aerobulk::algorithm::COARE3p6)
+        // ("coare", aerobulk::algorithm::COARE)
+        // ("coare3.5", aerobulk::algorithm::COARE35)
         ("ncar", aerobulk::algorithm::NCAR)
         ("ecmwf", aerobulk::algorithm::ECMWF);
     M_ocean_bulk_formula = this->getOptionFromMap("thermo.ocean_bulk_formula", str2oblk);
@@ -5021,6 +5024,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         std::vector<double> dummy(M_num_elements, 0.);
         std::vector<double> sst(M_num_elements);
         std::vector<double> t2m(M_num_elements);
+        std::vector<double> d2m(M_num_elements);
         std::vector<double> sphuma(M_num_elements);
         std::vector<double> wspeed(M_num_elements);
         std::vector<double> mslp(M_num_elements);
@@ -5031,11 +5035,12 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         {
             sst[i] = M_sst[i] + physical::tfrwK;
             t2m[i] = M_tair[i] + physical::tfrwK;
+            d2m[i] = M_dair[i] + physical::tfrwK; //#LB dew-point - added to debug_NANUK by HCR
             mslp[i] = M_mslp[i];
             Qsw_in[i] = M_Qsw_in[i];
             Qlw_in[i] = this->incomingLongwave(i);
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
-            sphuma[i] = tmp.first;
+            // sphuma[i] = tmp.first;
             wspeed[i] = this->windSpeedElement(i);
         }
         // Qsw_in and Qlw_in must be const, so we create a const alias to pass to aerobulk::model
@@ -5047,9 +5052,21 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
         /* aerobulk expects u and v components of wind and returns u and v
          * components of stress ... but we just give it the speed and recieve
          * the modulus of the stress */
-        aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
-                Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
-        const std::vector<double> Lv = aerobulk::lvap(sst);
+        // HCR this is edited due to changes in aerobulk. Added to debug_NANUK by HCR, but changes originally made in develop by LB
+        //aerobulk::model( M_ocean_bulk_formula, static_cast<int>(duration/time_step), 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+        //#LB call when skin is used:
+        //aerobulk::model( pcpt+1, duration/time_step, M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+        //                 Qlh, Qsh, tau, dummy, evap, 8,
+        //                 true, Qsw_in_c, Qlw_in_c, T_s );
+        //#LB call when NO skin is used:
+        aerobulk::model( pcpt+1, duration/time_step, M_ocean_bulk_formula, 2., 10., sst, t2m, d2m, wspeed, zeros, mslp,
+        Qlh, Qsh, tau, dummy, evap, 8 );
+        //#LB: no need to compute evapo as it is now an output of routine "aerobulk::model"...
+        //const std::vector<double> Lv = aerobulk::lvap(sst);
+        // HCR comment due to LB changes above (in nextsim_develop), required for compatibility with aerobulk
+        // aerobulk::model(M_ocean_bulk_formula, 2., 10., sst, t2m, sphuma, wspeed, zeros, mslp,
+        //         Qlh, Qsh, tau, dummy, Qsw_in_c, Qlw_in_c, T_s);
+        // const std::vector<double> Lv = aerobulk::lvap(sst);
 
         // Post process: Change sign on the fluxes, divide tau with wind speed, and calculate evaporation
         for ( int i=0; i<M_num_elements; ++i )
@@ -5057,7 +5074,8 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
             Qlh[i] *= -1;
             Qsh[i] *= -1;
             tau[i] /= wspeed[i]*wspeed[i]; // Important as tau should be rhoair*drag (not *wspeed^2, as is output from aerobulk)
-            evap[i] = Qlh[i]/Lv[i];
+            //evap[i] = Qlh[i]/Lv[i];
+            evap[i] *= -1; // #LB (E is now same sign as Qlh in AeroBulk) - added to debug_NANUK by HCR
         }
     } else {
 #endif
@@ -6127,7 +6145,6 @@ FiniteElement::IABulkFluxes(const std::vector<double>& Tsurf, const std::vector<
     int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -8117,7 +8134,6 @@ FiniteElement::run()
         // Time-stepping
         // **********************************************************************
         this->step();
-
         //stop early if debugging
         niter++;
         if (niter == maxiter)
@@ -10408,7 +10424,8 @@ FiniteElement::forcingAtmosphere()
                 time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            // M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())

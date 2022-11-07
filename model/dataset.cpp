@@ -2237,7 +2237,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: true,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "m",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2256,7 +2256,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2492,7 +2492,7 @@ DataSet::DataSet(char const *DatasetName)
             use_missing_value: false,
             a: 1.,
             b: 0.,
-            Units: "m/s",
+            Units: "",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
@@ -2734,7 +2734,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
+        Grid grid = {
             interpolation_method: InterpolationType::FromMeshToMeshQuick,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
@@ -2935,7 +2935,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none};
 
-        grid = {
+        Grid grid = {
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: exchange_grid_file.parent_path().string(),
@@ -7712,8 +7712,7 @@ DataSet::DataSet(char const *DatasetName)
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-        }; // Q2M
-
+        }; // D2M
         Variable mslp={
             filename_string: "", // All variables are in the same (grid) file
             name:"msl",
@@ -8142,9 +8141,9 @@ DataSet::DataSet(char const *DatasetName)
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
         }; // T2M
-        Variable sphuma={
-            filename_string: "q2m",
-            name:"q2m",
+        Variable dair={
+            filename_string: "d2m",
+            name:"d2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -8153,12 +8152,12 @@ DataSet::DataSet(char const *DatasetName)
             use_FillValue: true,
             use_missing_value: true,
             a:1.,
-            b:0.,
-            Units:"kg/kg",
+            b:-273.15,
+            Units:"C",
             loaded_data: loaded_data_tmp,
             interpolated_data: interpolated_data_tmp,
             wavDirOptions: wavdiropt_none
-        }; // Q2M
+        }; // D2M
         Variable mslp={
             filename_string: "msl",
             name:"msl",
@@ -8250,7 +8249,7 @@ DataSet::DataSet(char const *DatasetName)
 
         std::vector<Variable> variables_tmp(7);
         variables_tmp[0] = tair;
-        variables_tmp[1] = sphuma;
+        variables_tmp[1] = dair;
         variables_tmp[2] = mslp;
         variables_tmp[3] = Qsw_in;
         variables_tmp[4] = Qlw_in;
