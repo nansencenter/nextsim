@@ -11,28 +11,23 @@ OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
-CC = mpicc
 
 # add gcc option flags
-CCFLAGS += -pedantic -Wno-inline -fPIC
+CCFLAGS += -pedantic -Wno-inline
 ifdef NEXTSIM_COMPILE_VERBOSE
-   	CXXFLAGS += -v
+	CXXFLAGS += -v
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
-	#CCFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CCFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif
-else
-	CCFLAGS += -O3 -pthread
 endif
 
 
 ifeq ($(KERNEL),Linux)
-	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/lib/openmpi/include
+	CCFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include -I$(MPI_INC_DIR)
 	LDFLAGS += -shared -Wl,-soname,libmapx.so.1
 	LDFLAGS += -lm -ldl #-lhwloc
 else
@@ -41,7 +36,7 @@ else
 	CCFLAGS += -stdlib=libc++
 	endif
 
-	CCFLAGS += -I $(NEXTSIMDIR)/contrib/mapx/include -I /usr/local/include
+	CCFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include -I/usr/local/include
 	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
 	LDFLAGS += -ldl -lstdc++
 
