@@ -9490,7 +9490,7 @@ FiniteElement::readRestart(std::string const& name_str)
         {
             throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
                     + vm["restart.type"].as<std::string>()
-                    + ". It should be either extend or continue");
+                    + ". It should be either extend, continue, or arbitrary");
         }
     }
 
