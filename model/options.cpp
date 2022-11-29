@@ -405,8 +405,8 @@ namespace Nextsim
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
             // -- diffusivity
-            ("thermo.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
-            ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("thermo.diffusivity_sss", po::value<double>()->default_value( 0. ), "") //[m^2/s]
+            ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
             ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
