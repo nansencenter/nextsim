@@ -11,7 +11,7 @@
  * http://www.osi-saf.org/?q=content/global-sea-ice-concentration-ssmis
  *               
  *
- *   Observations are loaded and selected within a domain defined by the reference grid: reference_grid.nc created from OCRA grid, used in NEMO. 
+ *   Observations are loaded, selected within a domain defined by the reference grid with relevant float indices(for later interpolation from model grid to reference grid): reference_grid.nc created from OCRA grid, used in NEMO. 
  *   The grid use variable mask to indicate land and ocean.
  *   mask is modified that the ocean area is limited with the nextsim domain by its output prior.nc sit, that mask(isnan(sit))=0
  *
