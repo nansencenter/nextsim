@@ -5963,6 +5963,8 @@ FiniteElement::thermo(int dt)
         // ice from snow volume per surface area rate [m/day]
         D_snow2ice[i]     = snow2ice*days_in_sec/ddt;
 
+        //  Ice area change rate (thermo) per day per element area  [m/day]
+        D_del_ci[i]  = del_ci*days_in_sec/ddt;
         // Young Ice area change rate (thermo) per day per element area  [m/day]
         D_del_ci_young[i]  = del_ci_young*days_in_sec/ddt;
 
