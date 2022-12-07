@@ -815,6 +815,13 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_del_vi_ridge_young; //young ice volume change (/element_area) due to ridging [m/day]
+    ModelVariable D_del_ci_ridge_young; //young ice area change (/element_area) due to ridging [./day]
+    ModelVariable D_del_ci_ridge; // ice area change (/element_area) due to ridging [./day]
+    ModelVariable D_del_ci; // ice area change (/element_area) due to thermo [./day]
+    ModelVariable D_del_ci_young; // young ice area change (/element_area) due to thermo [./day]
+    ModelVariable D_del_ci_young2old; // young ice area change (/element_area) transferred to 'old' [./day]
+    ModelVariable D_del_vi_young2old; // young ice volume change (/element_area) transferred to 'old' [m/day]
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]

@@ -623,6 +623,59 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
+        case (variableID::D_del_vi_young2old):
+            // Young ice volume transferred to old category [m/day]
+            M_name = "D_del_vi_young2old";
+            M_export_name = "D_del_vi_young2old";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_ci_young2old):
+            // Young ice volume transferred to old category [m/day]
+            M_name = "D_del_ci_young2old";
+            M_export_name = "D_del_ci_young2old";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_ci_young):
+            // Young ice area change due to thermo [m/day]
+            M_name = "D_del_ci_young";
+            M_export_name = "D_del_ci_young";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_ci):
+            // Ice area change due to thermo [m/day]
+            M_name = "D_del_ci";
+            M_export_name = "D_del_ci";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_ci_ridge):
+            M_name = "D_del_ci_ridge";
+            M_export_name = "Ice_area_ridging_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_del_ci_ridge_young):
+            M_name = "D_del_ci_ridge_young";
+            M_export_name = "Young_ice_area_ridging_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
+        case (variableID::D_del_vi_ridge_young):
+            M_name = "D_del_vi_ridge_young";
+            M_export_name = "Young_ice_volume_ridging_change_daily_rate";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+        
         case (variableID::D_brine):
             // Brine release - kg/m^2/s
             M_name = "D_brine";

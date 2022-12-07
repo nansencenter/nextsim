@@ -188,6 +188,13 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
+        dci             = 128,
+        dci_young       = 129,
+        dci_young2old   = 130,
+        dci_ridge       = 131,
+        dci_ridge_young = 132,
+        dvi_ridge_young = 133,
+        dvi_young2old   = 134,
 
         // Forcing variables
         tair     = 200,
@@ -629,6 +636,55 @@ public:
                     name     = "dci_ridge_myi";
                     longName = "myi area_change rate due to ridging";
                     stdName  = "myi_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge_young):
+                    name     = "dci_ridge_young";
+                    longName = "young ice area_change rate due to ridging";
+                    stdName  = "young_ice_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_ridge_young):
+                    name     = "dvi_ridge_young";
+                    longName = "young ice volume_change rate due to ridging";
+                    stdName  = "young_ice_volume_change_rate_due_to_ridging";
+                    Units    = "m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge):
+                    name     = "dci_ridge";
+                    longName = " ice area_change rate due to ridging";
+                    stdName  = "ice_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci):
+                    name     = "dci";
+                    longName = " ice area_change rate due to thermo";
+                    stdName  = "ice_area_change_rate_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_young):
+                    name     = "dci_young";
+                    longName = " young ice area change rate due to thermo";
+                    stdName  = "young_ice_area_change_rate_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_young2old):
+                    name     = "dci_young";
+                    longName = " young ice area transfer to old due to thermo";
+                    stdName  = "young_ice_area_transfer_to_old_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_young2old):
+                    name     = "dvi_young";
+                    longName = " young ice volume transfer to old due to thermo";
+                    stdName  = "young_ice_volume_transfer_to_old_due_to_thermo";
                     Units    = " /day";
                     cell_methods = "area: mean";
                     break;

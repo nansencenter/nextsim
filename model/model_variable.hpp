@@ -123,7 +123,14 @@ public:
         D_del_ci_rplnt_myi = 137,
         D_del_vi_rplnt_myi = 138,
         D_del_ci_ridge_myi = 139,
-        D_sialb        = 140,
+        D_sialb            = 140,
+        D_del_ci             = 141,
+        D_del_ci_young       = 142,
+        D_del_vi_young2old   = 143,
+        D_del_ci_young2old   = 144,
+        D_del_ci_ridge       = 145,
+        D_del_ci_ridge_young = 146,
+        D_del_vi_ridge_young = 147,
     };
 
 
