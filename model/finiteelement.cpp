@@ -3959,7 +3959,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
         if((M_conc[cpt]>0.)  && (to_be_updated))
         {
             double const surf_ratio = surface_old/M_surface[cpt];
-            D_del_ci_ridge[cpt]     = -M_conc[cpt];
             M_conc[cpt] *= surf_ratio;
             M_thick[cpt] *= surf_ratio;
             M_snow_thick[cpt] *= surf_ratio;
@@ -3971,6 +3970,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
             // Ridging of thick ice - conserve level ice volume per ice covered area
             // (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
+            // From now on, M_conc is only modified if ridging happens
+            D_del_ci_ridge[cpt] = -M_conc[cpt];
 
             if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
             {
@@ -4068,14 +4069,16 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
 
                     M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
+                    // These two lines are not consistent with the rest of the function, as M_conc 
+                    // is redefined later on, accounting for del_c and the capping
+                    //M_conc[cpt]         += del_c;
+                    //M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
 
                     M_snow_thick[cpt]   += newsnow;
                 }
 
                 M_conc_young[cpt] = new_conc_young;
-                D_del_vi_ridge_young[cpt] += M_h_young[cpt]; // If everything is logic, this is equal to "minus newice"
+                D_del_vi_ridge_young[cpt] += M_h_young[cpt]; 
                 D_del_ci_ridge_young[cpt] += M_conc_young[cpt];
             }
             else
@@ -4094,13 +4097,15 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         M_conc[cpt]=new_conc;
 
+        // This is to make sure ridging does not create crazy thick ice.
+        // Howver, in practice this term mostly make sure that very low concentrations 
+        // don't have crazy true ice thickness. Very visible at first time steps.
         double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
             M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
-            D_del_ci_ridge[cpt]       += M_conc[cpt];
         }
         else
         {
@@ -4108,6 +4113,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
+        D_del_ci_ridge[cpt] += M_conc[cpt];
 
         D_del_vi_ridge_young[cpt]*=days_in_sec/dtime_step; //  Ice volume tranfered from young to old due to ridging [m/day]
         D_del_ci_ridge_young[cpt]*=days_in_sec/dtime_step; // Change in young ice  concentration due to ridging [/day]
