@@ -5779,8 +5779,10 @@ FiniteElement::thermo(int dt)
         // Budget sea ice area term:
         del_ci        = M_conc[i] - old_conc ; 
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        // To be consistent with the change in young ice volume that does not
+        // include the loss of young ice due to transfer to old ice
         {
-            del_ci_young  = M_conc_young[i] - old_conc_young ;
+            del_ci_young  = (M_conc_young[i] - old_conc_young) - del_ci_young2old ;
         }
 #ifdef OASIS
         // -------------------------------------------------
