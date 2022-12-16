@@ -559,18 +559,18 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_vice_melt):
+        case (variableID::D_del_vi_tot):
             // ice volume gain/loss by freezing/melt [m/day]
-            M_name = "D_vice_melt";
-            M_export_name = "D_vice_melt";
+            M_name = "D_del_vi_tot";
+            M_export_name = "D_del_vi_tot";
             M_prognostic = false;
             M_exporting = false;
             break;
 
-        case (variableID::D_del_vi_young):
+        case (variableID::D_del_vi_bot_young):
             // Young ice volume gain/loss by freezing/melt [m/day]
-            M_name = "D_del_vi_young";
-            M_export_name = "D_del_vi_young";
+            M_name = "D_del_vi_bot_young";
+            M_export_name = "D_del_vi_bot_young";
             M_prognostic = false;
             M_exporting = false;
             break;
@@ -591,34 +591,34 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_newice):
+        case (variableID::D_del_vi_newfrazil):
             // ice growth in open water [m/day]
-            M_name = "D_newice";
-            M_export_name = "D_newice";
+            M_name = "D_del_vi_newfrazil";
+            M_export_name = "D_del_vi_newfrazil";
             M_prognostic = false;
             M_exporting = false;
             break;
 
-        case (variableID::D_mlt_bot):
+        case (variableID::D_del_vi_mlt_bot):
             // ice melt at bottom [m/day]
-            M_name = "D_mlt_bot";
-            M_export_name = "D_mlt_bot";
+            M_name = "D_del_vi_mlt_bot";
+            M_export_name = "D_del_vi_mlt_bot";
             M_prognostic = false;
             M_exporting = false;
             break;
         
-        case (variableID::D_mlt_top):
+        case (variableID::D_del_vi_mlt_top):
             // ice melt at top [m/day]
-            M_name = "D_mlt_top";
-            M_export_name = "D_mlt_top";
+            M_name = "D_del_vi_mlt_top";
+            M_export_name = "D_del_vi_mlt_top";
             M_prognostic = false;
             M_exporting = false;
             break;
 
-        case (variableID::D_snow2ice):
+        case (variableID::D_del_vi_snow2ice):
             // ice formed from snow by flooding [m/day]
-            M_name = "D_snow2ice";
-            M_export_name = "D_snow2ice";
+            M_name = "D_del_vi_snow2ice";
+            M_export_name = "D_del_vi_snow2ice";
             M_prognostic = false;
             M_exporting = false;
             break;
@@ -639,18 +639,18 @@ ModelVariable::initElemental()
             M_exporting = false;
             break;
 
-        case (variableID::D_del_ci_young):
+        case (variableID::D_del_ci_thermo_young):
             // Young ice area change due to thermo [m/day]
-            M_name = "D_del_ci_young";
-            M_export_name = "D_del_ci_young";
+            M_name = "D_del_ci_thermo_young";
+            M_export_name = "D_del_ci_thermo_young";
             M_prognostic = false;
             M_exporting = false;
             break;
 
-        case (variableID::D_del_ci):
+        case (variableID::D_del_ci_thermo):
             // Ice area change due to thermo [m/day]
-            M_name = "D_del_ci";
-            M_export_name = "D_del_ci";
+            M_name = "D_del_ci_thermo";
+            M_export_name = "D_del_ci_thermo";
             M_prognostic = false;
             M_exporting = false;
             break;
