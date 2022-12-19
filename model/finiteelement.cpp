@@ -3920,7 +3920,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
     bool ridge_myi_and_fyi = vm["age.ridge_myi_and_fyi"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
-    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
@@ -4082,8 +4082,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
         /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
         D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
-        if (newice_type == 4 && use_thin_ice_in_myi_reset == true) 
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_thin[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
@@ -5166,8 +5166,8 @@ FiniteElement::thermo(int dt)
 
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
-    bool const use_thin_ice_in_myi_reset = vm["age.include_thin_ice"].as<bool>(); //! \param use_thin_ice_in_myi_reset states if thin ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
-    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_thin (this depends on use_thin_ice_in_myi_reset) 
+    bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
+    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset) 
     bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
     const std::string reset_by_freeze_or_melt = vm["age.reset_by_freeze_or_melt"].as<std::string>(); //! \param if reset_by_date = false, this determines reset myi by melt days or freeze days
     double const melt_seconds_threshold = vm["age.reset_melt_seconds"].as<double>(); //! \param reset_by_date determines after how many seconds of melting to reset myi, if reset_by_date is false
@@ -5634,8 +5634,8 @@ FiniteElement::thermo(int dt)
                 M_melt_seconds[i] = floor(M_melt_seconds[i]) + day_seconds;
                 M_freeze_seconds[i] = 0.;
                 M_conc_summer[i] = M_conc[i] + std::min(0.,del_c); // melting occurring, so need to adjust to new onset
-                if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_thin_ice_in_myi_reset)
-                    M_conc_summer[i]+=M_conc_thin[i];
+                if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_young_ice_in_myi_reset)
+                    M_conc_summer[i]+=M_conc_young[i];
             }
             M_del_hi_tend[i] = 0.;
         }
@@ -5970,7 +5970,7 @@ FiniteElement::thermo(int dt)
             {
                 M_age[i] =  dt;
             }
-            // MYI should be reset to M_conc (or M_conc+M_conc_thin) on the reset date
+            // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
 
             if (reset_by_date)
@@ -6016,8 +6016,8 @@ FiniteElement::thermo(int dt)
                 // Lines below should have no impact
                 //if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE)
                 //{
-                //    M_conc_summer += M_conc_thin[i];
-                //    M_thick_summer+= M_h_thin[i];
+                //    M_conc_summer += M_conc_young[i];
+                //    M_thick_summer+= M_h_young[i];
                 //}
 
             }
@@ -6025,15 +6025,15 @@ FiniteElement::thermo(int dt)
             double old_thick_myi =  M_thick_myi[i];
             double ctot = M_conc[i];
             double vtot = M_thick[i];
-            if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_thin_ice_in_myi_reset)
+            if ( (M_ice_cat_type==setup::IceCategoryType::THIN_ICE) && use_young_ice_in_myi_reset)
             {
-                vtot+=M_h_thin[i];
-                ctot+=M_conc_thin[i];
+                vtot+=M_h_young[i];
+                ctot+=M_conc_young[i];
             }
 
             if (reset_myi) // 
             {
-                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_thin_ice_in_myi_reset == true) //NANUK default
+                if (M_ice_cat_type==setup::IceCategoryType::THIN_ICE && use_young_ice_in_myi_reset == true) //NANUK default
                 {
                     if (reset_by_date == false && reset_by_freeze_or_melt == "freeze") //NANUK default
                     {
@@ -6057,7 +6057,7 @@ FiniteElement::thermo(int dt)
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
-                // We ignore the thin ice for now
+                // We ignore the young ice for now
                 double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
                 double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
                 if  (del_v_ratio < 1.) // if there is some melt of old ice
@@ -6081,7 +6081,7 @@ FiniteElement::thermo(int dt)
                     // Check it does not get crazy
                     M_conc_myi[i]  = std::max(0.,std::min(ctot, M_conc_myi[i] +del_ci_mlt_myi));                  
                     M_thick_myi[i] = std::max(0.,std::min(vtot, M_thick_myi[i]+del_vi_mlt_myi));                  
-                    //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include thin ice in total ice conc
+                    //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include young ice in total ice conc
                     //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
                     // Same logic for the volume 
                     //M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
