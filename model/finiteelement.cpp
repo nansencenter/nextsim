@@ -5779,10 +5779,10 @@ FiniteElement::thermo(int dt)
         // Budget sea ice area term:
         del_ci        = M_conc[i] - old_conc ; 
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
-        // To be consistent with the change in young ice volume that does not
+        // + del_ci_young2old be consistent with the change in young ice volume that does not
         // include the loss of young ice due to transfer to old ice
         {
-            del_ci_young  = (M_conc_young[i] - old_conc_young) - del_ci_young2old ;
+            del_ci_young  = (M_conc_young[i] - old_conc_young) + del_ci_young2old ;
         }
 #ifdef OASIS
         // -------------------------------------------------
@@ -5981,7 +5981,7 @@ FiniteElement::thermo(int dt)
         D_del_ci_young2old[i]    = del_ci_young2old*days_in_sec/ddt;
 
         // Young Ice volume transfered to "old" category (thermo) per day per element area  [m/day]
-        D_del_vi_young2old[i]  = del_vi_young2old*days_in_sec/ddt;
+        D_del_vi_young2old[i]    = del_vi_young2old*days_in_sec/ddt;
 
         // sea ice albedo
         double sialb = old_conc * albedo[i];
