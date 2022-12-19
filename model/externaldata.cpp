@@ -218,7 +218,7 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
                 // ---------------------------------
                 // Load grid if unloaded
                 // This would probably be more efficient with R(X|Y)_(max|min) ... but I didn't manage to get that to work
-                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_StartingTime, M_current_time); //, RX_min, RX_max, RY_min, RY_max);
+                M_dataset->loadGrid(mapNextsim, &(M_dataset->grid), M_current_time); //, RX_min, RX_max, RY_min, RY_max);
 
                 // closing maps
                 close_mapx(mapNextsim);
@@ -227,11 +227,13 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
             this->receiveCouplingData(M_dataset, cpl_time, comm);
             this->transformData(M_dataset);
             M_dataset->interpolated = false;
-            M_dataset->itime_range[0] = cpl_time;
-            M_dataset->itime_range[1] = cpl_time + cpl_dt;
+            int const cpl_time_last = (cpl_time/cpl_dt)*cpl_dt;
+            M_dataset->itime_range[0] = cpl_time_last;
+            M_dataset->itime_range[1] = cpl_time_last + cpl_dt;
+            //TODO ftime_range doesn't seem to be used in coupling code
             M_dataset->ftime_range[0] = M_current_time;
             M_dataset->ftime_range[1] = M_current_time + double(cpl_dt)*86400.;
-        }
+        }//reload coupling data
         else {
 #endif
             LOG(DEBUG) << "Load " << M_dataset->name << "\n";
@@ -517,11 +519,6 @@ void
 ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         std::vector<double> const& RY_in)//(double const& u, double const& v)
 {
-    // forecasts are special cases
-    bool const is_ocn_fc = (dataset->grid.dataset_frequency=="daily_ocn_forecast");//topaz forecast
-    bool const is_atm_fc = (dataset->grid.dataset_frequency=="daily_atm_forecast");//ec2,ec2_arome_ensemble forecast
-    bool const true_forecast = ( (is_atm_fc||is_ocn_fc)
-           && Environment::vm()["forecast.true_forecast"].as<bool>());
 
     // ---------------------------------
     // Define the mapping and rotation_angle
@@ -554,28 +551,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     // ---------------------------------
     // Load grid if unloaded
     if(!dataset->grid.loaded)
-    {
-        double init_time = M_StartingTime;
-        if(true_forecast)
-        {
-            if (is_atm_fc)
-            {
-                // use forecast.time_init_atm_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-            else
-            {
-                // use forecast.time_init_ocean_fc option to get init_time
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-        }
-        //only need init_time to get grid
-        dataset->loadGrid(mapNextsim, &(dataset->grid), init_time, init_time, RX_in, RY_in);
-    }
+        dataset->loadGrid(mapNextsim, &(dataset->grid), M_current_time, RX_in, RY_in);
 
     // closing maps
     close_mapx(mapNextsim);
@@ -641,42 +617,10 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         LOG(DEBUG)<<"init_time = "<<init_time<<" = "<<datenumToString(init_time)<<"\n";
         LOG(DEBUG)<<"M_current_time = "<<M_current_time<<" = "<<datenumToString(M_current_time)<<"\n";
         LOG(DEBUG)<<"ftime = "<<ftime<<" = "<<datenumToString(ftime)<<"\n";
-        if(true_forecast)
-        {
-            // when using forcing from ECMWF or topaz forecasts, we select the file based on the StartingTime
-            if (is_atm_fc)
-            {
-                // - one file for all records
-                // - ftime not used (only init_time)
-                file_jump ={0};
-                std::string tmpstr = (Environment::vm()["forecast.time_init_atm_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-            else
-            {
-                std::string tmpstr = (Environment::vm()["forecast.time_init_ocean_fc"].as<std::string>());
-                if(tmpstr!="")
-                    init_time = Nextsim::stringToDatenum(tmpstr);
-            }
-        }//forecasts
 
         for (int jump: file_jump)
         {
-            if(is_atm_fc||is_ocn_fc)
-            {
-                double init_time_fc = init_time;
-                if(!true_forecast)
-                    // * if(!true_forecast), take the forecast that started at the start of
-                    //   the "current day" (ftime+jump)
-                    // * also can't have init_time before start of
-                    //   the "current day" (ftime+jump)
-                    // NB jump is in days for these datasets
-                    init_time_fc = std::floor(ftime+jump);
-                filename = dataset->getFilename(init_time_fc, ftime, jump);
-            }
-            else
-                filename = dataset->getFilename(init_time, ftime, jump);
+            filename = dataset->getFilename(ftime, jump);
 
             LOG(DEBUG)<<"FILENAME (JUMP = " <<jump<< ") = "<< filename
                 << ". Exists? " << boost::filesystem::exists(filename)
@@ -709,8 +653,6 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 double const t1 = (XTIME[1]*dataset->time.a+dataset->time.b)/24.0 + t_ref;
                 double const dt = t1 - t0;
                 int ntimes = timeDim.getSize();
-                if(is_atm_fc && !true_forecast)
-                    ntimes = std::round(1/dt);//only use 1st day of file
 
                 // This is a double because we're most likely in between integer indices
                 double const indx = (M_current_time - t0)/dt;
@@ -812,7 +754,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
         double const f= std::floor(M_current_time);
         if(dataset->grid.dataset_frequency=="nearest_daily")
             dataset->ftime_range = {f+.5};
-        filename = dataset->getFilename(f, f);
+        filename = dataset->getFilename(f);
         filename_fstep.push_back(filename);
         index_fstep.push_back(0);
     }
@@ -824,6 +766,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
     for (int fstep=0; fstep < nb_forcing_step; ++fstep) // always need one step before and one after the target time
     {
         // Load each variable and copy its data into loaded_data
+        int num_read=0;
         for(int j=0; j<dataset->variables.size(); ++j)
         {
             filename=filename_fstep[fstep];
@@ -928,7 +871,17 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
             }
 
             // Reading the netcdf
-            NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+            try
+            {
+                NcVars[j].getVar(index_start,index_count,&data_in_tmp[0]);
+                // Keep a count of the variables actually read
+                num_read++;
+            } catch (netCDF::exceptions::NcBadId) {
+                LOG(WARNING) << "Not loading variable "<< j <<" (aka "<<
+                    dataset->variables[j].name <<") because I couldn't find it in the file "
+                    << filename << "\n";
+                continue;
+            }
 
             //----------- Unit transformation ------------
             // scale factor and add offset are stored as variable attributes
@@ -977,6 +930,8 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
             }
         }
+        // We may need to resize variables if not all variables were read
+        dataset->variables.resize(num_read);
     }
 
     dataset->nb_forcing_step=nb_forcing_step;

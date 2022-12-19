@@ -7,7 +7,6 @@ ifeq ($(KERNEL),Linux)
 else
 	LIBRARYNAME=liboasis.dylib
 endif
-
 # ========================================================
 
 # ========================================================
@@ -26,15 +25,13 @@ OBJS=$(CXXSRC:%.cpp=$(OBJECTDIR)%.o)
 DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 
 
-CXX = mpicxx
-
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline -fPIC -O3 -pthread -fopenmp -v #-pedantic
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -v #-pedantic
 
 # add include paths
-CXXFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
+CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
 
 # ========================================================
 
@@ -46,23 +43,19 @@ FCSRC=$(wildcard $(FCSRCDIR)/*.F90)
 FCOBJS=$(FCSRC:%.F90=$(OBJECTDIR)%.o)
 FCDEPS=$(FCSRC:%.F90=$(DEPENDDIR)%.d)
 
-FC = mpif90
-FFLAGS = -std=f2008 -fopenmp -lstdc++ -fPIC
-FFLAGS += -I $(NEXTSIMDIR)/modules/oasis/include
-FFLAGS += -I $(OASIS_DIR)/build/lib/mct -I $(OASIS_DIR)/build/lib/psmile.MPI1
-FFLAGS += -I $(NETCDF_FOR_DIR)/include
+FFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
+FFLAGS += -I$(OASIS_DIR)/build/lib/mct -I$(OASIS_DIR)/build/lib/psmile.MPI1
+FFLAGS += -I$(NETCDF_FOR_DIR)/include
 # ========================================================
 
 # ========================================================
 # Libraries
 LDFLAGS += -fopenmp
 LDFLAGS += -ldl -lstdc++ -lpthread
-LDFLAGS += -L $(OASIS_DIR)/lib
-#LDFLAGS += -Wl,-rpath,$(OASIS_DIR)/lib
-#LDFLAGS += -L /Users/abdama/COUPLE/oasis3-mct/build_darwin/lib -lmct -lmpeu -lpsmile.MPI1 -lscrip
+LDFLAGS += -L$(OASIS_DIR)/lib
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_FOR_DIR)/lib
-LDFLAGS += -L $(NETCDF_FOR_DIR)/lib -lnetcdff
+LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 # ========================================================
 
 
@@ -120,10 +113,8 @@ $(DEPENDDIR)%.d: $(CXXSRCDIR)/%.cpp
 LDFLAGSLIB = $(LDFLAGS)
 ifeq ($(KERNEL),Linux)
 	LDFLAGSLIB += -shared -Wl,-soname,liboasis.so.1
-	#LDFLAGSLIB += -lm -ldl #-lhwloc
 else
 	LDFLAGSLIB += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
-	#LDFLAGSLIB += -ldl -lstdc++
 endif
 
 ifeq ($(KERNEL),Linux)
@@ -132,11 +123,6 @@ lib: $(OBJS) $(FCOBJS)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	# I'm aving problems with the shared library code, so using a static library in the meantime
-	# Compiler asks to recompile with -fPIC, but doing so doesn't help
-	# $(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$(LIBRARYNAME) $^ $(LIBPSMILE) $(LDFLAGSLIB)
-	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so
-	# @ln -sf $(LIBRARYNAME) $(LIBRARYDIR)liboasis.so.1
 	ar rcs $(LIBRARYDIR)/liboasis.a $^
 else
 lib: $(OBJS) $(FCOBJS)
@@ -153,5 +139,5 @@ endif
 # The compilation depends on this Makefile.
 $(OBJS): Makefile
 
--include $(DEPS)
--include $(FCDEPS)
+#-include $(DEPS)
+#-include $(FCDEPS)

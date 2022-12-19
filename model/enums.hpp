@@ -36,7 +36,8 @@ namespace setup
         MITGCM             = 3,
         TOPAZR_atrest      = 4,
         TOPAZR_ALTIMETER   = 5,
-        COUPLED            = 6
+        COUPLED            = 6,
+        GLORYS12R          = 7
     };
 
     enum class IceType
@@ -61,8 +62,10 @@ namespace setup
         TOPAZ4OSISAFICESAT          = 18,
         TOPAZ4FAMSR2OSISAFNIC       = 19,
         TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
-        CREG                        = 21,
-        AMSR2CSTTHICK               = 22
+        NEMO                        = 21,
+        CICE                        = 22,
+        AMSR2CSTTHICK               = 23,
+        GLORYS12R                   = 24
     };
 
     enum class WaveType
