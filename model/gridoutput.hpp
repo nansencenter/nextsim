@@ -287,13 +287,6 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::ridge_ratio_ht):
-                    name     = "ridge_ratio_ht";
-                    longName = "Sea Ice Ridge Ratio (involving thin ice)";
-                    stdName  = "sea_ice_ridge_ratio_ht";
-                    Units    = "1";
-                    cell_methods = "area: mean";
-                    break;
                 case (variableID::snow):
                     name     = "snt";
                     longName = "Surface Snow Thickness";

@@ -525,7 +525,6 @@ namespace Nextsim
             ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
             ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
             ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
->>>>>>> develop
 
 #if defined(WAVES)
         ;

@@ -4111,7 +4111,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
         else
         {
             M_ridge_ratio[cpt]=0.;
-            M_ridge_ratio_ht[cpt]=0.; //check this
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
@@ -6913,8 +6912,6 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_snow_thick);
     M_ridge_ratio = ModelVariable(ModelVariable::variableID::M_ridge_ratio);//! \param M_ridge_ratio (double) Ratio of ridged vs unridged ice
     M_variables_elt.push_back(&M_ridge_ratio);
-    M_ridge_ratio_ht = ModelVariable(ModelVariable::variableID::M_ridge_ratio_ht);//! \param M_ridge_ratio_ht (double) Ratio of ridged vs unridged ice
-    M_variables_elt.push_back(&M_ridge_ratio_ht);
     M_conc_upd = ModelVariable(ModelVariable::variableID::M_conc_upd);//! \param M_conc_upd (double) Concentration update by assimilation
     M_variables_elt.push_back(&M_conc_upd);
 
@@ -8319,11 +8316,6 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_ridge_ratio[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::ridge_ratio_ht):
-                for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_ridge_ratio_ht[i]*time_factor;
-                break;
-
             case (GridOutput::variableID::snow):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_snow_thick[i]*time_factor;
@@ -8820,7 +8812,6 @@ FiniteElement::initMoorings()
             ("snow", GridOutput::variableID::snow)
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
-            ("ridge_ratio_ht", GridOutput::variableID::ridge_ratio_ht)
             ("tsurf", GridOutput::variableID::tsurf)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
@@ -11330,7 +11321,6 @@ FiniteElement::checkConsistency()
             M_snow_thick[i]=0.;
             M_damage[i]=0.;
             M_ridge_ratio[i]=0.;
-            M_ridge_ratio_ht[i]=0.;
             for (int k=0; k<M_tice.size(); k++)
                 M_tice[k][i] = M_tice[k].valueNoThickIce();
         }
@@ -11474,7 +11464,6 @@ FiniteElement::constantIce()
     std::vector<ModelVariable*> vars_to_zero;
     vars_to_zero.push_back(&M_damage);
     vars_to_zero.push_back(&M_ridge_ratio);
-    vars_to_zero.push_back(&M_ridge_ratio_ht);
     for (auto ptr: vars_to_zero)
         std::fill(ptr->begin(), ptr->end(), 0.);
 
