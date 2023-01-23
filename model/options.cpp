@@ -207,7 +207,7 @@ namespace Nextsim
             ("restart.basename", po::value<std::string>()->default_value( "" ),
                 "The base of a restart file name. If we are starting from restart files, the files' names will be (restart.input_path)/{field|mesh}_(restart.basename).{bin,dat}")
             ("restart.type", po::value<std::string>()->default_value( "extend" ),
-                "Restart type: [extend|continue]. Extend (default): M_time_init is taken as the time inside the restart file and simul.duration is added to that. Continue: M_time_init is read from the configuration file (simul.time_init) and duration is added to that.")
+                "Restart type: [extend|continue|arbitrary]. \n\t extend (default): Extend the run by a duration read from the config file, and starting from the date taken from the restart file. \n\t continue: Continue an interrupted run by starting from the date taken from the restart file, assuming that duration is calculated from the init time in the restart (and config) file. \n\t arbitrary: Start at an arbitrary time point defined in the config file. No time information is read from the restart file.")
 
             // -- outputs
             ("restart.write_final_restart", po::value<bool>()->default_value( false ),
@@ -253,6 +253,13 @@ namespace Nextsim
                 "Path where results should be exported")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
+            ("output.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"Damage", "Concentration", "Thickness", "Snow", "Concentration_young_ice", "Thickness_young_ice", "Snow_young_ice", "M_VT"},
+                             "Damage    Concentration    Thickness    Snow    Concentration_young_ice    Thickness_young_ice    Snow_young_ice    M_VT"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
+            ("output.export_fields", po::value<bool>()->default_value( true ),
+                "Whether to write out a 'fields_' file at all. Overrides anything in 'output.variables'.")
 
 
              //-----------------------------------------------------------------------------------
@@ -399,8 +406,8 @@ namespace Nextsim
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
             // -- diffusivity
-            ("thermo.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
-            ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("thermo.diffusivity_sss", po::value<double>()->default_value( 0. ), "") //[m^2/s]
+            ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
             ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),

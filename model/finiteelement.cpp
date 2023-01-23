@@ -6310,8 +6310,18 @@ FiniteElement::initModelVariables()
     M_prognostic_variables_elt.resize(0);
     M_export_variables_elt.resize(0);
     M_export_names_elt.resize(0);
+
+    std::vector<std::string> requested_names = vm["output.variables"].as<std::vector<std::string>>();
+    std::vector<std::string> available_names;
     for(auto ptr: M_variables_elt)
     {
+        // Set exporting to true if the name is in the output.variables list
+        if ( std::find(requested_names.begin(), requested_names.end(), ptr->exportName()) != requested_names.end() )
+            ptr->setExporting(true);
+
+        // Collect a list of all available export names to compare to the outpt.variables list
+        available_names.push_back(ptr->exportName());
+
         if(ptr->isPrognostic())
         {
             // restart, regrid variables
@@ -6334,6 +6344,24 @@ FiniteElement::initModelVariables()
         // otherwise model will crash
         ptr->assign(M_num_elements,0.);
     }// loop over M_variables_elt
+
+    // Check that output.variables doesn't contain a typo!
+    // Add "M_VT" and "None" to the available list before checking
+    available_names.push_back(std::string("M_VT"));
+    available_names.push_back(std::string("None"));
+    for (auto &requested: requested_names)
+    {
+        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        {
+            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+            LOG(ERROR) << "Available names are (case sensitive):\n";
+            for (auto &available: available_names)
+                LOG(ERROR) << "     " << available << "\n";
+
+            M_comm.barrier();
+            throw std::runtime_error("Unknown name in output.variables\n");
+        }
+    }
 
     //! - 3) finally sort the prognostic variables into M_prognostic_variables_elt_indices
     //! using ModelVariable::interpTransformation
@@ -6950,7 +6978,7 @@ FiniteElement::step()
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
+                this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -7061,7 +7089,7 @@ FiniteElement::step()
         if(vm["output.export_after_regrid"].as<bool>())
         {
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
+            this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
         }
 
         // check the fields for nans etc after regrid
@@ -7302,7 +7330,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults(true, true, true);
+        this->exportResults(true, vm["output.export_fields"].as<bool>(), true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -7449,7 +7477,7 @@ FiniteElement::run()
     // Exporting results
     // **********************************************************************
     this->updateIceDiagnostics();
-    this->exportResults("final", true, true, true);
+    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
     if (M_write_restart_end)
         this->writeRestart("final");
 
@@ -8732,11 +8760,17 @@ FiniteElement::readRestart(std::string const& name_str)
             time_init = time_vec[0];
             M_spinup_duration = 0.; // No spinup after an "extend" restart
         }
+        else if ( vm["restart.type"].as<std::string>() == "arbitrary" )
+        {
+            // time_init is already set by reading the config file
+            pcpt = 0; // This should already be the case
+            M_spinup_duration = 0.; // No spinup after an "arbitrary" restart
+        }
         else
         {
             throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
                     + vm["restart.type"].as<std::string>()
-                    + ". It should be either extend or continue");
+                    + ". It should be either extend, continue, or arbitrary");
         }
     }
 
@@ -12650,12 +12684,14 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             std::vector<int> regridvec = {M_nb_regrid};
 
             exporter.writeField(outbin, timevec, "Time");
-            exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            exporter.writeField(outbin, M_surface_root, "Element_area");
-            exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
+            // exporter.writeField(outbin, M_surface_root, "Element_area");
+            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
             //manually export some vectors defined on the nodes
-            exporter.writeField(outbin, M_VT_root, "M_VT");
+            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+                exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (M_couple_waves && M_recv_wave_stress)
                 exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
