@@ -3923,6 +3923,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
         this->diffuse(M_sss,vm["thermo.diffusivity_sss"].as<double>(),M_res_root_mesh);
     }
 
+    // For the grounding scheme
+    const double k1 = vm["dynamics.Lemieux_basal_k1"].as<double>();
     bool equal_ridging = vm["age.equal_ridging"].as<bool>(); // decides if ridging should affect myi and fyi the same or just fyi
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
@@ -4001,9 +4003,19 @@ FiniteElement::update(std::vector<double> const & UM_P)
                  * We need to cap M_conc_myi to make sure it doesn't exceed 1 */
                 M_conc_myi[cpt] *= surf_ratio;
 
+                double const thick_fyi = M_thick[cpt] - M_thick_myi[cpt];
+                double conc_lim = 1.;
+                if ( M_conc[cpt] > 0. )
+                {
+                    double max_keel_depth=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
+                    double const keel_depth = std::min( max_keel_depth, k1*M_thick[cpt]/M_conc[cpt] );
+                    double const hmax = ( keel_depth*physical::rhow - M_snow_thick[cpt]/M_conc[cpt] ) / physical::rhoi;
+                    conc_lim -= thick_fyi/hmax;
+                }
+
                 // We get ridging when we cap
                 D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
-                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
+                M_conc_myi[cpt] = std::min(M_conc_myi[cpt], conc_lim); // Ensure M_conc_myi doesn't exceed total ice conc
                 D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
             }
             D_del_ci_ridge_myi[cpt]*=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
