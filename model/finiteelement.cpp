@@ -4120,9 +4120,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
 void
 FiniteElement::updateSigmaDamage(double const dt)
 {
-    // Reciprocal of the speed of a shear wave in undamaged ice (used to calculate td)
-    double const sqrt_nu_rhoi = std::sqrt( 2.*(1.+nu0)*physical::rhoi );
-
     // Concentration limit
     /* TODO: Should be vm["dynamics.min_c"].as<double>(); - but min_c is
      * already in use in another place so we need to check first what effect
@@ -4213,8 +4210,7 @@ FiniteElement::updateSigmaDamage(double const dt)
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit);
             M_damage[cpt] += del_damage;
 
 #ifdef OASIS
@@ -4223,7 +4219,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
             // Recalculate the new state of stress by relaxing elstically
             for (int i=0;i<3;i++)
-                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit);
         }
 
         /*======================================================================
