@@ -1116,6 +1116,7 @@ FiniteElement::initOptAndParam()
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
     M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+    LOG(DEBUG) << "Start from restart? " << M_use_restart << "\n";
 
     M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
@@ -1133,7 +1134,7 @@ FiniteElement::initOptAndParam()
     else
         throw std::runtime_error("FiniteElement::initOptAndParam: Option restart.output_interval_units should be days or time_steps");
 
-    LOG(DEBUG) << "Restart output interval: " << restart_time_step << vm["restart.output_interval_units"].as<std::string>() << "\n";
+    LOG(DEBUG) << "Restart output interval: " << restart_time_step / days_in_sec << " days\n";
 
     if ( restart_time_step % time_step != 0)
     {
@@ -5609,7 +5610,6 @@ FiniteElement::thermo(int dt)
                     }
                     break;
 #endif
-
                 default:
                     std::cout << "melt_type = " << melt_type << "\n";
                     throw std::logic_error("Wrong melt_type");
