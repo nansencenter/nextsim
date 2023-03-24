@@ -9874,20 +9874,13 @@ FiniteElement::explicitSolve()
         M_delta_x[cpt] = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);
-        // TODO: Put the B0T code in a seperate function
         std::vector<double> B0T(18,0);
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            B0T[2*i] = shapecoeff[i];
+            B0T[2*i+13] = shapecoeff[i];
+            B0T[2*i+7] = shapecoeff[i+3];
+            B0T[2*i+12] = shapecoeff[i+3];
         }
         M_shape_coeff[cpt] = shapecoeff;
         M_B0T[cpt] = B0T;
