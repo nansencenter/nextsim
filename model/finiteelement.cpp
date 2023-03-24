@@ -4324,6 +4324,76 @@ FiniteElement::updateSigmaDamage(double const dt)
      * changing the default of min_c from 0.01 to 0.1 would have there */
     const double min_c = 0.1;
 
+#if 0
+    if(M_rank==1)
+    {
+        std::vector<double> sigma_in(3,0.);
+        sigma_in[2] = 6572.67069006;
+        std::vector<double> epsilon_veloc(3,0.);
+        epsilon_veloc[2] = 8.71272542e-7;
+        double dt = 7.5;
+        double psi_old = 0.;
+        double psi_dot = 0.;
+        double cohesion = 7302.967433402215;
+        double Pmax = 0.;
+        std::vector<double> sigma_elas_unit(3, 0.);
+        for(int i=0;i<3;i++)
+            for(int j=0;j<3;j++)
+                sigma_elas_unit[i] += M_Dunit[3*i + j] * epsilon_veloc[j];
+
+        std::vector<double> sigma_out(3,0.);
+        double d_crit;
+        this -> evolveSigmaWithPsi(
+                sigma_in, sigma_elas_unit, cohesion, Pmax, dt,
+                psi_old, psi_dot, sigma_out, d_crit);
+        std::cout << "psi_old, d_crit = "
+            << psi_old << ", "
+            << d_crit << "\n";
+        for (int i=0; i<3; i++)
+        {
+            std::cout << "i, sigma_in, sigma_out = "
+                << i << ", "
+                << sigma_in[i] << ", "
+                << sigma_out[i] << "\n";
+        }
+
+        double psi_dot_min = 0.01270792397394747;
+        double psi_dot_max = 2 * psi_dot_min;
+        int const substeps = 10;
+        this -> getBoundsPsiDot(
+                    sigma_in, sigma_elas_unit, cohesion, Pmax, dt,
+                    substeps, psi_old, psi_dot_min, psi_dot_max, sigma_out);
+        std::cout << "psi_dot_min, psi_dot_max = "
+            << psi_dot_min << ", "
+            << psi_dot_max << "\n";
+        for (int i=0; i<3; i++)
+        {
+            std::cout << "i, sigma_out = "
+                << i << ", "
+                << sigma_out[i] << "\n";
+        }
+
+        this -> bisectPsiDot(
+                    sigma_in, sigma_elas_unit, cohesion, Pmax, dt,
+                    substeps, psi_old, psi_dot_min, psi_dot_max, sigma_out);
+        double const conc_term = 0.;
+        double const psi_new = psi_old + psi_dot_max * dt;
+        double const damage_new = 1 - std::exp(conc_term - psi_new);
+        std::cout << "psi_dot_min, psi_dot_max, damage_new = "
+            << psi_dot_min << ", "
+            << psi_dot_max << ", "
+            << damage_new << "\n";
+        for (int i=0; i<3; i++)
+        {
+            std::cout << "i, sigma_out = "
+                << i << ", "
+                << sigma_out[i] << "\n";
+        }
+        throw std::runtime_error("HEY!");
+    }
+    M_comm.barrier();
+#endif
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
         // There's no ice so we set sigma to 0 and carry on
