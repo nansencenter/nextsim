@@ -5557,6 +5557,7 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+                    break;
 #ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
