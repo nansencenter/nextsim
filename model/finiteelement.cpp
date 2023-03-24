@@ -4115,6 +4115,201 @@ FiniteElement::update(std::vector<double> const & UM_P)
     }//loop over elements
 }//update
 
+
+void
+FiniteElement::evolveSigmaWithPsi(
+        std::vector<double> const &sigma_in,
+        std::vector<double> const &sigma_elas_unit,
+        double const &cohesion,
+        double const &Pmax,
+        double const &dt,
+        double const &psi,
+        double const &psi_dot,
+        std::vector<double> &sigma_out,
+        double &d_crit
+        )
+{
+    double const psi_mid = psi + psi_dot * dt / 2;
+    double const am1 = exponent_relaxation_sigma - 1.;
+    double const tv = undamaged_time_relaxation_sigma
+        * std::exp(-am1 * psi_mid);
+
+    // Plastic failure
+    double sigma_n = (sigma_in[0] + sigma_in[1]) / 2.;
+    double tildeP = 0.;//no effect under divergence
+    if ( sigma_n < 0. )
+    {
+        // tildeP must be capped at 1 to get an elastic response
+        tildeP = std::min(1., -Pmax/sigma_n);
+    }
+
+    double const multiplicator = min(1. - 1e-12,
+            tv / ((1. + psi_dot * dt) * tv + dt));
+    double const elasticity = young * std::exp(-psi_mid);
+    for(int i=0;i<3;i++)
+        sigma_out[i] = (sigma_in[i]
+                + dt * elasticity * sigma_elas_unit[i]) * multiplicator;
+
+    double const sigma_s = std::hypot(
+            (sigma_out[0] - sigma_out[1]) / 2., sigma_out[2]);
+    sigma_n = (sigma_out[0] + sigma_out[1]) / 2.;
+
+    // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
+    // d_crit < 1 => failure
+    if(sigma_n < - compr_strength)
+        d_crit = - compr_strength / sigma_n;
+    else
+        d_crit = cohesion / (sigma_s + tan_phi * sigma_n);
+}
+
+
+void
+FiniteElement::checkEvolveSigmaWithPsi(
+            std::vector<double> sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            double const &dt,
+            int const &substeps,
+            double const &psi,
+            double const &psi_dot,
+            std::vector<double> &sigma_out,
+            bool &inside
+            )
+{
+    double const dt_ = dt / substeps;
+    auto sigma_ = sigma_in;
+    double psi_ = psi;
+    int count = 1;
+    double d_crit;
+    double d_crit_m1 = 0;
+    double d_crit_m2 = 0;
+    bool increasing = false;
+    bool run = true;
+    while(run)
+    {
+        sigma_in = sigma_;
+        this -> evolveSigmaWithPsi(
+            sigma_in, sigma_elas_unit, cohesion, Pmax, dt_,
+            psi_, psi_dot, sigma_, d_crit);
+        inside = (d_crit >= 1) || (d_crit < 0);
+
+        // is d_crit increasing (sigma getting further inside the envelope)?
+        if (!increasing)
+            if(count >= 3)
+                increasing = (d_crit > d_crit_m1)
+                    && (d_crit_m1 > d_crit_m2);
+
+        // stop if (1) outside or (2), if inside, d_crit has been increasing
+        // long enough (2 substeps)
+        // (also want sigma in this case so need count >= substeps)
+        bool const stop2 = increasing && (count >= substeps);
+        if (count == substeps)
+            sigma_out = sigma_;
+
+        run = inside && (!stop2);
+        count += 1;
+        psi_ += psi_dot * dt_;
+        d_crit_m2 = d_crit_m1;
+        d_crit_m1 = d_crit;
+    }
+}
+
+
+void
+FiniteElement::getBoundsPsiDot(
+            std::vector<double> const &sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            double const &dt,
+            int const &substeps,
+            double const &psi,
+            double &psi_dot_min,
+            double &psi_dot_max,
+            std::vector<double> &sigma_out
+            )
+{
+    double d_psi_dot = psi_dot_max - psi_dot_min;
+    for(int i=0; i<100; i++)
+    {
+        bool inside;
+        this -> checkEvolveSigmaWithPsi(
+                sigma_in, sigma_elas_unit,
+                cohesion, Pmax, dt, substeps,
+                psi, psi_dot_max, sigma_out, inside);
+        //std::cout << "i, inside, psi_dot_max "
+        //    << i << ", "
+        //    << inside << ", "
+        //    << psi_dot_max << "\n";
+        //for(int j=0; j<3; j++)
+        //{
+        //    std::cout << "i, sigma_out "
+        //        << j << ", "
+        //        << sigma_out[j]
+        //        << "\n";
+        //}
+        if (inside)
+            return;
+        psi_dot_min = psi_dot_max;
+        d_psi_dot *= 2;
+        psi_dot_max += d_psi_dot;
+    }
+    for(int i=0; i<3; i++)
+    {
+        std::cout << "i, sigma_in, sigma_elas_unit "
+            << i << ", "
+            << sigma_in[i] << ", "
+            << sigma_elas_unit[i] << "\n";
+    }
+    std::cout << "d_psi_dot, psi, cohesion "
+        << d_psi_dot << ", "
+        << psi << ", "
+        << cohesion << "\n";
+    throw std::runtime_error("No bounds for psi_dot found");
+}
+
+
+void FiniteElement::bisectPsiDot(
+            std::vector<double> const &sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            float const &dt,
+            int const &substeps,
+            float const &psi,
+            double &psi_dot_min,
+            double &psi_dot_max,
+            std::vector<double> &sigma_out)
+{
+    double const tol = 1.e-8;
+    double d_psi_dot = psi_dot_max - psi_dot_min;
+    int const n_iter = (std::ceil(std::log2(d_psi_dot / tol)));
+    for (int i=0; i < n_iter; i++)
+    {
+        d_psi_dot /= 2;
+        double const psi_dot_mid = psi_dot_min + d_psi_dot;
+        std::vector<double> sigma_(3, 0.);
+        bool inside;
+        this -> checkEvolveSigmaWithPsi(
+            sigma_in, sigma_elas_unit,
+            cohesion, Pmax, dt, substeps,
+            psi, psi_dot_mid, sigma_, inside);
+        if(inside)
+        {
+            // mid-point is good - this is the new upper bound
+            psi_dot_max = psi_dot_mid;
+            sigma_out = sigma_;
+        }
+        else
+        {
+            // mid-point is bad - this is the new lower bound
+            psi_dot_min = psi_dot_mid;
+        }
+    }
+}
+
+
 //------------------------------------------------------------------------------------------------------
 //! Calculate M_sigma for the current time step and update M_damage.
 void
@@ -4154,91 +4349,67 @@ FiniteElement::updateSigmaDamage(double const dt)
             for(int j=0;j<3;j++)
             {
                 /* deformation */
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]*M_VT[(M_elements[cpt]).indices[j]-1];
-                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]*M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j]
+                    * M_VT[(M_elements[cpt]).indices[j]-1];
+                epsilon_veloc[i] += M_B0T[cpt][i*6 + 2*j + 1]
+                    * M_VT[(M_elements[cpt]).indices[j]-1+M_num_nodes];
             }
         }
-
-        /*======================================================================
-         //! - Updates the internal stress
-         *======================================================================
-         */
-
-        //Calculating the new state of stress
-        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
-        double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
-        double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
-
-        // Plastic failure
-        double tildeP;
-        if ( sigma_n < 0. )
-        {
-            double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)*compression_factor*expC;
-            // tildeP must be capped at 1 to get an elastic response
-            tildeP = std::min(1., -Pmax/sigma_n);
-        } else {
-            tildeP = 0.;
-        }
-
-        double const multiplicator = std::min( 1. - 1e-12,
-                time_viscous/(time_viscous+dt*(1.-tildeP)) );
-
-        double const elasticity = young*(1.-M_damage[cpt])*expC;
-
+        std::vector<double> sigma_elas_unit(3, 0.);
         for(int i=0;i<3;i++)
-        {
             for(int j=0;j<3;j++)
-                M_sigma[i][cpt] += dt*elasticity*M_Dunit[3*i + j]*epsilon_veloc[j];
-
-            M_sigma[i][cpt] *= multiplicator;
-        }
+                sigma_elas_unit[i] += M_Dunit[3*i + j] * epsilon_veloc[j];
 
         /*======================================================================
-         //! - Estimates the level of damage from the updated internal stress and the local damage criterion
+         //! - Update the internal stress and damage
          *======================================================================
          */
 
-        /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double const conc_term = - compaction_param * (1. - M_conc[cpt]);
+        double const Pmax = std::pow(M_thick[cpt], exponent_compression_factor)
+            * compression_factor * std::exp(-conc_term);
+        std::vector<double> const sigma_in = {
+            M_sigma[0][cpt], M_sigma[1][cpt], M_sigma[2][cpt]};
+        double const damage_old = M_damage[cpt];
+        double const psi_old = -std::log(1 - damage_old) + conc_term;
+        std::vector<double> sigma_out(3,0.);
+        double d_crit;
+        this -> evolveSigmaWithPsi(
+                sigma_in, sigma_elas_unit, M_Cohesion[cpt], Pmax, dtime_step,
+                psi_old, 0., sigma_out, d_crit);
 
-        // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
-        double dcrit;
-        if ( sigma_n < -compr_strength )
-            dcrit = -compr_strength/sigma_n;
-        else
-            dcrit = M_Cohesion[cpt]/(sigma_s+tan_phi*sigma_n);
-
-        /* Calculate the adjusted level of damage */
-        if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
+        if ( (0.<d_crit) && (d_crit<1.) )
         {
-            /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
-            M_damage[cpt] += del_damage;
-
+            // need to increase the damage
+            // NB sigma_s - tan_phi*sigma_n < 0 is always inside, but gives d_crit < 0
+            double const damage_guess = damage_old + (1 - d_crit) * (1 - damage_old);
+            double psi_new = -std::log(1 - damage_guess) + conc_term;
+            double psi_dot_min = (psi_new - psi_old) / dtime_step;
+            double psi_dot_max = 2 * psi_dot_min;
+            int const substeps = 10;
+            this -> getBoundsPsiDot(
+                    sigma_in, sigma_elas_unit, M_Cohesion[cpt], Pmax, dtime_step,
+                    substeps, psi_old, psi_dot_min, psi_dot_max, sigma_out);
+            this -> bisectPsiDot(
+                    sigma_in, sigma_elas_unit, M_Cohesion[cpt], Pmax, dtime_step,
+                    substeps, psi_old, psi_dot_min, psi_dot_max, sigma_out);
+            psi_new = psi_old + psi_dot_max * dtime_step;
+            M_damage[cpt] = 1 - std::exp(conc_term - psi_new);
 #ifdef OASIS
-            M_cum_damage[cpt] += del_damage;
+            M_cum_damage[cpt] += M_damage[cpt] - damage_old;
 #endif
-
-            // Recalculate the new state of stress by relaxing elstically
-            for (int i=0;i<3;i++)
-                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
         }
+        for (int i=0; i<3; i++)
+            M_sigma[i][cpt] = sigma_out[i];
 
-        /*======================================================================
-         * Check:
-         *======================================================================
-         */
-
-        /* Ice damage
+        /* Damage healing:
          * We use now a constant healing rate defined as 1/time_recovery_damage
          * so that we are now able to reset the damage to 0.
          * otherwise, it will never heal completely.
-         * time_recovery_damage still depends on the temperature when themodynamics is activated.
+         * time_recovery_damage still depends on the temperature when thermodynamics is activated.
          */
         M_damage[cpt] = std::max( 0., M_damage[cpt]
-                - dt/M_time_relaxation_damage[cpt]*std::exp(compaction_param*(1.-M_conc[cpt])) );
+                - std::exp(-conc_term) * dt / M_time_relaxation_damage[cpt]);
 
     }//loop over elements
 }//updateSigmaDamage

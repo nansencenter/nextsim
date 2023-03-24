@@ -292,6 +292,52 @@ public:
     void speedScaling(std::vector<double>& speed_scaling);
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
+    void evolveSigmaWithPsi(
+            std::vector<double> const& sigma_in,
+        std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            double const &dt,
+            double const &psi,
+            double const &psi_dot,
+            std::vector<double> &sigma_out,
+            double &d_crit
+            );
+    void checkEvolveSigmaWithPsi(
+            std::vector<double> sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            double const &dt,
+            int const &substeps,
+            double const &psi,
+            double const &psi_dot,
+            std::vector<double> &sigma_out,
+            bool &inside
+            );
+    void getBoundsPsiDot(
+            std::vector<double> const &sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            double const &dt,
+            int const &substeps,
+            double const &psi,
+            double &psi_dot_min,
+            double &psi_dot_max,
+            std::vector<double> &sigma_out
+            );
+    void bisectPsiDot(
+            std::vector<double> const &sigma_in,
+            std::vector<double> const &sigma_elas_unit,
+            double const &cohesion,
+            double const &Pmax,
+            float const &dt,
+            int const &substeps,
+            float const &psi,
+            double &psi_dot_min,
+            double &psi_dot_max,
+            std::vector<double> &sigma_out);
 
     void updateGhosts(std::vector<double>& mesh_nodal_vec);
     void initUpdateGhosts();
