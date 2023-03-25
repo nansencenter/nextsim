@@ -1116,6 +1116,7 @@ FiniteElement::initOptAndParam()
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
     M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+    LOG(DEBUG) << "Start from restart? " << M_use_restart << "\n";
 
     M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
@@ -1133,7 +1134,7 @@ FiniteElement::initOptAndParam()
     else
         throw std::runtime_error("FiniteElement::initOptAndParam: Option restart.output_interval_units should be days or time_steps");
 
-    LOG(DEBUG) << "Restart output interval: " << restart_time_step << vm["restart.output_interval_units"].as<std::string>() << "\n";
+    LOG(DEBUG) << "Restart output interval: " << restart_time_step / days_in_sec << " days\n";
 
     if ( restart_time_step % time_step != 0)
     {
@@ -5557,6 +5558,7 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+                    break;
 #ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
@@ -5608,7 +5610,6 @@ FiniteElement::thermo(int dt)
                     }
                     break;
 #endif
-
                 default:
                     std::cout << "melt_type = " << melt_type << "\n";
                     throw std::logic_error("Wrong melt_type");
@@ -7698,7 +7699,7 @@ FiniteElement::step()
             {
                 this->updateIceDiagnostics();
                 std::string str = datenumToString(M_current_time, "pre_regrid_%Y%m%dT%H%M%SZ");
-                this->exportResults(str, true, true, true);
+                this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
             }
 
             if ( M_use_moorings && !M_moorings_snapshot )
@@ -7809,7 +7810,7 @@ FiniteElement::step()
         if(vm["output.export_after_regrid"].as<bool>())
         {
             std::string str = datenumToString(M_current_time, "post_regrid_%Y%m%dT%H%M%SZ");
-            this->exportResults(str, true, true, true);
+            this->exportResults(str, true, vm["output.export_fields"].as<bool>(), true);
         }
 
         // check the fields for nans etc after regrid
@@ -8050,7 +8051,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
-        this->exportResults(true, true, true);
+        this->exportResults(true, vm["output.export_fields"].as<bool>(), true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
     }
 
@@ -8197,7 +8198,7 @@ FiniteElement::run()
     // Exporting results
     // **********************************************************************
     this->updateIceDiagnostics();
-    this->exportResults("final", true, true, true);
+    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
     if (M_write_restart_end)
         this->writeRestart("final");
 
@@ -9495,11 +9496,17 @@ FiniteElement::readRestart(std::string const& name_str)
             time_init = time_vec[0];
             M_spinup_duration = 0.; // No spinup after an "extend" restart
         }
+        else if ( vm["restart.type"].as<std::string>() == "arbitrary" )
+        {
+            // time_init is already set by reading the config file
+            pcpt = 0; // This should already be the case
+            M_spinup_duration = 0.; // No spinup after an "arbitrary" restart
+        }
         else
         {
             throw std::runtime_error("FiniteElement::readRestart: incorrect value for option restart.type: "
                     + vm["restart.type"].as<std::string>()
-                    + ". It should be either extend or continue");
+                    + ". It should be either extend, continue, or arbitrary");
         }
     }
 
@@ -9882,20 +9889,13 @@ FiniteElement::explicitSolve()
         M_delta_x[cpt] = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);
-        // TODO: Put the B0T code in a seperate function
         std::vector<double> B0T(18,0);
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            B0T[2*i] = shapecoeff[i];
+            B0T[2*i+13] = shapecoeff[i];
+            B0T[2*i+7] = shapecoeff[i+3];
+            B0T[2*i+12] = shapecoeff[i+3];
         }
         M_shape_coeff[cpt] = shapecoeff;
         M_B0T[cpt] = B0T;
