@@ -897,16 +897,16 @@ public:
 
                 case (variableID::ocean_temp):
                     name     = "ocean_temp";
-                    longName = "ocean temperature at mixed layer base";
-                    stdName  = "ocean_temperature_at_mixed_layer_base";
+                    longName = "ocean temperature forcing";
+                    stdName  = "ocean_temperature_forcing";
                     Units    = "degree_Celcius";
                     cell_methods = "area: mean";
                     break;
 
                 case (variableID::ocean_salt):
                     name     = "ocean_salt";
-                    longName = "ocean salinity at mixed layer base";
-                    stdName  = "ocean_salinity_at_mixed_layer_base";
+                    longName = "ocean salinity forcing";
+                    stdName  = "ocean_salinity_forcing";
                     Units    = "1e-3";
                     cell_methods = "area: mean";
                     break;
