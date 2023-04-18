@@ -35,7 +35,7 @@ fi
 
 # Coupling with another GCM component via OASIS (WW3, NEMO, etc)
 # --------------------------------------------------------------
-l_cpl_oasis=false ; # neXtSIM is going to be coupled to something via OASIS ? If true, give the appropriate value for "OASIS_DIR" in the arch CASE block...
+l_cpl_oasis=true ; # neXtSIM is going to be coupled to something via OASIS ? If true, give the appropriate value for "OASIS_DIR" in the arch CASE block...
 if ${l_cpl_oasis}; then
     export USE_OASIS=true
 else
@@ -113,7 +113,7 @@ case `hostname | cut -d. -f2` in
                       export NETCDF_DIR="/cluster/software/netCDF/4.4.1.1-intel-2018a-HDF5-1.8.19"
                       export NETCDF_CXX_DIR="/cluster/software/netCDF-C++4/4.3.0-intel-2018a-HDF5-1.8.19"
                       #
-                      export AEROBULK_DIR="/cluster/projects/nn9878k/brodeau/src/aerobulk"
+                      export AEROBULK_DIR="/cluster/projects/nn9878k/hregan/NANUK/NANUK_setup/aerobulk"
                       export OASIS_DIR="/cluster/projects/nn9878k/brodeau/src/oasis3-mct"
                       #
                       export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
