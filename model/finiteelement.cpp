@@ -394,6 +394,7 @@ FiniteElement::rootMeshProcessing()
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
 
         if (!M_use_restart)
@@ -1116,6 +1117,7 @@ FiniteElement::initOptAndParam()
     M_use_assimilation   = vm["setup.use_assimilation"].as<bool>(); //! \param M_use_assimilation (boolean) Option on using data assimilation
 
     M_use_restart = vm["restart.start_from_restart"].as<bool>(); //! \param M_use_restart (boolean) Option on using starting simulation from a restart file
+    LOG(DEBUG) << "Start from restart? " << M_use_restart << "\n";
 
     M_check_restart = vm["restart.check_restart"].as<bool>(); //! \param M_check_restart (boolean) check restart file at init time
 
@@ -1133,7 +1135,7 @@ FiniteElement::initOptAndParam()
     else
         throw std::runtime_error("FiniteElement::initOptAndParam: Option restart.output_interval_units should be days or time_steps");
 
-    LOG(DEBUG) << "Restart output interval: " << restart_time_step << vm["restart.output_interval_units"].as<std::string>() << "\n";
+    LOG(DEBUG) << "Restart output interval: " << restart_time_step / days_in_sec << " days\n";
 
     if ( restart_time_step % time_step != 0)
     {
@@ -5128,7 +5130,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
-            Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.); // CREG NEMO-LIM3 expects a negative value
+	    /* Use "max" begause condensation (frostflower formation) is
+	     * overestimated in the case of forcing with a fixed atmosphere
+	     * This is a commonly used trick! (Both SI3 and CICE) */
+            Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.);
 
             /* Evaporation */
             evap[i] = Qlh[i]/Lv;
@@ -5596,6 +5601,7 @@ FiniteElement::thermo(int dt)
                     //         + std::min(0., std::max(0.,M_conc[i]+del_c)*( hi*qi+hs*qs )/dt);
                     // /* Don't suffer negative c! */
                     // del_c = std::max(del_c, -M_conc[i]);
+                    break;
 #ifdef OASIS
                 case 3:
                     /* Only if FSD, Roach et al. (2018) */
@@ -5647,7 +5653,6 @@ FiniteElement::thermo(int dt)
                     }
                     break;
 #endif
-
                 default:
                     std::cout << "melt_type = " << melt_type << "\n";
                     throw std::logic_error("Wrong melt_type");
@@ -6052,6 +6057,8 @@ FiniteElement::thermo(int dt)
             }
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
+
+>>>>>>> NANUK_merge
             if (reset_by_date)
             {
                 if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
@@ -6191,7 +6198,6 @@ FiniteElement::IABulkFluxes(
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
 
-
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -6318,8 +6324,7 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
                 welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
-            //double Csens_io = 1e-3;
-            double Csens_io = 6e-3;
+            double const Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice 
             return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
             break;
         }
@@ -8043,6 +8048,7 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
+ 
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
@@ -8259,7 +8265,6 @@ FiniteElement::run()
         // Time-stepping
         // **********************************************************************
         this->step();
-
         //stop early if debugging
         niter++;
         if (niter == maxiter)
@@ -9931,7 +9936,6 @@ FiniteElement::explicitSolve()
 
     // It's the minimum _slab_ thickness times ice density
     double const min_m = physical::rhoi*vm["dynamics.min_h"].as<double>();
-    const double min_c = vm["dynamics.min_c"].as<double>();
 
     // For the MEB code
     double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
@@ -9982,20 +9986,13 @@ FiniteElement::explicitSolve()
         M_delta_x[cpt] = std::accumulate(my_sides.begin(), my_sides.end(), 0)/my_sides.size();
         M_surface[cpt] = this->measure(M_elements[cpt],M_mesh,M_UM);
         std::vector<double> const shapecoeff = this->shapeCoeff(M_elements[cpt]);
-        // TODO: Put the B0T code in a seperate function
         std::vector<double> B0T(18,0);
-        for (int i=0; i<18; ++i)
+        for (int i=0; i<3; ++i)
         {
-            if (i < 3)
-            {
-                B0T[2*i] = shapecoeff[i];
-                B0T[12+2*i] = shapecoeff[i+3];
-                B0T[13+2*i] = shapecoeff[i];
-            }
-            else if (i < 6)
-            {
-                B0T[2*i+1] = shapecoeff[i];
-            }
+            B0T[2*i] = shapecoeff[i];
+            B0T[2*i+13] = shapecoeff[i];
+            B0T[2*i+7] = shapecoeff[i+3];
+            B0T[2*i+12] = shapecoeff[i+3];
         }
         M_shape_coeff[cpt] = shapecoeff;
         M_B0T[cpt] = B0T;
@@ -10676,7 +10673,8 @@ FiniteElement::forcingAtmosphere()
                 time_init, M_spinup_duration);
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            // M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
@@ -12598,8 +12596,8 @@ FiniteElement::nemoIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    LOG(DEBUG)<<"init - NEMO ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+    LOG(DEBUG)<<"init - NEMO ExternalData objects\n";
     // Surface temperature over which we consider there is no ice when init.
     // There is only ice if sst <= t_freez + sst_limit (tunable)
     double const SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
