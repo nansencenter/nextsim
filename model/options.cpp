@@ -121,7 +121,9 @@ namespace Nextsim
                 "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
-                "from_unref (implies constant vertice length) or from_split (implies variable vertice length)")
+                "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
+            ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
+                "ordering: gmsh (default) or bamg - try bamg if you get negative areas")
 
 
             // -- moorings
@@ -143,8 +145,8 @@ namespace Nextsim
                 "units of moorings.output_time_step: days or time_steps")
             ("moorings.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
                         std::vector<std::string>
-                            {"conc", "thick", "snow", "conc_thin", "h_thin", "hs_thin", "velocity"},
-                             "conc    thick    snow    conc_thin    h_thin    hs_thin    velocity"
+                            {"conc", "thick", "snow", "conc_young", "h_young", "hs_young", "velocity"},
+                             "conc    thick    snow    conc_young    h_young    hs_young    velocity"
                     )->composing(), "list of variable names (put on separate lines in config file)")
             ("moorings.grid_file", po::value<std::string>()->default_value( "" ),
                 "Grid file with locations for moorings output. It must be a netcdf file with two dimensional lat and lon")
@@ -250,6 +252,13 @@ namespace Nextsim
                 "Path where results should be exported")
             ("output.exporter_precision", po::value<std::string>()->default_value("float"),
                     "float (default) or double (almost only for testing)")
+            ("output.variables", po::value<std::vector<std::string>>()->multitoken()->default_value(
+                        std::vector<std::string>
+                            {"Damage", "Concentration", "Thickness", "Snow", "Concentration_young_ice", "Thickness_young_ice", "Snow_young_ice", "M_VT"},
+                             "Damage    Concentration    Thickness    Snow    Concentration_young_ice    Thickness_young_ice    Snow_young_ice    M_VT"
+                    )->composing(), "list of variable names (put on separate lines in config file)")
+            ("output.export_fields", po::value<bool>()->default_value( true ),
+                "Whether to write out a 'fields_' file at all. Overrides anything in 'output.variables'.")
 
 
              //-----------------------------------------------------------------------------------
@@ -263,7 +272,7 @@ namespace Nextsim
             // - if setup.ice-type = constant
             ("ideal_simul.init_thickness", po::value<double>()->default_value( 1.0 ), "")
             ("ideal_simul.init_concentration", po::value<double>()->default_value( 1.0 ), "")
-            ("ideal_simul.init_thin_conc", po::value<double>()->default_value( 0. ), "")
+            ("ideal_simul.init_young_conc", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_snow_thickness", po::value<double>()->default_value( 0. ), "")
             ("ideal_simul.init_SST_limit", po::value<double>()->default_value( 2. ), "")
 
@@ -300,23 +309,20 @@ namespace Nextsim
 
 
             // - Internal stresses
-            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ), "")     // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
+            ("dynamics.alea_factor", po::value<double>()->default_value( 0.0 ),
+                "relative size of random perturbation to cohesion") // Fraction of C_fix that will be added to C_fix as some alea on the cohesion
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C_lab", po::value<double>()->default_value( 6.8465e+6 ), "Pa")   // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
-            ("dynamics.nu0", po::value<double>()->default_value( 0.3 ), "")
+            ("dynamics.C_lab", po::value<double>()->default_value( 2.0e6 ), "Pa")       // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
-            ("dynamics.tract_coef", po::value<double>()->default_value( 5./6 ), "")
-            ("dynamics.compr_strength", po::value<double>()->default_value( 1.28371875e+8 ), "Pa")
-            ("dynamics.ridging_exponent", po::value<double>()->default_value( -20. ), "")
+            ("dynamics.compr_strength", po::value<double>()->default_value( 1e10 ), "Pa")
+            ("dynamics.compaction_param", po::value<double>()->default_value( -20. ), "")
 
             // - C,h limits for where to use MEB rheology and where to use the Laplacian free drift thing
             ("dynamics.min_h", po::value<double>()->default_value( 0.05 ), "")
             ("dynamics.min_c", po::value<double>()->default_value( 0.01 ), "")
-
-            // - Ratio of ridged ice cohesion and compressive strength compared to level ice (1. does nothing)
-            ("dynamics.ridge_to_normal_cohesion_ratio", po::value<double>()->default_value( 1. ), "")
 
             ("dynamics.use_temperature_dependent_healing", po::value<bool>()->default_value( false ), "")
             ("dynamics.time_relaxation_damage", po::value<double>()->default_value( 25. ), "days")
@@ -349,25 +355,20 @@ namespace Nextsim
             ("dynamics.Lemieux_basal_u_crit", po::value<double>()->default_value( 5e-4 ), "")
 
             // - Pressure term parameters
-            ("dynamics.divergence_min", po::value<double>()->default_value( 0.05 ), "Minimum divergence at which the pressure term is activated")
-            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 2. ), "Power of ice thickness in the pressure term")
-            ("dynamics.compression_factor", po::value<double>()->default_value( 6000. ), "Max pressure for damaged converging ice")
-            ("dynamics.pressure_nu", po::value<double>()->default_value( 0. ),
-             "Poisson ratio for the pressure term [0 - 0.5]. With pressure_nu=0 the pressure 'stiffness' matrix equals [1,0,0;0,1,0;0,0,0.5]")
-
-            ("dynamics.exponent_cohesion", po::value<double>()->default_value( 2 ), "Power of ice thickness in the cohesion scaling")
+            ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 10e3 ), "Max pressure for damaged converging ice")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
-             "Nuber of explicit sub-steps (default 120)")
+                "Number of explicit sub-steps (default 120)")
             ("dynamics.evp.e", po::value<double>()->default_value( 2. ),
-             "Ellipse ratio (default 2)")
+                "Ellipse ratio (default 2)")
             ("dynamics.evp.Pstar", po::value<double>()->default_value( 27.5e3 ),
-             "P* (default 27.5e3)")
+                "P* (default 27.5e3)")
             ("dynamics.evp.C", po::value<double>()->default_value( 20 ),
-             "Compaction parameter (C, default 20)")
+                "Compaction parameter (C, default 20)")
             ("dynamics.evp.dmin", po::value<double>()->default_value( 1e-9 ),
-             "Minimum delta (default 1e-9)")
+                "Minimum delta (default 1e-9)")
 
             // - mEVP!
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
@@ -388,13 +389,15 @@ namespace Nextsim
             ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
-            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: THIN_ICE; else CLASSIC")
+            ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
             ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_max", po::value<double>()->default_value( 0.5 ), "")
-            ("thermo.h_thin_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.h_young_max", po::value<double>()->default_value( 0.5 ), "")
+            ("thermo.h_young_min", po::value<double>()->default_value( 0.05 ), "")
+            ("thermo.snow_cond", po::value<double>()->default_value( 0.3096 ),
+                "snow conductivity (W/(K m)")
 
             ("thermo.drag_ice_t", po::value<double>()->default_value( 1.3e-3 ), "")
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
@@ -402,8 +405,8 @@ namespace Nextsim
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
 
             // -- diffusivity
-            ("thermo.diffusivity_sss", po::value<double>()->default_value( 100. ), "") //[m^2/s]
-            ("thermo.diffusivity_sst", po::value<double>()->default_value( 100. ), "") //[m^2/s]
+            ("thermo.diffusivity_sss", po::value<double>()->default_value( 0. ), "") //[m^2/s]
+            ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
             ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
@@ -454,12 +457,6 @@ namespace Nextsim
 
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
-            ("forecast.true_forecast", po::value<bool>()->default_value( false ),
-                "if false, use <<analysis/best est>> - forecast that started on the same day as the model time; else use the one that began on simul.time_init, or  forecast.time_init_atm_fc/forecast.time_init_ocean_fc (if provided)")
-            ("forecast.time_init_atm_fc", po::value<std::string>()->default_value( "" ),
-                "if(forecast.true_forecast), get atmospheric forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
-            ("forecast.time_init_ocean_fc", po::value<std::string>()->default_value( "" ),
-                "if(forecast.true_forecast), get ocean forecast starting from this date as opposed to simul.time_init (eg if usual one is absent)")
             ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
                 "specify the time resolution in hours here if want to change from 6")
 
@@ -483,6 +480,8 @@ namespace Nextsim
             //-----------------------------------------------------------------------------------
             //!wave_coupling
             //-----------------------------------------------------------------------------------
+            ("wave_coupling.receive_wave_stress", po::value<bool>()->default_value( true ),
+             "Do we receive the wave stress from the wave model?")
             // FSD related
             ("wave_coupling.num_fsd_bins", po::value<int>()->default_value( 0 ), "Select a number of bins for FSD")
             ("wave_coupling.fsd_type", po::value<std::string>()->default_value("constant_size"), "Type of FSD bin width : constant_size or constant_area")
@@ -521,14 +520,11 @@ namespace Nextsim
             //!Age settings
             //-----------------------------------------------------------------------------------
             ("age.reset_date", po::value<std::string>()->default_value( "0915" ), "Select the date which resets all ice to multiyear ice")
-            ("age.include_thin_ice", po::value<bool>()->default_value( true ), "If ice-type is thin ice, choose whether to include it when resetting multiyear on reset_date")
-            ("age.ridge_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
-            ("age.reset_by_date", po::value<bool>()->default_value( true ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
-            ("age.reset_melt_seconds", po::value<double>()->default_value( 432000. ), "If reset by melt days, this is number of seconds after which ice becomes myi")
-            ("age.reset_freeze_seconds", po::value<double>()->default_value( 432000. ), "If reset by freeze days, this is number of seconds before which ice becomes myi")
-            ("age.melt_myi_and_fyi", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
-            ("age.reset_by_freeze_or_melt", po::value<std::string>()->default_value( "melt" ), "If reset_by_date is false, this chooses how to reset all ice to multiyear ice")
-            ("age.assign_by_time_or_integral", po::value<std::string>()->default_value( "integral" ), "When doing daily average melt/freeze days, decides whether to base just on time or time integral of property")
+            ("age.reset_by_date", po::value<bool>()->default_value( false ), "Choose whether to reset myi on a date (true) or by an amount of melt days (false)")
+            ("age.include_young_ice", po::value<bool>()->default_value( true ), "If ice-type is young ice, choose whether to include it when resetting multiyear on reset_date")
+            ("age.reset_freeze_days", po::value<double>()->default_value( 3. ), "If reset by freeze days, this is number of consecutive freezing days before ice becomes myi")
+            ("age.equal_ridging", po::value<bool>()->default_value( false ), "When ridging, if fyi is present, ridge fyi preferentially (false) or both myi and fyi evenly (true)")
+            ("age.equal_melting", po::value<bool>()->default_value( true ), "When ridging, if fyi is present, melt fyi preferentially (false) or both myi and fyi evenly (true)")
 
 #if defined(WAVES)
         ;

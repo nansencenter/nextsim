@@ -12,7 +12,6 @@
 #include <environment.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dCavities.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToGridx.h>
@@ -45,11 +44,10 @@ namespace Nextsim
         None = -1,
         FromGridToMesh = 0,
         FromMeshToMesh2dx = 1,
-        FromMeshToMesh2dCavities = 2,
 #if defined OASIS
-        ConservativeRemapping = 3,
+        ConservativeRemapping = 2,
 #endif
-        FromMeshToMeshQuick = 4
+        FromMeshToMeshQuick = 3
     };
 
     typedef struct WaveOptions
@@ -218,14 +216,13 @@ public:
     std::vector<double> itime_range;
 #endif
             
-    std::string getFilename(double const& init_time, double const& current_time) const;
-    std::string getFilename(double const& init_time, double const& current_time, int const& jump) const;
-    void shiftDates(double const& init_time, double const& current_time, int const& jump,
-            double& new_init_time, double& ftime) const;
+    std::string getFilename(double const& current_time) const;
+    std::string getFilename(double const& current_time, int const& jump) const;
+    void shiftDates(double const& current_time, int const& jump, double& ftime) const;
 
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time);
-
-    void loadGrid(mapx_class *mapNextsim, Grid *grid, double init_time, double current_time, std::vector<double> const& RX_in, std::vector<double> const& RY_in);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time);
+    void loadGrid(mapx_class *mapNextsim, Grid *grid, double current_time,
+            std::vector<double> const& RX_in, std::vector<double> const& RY_in);
 
     void getLatLonXYVectors(std::vector<double> &LAT,std::vector<double> &LON,
         std::vector<double> &X,std::vector<double> &Y,mapx_class *mapNextsim);
