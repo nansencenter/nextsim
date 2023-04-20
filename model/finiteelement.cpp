@@ -6058,7 +6058,6 @@ FiniteElement::thermo(int dt)
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
 
->>>>>>> NANUK_merge
             if (reset_by_date)
             {
                 if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
