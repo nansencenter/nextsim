@@ -130,21 +130,6 @@ ModelVariable::initElemental()
             M_max_val = 1.;
             break;
 
-        case (variableID::M_ridge_ratio_ht):
-            // volume ratio of ridged ice
-            M_name = "M_ridge_ratio_ht";
-            M_export_name = "Ridge_ratio_ht";
-            M_prognostic = true;
-            M_exporting = true;
-            M_interp_method = interpMethod::conservative;
-            M_interp_transformation = interpTransformation::none;
-            M_diffusivity = 0.;
-            M_has_min = true;
-            M_min_val = 0.;
-            M_has_max = true;
-            M_max_val = 1.;
-            break;
-
         case (variableID::M_tice):
             // ice temperature [degC]
             M_name = "M_tice";

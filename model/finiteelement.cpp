@@ -9842,7 +9842,6 @@ FiniteElement::explicitSolve()
 
     // It's the minimum _slab_ thickness times ice density
     double const min_m = physical::rhoi*vm["dynamics.min_h"].as<double>();
-    const double min_c = vm["dynamics.min_c"].as<double>();
 
     // For the MEB code
     double const undamaged_time_relaxation_sigma = vm["dynamics.undamaged_time_relaxation_sigma"].as<double>();
