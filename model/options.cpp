@@ -403,6 +403,7 @@ namespace Nextsim
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
             ("thermo.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
+            ("thermo.Csens_io", po::value<double>()->default_value( 1.e-3 ), "")
 
             // -- diffusivity
             ("thermo.diffusivity_sss", po::value<double>()->default_value( 0. ), "") //[m^2/s]
