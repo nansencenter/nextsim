@@ -6272,8 +6272,7 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
                 welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
-            //double Csens_io = 1e-3; TODO: Make into an option
-            double Csens_io = 6e-3;
+            double const Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice 
             return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
             break;
         }
