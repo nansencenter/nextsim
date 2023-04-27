@@ -394,6 +394,7 @@ FiniteElement::rootMeshProcessing()
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
 
         if (!M_use_restart)
@@ -1190,6 +1191,7 @@ FiniteElement::initOptAndParam()
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
     M_ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
+    M_Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice
 
 
     //! Sets mechanical parameter values
@@ -3606,8 +3608,9 @@ FiniteElement::regrid(bool step)
     int substep = 0;
 
     std::vector<double> um_root;
+
     M_timer.tick("gatherNodalField");
-    this->gatherNodalField(M_UM, um_root);
+    this->gatherNodalField(M_UM,um_root);
     M_timer.tock("gatherNodalField");
 
     if (M_rank == 0)
@@ -4112,7 +4115,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-
+        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
+        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
+        if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        else
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
     }//loop over elements
 }//update
 
@@ -4974,7 +4983,7 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We know temp = M_sst[i]
             temp     = M_sst[i];
             salinity = M_sss[i];
-            break;
+            return std::make_pair(640380./physical::rhoa*std::exp(-5107.4/temp),0.);
         case schemes::specificHumidity::ICE:
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
@@ -5101,7 +5110,10 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
-            Qlh[i] = drag_ocean_q*rhoair*Lv*wspeed*( sphumw - sphuma );
+	    /* Use "max" because condensation (frostflower formation) is
+	     * overestimated in the case of forcing with a fixed atmosphere
+	     * This is a commonly used trick! (Both SI3 and CICE) */
+            Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.);
 
             /* Evaporation */
             evap[i] = Qlh[i]/Lv;
@@ -5404,7 +5416,7 @@ FiniteElement::thermo(int dt)
 
         /* Form new ice in case of super cooling, and reset Qow and evap */
         double newice = 0;
-        if ( tw_new < tfrw )
+        if  (tw_new < tfrw )
         {
             newice = old_ow_fraction*(tfrw-tw_new)*mld*physical::rhow*physical::cpw/qi;// m
             Qow[i] = -(tfrw-M_sst[i])*mld*physical::rhow*physical::cpw/dt;
@@ -5654,6 +5666,7 @@ FiniteElement::thermo(int dt)
 
         /* New concentration */
         M_conc[i] += del_c;
+
         /* New thickness */
         /* We conserve volume and energy */
         if ( M_conc[i] >= physical::cmin )
@@ -6134,7 +6147,6 @@ FiniteElement::IABulkFluxes(
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
 
-
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -6175,7 +6187,8 @@ FiniteElement::IABulkFluxes(
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
 
         /* Sublimation */
-        subl[i] = Qlh[i]/Lsub;
+        subl[i] = std::max(0.,Qlh[i]/Lsub);
+        // It is positive as we decide to remove snow/ice deposition, as in NEMO-LIM3. Otherwise, with ERA5, it leads to very high snow depth.
 
         // Shortwave is modulated by the albedo
         double hs;
@@ -6260,8 +6273,7 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
                 welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
-            double Csens_io = 1e-3;
-            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            return_value = (sst-Tbot)*norm_Voce_ice*M_Csens_io*physical::rhow*physical::cpw;
             break;
         }
     }
@@ -8187,7 +8199,6 @@ FiniteElement::run()
         // Time-stepping
         // **********************************************************************
         this->step();
-
         //stop early if debugging
         niter++;
         if (niter == maxiter)
@@ -10043,7 +10054,6 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Starting sub-time stepping\n";
     M_timer.tick("sub-time stepping");
 
-    std::vector<double> c_prime(M_num_nodes); // Saved for the ice-ocean drag to send to coupler
     // Do the sub-time stepping itself
     for ( int s=0; s<steps; s++ )
     {
@@ -12484,8 +12494,8 @@ FiniteElement::nemoIce()
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
-    LOG(DEBUG)<<"init - NEMO ExternalData objects\n";
     this->checkReloadDatasets(external_data_tmp, time_init, RX, RY);
+    LOG(DEBUG)<<"init - NEMO ExternalData objects\n";
     // Surface temperature over which we consider there is no ice when init.
     // There is only ice if sst <= t_freez + sst_limit (tunable)
     double const SST_limit = vm["ideal_simul.init_SST_limit"].as<double>();
