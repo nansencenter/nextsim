@@ -10573,7 +10573,6 @@ FiniteElement::forcingAtmosphere()
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            // M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
