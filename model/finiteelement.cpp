@@ -4175,7 +4175,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
         double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
         double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
 
@@ -4210,7 +4210,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
         double dcrit;
@@ -4223,8 +4223,8 @@ FiniteElement::updateSigmaDamage(double const dt)
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            double const rtd = std::sqrt(elasticity)/(M_delta_x[cpt]*sqrt_nu_rhoi);
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt*rtd;
             M_damage[cpt] += del_damage;
 
 #ifdef OASIS
@@ -4233,7 +4233,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
             // Recalculate the new state of stress by relaxing elstically
             for (int i=0;i<3;i++)
-                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt*rtd;
         }
 
         /*======================================================================
@@ -8536,6 +8536,18 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += this->windSpeedElement(i)*time_factor;
                 break;
+            case (GridOutput::variableID::mld):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mld[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_temp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_temp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_salt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_salt[i]*time_factor;
+                break;
 
             // WIM variables
             case (GridOutput::variableID::dmax):
@@ -8780,6 +8792,9 @@ FiniteElement::initMoorings()
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
             ("wspeed", GridOutput::variableID::wspeed)
+            ("mld", GridOutput::variableID::mld)
+            ("ocean_temp", GridOutput::variableID::ocean_temp)
+            ("ocean_salt", GridOutput::variableID::ocean_salt)
             ("thick_myi", GridOutput::variableID::thick_myi)
             ("conc_myi", GridOutput::variableID::conc_myi)
             ("freeze_days", GridOutput::variableID::freeze_days)
@@ -10168,13 +10183,36 @@ FiniteElement::explicitSolve()
         this->updateGhosts(M_VT);
         M_timer.tock("updateGhosts");
 
-        M_timer.tick("move mesh");
         // Move the mesh and update total displacement
+        // For EVP and BBM we move the mesh every sub-time step
+        if ( M_dynamics_type != setup::DynamicsType::mEVP )
+        {
+            M_timer.tick("move mesh");
+            std::vector<double> UM_P = M_UM;
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += dte*M_VT[nd];
+                M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            }
+
+            for (const int& nd : M_neumann_nodes)
+                M_UM[nd] = UM_P[nd];
+
+            M_timer.tock("move mesh");
+        }
+    }
+    M_timer.tock("sub-time stepping");
+
+    // Move the mesh and update total displacement
+    // For mEVP we move the mesh at the end of the sub-iteration
+    if ( M_dynamics_type == setup::DynamicsType::mEVP )
+    {
+        M_timer.tick("move mesh");
         std::vector<double> UM_P = M_UM;
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
-            M_UM[nd] += dte*M_VT[nd];
-            M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            M_UM[nd] += dtime_step*M_VT[nd];
+            M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         for (const int& nd : M_neumann_nodes)
@@ -10182,7 +10220,6 @@ FiniteElement::explicitSolve()
 
         M_timer.tock("move mesh");
     }
-    M_timer.tock("sub-time stepping");
 
     // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
     M_timer.tick("OW smoother");
