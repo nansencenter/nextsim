@@ -4983,7 +4983,8 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We know temp = M_sst[i]
             temp     = M_sst[i];
             salinity = M_sss[i];
-            return std::make_pair(640380./physical::rhoa*std::exp(-5107.4/temp),0.);
+            return std::make_pair(640380./physical::rhoa*std::exp(
+                        -5107.4/(temp + physical::tfrwK)),0.);
         case schemes::specificHumidity::ICE:
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
