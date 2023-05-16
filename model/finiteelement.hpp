@@ -574,6 +574,7 @@ private:
     double h_young_max;
     double M_ks;
     double M_ocean_albedo;
+    double M_Csens_io;
 
     double compr_strength;
     double tract_coef;
@@ -585,6 +586,7 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
+    double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;
