@@ -1191,6 +1191,7 @@ FiniteElement::initOptAndParam()
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
     M_ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
+    M_Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice
 
 
     //! Sets mechanical parameter values
@@ -4195,7 +4196,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         //Calculating the new state of stress
-        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        double sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
         double const expC = std::exp(compaction_param*(1.-M_conc[cpt]));
         double const time_viscous = undamaged_time_relaxation_sigma*std::pow((1.-M_damage[cpt])*expC,exponent_relaxation_sigma-1.);
 
@@ -4230,7 +4231,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
         double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
-        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])/2.;
+        sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
         double dcrit;
@@ -4243,8 +4244,8 @@ FiniteElement::updateSigmaDamage(double const dt)
         if ( (0.<dcrit) && (dcrit<1.) ) // sigma_s - tan_phi*sigma_n < 0 is always inside, but gives dcrit < 0
         {
             /* Calculate the characteristic time for damage and damage increment */
-            double const td = M_delta_x[cpt]*sqrt_nu_rhoi/std::sqrt(elasticity);
-            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt/td;
+            double const rtd = std::sqrt(elasticity)/(M_delta_x[cpt]*sqrt_nu_rhoi);
+            double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt*rtd;
             M_damage[cpt] += del_damage;
 
 #ifdef OASIS
@@ -4253,7 +4254,7 @@ FiniteElement::updateSigmaDamage(double const dt)
 
             // Recalculate the new state of stress by relaxing elstically
             for (int i=0;i<3;i++)
-                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt/td;
+                M_sigma[i][cpt] -= M_sigma[i][cpt]*(1.-dcrit)*dt*rtd;
         }
 
         /*======================================================================
@@ -5003,7 +5004,8 @@ FiniteElement::specificHumidity(schemes::specificHumidity scheme, int i, double 
             // We know temp = M_sst[i]
             temp     = M_sst[i];
             salinity = M_sss[i];
-            return std::make_pair(640380./physical::rhoa*std::exp(-5107.4/temp),0.);
+            return std::make_pair(640380./physical::rhoa*std::exp(
+                        -5107.4/(temp + physical::tfrwK)),0.);
         case schemes::specificHumidity::ICE:
             // We need different constants for ICE than for ATMOSPHERE and WATER
             A=2.2e-4,   B=3.83e-6, C=6.4e-10;
@@ -5130,7 +5132,7 @@ FiniteElement::OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, 
 
             /* Latent heat flux */
             double Lv  = physical::Lv0 - 2.36418e3*M_sst[i] + 1.58927*M_sst[i]*M_sst[i] - 6.14342e-2*std::pow(M_sst[i],3.);
-	    /* Use "max" begause condensation (frostflower formation) is
+	    /* Use "max" because condensation (frostflower formation) is
 	     * overestimated in the case of forcing with a fixed atmosphere
 	     * This is a commonly used trick! (Both SI3 and CICE) */
             Qlh[i] = std::max(drag_ocean_q*physical::rhoa*Lv*wspeed*( sphumw - sphuma ),0.);
@@ -6323,8 +6325,7 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
                 welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
-            double const Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice 
-            return_value = (sst-Tbot)*norm_Voce_ice*Csens_io*physical::rhow*physical::cpw;
+            return_value = (sst-Tbot)*norm_Voce_ice*M_Csens_io*physical::rhow*physical::cpw;
             break;
         }
     }
@@ -8628,6 +8629,17 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::dvi_young2old):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_del_vi_young2old[i]*time_factor;
+            case (GridOutput::variableID::mld):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_mld[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_temp):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_temp[i]*time_factor;
+                break;
+            case (GridOutput::variableID::ocean_salt):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_ocean_salt[i]*time_factor;
                 break;
 
             // WIM variables
@@ -8873,6 +8885,9 @@ FiniteElement::initMoorings()
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
             ("wspeed", GridOutput::variableID::wspeed)
+            ("mld", GridOutput::variableID::mld)
+            ("ocean_temp", GridOutput::variableID::ocean_temp)
+            ("ocean_salt", GridOutput::variableID::ocean_salt)
             ("thick_myi", GridOutput::variableID::thick_myi)
             ("conc_myi", GridOutput::variableID::conc_myi)
             ("freeze_days", GridOutput::variableID::freeze_days)
@@ -10268,13 +10283,36 @@ FiniteElement::explicitSolve()
         this->updateGhosts(M_VT);
         M_timer.tock("updateGhosts");
 
-        M_timer.tick("move mesh");
         // Move the mesh and update total displacement
+        // For EVP and BBM we move the mesh every sub-time step
+        if ( M_dynamics_type != setup::DynamicsType::mEVP )
+        {
+            M_timer.tick("move mesh");
+            std::vector<double> UM_P = M_UM;
+            for (int nd=0; nd<M_UM.size(); ++nd)
+            {
+                M_UM[nd] += dte*M_VT[nd];
+                M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            }
+
+            for (const int& nd : M_neumann_nodes)
+                M_UM[nd] = UM_P[nd];
+
+            M_timer.tock("move mesh");
+        }
+    }
+    M_timer.tock("sub-time stepping");
+
+    // Move the mesh and update total displacement
+    // For mEVP we move the mesh at the end of the sub-iteration
+    if ( M_dynamics_type == setup::DynamicsType::mEVP )
+    {
+        M_timer.tick("move mesh");
         std::vector<double> UM_P = M_UM;
         for (int nd=0; nd<M_UM.size(); ++nd)
         {
-            M_UM[nd] += dte*M_VT[nd];
-            M_UT[nd] += dte*M_VT[nd]; // Total displacement (for drifters)
+            M_UM[nd] += dtime_step*M_VT[nd];
+            M_UT[nd] += dtime_step*M_VT[nd]; // Total displacement (for drifters)
         }
 
         for (const int& nd : M_neumann_nodes)
@@ -10282,7 +10320,6 @@ FiniteElement::explicitSolve()
 
         M_timer.tock("move mesh");
     }
-    M_timer.tock("sub-time stepping");
 
     // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
     M_timer.tick("OW smoother");
@@ -10673,7 +10710,6 @@ FiniteElement::forcingAtmosphere()
 
             M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
             M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            // M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
             M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
