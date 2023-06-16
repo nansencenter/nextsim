@@ -6190,8 +6190,8 @@ FiniteElement::IABulkFluxes(
         const std::vector<double>& conc, std::vector<double>& Qia,
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
-        std::vector<double>& subl, std::vector<double>& dQiadT,
-        std::vector<double>& I, std::vector<double>& alb_tot)
+        std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
+        std::vector<double>& alb_tot)
 {
     // Constants
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -8843,6 +8843,8 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("t1", GridOutput::variableID::t1)
+            ("t2", GridOutput::variableID::t2)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)

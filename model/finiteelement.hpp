@@ -184,8 +184,8 @@ public:
             const std::vector<double>& conc, std::vector<double>& Qia,
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
-            std::vector<double>& subl, std::vector<double>& dQiadT,
-            std::vector<double>& I, std::vector<double>& alb_tot);
+            std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
+            std::vector<double>& alb_tot);
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
