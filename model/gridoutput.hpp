@@ -387,7 +387,7 @@ public:
                     cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::age):
-                    name     = "sia";
+                    name     = "siage";
                     longName = "Age of Sea Ice";
                     stdName  = "age_of_sea_ice";
                     Units    = "years";
