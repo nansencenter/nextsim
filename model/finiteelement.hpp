@@ -541,6 +541,7 @@ private:
     double rhoi;
     double rhos;
     double const days_in_sec  = 86400.;
+    double const years_in_sec  = 365.25 * days_in_sec;
     double time_init;
     int output_time_step;
     int ptime_step;

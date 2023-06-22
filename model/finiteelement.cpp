@@ -8318,12 +8318,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::age_d):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_age_det[i]*time_factor;
+                    it->data_mesh[i] += M_age_det[i] * time_factor / years_in_sec;
                 break;
 
             case (GridOutput::variableID::age):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_age[i]*time_factor;
+                    it->data_mesh[i] += M_age[i] * time_factor / years_in_sec;
                 break;
 
             case (GridOutput::variableID::conc_upd):
