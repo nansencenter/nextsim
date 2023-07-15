@@ -8629,6 +8629,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::dvi_young2old):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_del_vi_young2old[i]*time_factor;
+                break;
             case (GridOutput::variableID::mld):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_mld[i]*time_factor;
