@@ -679,14 +679,14 @@ public:
                     break;
                 case (variableID::dci_young2old):
                     name     = "dci_young2old";
-                    longName = " young ice area transfer to old due to thermo";
+                    longName = "young ice area transfer to old due to thermo";
                     stdName  = "young_ice_area_transfer_to_old_due_to_thermo";
                     Units    = " /day";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::dvi_young2old):
                     name     = "dvi_young2old";
-                    longName = " young ice volume transfer to old due to thermo";
+                    longName = "young ice volume transfer to old due to thermo";
                     stdName  = "young_ice_volume_transfer_to_old_due_to_thermo";
                     Units    = " /day";
                     cell_methods = "area: mean";
