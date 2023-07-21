@@ -7237,6 +7237,24 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
+        Variable mask={
+            filename_string: "", // All variables are in the same (grid) file
+            name: "tmaskutil",
+            dimensions: dimensions_latlon,
+            land_mask_defined: true,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: false,
+            use_missing_value: false,
+            a: 1.,
+            b: 0.,
+            Units: "m",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
@@ -7259,7 +7277,8 @@ DataSet::DataSet(char const *DatasetName)
 
             waveOptions: wavopt_none,
 
-            masking: false
+            masking: true,
+            masking_variable: mask
         };
 
         std::vector<Variable> variables_tmp(3);
