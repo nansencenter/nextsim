@@ -386,7 +386,7 @@ namespace Nextsim
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
             ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
             ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
-            ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
+            ("thermo.I_0", po::value<double>()->default_value( 0.30 ), "Fraction of short-wave radiation that penetrates into the ice. The default (30%) is taken from Winton (2000).")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
             ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
