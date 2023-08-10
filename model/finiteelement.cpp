@@ -807,6 +807,10 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("ocean_cpl_elements");
             break;
 #endif
+        case setup::OceanType::OBL_KT::
+            M_ocean_nodes_dataset=DataSet("ocean_clim_nodes");
+            M_ocean_elements_dataset=DataSet("ocean_clim_elements");
+            break;
         case setup::OceanType::GLORYS12R:
             M_ocean_nodes_dataset=DataSet("glorys12_nodes");
             M_ocean_elements_dataset=DataSet("glorys12_elements");
@@ -5345,6 +5349,11 @@ FiniteElement::thermo(int dt)
             M_sss[i] = M_ocean_salt[i];
         }
 #endif
+        else if ( M_ocean_type == setup::OceanType::OBL_KT:: )
+        {
+            Qdw = 0;
+            Fdw = 0;
+        }
         else
         {
             // nudgeFlux
@@ -5805,12 +5814,14 @@ FiniteElement::thermo(int dt)
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
         // Element mean open water heat flux
         double Qow_mean = Qow[i]*old_ow_fraction;
-
         /* Heat-flux */
+        if  ( M_ocean_type != setup::OceanType::OBL_KT )
+        { 
 #ifdef OASIS
-        if ( M_ocean_type != setup::OceanType::COUPLED )
+            if ( M_ocean_type != setup::OceanType::COUPLED )
 #endif
-            M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qassm)/(physical::rhow*physical::cpw*mld);
+                M_sst[i] = M_sst[i] - ddt*( Qio_mean + Qow_mean - Qdw + Qassm)/(physical::rhow*physical::cpw*mld);
+        } 
 
         /* Change in salinity */
         double denominator= ( mld*physical::rhow - del_vi*physical::rhoi - ( del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) );
@@ -5819,11 +5830,15 @@ FiniteElement::thermo(int dt)
         // Use si_eff (effective ice salinity) to make sure that salt is only moved from the ocean to the ice when ocean salinity is higher than the ice salinity
         double const si_eff = std::min(M_sss[i], physical::si);
         double const delsss = ( (M_sss[i]-si_eff)*physical::rhoi*del_vi + M_sss[i]*(del_vs_mlt*physical::rhos + (emp-Fdw)*ddt) ) / denominator;
+        if ( M_ocean_type == setup::OceanType::OBL_KT )
+            this->runOBL_KT();
+        else
+        {
 #ifdef OASIS
-        if ( M_ocean_type != setup::OceanType::COUPLED )
+            if ( M_ocean_type != setup::OceanType::COUPLED ) 
 #endif
-            M_sss[i] += delsss;
-
+                M_sss[i] += delsss;
+        }
         // Conserve ridged ice volume on growth and ridge ratio on melt
         // R^n H^n = R^{n+1} H^{n+1}
         if ( M_thick[i] > old_vol )
@@ -6253,6 +6268,58 @@ FiniteElement::incomingLongwave(const int i)
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-ocean heat fluxes.
 //! Called by the thermoWinton() and thermoIce0() functions.
+inline void
+FiniteElement::runOBL_KT(const int i, const double dt)
+{
+    double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*(M_precip[i]-tmp_snowfall);
+
+    // Element mean ice-ocean heat flux
+    double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
+    // Element mean open water heat flux
+    double Qow_mean = Qow[i]*old_ow_fraction;
+    /*-----------------------------------------------------------------
+     Compute fluxes at surface
+    -----------------------------------------------------------------*/
+    
+    // Heat flux into the mixed layer (Eq. 1 in Petty et al, 2014) [W]
+    double qo_inML = -Qow_mean[i] -Qio_mean[i] ;
+    // Salt flux into the ML from P - E. (Eq. 4)
+
+    // Fresh water flux into the ML from P - E (Eq. 5) [m/s]
+    fresh_ML[i] = (D_fwflux_ice[i]/ - emp)/physical::row;
+
+    // Effective salt flux from both fresh water fluxes and direct salt flux
+    salt_net_ML[i] =  salt_ML[i] - fresh_ML[i]
+
+    //Compute the mechanical stress at the ocean surface (and u*)
+    double tau_elt_ice_oce = 0. ;
+    double tau_elt_atm_oce = 0. ;
+    double ctot = M_conc[i];
+    if (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+        ctot += M_conc_young[i];
+    for (int k=0; k<3; ++k)
+    {
+        int nind = (M_elements[cpt]).indices[i]-1;
+        // Magnitude of the ice-ocean stress for each of the 3 nodes around the element i.
+        tau_elt_ice_oce += std::hypot(D_tau_w[nind],D_tau_w[nind+M_num_nodes]);
+        //Note: D_tau_ow is actually c_ao*rho_a over the ocean (c_ao generally depends on local wind)
+        //Therefore we need to recompute the stress components (we ignore the surface currents here)
+        double tau_ao_x = M_wind[nind]*std::hypot(M_wind[nind],M_wind[nind+M_num_nodes]);
+        double tau_ao_y = M_wind[nind+M_num_nodes]*std::hypot(M_wind[nind],M_wind[nind+M_num_nodes]);
+        tau_elt_atm_oce += std::hypot(tau_ao_x,tau_ao_y);
+    }
+    // Ice covered area weighted ocean surface stresses
+    tau_elt_ice_oce = ctot*tau_elt_ice_oce/3.;
+    tau_elt_atm_oce = (1-ctot)*D_tau_ow[i]*tau_elt_atm_oce/3.;
+    // Friction velocity u*
+    double ustar=std::sqrt((tau_elt_ice_oce+tau_elt_atm_oce)/physical::row) ;
+    ustar=std::min(std::max(ustar,1e-3)) ; //ensuring a minimum ustar, following CICE implementation
+    //-----------------------------------------------------------------
+    
+}
+
+//! Calculates ice-ocean heat fluxes.
+//! Called by the thermoWinton() and thermoIce0() functions.
 inline double
 FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double sss, const double mld, const double dt)
 {
@@ -6273,10 +6340,12 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
         case ( setup::OceanHeatfluxScheme::EXCHANGE ):
         {
             double welt_oce_ice = 0.;
+            double welt_atm_oce = 0.;
             for (int i=0; i<3; ++i)
             {
                 int nind = (M_elements[cpt]).indices[i]-1;
                 welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+                welt_atm_oce += std::hypot(M_Wind[nind]-M_ocean[nind],M_Wind[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
             return_value = (sst-Tbot)*norm_Voce_ice*M_Csens_io*physical::rhow*physical::cpw;
@@ -11052,6 +11121,7 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::TOPAZF:
         case setup::OceanType::TOPAZR_ALTIMETER:
         case setup::OceanType::GLORYS12R:
+        case setup::OceanType::OBL_KT:
             for ( int i=0; i<M_num_elements; ++i)
             {
                 // Make sure the erroneous salinity and temperature don't screw up the initialisation too badly
