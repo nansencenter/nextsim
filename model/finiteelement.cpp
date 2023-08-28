@@ -1187,8 +1187,15 @@ FiniteElement::initOptAndParam()
     deltaT_relaxation_damage = vm["dynamics.deltaT_relaxation_damage"].as<double>(); //! \param deltaT_relaxation_damage (double) Difference between the air and ocean temperature considered to set the characteristic time of damage [C]
 
     //! Sets the minimum and maximum thickness of young ice
-    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
     h_young_min = vm["thermo.h_young_min"].as<double>(); //! \param h_young_min (double) Minimum thickness of young ice [m]
+    h_young_max = vm["thermo.h_young_max"].as<double>(); //! \param h_young_max (double) Maximum thickness of young ice [m]
+    // M_h_young/M_conc_young was originally defined in terms of a linear distribution
+    // of young ice thickness, with min val h_young_min and mean value M_h_young.
+    // The top limit could not exceed h_young_max.
+    // However, this is equivalent to having a sharp distribution at M_h_young,
+    // and M_h_young <= M_conc_young*h_young_max_sharp = .5*M_conc_young*(h_young_min + h_young_max)
+    // TODO make h_young_max_sharp be in the config file, not h_young_max
+    h_young_max_sharp = .5*(h_young_min + h_young_max); //! \param h_young_max_sharp (double) Maximum thickness of young ice when the young ice thickness distribution is considered sharp [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
     M_ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
     M_Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice
@@ -5251,8 +5258,9 @@ FiniteElement::thermo(int dt)
     std::vector<double> subl(M_num_elements);
     std::vector<double> dQiadT(M_num_elements);
     std::vector<double> albedo(M_num_elements);
+    std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, subl, dQiadT, albedo);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5263,11 +5271,12 @@ FiniteElement::thermo(int dt)
     std::vector<double> subl_young(M_num_elements);
     std::vector<double> dQiadT_young(M_num_elements);
     std::vector<double> albedo_young(M_num_elements);
+    std::vector<double> I_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
     {
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
-                subl_young, dQiadT_young, albedo_young);
+                I_young, subl_young, dQiadT_young, albedo_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -5389,12 +5398,12 @@ FiniteElement::thermo(int dt)
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
-                        mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], I[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
-                        mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], I[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
@@ -5407,7 +5416,7 @@ FiniteElement::thermo(int dt)
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             this->thermoIce0(ddt, M_conc_young[i], M_h_young[i], M_hs_young[i],
-                    mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
+                    mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], I_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
                     Qio_young, hi_young, hs_young, hi_young_old, del_hi_young, del_hs_young_mlt, mlt_hi_top_young, mlt_hi_bot_young, del_hi_s2i_young, M_tsurf_young[i]);
             M_h_young[i]  = hi_young * old_conc_young;
             M_hs_young[i] = hs_young * old_conc_young;
@@ -5525,39 +5534,31 @@ FiniteElement::thermo(int dt)
                     }
                     else
                     {
-                        double h0 = h_young_min + 2.*(M_h_young[i]-h_young_min*M_conc_young[i])/(M_conc_young[i]);
-                        if(h0>h_young_max)
-                        {    
-                            //GB: We compute the exact amount (conc. and vol.) of young ice transferred to old category
-                            // to be used in budgets
-                            del_vi_young2old = M_h_young[i];
-                            del_ci_young2old = M_conc_young[i];
-                            //
-                            del_c = M_conc_young[i]/(h0-h_young_min) * (h0-h_young_max);
-                            double del_h_young = del_c*(h0+h_young_max)/2.;
-                            double del_hs_young = del_c*M_hs_young[i]/M_conc_young[i];
-                           
-                            M_thick[i] += del_h_young;
-                            // M_conc[i]  += del_c; ; <- this is done properly below
-
-                            newice  = del_h_young; // Reset newice to use below
-                            newsnow = del_hs_young;
-                            // M_snow_thick[i] += newsnow; <- this is done properly below
-
-                            // std::max is to prevent round-off error giving negative values
-                            M_conc_young[i] = std::max( 0., M_conc_young[i] - del_c );
-                            M_h_young[i]    = std::max( 0., M_h_young[i] - del_h_young );
-                            M_hs_young[i]   = std::max( 0., M_hs_young[i] - del_hs_young );
-                            // Budget term
-                            del_vi_young2old -= M_h_young[i];
-                            del_ci_young2old -= M_conc_young[i];
+                        double const hi = M_h_young[i]/M_conc_young[i];
+                        if(hi > h_young_max_sharp)
+                        {
+                            double const hs = std::max(0., M_hs_young[i]/M_conc_young[i]);
+                            // drop YI concentration as well as thickness
+                            // - concentration reduction done somewhat arbitrarily
+                            double tmp = M_conc_young[i]*(h_young_max_sharp - h_young_min)/(hi - h_young_min);// new conc
+                            del_c = std::max(0., M_conc_young[i] - tmp);// added to old ice later
+                            del_ci_young2old = del_c;
+                            M_conc_young[i] = tmp;
+                            // YI thickness drops to max value
+                            tmp = M_conc_young[i] * h_young_max_sharp;// new ice vol
+                            newice = std::max(0., M_h_young[i] - tmp);// added to old ice later
+                            del_vi_young2old = newice;
+                            M_h_young[i] = tmp;
+                            // keep same absolute snow thickness
+                            tmp = M_conc_young[i] * hs;// new snow vol
+                            newsnow = std::max(0., M_hs_young[i] - tmp);// added to old ice later
+                            M_hs_young[i] = tmp;
                         }
                     }
                 }
                 else // we should not have young ice, no space for it
                 {
                     M_thick[i] += M_h_young[i];
-
                     newice  = M_h_young[i];
                     newsnow = M_hs_young[i];
                     M_h_young[i] = 0.;
@@ -6188,7 +6189,7 @@ FiniteElement::IABulkFluxes(
         const std::vector<double>& conc, std::vector<double>& Qia,
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
-        std::vector<double>& subl, std::vector<double>& dQiadT,
+        std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
         std::vector<double>& alb_tot)
 {
     // Constants
@@ -6249,9 +6250,12 @@ FiniteElement::IABulkFluxes(
         else
             hs = 0;
 
-        alb_tot[i] = this->albedo(
+	double pen_sw;
+	std::tie(alb_tot[i],pen_sw) = this->albedo(
                 Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0);
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.- alb_tot[i]);
+
+        Qsw[i] = -M_Qsw_in[i]*(1.- alb_tot[i])*(1.-pen_sw);
+        I[i]   =  M_Qsw_in[i]*(1.- alb_tot[i])*pen_sw;
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
@@ -6355,11 +6359,11 @@ FiniteElement::freezingPoint(const double sss)
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
-inline double
+inline std::tuple<double,double>
 FiniteElement::albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0)
 {
-    double albedo;
+    double albedo, pen_sw;
 
     /* Calculate albedo - we can impliment different schemes if we want */
     switch ( alb_scheme )
@@ -6375,9 +6379,11 @@ FiniteElement::albedo(const double Tsurf, const double hs,
                     albedo = std::min(alb_sn, alb_ice + (alb_sn-alb_ice)*hs/0.2);
                 else
                     albedo = alb_sn;
+
+                pen_sw = 0.;
             } else {
-                /* account for penetrating shortwave radiation */
-                albedo = alb_ice + 0.4*( 1.-alb_ice )*I_0;
+                albedo = alb_ice;
+                pen_sw = I_0;
             }
             break;
         case 3:
@@ -6404,6 +6410,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 
             /* Final albedo */
             albedo = frac_sn*albs + (1.-frac_sn)*albi;
+            pen_sw = (1.-frac_sn)*I_0;
 
             break;
             }
@@ -6412,15 +6419,15 @@ FiniteElement::albedo(const double Tsurf, const double hs,
             throw std::logic_error("Wrong albedo_scheme");
     }
 
-    return albedo;
+    return std::make_tuple(albedo,pen_sw);
 }//albedo
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-        const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
+FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+        const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf, double &T1, double &T2)
 {
@@ -6462,7 +6469,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         double K32 = 2*physical::ki/hi; // (10)
 
         double A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12*B/(K12+B); // (16)
-        double B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I_0*Qsw
+        double B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I
             - K32*( 4*dt*K32*Tbot + hi*Crho*T2 ) / ( 6*dt*K32 + hi*Crho ) + A*K12/(K12+B); // (17)
         double C1 = hi*qi*Tfr_ice/(2*dt); // (18)
 
@@ -6477,7 +6484,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             Tsurf = Tfr_surf;
             // A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12; // (19)
             A1   += K12 - K12*B/(K12+B);
-            // B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I_0*Qsw
+            // B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I
             //     - K32 * ( 4*dt*K32*Tbot + hi*Crho*T2 ) / (6*dt*K32 + hi*Crho ) - K12*Tsurf ; // (20)
             B1   -= K12*Tsurf + A*K12/(K12+B);
             T1    = - ( B1 + std::sqrt(B1*B1-4*A1*C1) ) / ( 2*A1 ); // (21)
@@ -6647,7 +6654,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 //! Called by the thermo() function.
 inline void
 FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-        const double Qia, const double dQiadT, const double subl, const double Tbot,
+        const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf)
 {
@@ -6655,6 +6662,10 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
+
+    // Semtner's (1967) fudge factors
+    double const beta = 0.4;
+    double const gamma = 1.065;
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6673,11 +6684,13 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Local variables */
         double Qic, del_hb, del_ht, draft;
 
+	double const Qia_mod = Qia + (1.-beta)*I;
+
         // -------------------------------------------------
         /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki );
-        Tsurf = Tsurf + ( Qic - Qia )/
+        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki ) * gamma;
+        Tsurf = Tsurf + ( Qic - Qia_mod )/
             ( M_ks/(hs+M_ks*hi/physical::ki) + dQiadT );
 
         /* Limit Tsurf to the freezing point of snow or ice */
@@ -6692,7 +6705,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs_mlt = std::min(Qia-Qic,0.)*dt/qs;
+        del_hs_mlt = std::min(Qia_mod-Qic,0.)*dt/qs;
         hs += del_hs_mlt - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs, 0.)*qs/qi;
@@ -8378,12 +8391,12 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::age_d):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_age_det[i]*time_factor;
+                    it->data_mesh[i] += M_age_det[i] * time_factor / years_in_sec;
                 break;
 
             case (GridOutput::variableID::age):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_age[i]*time_factor;
+                    it->data_mesh[i] += M_age[i] * time_factor / years_in_sec;
                 break;
 
             case (GridOutput::variableID::conc_upd):
@@ -8830,6 +8843,8 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("t1", GridOutput::variableID::t1)
+            ("t2", GridOutput::variableID::t2)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)

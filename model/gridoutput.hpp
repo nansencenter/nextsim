@@ -285,10 +285,10 @@ public:
                     break;
                 case (variableID::ridge_ratio):
                     name     = "ridge_ratio";
-                    longName = "Sea Ice Ridge Ratio";
-                    stdName  = "sea_ice_ridge_ratio";
+                    longName = "Sea Ice Volume Fraction of Ridged Ice";
+                    stdName  = "sea_ice_volume_fraction_of_ridged_ice";
                     Units    = "1";
-                    cell_methods = "area: mean";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::snow):
                     name     = "snt";
@@ -360,8 +360,8 @@ public:
                     break;
                 case (variableID::conc_young):
                     name     = "sic_young";
-                    longName = "Young Ice Concentration";
-                    stdName  = "young_ice_area_fraction";
+                    longName = "Sea Ice Area Fraction of Young Ice";
+                    stdName  = "sea_ice_classification";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -387,18 +387,18 @@ public:
                     cell_methods = "area: mean";
                     break;
                 case (variableID::age_d):
-                    name     = "sia_det";
-                    longName = "Detectable sea ice age";
-                    stdName  = "det_sea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage_det";
+                    longName = "Detectable Age of Sea Ice";
+                    stdName  = "det_age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::age):
-                    name     = "sia";
-                    longName = "Sea ice age";
-                    stdName  = "aea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage";
+                    longName = "Age of Sea Ice";
+                    stdName  = "age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::conc_upd):
                     name     = "conc_upd";

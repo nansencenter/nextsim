@@ -171,10 +171,10 @@ public:
     void nestingDynamics();
     void thermo(int dt);
     inline void thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-            const double Qia, const double dQiadT, const double subl, const double Tbot,
+            const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, double &Tsurf);
-    inline void thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-            double const Qia, double const dQiadT, const double Qsw, const double subl, const double Tbot,
+    inline void thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+            double const Qia, double const dQiadT, const double I, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
@@ -184,9 +184,9 @@ public:
             const std::vector<double>& conc, std::vector<double>& Qia,
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
-            std::vector<double>& subl, std::vector<double>& dQiadT,
+            std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
             std::vector<double>& alb_tot);
-    inline double albedo(const double Tsurf, const double hs,
+    inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
     inline double iceOceanHeatflux(const int cpt, const double sst, const double tbot, const double mld, const double dt);
@@ -541,6 +541,7 @@ private:
     double rhoi;
     double rhos;
     double const days_in_sec  = 86400.;
+    double const years_in_sec  = 365.25 * days_in_sec;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -572,6 +573,7 @@ private:
 
     double h_young_min;
     double h_young_max;
+    double h_young_max_sharp;
     double M_ks;
     double M_ocean_albedo;
     double M_Csens_io;
