@@ -90,6 +90,12 @@ namespace physical
 
     //! Temperature of freezing of sea water [degrees Celsius]
     const double ocean_freezing_temp = -1.8;
+    
+    //! Thermal expansion coefficient [degrees K -1]
+    const double alpha = 5.82e-5 ;
+
+    //! Saline expansion coefficient [-]
+    const double beta = 8e-4 ;
 }
 
 #endif

@@ -6281,15 +6281,12 @@ FiniteElement::runOBL_KT(const int i, const double dt)
      Compute fluxes at surface
     -----------------------------------------------------------------*/
     
-    // Heat flux into the mixed layer (Eq. 1 in Petty et al, 2014) [W]
-    double qo_inML = -Qow_mean[i] -Qio_mean[i] ;
+    // Heat flux into the mixed layer (Eq. 1 in Petty et al, 2014) [W/m2]
+    double Fheat_net_ML = -Qow_mean[i] -Qio_mean[i] ;
     // Salt flux into the ML from P - E. (Eq. 4)
 
-    // Fresh water flux into the ML from P - E (Eq. 5) [m/s]
-    fresh_ML[i] = (D_fwflux_ice[i]/ - emp)/physical::row;
-
     // Effective salt flux from both fresh water fluxes and direct salt flux
-    salt_net_ML[i] =  salt_ML[i] - fresh_ML[i]
+    double Fsalt_net_ML =  
 
     //Compute the mechanical stress at the ocean surface (and u*)
     double tau_elt_ice_oce = 0. ;
@@ -6315,7 +6312,12 @@ FiniteElement::runOBL_KT(const int i, const double dt)
     double ustar=std::sqrt((tau_elt_ice_oce+tau_elt_atm_oce)/physical::row) ;
     ustar=std::min(std::max(ustar,1e-3)) ; //ensuring a minimum ustar, following CICE implementation
     //-----------------------------------------------------------------
-    
+    // Power inputs
+    //-----------------------------------------------------------------
+    double Psalt= cb * physical::gravity * physical::beta  * mld *Fsalt_net_ML ;
+    double Pheat= cb * physical::gravity * physical::alpha * mld *Fheat_net_ML /
+                  (physical::cpw * physical::row) ;
+    double Pmech= cw * std::pow(ustar,3) ;
 }
 
 //! Calculates ice-ocean heat fluxes.
