@@ -541,6 +541,7 @@ private:
     double rhoi;
     double rhos;
     double const days_in_sec  = 86400.;
+    double const years_in_sec  = 365.25 * days_in_sec;
     double time_init;
     int output_time_step;
     int ptime_step;
@@ -572,8 +573,10 @@ private:
 
     double h_young_min;
     double h_young_max;
+    double h_young_max_sharp;
     double M_ks;
     double M_ocean_albedo;
+    double M_Csens_io;
 
     double compr_strength;
     double tract_coef;
@@ -585,6 +588,7 @@ private:
     double tan_phi;
     double ridge_h;
     double M_current_time;
+    double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
     int M_nb_regrid;

@@ -204,8 +204,11 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
-        tau_ax   = 214,
-        tau_ay   = 215,
+        mld      = 214,
+        ocean_temp = 215,
+        ocean_salt = 216,
+        tau_ax   = 217,
+        tau_ay   = 218,
 
         // WIM variables
         dmax        = 300,
@@ -275,10 +278,10 @@ public:
                     break;
                 case (variableID::ridge_ratio):
                     name     = "ridge_ratio";
-                    longName = "Sea Ice Ridge Ratio";
-                    stdName  = "sea_ice_ridge_ratio";
+                    longName = "Sea Ice Volume Fraction of Ridged Ice";
+                    stdName  = "sea_ice_volume_fraction_of_ridged_ice";
                     Units    = "1";
-                    cell_methods = "area: mean";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::snow):
                     name     = "snt";
@@ -350,8 +353,8 @@ public:
                     break;
                 case (variableID::conc_young):
                     name     = "sic_young";
-                    longName = "Young Ice Concentration";
-                    stdName  = "young_ice_area_fraction";
+                    longName = "Sea Ice Area Fraction of Young Ice";
+                    stdName  = "sea_ice_classification";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -377,18 +380,18 @@ public:
                     cell_methods = "area: mean";
                     break;
                 case (variableID::age_d):
-                    name     = "sia_det";
-                    longName = "Detectable sea ice age";
-                    stdName  = "det_sea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage_det";
+                    longName = "Detectable Age of Sea Ice";
+                    stdName  = "det_age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::age):
-                    name     = "sia";
-                    longName = "Sea ice age";
-                    stdName  = "aea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage";
+                    longName = "Age of Sea Ice";
+                    stdName  = "age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::conc_upd):
                     name     = "conc_upd";
@@ -881,6 +884,30 @@ public:
                     longName = "Wind speed";
                     stdName  = "wind_speed";
                     Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mld):
+                    name     = "mld";
+                    longName = "ocean mixed layer depth";
+                    stdName  = "ocean_mixed_layer_depth";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_temp):
+                    name     = "ocean_temp";
+                    longName = "ocean temperature forcing";
+                    stdName  = "ocean_temperature_forcing";
+                    Units    = "degree_Celcius";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_salt):
+                    name     = "ocean_salt";
+                    longName = "ocean salinity forcing";
+                    stdName  = "ocean_salinity_forcing";
+                    Units    = "1e-3";
                     cell_methods = "area: mean";
                     break;
 
