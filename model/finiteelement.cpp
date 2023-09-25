@@ -4270,7 +4270,7 @@ FiniteElement::redistributeFSD()
 {
 
     std::vector<double> P(M_num_fsd_bins) ;
-    //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
+    std::vector<double> const lat = M_mesh.meanLat();
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
     const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
@@ -4286,9 +4286,15 @@ FiniteElement::redistributeFSD()
            ctot += M_conc_young[i];
         if (ctot>0)
         {
-            // don't try to break if there are no waves
+            //! Compute the wavelength associated with Tm02
+            double  lambda= M_wlbk[i] ;
             double P_inf =0. ;
-            if (M_wlbk[i]<500.-1.)
+            // At the pole, WW3 will send 0, try to correct for that
+            //lat_i /= num_neighbours ;
+            if (lat[i]>89)
+               lambda=2000.;
+            // don't try to break if there are no waves
+            if (lambda<1600.-1.) //Dmax=800.
                 P_inf=1. ;
             if( P_inf <= prob_cutoff)
                 continue ;
@@ -4313,8 +4319,6 @@ FiniteElement::redistributeFSD()
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
-            //! Compute the wavelength associated with Tm02
-            double  lambda= M_wlbk[i] ;
             // Now useless
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
             //int     N_waves = cpl_time_step /(M_tm02[i]) ;
