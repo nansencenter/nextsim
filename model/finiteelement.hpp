@@ -605,8 +605,6 @@ private:
     bool M_write_restart_end;
     bool M_write_restart_start;
 
-    bool M_use_meltponds;
-
     double M_spinup_duration;
 
     std::string M_export_path;

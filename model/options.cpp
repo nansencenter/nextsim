@@ -429,6 +429,9 @@ namespace Nextsim
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
 
+            ("thermo.use_meltponds", po::value<bool>()->default_value(false),
+             "Use a simple meltpond scheme")
+
              //-----------------------------------------------------------------------------------
              //! - Nesting
              // -----------------------------------------------------------------------------------

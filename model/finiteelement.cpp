@@ -5208,6 +5208,8 @@ FiniteElement::thermo(int dt)
     bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
+    const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5426,7 +5428,7 @@ FiniteElement::thermo(int dt)
         double rain = (1.-old_conc-old_conc_young)*M_precip[i] + old_conc_young*(M_precip[i]-tmp_snowfall);
 
         // Unless we use melt ponds, of course. Then the rain goes into the ponds, which then drain
-        if ( M_use_meltponds )
+        if ( use_meltponds )
         {
             double const runoff = this->meltPonds(i, ddt, hi, hs, mlt_hi_top,
                                     del_hs_mlt, Qia[i], M_precip[i]-tmp_snowfall);
