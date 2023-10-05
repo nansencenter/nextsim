@@ -5418,6 +5418,25 @@ FiniteElement::thermo(int dt)
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
+        // Rain falling on ice falls straight through. We need to calculate the
+        // bulk freshwater input into the entire cell, i.e. everything in the
+        // open-water part plus rain in the ice-covered part.
+        // rain Liquid precipitation
+        // emp  Evaporation minus liquid precipitation
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + old_conc_young*(M_precip[i]-tmp_snowfall);
+
+        // Unless we use melt ponds, of course. Then the rain goes into the ponds, which then drain
+        if ( M_use_meltponds )
+        {
+            double const runoff = this->meltPonds(i, ddt, hi, hs, mlt_hi_top,
+                                    del_hs_mlt, Qia[i], M_precip[i]-tmp_snowfall);
+            rain += old_conc*runoff;
+        } else {
+            rain += old_conc*(M_precip[i]-tmp_snowfall);
+        }
+
+        double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
+
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
@@ -5794,14 +5813,6 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 8) Applies slab Ocean model
         // (slabOcean in matlab)
-
-        // Rain falling on ice falls straight through. We need to calculate the
-        // bulk freshwater input into the entire cell, i.e. everything in the
-        // open-water part plus rain in the ice-covered part.
-        // rain Liquid precipitation
-        // emp  Evaporation minus liquid precipitation
-        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*(M_precip[i]-tmp_snowfall);
-        double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6376,6 +6387,129 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 
     return std::make_tuple(albedo,pen_sw);
 }//albedo
+
+inline double
+FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
+        const double hs, const double iceSurfaceMelt, const double snowMelt,
+        const double Qia, const double rain)
+{
+    const double minVolPond = 1.e-4; //  minimum pond volume (m)
+    const double hIceMin = 0.1;      //  minimum ice thickness with ponds (m)
+    const double concMin = 0.1;      // minimmum ice concentration with ponds
+    const double Td = 0.15;          //  temperature difference for freeze-up (C)
+
+    double runoff = 0.; // Runoff in kg/m^2/s
+
+    /* Calculate total volume of available water decreased by 20% for runoff or
+     * read it from tracers if available */
+    double const availableWater = ( -iceSurfaceMelt*physical::rhoi
+                               - snowMelt*physical::rhos )/physical::rhow + rain;
+
+    // Flush the pond if there's not enough ice // or the pond is too small
+    if ( M_conc[cpt] <= concMin
+            // || M_pond_volume[cpt] < minVolPond*M_conc[cpt]
+            || M_thick[cpt]/M_conc[cpt] <= hIceMin )
+    {
+        // Lid and melt pond volume sent to ocean as runoff
+        runoff = availableWater + M_pond_volume[cpt] + M_lid_volume[cpt];
+
+        // Set pond and lid volume to zero
+        M_pond_volume[cpt] = 0.;
+        M_lid_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
+
+        // Runoff in kg/m^2/s
+        return runoff * physical::rhow / dt;
+    }
+
+    // 20% of available water is runoff, rest goes into the pond
+    // TODO: Make this tunable?
+    M_pond_volume[cpt] += 0.8*availableWater;
+    runoff = 0.2*availableWater;
+
+    // Calculate the melt pond depth and fraction
+    /* Pond fraction is a linear function from 80% at 50 cm to 50% at 5 m,
+     * where it's a fraction of the snow free area 1 - hs/(hs+0,2) */
+    /*
+    const double h1 = 0.5, h2 = 5.0;
+    const double f1 = 0.8, f2 = 0.5;
+    const double a = (f2-f1)/(h2-h1);
+    const double b = f1 - a*h1;
+    */
+    // Try with ridge ratio
+    const double r1 = 0., r2 = 1.;
+    const double f1 = 1., f2 = 0.;
+    const double a = (f2-f1)/(r2-r1);
+    const double b = f1 - a*r1;
+    D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
+
+    // Recalculate pond depth as the grid cell fraction - it was fraction of snow free area
+    D_pond_fraction[cpt] *= M_conc[cpt]*(1.-hs/(hs+0.2));
+
+    double delLidVolume = 0; // Volume increase is always positive!
+    if ( iceSurfaceMelt > 0. ) // melting
+    {
+        /* A lid exists: Melt some of the lid and put into the pond
+         * No lid exists: Nothing to be done */
+        if ( M_lid_volume[cpt] > 0. )
+            delLidVolume = -std::min(-iceSurfaceMelt, M_lid_volume[cpt]);
+
+    } else { // freezing
+        if ( M_lid_volume[cpt] > 0. ) // a lid exists
+        {
+            /* Grow the lid - assuming the pond water has the same salinity as
+             * sea ice and is at the freezing point */
+            const double lidThickness = M_lid_volume[cpt]/D_pond_fraction[cpt];
+            const double TPond = -mu*physical::si;
+            const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
+            const double delLidThickness = Qic*dt/(physical::rhoi*physical::Lf);
+
+            delLidVolume = delLidThickness * M_conc[cpt]*(1.-hs/(hs+0.2));
+            delLidVolume = std::min(delLidVolume, M_pond_volume[cpt]);
+        } else { // a lid forms
+            delLidVolume = dt*Qia/(physical::rhoi*physical::Lf);
+            delLidVolume = std::min(delLidVolume, M_pond_volume[cpt]);
+        }
+    }
+    M_lid_volume[cpt] += delLidVolume;
+    M_pond_volume[cpt] -= delLidVolume;
+
+    // Remove lid if the pond is frozen solid
+    if ( M_pond_volume[cpt] <= 0. )
+    {
+        M_lid_volume[cpt] = 0.;
+        M_pond_volume[cpt] = 0.;
+    }
+
+    // Drain the pond to the freeboard, if it's permiable
+    // The pond drains immediately - this may not be accurate
+    if ( this->isPermiable(cpt) )
+    {
+        const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
+        M_pond_volume[cpt] -= freeboard;
+        runoff += freeboard;
+    }
+
+    // Runoff in kg/m^2/s
+    return runoff * physical::rhow / dt;
+}
+
+inline bool
+FiniteElement::isPermiable( const int cpt )
+{
+    bool isPermiable = false;
+    // Notz 2005 thesis eq. 3.2
+    for ( int i=0; i<M_tice.size(); ++i )
+    {
+        const double Sbr =
+                -17.6     * M_tice[i][cpt]
+                - 0.389   * std::pow(M_tice[i][cpt],2)
+                - 0.00362 * std::pow(M_tice[i][cpt],3);
+        // permiable if liquid fraction > 1e-12
+        isPermiable = isPermiable || 3.0e-08*pow(physical::si/Sbr,3) > 1e-12;
+    }
+    return isPermiable;
+}
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
@@ -6972,6 +7106,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_freeze_onset);
     M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
     M_variables_elt.push_back(&M_del_vi_tend);
+    M_pond_volume = ModelVariable(ModelVariable::variableID::M_pond_volume);//! \param M_pond_volume (double) Volume of meltponds per grid cell area
+    M_variables_elt.push_back(&M_pond_volume);
+    M_lid_volume = ModelVariable(ModelVariable::variableID::M_lid_volume);//! \param M_lid_volume (double) Volume of meltpond lid per grid cell area
+    M_variables_elt.push_back(&M_lid_volume);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -7052,6 +7190,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_albedo);
     D_sialb = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_sialb (double) Sea ice albedo - mean albedo where ice
     M_variables_elt.push_back(&D_sialb);
+    D_pond_fraction = ModelVariable(ModelVariable::variableID::D_pond_fraction);//! \param D_pond_fraction (double) Fraction of grid cell covered by meltponds
+    M_variables_elt.push_back(&D_pond_fraction);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);

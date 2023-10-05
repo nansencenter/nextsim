@@ -81,6 +81,8 @@ public:
         M_del_vi_tend     = 28,
         M_thick_myi       = 29,
         M_thick_summer    = 30,
+        M_pond_volume     = 31,
+        M_lid_volume      = 32,
 
         // Diagnostic variables
         D_conc         = 100,
@@ -124,6 +126,7 @@ public:
         D_del_vi_rplnt_myi = 138,
         D_del_ci_ridge_myi = 139,
         D_sialb        = 140,
+        D_pond_fraction = 141,
     };
 
 

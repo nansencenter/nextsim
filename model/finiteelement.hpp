@@ -193,6 +193,10 @@ public:
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
+    inline double meltPonds(const int cpt, const double dt, const double hi,
+             const double hs, const double iceSurfaceMelt, const double snowMelt,
+             const double Qia, const double rain);
+    inline bool isPermiable(const int cpt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
@@ -601,6 +605,8 @@ private:
     bool M_write_restart_end;
     bool M_write_restart_start;
 
+    bool M_use_meltponds;
+
     double M_spinup_duration;
 
     std::string M_export_path;
@@ -732,6 +738,8 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
+    ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
+    ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -819,6 +827,7 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_pond_fraction; // Grid cell fraction covered by melt ponds
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
