@@ -158,6 +158,8 @@ public:
         del_vi_tend  = 28,
         thick_myi    = 29,
         thick_summer = 30,
+        meltpond_volume     = 31,
+        meltpond_lid_volume = 32,
 
         // Diagnostic variables
         Qa           = 100,
@@ -188,6 +190,7 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
+        meltpond_fraction = 128,
 
         // Forcing variables
         tair     = 200,
@@ -419,6 +422,20 @@ public:
                     longName = "Stress tensor 12";
                     stdName  = "stress_tensor_12";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_volume):
+                    name     = "meltpond_volume";
+                    longName = "Meltpond volume";
+                    stdName  = "meltpond_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_lid_volume):
+                    name     = "meltpond_lid_volume";
+                    longName = "Meltpond lid volume";
+                    stdName  = "meltpond_lid_volume";
+                    Units    = "m";
                     cell_methods = "area: mean";
                     break;
 
@@ -682,6 +699,13 @@ public:
                     longName = "Ice Velocity Divergence";
                     stdName  = "ice_velocity_divergence";
                     Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_fraction):
+                    name     = "meltpond_fraction";
+                    longName = "Meltpond fraction";
+                    stdName  = "meltpond_fraction";
+                    Units    = "m";
                     cell_methods = "area: mean";
                     break;
 

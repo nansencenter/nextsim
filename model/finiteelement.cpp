@@ -8487,6 +8487,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::meltpond_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_pond_volume[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::meltpond_lid_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_lid_volume[i]*time_factor;
+                break;
+
             // MYI code
             case (GridOutput::variableID::conc_myi):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8612,6 +8622,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_divergence[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::meltpond_fraction):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_pond_fraction[i]*time_factor;
+                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8918,6 +8932,9 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
+            ("meltpond_volume", GridOutput::variableID::meltpond_volume)
+            ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
+            ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
