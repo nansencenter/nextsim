@@ -196,7 +196,7 @@ public:
     inline double meltPonds(const int cpt, const double dt, const double hi,
              const double hs, const double iceSurfaceMelt, const double snowMelt,
              const double Qia, const double rain);
-    inline bool isPermiable(const int cpt);
+    inline bool isPermeable(const int cpt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);

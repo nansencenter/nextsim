@@ -6483,7 +6483,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
-    if ( this->isPermiable(cpt) )
+    if ( this->isPermeable(cpt) )
     {
         const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
         M_pond_volume[cpt] -= freeboard;
@@ -6495,9 +6495,9 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 }
 
 inline bool
-FiniteElement::isPermiable( const int cpt )
+FiniteElement::isPermeable( const int cpt )
 {
-    bool isPermiable = false;
+    bool isPermeable = false;
     // Notz 2005 thesis eq. 3.2
     for ( int i=0; i<M_tice.size(); ++i )
     {
@@ -6506,9 +6506,9 @@ FiniteElement::isPermiable( const int cpt )
                 - 0.389   * std::pow(M_tice[i][cpt],2)
                 - 0.00362 * std::pow(M_tice[i][cpt],3);
         // permiable if liquid fraction > 1e-12
-        isPermiable = isPermiable || 3.0e-08*pow(physical::si/Sbr,3) > 1e-12;
+        isPermeable = isPermeable || physical::si/Sbr > 0.05;
     }
-    return isPermiable;
+    return isPermeable;
 }
 
 //------------------------------------------------------------------------------------------------------
