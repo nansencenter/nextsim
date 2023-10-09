@@ -797,9 +797,13 @@ FiniteElement::initDatasets()
             M_ocean_elements_dataset=DataSet("topaz_elements");
             break;
 
-        case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZ4F:
             M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes");
             M_ocean_elements_dataset=DataSet("topaz_forecast_elements");
+            break;
+        case setup::OceanType::TOPAZ5F:
+            M_ocean_nodes_dataset=DataSet("topaz5_forecast_nodes");
+            M_ocean_elements_dataset=DataSet("topaz5_forecast_elements");
             break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
@@ -1317,7 +1321,8 @@ FiniteElement::initOptAndParam()
         ("constant", setup::OceanType::CONSTANT)
         ("topaz", setup::OceanType::TOPAZR)
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
-        ("topaz_forecast", setup::OceanType::TOPAZF)
+        ("topaz_forecast", setup::OceanType::TOPAZ4F)
+        ("topaz5_forecast", setup::OceanType::TOPAZ5F)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED)
         ("glorys12", setup::OceanType::GLORYS12R);
@@ -1330,6 +1335,7 @@ FiniteElement::initOptAndParam()
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("topaz", setup::IceType::TOPAZ4)
         ("topaz_forecast", setup::IceType::TOPAZ4F)
+        ("topaz_forecast", setup::IceType::TOPAZ5F)
         ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
         ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
         ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
@@ -10897,7 +10903,8 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             break;
 
         case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZ4F:
+        case setup::OceanType::TOPAZ5F:
         case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
@@ -11049,7 +11056,8 @@ FiniteElement::initSlabOcean()
             break;
         case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZ4F:
+        case setup::OceanType::TOPAZ5F:
         case setup::OceanType::TOPAZR_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             for ( int i=0; i<M_num_elements; ++i)
@@ -11097,7 +11105,8 @@ FiniteElement::assimilateSlabOcean()
             break;
         case setup::OceanType::TOPAZR:
         case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZ4F:
+        case setup::OceanType::TOPAZ5F:
         case setup::OceanType::TOPAZR_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             double sss_obs, sst_obs;
@@ -11140,6 +11149,7 @@ FiniteElement::initIce()
             this->topazIceOsisafIcesat();
             break;
         case setup::IceType::TOPAZ4F:
+        case setup::IceType::TOPAZ5F:
             this->topazForecastIce();
             break;
         case setup::IceType::TOPAZ4FAMSR2:

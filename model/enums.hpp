@@ -32,12 +32,13 @@ namespace setup
     {
         CONSTANT           = 0,
         TOPAZR             = 1,
-        TOPAZF             = 2,
-        MITGCM             = 3,
-        TOPAZR_atrest      = 4,
-        TOPAZR_ALTIMETER   = 5,
-        COUPLED            = 6,
-        GLORYS12R          = 7
+        TOPAZ4F            = 2,
+        TOPAZ5F            = 3,
+        MITGCM             = 4,
+        TOPAZR_atrest      = 5,
+        TOPAZR_ALTIMETER   = 6,
+        COUPLED            = 7,
+        GLORYS12R          = 8
     };
 
     enum class IceType
@@ -49,23 +50,24 @@ namespace setup
         ARBITRARY                   = 5,
         AMSR2                       = 6,
         TOPAZ4F                     = 7,
-        MITGCM                      = 8,
-        TARGET                      = 9,
-        OSISAF                      = 10,
-        PIOMAS                      = 11,
-        TOPAZ4FAMSR2                = 12,
-        TOPAZ4FAMSR2OSISAF          = 13,
-        CS2_SMOS                    = 14,
-        CS2_SMOS_AMSR2              = 15,
-        SMOS                        = 16,
-        BINARY                      = 17,
-        TOPAZ4OSISAFICESAT          = 18,
-        TOPAZ4FAMSR2OSISAFNIC       = 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
-        NEMO                        = 21,
-        CICE                        = 22,
-        AMSR2CSTTHICK               = 23,
-        GLORYS12R                   = 24
+        TOPAZ5F                     = 8,
+        MITGCM                      = 9,
+        TARGET                      = 10,
+        OSISAF                      = 11,
+        PIOMAS                      = 12,
+        TOPAZ4FAMSR2                = 13,
+        TOPAZ4FAMSR2OSISAF          = 14,
+        CS2_SMOS                    = 15,
+        CS2_SMOS_AMSR2              = 16,
+        SMOS                        = 17,
+        BINARY                      = 18,
+        TOPAZ4OSISAFICESAT          = 19,
+        TOPAZ4FAMSR2OSISAFNIC       = 20,
+        TOPAZ4FAMSR2OSISAFNICWEEKLY = 21,
+        NEMO                        = 22,
+        CICE                        = 23,
+        AMSR2CSTTHICK               = 24,
+        GLORYS12R                   = 25
     };
 
     enum class WaveType
