@@ -4629,7 +4629,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz_forecast_nodes") == 0)
+    else if (strcmp (DatasetName, "topaz4_forecast_nodes") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -4822,7 +4822,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz_forecast_elements") == 0)
+    else if (strcmp (DatasetName, "topaz4_forecast_elements") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={

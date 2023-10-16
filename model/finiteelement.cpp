@@ -798,8 +798,8 @@ FiniteElement::initDatasets()
             break;
 
         case setup::OceanType::TOPAZ4F:
-            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_forecast_elements");
+            M_ocean_nodes_dataset=DataSet("topaz4_forecast_nodes");
+            M_ocean_elements_dataset=DataSet("topaz4_forecast_elements");
             break;
         case setup::OceanType::TOPAZ5F:
             M_ocean_nodes_dataset=DataSet("topaz5_forecast_nodes");
@@ -1321,7 +1321,7 @@ FiniteElement::initOptAndParam()
         ("constant", setup::OceanType::CONSTANT)
         ("topaz", setup::OceanType::TOPAZR)
         ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
-        ("topaz_forecast", setup::OceanType::TOPAZ4F)
+        ("topaz4_forecast", setup::OceanType::TOPAZ4F)
         ("topaz5_forecast", setup::OceanType::TOPAZ5F)
         ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED)
@@ -1334,12 +1334,12 @@ FiniteElement::initOptAndParam()
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
         ("topaz", setup::IceType::TOPAZ4)
-        ("topaz_forecast", setup::IceType::TOPAZ4F)
-        ("topaz_forecast", setup::IceType::TOPAZ5F)
-        ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
-        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
-        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
-        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
+        ("topaz4_forecast", setup::IceType::TOPAZ4F)
+        ("topaz5_forecast", setup::IceType::TOPAZ5F)
+        ("topaz4_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
+        ("topaz4_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
+        ("topaz4_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
+        ("topaz4_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
         ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
