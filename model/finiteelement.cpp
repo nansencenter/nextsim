@@ -5425,16 +5425,17 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         // rain Liquid precipitation
         // emp  Evaporation minus liquid precipitation
-        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + old_conc_young*(M_precip[i]-tmp_snowfall);
+        double rain_on_ice = std::max(0., M_precip[i] - tmp_snowfall);
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + old_conc_young*rain_on_ice;
 
         // Unless we use melt ponds, of course. Then the rain goes into the ponds, which then drain
         if ( use_meltponds )
         {
             double const runoff = this->meltPonds(i, ddt, hi, hs, mlt_hi_top,
-                                    del_hs_mlt, Qia[i], M_precip[i]-tmp_snowfall);
+                                    del_hs_mlt, Qia[i], rain_on_ice);
             rain += old_conc*runoff;
         } else {
-            rain += old_conc*(M_precip[i]-tmp_snowfall);
+            rain += old_conc*rain_on_ice;
         }
 
         double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
@@ -6395,25 +6396,38 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
         const double Qia, const double rain)
 {
-    const double minVolPond = 1.e-4; //  minimum pond volume (m)
-    const double hIceMin = 0.1;      //  minimum ice thickness with ponds (m)
+    // TODO: Make this tunable?
+    const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
     const double concMin = 0.1;      // minimmum ice concentration with ponds
-    const double Td = 0.15;          //  temperature difference for freeze-up (C)
+
+    const double ice_to_water = physical::rhoi/physical::rhow;
+    const double snow_to_water = physical::rhos/physical::rhow;
+    const double water_to_ice = physical::rhow/physical::rhoi;
 
     double runoff = 0.; // Runoff in kg/m^2/s
 
-    /* Calculate total volume of available water decreased by 20% for runoff or
-     * read it from tracers if available */
-    double const availableWater = ( -iceSurfaceMelt*physical::rhoi
-                               - snowMelt*physical::rhos )/physical::rhow + rain;
+    /* Calculate total volume of available water decreased by 20% for runoff
+     * Unit conversion
+     * iceSurfaceMelt: m ice -> m water
+     * snowMelt: m snow -> m water
+     * rain: kg/m^2/s -> m water */
+    double const availableWater = -iceSurfaceMelt*ice_to_water
+                               - snowMelt*snow_to_water
+                               + rain/physical::rhow*dt;
 
-    // Flush the pond if there's not enough ice // or the pond is too small
-    if ( M_conc[cpt] <= concMin
-            // || M_pond_volume[cpt] < minVolPond*M_conc[cpt]
+    // 20% of available water is runoff, rest goes into the pond
+    // TODO: Make this tunable?
+    M_pond_volume[cpt] += 0.8*availableWater;
+    runoff = 0.2*availableWater;
+
+    // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
+    if ( M_pond_volume[cpt] <= 0.
+            || M_conc[cpt] <= concMin
             || M_thick[cpt]/M_conc[cpt] <= hIceMin )
     {
         // Lid and melt pond volume sent to ocean as runoff
-        runoff = availableWater + M_pond_volume[cpt] + M_lid_volume[cpt];
+        // NB! Lid volume is in water-equivalent meters
+        runoff += M_pond_volume[cpt] + M_lid_volume[cpt];
 
         // Set pond and lid volume to zero
         M_pond_volume[cpt] = 0.;
@@ -6424,11 +6438,6 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         return runoff * physical::rhow / dt;
     }
 
-    // 20% of available water is runoff, rest goes into the pond
-    // TODO: Make this tunable?
-    M_pond_volume[cpt] += 0.8*availableWater;
-    runoff = 0.2*availableWater;
-
     // Calculate the melt pond depth and fraction
     /* Pond fraction is a linear function from 80% at 50 cm to 50% at 5 m,
      * where it's a fraction of the snow free area 1 - hs/(hs+0,2) */
@@ -6438,56 +6447,61 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     const double a = (f2-f1)/(h2-h1);
     const double b = f1 - a*h1;
     */
-    // Try with ridge ratio
+    // Try with ridge ratio. With no ridges, we're limited by the fraction of snow free ice
+    // TODO: With r1 = 0, r2 = 1, and f2 = 0, these equations can be simplified
     const double r1 = 0., r2 = 1.;
-    const double f1 = 1., f2 = 0.;
+    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2)), f2 = 0.;
     const double a = (f2-f1)/(r2-r1);
     const double b = f1 - a*r1;
     D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
 
-    // Recalculate pond depth as the grid cell fraction - it was fraction of snow free area
-    D_pond_fraction[cpt] *= M_conc[cpt]*(1.-hs/(hs+0.2));
+    // Make sure the pond depth isn't microscopic
+    // TODO: Make sure it isn't gigantic either!
+    const double pond_depth = std::max(0.05,
+            (M_lid_volume[cpt]+M_pond_volume[cpt])/D_pond_fraction[cpt]);
+    D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
 
     double delLidVolume = 0; // Volume increase is always positive!
-    if ( iceSurfaceMelt > 0. ) // melting
+    /* Assume the pond water has the same salinity as sea ice and is at the
+     * freezing point */
+    const double TPond = -mu*physical::si;
+    if ( M_tice[0][cpt] <= TPond ) // Freezing
     {
-        /* A lid exists: Melt some of the lid and put into the pond
-         * No lid exists: Nothing to be done */
-        if ( M_lid_volume[cpt] > 0. )
-            delLidVolume = -std::min(-iceSurfaceMelt, M_lid_volume[cpt]);
-
-    } else { // freezing
         if ( M_lid_volume[cpt] > 0. ) // a lid exists
         {
-            /* Grow the lid - assuming the pond water has the same salinity as
-             * sea ice and is at the freezing point */
-            const double lidThickness = M_lid_volume[cpt]/D_pond_fraction[cpt];
-            const double TPond = -mu*physical::si;
+            // Grow the lid - lid volume is in water-equivalent meters
+            const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
             const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
             const double delLidThickness = Qic*dt/(physical::rhoi*physical::Lf);
 
-            delLidVolume = delLidThickness * M_conc[cpt]*(1.-hs/(hs+0.2));
-            delLidVolume = std::min(delLidVolume, M_pond_volume[cpt]);
-        } else { // a lid forms
-            delLidVolume = dt*Qia/(physical::rhoi*physical::Lf);
-            delLidVolume = std::min(delLidVolume, M_pond_volume[cpt]);
-        }
+            delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
+        } else if ( Qia > 0. ) { // a lid forms
+            delLidVolume = dt*Qia/(physical::rhoi*physical::Lf)*ice_to_water;
+        } // else: We have freezing temperatures and no lid, but negative Qia so a lid can't form
+    } else { // melting
+        /* A lid exists: Melt some of the lid and put into the pond
+         * No lid exists: Nothing to be done */
+        if ( M_lid_volume[cpt] > 0. )
+            delLidVolume = -std::min(-iceSurfaceMelt*ice_to_water, M_lid_volume[cpt]);
     }
     M_lid_volume[cpt] += delLidVolume;
     M_pond_volume[cpt] -= delLidVolume;
 
     // Remove lid if the pond is frozen solid
+    // TODO: What to do with the lid volume?
     if ( M_pond_volume[cpt] <= 0. )
     {
         M_lid_volume[cpt] = 0.;
         M_pond_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
     }
 
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
-    if ( this->isPermeable(cpt) )
+    // TODO: Double check the freeboard calculation
+    const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
+    if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
     {
-        const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
         M_pond_volume[cpt] -= freeboard;
         runoff += freeboard;
     }
@@ -6507,7 +6521,7 @@ FiniteElement::isPermeable( const int cpt )
                 -17.6     * M_tice[i][cpt]
                 - 0.389   * std::pow(M_tice[i][cpt],2)
                 - 0.00362 * std::pow(M_tice[i][cpt],3);
-        // permiable if liquid fraction > 1e-12
+        // permiable if liquid fraction > 5%
         isPermeable = isPermeable || physical::si/Sbr > 0.05;
     }
     return isPermeable;
