@@ -6513,43 +6513,39 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 inline bool
 FiniteElement::isPermeable( const int cpt )
 {
-    std::vector<double> temp(M_tice.size()+1);
-    double max_temp = -273.15;
+    std::vector<double> temp;
 
     // Take all temperature points - also top and bottom
     for ( int i=0; i<M_tice.size(); ++i )
-    {
-	    temp[i] = M_tice[i][cpt];
-	    max_temp = std::max(max_temp, temp[i]);
-    }
-    temp.back() = -physical::mu*M_sss[cpt];
-    max_temp = std::max(max_temp, temp.back());
+        temp.push_back(M_tice[i][cpt]);
+
+    temp.push_back(-physical::mu*M_sss[cpt]);
 
     // Select Assur or Notz, depending on the maximum temperature
     bool a, b, c, d;
-    if ( max_temp <= -2. )
+    if ( *std::max_element(temp.begin(), temp.end()) <= -2. )
     {
         // Assur 1958
         a = -1.2;
-	b = -21.8;
-	c = -0.919;
-	d = -0.01878;
+        b = -21.8;
+        c = -0.919;
+        d = -0.01878;
     } else {
         // Notz 2005 thesis eq. 3.2
         a = 0.;
-	b = -17.6;
-	c = -0.389;
-	d = -0.00362;
+        b = -17.6;
+        c = -0.389;
+        d = -0.00362;
     }
 
     // Calculate liquid fraction and infer permiability
     bool isPermeable = false;
-    for ( int i=0; i<temp.size(); ++i )
+    for ( auto& T: temp )
     {
         const double Sbr = a
-                + b * temp[i]
-                + c * std::pow(temp[i],2)
-                + d * std::pow(temp[i],3);
+                + b * T
+                + c * std::pow(T,2)
+                + d * std::pow(T,3);
         // permiable if liquid fraction > 5%
         isPermeable = isPermeable || physical::si/Sbr > 0.05;
     }
