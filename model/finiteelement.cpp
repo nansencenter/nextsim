@@ -6462,28 +6462,24 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
 
     double delLidVolume = 0; // Volume increase is always positive!
-    /* Assume the pond water has the same salinity as sea ice and is at the
-     * freezing point */
-    const double TPond = -mu*physical::si;
-    if ( M_tice[0][cpt] <= TPond ) // Freezing
+    if ( M_lid_volume[cpt] > 0. ) // a lid exits
     {
-        if ( M_lid_volume[cpt] > 0. ) // a lid exists
-        {
-            // Grow the lid - lid volume is in water-equivalent meters
-            const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
-            const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
-            const double delLidThickness = Qic*dt/(physical::rhoi*physical::Lf);
+        // Grow or melt the lid - lid volume is in water-equivalent meters
+        /* Assume the pond water has the same salinity as sea ice and is at the
+         * freezing point */
+        const double TPond = -mu*physical::si;
+        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
+        const double delLidThickness = Qic*dt/(physical::rhoi*physical::Lf);
 
-            delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
-        } else if ( Qia > 0. ) { // a lid forms
-            delLidVolume = dt*Qia/(physical::rhoi*physical::Lf)*ice_to_water;
-        } // else: We have freezing temperatures and no lid, but negative Qia so a lid can't form
-    } else { // melting
-        /* A lid exists: Melt some of the lid and put into the pond
-         * No lid exists: Nothing to be done */
-        if ( M_lid_volume[cpt] > 0. )
-            delLidVolume = -std::min(-iceSurfaceMelt*ice_to_water, M_lid_volume[cpt]);
+        delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
+        delLidVolume = std::max(delLidVolume, -M_lid_volume[cpt]);
     }
+    else if ( Qia > 0. ) // a lid forms
+    {
+        delLidVolume = dt*Qia/(physical::rhoi*physical::Lf)*ice_to_water;
+    }
+
     M_lid_volume[cpt] += delLidVolume;
     M_pond_volume[cpt] -= delLidVolume;
 
