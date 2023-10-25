@@ -6456,10 +6456,18 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
 
     // Make sure the pond depth isn't microscopic
-    // TODO: Make sure it isn't gigantic either!
     const double pond_depth = std::max(0.05,
             (M_lid_volume[cpt]+M_pond_volume[cpt])/D_pond_fraction[cpt]);
     D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
+
+    // Make sure it isn't gigantic either!
+    const double depth_limit = M_thick[cpt]/M_conc[cpt] * 0.3;
+    if ( pond_depth > depth_limit )
+    {
+        const double new_pond_volume = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
+        runoff += M_pond_volume[cpt] - new_pond_volume;
+        M_pond_volume[cpt] = new_pond_volume;
+    }
 
     double delLidVolume = 0; // Volume increase is always positive!
     if ( M_lid_volume[cpt] > 0. ) // a lid exits
