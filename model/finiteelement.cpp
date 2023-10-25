@@ -6478,7 +6478,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double TPond = -mu*physical::si;
         const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
         const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
-        const double delLidThickness = Qic*dt/(physical::rhoi*physical::Lf);
+        const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
+            *dt/(physical::rhoi*physical::Lf);
 
         delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
         delLidVolume = std::max(delLidVolume, -M_lid_volume[cpt]);
