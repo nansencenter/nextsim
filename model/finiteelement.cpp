@@ -6494,7 +6494,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Remove lid if the pond is frozen solid
     // TODO: What to do with the lid volume?
-    if ( M_pond_volume[cpt] <= 0. || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] > 0.3 )
+    double const lid_thickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+    if ( M_pond_volume[cpt] <= 0. || lid_thickness > 0.3 )
     {
         M_lid_volume[cpt] = 0.;
         M_pond_volume[cpt] = 0.;
@@ -6504,8 +6505,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
     // TODO: Double check the freeboard calculation
-    const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-    if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
+    const double freeboard = ( (hi+lid_thickness)*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow - pond_depth;
+    if ( freeboard < 0. || ( pond_depth > freeboard && this->isPermeable(cpt) ) )
     {
         M_pond_volume[cpt] -= freeboard;
         runoff += freeboard;
