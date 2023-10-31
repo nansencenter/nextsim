@@ -6494,7 +6494,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Remove lid if the pond is frozen solid
     // TODO: What to do with the lid volume?
-    if ( M_pond_volume[cpt] <= 0. )
+    if ( M_pond_volume[cpt] <= 0. || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] > 0.3 )
     {
         M_lid_volume[cpt] = 0.;
         M_pond_volume[cpt] = 0.;
