@@ -6423,7 +6423,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
             || M_conc[cpt] <= concMin
-            || M_thick[cpt]/M_conc[cpt] <= hIceMin )
+            || hi <= hIceMin )
     {
         // Lid and melt pond volume sent to ocean as runoff
         // NB! Lid volume is in water-equivalent meters
@@ -6461,7 +6461,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
 
     // Make sure it isn't gigantic either!
-    const double depth_limit = M_thick[cpt]/M_conc[cpt] * 0.3;
+    const double depth_limit = 0.3*hi;
     if ( pond_depth > depth_limit )
     {
         const double new_pond_volume = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
