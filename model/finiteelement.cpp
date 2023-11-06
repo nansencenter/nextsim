@@ -5420,26 +5420,6 @@ FiniteElement::thermo(int dt)
         //relaxation of concentration update with time
         //M_conc_upd[i] *= 1 - dt/(1.5*24*3600);//relax to 0
 
-        // Rain falling on ice falls straight through. We need to calculate the
-        // bulk freshwater input into the entire cell, i.e. everything in the
-        // open-water part plus rain in the ice-covered part.
-        // rain Liquid precipitation
-        // emp  Evaporation minus liquid precipitation
-        double rain_on_ice = std::max(0., M_precip[i] - tmp_snowfall);
-        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + old_conc_young*rain_on_ice;
-
-        // Unless we use melt ponds, of course. Then the rain goes into the ponds, which then drain
-        if ( use_meltponds )
-        {
-            double const runoff = this->meltPonds(i, ddt, hi, hs, mlt_hi_top,
-                                    del_hs_mlt, Qia[i], rain_on_ice);
-            rain += old_conc*runoff;
-        } else {
-            rain += old_conc*rain_on_ice;
-        }
-
-        double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
-
         // -------------------------------------------------
         //! 6) Calculates the ice growth over open water and lateral melt (thermoOW in matlab)
 
@@ -5816,6 +5796,18 @@ FiniteElement::thermo(int dt)
         // -------------------------------------------------
         //! 8) Applies slab Ocean model
         // (slabOcean in matlab)
+
+        // Rain falling on ice falls straight through. We need to calculate the
+        // bulk freshwater input into the entire cell, i.e. everything in the
+        // open-water part plus rain in the ice-covered part.
+        // rain Liquid precipitation
+        // emp  Evaporation minus liquid precipitation
+        double const rain_on_ice = std::max(0., M_precip[i] - tmp_snowfall);
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*rain_on_ice;
+        double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
+
+        // Meltponds. This version doesn't impact the emp balance ... but a futre one should
+        this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice);
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6391,7 +6383,7 @@ FiniteElement::albedo(const double Tsurf, const double hs,
     return std::make_tuple(albedo,pen_sw);
 }//albedo
 
-inline double
+inline void
 FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
         const double Qia, const double rain)
@@ -6399,12 +6391,11 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // TODO: Make this tunable?
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
     const double concMin = 0.1;      // minimmum ice concentration with ponds
+    const double max_lid_thickness = 0.3; // maximum lid thickness
 
     const double ice_to_water = physical::rhoi/physical::rhow;
     const double snow_to_water = physical::rhos/physical::rhow;
     const double water_to_ice = physical::rhow/physical::rhoi;
-
-    double runoff = 0.; // Runoff in kg/m^2/s
 
     /* Calculate total volume of available water decreased by 20% for runoff
      * Unit conversion
@@ -6418,24 +6409,18 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // 20% of available water is runoff, rest goes into the pond
     // TODO: Make this tunable?
     M_pond_volume[cpt] += 0.8*availableWater;
-    runoff = 0.2*availableWater;
 
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
             || M_conc[cpt] <= concMin
             || M_thick[cpt]/M_conc[cpt] <= hIceMin )
     {
-        // Lid and melt pond volume sent to ocean as runoff
-        // NB! Lid volume is in water-equivalent meters
-        runoff += M_pond_volume[cpt] + M_lid_volume[cpt];
-
         // Set pond and lid volume to zero
         M_pond_volume[cpt] = 0.;
         M_lid_volume[cpt] = 0.;
         D_pond_fraction[cpt] = 0.;
 
-        // Runoff in kg/m^2/s
-        return runoff * physical::rhow / dt;
+        return;
     }
 
     // Calculate the melt pond depth and fraction
@@ -6463,11 +6448,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // Make sure it isn't gigantic either!
     const double depth_limit = M_thick[cpt]/M_conc[cpt] * 0.3;
     if ( pond_depth > depth_limit )
-    {
-        const double new_pond_volume = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
-        runoff += M_pond_volume[cpt] - new_pond_volume;
-        M_pond_volume[cpt] = new_pond_volume;
-    }
+        M_pond_volume[cpt] = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
 
     double delLidVolume = 0; // Volume increase is always positive!
     if ( M_lid_volume[cpt] > 0. ) // a lid exits
@@ -6492,9 +6473,9 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     M_lid_volume[cpt] += delLidVolume;
     M_pond_volume[cpt] -= delLidVolume;
 
-    // Remove lid if the pond is frozen solid
-    // TODO: What to do with the lid volume?
-    if ( M_pond_volume[cpt] <= 0. )
+    // Remove lid if the pond is frozen solid or if it's too thick
+    if ( M_pond_volume[cpt] <= 0.
+            || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] >= max_lid_thickness )
     {
         M_lid_volume[cpt] = 0.;
         M_pond_volume[cpt] = 0.;
@@ -6506,13 +6487,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // TODO: Double check the freeboard calculation
     const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
     if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
-    {
         M_pond_volume[cpt] -= freeboard;
-        runoff += freeboard;
-    }
 
-    // Runoff in kg/m^2/s
-    return runoff * physical::rhow / dt;
 }
 
 inline bool

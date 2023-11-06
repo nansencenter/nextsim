@@ -193,7 +193,7 @@ public:
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
-    inline double meltPonds(const int cpt, const double dt, const double hi,
+    inline void meltPonds(const int cpt, const double dt, const double hi,
              const double hs, const double iceSurfaceMelt, const double snowMelt,
              const double Qia, const double rain);
     inline bool isPermeable(const int cpt);
