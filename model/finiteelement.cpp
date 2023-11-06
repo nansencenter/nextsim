@@ -6160,6 +6160,7 @@ FiniteElement::IABulkFluxes(
     int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    double const alb_pnd = vm["thermo.alb_ponds"].as<double>();
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6211,9 +6212,15 @@ FiniteElement::IABulkFluxes(
         else
             hs = 0;
 
-	double pen_sw;
-	std::tie(alb_tot[i],pen_sw) = this->albedo(
-                Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0);
+        double pen_sw;
+        double pond_fraction;
+        if ( D_pond_fraction[i] > 0. && M_lid_volume[i]/D_pond_fraction[i] <= 0.05 )
+            pond_fraction = D_pond_fraction[i];
+        else
+            pond_fraction = 0.;
+
+        std::tie(alb_tot[i],pen_sw) = this->albedo(
+            Tsurf[i], hs, pond_fraction, alb_scheme, alb_ice, alb_sn, alb_pnd, I_0);
 
         Qsw[i] = -M_Qsw_in[i]*(1.- alb_tot[i])*(1.-pen_sw);
         I[i]   =  M_Qsw_in[i]*(1.- alb_tot[i])*pen_sw;
@@ -6321,8 +6328,9 @@ FiniteElement::freezingPoint(const double sss)
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline std::tuple<double,double>
-FiniteElement::albedo(const double Tsurf, const double hs,
-        int alb_scheme, double alb_ice, double alb_sn, double I_0)
+FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd,
+        const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd,
+        const double I_0)
 {
     double albedo, pen_sw;
 
@@ -6370,8 +6378,8 @@ FiniteElement::albedo(const double Tsurf, const double hs,
             double frac_sn = hs/(hs+0.02);
 
             /* Final albedo */
-            albedo = frac_sn*albs + (1.-frac_sn)*albi;
-            pen_sw = (1.-frac_sn)*I_0;
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*albi;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
 
             break;
             }
