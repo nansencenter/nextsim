@@ -9953,8 +9953,9 @@ FiniteElement::explicitSolve()
         double keel_depth;
         double critical_h;
         double critical_h_mod;
-        double water_depth;
-        double const min_water_depth = 2.;
+        double const min_water_depth = 2.; //m
+        double const depth_eff = std::max(0., element_ssh
+                + std::max(min_water_depth, M_element_depth[cpt]));
         double const g3rd = physical::gravity/3.;
         switch ( M_basal_stress_type )
         {
@@ -9966,22 +9967,18 @@ FiniteElement::explicitSolve()
             case setup::BasalStressType::BOUILLON:
                 // Sylvain's grounding scheme
                 // TODO: Remove this one - we've never used it
-                keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
+                keel_depth = ice_to_keel_factor * std::sqrt(M_thick[cpt]/M_conc[cpt]);
                 keel_depth = std::min( keel_depth, max_keel_depth );
-                water_depth = std::max( min_water_depth, M_element_depth[cpt] );
-
-                critical_h     = M_conc[cpt]*std::pow((water_depth + element_ssh)/ice_to_keel_factor,2.);
-                critical_h_mod = M_conc[cpt]*std::pow(keel_depth/ice_to_keel_factor,2.);
+                critical_h     = M_conc[cpt] * std::pow(depth_eff / ice_to_keel_factor, 2.);
+                critical_h_mod = M_conc[cpt] * std::pow(keel_depth / ice_to_keel_factor, 2.);
                 break;
             case setup::BasalStressType::LEMIEUX:
                 // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
                 // Limit keel depth (JF doesn't do that).
-                keel_depth = k1*M_thick[cpt]/M_conc[cpt];
+                keel_depth = k1 * M_thick[cpt] / M_conc[cpt];
                 keel_depth = std::min( keel_depth, max_keel_depth );
-                water_depth = std::max( min_water_depth, M_element_depth[cpt] );
-
-                critical_h     = M_conc[cpt]*(water_depth + element_ssh)/k1;
-                critical_h_mod = M_conc[cpt]*keel_depth/k1;
+                critical_h     = M_conc[cpt] * depth_eff / k1;
+                critical_h_mod = M_conc[cpt] * keel_depth / k1;
                 break;
         }
 
