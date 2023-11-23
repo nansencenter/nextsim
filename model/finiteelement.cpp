@@ -5185,7 +5185,6 @@ FiniteElement::thermo(int dt)
     //! 1) Sets constants from options.cpp and constants.hpp
     double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>(); //! \param timeT (double const) Nudging time for temperature
     double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>(); //! \param timeS (double const) Nudging time for salinity
-    double const mld_min = vm["thermo.mld_min"].as<double>(); //! \param mld_min (double const) Minimum mixed layer depth
     double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>(); //! \param Qdw_const (double const) Heat flux from ocean nudging
     double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>(); //! \param Qdw_const (double const) Fresh water flux from ocean nudging
 
@@ -5333,7 +5332,6 @@ FiniteElement::thermo(int dt)
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
             mld = M_mld[i];
-        mld = std::max(mld, mld_min);
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
