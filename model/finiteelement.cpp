@@ -786,24 +786,24 @@ FiniteElement::initDatasets()
         case setup::OceanType::CONSTANT:
         break;
 
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-            M_ocean_nodes_dataset=DataSet("topaz_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_atrest:
+            M_ocean_nodes_dataset=DataSet("topaz4r_nodes");
+            M_ocean_elements_dataset=DataSet("topaz4r_elements");
             break;
 
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
             M_ocean_nodes_dataset=DataSet("ocean_currents_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+            M_ocean_elements_dataset=DataSet("topaz4r_elements");
             break;
 
-        case setup::OceanType::TOPAZ4F:
-            M_ocean_nodes_dataset=DataSet("topaz4_forecast_nodes");
-            M_ocean_elements_dataset=DataSet("topaz4_forecast_elements");
+        case setup::OceanType::TOPAZ4NRT:
+            M_ocean_nodes_dataset=DataSet("topaz4_nrt_nodes");
+            M_ocean_elements_dataset=DataSet("topaz4_nrt_elements");
             break;
-        case setup::OceanType::TOPAZ5F:
-            M_ocean_nodes_dataset=DataSet("topaz5_forecast_nodes");
-            M_ocean_elements_dataset=DataSet("topaz5_forecast_elements");
+        case setup::OceanType::TOPAZ5NRT:
+            M_ocean_nodes_dataset=DataSet("topaz5_nrt_nodes");
+            M_ocean_elements_dataset=DataSet("topaz5_nrt_elements");
             break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
@@ -847,7 +847,7 @@ FiniteElement::initDatasets()
     //       TODO these probably don't need to be global variables
     //            - in fact they are probably taking up a significant
     //              amount of memory
-    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz4r_elements");
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
@@ -1319,11 +1319,11 @@ FiniteElement::initOptAndParam()
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
-        ("topaz", setup::OceanType::TOPAZR)
-        ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
-        ("topaz4_forecast", setup::OceanType::TOPAZ4F)
-        ("topaz5_forecast", setup::OceanType::TOPAZ5F)
-        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
+        ("topaz4r", setup::OceanType::TOPAZ4R)
+        ("topaz4r-atrest", setup::OceanType::TOPAZ4R_atrest)
+        ("topaz4nrt", setup::OceanType::TOPAZ4NRT)
+        ("topaz5nrt", setup::OceanType::TOPAZ5NRT)
+        ("topaz4r-altimeter", setup::OceanType::TOPAZ4R_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED)
         ("glorys12", setup::OceanType::GLORYS12R);
     M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
@@ -1333,23 +1333,23 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
-        ("topaz", setup::IceType::TOPAZ4)
-        ("topaz4_forecast", setup::IceType::TOPAZ4F)
-        ("topaz5_forecast", setup::IceType::TOPAZ5F)
-        ("topaz4_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
-        ("topaz4_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
-        ("topaz4_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
-        ("topaz4_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
+        ("topaz4r", setup::IceType::TOPAZ4R)
+        ("topaz4nrt", setup::IceType::TOPAZ4NRT)
+        ("topaz5nrt", setup::IceType::TOPAZ5NRT)
+        ("topaz4nrt-amsr2", setup::IceType::TOPAZ4NRT_AMSR2)
+        ("topaz4nrt-amsr2-osisaf", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF)
+        ("topaz4nrt-amsr2-osisaf-nic", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC)
+        ("topaz4nrt-amsr2-osisaf-nic_weekly", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
+        ("amsr2_cst_thick", setup::IceType::AMSR2_CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
         ("nemo", setup::IceType::NEMO)
         ("cice", setup::IceType::CICE)
-        ("cs2_smos", setup::IceType::CS2_SMOS)
-        ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
+        ("cs2-smos", setup::IceType::CS2_SMOS)
+        ("cs2-smos-amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
-        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)
+        ("topaz4r-osisaf-icesat", setup::IceType::TOPAZ4R_OSISAF_ICESAT)
         ("glorys12", setup::IceType::GLORYS12R);
     M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
@@ -10902,9 +10902,9 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             break;
 
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZ4F:
-        case setup::OceanType::TOPAZ5F:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
         case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
@@ -10939,7 +10939,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
             break;
 #endif
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, M_spinup_duration);
@@ -10957,7 +10957,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 
-        case setup::OceanType::TOPAZR_atrest:
+        case setup::OceanType::TOPAZ4R_atrest:
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
@@ -11054,11 +11054,11 @@ FiniteElement::initSlabOcean()
             std::fill(M_sst.begin(), M_sst.end(), 1.);
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZ4F:
-        case setup::OceanType::TOPAZ5F:
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -11103,11 +11103,11 @@ FiniteElement::assimilateSlabOcean()
                 M_sst[i]=(sigma_obs*M_sst[i]+sigma_mod*1.)/(sigma_obs+sigma_mod);
             }
             break;
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZ4F:
-        case setup::OceanType::TOPAZ5F:
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             double sss_obs, sst_obs;
             for ( int i=0; i<M_num_elements; ++i)
@@ -11142,25 +11142,25 @@ FiniteElement::initIce()
         case setup::IceType::CONSTANT_PARTIAL:
             this->constantIce();
             break;
-        case setup::IceType::TOPAZ4:
+        case setup::IceType::TOPAZ4R:
             this->topazIce();
             break;
-        case setup::IceType::TOPAZ4OSISAFICESAT:
+        case setup::IceType::TOPAZ4R_OSISAF_ICESAT:
             this->topazIceOsisafIcesat();
             break;
-        case setup::IceType::TOPAZ4F:
-        case setup::IceType::TOPAZ5F:
+        case setup::IceType::TOPAZ4NRT:
+        case setup::IceType::TOPAZ5NRT:
             this->topazForecastIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2:
+        case setup::IceType::TOPAZ4NRT_AMSR2:
             this->topazForecastAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF:
             this->topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY:
+            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY);
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -11177,7 +11177,7 @@ FiniteElement::initIce()
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
             break;
-        case setup::IceType::AMSR2CSTTHICK:
+        case setup::IceType::AMSR2_CSTTHICK:
             this->amsr2ConstThickIce();
             break;
         case setup::IceType::CS2_SMOS:
@@ -11376,12 +11376,12 @@ FiniteElement::assimilateIce()
 {
     switch (M_ice_type)
     {
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF:
             this->assimilate_topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY:
+            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";
