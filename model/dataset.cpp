@@ -1774,7 +1774,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz_nodes") == 0)
+    else if (strcmp (DatasetName, "topaz4r_nodes") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -1978,7 +1978,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz_elements") == 0)
+    else if (strcmp (DatasetName, "topaz4r_elements") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -4629,7 +4629,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz4_forecast_nodes") == 0)
+    else if (strcmp (DatasetName, "topaz4_nrt_nodes") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -4770,7 +4770,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -4822,7 +4822,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz4_forecast_elements") == 0)
+    else if (strcmp (DatasetName, "topaz4_nrt_elements") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5017,7 +5017,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ4RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -5062,7 +5062,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz5_forecast_nodes") == 0)
+    else if (strcmp (DatasetName, "topaz5_nrt_nodes") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5203,7 +5203,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ5RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -5255,7 +5255,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "topaz5_forecast_elements") == 0)
+    else if (strcmp (DatasetName, "topaz5_nrt_elements") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5450,7 +5450,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
             dirname: "TOPAZ5RC_daily",
-            filename_mask: "topaz_forecast_%Y%m%d.nc",
+            filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -5495,7 +5495,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ice_topaz_elements") == 0)
+    else if (strcmp (DatasetName, "ice_topaz4r_elements") == 0)
     {
         // Definition of topaz grid and datasets
         Dimension dimension_x={
@@ -5689,7 +5689,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_piomas_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -5871,7 +5870,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ocean_currents_nodes") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -6062,7 +6060,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_amsre_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -6205,7 +6202,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_osisaf_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"xc",
             cyclic:false
@@ -6367,7 +6363,6 @@ DataSet::DataSet(char const *DatasetName)
      }
      else if (strcmp (DatasetName, "ice_osisaf_type_elements") == 0)
      {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"xc",
             cyclic:false
@@ -6510,7 +6505,6 @@ DataSet::DataSet(char const *DatasetName)
      }
      else if (strcmp (DatasetName, "ice_smos_elements") == 0)
      {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -6653,7 +6647,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_cs2_smos_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"xc",
             cyclic:false
@@ -6788,7 +6781,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_amsr2_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -6949,7 +6941,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_nic_weekly_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -7110,7 +7101,6 @@ DataSet::DataSet(char const *DatasetName)
      }
     else if (strcmp (DatasetName, "ice_nic_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -7384,7 +7374,6 @@ DataSet::DataSet(char const *DatasetName)
     }
     else if (strcmp (DatasetName, "ice_cice_elements") == 0)
     {
-        // Definition of topaz grid and datasets
         Dimension dimension_x={
             name:"x",
             cyclic:false
@@ -10483,16 +10472,16 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "cfsr_nodes\n");
         fprintf (stderr, "cfsr_elements\n");
         fprintf (stderr, "cfsr_nodes_hi\n");
-        fprintf (stderr, "topaz_nodes\n");
+        fprintf (stderr, "topaz4r_nodes\n");
+        fprintf (stderr, "topaz4r_elements\n");
         fprintf (stderr, "nesting_ocean_elements\n");
         fprintf (stderr, "nesting_ice_elements\n");
         fprintf (stderr, "nesting_nodes\n");
         fprintf (stderr, "nesting_distance_nodes\n");
         fprintf (stderr, "nesting_distance_elements\n");
-        fprintf (stderr, "topaz_elements\n");
         fprintf (stderr, "ocean_cpl_nodes\n");
         fprintf (stderr, "ocean_cpl_elements\n");
-        fprintf (stderr, "ice_topaz_elements\n");
+        fprintf (stderr, "ice_topaz4r_elements\n");
         fprintf (stderr, "ice_amsre_elements\n");
         fprintf (stderr, "ice_osisaf_elements\n");
         fprintf (stderr, "ice_osisaf_type_elements\n");
