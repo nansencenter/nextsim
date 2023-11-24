@@ -35,7 +35,7 @@ namespace setup
         TOPAZ4NRT         = 2,
         TOPAZ5NRT         = 3,
         MITGCM            = 4,
-        TOPAZ4R_atrest    = 5,
+        TOPAZ4R_ATREST    = 5,
         TOPAZ4R_ALTIMETER = 6,
         COUPLED           = 7,
         GLORYS12R         = 8

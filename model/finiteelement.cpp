@@ -787,7 +787,7 @@ FiniteElement::initDatasets()
         break;
 
         case setup::OceanType::TOPAZ4R:
-        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4R_ATREST:
             M_ocean_nodes_dataset=DataSet("topaz4r_nodes");
             M_ocean_elements_dataset=DataSet("topaz4r_elements");
             break;
@@ -1320,7 +1320,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
         ("topaz4r", setup::OceanType::TOPAZ4R)
-        ("topaz4r-atrest", setup::OceanType::TOPAZ4R_atrest)
+        ("topaz4r_atrest", setup::OceanType::TOPAZ4R_ATREST)
         ("topaz4nrt", setup::OceanType::TOPAZ4NRT)
         ("topaz5nrt", setup::OceanType::TOPAZ5NRT)
         ("topaz4r-altimeter", setup::OceanType::TOPAZ4R_ALTIMETER)
@@ -1342,7 +1342,7 @@ FiniteElement::initOptAndParam()
         ("topaz4nrt-amsr2-osisaf-nic_weekly", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("amsr2_cst_thick", setup::IceType::AMSR2_CSTTHICK)
+        ("amsr2-cst_thick", setup::IceType::AMSR2_CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
         ("nemo", setup::IceType::NEMO)
         ("cice", setup::IceType::CICE)
@@ -10957,7 +10957,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 
-        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4R_ATREST:
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
@@ -11055,7 +11055,7 @@ FiniteElement::initSlabOcean()
             std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
             break;
         case setup::OceanType::TOPAZ4R:
-        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4R_ATREST:
         case setup::OceanType::TOPAZ4NRT:
         case setup::OceanType::TOPAZ5NRT:
         case setup::OceanType::TOPAZ4R_ALTIMETER:
@@ -11104,7 +11104,7 @@ FiniteElement::assimilateSlabOcean()
             }
             break;
         case setup::OceanType::TOPAZ4R:
-        case setup::OceanType::TOPAZ4R_atrest:
+        case setup::OceanType::TOPAZ4R_ATREST:
         case setup::OceanType::TOPAZ4NRT:
         case setup::OceanType::TOPAZ5NRT:
         case setup::OceanType::TOPAZ4R_ALTIMETER:
