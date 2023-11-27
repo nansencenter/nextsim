@@ -1261,10 +1261,8 @@ FiniteElement::initOptAndParam()
         ("constant", setup::AtmosphereType::CONSTANT)
         ("generic_ps", setup::AtmosphereType::GENERIC_PS)
         ("asr", setup::AtmosphereType::ASR)
-        ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
         ("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT)
-        ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ecmwf_nrt_arome", setup::AtmosphereType::ECMWF_NRT_AROME)
@@ -1280,11 +1278,9 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::GENERIC_PS:
         case setup::AtmosphereType::ECMWF_NRT:
-        case setup::AtmosphereType::EC_ERAi:
         case setup::AtmosphereType::ECMWF_NRT_AROME:
         case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
@@ -10526,7 +10522,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERAi, ...)
+//! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERA5, ...)
 //! Called by the initExternalData() function.
 void
 FiniteElement::forcingAtmosphere()
@@ -10585,23 +10581,6 @@ FiniteElement::forcingAtmosphere()
                 throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=asr. Use thermo.use_parameterised_long_wave_radiation=false");
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-        break;
-
-        case setup::AtmosphereType::ERAi:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=erai. Use thermo.use_parameterised_long_wave_radiation=true");
-            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
         case setup::AtmosphereType::ERA5:

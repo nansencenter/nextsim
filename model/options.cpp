@@ -333,7 +333,6 @@ namespace Nextsim
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
-            ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
