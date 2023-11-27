@@ -735,25 +735,14 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("asr_elements");
             break;
 
-        case setup::AtmosphereType::ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
-            break;
-
         case setup::AtmosphereType::ERA5:
             M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
             M_atmosphere_elements_dataset=DataSet("ERA5_elements");
             break;
 
-        case setup::AtmosphereType::EC2:
-            M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_elements");
-            break;
-
-        case setup::AtmosphereType::EC_ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
-            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements");
+        case setup::AtmosphereType::ECMWF_NRT:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_elements");
             break;
 
         case setup::AtmosphereType::CFSR:
@@ -766,14 +755,14 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
-        case setup::AtmosphereType::EC2_AROME:
-            M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements");
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_arome_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_arome_elements");
             break;
 
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
-            M_atmosphere_nodes_dataset=DataSet("ec2_arome_ensemble_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_arome_ensemble_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_arome_ensemble_elements");
             break;
 
         default:
@@ -1274,12 +1263,12 @@ FiniteElement::initOptAndParam()
         ("asr", setup::AtmosphereType::ASR)
         ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
-        ("ec2", setup::AtmosphereType::EC2)
+        ("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT)
         ("ec_erai", setup::AtmosphereType::EC_ERAi)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
-        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
+        ("ecmwf_nrt_arome", setup::AtmosphereType::ECMWF_NRT_AROME)
+        ("ecmwf_nrt_arome_ensemble", setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1294,10 +1283,10 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::GENERIC_PS:
-        case setup::AtmosphereType::EC2:
+        case setup::AtmosphereType::ECMWF_NRT:
         case setup::AtmosphereType::EC_ERAi:
-        case setup::AtmosphereType::EC2_AROME:
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -1514,9 +1503,9 @@ FiniteElement::initFETensors()
 
 
 //------------------------------------------------------------------------------------------------------
-//! given a map eg [("ec2", setup::AtmosphereType::EC2), ...]
+//! given a map eg [("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT), ...]
 //! and an option name opt_name eg "setup.atmosphere-type" with
-//! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
+//! vm[opt_name].as<std::string>() = "ecmwf_nrt", opt_val is set to setup::AtmosphereType::ECMWF_NRT
 //! Called by initOptAndParam()
 template<typename option_type>
 option_type
@@ -10632,7 +10621,7 @@ FiniteElement::forcingAtmosphere()
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC2:
+        case setup::AtmosphereType::ECMWF_NRT:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
@@ -10648,22 +10637,6 @@ FiniteElement::forcingAtmosphere()
                 M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             else
                 M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-        break;
-
-        case setup::AtmosphereType::EC_ERAi:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec_erai. Use thermo.use_parameterised_long_wave_radiation=true");
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
         break;
 
         case setup::AtmosphereType::CFSR_HI:
@@ -10684,7 +10657,7 @@ FiniteElement::forcingAtmosphere()
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC2_AROME:
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
@@ -10696,7 +10669,7 @@ FiniteElement::forcingAtmosphere()
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
             M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
                 time_init, M_spinup_duration, 0, M_ensemble_member);
             M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,

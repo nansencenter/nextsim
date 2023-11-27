@@ -458,7 +458,7 @@ namespace Nextsim
 
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
-            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+            ("forecast.ecmwf_nrt_time_res_hours", po::value<double>()->default_value( 6. ),
                 "specify the time resolution in hours here if want to change from 6")
 
 
