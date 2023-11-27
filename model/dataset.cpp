@@ -922,7 +922,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_arome_nodes") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_arome_nodes") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
@@ -1049,8 +1049,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"EC2_AROME",
-            filename_mask: "ec2_arome_blended_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_AROME",
+            filename_mask: "ecmwf_nrt_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1097,7 +1097,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_arome_elements") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_arome_elements") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
@@ -1188,8 +1188,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"EC2_AROME",
-            filename_mask: "ec2_arome_blended_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_AROME",
+            filename_mask: "ecmwf_nrt_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1351,7 +1351,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_arome_ensemble_nodes") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_arome_ensemble_nodes") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
@@ -1475,8 +1475,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"EC2_AROME_ENSEMBLE",
-            filename_mask: "ec2_arome_blended_ensemble_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_AROME_ENSEMBLE",
+            filename_mask: "ecmwf_nrt_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -1523,7 +1523,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_arome_ensemble_elements") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_arome_ensemble_elements") == 0)
     {
         // Definition of asr grid and datasets
         Dimension dimension_x={
@@ -1611,8 +1611,8 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"EC2_AROME_ENSEMBLE",
-            filename_mask: "ec2_arome_blended_ensemble_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_AROME_ENSEMBLE",
+            filename_mask: "ecmwf_nrt_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
 
@@ -9494,7 +9494,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_elements") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_elements") == 0)
     {
         // Definition of dimensions
         Dimension dimension_x={
@@ -9560,10 +9560,10 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ecmwf_forecast_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_Arctic",
+            filename_mask: "ecmwf_nrt_%Y%m%d.nc",
             gridfile: "",
-            reference_date:"1950-01-01",//"2008-01-01";
+            reference_date:"1950-01-01",
 
             latitude: latitude,
             longitude: longitude,
@@ -9674,7 +9674,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(Environment::vm()["forecast.ec2_time_res_hours"].as<double>()*3600),
+            a:1./(Environment::vm()["forecast.ecmwf_nrt_time_res_hours"].as<double>()*3600),
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
@@ -9692,7 +9692,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(Environment::vm()["forecast.ec2_time_res_hours"].as<double>()*3600),
+            a:1./(Environment::vm()["forecast.ecmwf_nrt_time_res_hours"].as<double>()*3600),
             b:0.,
             Units:"W/m^2",
             loaded_data: loaded_data_tmp,
@@ -9728,7 +9728,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:physical::rhow/(Environment::vm()["forecast.ec2_time_res_hours"].as<double>()*3600),
+            a:physical::rhow/(Environment::vm()["forecast.ecmwf_nrt_time_res_hours"].as<double>()*3600),
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
@@ -9761,7 +9761,7 @@ DataSet::DataSet(char const *DatasetName)
         coupled = false;
 #endif
     }
-    else if (strcmp (DatasetName, "ec2_nodes") == 0)
+    else if (strcmp (DatasetName, "ecmwf_nrt_nodes") == 0)
     {
         // Definition of dimensions
         Dimension dimension_x={
@@ -9826,8 +9826,8 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"ECMWF_forecast_arctic",
-            filename_mask: "ecmwf_forecast_%Y%m%d.nc",
+            dirname:"ECMWF_NRT_Arctic",
+            filename_mask: "ecmwf_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date:"1950-01-01",
 
@@ -9841,7 +9841,6 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_in_latlon: true,
 
             loaded: false,
-
             dataset_frequency:"daily",
 
             waveOptions: wavopt_none,
@@ -10463,12 +10462,12 @@ DataSet::DataSet(char const *DatasetName)
         fprintf (stderr, "valid types are:\n");
         fprintf (stderr, "asr_nodes\n");
         fprintf (stderr, "asr_elements\n");
-        fprintf (stderr, "ec2_nodes\n");
-        fprintf (stderr, "ec2_elements\n");
-        fprintf (stderr, "ec2_arome_nodes\n");
-        fprintf (stderr, "ec2_arome_elements\n");
-        fprintf (stderr, "ec2_arome_ensemble_nodes\n");
-        fprintf (stderr, "ec2_arome_ensemble_elements\n");
+        fprintf (stderr, "ecmwf_nrt_nodes\n");
+        fprintf (stderr, "ecmwf_nrt_elements\n");
+        fprintf (stderr, "ecmwf_nrt_arome_nodes\n");
+        fprintf (stderr, "ecmwf_nrt_arome_elements\n");
+        fprintf (stderr, "ecmwf_nrt_arome_ensemble_nodes\n");
+        fprintf (stderr, "ecmwf_nrt_arome_ensemble_elements\n");
         fprintf (stderr, "cfsr_nodes\n");
         fprintf (stderr, "cfsr_elements\n");
         fprintf (stderr, "cfsr_nodes_hi\n");
