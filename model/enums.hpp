@@ -15,17 +15,15 @@ namespace setup
 
     enum class AtmosphereType
     {
-        CONSTANT           = 0,
-        GENERIC_PS         = 1,
-        ASR                = 2,
-        ERAi               = 3,
-        EC2                = 4,
-        EC_ERAi            = 5,
-        CFSR               = 6,
-        CFSR_HI            = 7,
-        EC2_AROME          = 8,
-        EC2_AROME_ENSEMBLE = 9,
-        ERA5               = 10
+        CONSTANT                 = 0,
+        GENERIC_PS               = 1,
+        ASR                      = 2,
+        ECMWF_NRT                = 3,
+        CFSR                     = 4,
+        CFSR_HI                  = 5,
+        ECMWF_NRT_AROME          = 6,
+        ECMWF_NRT_AROME_ENSEMBLE = 7,
+        ERA5                     = 8
     };
 
     enum class OceanType
