@@ -170,7 +170,7 @@ public:
         rain         = 107,
         evap         = 108,
         d_crit       = 109,
-        dvi_tot    = 110,
+        dvi_thermo    = 110,
         dhi       = 111,
         dhi_young = 112,
         dvi_newfrazil = 113,
@@ -558,8 +558,8 @@ public:
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::dvi_tot):
-                    name     = "dvi_tot";
+                case (variableID::dvi_thermo):
+                    name     = "dvi_thermo";
                     longName = "Ice Volume Melted or Formed per Day per Surface Area";
                     stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
                     Units    = " m/day";

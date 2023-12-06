@@ -3981,8 +3981,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
             // Ridging of thick ice - conserve level ice volume per ice covered area
             // (1-R^n) H^n / C^n = (1-R^{n+1}) H^{n+1} / C^{n+1}
             M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*std::min(1., M_conc[cpt])/(old_conc*surf_ratio);
-            // From now on, M_conc is only modified if ridging happens
-            D_del_ci_ridge[cpt] = -M_conc[cpt];
 
             if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
             {
@@ -4101,6 +4099,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
             conc_young = M_conc_young[cpt];
         }
 
+        // From now on, M_conc+del_c is only modified if ridging happens
+        D_del_ci_ridge[cpt] = -M_conc[cpt]-del_c;
         double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
 
         if((new_conc+conc_young)>1.)
@@ -4126,6 +4126,14 @@ FiniteElement::update(std::vector<double> const & UM_P)
         }
         D_del_ci_ridge[cpt] += M_conc[cpt];
 
+        // Ridge MYI if needed
+        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+        if (newice_type == 4 && use_young_ice_in_myi_reset == true)
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        else
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
+
         D_del_vi_ridge_young[cpt]*=days_in_sec/dtime_step; //  Ice volume tranfered from young to old due to ridging [m/day]
         D_del_ci_ridge_young[cpt]*=days_in_sec/dtime_step; // Change in young ice  concentration due to ridging [/day]
         D_del_ci_ridge_myi[cpt]  *=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
@@ -4143,13 +4151,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
-        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
-        if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        else
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
     }//loop over elements
 }//update
 
@@ -5988,7 +5989,7 @@ FiniteElement::thermo(int dt)
         D_del_vi_snow2ice[i] = snow2ice*days_in_sec/ddt;
 
         //  Ice area change rate (thermo) per day per element area  [m/day]
-        D_del_ci_thermo[i]       = del_ci*days_in_sec/ddt;
+        D_del_ci_thermo[i]       = (del_ci+del_ci_young)*days_in_sec/ddt;
 
         // Young Ice area change rate (thermo) per day per element area  [m/day]
         D_del_ci_thermo_young[i] = del_ci_young*days_in_sec/ddt;
@@ -8583,7 +8584,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_del_vi_bot_young[i]*time_factor;
                 break;
-            case (GridOutput::variableID::dvi_tot):
+            case (GridOutput::variableID::dvi_thermo):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_del_vi_tot[i]*time_factor;
                 break;
@@ -8867,7 +8868,7 @@ FiniteElement::initMoorings()
             ("taumod", GridOutput::variableID::taumod)
             ("dhi", GridOutput::variableID::dhi)
             ("dhi_young", GridOutput::variableID::dhi_young)
-            ("dvi_tot", GridOutput::variableID::dvi_tot)
+            ("dvi_thermo", GridOutput::variableID::dvi_thermo)
             ("dvi_bot_young", GridOutput::variableID::dvi_bot_young)
             ("dvi_newfrazil", GridOutput::variableID::dvi_newfrazil)
             ("dvi_mlt_bot", GridOutput::variableID::dvi_mlt_bot)
