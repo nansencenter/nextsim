@@ -23,7 +23,7 @@ export NEXTSIMDIR=`pwd`
 
 # AeroBulk turbulent air-sea flux computation
 #--------------------------------------------
-l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+l_aerobulk=false ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
     # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
@@ -74,7 +74,7 @@ NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compiled BOO
 ######################################################################
 # Host-specific adjustment of previously defined variables if needed #
 ######################################################################
-case `hostname | cut -d. -f2` in
+case `hostname -f | cut -d. -f2` in
     "merlat" )        export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -limf"
                       ;;
     "ige-mcpc-36"   ) NXTSM_DEP_DIR="/opt/nextsim_intel"
@@ -105,16 +105,16 @@ case `hostname | cut -d. -f2` in
                       #
                       export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
                       ;;
-    "fram" )          NXTSM_DEP_DIR="/cluster/projects/nn9878k/brodeau/opt/nextsim_intel"
-                      INTEL_VERSION="2018.1.163"
-                      INTEL_ROOT="/cluster/software/ifort/${INTEL_VERSION}-GCC-6.4.0-2.28"
-                      export INTEL_COMP_DIR="${INTEL_ROOT}/compilers_and_libraries_${INTEL_VERSION}/linux"
-                      export MPI_DIR="/cluster/software/impi/${INTEL_VERSION}-iccifort-${INTEL_VERSION}-GCC-6.4.0-2.28/intel64"
-                      export NETCDF_DIR="/cluster/software/netCDF/4.4.1.1-intel-2018a-HDF5-1.8.19"
-                      export NETCDF_CXX_DIR="/cluster/software/netCDF-C++4/4.3.0-intel-2018a-HDF5-1.8.19"
+    "fram" )          NXTSM_DEP_DIR="/cluster/projects/nn9878k/guibou/nextsim_intel/opt/"
+                      INTEL_VERSION="2022.1.0"
+                      INTEL_ROOT="/cluster/software/intel-compilers/${INTEL_VERSION}"
+                      export INTEL_COMP_DIR="/cluster/software/intel-compilers/${INTEL_VERSION}/compiler/latest/linux/"
+                      export MPI_DIR="/cluster/software/impi/2021.6.0-intel-compilers-${INTEL_VERSION}/mpi/latest/"
+                      export NETCDF_DIR="/cluster/software/netCDF/4.9.0-iimpi-2022a/"
+                      export NETCDF_CXX_DIR="/cluster/software/netCDF/4.9.0-iimpi-2022a/"
                       #
-                      export AEROBULK_DIR="/cluster/projects/nn9878k/brodeau/src/aerobulk"
-                      export OASIS_DIR="/cluster/projects/nn9878k/brodeau/src/oasis3-mct"
+                      export AEROBULK_DIR="/cluster/projects/nn9878k/guibou/NANUK/aerobulk/"
+                      export OASIS_DIR="/cluster/projects/nn9878k/guibou/NANUK/oa3-mct_iimpi2022a/"
                       #
                       export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
                       ;;
