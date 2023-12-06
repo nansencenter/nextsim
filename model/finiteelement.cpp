@@ -6383,6 +6383,19 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
 
             break;
             }
+        case 4:
+            /* Constant albedos with a meltpond contribution */
+            /* The scheme assumes constant snow, ice, and meltpond albedos. Something like alb_ice = 0.54, alb_sn = 0.83, and alb_pnd = 0.3 makes sense. */
+            {
+            /* Snow cover fraction */
+            double frac_sn = hs/(hs+0.02);
+
+            /* Final albedo */
+            albedo = frac_sn*alb_sn + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*alb_ice;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
+
+            break;
+            }
         default:
             std::cout << "alb_scheme = " << alb_scheme << "\n";
             throw std::logic_error("Wrong albedo_scheme");
