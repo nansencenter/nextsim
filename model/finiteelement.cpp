@@ -6288,9 +6288,11 @@ FiniteElement::freezingPoint(const double sss)
     {
         case setup::FreezingPointType::LINEAR:
             return_value = -physical::mu*sss;
+            break;
 
         case setup::FreezingPointType::UNESCO:
-            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
+            return_value = (-0.0575 + 1.710523e-3 * std::sqrt(sss) - 2.154996e-4 * sss) * sss;
+            break;
     }
 
     return return_value;
