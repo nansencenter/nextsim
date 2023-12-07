@@ -28,7 +28,7 @@ namespace physical
     //! Specific heat of sea water [J/K/kg]
     const double cpw = 4186.84;
 
-    //! Emissivity of ice */
+    //! Emissivity of ice
     const double eps = 0.996;
 
     //! Gravitational acceleration [m/s^2]
@@ -46,7 +46,7 @@ namespace physical
     //! Latent heat of evaporation at 0degC [J/Kg]
     const double Lv0 = 2.5e6;
 
-    //! Proportionality constant between salinity and freezing temperature of sea water [C]
+    //! Proportionality constant between salinity and freezing temperature of sea water [C kg/g]
     const double mu = 0.055;
 
     //! Gas constant for dry air [J/kg/K]

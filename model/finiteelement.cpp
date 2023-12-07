@@ -1297,7 +1297,7 @@ FiniteElement::initOptAndParam()
         M_nest_inner_mesh   = vm["nesting.inner_mesh"].as<std::string>();
         M_nest_method       = vm["nesting.method"].as<std::string>();
         M_nudge_function    = vm["nesting.nudge_function"].as<std::string>();
-        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>();
+        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>() * days_in_sec;
         M_nudge_lengthscale = vm["nesting.nudge_lengthscale"].as<double>();
         M_nest_dynamic_vars = vm["nesting.nest_dynamic_vars"].as<bool>();
     }
@@ -5168,8 +5168,8 @@ FiniteElement::thermo(int dt)
 
     // -------------------------------------------------
     //! 1) Sets constants from options.cpp and constants.hpp
-    double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>(); //! \param timeT (double const) Nudging time for temperature
-    double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>(); //! \param timeS (double const) Nudging time for salinity
+    double const timeT = days_in_sec * vm["thermo.ocean_nudge_timeT_days"].as<double>(); //! \param timeT (double const) Nudging time for temperature (s)
+    double const timeS = days_in_sec * vm["thermo.ocean_nudge_timeS_days"].as<double>(); //! \param timeS (double const) Nudging time for salinity (s)
     double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>(); //! \param Qdw_const (double const) Heat flux from ocean nudging
     double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>(); //! \param Qdw_const (double const) Fresh water flux from ocean nudging
 
@@ -10595,7 +10595,7 @@ FiniteElement::forcingAtmosphere()
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
                 M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             else
-                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=ERA5. Use thermo.use_parameterised_long_wave_radiation=false");
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=era5. Use thermo.use_parameterised_long_wave_radiation=false");
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;

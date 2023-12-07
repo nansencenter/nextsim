@@ -8,7 +8,6 @@
  */
 
 #include <boost/program_options.hpp>
-#include <constants.hpp>
 
 #if defined (WAVES)
 #include <options_wim.hpp>
@@ -16,7 +15,6 @@
 
 namespace po = boost::program_options;
 
-double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
     //! Describes the options to be set in a simulation (parameters, setup, dynamics, thermodynamics, numerics, ...)
@@ -409,10 +407,10 @@ namespace Nextsim
             ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
-            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean temperature to ocean forcing")
-            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean salinity to ocean forcing")
+            ("thermo.ocean_nudge_timeT_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean temperature to ocean forcing (days)")
+            ("thermo.ocean_nudge_timeS_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean salinity to ocean forcing (days)")
 
             // -- relating to thermodynamic forcing
             ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
@@ -442,8 +440,8 @@ namespace Nextsim
                 "Grid filename is nsting_grid_[inner_mesh].nc")
             ("nesting.method", po::value<std::string>()->default_value( "nudging" ),
                 "Options: nudging")
-            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec),
-                "relaxation timescale for nudging at boundary")
+            ("nesting.nudge_timescale", po::value<double>()->default_value((.5)),
+                "relaxation timescale for nudging at boundary (days)")
             ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ),
                 "Functional form for nudging frequency as a function of distance to boundary. Options: exponential, linear. Depends on nudge_length_scale")
             ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.),
