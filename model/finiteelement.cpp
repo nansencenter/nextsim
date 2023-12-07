@@ -1228,6 +1228,8 @@ FiniteElement::initOptAndParam()
         ("unesco", setup::FreezingPointType::UNESCO);
     M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear or unesco)
+    M_freezingpoint_mu = vm["thermo.freezingpoint_mu"].as<double>();
+        //! \param M_freezingpoint_mu (double) Proportionality constant for linear option between salinity and freezing temperature of sea water [C kg/g]
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -2133,7 +2135,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
                     val *= M_thick[i];
                     break;
                 case ModelVariable::interpTransformation::enthalpy:
-                    val = ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
+                    val = ( val -  M_freezingpoint_mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
                     break;
             }
             interp_elt_in_local[nb_var_element*i+j] = val;
@@ -2204,19 +2206,20 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 LOG(DEBUG)<<"redistribute (none): variable "<<j << " = "<<vptr->name()<<"\n";
 
             double val = out_elt_values[nb_var_element*i+j];
+            bool no_old_ice = false;
             if(vptr->getInterpTransformation() == ModelVariable::interpTransformation::conc)
             {
                 if(M_conc[i]>0)
                     val /= M_conc[i];
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
             else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::thick)
             {
                 if(M_thick[i]>0)
                     val /= M_thick[i];
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
             else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::enthalpy)
             {
@@ -2224,11 +2227,15 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 {
                     double enth = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
                     val = 0.5*(
-                            enth - std::sqrt(enth*enth + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
+                            enth - std::sqrt(enth*enth + 4* M_freezingpoint_mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
                 }
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
+
+            if (no_old_ice && vptr->varID() == ModelVariable::variableID::M_tice)
+                // if no ice set M_tice to freezing point of ice (not crucial - just can't be zero for Winton)
+                val = -M_freezingpoint_mu * physical::si;
 
             val = vptr->hasMinVal() ? std::max(vptr->minVal(), val ) : val ;
             if(apply_maxima)
@@ -5684,8 +5691,8 @@ FiniteElement::thermo(int dt)
             {
                 // Add newice evenly to both layers and recalculate temperature
                 double f1    = M_thick[i]/(M_thick[i]+newice); // Fraction of old ice (as opposed to newice) in the upper layer
-                double Tbar  = f1*( M_tice[1][i] - physical::Lf*physical::mu*physical::si/(physical::C*M_tice[1][i]) ) + (1-f1)*tfrw; // (39)
-                M_tice[1][i] = ( Tbar - std::sqrt(Tbar*Tbar + 4*physical::mu*physical::si*physical::Lf/physical::C) )/2.; // (38)
+                double Tbar  = f1*( M_tice[1][i] - physical::Lf* M_freezingpoint_mu*physical::si/(physical::C*M_tice[1][i]) ) + (1-f1)*tfrw; // (39)
+                M_tice[1][i] = ( Tbar - std::sqrt(Tbar*Tbar + 4* M_freezingpoint_mu*physical::si*physical::Lf/physical::C) )/2.; // (38)
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
@@ -5699,7 +5706,7 @@ FiniteElement::thermo(int dt)
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
-                M_tice[j][i] = -physical::mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
+                M_tice[j][i] = - M_freezingpoint_mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
 
             //M_tsurf_young[i] = tfrw;
             hi     = 0.;
@@ -6287,7 +6294,7 @@ FiniteElement::freezingPoint(const double sss)
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return_value = -physical::mu*sss;
+            return_value = - M_freezingpoint_mu * sss;
             break;
 
         case setup::FreezingPointType::UNESCO:
@@ -6376,7 +6383,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
     double const qs   = physical::Lf * physical::rhos;
     double const Crho = physical::C * physical::rhoi;
 
-    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
+    double const Tfr_ice  = -M_freezingpoint_mu * physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6601,7 +6608,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     // Constants
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
-    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
+    double const Tfr_ice  = - M_freezingpoint_mu * physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6631,7 +6638,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         if ( hs > 0. )
             Tsurf = std::min(0., Tsurf);
         else
-            Tsurf = std::min(-physical::mu*physical::si, Tsurf);
+            Tsurf = std::min(- M_freezingpoint_mu*physical::si, Tsurf);
 
         /* ---------------------------------------------------------------
          * Melt and growth
@@ -10850,7 +10857,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
-                M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
+                M_ocean_salt=ExternalData(physical::ocean_freezing_temp/ M_freezingpoint_mu);
             }
 
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
@@ -11006,7 +11013,7 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::CONSTANT:
             //std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sst.begin(), M_sst.end(), 1.);
-            std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
+            std::fill(M_sss.begin(), M_sss.end(),  1.8/ M_freezingpoint_mu);
             break;
         case setup::OceanType::TOPAZ4R:
         case setup::OceanType::TOPAZ4R_ATREST:
@@ -11053,7 +11060,7 @@ FiniteElement::assimilateSlabOcean()
             //std::fill(M_sst.begin(), M_sst.end(), -1.8);
             for ( int i=0; i<M_num_elements; ++i)
             {
-                M_sss[i]=(sigma_obs*M_sss[i]+sigma_mod*1.8/physical::mu)/(sigma_obs+sigma_mod);
+                M_sss[i]=(sigma_obs*M_sss[i]+sigma_mod*1.8/ M_freezingpoint_mu)/(sigma_obs+sigma_mod);
                 M_sst[i]=(sigma_obs*M_sst[i]+sigma_mod*1.)/(sigma_obs+sigma_mod);
             }
             break;
@@ -11225,7 +11232,7 @@ FiniteElement::checkConsistency()
             M_damage[i]=0.;
             M_ridge_ratio[i]=0.;
             for (int k=0; k<M_tice.size(); k++)
-                M_tice[k][i] = M_tice[k].valueNoThickIce();
+                M_tice[k][i] = -M_freezingpoint_mu * physical::si;
         }
         if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
@@ -11241,7 +11248,7 @@ FiniteElement::checkConsistency()
         // freezing points of ice and water needed for init of ice temp
         // and to check SST
         double const Tfr_wtr = this->freezingPoint(M_sss[i]);   //freezing point for water
-        double const Tfr_ice = -physical::mu*physical::si;      //freezing point for ice salinity
+        double const Tfr_ice = - M_freezingpoint_mu*physical::si;      //freezing point for ice salinity
 
         // check SST is consistent
         double conc_tot = M_conc[i];

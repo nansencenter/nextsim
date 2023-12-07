@@ -46,9 +46,6 @@ namespace physical
     //! Latent heat of evaporation at 0degC [J/Kg]
     const double Lv0 = 2.5e6;
 
-    //! Proportionality constant between salinity and freezing temperature of sea water [C kg/g]
-    const double mu = 0.055;
-
     //! Gas constant for dry air [J/kg/K]
     const double Ra_dry = 287.058;
 
