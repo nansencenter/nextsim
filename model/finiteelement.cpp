@@ -5806,8 +5806,9 @@ FiniteElement::thermo(int dt)
         double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*rain_on_ice;
         double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
 
-        // Meltponds. This version doesn't impact the emp balance ... but a futre one should
-        this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice);
+        // Meltponds. This version doesn't impact the emp balance ... but a future one should
+        if (use_meltponds)
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice);
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6390,8 +6391,15 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
             /* Snow cover fraction */
             double frac_sn = hs/(hs+0.02);
 
+            double albs;
+            if ( Tsurf > -1. )
+            {
+                albs = alb_sn  - 0.124*(Tsurf+1.);
+            } else {
+                albs = alb_sn;
+            }
             /* Final albedo */
-            albedo = frac_sn*alb_sn + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*alb_ice;
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*alb_ice;
             pen_sw = (1.-frac_sn-frac_pnd)*I_0;
 
             break;
@@ -6411,7 +6419,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 {
     // TODO: Make this tunable?
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
-    const double concMin = 0.1;      // minimmum ice concentration with ponds
+    const double concMin = 0.1;      // minimum ice concentration with ponds
     const double max_lid_thickness = 0.3; // maximum lid thickness
 
     const double ice_to_water = physical::rhoi/physical::rhow;
@@ -6455,8 +6463,9 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     */
     // Try with ridge ratio. With no ridges, we're limited by the fraction of snow free ice
     // TODO: With r1 = 0, r2 = 1, and f2 = 0, these equations can be simplified
+    const double maxPF_level_ice = 0.5;
     const double r1 = 0., r2 = 1.;
-    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2)), f2 = 0.;
+    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2))*maxPF_level_ice, f2 = 0.;
     const double a = (f2-f1)/(r2-r1);
     const double b = f1 - a*r1;
     D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
