@@ -5209,6 +5209,7 @@ FiniteElement::thermo(int dt)
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
+    double const max_pond_fraction = vm["thermo.max_pond_fraction"].as<double>(); // Maximum fraction of melt pond coverage for level ice
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5808,7 +5809,7 @@ FiniteElement::thermo(int dt)
 
         // Meltponds. This version doesn't impact the emp balance ... but a future one should
         if (use_meltponds)
-            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice);
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, max_pond_fraction);
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6415,7 +6416,7 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
 inline void
 FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
-        const double Qia, const double rain)
+        const double Qia, const double rain, const double max_pond_fraction)
 {
     // TODO: Make this tunable?
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
@@ -6463,9 +6464,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     */
     // Try with ridge ratio. With no ridges, we're limited by the fraction of snow free ice
     // TODO: With r1 = 0, r2 = 1, and f2 = 0, these equations can be simplified
-    const double maxPF_level_ice = 0.5;
     const double r1 = 0., r2 = 1.;
-    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2))*maxPF_level_ice, f2 = 0.;
+    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2))*max_pond_fraction, f2 = 0.;
     const double a = (f2-f1)/(r2-r1);
     const double b = f1 - a*r1;
     D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
