@@ -1353,6 +1353,7 @@ FiniteElement::initOptAndParam()
         ("evp", setup::DynamicsType::EVP)
         ("mevp", setup::DynamicsType::mEVP)
         ("bbm", setup::DynamicsType::BBM)
+        ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
