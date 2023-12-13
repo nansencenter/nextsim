@@ -4127,7 +4127,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         D_del_ci_ridge[cpt] += M_conc[cpt];
 
         // Ridge MYI if needed
-        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+        D_del_ci_ridge_myi[cpt] += -M_conc_myi[cpt];
         if (newice_type == 4 && use_young_ice_in_myi_reset == true)
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
