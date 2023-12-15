@@ -4150,6 +4150,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         /* lower bounds */
         M_conc[cpt]         = ((M_conc[cpt]>0.)?(M_conc[cpt] ):(0.)) ;
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
+        M_conc_myi[cpt]    = ((M_conc_myi[cpt]>0.)?(M_conc_myi[cpt]  ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
     }//loop over elements
@@ -5471,8 +5472,8 @@ FiniteElement::thermo(int dt)
         double del_ci_young     = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
-            del_vi_bot_young+= del_hi_young*old_conc_young;
-            del_vi     += del_hi_young*old_conc_young;
+            del_vi_bot_young+= del_hi_young*old_conc_young + del_hi_s2i_young*old_conc_young; //This is a temporary fix
+            del_vi     += del_hi_young*old_conc_young + del_hi_s2i_young*old_conc_young; //Same
             mlt_vi_top += mlt_hi_top_young*old_conc_young;
             mlt_vi_bot += mlt_hi_bot_young*old_conc_young;
             snow2ice   += del_hi_s2i_young*old_conc_young;
