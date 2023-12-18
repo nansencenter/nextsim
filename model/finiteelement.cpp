@@ -14305,6 +14305,9 @@ FiniteElement::checkFieldsFast()
         minmax.emplace("M_conc_young",  std::make_pair(   0.,  1.));
     }
 
+    if (M_mld.isInitialized())
+        minmax.emplace("M_mld", std::make_pair(0.,  10e3));
+
     bool crash = false;
     std::stringstream crash_msg;
     crash_msg << "FiniteElement::checkFieldsFast: Check failed: ";
