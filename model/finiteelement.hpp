@@ -795,19 +795,19 @@ private:
     ModelVariable D_Qnosun; // Non-solar heat loss from ocean [W/m2]
     ModelVariable D_Qsw_ocean; // SW flux out of the ocean [W/m2]
     ModelVariable D_Qassim; // flux from assim [W/m2]
-    ModelVariable D_vice_melt; // ice volume (/element_area) melted/formed [m/day]
-    ModelVariable D_del_vi_young; // young ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_vi_tot; // ice volume (/element_area) melted/formed [m/day]
+    ModelVariable D_del_vi_bot_young; // young ice volume (/element_area) melted/formed [m/day]
     ModelVariable D_del_hi; // ice growth/melt rate [m/sdat
     ModelVariable D_del_hi_young; // young ice growth/melt rate [m/day]
-    ModelVariable D_newice; // ice volume (/element_area) formed in open water [m/day]
-    ModelVariable D_mlt_top; // ice volume (/element_area) melted at top [m/day]
-    ModelVariable D_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_del_vi_newfrazil; // ice volume (/element_area) formed in open water [m/day]
+    ModelVariable D_del_vi_mlt_top; // ice volume (/element_area) melted at top [m/day]
+    ModelVariable D_del_vi_mlt_bot; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_del_vi_mlt_myi;   //myi ice volume (/element_area) melted [m/day]
     ModelVariable D_del_vi_rplnt_myi;  //myi ice vol change (/element_area) due to replenishment  [./day]
     ModelVariable D_del_ci_rplnt_myi;  //myi ice area change (/element_area) due to replenishment  [./day]
     ModelVariable D_del_ci_mlt_myi;    //myi ice area (/element_area) melted   [m/day]
     ModelVariable D_del_ci_ridge_myi; //myi ice area change (/element_area) due to ridging [./day]
-    ModelVariable D_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
+    ModelVariable D_del_vi_snow2ice; // ice volume (/element_area) melted at bottom [m/day]
     ModelVariable D_delS; // Salt flux to ocean
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
@@ -819,6 +819,13 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_del_vi_ridge_young; //young ice volume change (/element_area) due to ridging [m/day]
+    ModelVariable D_del_ci_ridge_young; //young ice area change (/element_area) due to ridging [./day]
+    ModelVariable D_del_ci_ridge; // ice area change (/element_area) due to ridging [./day]
+    ModelVariable D_del_ci_thermo; // ice area change (/element_area) due to thermo [./day]
+    ModelVariable D_del_ci_thermo_young; // young ice area change (/element_area) due to thermo [./day]
+    ModelVariable D_del_ci_young2old; // young ice area change (/element_area) transferred to 'old' [./day]
+    ModelVariable D_del_vi_young2old; // young ice volume change (/element_area) transferred to 'old' [m/day]
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
