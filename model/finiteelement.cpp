@@ -4021,7 +4021,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 // We get ridging when we cap
                 D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
                 M_conc_myi[cpt] = std::min(M_conc_myi[cpt], 1.); // Ensure M_conc_myi doesn't exceed total ice conc
-                D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
             }
         }
 
@@ -4125,20 +4124,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
             M_thick[cpt]=0.;
             M_snow_thick[cpt]=0.;
         }
-        D_del_ci_ridge[cpt] += M_conc[cpt];
-
-        // Ridge MYI if needed
-        D_del_ci_ridge_myi[cpt] += -M_conc_myi[cpt];
-        if (newice_type == 4 && use_young_ice_in_myi_reset == true)
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        else
-            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
-
-        D_del_vi_ridge_young[cpt]*=days_in_sec/dtime_step; //  Ice volume tranfered from young to old due to ridging [m/day]
-        D_del_ci_ridge_young[cpt]*=days_in_sec/dtime_step; // Change in young ice  concentration due to ridging [/day]
-        D_del_ci_ridge_myi[cpt]  *=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
-        D_del_ci_ridge[cpt]      *=days_in_sec/dtime_step; // Change in 'old' ice concentration due to ridging [/day]
 
         // END: Ridging scheme and mechanical redistribution
 
@@ -4153,6 +4138,23 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_conc_myi[cpt]    = ((M_conc_myi[cpt]>0.)?(M_conc_myi[cpt]  ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
+        
+        /*======================================================================
+         * Finish budgeting ridging :
+         *======================================================================
+         */
+        D_del_ci_ridge[cpt] += M_conc[cpt];
+        // Ridge MYI if needed
+        if (newice_type == 4 && use_young_ice_in_myi_reset == true)
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        else
+            M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
+        D_del_ci_ridge_myi[cpt] += M_conc_myi[cpt];
+
+        D_del_vi_ridge_young[cpt]*=days_in_sec/dtime_step; //  Ice volume tranfered from young to old due to ridging [m/day]
+        D_del_ci_ridge_young[cpt]*=days_in_sec/dtime_step; // Change in young ice  concentration due to ridging [/day]
+        D_del_ci_ridge_myi[cpt]  *=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
+        D_del_ci_ridge[cpt]      *=days_in_sec/dtime_step; // Change in 'old' ice concentration due to ridging [/day]
     }//loop over elements
 }//update
 
@@ -5324,6 +5326,8 @@ FiniteElement::thermo(int dt)
         double const old_vol = M_thick[i];
         double const old_snow_vol = M_snow_thick[i];
         double const old_conc = M_conc[i];
+        double const old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
+        double const old_thick_myi =  M_thick_myi[i];
         double old_h_young = 0.;
         double old_hs_young = 0.;
         double old_conc_young=0.;
@@ -6015,13 +6019,24 @@ FiniteElement::thermo(int dt)
         double del_ci_rplnt_myi =0.;
         double del_vi_mlt_myi =0.;
         double del_ci_mlt_myi =0.;
-        if (M_conc[i] < physical::cmin || M_thick[i] < M_conc[i]*physical::hmin)
+        double c_myi_max = M_conc[i];
+        double v_myi_max = M_thick[i];
+        if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                && use_young_ice_in_myi_reset)
         {
+            c_myi_max += M_conc_young[i];
+            v_myi_max += M_h_young[i];
+        }
+        // If there is not enough myi, set to 0
+        if (c_myi_max < physical::cmin || v_myi_max < c_myi_max*physical::hmin)
+        {
+            del_ci_mlt_myi = std::min(0.,-M_conc_myi[i]); 
+            del_vi_mlt_myi = std::min(0.,-M_thick_myi[i]);
+            M_conc_myi[i]     = 0.;
+            M_thick_myi[i]    = 0.;
             M_fyi_fraction[i] = 0.;
             M_age_det[i] = 0.;
             M_age[i] =  0.;
-            M_thick_myi[i] = 0.;
-            M_conc_myi[i] = 0.;
             M_freeze_days[i] = 0.; // If there is no ice, the freeze counter for myi should be reset as no myi to tag
             M_freeze_onset[i] = 1.; // If there is no ice, set onset to 1 since there is no ice to update anyway
         }
@@ -6105,16 +6120,6 @@ FiniteElement::thermo(int dt)
             // Now ensure that freeze and melt onsets are 0 or 1
             M_freeze_onset[i] = std::round(M_freeze_onset[i]);
 
-            double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
-            double old_thick_myi =  M_thick_myi[i];
-            double c_myi_max = M_conc[i];
-            double v_myi_max = M_thick[i];
-            if ( (M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
-                    && use_young_ice_in_myi_reset)
-            {
-                c_myi_max += M_conc_young[i];
-                v_myi_max += M_h_young[i];
-            }
 
             if (reset_myi) // 
             {
@@ -6157,9 +6162,9 @@ FiniteElement::thermo(int dt)
                     // Same logic for the volume 
                     //M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
                     // Recompute effective change
-                    del_ci_mlt_myi = M_conc_myi[i] - old_conc_myi; 
-                    del_vi_mlt_myi = M_thick_myi[i]- old_thick_myi;
                 }
+                del_ci_mlt_myi = std::min(0.,M_conc_myi[i]  - old_conc_myi);
+                del_vi_mlt_myi = std::min(0.,M_thick_myi[i] - old_thick_myi);
             }
         }
         // Tracers quantities to output
