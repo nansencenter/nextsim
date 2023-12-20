@@ -5328,7 +5328,10 @@ FiniteElement::thermo(int dt)
 
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
+        {
             mld = M_mld[i];
+            assert( mld > 0. );
+        }
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -14304,9 +14307,6 @@ FiniteElement::checkFieldsFast()
         minmax.emplace("M_hs_young",    std::make_pair(   0.,  2.));
         minmax.emplace("M_conc_young",  std::make_pair(   0.,  1.));
     }
-
-    if (M_mld.isInitialized())
-        minmax.emplace("M_mld", std::make_pair(0.,  10e3));
 
     bool crash = false;
     std::stringstream crash_msg;
