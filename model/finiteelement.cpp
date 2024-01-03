@@ -5328,7 +5328,10 @@ FiniteElement::thermo(int dt)
 
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
+        {
             mld = M_mld[i];
+            assert( mld > 0. );
+        }
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
