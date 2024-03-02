@@ -437,6 +437,7 @@ private:
 #endif
 
     setup::FreezingPointType M_freezingpoint_type;
+    double M_freezingpoint_mu;
     setup::OceanHeatfluxScheme M_Qio_type;
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
