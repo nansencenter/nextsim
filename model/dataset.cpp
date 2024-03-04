@@ -8671,7 +8671,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            filename_mask: "ERA5_${VARSTRING}_y%Y.nc",
+            filename_mask: "atmospheric_forcing/ERA5_${VARSTRING}_y%Y.nc",
             gridfile: "",
             reference_date:"1900-01-01",
 
@@ -8932,7 +8932,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname:"",
-            filename_mask: "ERA5_${VARSTRING}_y%Y.nc",
+            filename_mask: "atmospheric_forcing/ERA5_${VARSTRING}_y%Y.nc",
             gridfile: "",
             reference_date:"1900-01-01",
 
