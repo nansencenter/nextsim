@@ -1868,7 +1868,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable u={
             filename_string: "", // All variables are in the same (grid) file
-            name: "u",
+            name: "vxo",
             dimensions: dimensions_uv,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1886,7 +1886,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable v={
             filename_string: "", // All variables are in the same (grid) file
-            name: "v",
+            name: "vyo",
             dimensions: dimensions_uv,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1904,7 +1904,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable ssh={
             filename_string: "", // All variables are in the same (grid) file
-            name: "ssh",
+            name: "zos",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1924,7 +1924,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_30m.nc",
+            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -2072,7 +2072,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sst={
             filename_string: "", // All variables are in the same (grid) file
-            name: "temperature",
+            name: "thetao",
             dimensions: dimensions_uv,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2090,7 +2090,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sss={
             filename_string: "", // All variables are in the same (grid) file
-            name: "salinity",
+            name: "so",
             dimensions: dimensions_uv,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2108,7 +2108,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mld={
             filename_string: "", // All variables are in the same (grid) file
-            name: "mlp",
+            name: "mlotst",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2128,7 +2128,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -5589,7 +5589,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable conc={
             filename_string: "", // All variables are in the same (grid) file
-            name: "fice",
+            name: "siconc",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5607,7 +5607,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thick={
             filename_string: "", // All variables are in the same (grid) file
-            name: "hice",
+            name: "sithick",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5625,7 +5625,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable snow_thick={
             filename_string: "", // All variables are in the same (grid) file
-            name: "hsnow",
+            name: "sisnthick",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5645,7 +5645,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
