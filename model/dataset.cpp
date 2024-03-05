@@ -1913,7 +1913,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
+            filename_mask: "oceanic_forcing/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -2107,7 +2107,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
+            filename_mask: "oceanic_forcing/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -5613,7 +5613,7 @@ DataSet::DataSet(char const *DatasetName)
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
             dirname: "",
-            filename_mask: "oceanic_forcing/%Y/topaz_rean_%Y%m.nc",
+            filename_mask: "oceanic_forcing/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
