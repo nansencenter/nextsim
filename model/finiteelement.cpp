@@ -5996,13 +5996,23 @@ FiniteElement::thermo(int dt)
 
             // Observable sea ice age tracer
             // Melt does not effect the age, growth makes it younger
-            M_age_det[i] += dt*M_conc[i];
+            double old_age_det = M_age_det[i];
+            if (old_conc > 0. && del_c > 0.) // freezing
+            {
+                M_age_det[i] = (old_age_det+dt)*old_conc/M_conc[i] + dt*del_c/M_conc[i];
+            }
+            else if (old_conc > 0. && del_c < 0.) // melting
+            {
+                M_age_det[i] = old_age_det+dt;
+            }
+            else //new ice
+            {
+                M_age_det[i] =  dt;
+            }
 
             // Real (volume weighted and conserving) sea ice age
             double old_age = M_age[i];
             double del_vi_thick = M_thick[i] - old_vol;
-
-            // potential devision by zero and non-initialized old_vol (strange value) in the first time step
             if (old_vol > 0. && del_vi_thick > 0.) // freezing
             {
                 M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
@@ -6015,9 +6025,9 @@ FiniteElement::thermo(int dt)
             {
                 M_age[i] =  dt;
             }
+
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
-
             if (reset_by_date)
             {
                 if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
