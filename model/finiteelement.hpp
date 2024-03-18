@@ -576,6 +576,7 @@ private:
     double h_young_max;
     double h_young_max_sharp;
     double M_ks;
+    double M_ki;
     double M_ocean_albedo;
     double M_Csens_io;
 

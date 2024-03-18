@@ -1190,6 +1190,7 @@ FiniteElement::initOptAndParam()
     // TODO make h_young_max_sharp be in the config file, not h_young_max
     h_young_max_sharp = .5*(h_young_min + h_young_max); //! \param h_young_max_sharp (double) Maximum thickness of young ice when the young ice thickness distribution is considered sharp [m]
     M_ks = vm["thermo.snow_cond"].as<double>(); //! \param M_ks (double) Snow conductivity [W/(K m)]
+    M_ki = vm["thermo.ice_cond"].as<double>(); //! \param M_ki (double) Ice conductivity [W/(K m)]
     M_ocean_albedo = vm["thermo.albedoW"].as<double>(); //! \param ocean_albedo (double const) Ocean albedo
     M_Csens_io = vm["thermo.Csens_io"].as<double>(); //! \param Csens_io (double const) to calculate sensible heat flux under the ice
 
@@ -5849,11 +5850,11 @@ FiniteElement::thermo(int dt)
                 switch (M_thermo_type)
                 {
                     case (setup::ThermoType::ZERO_LAYER):
-                        C = physical::ki*M_snow_thick[i]/(M_ks*M_thick[i]);
+                        C = M_ki*M_snow_thick[i]/(M_ks*M_thick[i]);
                         deltaT = std::max(1e-36, Tbot - M_tice[0][i] ) / ( 1. + C );
                         break;
                     case (setup::ThermoType::WINTON):
-                        C = physical::ki*M_snow_thick[i]/(M_ks*M_thick[i]/4.);
+                        C = M_ki*M_snow_thick[i]/(M_ks*M_thick[i]/4.);
                         deltaT = std::max(1e-36, Tbot + C*(Tbot-M_tice[1][i]) - M_tice[0][i] ) / ( 1. + C );
                         break;
                     default:
@@ -6432,10 +6433,10 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
          */
 
         // First some coefficients based on temperatures from the previous time step
-        double K12 = 4*physical::ki*M_ks / ( M_ks*hi + 4*physical::ki*hs ); // (5)
+        double K12 = 4*M_ki*M_ks / ( M_ks*hi + 4*M_ki*hs ); // (5)
         double A   = Qia - Tsurf*dQiadT; // (7)
         double B   = dQiadT; // (8)
-        double K32 = 2*physical::ki/hi; // (10)
+        double K32 = 2*M_ki/hi; // (10)
 
         double A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12*B/(K12+B); // (16)
         double B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I
@@ -6504,7 +6505,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
         mlt_hi_top = std::max(0.,h1+h2-hi_old);
 
         // Bottom melt/freezing
-        double Mbot  = Qio - 4*physical::ki*(Tbot-T2)/hi; // (23)
+        double Mbot  = Qio - 4*M_ki*(Tbot-T2)/hi; // (23)
 
         // Growth/melt at the ice-ocean interface
         del_hs_mlt = 0; // Record snow melt
@@ -6658,9 +6659,9 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         // -------------------------------------------------
         /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki ) * gamma;
+        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/M_ki ) * gamma;
         Tsurf = Tsurf + ( Qic - Qia_mod )/
-            ( M_ks/(hs+M_ks*hi/physical::ki) + dQiadT );
+            ( M_ks/(hs+M_ks*hi/M_ki) + dQiadT );
 
         /* Limit Tsurf to the freezing point of snow or ice */
         if ( hs > 0. )
@@ -11331,9 +11332,9 @@ FiniteElement::checkConsistency()
                     // => ki*hs*(Tfr_bot - Ti) = ks*hi*(Ti - Ts)
                     // => (ki*hs+ks*hi)*Ti = ki*hs*Tfr_bot + ks*hi*Ts
                     // => a*Ti = b
-                    double const a = physical::ki*M_snow_thick[i]
+                    double const a = M_ki*M_snow_thick[i]
                         + M_ks*M_thick[i];
-                    double const b = physical::ki*M_snow_thick[i]*Tfr_wtr
+                    double const b = M_ki*M_snow_thick[i]*Tfr_wtr
                         + M_ks*M_thick[i]*M_tice[0][i];
                     Ti = std::min(b/a, Tfr_ice);//make sure it is not higher than freezing point
                 }
