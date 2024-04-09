@@ -6131,6 +6131,82 @@ FiniteElement::thermo(int dt)
 
 }//thermo
 
+// Calculates drag coefficients over ocean and ice, taking atmospheric stability into account
+/* Note on the naming scheme:
+ * Drag coeficients are called drag_*
+ * Momentum, heat and humidity dependent coefficeints are labelled *_u, *_t, and *_q respectively
+ * The neutral coefficeints are labelled *_ni *_no, *_nt, and *_nq, for ice, ocean momentum, ocean heat and ocean humidity respectively
+ * Ice and ocean coeficients have an i and an h appended
+ * Temporary drag coefficents have a p (for primed) appended */
+void
+FiniteElement::dragCoeff(
+        const std::vector<double>& Tsurf,
+        std::vector<double>& drag_ui,
+        std::vector<double>& drag_ti)
+{
+    const double mstab = 10; // A limit for the ratio between the Obukov length and the reference height
+    const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
+    const double z0 = vm["thermo.z0"].as<double>();
+
+    for (int i=0; i<M_num_elements; i++)
+    {
+        double deldrag = 1;
+        drag_ui[i] = quad_drag_coef_air;
+        drag_ti[i] = drag_ice_t;
+        const double tairK = M_tair[i] + physical::tfrwK;
+
+        /* zfri   = z0*exp(-vonKarman/sqrt(drag_ni));
+        lambda = log(z0/zfri); */
+        const double lambdau = vonKarman/sqrt(drag_ui[i]);
+        const double lambdat = vonKarman/sqrt(drag_ti[i]);
+
+        for (int j=1; j<=20; j++)
+        {
+            const double wspeed = this->windSpeedElement(i);
+
+            /* Calculate the exchange based on previous drag coefficients */
+            const double ustar = M_conc[i]*drag_ui[i]*wspeed;
+            const double Tstar = M_conc[i]*drag_ti[i]*(M_tair[i]-Tsurf[i]);
+
+            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+            const double sphuma = tmp.first;
+
+            tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, Tsurf[i]);
+            const double sphumi = tmp.first;
+
+            const double Qstar = M_conc[i]*drag_ti[i]*(sphuma-sphumi);
+
+            /* The stability criterion z0/L, where L is the Obukhov length */
+            double stab = z0*vonKarman*g/(ustar*ustar)
+                    * ( Tstar/(tairK*(1+0.606*sphuma)) + Qstar/(1/0.606 + sphuma) );
+            stab = std::max(-mstab, std::min(mstab, stab));
+
+            double pshim, pshis;
+            if ( stab >=0 )
+            { /* The stable case */
+                pshim = -(0.7*stab + 0.75*(stab-14.3)*exp(-0.35*stab) + 10.7);
+                pshis = pshim;
+            } else { /* The unstable case */
+                const double x = sqrt(fmax(1, sqrt(1-16*stab)));
+                pshim = 2*log(0.5*(1+x)) + log(0.5*(1+x*x)) - 2*atan(x) + M_PI/2;
+                pshis = 2*log(0.5*(1+x*x));
+            }
+
+            /* Re-calculate the drag coefficients */
+            const double drag_up = quad_drag_coef_air/(1+quad_drag_coef_air*(lambdau-pshim)/vonKarman);
+            const double drag_tp = drag_ice_t/(1+drag_ice_t*(lambdat-pshis)/vonKarman);
+
+            deldrag = std::max(std::abs(drag_up-drag_ui[i]),
+                               std::abs(drag_tp-drag_ti[i]) );
+
+            drag_ui[i] = drag_up;
+            drag_ti[i] = drag_tp;
+
+            if ( deldrag*1e3 < 1e-2 )
+                break;
+        }
+    }
+}//dragCoeff
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
@@ -6150,12 +6226,39 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& alb_tot)
 {
     // Constants
-    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
     int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+
+    std::vector<double> drag_ice_t(M_num_elements), drag_ice_u(M_num_elements);
+
+    dragCoeff(Tsurf, drag_ice_t, drag_ice_u);
+
+    for ( int i=0; i<M_num_nodes; ++i )
+    {
+        const int u_indx = i;
+        const int v_indx = i+M_num_nodes;
+
+        // Surface weighted average drag
+        double drag = 0.;
+        double surface = 0;
+        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+        for (int j=0; j<num_elements; j++)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+            // Skip negative elt_num
+            if ( elt_num < 0 ) continue;
+
+            drag += drag_ice_u[elt_num] * M_surface[elt_num];
+            surface += M_surface[elt_num];
+        }
+        drag /= surface;
+
+        D_tau_a[u_indx] = drag * M_wind[u_indx];
+        D_tau_a[v_indx] = drag * M_wind[v_indx];
+    }
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6183,15 +6286,15 @@ FiniteElement::IABulkFluxes(
         double  wspeed = this->windSpeedElement(i);
 
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = drag_ice_t[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
+        double dQshdT = drag_ice_t[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
+        Qlh[i] = drag_ice_t[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ice_t[i]*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
@@ -10067,10 +10170,10 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] = 0.;
         }
 
-        // Atmospheric drag
-        const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
-        D_tau_a[u_indx] = drag * M_wind[u_indx];
-        D_tau_a[v_indx] = drag * M_wind[v_indx];
+        // // Atmospheric drag
+        // const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
+        // D_tau_a[u_indx] = drag * M_wind[u_indx];
+        // D_tau_a[v_indx] = drag * M_wind[v_indx];
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
