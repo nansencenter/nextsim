@@ -5997,35 +5997,18 @@ FiniteElement::thermo(int dt)
 
             // Observable sea ice age tracer
             // Melt does not effect the age, growth makes it younger
-            double old_age_det = M_age_det[i];
-            if (old_conc > 0. && del_c > 0.) // freezing
-            {
-                M_age_det[i] = (old_age_det+dt)*old_conc/M_conc[i] + dt*del_c/M_conc[i];
-            }
-            else if (old_conc > 0. && del_c < 0.) // melting
-            {
-                M_age_det[i] = old_age_det+dt;
-            }
-            else //new ice
-            {
-                M_age_det[i] =  dt;
-            }
+            double w_age = old_conc <= 0? 0.: std::min(old_conc/M_conc[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_conc > M_conc => w_age = 1
+            // freezing => weighted average
+            M_age_det[i] =  w_age * (M_age_det[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
             // Real (volume weighted and conserving) sea ice age
-            double old_age = M_age[i];
-            double del_vi_thick = M_thick[i] - old_vol;
-            if (old_vol > 0. && del_vi_thick > 0.) // freezing
-            {
-                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
-            }
-            else if (old_vol > 0. && del_vi_thick < 0.) // melting
-            {
-                M_age[i] = old_age+dt;
-            }
-            else //new ice
-            {
-                M_age[i] =  dt;
-            }
+            w_age = old_vol <= 0 ? 0. : std::min(old_vol/M_thick[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_vol > M_thick => w_age = 1
+            // freezing => weighted average
+            M_age[i] =  w_age * (M_age[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
