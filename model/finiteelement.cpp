@@ -8328,7 +8328,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::age_d):
+            case (GridOutput::variableID::age_det):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_age_det[i] * time_factor / years_in_sec;
                 break;
@@ -8807,7 +8807,7 @@ FiniteElement::initMoorings()
             ("sialb", GridOutput::variableID::sialb)
             ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
-            ("age_d", GridOutput::variableID::age_d)
+            ("age_det", GridOutput::variableID::age_det)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
