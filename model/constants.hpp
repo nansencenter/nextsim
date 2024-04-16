@@ -37,6 +37,9 @@ namespace physical
     //! Minimum ice thickness allowed [m]
     const double hmin = 0.01;
 
+    //! Heat conductivity of ice [W/K/m]
+    const double ki = 2.0334;
+
     //! Latent heat of fusion [J/Kg]
     const double Lf = 333.55e3;
 
