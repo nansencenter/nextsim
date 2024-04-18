@@ -15,66 +15,66 @@ namespace setup
 
     enum class AtmosphereType
     {
-        CONSTANT           = 0,
-        GENERIC_PS         = 1,
-        ASR                = 2,
-        ERAi               = 3,
-        EC2                = 4,
-        EC_ERAi            = 5,
-        CFSR               = 6,
-        CFSR_HI            = 7,
-        EC2_AROME          = 8,
-        EC2_AROME_ENSEMBLE = 9,
-        ERA5               = 10
+        CONSTANT                 = 0,
+        GENERIC_PS               = 1,
+        ASR                      = 2,
+        ECMWF_NRT                = 3,
+        CFSR                     = 4,
+        CFSR_HI                  = 5,
+        ECMWF_NRT_AROME          = 6,
+        ECMWF_NRT_AROME_ENSEMBLE = 7,
+        ERA5                     = 8
     };
 
     enum class OceanType
     {
-        CONSTANT           = 0,
-        TOPAZR             = 1,
-        TOPAZF             = 2,
-        MITGCM             = 3,
-        TOPAZR_atrest      = 4,
-        TOPAZR_ALTIMETER   = 5,
-        COUPLED            = 6,
-        GLORYS12R          = 7
+        CONSTANT          = 0,
+        TOPAZ4R           = 1,
+        TOPAZ4NRT         = 2,
+        TOPAZ5NRT         = 3,
+        MITGCM            = 4,
+        TOPAZ4R_ATREST    = 5,
+        TOPAZ4R_ALTIMETER = 6,
+        COUPLED           = 7,
+        GLORYS12R         = 8
     };
 
     enum class IceType
     {
-        CONSTANT                    = 0,
-        CONSTANT_PARTIAL            = 1,
-        AMSRE                       = 2,
-        TOPAZ4                      = 3,
-        ARBITRARY                   = 5,
-        AMSR2                       = 6,
-        TOPAZ4F                     = 7,
-        MITGCM                      = 8,
-        TARGET                      = 9,
-        OSISAF                      = 10,
-        PIOMAS                      = 11,
-        TOPAZ4FAMSR2                = 12,
-        TOPAZ4FAMSR2OSISAF          = 13,
-        CS2_SMOS                    = 14,
-        CS2_SMOS_AMSR2              = 15,
-        SMOS                        = 16,
-        BINARY                      = 17,
-        TOPAZ4OSISAFICESAT          = 18,
-        TOPAZ4FAMSR2OSISAFNIC       = 19,
-        TOPAZ4FAMSR2OSISAFNICWEEKLY = 20,
-        NEMO                        = 21,
-        CICE                        = 22,
-        AMSR2CSTTHICK               = 23,
-        GLORYS12R                   = 24
+        CONSTANT                         = 0,
+        CONSTANT_PARTIAL                 = 1,
+        AMSRE                            = 2,
+        TOPAZ4R                          = 3,
+        ARBITRARY                        = 5,
+        AMSR2                            = 6,
+        TOPAZ4NRT                        = 7,
+        TOPAZ5NRT                        = 8,
+        MITGCM                           = 9,
+        TARGET                           = 10,
+        OSISAF                           = 11,
+        PIOMAS                           = 12,
+        TOPAZ4NRT_AMSR2                  = 13,
+        TOPAZ4NRT_AMSR2_OSISAF           = 14,
+        CS2_SMOS                         = 15,
+        CS2_SMOS_AMSR2                   = 16,
+        SMOS                             = 17,
+        BINARY                           = 18,
+        TOPAZ4R_OSISAF_ICESAT            = 19,
+        TOPAZ4NRT_AMSR2_OSISAF_NIC       = 20,
+        TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY = 21,
+        NEMO                             = 22,
+        CICE                             = 23,
+        AMSR2_CSTTHICK                   = 24,
+        GLORYS12R                        = 25
     };
 
     enum class WaveType
     {
-        SET_IN_WIM          = 0,
-        CONSTANT            = 1,
-        CONSTANT_PARTIAL    = 2,
-        WW3A                = 3,
-        ERAI_WAVES_1DEG     = 4
+        SET_IN_WIM       = 0,
+        CONSTANT         = 1,
+        CONSTANT_PARTIAL = 2,
+        WW3A             = 3,
+        ERAI_WAVES_1DEG  = 4
     };
 
     enum class BathymetryType
@@ -92,33 +92,33 @@ namespace setup
 
     enum class IceCategoryType
     {
-        CLASSIC     = 0,
-        YOUNG_ICE   = 1,
-        MULTI       = 2
+        CLASSIC   = 0,
+        YOUNG_ICE = 1,
+        MULTI     = 2
     };
 
     enum class WeldingType
     {
-        NONE     = 0,
-        ROACH    = 1
+        NONE  = 0,
+        ROACH = 1
     };
 
     enum class FSDType
     {
-        CONSTANT_SIZE   = 0,
-        CONSTANT_AREA   = 1
+        CONSTANT_SIZE = 0,
+        CONSTANT_AREA = 1
     };
     enum class BreakupType
     {
-        NONE  = 0,
+        NONE         = 0,
         UNIFORM_SIZE = 1,
-        ZHANG   =2,
-        DUMONT  =3
+        ZHANG        = 2,
+        DUMONT       = 3
     };
     enum class MeshType
     {
-        FROM_UNREF     = 0,
-        FROM_SPLIT     = 1
+        FROM_UNREF = 0,
+        FROM_SPLIT = 1
     };
 
     enum class ThermoType
@@ -129,15 +129,15 @@ namespace setup
 
     enum class FreezingPointType
     {
-        LINEAR     = 0,
-        UNESCO     = 1
+        LINEAR = 0,
+        UNESCO = 1
     };
 
 
     enum class OceanHeatfluxScheme
     {
-        BASIC      = 0,
-        EXCHANGE   = 1
+        BASIC    = 0,
+        EXCHANGE = 1
     };
 
     enum class DynamicsType
