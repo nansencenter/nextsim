@@ -188,6 +188,8 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
+        drag_ui      = 128,
+        drag_ti      = 129,
 
         // Forcing variables
         tair     = 200,
@@ -681,6 +683,20 @@ public:
                     name     = "divergence";
                     longName = "Ice Velocity Divergence";
                     stdName  = "ice_velocity_divergence";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ui):
+                    name     = "drag_ui";
+                    longName = "Ice-atmosphere momentum drag";
+                    stdName  = "ice-atmosphere_momentum_drag";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ti):
+                    name     = "drag_ti";
+                    longName = "Ice-atmosphere thermodynamic drag";
+                    stdName  = "ice-atmosphere_thermodynamic_drag";
                     Units    = "1/s";
                     cell_methods = "area: mean";
                     break;

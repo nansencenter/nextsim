@@ -124,6 +124,8 @@ public:
         D_del_vi_rplnt_myi = 138,
         D_del_ci_ridge_myi = 139,
         D_sialb        = 140,
+        D_drag_ui      = 141,
+        D_drag_ti      = 142,
     };
 
 

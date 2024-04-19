@@ -186,10 +186,7 @@ public:
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
             std::vector<double>& alb_tot);
-    void dragCoeff(
-            const std::vector<double>& Tsurf,
-            std::vector<double>& drag_ui,
-            std::vector<double>& drag_ti);
+    void dragCoeff();
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -824,6 +821,8 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_drag_ui; // Ice-atmosphere momentum drag coefficient
+    ModelVariable D_drag_ti; // Ice-atmosphere thermodynamic drag coefficient
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]

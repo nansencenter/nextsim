@@ -6139,10 +6139,7 @@ FiniteElement::thermo(int dt)
  * Ice and ocean coeficients have an i and an h appended
  * Temporary drag coefficents have a p (for primed) appended */
 void
-FiniteElement::dragCoeff(
-        const std::vector<double>& Tsurf,
-        std::vector<double>& drag_ui,
-        std::vector<double>& drag_ti)
+FiniteElement::dragCoeff()
 {
     const double mstab = 10; // A limit for the ratio between the Obukov length and the reference height
     const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -6151,30 +6148,30 @@ FiniteElement::dragCoeff(
     for (int i=0; i<M_num_elements; i++)
     {
         double deldrag = 1;
-        drag_ui[i] = quad_drag_coef_air;
-        drag_ti[i] = drag_ice_t;
+        D_drag_ui[i] = quad_drag_coef_air;
+        D_drag_ti[i] = drag_ice_t;
         const double tairK = M_tair[i] + physical::tfrwK;
 
         /* zfri   = z0*exp(-vonKarman/sqrt(drag_ni));
         lambda = log(z0/zfri); */
-        const double lambdau = vonKarman/sqrt(drag_ui[i]);
-        const double lambdat = vonKarman/sqrt(drag_ti[i]);
+        const double lambdau = vonKarman/sqrt(D_drag_ui[i]);
+        const double lambdat = vonKarman/sqrt(D_drag_ti[i]);
 
         for (int j=1; j<=20; j++)
         {
             const double wspeed = this->windSpeedElement(i);
 
             /* Calculate the exchange based on previous drag coefficients */
-            const double ustar = M_conc[i]*drag_ui[i]*wspeed;
-            const double Tstar = M_conc[i]*drag_ti[i]*(M_tair[i]-Tsurf[i]);
+            const double ustar = D_drag_ui[i]*wspeed;
+            const double Tstar = D_drag_ti[i]*(M_tair[i]-M_tice[0][i]);
 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             const double sphuma = tmp.first;
 
-            tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, Tsurf[i]);
+            tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, M_tice[0][i]);
             const double sphumi = tmp.first;
 
-            const double Qstar = M_conc[i]*drag_ti[i]*(sphuma-sphumi);
+            const double Qstar = D_drag_ti[i]*(sphuma-sphumi);
 
             /* The stability criterion z0/L, where L is the Obukhov length */
             double stab = z0*vonKarman*g/(ustar*ustar)
@@ -6196,11 +6193,11 @@ FiniteElement::dragCoeff(
             const double drag_up = quad_drag_coef_air/(1+quad_drag_coef_air*(lambdau-pshim)/vonKarman);
             const double drag_tp = drag_ice_t/(1+drag_ice_t*(lambdat-pshis)/vonKarman);
 
-            deldrag = std::max(std::abs(drag_up-drag_ui[i]),
-                               std::abs(drag_tp-drag_ti[i]) );
+            deldrag = std::max(std::abs(drag_up-D_drag_ui[i]),
+                               std::abs(drag_tp-D_drag_ti[i]) );
 
-            drag_ui[i] = drag_up;
-            drag_ti[i] = drag_tp;
+            D_drag_ui[i] = drag_up;
+            D_drag_ti[i] = drag_tp;
 
             if ( deldrag*1e3 < 1e-2 )
                 break;
@@ -6232,34 +6229,6 @@ FiniteElement::IABulkFluxes(
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
 
-    std::vector<double> drag_ice_t(M_num_elements), drag_ice_u(M_num_elements);
-
-    dragCoeff(Tsurf, drag_ice_t, drag_ice_u);
-
-    for ( int i=0; i<M_num_nodes; ++i )
-    {
-        const int u_indx = i;
-        const int v_indx = i+M_num_nodes;
-
-        // Surface weighted average drag
-        double drag = 0.;
-        double surface = 0;
-        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-        for (int j=0; j<num_elements; j++)
-        {
-            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-            // Skip negative elt_num
-            if ( elt_num < 0 ) continue;
-
-            drag += drag_ice_u[elt_num] * M_surface[elt_num];
-            surface += M_surface[elt_num];
-        }
-        drag /= surface;
-
-        D_tau_a[u_indx] = drag * M_wind[u_indx];
-        D_tau_a[v_indx] = drag * M_wind[v_indx];
-    }
-
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -6286,15 +6255,15 @@ FiniteElement::IABulkFluxes(
         double  wspeed = this->windSpeedElement(i);
 
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ice_t[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ice_t[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = D_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
+        double dQshdT = D_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t[i]*Lsub*rhoair*wspeed*dsphumidT;
+        Qlh[i] = D_drag_ti[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = D_drag_ti[i]*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
@@ -7165,6 +7134,11 @@ FiniteElement::initModelVariables()
     D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
     M_variables_elt.push_back(&D_dmean);
 
+    D_drag_ui = ModelVariable(ModelVariable::variableID::D_drag_ui);
+    M_variables_elt.push_back(&D_drag_ui);
+    D_drag_ti = ModelVariable(ModelVariable::variableID::D_drag_ti);
+    M_variables_elt.push_back(&D_drag_ti);
+
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
     M_prognostic_variables_elt.resize(0);
@@ -7973,6 +7947,10 @@ FiniteElement::step()
 
     M_timer.tock("auxiliary");
 
+    M_timer.tick("drag coeffs");
+    this->dragCoeff();
+    M_timer.tock("drag coeffs");
+
     //======================================================================
     //! 2) Performs the thermodynamics
     //======================================================================
@@ -8578,6 +8556,15 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::divergence):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_divergence[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::drag_ui):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_drag_ui[i]*time_factor;
+                break;
+            case (GridOutput::variableID::drag_ti):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_drag_ti[i]*time_factor;
                 break;
 
 
@@ -10149,6 +10136,7 @@ FiniteElement::explicitSolve()
     // std::vector<double> tau_a(2*M_num_nodes);
     // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
+    std::vector<double> c_2prime(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
@@ -10195,6 +10183,25 @@ FiniteElement::explicitSolve()
             tau_wi[v_indx] = M_tau_wi[v_indx];
         }
 #endif
+
+        // Surface weighted average drag
+        double drag = 0.;
+        double surface = 0;
+        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+        for (int j=0; j<num_elements; j++)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+            // Skip negative elt_num
+            if ( elt_num < 0 ) continue;
+
+            drag += D_drag_ti[elt_num] * M_surface[elt_num];
+            surface += M_surface[elt_num];
+        }
+        drag /= surface;
+
+        D_tau_a[u_indx] = drag * M_wind[u_indx];
+        D_tau_a[v_indx] = drag * M_wind[v_indx];
+        c_2prime[i] = physical::rhow*drag;
     }
 
     M_timer.tock("prep nodes");
@@ -10280,7 +10287,7 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = c_2prime[i]*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
