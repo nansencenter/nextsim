@@ -12483,23 +12483,19 @@ FiniteElement::piomasIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_conc[i] = std::min(1.,M_init_conc[i]);
+        M_conc[i] = std::min(1., M_init_conc[i]);
         M_thick[i] = M_init_thick[i];
-        M_snow_thick[i] = M_init_snow_thick[i];
+        M_snow_thick[i] = std::max(0., M_init_snow_thick[i]);
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
+        if((M_conc[i] <= 0.) || (M_thick[i] <= 0.))
         {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
+            M_conc[i] = 0.;
+            M_thick[i] = 0.;
+            M_snow_thick[i] = 0.;
         }
 
-        M_damage[i]=0.;
+        M_damage[i] = 0.;
     }
 }//piomasIce
 
