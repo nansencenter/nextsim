@@ -613,7 +613,6 @@ FiniteElement::assignVariables()
     }
 #endif
     M_ice_topaz_elements_dataset.interpolated=false;
-    M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
     M_ice_osisaf_elements_dataset.interpolated=false;
     M_ice_osisaf_type_elements_dataset.interpolated=false;
@@ -838,7 +837,6 @@ FiniteElement::initDatasets()
     //              amount of memory
     M_ice_topaz_elements_dataset=DataSet("ice_topaz4r_elements");
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
-    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
@@ -12467,14 +12465,15 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 void
 FiniteElement::piomasIce()
 {
-    external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
+    Dataset ice_piomas_elements_dataset = DataSet("ice_piomas_elements");
+    external_data init_conc = ExternalData(&ice_piomas_elements_dataset,M_mesh,0,false,time_init);
+    external_data init_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,1,false,time_init);
+    external_data init_snow_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_init_conc);
-    external_data_tmp.push_back(&M_init_thick);
-    external_data_tmp.push_back(&M_init_snow_thick);
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
@@ -12483,9 +12482,9 @@ FiniteElement::piomasIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_conc[i] = std::min(1., M_init_conc[i]);
-        M_thick[i] = M_init_thick[i];
-        M_snow_thick[i] = std::max(0., M_init_snow_thick[i]);
+        M_conc[i] = std::min(1., init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = std::max(0., init_snow_thick[i]);
 
         //if either c or h equal zero, we set the others to zero as well
         if((M_conc[i] <= 0.) || (M_thick[i] <= 0.))
