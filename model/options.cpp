@@ -8,7 +8,6 @@
  */
 
 #include <boost/program_options.hpp>
-#include <constants.hpp>
 
 #if defined (WAVES)
 #include <options_wim.hpp>
@@ -16,7 +15,6 @@
 
 namespace po = boost::program_options;
 
-double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
     //! Describes the options to be set in a simulation (parameters, setup, dynamics, thermodynamics, numerics, ...)
@@ -333,7 +331,6 @@ namespace Nextsim
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
-            ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
@@ -380,7 +377,10 @@ namespace Nextsim
 
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
-            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or unesco formula")
+            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ),
+                "How to calculate the freezing point of sea water, either linear or unesco formula")
+            ("thermo.freezingpoint_mu", po::value<double>()->default_value( 0.055 ),
+                "Proportionality constant (for linear option) between salinity and freezing temperature of sea water [C kg/g]")
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
@@ -410,10 +410,10 @@ namespace Nextsim
             ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
-            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean temperature to ocean forcing")
-            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean salinity to ocean forcing")
+            ("thermo.ocean_nudge_timeT_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean temperature to ocean forcing (days)")
+            ("thermo.ocean_nudge_timeS_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean salinity to ocean forcing (days)")
 
             // -- relating to thermodynamic forcing
             ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
@@ -443,8 +443,8 @@ namespace Nextsim
                 "Grid filename is nsting_grid_[inner_mesh].nc")
             ("nesting.method", po::value<std::string>()->default_value( "nudging" ),
                 "Options: nudging")
-            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec),
-                "relaxation timescale for nudging at boundary")
+            ("nesting.nudge_timescale", po::value<double>()->default_value((.5)),
+                "relaxation timescale for nudging at boundary (days)")
             ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ),
                 "Functional form for nudging frequency as a function of distance to boundary. Options: exponential, linear. Depends on nudge_length_scale")
             ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.),
@@ -458,7 +458,7 @@ namespace Nextsim
 
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
-            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+            ("forecast.ecmwf_nrt_time_res_hours", po::value<double>()->default_value( 6. ),
                 "specify the time resolution in hours here if want to change from 6")
 
 
