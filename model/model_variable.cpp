@@ -137,8 +137,6 @@ ModelVariable::initElemental()
             M_prognostic = true;
             M_exporting = false;
             M_diffusivity = 0.;
-            M_has_value_no_thick_ice = true;
-            M_value_no_thick_ice = M_tfr_ice;
             switch(M_component_number)
             {
                 case(0):

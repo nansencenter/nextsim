@@ -23,7 +23,7 @@ export NEXTSIMDIR=`pwd`
 
 # AeroBulk turbulent air-sea flux computation
 #--------------------------------------------
-l_aerobulk=false ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
     # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
@@ -105,7 +105,15 @@ case `hostname -f | cut -d. -f2` in
                       #
                       export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
                       ;;
-    "fram" )          NXTSM_DEP_DIR="/cluster/projects/nn9878k/guibou/nextsim_intel/opt/"
+    "fram" )          
+                      module --force purge
+                      ml load StdEnv
+                      ml load intel/2022a
+                      ml load HDF5/1.12.2-iimpi-2022a
+                      ml load netCDF-C++4/4.3.1-iimpi-2022a
+                      ml load ncview/2.1.8-iimpi-2022a
+                      ml load Boost.MPI/1.79.0-iimpi-2022a 
+                      NXTSM_DEP_DIR="/cluster/projects/nn9878k/nextsim_intel/opt/"
                       INTEL_VERSION="2022.1.0"
                       INTEL_ROOT="/cluster/software/intel-compilers/${INTEL_VERSION}"
                       export INTEL_COMP_DIR="/cluster/software/intel-compilers/${INTEL_VERSION}/compiler/latest/linux/"
