@@ -13828,6 +13828,8 @@ FiniteElement::globalNumToprocId(int global_num)
 
         cpt += 2*M_sizes_nodes[i];
     }
+    throw std::logic_error("Couldn't map global number: "
+            + std::to_string(global_num) + " to (local) proc id.\n");
 } //globalNumToprocId
 
 // -------------------------------------------------------------------------------------
