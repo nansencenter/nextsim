@@ -6218,8 +6218,8 @@ FiniteElement::IABulkFluxes(
 
         double pen_sw;
         double pond_fraction;
-        if ( D_pond_fraction[i] > 0. && M_lid_volume[i]/D_pond_fraction[i] <= 0.05 )
-            pond_fraction = D_pond_fraction[i];
+        if ( M_pond_fraction[i] > 0. && M_lid_volume[i]/M_pond_fraction[i] <= 0.05 )
+            pond_fraction = M_pond_fraction[i];
         else
             pond_fraction = 0.;
 
@@ -6441,18 +6441,22 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
                                + rain/physical::rhow*dt;
 
     // 20% of available water is runoff, rest goes into the pond
+    // delH / delA = 0.8
     // TODO: Make this tunable?
-    M_pond_volume[cpt] += 0.8*availableWater;
+    const double del = std::sqrt(0.8*availableWater/0.8);
+    M_pond_depth[cpt] += del;
+    M_pond_fraction[cpt] += del;
+    const double pond_volume = M_pond_depth[cpt]*M_pond_fraction[cpt];
 
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
-    if ( M_pond_volume[cpt] <= 0.
+    if ( M_pond_depth[cpt] <= 0. || M_pond_fraction[cpt] <= 0.
             || M_conc[cpt] <= concMin
             || M_thick[cpt]/M_conc[cpt] <= hIceMin )
     {
         // Set pond and lid volume to zero
-        M_pond_volume[cpt] = 0.;
         M_lid_volume[cpt] = 0.;
-        D_pond_fraction[cpt] = 0.;
+        M_pond_fraction[cpt] = 0.;
+        M_pond_depth[cpt] = 0.;
 
         return;
     }
@@ -6473,17 +6477,11 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2))*max_pond_fraction, f2 = 0.;
     const double a = (f2-f1)/(r2-r1);
     const double b = f1 - a*r1;
-    D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
+    M_pond_fraction[cpt] = std::min(a*M_ridge_ratio[cpt] + b, M_pond_fraction[cpt]);
 
-    // Make sure the pond depth isn't microscopic
-    const double pond_depth = std::max(0.05,
-            (M_lid_volume[cpt]+M_pond_volume[cpt])/D_pond_fraction[cpt]);
-    D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
-
-    // Make sure it isn't gigantic either!
+    // Make sure the pond depth isn't gigantic
     const double depth_limit = M_thick[cpt]/M_conc[cpt] * 0.3;
-    if ( pond_depth > depth_limit )
-        M_pond_volume[cpt] = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
+    M_pond_depth[cpt] = std::min(depth_limit, M_pond_depth[cpt]);
 
     double delLidVolume = 0; // Volume increase is always positive!
     if ( M_lid_volume[cpt] > 0. ) // a lid exits
@@ -6491,13 +6489,13 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         // Grow or melt the lid - lid volume is in water-equivalent meters
         /* Assume the pond water has the same salinity as sea ice and is at the
          * freezing point */
-        const double TPond = -mu*physical::si;
-        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double TPond = -M_freezingpoint_mu*physical::si;
+        const double lidThickness = M_lid_volume[cpt]*water_to_ice/M_pond_fraction[cpt];
         const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
         const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
             *dt/(physical::rhoi*physical::Lf);
 
-        delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
+        delLidVolume = delLidThickness*ice_to_water*M_pond_fraction[cpt];
         delLidVolume = std::max(delLidVolume, -M_lid_volume[cpt]);
     }
     else if ( Qia > 0. ) // a lid forms
@@ -6506,23 +6504,23 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     }
 
     M_lid_volume[cpt] += delLidVolume;
-    M_pond_volume[cpt] -= delLidVolume;
+    M_pond_depth[cpt] -= delLidVolume/M_pond_fraction[cpt];
 
     // Remove lid if the pond is frozen solid or if it's too thick
-    if ( M_pond_volume[cpt] <= 0.
-            || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] >= max_lid_thickness )
+    if ( M_pond_depth[cpt] <= 0.
+            || M_lid_volume[cpt]*water_to_ice/M_pond_fraction[cpt] >= max_lid_thickness )
     {
         M_lid_volume[cpt] = 0.;
-        M_pond_volume[cpt] = 0.;
-        D_pond_fraction[cpt] = 0.;
+        M_pond_depth[cpt] = 0.;
+        M_pond_fraction[cpt] = 0.;
     }
 
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
     // TODO: Double check the freeboard calculation
     const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-    if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
-        M_pond_volume[cpt] -= freeboard;
+    if ( M_pond_depth[cpt] > freeboard && this->isPermeable(cpt) )
+        M_pond_depth[cpt] -= freeboard;
 
 }
 
@@ -6535,7 +6533,7 @@ FiniteElement::isPermeable( const int cpt )
     for ( int i=0; i<M_tice.size(); ++i )
         temp.push_back(M_tice[i][cpt]);
 
-    temp.push_back(-physical::mu*M_sss[cpt]);
+    temp.push_back(-M_freezingpoint_mu*M_sss[cpt]);
 
     // Select Assur or Notz, depending on the maximum temperature
     bool a, b, c, d;
@@ -7163,8 +7161,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_freeze_onset);
     M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
     M_variables_elt.push_back(&M_del_vi_tend);
-    M_pond_volume = ModelVariable(ModelVariable::variableID::M_pond_volume);//! \param M_pond_volume (double) Volume of meltponds per grid cell area
-    M_variables_elt.push_back(&M_pond_volume);
+    M_pond_depth = ModelVariable(ModelVariable::variableID::M_pond_depth);//! \param M_pond_depth (double) Volume of meltponds per grid cell area
+    M_variables_elt.push_back(&M_pond_depth);
     M_lid_volume = ModelVariable(ModelVariable::variableID::M_lid_volume);//! \param M_lid_volume (double) Volume of meltpond lid per grid cell area
     M_variables_elt.push_back(&M_lid_volume);
 
@@ -7247,8 +7245,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_albedo);
     D_sialb = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_sialb (double) Sea ice albedo - mean albedo where ice
     M_variables_elt.push_back(&D_sialb);
-    D_pond_fraction = ModelVariable(ModelVariable::variableID::D_pond_fraction);//! \param D_pond_fraction (double) Fraction of grid cell covered by meltponds
-    M_variables_elt.push_back(&D_pond_fraction);
+    M_pond_fraction = ModelVariable(ModelVariable::variableID::M_pond_fraction);//! \param M_pond_fraction (double) Fraction of grid cell covered by meltponds
+    M_variables_elt.push_back(&M_pond_fraction);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -8542,9 +8540,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::meltpond_volume):
+            case (GridOutput::variableID::meltpond_depth):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += M_pond_volume[i]*time_factor;
+                    it->data_mesh[i] += M_pond_depth[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::meltpond_lid_volume):
@@ -8679,7 +8677,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::meltpond_fraction):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_pond_fraction[i]*time_factor;
+                    it->data_mesh[i] += M_pond_fraction[i]*time_factor;
                 break;
 
             // forcing variables
@@ -8987,7 +8985,7 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
-            ("meltpond_volume", GridOutput::variableID::meltpond_volume)
+            ("meltpond_depth", GridOutput::variableID::meltpond_depth)
             ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
             ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
             // Primarily coupling variables, but perhaps useful for debugging

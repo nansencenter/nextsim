@@ -158,7 +158,7 @@ public:
         del_vi_tend  = 28,
         thick_myi    = 29,
         thick_summer = 30,
-        meltpond_volume     = 31,
+        meltpond_depth      = 31,
         meltpond_lid_volume = 32,
 
         // Diagnostic variables
@@ -424,10 +424,10 @@ public:
                     Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::meltpond_volume):
-                    name     = "meltpond_volume";
-                    longName = "Meltpond volume";
-                    stdName  = "meltpond_volume";
+                case (variableID::meltpond_depth):
+                    name     = "meltpond_depth";
+                    longName = "Meltpond depth";
+                    stdName  = "meltpond_depth";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;

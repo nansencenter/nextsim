@@ -737,8 +737,9 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
-    ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
+    ModelVariable M_pond_depth;         // Volume of melt ponds per grid cell area
     ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
+    ModelVariable M_pond_fraction;      // Grid cell fraction covered by melt ponds
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -826,7 +827,6 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
-    ModelVariable D_pond_fraction; // Grid cell fraction covered by melt ponds
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
