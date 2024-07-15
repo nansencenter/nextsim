@@ -735,25 +735,14 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("asr_elements");
             break;
 
-        case setup::AtmosphereType::ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ERAi_nodes");
-            M_atmosphere_elements_dataset=DataSet("ERAi_elements");
-            break;
-
         case setup::AtmosphereType::ERA5:
             M_atmosphere_nodes_dataset=DataSet("ERA5_nodes");
             M_atmosphere_elements_dataset=DataSet("ERA5_elements");
             break;
 
-        case setup::AtmosphereType::EC2:
-            M_atmosphere_nodes_dataset=DataSet("ec2_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_elements");
-            break;
-
-        case setup::AtmosphereType::EC_ERAi:
-            M_atmosphere_nodes_dataset=DataSet("ec_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec_elements");
-            M_atmosphere_bis_elements_dataset=DataSet("ERAi_elements");
+        case setup::AtmosphereType::ECMWF_NRT:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_elements");
             break;
 
         case setup::AtmosphereType::CFSR:
@@ -766,14 +755,14 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("cfsr_elements");
             break;
 
-        case setup::AtmosphereType::EC2_AROME:
-            M_atmosphere_nodes_dataset=DataSet("ec2_arome_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_elements");
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_arome_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_arome_elements");
             break;
 
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
-            M_atmosphere_nodes_dataset=DataSet("ec2_arome_ensemble_nodes");
-            M_atmosphere_elements_dataset=DataSet("ec2_arome_ensemble_elements");
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
+            M_atmosphere_nodes_dataset=DataSet("ecmwf_nrt_arome_ensemble_nodes");
+            M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_arome_ensemble_elements");
             break;
 
         default:
@@ -786,20 +775,24 @@ FiniteElement::initDatasets()
         case setup::OceanType::CONSTANT:
         break;
 
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-            M_ocean_nodes_dataset=DataSet("topaz_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_ATREST:
+            M_ocean_nodes_dataset=DataSet("topaz4r_nodes");
+            M_ocean_elements_dataset=DataSet("topaz4r_elements");
             break;
 
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
             M_ocean_nodes_dataset=DataSet("ocean_currents_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_elements");
+            M_ocean_elements_dataset=DataSet("topaz4r_elements");
             break;
 
-        case setup::OceanType::TOPAZF:
-            M_ocean_nodes_dataset=DataSet("topaz_forecast_nodes");
-            M_ocean_elements_dataset=DataSet("topaz_forecast_elements");
+        case setup::OceanType::TOPAZ4NRT:
+            M_ocean_nodes_dataset=DataSet("topaz4_nrt_nodes");
+            M_ocean_elements_dataset=DataSet("topaz4_nrt_elements");
+            break;
+        case setup::OceanType::TOPAZ5NRT:
+            M_ocean_nodes_dataset=DataSet("topaz5_nrt_nodes");
+            M_ocean_elements_dataset=DataSet("topaz5_nrt_elements");
             break;
 #ifdef OASIS
         case setup::OceanType::COUPLED:
@@ -843,7 +836,7 @@ FiniteElement::initDatasets()
     //       TODO these probably don't need to be global variables
     //            - in fact they are probably taking up a significant
     //              amount of memory
-    M_ice_topaz_elements_dataset=DataSet("ice_topaz_elements");
+    M_ice_topaz_elements_dataset=DataSet("ice_topaz4r_elements");
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
     M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
@@ -1235,6 +1228,8 @@ FiniteElement::initOptAndParam()
         ("unesco", setup::FreezingPointType::UNESCO);
     M_freezingpoint_type = this->getOptionFromMap("thermo.freezingpoint-type", str2fpt);
         //! \param M_freezingpoint_type (enum) Option on the freezing point type (linear or non-linear or unesco)
+    M_freezingpoint_mu = vm["thermo.freezingpoint_mu"].as<double>();
+        //! \param M_freezingpoint_mu (double) Proportionality constant for linear option between salinity and freezing temperature of sea water [C kg/g]
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
@@ -1268,14 +1263,12 @@ FiniteElement::initOptAndParam()
         ("constant", setup::AtmosphereType::CONSTANT)
         ("generic_ps", setup::AtmosphereType::GENERIC_PS)
         ("asr", setup::AtmosphereType::ASR)
-        ("erai", setup::AtmosphereType::ERAi)
         ("era5", setup::AtmosphereType::ERA5)
-        ("ec2", setup::AtmosphereType::EC2)
-        ("ec_erai", setup::AtmosphereType::EC_ERAi)
+        ("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT)
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
-        ("ec2_arome", setup::AtmosphereType::EC2_AROME)
-        ("ec2_arome_ensemble", setup::AtmosphereType::EC2_AROME_ENSEMBLE);
+        ("ecmwf_nrt_arome", setup::AtmosphereType::ECMWF_NRT_AROME)
+        ("ecmwf_nrt_arome_ensemble", setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1287,13 +1280,11 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::ASR:        quad_drag_coef_air = vm["dynamics.ASR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::CFSR_HI:
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
-        case setup::AtmosphereType::ERAi:       quad_drag_coef_air = vm["dynamics.ERAi_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::GENERIC_PS:
-        case setup::AtmosphereType::EC2:
-        case setup::AtmosphereType::EC_ERAi:
-        case setup::AtmosphereType::EC2_AROME:
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::ECMWF_NRT:
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -1308,17 +1299,18 @@ FiniteElement::initOptAndParam()
         M_nest_inner_mesh   = vm["nesting.inner_mesh"].as<std::string>();
         M_nest_method       = vm["nesting.method"].as<std::string>();
         M_nudge_function    = vm["nesting.nudge_function"].as<std::string>();
-        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>();
+        M_nudge_timescale   = vm["nesting.nudge_timescale"].as<double>() * days_in_sec;
         M_nudge_lengthscale = vm["nesting.nudge_lengthscale"].as<double>();
         M_nest_dynamic_vars = vm["nesting.nest_dynamic_vars"].as<bool>();
     }
 
     const boost::unordered_map<const std::string, setup::OceanType> str2ocean = boost::assign::map_list_of
         ("constant", setup::OceanType::CONSTANT)
-        ("topaz", setup::OceanType::TOPAZR)
-        ("topaz_atrest", setup::OceanType::TOPAZR_atrest)
-        ("topaz_forecast", setup::OceanType::TOPAZF)
-        ("topaz_altimeter", setup::OceanType::TOPAZR_ALTIMETER)
+        ("topaz4_rean", setup::OceanType::TOPAZ4R)
+        ("topaz4_rean_atrest", setup::OceanType::TOPAZ4R_ATREST)
+        ("topaz4_nrt", setup::OceanType::TOPAZ4NRT)
+        ("topaz5_nrt", setup::OceanType::TOPAZ5NRT)
+        ("topaz4_rean-altimeter", setup::OceanType::TOPAZ4R_ALTIMETER)
         ("coupled", setup::OceanType::COUPLED)
         ("glorys12", setup::OceanType::GLORYS12R);
     M_ocean_type = this->getOptionFromMap("setup.ocean-type", str2ocean);
@@ -1328,22 +1320,23 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::IceType> str2conc = boost::assign::map_list_of
         ("constant", setup::IceType::CONSTANT)
         ("constant_partial", setup::IceType::CONSTANT_PARTIAL)
-        ("topaz", setup::IceType::TOPAZ4)
-        ("topaz_forecast", setup::IceType::TOPAZ4F)
-        ("topaz_forecast_amsr2", setup::IceType::TOPAZ4FAMSR2)
-        ("topaz_forecast_amsr2_osisaf", setup::IceType::TOPAZ4FAMSR2OSISAF)
-        ("topaz_forecast_amsr2_osisaf_nic", setup::IceType::TOPAZ4FAMSR2OSISAFNIC)
-        ("topaz_forecast_amsr2_osisaf_nic_weekly", setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY)
+        ("topaz4_rean", setup::IceType::TOPAZ4R)
+        ("topaz4_nrt", setup::IceType::TOPAZ4NRT)
+        ("topaz5_nrt", setup::IceType::TOPAZ5NRT)
+        ("topaz4_nrt-amsr2", setup::IceType::TOPAZ4NRT_AMSR2)
+        ("topaz4_nrt-amsr2-osisaf", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF)
+        ("topaz4_nrt-amsr2-osisaf-nic", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC)
+        ("topaz4_nrt-amsr2-osisaf-nic_weekly", setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY)
         ("amsre", setup::IceType::AMSRE)
         ("amsr2", setup::IceType::AMSR2)
-        ("amsr2_cst_thick", setup::IceType::AMSR2CSTTHICK)
+        ("amsr2-cst_thick", setup::IceType::AMSR2_CSTTHICK)
         ("piomas", setup::IceType::PIOMAS)
         ("nemo", setup::IceType::NEMO)
         ("cice", setup::IceType::CICE)
-        ("cs2_smos", setup::IceType::CS2_SMOS)
-        ("cs2_smos_amsr2", setup::IceType::CS2_SMOS_AMSR2)
+        ("cs2-smos", setup::IceType::CS2_SMOS)
+        ("cs2-smos-amsr2", setup::IceType::CS2_SMOS_AMSR2)
         ("smos", setup::IceType::SMOS)
-        ("topaz_osisaf_icesat", setup::IceType::TOPAZ4OSISAFICESAT)
+        ("topaz4_rean-osisaf-icesat", setup::IceType::TOPAZ4R_OSISAF_ICESAT)
         ("glorys12", setup::IceType::GLORYS12R);
     M_ice_type = this->getOptionFromMap("setup.ice-type", str2conc);
         //! \param M_ice_type (enum) Option on the type of ice initialisation
@@ -1509,9 +1502,9 @@ FiniteElement::initFETensors()
 
 
 //------------------------------------------------------------------------------------------------------
-//! given a map eg [("ec2", setup::AtmosphereType::EC2), ...]
+//! given a map eg [("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT), ...]
 //! and an option name opt_name eg "setup.atmosphere-type" with
-//! vm[opt_name].as<std::string>() = "ec2", opt_val is set to setup::AtmosphereType::EC2
+//! vm[opt_name].as<std::string>() = "ecmwf_nrt", opt_val is set to setup::AtmosphereType::ECMWF_NRT
 //! Called by initOptAndParam()
 template<typename option_type>
 option_type
@@ -2143,7 +2136,7 @@ FiniteElement::collectVariables(std::vector<double>& interp_elt_in_local, bool g
                     val *= M_thick[i];
                     break;
                 case ModelVariable::interpTransformation::enthalpy:
-                    val = ( val - physical::mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
+                    val = ( val -  M_freezingpoint_mu*physical::si*physical::Lf/(physical::C*val) ) * M_thick[i]; // (Winton, 2000, eq 39) times volume with f1=1
                     break;
             }
             interp_elt_in_local[nb_var_element*i+j] = val;
@@ -2214,19 +2207,20 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 LOG(DEBUG)<<"redistribute (none): variable "<<j << " = "<<vptr->name()<<"\n";
 
             double val = out_elt_values[nb_var_element*i+j];
+            bool no_old_ice = false;
             if(vptr->getInterpTransformation() == ModelVariable::interpTransformation::conc)
             {
                 if(M_conc[i]>0)
                     val /= M_conc[i];
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
             else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::thick)
             {
                 if(M_thick[i]>0)
                     val /= M_thick[i];
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
             else if (vptr->getInterpTransformation() == ModelVariable::interpTransformation::enthalpy)
             {
@@ -2234,11 +2228,15 @@ FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, 
                 {
                     double enth = out_elt_values[nb_var_element*i+j]/M_thick[i];//divide by volume to get enthalpy back
                     val = 0.5*(
-                            enth - std::sqrt(enth*enth + 4*physical::mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
+                            enth - std::sqrt(enth*enth + 4* M_freezingpoint_mu*physical::si*physical::Lf/physical::C) ); // (Winton, 2000, eq 38)
                 }
-                else if (vptr->hasValueNoThickIce())
-                    val = vptr->valueNoThickIce();
+                else
+                    no_old_ice = true;
             }
+
+            if (no_old_ice && vptr->varID() == ModelVariable::variableID::M_tice)
+                // if no ice set M_tice to freezing point of ice (not crucial - just can't be zero for Winton)
+                val = -M_freezingpoint_mu * physical::si;
 
             val = vptr->hasMinVal() ? std::max(vptr->minVal(), val ) : val ;
             if(apply_maxima)
@@ -5178,8 +5176,8 @@ FiniteElement::thermo(int dt)
 
     // -------------------------------------------------
     //! 1) Sets constants from options.cpp and constants.hpp
-    double const timeT = vm["thermo.ocean_nudge_timeT"].as<double>(); //! \param timeT (double const) Nudging time for temperature
-    double const timeS = vm["thermo.ocean_nudge_timeS"].as<double>(); //! \param timeS (double const) Nudging time for salinity
+    double const timeT = days_in_sec * vm["thermo.ocean_nudge_timeT_days"].as<double>(); //! \param timeT (double const) Nudging time for temperature (s)
+    double const timeS = days_in_sec * vm["thermo.ocean_nudge_timeS_days"].as<double>(); //! \param timeS (double const) Nudging time for salinity (s)
     double const Qdw_const = vm["ideal_simul.constant_Qdw"].as<double>(); //! \param Qdw_const (double const) Heat flux from ocean nudging
     double const Fdw_const = vm["ideal_simul.constant_Fdw"].as<double>(); //! \param Qdw_const (double const) Fresh water flux from ocean nudging
 
@@ -5331,7 +5329,10 @@ FiniteElement::thermo(int dt)
 
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
+        {
             mld = M_mld[i];
+            assert( mld > 0. );
+        }
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5699,8 +5700,8 @@ FiniteElement::thermo(int dt)
             {
                 // Add newice evenly to both layers and recalculate temperature
                 double f1    = M_thick[i]/(M_thick[i]+newice); // Fraction of old ice (as opposed to newice) in the upper layer
-                double Tbar  = f1*( M_tice[1][i] - physical::Lf*physical::mu*physical::si/(physical::C*M_tice[1][i]) ) + (1-f1)*tfrw; // (39)
-                M_tice[1][i] = ( Tbar - std::sqrt(Tbar*Tbar + 4*physical::mu*physical::si*physical::Lf/physical::C) )/2.; // (38)
+                double Tbar  = f1*( M_tice[1][i] - physical::Lf* M_freezingpoint_mu*physical::si/(physical::C*M_tice[1][i]) ) + (1-f1)*tfrw; // (39)
+                M_tice[1][i] = ( Tbar - std::sqrt(Tbar*Tbar + 4* M_freezingpoint_mu*physical::si*physical::Lf/physical::C) )/2.; // (38)
                 M_tice[2][i] = f1*M_tice[2][i] + (1-f1)*tfrw; // (26) slightly rewritten
             }
         }
@@ -5714,7 +5715,7 @@ FiniteElement::thermo(int dt)
             M_conc[i]  = 0.;
 
             for (int j=0; j<M_tice.size(); j++)
-                M_tice[j][i] = -physical::mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
+                M_tice[j][i] = - M_freezingpoint_mu*physical::si;//freezing point of ice (now same as in regrid) NB can't be 0!
 
             //M_tsurf_young[i] = tfrw;
             hi     = 0.;
@@ -6317,10 +6318,12 @@ FiniteElement::freezingPoint(const double sss)
     switch ( M_freezingpoint_type )
     {
         case setup::FreezingPointType::LINEAR:
-            return_value = -physical::mu*sss;
+            return_value = - M_freezingpoint_mu * sss;
+            break;
 
         case setup::FreezingPointType::UNESCO:
-            return_value = (-0.0575 + 1.710523e-3*std::sqrt(sss)-2.154996e-4*sss) *sss;
+            return_value = (-0.0575 + 1.710523e-3 * std::sqrt(sss) - 2.154996e-4 * sss) * sss;
+            break;
     }
 
     return return_value;
@@ -6488,7 +6491,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         // Grow or melt the lid - lid volume is in water-equivalent meters
         /* Assume the pond water has the same salinity as sea ice and is at the
          * freezing point */
-        const double TPond = -mu*physical::si;
+        const double TPond = -M_freezingpoint_mu*physical::si;
         const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
         const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
         const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
@@ -6532,7 +6535,7 @@ FiniteElement::isPermeable( const int cpt )
     for ( int i=0; i<M_tice.size(); ++i )
         temp.push_back(M_tice[i][cpt]);
 
-    temp.push_back(-physical::mu*M_sss[cpt]);
+    temp.push_back(-M_freezingpoint_mu*M_sss[cpt]);
 
     // Select Assur or Notz, depending on the maximum temperature
     bool a, b, c, d;
@@ -6579,7 +6582,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
     double const qs   = physical::Lf * physical::rhos;
     double const Crho = physical::C * physical::rhoi;
 
-    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
+    double const Tfr_ice  = -M_freezingpoint_mu * physical::si;     // Freezing point of ice
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6804,7 +6807,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     // Constants
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
-    double const Tfr_ice  = -physical::mu*physical::si;     // Freezing point of ice
+    double const Tfr_ice  = - M_freezingpoint_mu * physical::si;     // Freezing point of ice
 
     // Semtner's (1967) fudge factors
     double const beta = 0.4;
@@ -6840,7 +6843,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         if ( hs > 0. )
             Tsurf = std::min(0., Tsurf);
         else
-            Tsurf = std::min(-physical::mu*physical::si, Tsurf);
+            Tsurf = std::min(- M_freezingpoint_mu*physical::si, Tsurf);
 
         /* ---------------------------------------------------------------
          * Melt and growth
@@ -10167,7 +10170,6 @@ FiniteElement::explicitSolve()
         double element_ssh = 0; // Element mean ssh
         for (int i=0; i<3; ++i)
             element_ssh += ssh[(M_elements[cpt]).indices[i]-1];
-
         element_ssh /= 3.;
 
         double max_keel_depth=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
@@ -10175,6 +10177,9 @@ FiniteElement::explicitSolve()
         double keel_depth;
         double critical_h;
         double critical_h_mod;
+        double const min_water_depth = 2.; //m
+        double const depth_eff = std::max(0., element_ssh
+                + std::max(min_water_depth, M_element_depth[cpt]));
         double const g3rd = physical::gravity/3.;
         switch ( M_basal_stress_type )
         {
@@ -10186,20 +10191,18 @@ FiniteElement::explicitSolve()
             case setup::BasalStressType::BOUILLON:
                 // Sylvain's grounding scheme
                 // TODO: Remove this one - we've never used it
-                keel_depth = ice_to_keel_factor*std::sqrt(M_thick[cpt]/M_conc[cpt]);
+                keel_depth = ice_to_keel_factor * std::sqrt(M_thick[cpt]/M_conc[cpt]);
                 keel_depth = std::min( keel_depth, max_keel_depth );
-
-                critical_h     = M_conc[cpt]*std::pow((M_element_depth[cpt]+element_ssh)/ice_to_keel_factor,2.);
-                critical_h_mod = M_conc[cpt]*std::pow(keel_depth/ice_to_keel_factor,2.);
+                critical_h     = M_conc[cpt] * std::pow(depth_eff / ice_to_keel_factor, 2.);
+                critical_h_mod = M_conc[cpt] * std::pow(keel_depth / ice_to_keel_factor, 2.);
                 break;
             case setup::BasalStressType::LEMIEUX:
                 // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
                 // Limit keel depth (JF doesn't do that).
-                keel_depth = k1*M_thick[cpt]/M_conc[cpt];
+                keel_depth = k1 * M_thick[cpt] / M_conc[cpt];
                 keel_depth = std::min( keel_depth, max_keel_depth );
-
-                critical_h     = M_conc[cpt]*(M_element_depth[cpt]+element_ssh)/k1;
-                critical_h_mod = M_conc[cpt]*keel_depth/k1;
+                critical_h     = M_conc[cpt] * depth_eff / k1;
+                critical_h_mod = M_conc[cpt] * keel_depth / k1;
                 break;
         }
 
@@ -10758,7 +10761,7 @@ FiniteElement::speedScaling(std::vector<double>& speed_scaling)
 
 
 //------------------------------------------------------------------------------------------------------
-//! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERAi, ...)
+//! Sets the physical variables relevant to the atmosphere according to the chosen atmospheric forcing data (CONSTANT, ASR, ERA5, ...)
 //! Called by the initExternalData() function.
 void
 FiniteElement::forcingAtmosphere()
@@ -10819,23 +10822,6 @@ FiniteElement::forcingAtmosphere()
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::ERAi:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=erai. Use thermo.use_parameterised_long_wave_radiation=true");
-            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-        break;
-
         case setup::AtmosphereType::ERA5:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0,true ,
@@ -10848,12 +10834,12 @@ FiniteElement::forcingAtmosphere()
             if(!vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
                 M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             else
-                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=ERA5. Use thermo.use_parameterised_long_wave_radiation=false");
+                throw std::runtime_error("parameterised long wave radiation not implemented for setup.atmosphere-type=era5. Use thermo.use_parameterised_long_wave_radiation=false");
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC2:
+        case setup::AtmosphereType::ECMWF_NRT:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
@@ -10869,22 +10855,6 @@ FiniteElement::forcingAtmosphere()
                 M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             else
                 M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
-        break;
-
-        case setup::AtmosphereType::EC_ERAi:
-            M_wind=ExternalData(
-                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
-                time_init, M_spinup_duration);
-
-            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
-            M_dair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
-            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
-            if(vm["thermo.use_parameterised_long_wave_radiation"].as<bool>())
-                M_tcc=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
-            else
-                throw std::runtime_error("long wave radiation not implemented for setup.atmosphere-type=ec_erai. Use thermo.use_parameterised_long_wave_radiation=true");
-            M_Qsw_in=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,3,false,time_init);
-            M_precip=ExternalData(&M_atmosphere_bis_elements_dataset,M_mesh,5,false,time_init);
         break;
 
         case setup::AtmosphereType::CFSR_HI:
@@ -10905,7 +10875,7 @@ FiniteElement::forcingAtmosphere()
             M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
-        case setup::AtmosphereType::EC2_AROME:
+        case setup::AtmosphereType::ECMWF_NRT_AROME:
             M_wind=ExternalData(
                 &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
                 time_init, M_spinup_duration);
@@ -10917,7 +10887,7 @@ FiniteElement::forcingAtmosphere()
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
-        case setup::AtmosphereType::EC2_AROME_ENSEMBLE:
+        case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
             M_wind=ExternalData( &M_atmosphere_nodes_dataset, M_mesh, 0 ,true ,
                 time_init, M_spinup_duration, 0, M_ensemble_member);
             M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
@@ -11117,14 +11087,15 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             if (!use_ocean_nesting)
             {
                 M_ocean_temp=ExternalData(physical::ocean_freezing_temp);
-                M_ocean_salt=ExternalData(physical::ocean_freezing_temp/physical::mu);
+                M_ocean_salt=ExternalData(physical::ocean_freezing_temp/ M_freezingpoint_mu);
             }
 
             M_mld=ExternalData(vm["ideal_simul.constant_mld"].as<double>());
             break;
 
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZF:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
         case setup::OceanType::GLORYS12R:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
@@ -11159,7 +11130,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
                 M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 3,false,time_init);
             break;
 #endif
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
             M_ocean=ExternalData(
                 &M_ocean_nodes_dataset, M_mesh, 0, true,
                 time_init, M_spinup_duration);
@@ -11177,7 +11148,7 @@ FiniteElement::forcingOcean()//(double const& u, double const& v)
             M_mld=ExternalData(&M_ocean_elements_dataset, M_mesh, 2,false,time_init);
             break;
 
-        case setup::OceanType::TOPAZR_atrest:
+        case setup::OceanType::TOPAZ4R_ATREST:
             M_ocean=ExternalData(
                 vm["ideal_simul.constant_ocean_u"].as<double>(),
                 vm["ideal_simul.constant_ocean_v"].as<double>(),
@@ -11272,12 +11243,13 @@ FiniteElement::initSlabOcean()
         case setup::OceanType::CONSTANT:
             //std::fill(M_sst.begin(), M_sst.end(), -1.8);
             std::fill(M_sst.begin(), M_sst.end(), 1.);
-            std::fill(M_sss.begin(), M_sss.end(),  1.8/physical::mu);
+            std::fill(M_sss.begin(), M_sss.end(),  1.8/ M_freezingpoint_mu);
             break;
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZF:
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_ATREST:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             for ( int i=0; i<M_num_elements; ++i)
             {
@@ -11318,14 +11290,15 @@ FiniteElement::assimilateSlabOcean()
             //std::fill(M_sst.begin(), M_sst.end(), -1.8);
             for ( int i=0; i<M_num_elements; ++i)
             {
-                M_sss[i]=(sigma_obs*M_sss[i]+sigma_mod*1.8/physical::mu)/(sigma_obs+sigma_mod);
+                M_sss[i]=(sigma_obs*M_sss[i]+sigma_mod*1.8/ M_freezingpoint_mu)/(sigma_obs+sigma_mod);
                 M_sst[i]=(sigma_obs*M_sst[i]+sigma_mod*1.)/(sigma_obs+sigma_mod);
             }
             break;
-        case setup::OceanType::TOPAZR:
-        case setup::OceanType::TOPAZR_atrest:
-        case setup::OceanType::TOPAZF:
-        case setup::OceanType::TOPAZR_ALTIMETER:
+        case setup::OceanType::TOPAZ4R:
+        case setup::OceanType::TOPAZ4R_ATREST:
+        case setup::OceanType::TOPAZ4NRT:
+        case setup::OceanType::TOPAZ5NRT:
+        case setup::OceanType::TOPAZ4R_ALTIMETER:
         case setup::OceanType::GLORYS12R:
             double sss_obs, sst_obs;
             for ( int i=0; i<M_num_elements; ++i)
@@ -11360,24 +11333,25 @@ FiniteElement::initIce()
         case setup::IceType::CONSTANT_PARTIAL:
             this->constantIce();
             break;
-        case setup::IceType::TOPAZ4:
+        case setup::IceType::TOPAZ4R:
             this->topazIce();
             break;
-        case setup::IceType::TOPAZ4OSISAFICESAT:
+        case setup::IceType::TOPAZ4R_OSISAF_ICESAT:
             this->topazIceOsisafIcesat();
             break;
-        case setup::IceType::TOPAZ4F:
+        case setup::IceType::TOPAZ4NRT:
+        case setup::IceType::TOPAZ5NRT:
             this->topazForecastIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2:
+        case setup::IceType::TOPAZ4NRT_AMSR2:
             this->topazForecastAmsr2Ice();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF:
             this->topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY:
+            this->topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY);
             break;
         case setup::IceType::PIOMAS:
             this->piomasIce();
@@ -11394,7 +11368,7 @@ FiniteElement::initIce()
         case setup::IceType::AMSR2:
             this->topazAmsr2Ice();
             break;
-        case setup::IceType::AMSR2CSTTHICK:
+        case setup::IceType::AMSR2_CSTTHICK:
             this->amsr2ConstThickIce();
             break;
         case setup::IceType::CS2_SMOS:
@@ -11488,7 +11462,7 @@ FiniteElement::checkConsistency()
             M_damage[i]=0.;
             M_ridge_ratio[i]=0.;
             for (int k=0; k<M_tice.size(); k++)
-                M_tice[k][i] = M_tice[k].valueNoThickIce();
+                M_tice[k][i] = -M_freezingpoint_mu * physical::si;
         }
         if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
         {
@@ -11504,7 +11478,7 @@ FiniteElement::checkConsistency()
         // freezing points of ice and water needed for init of ice temp
         // and to check SST
         double const Tfr_wtr = this->freezingPoint(M_sss[i]);   //freezing point for water
-        double const Tfr_ice = -physical::mu*physical::si;      //freezing point for ice salinity
+        double const Tfr_ice = - M_freezingpoint_mu*physical::si;      //freezing point for ice salinity
 
         // check SST is consistent
         double conc_tot = M_conc[i];
@@ -11593,12 +11567,12 @@ FiniteElement::assimilateIce()
 {
     switch (M_ice_type)
     {
-        case setup::IceType::TOPAZ4FAMSR2OSISAF:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF:
             this->assimilate_topazForecastAmsr2OsisafIce();
             break;
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNIC:
-        case setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY:
-            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4FAMSR2OSISAFNICWEEKLY);
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NIC:
+        case setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY:
+            this->assimilate_topazForecastAmsr2OsisafNicIce(M_ice_type==setup::IceType::TOPAZ4NRT_AMSR2_OSISAF_NICWEEKLY);
             break;
         default:
             std::cout << "invalid choice for data assimilation of the ice"<<"\n";

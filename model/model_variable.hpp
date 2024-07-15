@@ -144,11 +144,8 @@ private:
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
     bool M_has_min = false; //does the variable have a strict min (eg >0)?
     bool M_has_max = false; //does the variable have a strict max (eg <1)?
-    bool M_has_value_no_thick_ice = false; //does the variable have a designated value if no thick ice (eg 0, freezing temp)?
     double M_min_val;
     double M_max_val;
-    double M_value_no_thick_ice;
-    double M_tfr_ice;
 
 
 public:
@@ -159,9 +156,6 @@ public:
     ModelVariable(variableID id, int comp_num=-1)
         : M_varID(id), M_component_number(comp_num)
     {
-
-        M_tfr_ice = -physical::mu*physical::si;
-        // freezing point of ice - value for M_tice[i] in open water
 
         // see if it is an elemental variable
         bool elemental = this->initElemental();
@@ -207,10 +201,8 @@ public:
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
     bool hasMaxVal() { return M_has_max; }
-    bool hasValueNoThickIce() { return M_has_value_no_thick_ice; }
     double minVal() { return M_min_val; }
     double maxVal() { return M_max_val; }
-    double valueNoThickIce() { return M_value_no_thick_ice; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }
