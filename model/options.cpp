@@ -102,6 +102,10 @@ namespace Nextsim
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
+            ("setup.atmospheric_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of atmospheric forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
+            ("setup.oceanic_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of ocean forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
