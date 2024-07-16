@@ -6440,9 +6440,9 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
                                - snowMelt*snow_to_water
                                + rain/physical::rhow*dt;
 
-    // 20% of available water is runoff, rest goes into the pond
-    // TODO: Make this tunable?
-    M_pond_volume[cpt] += 0.8*availableWater;
+    /* 20% of available water is runoff, rest goes into the pond. Scale with
+     * concentration as well, following Holland et al. (2012) */
+    M_pond_volume[cpt] += (0.85 - 0.7*M_conc[cpt])*availableWater;
 
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
@@ -6457,33 +6457,14 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         return;
     }
 
-    // Calculate the melt pond depth and fraction
-    /* Pond fraction is a linear function from 80% at 50 cm to 50% at 5 m,
-     * where it's a fraction of the snow free area 1 - hs/(hs+0,2) */
-    /*
-    const double h1 = 0.5, h2 = 5.0;
-    const double f1 = 0.8, f2 = 0.5;
-    const double a = (f2-f1)/(h2-h1);
-    const double b = f1 - a*h1;
-    */
-    // Try with ridge ratio. With no ridges, we're limited by the fraction of snow free ice
-    // TODO: With r1 = 0, r2 = 1, and f2 = 0, these equations can be simplified
-    const double maxPF_level_ice = 0.5;
-    const double r1 = 0., r2 = 1.;
-    const double f1 = M_conc[cpt]*(1.-hs/(hs+0.2))*max_pond_fraction, f2 = 0.;
-    const double a = (f2-f1)/(r2-r1);
-    const double b = f1 - a*r1;
-    D_pond_fraction[cpt] = a*M_ridge_ratio[cpt] + b;
+    // Calculate the melt pond depth and fraction following Holland et al. (2012)
+    D_pond_fraction[cpt] = std::min(std::sqrt(0.8*M_pond_volume[cpt]), 0.9*M_thick[cpt]/M_conc[cpt]);
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 1.-hs/(hs+0.2));
 
     // Make sure the pond depth isn't microscopic
     const double pond_depth = std::max(0.05,
             (M_lid_volume[cpt]+M_pond_volume[cpt])/D_pond_fraction[cpt]);
     D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
-
-    // Make sure it isn't gigantic either!
-    const double depth_limit = M_thick[cpt]/M_conc[cpt] * 0.3;
-    if ( pond_depth > depth_limit )
-        M_pond_volume[cpt] = D_pond_fraction[cpt]*depth_limit - M_lid_volume[cpt];
 
     double delLidVolume = 0; // Volume increase is always positive!
     if ( M_lid_volume[cpt] > 0. ) // a lid exits
@@ -6519,8 +6500,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
-    // TODO: Double check the freeboard calculation
-    const double freeboard = ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
+    const double freeboard = M_conc[cpt]*( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
     if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
         M_pond_volume[cpt] -= freeboard;
 
