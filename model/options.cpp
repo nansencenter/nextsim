@@ -228,7 +228,7 @@ namespace Nextsim
                 "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ),
+            ("output.output_per_day", po::value<int>()->default_value( 0 ),
                "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
