@@ -7103,20 +7103,23 @@ FiniteElement::initModelVariables()
     }// loop over M_variables_elt
 
     // Check that output.variables doesn't contain a typo!
-    // Add "M_VT" and "None" to the available list before checking
-    available_names.push_back(std::string("M_VT"));
-    available_names.push_back(std::string("None"));
-    for (auto &requested: requested_names)
+    if ( output_time_step > 0 && vm["output.export_fields"].as<bool>() )
     {
-        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        // Add "M_VT" and "None" to the available list before checking
+        available_names.push_back(std::string("M_VT"));
+        available_names.push_back(std::string("None"));
+        for (auto &requested: requested_names)
         {
-            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
-            LOG(ERROR) << "Available names are (case sensitive):\n";
-            for (auto &available: available_names)
-                LOG(ERROR) << "     " << available << "\n";
+            if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+            {
+                LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+                LOG(ERROR) << "Available names are (case sensitive):\n";
+                for (auto &available: available_names)
+                    LOG(ERROR) << "     " << available << "\n";
 
-            M_comm.barrier();
-            throw std::runtime_error("Unknown name in output.variables\n");
+                M_comm.barrier();
+                throw std::runtime_error("Unknown name in output.variables\n");
+            }
         }
     }
 
@@ -13825,6 +13828,8 @@ FiniteElement::globalNumToprocId(int global_num)
 
         cpt += 2*M_sizes_nodes[i];
     }
+    throw std::logic_error("Couldn't map global number: "
+            + std::to_string(global_num) + " to (local) proc id.\n");
 } //globalNumToprocId
 
 // -------------------------------------------------------------------------------------
