@@ -734,6 +734,8 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
+    ModelVariable M_drag_ui;            // Ice-atmosphere momentum drag coefficient
+    ModelVariable M_drag_ti;            // Ice-atmosphere thermodynamic drag coefficient
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -821,8 +823,6 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
-    ModelVariable D_drag_ui; // Ice-atmosphere momentum drag coefficient
-    ModelVariable D_drag_ti; // Ice-atmosphere thermodynamic drag coefficient
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]

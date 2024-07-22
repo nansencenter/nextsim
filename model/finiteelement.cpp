@@ -562,6 +562,10 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
+    M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
+    const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
+    M_drag_ti.assign(M_num_elements, drag_ice_t);
+
     // The coupled system needs special handling
     if ( M_ocean_type != setup::OceanType::COUPLED )
     {
@@ -6142,28 +6146,25 @@ void
 FiniteElement::dragCoeff()
 {
     const double mstab = 10; // A limit for the ratio between the Obukov length and the reference height
-    const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     const double z0 = vm["thermo.z0"].as<double>();
 
     for (int i=0; i<M_num_elements; i++)
     {
         double deldrag = 1;
-        D_drag_ui[i] = quad_drag_coef_air;
-        D_drag_ti[i] = drag_ice_t;
         const double tairK = M_tair[i] + physical::tfrwK;
 
         /* zfri   = z0*exp(-vonKarman/sqrt(drag_ni));
         lambda = log(z0/zfri); */
-        const double lambdau = vonKarman/sqrt(D_drag_ui[i]);
-        const double lambdat = vonKarman/sqrt(D_drag_ti[i]);
+        const double lambdau = vonKarman/sqrt(M_drag_ui[i]);
+        const double lambdat = vonKarman/sqrt(M_drag_ti[i]);
 
         for (int j=1; j<=20; j++)
         {
             const double wspeed = this->windSpeedElement(i);
 
             /* Calculate the exchange based on previous drag coefficients */
-            const double ustar = D_drag_ui[i]*wspeed;
-            const double Tstar = D_drag_ti[i]*(M_tair[i]-M_tice[0][i]);
+            const double ustar = M_drag_ui[i]*wspeed;
+            const double Tstar = M_drag_ti[i]*(M_tair[i]-M_tice[0][i]);
 
             std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
             const double sphuma = tmp.first;
@@ -6171,7 +6172,7 @@ FiniteElement::dragCoeff()
             tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, M_tice[0][i]);
             const double sphumi = tmp.first;
 
-            const double Qstar = D_drag_ti[i]*(sphuma-sphumi);
+            const double Qstar = M_drag_ti[i]*(sphuma-sphumi);
 
             /* The stability criterion z0/L, where L is the Obukhov length */
             double stab = z0*vonKarman*g/(ustar*ustar)
@@ -6190,14 +6191,14 @@ FiniteElement::dragCoeff()
             }
 
             /* Re-calculate the drag coefficients */
-            const double drag_up = quad_drag_coef_air/(1+quad_drag_coef_air*(lambdau-pshim)/vonKarman);
-            const double drag_tp = drag_ice_t/(1+drag_ice_t*(lambdat-pshis)/vonKarman);
+            const double drag_up = M_drag_ui[i]/(1+M_drag_ui[i]*(lambdau-pshim)/vonKarman);
+            const double drag_tp = M_drag_ti[i]/(1+M_drag_ti[i]*(lambdat-pshis)/vonKarman);
 
-            deldrag = std::max(std::abs(drag_up-D_drag_ui[i]),
-                               std::abs(drag_tp-D_drag_ti[i]) );
+            deldrag = std::max(std::abs(drag_up-M_drag_ui[i]),
+                               std::abs(drag_tp-M_drag_ti[i]) );
 
-            D_drag_ui[i] = drag_up;
-            D_drag_ti[i] = drag_tp;
+            M_drag_ui[i] = drag_up;
+            M_drag_ti[i] = drag_tp;
 
             if ( deldrag*1e3 < 1e-2 )
                 break;
@@ -6255,15 +6256,15 @@ FiniteElement::IABulkFluxes(
         double  wspeed = this->windSpeedElement(i);
 
         /* Sensible heat flux and derivative */
-        Qsh[i] = D_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = D_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = M_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
+        double dQshdT = M_drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = D_drag_ti[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
-        double dQlhdT = D_drag_ti[i]*Lsub*rhoair*wspeed*dsphumidT;
+        Qlh[i] = M_drag_ti[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = M_drag_ti[i]*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
@@ -7134,10 +7135,10 @@ FiniteElement::initModelVariables()
     D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
     M_variables_elt.push_back(&D_dmean);
 
-    D_drag_ui = ModelVariable(ModelVariable::variableID::D_drag_ui);
-    M_variables_elt.push_back(&D_drag_ui);
-    D_drag_ti = ModelVariable(ModelVariable::variableID::D_drag_ti);
-    M_variables_elt.push_back(&D_drag_ti);
+    M_drag_ui = ModelVariable(ModelVariable::variableID::M_drag_ui);
+    M_variables_elt.push_back(&M_drag_ui);
+    M_drag_ti = ModelVariable(ModelVariable::variableID::M_drag_ti);
+    M_variables_elt.push_back(&M_drag_ti);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -8560,11 +8561,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
 
             case (GridOutput::variableID::drag_ui):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_drag_ui[i]*time_factor;
+                    it->data_mesh[i] += M_drag_ui[i]*time_factor;
                 break;
             case (GridOutput::variableID::drag_ti):
                 for (int i=0; i<M_local_nelements; i++)
-                    it->data_mesh[i] += D_drag_ti[i]*time_factor;
+                    it->data_mesh[i] += M_drag_ti[i]*time_factor;
                 break;
 
 
@@ -8873,6 +8874,8 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
+            ("drag_ui", GridOutput::variableID::drag_ui)
+            ("drag_ti", GridOutput::variableID::drag_ti)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
@@ -10194,7 +10197,7 @@ FiniteElement::explicitSolve()
             // Skip negative elt_num
             if ( elt_num < 0 ) continue;
 
-            drag += D_drag_ti[elt_num] * M_surface[elt_num];
+            drag += M_drag_ui[elt_num] * M_surface[elt_num];
             surface += M_surface[elt_num];
         }
         drag /= surface;

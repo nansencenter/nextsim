@@ -644,18 +644,18 @@ ModelVariable::initElemental()
             M_prognostic = false;
             M_exporting = false;
 
-        case (variableID::D_drag_ui):
+        case (variableID::M_drag_ui):
             // mean floe diameter
-            M_name = "D_drag_ui";
+            M_name = "M_drag_ui";
             M_export_name = "ice-atmosphere_drag";
-            M_prognostic = false;
+            M_prognostic = true;
             M_exporting = false;
 
-        case (variableID::D_drag_ti):
+        case (variableID::M_drag_ti):
             // mean floe diameter
-            M_name = "D_drag_ti";
+            M_name = "M_drag_ti";
             M_export_name = "ice-atmosphere_thermo_drag";
-            M_prognostic = false;
+            M_prognostic = true;
             M_exporting = false;
 
         case (variableID::D_tau_ow):
