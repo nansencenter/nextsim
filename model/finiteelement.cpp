@@ -6146,63 +6146,51 @@ void
 FiniteElement::dragCoeff()
 {
     const double mstab = 10; // A limit for the ratio between the Obukov length and the reference height
+    const double zvir = 0.606;
     const double z0 = vm["thermo.z0"].as<double>();
+    const double zref = vm["thermo.zref"].as<double>();
 
     for (int i=0; i<M_num_elements; i++)
     {
-        double deldrag = 1;
         const double tairK = M_tair[i] + physical::tfrwK;
 
         /* zfri   = z0*exp(-vonKarman/sqrt(drag_ni));
         lambda = log(z0/zfri); */
-        const double lambdau = vonKarman/sqrt(M_drag_ui[i]);
-        const double lambdat = vonKarman/sqrt(M_drag_ti[i]);
+        const double lambda = vonKarman/std::log(zref/z0);
 
-        for (int j=1; j<=20; j++)
-        {
-            const double wspeed = this->windSpeedElement(i);
+        const double wspeed = this->windSpeedElement(i);
 
-            /* Calculate the exchange based on previous drag coefficients */
-            const double ustar = M_drag_ui[i]*wspeed;
-            const double Tstar = M_drag_ti[i]*(M_tair[i]-M_tice[0][i]);
+        /* Calculate the exchange based on previous drag coefficients */
+        const double ustar = M_drag_ui[i]*wspeed;
+        const double Tstar = M_drag_ti[i]*(M_tair[i]-M_tice[0][i]);
 
-            std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
-            const double sphuma = tmp.first;
+        std::pair<double,double> tmp = this->specificHumidity(schemes::specificHumidity::ATMOSPHERE, i);
+        const double sphuma = tmp.first;
 
-            tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, M_tice[0][i]);
-            const double sphumi = tmp.first;
+        tmp = this->specificHumidity(schemes::specificHumidity::ICE, i, M_tice[0][i]);
+        const double sphumi = tmp.first;
 
-            const double Qstar = M_drag_ti[i]*(sphuma-sphumi);
+        const double Qstar = M_drag_ti[i]*(sphuma-sphumi);
 
-            /* The stability criterion z0/L, where L is the Obukhov length */
-            double stab = z0*vonKarman*g/(ustar*ustar)
-                    * ( Tstar/(tairK*(1+0.606*sphuma)) + Qstar/(1/0.606 + sphuma) );
-            stab = std::max(-mstab, std::min(mstab, stab));
+        /* The stability criterion z0/L, where L is the Obukhov length */
+        double stab = z0*vonKarman*g/(ustar*ustar)
+                * ( Tstar/(tairK*(1.+zvir*sphuma)) + Qstar/(1./zvir + sphuma) );
+        stab = std::max(-mstab, std::min(mstab, stab));
 
-            double pshim, pshis;
-            if ( stab >=0 )
-            { /* The stable case */
-                pshim = -(0.7*stab + 0.75*(stab-14.3)*exp(-0.35*stab) + 10.7);
-                pshis = pshim;
-            } else { /* The unstable case */
-                const double x = sqrt(fmax(1, sqrt(1-16*stab)));
-                pshim = 2*log(0.5*(1+x)) + log(0.5*(1+x*x)) - 2*atan(x) + M_PI/2;
-                pshis = 2*log(0.5*(1+x*x));
-            }
-
-            /* Re-calculate the drag coefficients */
-            const double drag_up = M_drag_ui[i]/(1+M_drag_ui[i]*(lambdau-pshim)/vonKarman);
-            const double drag_tp = M_drag_ti[i]/(1+M_drag_ti[i]*(lambdat-pshis)/vonKarman);
-
-            deldrag = std::max(std::abs(drag_up-M_drag_ui[i]),
-                               std::abs(drag_tp-M_drag_ti[i]) );
-
-            M_drag_ui[i] = drag_up;
-            M_drag_ti[i] = drag_tp;
-
-            if ( deldrag*1e3 < 1e-2 )
-                break;
+        double pshim, pshis;
+        if ( stab >=0 )
+        { /* The stable case */
+            pshim = -(0.7*stab + 0.75*(stab-14.3)*std::exp(-0.35*stab) + 10.7);
+            pshis = pshim;
+        } else { /* The unstable case */
+            const double x = std::sqrt(std::max(1., std::sqrt(1.-16.*stab)));
+            pshim = 2*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - 2.*std::atan(x) + M_PI/2.;
+            pshis = 2*std::log(0.5*(1.+x*x));
         }
+
+        /* Re-calculate the drag coefficients */
+        M_drag_ui[i] /= (1+M_drag_ui[i]*(lambda-pshim)/vonKarman);
+        M_drag_ti[i] /= (1+M_drag_ti[i]*(lambda-pshis)/vonKarman);
     }
 }//dragCoeff
 
