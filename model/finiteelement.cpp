@@ -5231,6 +5231,7 @@ FiniteElement::thermo(int dt)
     M_timer.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
+    bool bulk_for_young = false ;
     std::vector<double> Qia(M_num_elements);
     std::vector<double> Qlwi(M_num_elements);
     std::vector<double> Qswi(M_num_elements);
@@ -5241,7 +5242,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo(M_num_elements);
     std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, bulk_for_young);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5254,10 +5255,11 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo_young(M_num_elements);
     std::vector<double> I_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
-    {
+    {   
+        bulk_for_young = true ;
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
-                I_young, subl_young, dQiadT_young, albedo_young);
+                I_young, subl_young, dQiadT_young, albedo_young, bulk_for_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -6155,7 +6157,7 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
         std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-        std::vector<double>& alb_tot)
+        std::vector<double>& alb_tot, bool bulk_for_young)
 {
     // Constants
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -6222,6 +6224,9 @@ FiniteElement::IABulkFluxes(
             pond_fraction = D_pond_fraction[i];
         else
             pond_fraction = 0.;
+        // No ponds on young ice
+        if (bulk_for_young)
+            pond_fraction = 0. ;
 
         std::tie(alb_tot[i],pen_sw) = this->albedo(
             Tsurf[i], hs, pond_fraction, alb_scheme, alb_ice, alb_sn, alb_pnd, I_0);
@@ -6442,7 +6447,10 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     /* 20% of available water is runoff, rest goes into the pond. Scale with
      * concentration as well, following Holland et al. (2012) */
-    M_pond_volume[cpt] += (0.85 - 0.7*M_conc[cpt])*availableWater;
+    // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
+    double const roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
+    double const dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
+    M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
 
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
@@ -6458,13 +6466,20 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     }
 
     // Calculate the melt pond depth and fraction following Holland et al. (2012)
-    D_pond_fraction[cpt] = std::min(std::sqrt(0.8*M_pond_volume[cpt]), 0.9*M_thick[cpt]/M_conc[cpt]);
+    D_pond_fraction[cpt] = std::sqrt(M_pond_volume[cpt]/dep2frac);
+
+    // Make sure there is no pond on snow
     D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 1.-hs/(hs+0.2));
 
+    // Make sure the pond depth isn't too high --> Holland et al. (2012)
+    double pond_depth = std::min(dep2frac*D_pond_fraction[cpt],0.9*hi);
+   // If pond depth was too high, just drain the excess 
+    M_pond_volume[cpt] = pond_depth*D_pond_fraction[cpt];
+   
     // Make sure the pond depth isn't microscopic
-    const double pond_depth = std::max(0.05,
-            (M_lid_volume[cpt]+M_pond_volume[cpt])/D_pond_fraction[cpt]);
-    D_pond_fraction[cpt] = (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth;
+    pond_depth = std::max(0.05, pond_depth);
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 
+            (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
 
     double delLidVolume = 0; // Volume increase is always positive!
     if ( M_lid_volume[cpt] > 0. ) // a lid exits
@@ -6500,9 +6515,9 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Drain the pond to the freeboard, if it's permiable
     // The pond drains immediately - this may not be accurate
-    const double freeboard = M_conc[cpt]*( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-    if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
-        M_pond_volume[cpt] -= freeboard;
+    //const double freeboard = M_conc[cpt]*( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
+    //if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
+    //    M_pond_volume[cpt] -= freeboard;
 
 }
 
