@@ -83,6 +83,8 @@ public:
         M_thick_summer    = 30,
         M_drag_ui         = 31,
         M_drag_ti         = 32,
+        M_drag_ui_young   = 33,
+        M_drag_ti_young   = 34,
 
         // Diagnostic variables
         D_conc         = 100,

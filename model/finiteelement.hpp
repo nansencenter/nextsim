@@ -185,8 +185,8 @@ public:
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-            std::vector<double>& alb_tot);
-    void dragCoeff();
+            std::vector<double>& alb_tot,
+            std::vector<double>& drag_ui, std::vector<double>& drag_ti);
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -736,6 +736,8 @@ private:
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
     ModelVariable M_drag_ui;            // Ice-atmosphere momentum drag coefficient
     ModelVariable M_drag_ti;            // Ice-atmosphere thermodynamic drag coefficient
+    ModelVariable M_drag_ui_young;      // Ice-atmosphere momentum drag coefficient of young ice
+    ModelVariable M_drag_ti_young;      // Ice-atmosphere thermodynamic drag coefficient of young ice
 
 #ifdef OASIS
     // Following variables are related to floe size distribution

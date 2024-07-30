@@ -658,6 +658,20 @@ ModelVariable::initElemental()
             M_prognostic = true;
             M_exporting = false;
 
+        case (variableID::M_drag_ui_young):
+            // mean floe diameter
+            M_name = "M_drag_ui_young";
+            M_export_name = "ice-atmosphere_drag_young";
+            M_prognostic = true;
+            M_exporting = false;
+
+        case (variableID::M_drag_ti_young):
+            // mean floe diameter
+            M_name = "M_drag_ti_young";
+            M_export_name = "ice-atmosphere_thermo_drag_young";
+            M_prognostic = true;
+            M_exporting = false;
+
         case (variableID::D_tau_ow):
             // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m]
             M_name = "D_tau_ow";
