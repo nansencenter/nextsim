@@ -10208,30 +10208,7 @@ FiniteElement::explicitSolve()
         }
 
         // // Atmospheric drag
-        // const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
-        // D_tau_a[u_indx] = drag * M_wind[u_indx];
-        // D_tau_a[v_indx] = drag * M_wind[v_indx];
-
-        // Coriolis term
-        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
-
-        // Post-process mass matrix and nodal mass
-        rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
-        node_mass[i] *= rlmass_matrix[i];
-        rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
-
-        // For the mEVP and drag
-        VTM[u_indx] = M_VT[u_indx];
-        VTM[v_indx] = M_VT[v_indx];
-
-#ifdef OASIS
-        // Wave stress
-        if(M_couple_waves && M_recv_wave_stress)
-        {
-            tau_wi[u_indx] = M_tau_wi[u_indx];
-            tau_wi[v_indx] = M_tau_wi[v_indx];
-        }
-#endif
+        const double rhoa_wspeed = physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]);
 
         // Surface weighted average drag
         double drag = 0.;
@@ -10253,9 +10230,31 @@ FiniteElement::explicitSolve()
         }
         drag /= surface;
 
-        D_tau_a[u_indx] = drag * M_wind[u_indx];
-        D_tau_a[v_indx] = drag * M_wind[v_indx];
-        c_2prime[i] = physical::rhow*drag;
+        c_2prime[i] = physical::rhow * drag;
+
+        D_tau_a[u_indx] = drag * rhoa_wspeed * M_wind[u_indx];
+        D_tau_a[v_indx] = drag * rhoa_wspeed * M_wind[v_indx];
+
+        // Coriolis term
+        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
+
+        // Post-process mass matrix and nodal mass
+        rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
+        node_mass[i] *= rlmass_matrix[i];
+        rlmass_matrix[i] *= 3.; // Now it's the reciprocal of the lumped mass matrix
+
+        // For the mEVP and drag
+        VTM[u_indx] = M_VT[u_indx];
+        VTM[v_indx] = M_VT[v_indx];
+
+#ifdef OASIS
+        // Wave stress
+        if(M_couple_waves && M_recv_wave_stress)
+        {
+            tau_wi[u_indx] = M_tau_wi[u_indx];
+            tau_wi[v_indx] = M_tau_wi[v_indx];
+        }
+#endif
     }
 
     M_timer.tock("prep nodes");
