@@ -6289,8 +6289,8 @@ FiniteElement::IABulkFluxes(
         // Heat fluxes
 
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ti[i] * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = drag_ti[i] * rhoair * physical::cpa * wspeed*( tsurfK - Tpot );
+        double dQshdT = drag_ti[i] * rhoair * physical::cpa * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
