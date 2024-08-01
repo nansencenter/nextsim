@@ -186,7 +186,7 @@ public:
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
             std::vector<double>& alb_tot,
-            std::vector<double>& drag_ui, std::vector<double>& drag_ti);
+            ModelVariable& drag_ui, ModelVariable& drag_ti);
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
         int alb_scheme, double alb_ice, double alb_sn, double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);

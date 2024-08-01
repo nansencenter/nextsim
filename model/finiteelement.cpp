@@ -6157,7 +6157,7 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& Qlh, std::vector<double>& Qsh,
         std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
         std::vector<double>& alb_tot,
-        std::vector<double>& drag_ui, std::vector<double>& drag_ti)
+        ModelVariable& drag_ui, ModelVariable& drag_ti)
 {
     // Constants
     double const I_0        = vm["thermo.I_0"].as<double>();
@@ -6166,9 +6166,9 @@ FiniteElement::IABulkFluxes(
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
 
-    const double z0 = vm["thermo.z0"].as<double>();
     const double zref_wind = vm["thermo.zref_wind"].as<double>();
     const double zref_temp = vm["thermo.zref_temp"].as<double>();
+    const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(quad_drag_coef_air));
 
     const double am = 5.;
     const double bm = am/6.5;
@@ -6196,47 +6196,60 @@ FiniteElement::IABulkFluxes(
 
         // -------------------------------------------------
 
-        /* Density of air */
+        /* Temperatures in Kelvin */
         double tairK  = M_tair[i] + physical::tfrwK;
-        double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
+        double tsurfK = Tsurf[i] + physical::tfrwK;
+
+        /* Density of air */
+        double rhoair = M_mslp[i]/(physical::Ra_dry*tairK) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
 
         /* Wind speed */
         double  wspeed = this->windSpeedElement(i);
+
+        /* Potential temperature at zref_temp */
+        const double Tpot = tairK + physical::Gamma_d*zref_temp;
 
         // -------------------------------------------------
         // Drag coefficients
 
         // 1. The inverse Obukov length
-        // Limits on Linv
-        const double Linvrange = 100.;
+        const double Linvrange = 1.;
 
-        // u* = sqrt(C_d)*wspeed and (u*)^2
-        const double ustar2 = drag_ui[i]*wspeed*wspeed;
         const double retv = 0.6078;
 
-        // The inverse Obukov length a al CICE
-        const double Tstar = drag_ti[i]*(M_tair[i]-Tsurf[i]);
-        const double Qstar = drag_ti[i]*(sphuma-sphumi);
-        const double Linv = std::max( -Linvrange, std::min( Linvrange,
-                    physical::vonKarman * physical::g/ustar2
-                    * ( Tstar/(tairK*(1.+retv*sphuma)) + Qstar/(1./retv + sphuma) ) ) );
-
-        /* The inverse Obukov length
-         * a la ECMWF: https://confluence.ecmwf.int/display/CKB/ERA5%3A+How+to+calculate+Obukhov+Length
-         */
-        /*  Gives occasionally extremely high values, so I'm not using that (for now, maybe I did it wrong)
-        // Virtual temperature: Tv = T*(1+retv*q)
+        /* The inverse Obukov length a al CICE
+        const double Ustar2 = drag_ui[i]*wspeed*wspeed;
+        const double Tstar = std::sqrt(drag_ti[i])*(tsurfK-Tpot);
+        const double Qstar = std::sqrt(drag_ti[i])*(sphumi-sphuma);
         const double Tv = tairK*(1. + retv*sphuma);
-
-        // Virtual turbulent heat flux
-        const double wtv = drag_ti[i]*(Tsurf[i]-M_tair[i]) + retv*tairK*drag_ti[i]*(sphumi-sphuma);
-
-        // turbulent temperature scale
-        const double tvst = wtv/sqrt(ustar2);
-
         const double Linv = std::max( -Linvrange, std::min( Linvrange,
-                    physical::vonKarman * physical::g * tvst / (Tv * ustar2) ) );
-                    */
+                    - physical::vonKarman * physical::g / Ustar2
+                    * ( Tstar/Tv + Qstar/(1./retv + sphuma) ) ) );
+        */
+
+        // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
+        // surface roughness velocity
+        const double ustar = std::sqrt(drag_ui[i])*wspeed;
+
+        // Virtual potential temperature
+        const double Tvirt = Tpot*(1. + retv*sphuma);
+
+        // Mixing ratio
+        const double mixrat = sphuma/(1.-sphuma);
+
+        // Virtual temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
+        const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
+
+        // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
+        const double wr = drag_ti[i] * wspeed * (sphumi-sphuma) / ((1.-sphumi)*(1.-sphuma));
+
+        // Surface virtual potential temperature flux approximation \bar{w'\Theta')(1+0.61\bar r) + 0.61 \bar\Theta \bar{w'r'}
+        const double wTvirt = wTpot*(1. + retv*mixrat) + retv*Tpot*wr;
+
+        // Inverse Obukov length - k g (\bar{w'\Theta'_s})_s / u_*^3 \bar\Theta_v
+        const double Linv = std::max( -Linvrange, std::min( Linvrange,
+                    - physical::vonKarman * physical::g * wTvirt
+                        / (ustar*ustar*ustar * Tvirt) ) );
 
         // 2. Stability parameter \zeta = z/L
         // zref_wind is normally 10 m and zref_temp is normally 2 m
@@ -6250,13 +6263,13 @@ FiniteElement::IABulkFluxes(
             // momentum
             const double x = std::cbrt(1.+zetam);
             pshim = -3.*am*(x-1.)/bm
-                + 0.5*am*Bm/bm *( 2*std::log((x+Bm)/(1+Bm))
+                + 0.5*am*Bm/bm *( 2.*std::log((x+Bm)/(1.+Bm))
                         - std::log((x*x-x*Bm+Bm*Bm)/(1.-Bm+Bm*Bm))
-                        + 2*std::sqrt(3.)*(std::atan((2*x-Bm)/(std::sqrt(3)*Bm)) - std::atan((2.-Bm)/(std::sqrt(3)*Bm))));
+                        + 2.*std::sqrt(3.)*(std::atan((2.*x-Bm)/(std::sqrt(3.)*Bm)) - std::atan((2.-Bm)/(std::sqrt(3.)*Bm))));
 
             // heat
             pshih = -0.5*bh*std::log(1. + ch*zetah + zetah*zetah)
-                + (-ah/Bh + 0.5*bh*ch/Bh)*(std::log((2*zetah+ch-Bh)/(2*zetah+ch+Bh)) - std::log((ch-Bh)/(ch+Bh)));
+                + (-ah/Bh + 0.5*bh*ch/Bh)*(std::log((2.*zetah+ch-Bh)/(2.*zetah+ch+Bh)) - std::log((ch-Bh)/(ch+Bh)));
         }
         else { // The unstable case
             // momentum

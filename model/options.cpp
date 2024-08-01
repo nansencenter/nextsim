@@ -424,8 +424,6 @@ namespace Nextsim
              "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
              "Exponent of factor for heat flux that compensates for assimilation of concentration")
-            ("thermo.z0", po::value<double>()->default_value(0.0013),
-             "Sea ice surface roughness length [m]")
             ("thermo.zref_wind", po::value<double>()->default_value(10.),
              "Reference height for wind forcing [m]")
             ("thermo.zref_temp", po::value<double>()->default_value(2.),
