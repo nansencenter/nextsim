@@ -6178,6 +6178,8 @@ FiniteElement::IABulkFluxes(
     const double ch = 3.;
     const double Bh = std::sqrt(5);
 
+    const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
+
     for ( int i=0; i<M_num_elements; ++i )
     {
         // -------------------------------------------------
@@ -6212,78 +6214,73 @@ FiniteElement::IABulkFluxes(
         // -------------------------------------------------
         // Drag coefficients
 
-        // 1. The inverse Obukov length
-        const double Linvrange = 1.;
-
-        const double retv = 0.6078;
-
-        /* The inverse Obukov length a al CICE
-        const double Ustar2 = drag_ui[i]*wspeed*wspeed;
-        const double Tstar = std::sqrt(drag_ti[i])*(tsurfK-Tpot);
-        const double Qstar = std::sqrt(drag_ti[i])*(sphumi-sphuma);
-        const double Tv = tairK*(1. + retv*sphuma);
-        const double Linv = std::max( -Linvrange, std::min( Linvrange,
-                    - physical::vonKarman * physical::g / Ustar2
-                    * ( Tstar/Tv + Qstar/(1./retv + sphuma) ) ) );
-        */
-
-        // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
-        // surface roughness velocity
-        const double ustar = std::sqrt(drag_ui[i])*wspeed;
-
-        // Virtual potential temperature
-        const double Tvirt = Tpot*(1. + retv*sphuma);
-
-        // Mixing ratio
-        const double mixrat = sphuma/(1.-sphuma);
-
-        // Virtual temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
-        const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
-
-        // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
-        const double wr = drag_ti[i] * wspeed * (sphumi-sphuma) / ((1.-sphumi)*(1.-sphuma));
-
-        // Surface virtual potential temperature flux approximation \bar{w'\Theta')(1+0.61\bar r) + 0.61 \bar\Theta \bar{w'r'}
-        const double wTvirt = wTpot*(1. + retv*mixrat) + retv*Tpot*wr;
-
-        // Inverse Obukov length - k g (\bar{w'\Theta'_s})_s / u_*^3 \bar\Theta_v
-        const double Linv = std::max( -Linvrange, std::min( Linvrange,
-                    - physical::vonKarman * physical::g * wTvirt
-                        / (ustar*ustar*ustar * Tvirt) ) );
-
-        // 2. Stability parameter \zeta = z/L
-        // zref_wind is normally 10 m and zref_temp is normally 2 m
-        const double zetam = zref_wind * Linv;
-        const double zetah = zref_temp * Linv;
-
-        // 3. Stability functions \Phi for momentum and heat
-        double pshim, pshih;
-        if ( Linv >= 0 ) // The stable case
+        if ( ! fix_drag )
         {
-            // momentum
-            const double x = std::cbrt(1.+zetam);
-            pshim = -3.*am*(x-1.)/bm
-                + 0.5*am*Bm/bm *( 2.*std::log((x+Bm)/(1.+Bm))
-                        - std::log((x*x-x*Bm+Bm*Bm)/(1.-Bm+Bm*Bm))
-                        + 2.*std::sqrt(3.)*(std::atan((2.*x-Bm)/(std::sqrt(3.)*Bm)) - std::atan((2.-Bm)/(std::sqrt(3.)*Bm))));
 
-            // heat
-            pshih = -0.5*bh*std::log(1. + ch*zetah + zetah*zetah)
-                + (-ah/Bh + 0.5*bh*ch/Bh)*(std::log((2.*zetah+ch-Bh)/(2.*zetah+ch+Bh)) - std::log((ch-Bh)/(ch+Bh)));
+            // 1. The inverse Obukov length
+            const double Linvrange = 1.;
+
+            const double retv = 0.6078;
+
+            // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
+            // surface roughness velocity
+            const double ustar = std::sqrt(drag_ui[i])*wspeed;
+
+            // Virtual potential temperature
+            const double Tvirt = Tpot*(1. + retv*sphuma);
+
+            // Mixing ratio
+            const double mixrat = sphuma/(1.-sphuma);
+
+            // Virtual temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
+            const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
+
+            // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
+            const double wr = drag_ti[i] * wspeed * (sphumi-sphuma) / ((1.-sphumi)*(1.-sphuma));
+
+            // Surface virtual potential temperature flux approximation \bar{w'\Theta')(1+0.61\bar r) + 0.61 \bar\Theta \bar{w'r'}
+            const double wTvirt = wTpot*(1. + retv*mixrat) + retv*Tpot*wr;
+
+            // Inverse Obukov length - k g (\bar{w'\Theta'_s})_s / u_*^3 \bar\Theta_v
+            const double Linv = std::max( -Linvrange, std::min( Linvrange,
+                        - physical::vonKarman * physical::g * wTvirt
+                            / (ustar*ustar*ustar * Tvirt) ) );
+
+            // 2. Stability parameter \zeta = z/L
+            // zref_wind is normally 10 m and zref_temp is normally 2 m
+            const double zetam = zref_wind * Linv;
+            const double zetah = zref_temp * Linv;
+
+            // 3. Stability functions \Phi for momentum and heat
+            double pshim, pshih;
+            if ( Linv >= 0 ) // The stable case
+            {
+                // momentum
+                const double x = std::cbrt(1.+zetam);
+                pshim = -3.*am*(x-1.)/bm
+                    + 0.5*am*Bm/bm *( 2.*std::log((x+Bm)/(1.+Bm))
+                            - std::log((x*x-x*Bm+Bm*Bm)/(1.-Bm+Bm*Bm))
+                            + 2.*std::sqrt(3.)*(std::atan((2.*x-Bm)/(std::sqrt(3.)*Bm)) - std::atan((2.-Bm)/(std::sqrt(3.)*Bm))));
+
+                // heat
+                pshih = -0.5*bh*std::log(1. + ch*zetah + zetah*zetah)
+                    + (-ah/Bh + 0.5*bh*ch/Bh)*(std::log((2.*zetah+ch-Bh)/(2.*zetah+ch+Bh)) - std::log((ch-Bh)/(ch+Bh)));
+            }
+            else { // The unstable case
+                // momentum
+                double x = std::sqrt(std::sqrt(1.-16.*zetam));
+                pshim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
+
+                // heat
+                x = std::sqrt(std::sqrt(1.-16.*zetah));
+                pshih = 2.*std::log(0.5*(1.+x*x));
+            }
+
+            // 4. The drag coefficients
+            drag_ui[i] = std::pow( physical::vonKarman/(std::log(zref_wind/z0) - pshim), 2);
+            drag_ti[i] = std::pow( physical::vonKarman/(std::log(zref_temp/z0) - pshih), 2);
+
         }
-        else { // The unstable case
-            // momentum
-            double x = std::sqrt(std::sqrt(1.-16.*zetam));
-            pshim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
-
-            // heat
-            x = std::sqrt(std::sqrt(1.-16.*zetah));
-            pshih = 2.*std::log(0.5*(1.+x*x));
-        }
-
-        // 4. The drag coefficients
-        drag_ui[i] = std::pow( physical::vonKarman/(std::log(zref_wind/z0) - pshim), 2);
-        drag_ti[i] = std::pow( physical::vonKarman/(std::log(zref_temp/z0) - pshih), 2);
 
         // -------------------------------------------------
         // Heat fluxes
