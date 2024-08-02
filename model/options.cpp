@@ -430,6 +430,8 @@ namespace Nextsim
              "Reference height for temperature forcing [m]")
             ("thermo.force_neutral_atmosphere", po::value<bool>()->default_value(false),
              "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
+            ("thermo.limiting_lengthscale", po::value<double>()->default_value( 100. ),
+             "A limit for the Obukov lenght (m).")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")

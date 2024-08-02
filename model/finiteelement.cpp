@@ -6166,10 +6166,17 @@ FiniteElement::IABulkFluxes(
     double const alb_ice = vm["thermo.alb_ice"].as<double>();
     double const alb_sn  = vm["thermo.alb_sn"].as<double>();
 
+    // Stability calculations
+    const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
+
     const double zref_wind = vm["thermo.zref_wind"].as<double>();
     const double zref_temp = vm["thermo.zref_temp"].as<double>();
     const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(quad_drag_coef_air));
 
+    const double Linvrange = 1./vm["thermo.limiting_lengthscale"].as<double>();
+    const double retv = 0.6078;
+
+    // Grachev et al's constants
     const double am = 5.;
     const double bm = am/6.5;
     const double Bm = std::cbrt((1-bm)/bm);
@@ -6178,7 +6185,25 @@ FiniteElement::IABulkFluxes(
     const double ch = 3.;
     const double Bh = std::sqrt(5);
 
-    const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
+    // Additional constants for computational efficency
+    const double C1 = -3.*am/bm;
+    const double C2 = 0.5*am*Bm/bm;
+    const double C3 = 1./(1.+Bm);
+    const double Bm2 = Bm*Bm;
+    const double C4 = 1./(1.-Bm+Bm2);
+    const double sqrt3 = std::sqrt(3.);
+    const double C5 = 2.*sqrt3;
+    const double C6 = 1./(sqrt3*Bm);
+    const double C7 = std::atan((2.-Bm)/(sqrt3*Bm));
+
+    const double D1 = -0.5*bh;
+    const double D2 = -ah/Bh + 0.5*bh*ch/Bh;
+    const double D3 = ch-Bh;
+    const double D4 = ch+Bh;
+    const double D5 = std::log((ch-Bh)/(ch+Bh));
+
+    const double lambda_u = std::log(zref_wind/z0);
+    const double lambda_h = std::log(zref_wind/z0);
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6218,9 +6243,6 @@ FiniteElement::IABulkFluxes(
         {
 
             // 1. The inverse Obukov length
-            const double Linvrange = 1.;
-
-            const double retv = 0.6078;
 
             // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
             // surface roughness velocity
@@ -6232,7 +6254,7 @@ FiniteElement::IABulkFluxes(
             // Mixing ratio
             const double mixrat = sphuma/(1.-sphuma);
 
-            // Virtual temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
+            // Potential temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
             const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
 
             // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
@@ -6251,34 +6273,35 @@ FiniteElement::IABulkFluxes(
             const double zetam = zref_wind * Linv;
             const double zetah = zref_temp * Linv;
 
-            // 3. Stability functions \Phi for momentum and heat
-            double pshim, pshih;
+            // 3. Stability functions \Psi for momentum and heat
+            double psim, psih;
             if ( Linv >= 0 ) // The stable case
             {
                 // momentum
                 const double x = std::cbrt(1.+zetam);
-                pshim = -3.*am*(x-1.)/bm
-                    + 0.5*am*Bm/bm *( 2.*std::log((x+Bm)/(1.+Bm))
-                            - std::log((x*x-x*Bm+Bm*Bm)/(1.-Bm+Bm*Bm))
-                            + 2.*std::sqrt(3.)*(std::atan((2.*x-Bm)/(std::sqrt(3.)*Bm)) - std::atan((2.-Bm)/(std::sqrt(3.)*Bm))));
+                psim = C1*(x-1.)
+                    + C2*( 2.*std::log((x+Bm)*C3) - std::log((x*x-x*Bm+Bm2)*C4)
+                            + C5*(std::atan((2.*x-Bm)*C6) - C7) );
 
                 // heat
-                pshih = -0.5*bh*std::log(1. + ch*zetah + zetah*zetah)
-                    + (-ah/Bh + 0.5*bh*ch/Bh)*(std::log((2.*zetah+ch-Bh)/(2.*zetah+ch+Bh)) - std::log((ch-Bh)/(ch+Bh)));
+                psih = D1*std::log(1. + ch*zetah + zetah*zetah)
+                    + D2*(std::log((2.*zetah+D3)/(2.*zetah+D4)) - D5);
             }
             else { // The unstable case
                 // momentum
                 double x = std::sqrt(std::sqrt(1.-16.*zetam));
-                pshim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
+                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
 
                 // heat
                 x = std::sqrt(std::sqrt(1.-16.*zetah));
-                pshih = 2.*std::log(0.5*(1.+x*x));
+                psih = 2.*std::log(0.5*(1.+x*x));
             }
 
-            // 4. The drag coefficients
-            drag_ui[i] = std::pow( physical::vonKarman/(std::log(zref_wind/z0) - pshim), 2);
-            drag_ti[i] = std::pow( physical::vonKarman/(std::log(zref_temp/z0) - pshih), 2);
+            // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Pshi} )^2
+            drag_ui[i] = physical::vonKarman/(lambda_u - psim);
+            drag_ui[i] *= drag_ui[i];
+            drag_ti[i] = physical::vonKarman/(lambda_h - psih);
+            drag_ti[i] *= drag_ti[i];
 
         }
 
