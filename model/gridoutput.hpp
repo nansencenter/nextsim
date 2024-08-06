@@ -705,7 +705,7 @@ public:
                     name     = "meltpond_fraction";
                     longName = "Meltpond fraction";
                     stdName  = "meltpond_fraction";
-                    Units    = "m";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 
