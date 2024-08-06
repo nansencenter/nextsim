@@ -83,6 +83,10 @@ public:
         M_thick_summer    = 30,
         M_pond_volume     = 31,
         M_lid_volume      = 32,
+        M_drag_ui         = 33,
+        M_drag_ti         = 34,
+        M_drag_ui_young   = 35,
+        M_drag_ti_young   = 36,
 
         // Diagnostic variables
         D_conc         = 100,
