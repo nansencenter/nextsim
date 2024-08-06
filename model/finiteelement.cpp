@@ -6290,7 +6290,7 @@ FiniteElement::IABulkFluxes(
             else { // The unstable case
                 // momentum
                 double x = std::sqrt(std::sqrt(1.-16.*zetam));
-                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
+                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - 2.*std::atan(x) + 0.5*M_PI;
 
                 // heat
                 x = std::sqrt(std::sqrt(1.-16.*zetah));
