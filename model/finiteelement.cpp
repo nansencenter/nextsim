@@ -6205,13 +6205,13 @@ FiniteElement::IABulkFluxes(
     const double sqrt3 = std::sqrt(3.);
     const double C5 = 2.*sqrt3;
     const double C6 = 1./(sqrt3*Bm);
-    const double C7 = std::atan((2.-Bm)/(sqrt3*Bm));
+    const double C7 = std::atan((2.-Bm)*C6);
 
     const double D1 = -0.5*bh;
     const double D2 = -ah/Bh + 0.5*bh*ch/Bh;
     const double D3 = ch-Bh;
     const double D4 = ch+Bh;
-    const double D5 = std::log((ch-Bh)/(ch+Bh));
+    const double D5 = std::log(D3/D4);
 
     const double lambda_u = std::log(zref_wind/z0);
     const double lambda_h = std::log(zref_wind/z0);
@@ -6301,7 +6301,7 @@ FiniteElement::IABulkFluxes(
             else { // The unstable case
                 // momentum
                 double x = std::sqrt(std::sqrt(1.-16.*zetam));
-                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - std::atan(x) + 0.5*M_PI;
+                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - 2.*std::atan(x) + 0.5*M_PI;
 
                 // heat
                 x = std::sqrt(std::sqrt(1.-16.*zetah));
@@ -10413,7 +10413,6 @@ FiniteElement::explicitSolve()
     // std::vector<double> tau_a(2*M_num_nodes);
     // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
     std::vector<double> fcor(M_num_nodes);
-    std::vector<double> c_2prime(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
@@ -10435,9 +10434,7 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] = 0.;
         }
 
-        // // Atmospheric drag
-        const double rhoa_wspeed = physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]);
-
+        // Atmospheric drag
         // Surface weighted average drag
         double drag = 0.;
         double surface = 0;
@@ -10456,12 +10453,10 @@ FiniteElement::explicitSolve()
             drag += dragp * M_surface[elt_num];
             surface += M_surface[elt_num];
         }
-        drag /= surface;
+        drag *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface;
 
-        c_2prime[i] = physical::rhow * drag;
-
-        D_tau_a[u_indx] = drag * rhoa_wspeed * M_wind[u_indx];
-        D_tau_a[v_indx] = drag * rhoa_wspeed * M_wind[v_indx];
+        D_tau_a[u_indx] = drag * M_wind[u_indx];
+        D_tau_a[v_indx] = drag * M_wind[v_indx];
 
         // Coriolis term
         fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
@@ -10568,7 +10563,7 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = c_2prime[i]*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
