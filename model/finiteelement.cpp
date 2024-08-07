@@ -5215,7 +5215,8 @@ FiniteElement::thermo(int dt)
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
-    double const max_pond_fraction = vm["thermo.max_pond_fraction"].as<double>(); // Maximum fraction of melt pond coverage for level ice
+    double const meltponds_roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
+    double const meltponds_dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
 
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
@@ -5821,7 +5822,7 @@ FiniteElement::thermo(int dt)
 
         // Meltponds. This version doesn't impact the emp balance ... but a future one should
         if (use_meltponds)
-            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, max_pond_fraction);
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, meltponds_roff, meltponds_dep2frac );
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6163,10 +6164,10 @@ FiniteElement::IABulkFluxes(
     // Constants
     double const I_0        = vm["thermo.I_0"].as<double>();
 
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
-    double const alb_pnd = vm["thermo.alb_ponds"].as<double>();
+    int const alb_scheme  = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice  = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn   = vm["thermo.alb_sn"].as<double>();
+    double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
 
     // Stability calculations
     const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
@@ -6543,7 +6544,7 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
 inline void
 FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
-        const double Qia, const double rain, const double max_pond_fraction)
+        const double Qia, const double rain, const double roff, const double dep2frac)
 {
     // TODO: Make this tunable?
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
@@ -6566,8 +6567,6 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     /* 20% of available water is runoff, rest goes into the pond. Scale with
      * concentration as well, following Holland et al. (2012) */
     // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
-    double const roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
-    double const dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
     M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
 
     // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
@@ -6631,54 +6630,6 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         D_pond_fraction[cpt] = 0.;
     }
 
-    // Drain the pond to the freeboard, if it's permiable
-    // The pond drains immediately - this may not be accurate
-    //const double freeboard = M_conc[cpt]*( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
-    //if ( M_pond_volume[cpt] > freeboard && this->isPermeable(cpt) )
-    //    M_pond_volume[cpt] -= freeboard;
-
-}
-
-inline bool
-FiniteElement::isPermeable( const int cpt )
-{
-    std::vector<double> temp;
-
-    // Take all temperature points - also top and bottom
-    for ( int i=0; i<M_tice.size(); ++i )
-        temp.push_back(M_tice[i][cpt]);
-
-    temp.push_back(-M_freezingpoint_mu*M_sss[cpt]);
-
-    // Select Assur or Notz, depending on the maximum temperature
-    bool a, b, c, d;
-    if ( *std::max_element(temp.begin(), temp.end()) <= -2. )
-    {
-        // Assur 1958
-        a = -1.2;
-        b = -21.8;
-        c = -0.919;
-        d = -0.01878;
-    } else {
-        // Notz 2005 thesis eq. 3.2
-        a = 0.;
-        b = -17.6;
-        c = -0.389;
-        d = -0.00362;
-    }
-
-    // Calculate liquid fraction and infer permiability
-    bool isPermeable = false;
-    for ( auto& T: temp )
-    {
-        const double Sbr = a
-                + b * T
-                + c * std::pow(T,2)
-                + d * std::pow(T,3);
-        // permiable if liquid fraction > 5%
-        isPermeable = isPermeable || physical::si/Sbr > 0.05;
-    }
-    return isPermeable;
 }
 
 //------------------------------------------------------------------------------------------------------

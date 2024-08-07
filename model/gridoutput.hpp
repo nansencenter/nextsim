@@ -707,7 +707,7 @@ public:
                     name     = "meltpond_fraction";
                     longName = "Meltpond fraction";
                     stdName  = "meltpond_fraction";
-                    Units    = "m";
+                    Units    = "1";
                     break;
                 case (variableID::drag_ui):
                     name     = "drag_ui";

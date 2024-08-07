@@ -444,8 +444,6 @@ namespace Nextsim
 
             ("thermo.use_meltponds", po::value<bool>()->default_value(false),
              "Use a simple meltpond scheme")
-            ("thermo.max_pond_fraction", po::value<double>()->default_value(0.5),
-             "Maximum fraction of level ice that can be covered by melt ponds")
             ("thermo.meltpond_runoff_fraction", po::value<double>()->default_value(0.2),
              "Fraction of available water that run-off and doesn't fill the ponds")
             ("thermo.meltpond_depth_to_fraction", po::value<double>()->default_value(0.8),
