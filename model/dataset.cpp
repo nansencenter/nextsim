@@ -183,7 +183,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "asr30km.comb.2D.%Y%m.nc",
             gridfile: "",
             reference_date: "1901-01-01",
@@ -325,7 +325,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "asr30km.comb.2D.%Y%m.nc",
             gridfile: "",
             reference_date: "1901-01-01",
@@ -620,7 +620,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"GENERIC_PS_ATM",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "generic_ps_atm_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1900-01-01",
@@ -759,7 +759,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"GENERIC_PS_ATM",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "generic_ps_atm_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1900-01-01",
@@ -1049,7 +1049,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"ECMWF_NRT_AROME",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1188,7 +1188,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"ECMWF_NRT_AROME",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_arome_blended_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1475,7 +1475,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"ECMWF_NRT_AROME_ENSEMBLE",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1611,7 +1611,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
 
-            dirname:"ECMWF_NRT_AROME_ENSEMBLE",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_arome_blended_ensemble_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -1792,17 +1792,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth",
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
-
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
@@ -1868,8 +1857,8 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable u={
             filename_string: "", // All variables are in the same (grid) file
-            name: "u",
-            dimensions: dimensions_uv,
+            name: "vxo",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1886,8 +1875,8 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable v={
             filename_string: "", // All variables are in the same (grid) file
-            name: "v",
-            dimensions: dimensions_uv,
+            name: "vyo",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -1904,7 +1893,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable ssh={
             filename_string: "", // All variables are in the same (grid) file
-            name: "ssh",
+            name: "zos",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -1923,8 +1912,8 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_30m.nc",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
+            filename_mask: "%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -1996,16 +1985,6 @@ DataSet::DataSet(char const *DatasetName)
             cyclic:false
         };
 
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -2072,8 +2051,8 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sst={
             filename_string: "", // All variables are in the same (grid) file
-            name: "temperature",
-            dimensions: dimensions_uv,
+            name: "thetao",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2090,8 +2069,8 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable sss={
             filename_string: "", // All variables are in the same (grid) file
-            name: "salinity",
-            dimensions: dimensions_uv,
+            name: "so",
+            dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
             NaN_mask_defined: false,
@@ -2108,7 +2087,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable mld={
             filename_string: "", // All variables are in the same (grid) file
-            name: "mlp",
+            name: "mlotst",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -2127,8 +2106,8 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
+            filename_mask: "%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -2328,7 +2307,7 @@ DataSet::DataSet(char const *DatasetName)
         interp_type : BilinearInterpEnum,
         //interpolation_method: InterpolationType::FromMeshToMesh2dx,
         //interp_type: -1,
-        dirname: "",
+        dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
         filename_mask: "GLORYS12V1_%Y_30m.nc",
         gridfile: "",
         reference_date: "1950-01-01",
@@ -2578,7 +2557,7 @@ DataSet::DataSet(char const *DatasetName)
         interp_type : BilinearInterpEnum,
         //interpolation_method: InterpolationType::FromMeshToMesh2dx,
         //interp_type: -1,
-        dirname: "",
+        dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
         filename_mask: "GLORYS12V1_%Y_3m.nc",
         gridfile: "",
         reference_date: "1950-01-01",
@@ -4769,7 +4748,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
-            dirname: "TOPAZ4RC_daily",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
             filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
@@ -5016,7 +4995,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
-            dirname: "TOPAZ4RC_daily",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
             filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1950-01-01",
@@ -5202,7 +5181,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
-            dirname: "TOPAZ5RC_daily",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
             filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -5449,7 +5428,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : -1,
             interpolation_method: InterpolationType::FromGridToMesh,
             interp_type : BilinearInterpEnum,
-            dirname: "TOPAZ5RC_daily",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
             filename_mask: "topaz_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date: "1970-01-01",
@@ -5512,17 +5491,6 @@ DataSet::DataSet(char const *DatasetName)
             name:"time", // "Time"
             cyclic:false
         };
-
-        Dimension dimension_depth={
-            name:"depth", // "Time"
-            cyclic:false
-        };
-
-        std::vector<Dimension> dimensions_uv(4);
-        dimensions_uv[0] = dimension_time;
-        dimensions_uv[1] = dimension_depth;
-        dimensions_uv[2] = dimension_y;
-        dimensions_uv[3] = dimension_x;
 
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
@@ -5589,7 +5557,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable conc={
             filename_string: "", // All variables are in the same (grid) file
-            name: "fice",
+            name: "siconc",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5607,7 +5575,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable thick={
             filename_string: "", // All variables are in the same (grid) file
-            name: "hice",
+            name: "sithick",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5625,7 +5593,7 @@ DataSet::DataSet(char const *DatasetName)
 
         Variable snow_thick={
             filename_string: "", // All variables are in the same (grid) file
-            name: "hsnow",
+            name: "sisnthick",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -5644,8 +5612,8 @@ DataSet::DataSet(char const *DatasetName)
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromMeshToMesh2dx,
             interp_type: -1,
-            dirname: "",
-            filename_mask: "TP4DAILY_%Y%m_3m.nc",
+            dirname: Environment::vm()["setup.oceanic_forcing_input_path"].as<std::string>(),
+            filename_mask: "%Y/topaz_rean_%Y%m.nc",
             gridfile: "",
             reference_date: "1950-01-01",
 
@@ -8040,7 +8008,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "cfsr.6h.%Y%m.nc",
             gridfile: "",
             reference_date:"1901-01-01",
@@ -8303,7 +8271,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "cfsr.6h.%Y%m.nc",
             gridfile: "",
             reference_date:"1901-01-01",
@@ -8486,7 +8454,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "cfsr_h.sh.%Y%m.nc",
             gridfile: "",
             reference_date:"1901-01-01",
@@ -8670,7 +8638,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ERA5_${VARSTRING}_y%Y.nc",
             gridfile: "",
             reference_date:"1900-01-01",
@@ -8931,7 +8899,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ERA5_${VARSTRING}_y%Y.nc",
             gridfile: "",
             reference_date:"1900-01-01",
@@ -9115,7 +9083,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"ECMWF_NRT_Arctic",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date:"1950-01-01",
@@ -9381,7 +9349,7 @@ DataSet::DataSet(char const *DatasetName)
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
-            dirname:"ECMWF_NRT_Arctic",
+            dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
             filename_mask: "ecmwf_nrt_%Y%m%d.nc",
             gridfile: "",
             reference_date:"1950-01-01",
@@ -10067,9 +10035,14 @@ DataSet::getFilename(double const& current_time) const
     std::string fmask = grid.filename_mask;
     boost::replace_all(fmask, "${VARSTRING}", variables[0].filename_string);
     
-    std::string const filename = (boost::format( "%1%/%2%/%3%" )
+    std::string dirname = grid.dirname;
+    if ( ! boost::filesystem::exists(dirname) )
+        dirname = (boost::format( "%1%/%2%" )
             % Environment::nextsimDataDir().string()
-            % grid.dirname
+            % dirname
+            ).str();
+    std::string const filename = (boost::format( "%1%/%2%" )
+            % dirname
             % datenumToString(current_time, fmask)
             ).str();
     return filename;

@@ -145,7 +145,7 @@ public:
         hs_young     = 15,
         conc_young   = 16,
         fyi_fraction = 17,
-        age_d        = 18,
+        age_det      = 18,
         age          = 19,
         conc_upd     = 20,
         sigma_11     = 21,
@@ -384,7 +384,7 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::age_d):
+                case (variableID::age_det):
                     name     = "siage_det";
                     longName = "Detectable Age of Sea Ice";
                     stdName  = "det_age_of_sea_ice";

@@ -216,7 +216,6 @@ public:
 
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
-    Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_osisaf_type_elements_dataset;
