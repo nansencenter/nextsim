@@ -613,7 +613,6 @@ FiniteElement::assignVariables()
     }
 #endif
     M_ice_topaz_elements_dataset.interpolated=false;
-    M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
     M_ice_osisaf_elements_dataset.interpolated=false;
     M_ice_osisaf_type_elements_dataset.interpolated=false;
@@ -838,7 +837,6 @@ FiniteElement::initDatasets()
     //              amount of memory
     M_ice_topaz_elements_dataset=DataSet("ice_topaz4r_elements");
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
-    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
@@ -6006,28 +6004,21 @@ FiniteElement::thermo(int dt)
 
             // Observable sea ice age tracer
             // Melt does not effect the age, growth makes it younger
-            M_age_det[i] += dt*M_conc[i];
+            double w_age = old_conc <= 0? 0.: std::min(old_conc/M_conc[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_conc > M_conc => w_age = 1
+            // freezing => weighted average
+            M_age_det[i] =  w_age * (M_age_det[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
             // Real (volume weighted and conserving) sea ice age
-            double old_age = M_age[i];
-            double del_vi_thick = M_thick[i] - old_vol;
+            w_age = old_vol <= 0 ? 0. : std::min(old_vol/M_thick[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_vol > M_thick => w_age = 1
+            // freezing => weighted average
+            M_age[i] =  w_age * (M_age[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
-            // potential devision by zero and non-initialized old_vol (strange value) in the first time step
-            if (old_vol > 0. && del_vi_thick > 0.) // freezing
-            {
-                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
-            }
-            else if (old_vol > 0. && del_vi_thick < 0.) // melting
-            {
-                M_age[i] = old_age+dt;
-            }
-            else //new ice
-            {
-                M_age[i] =  dt;
-            }
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
-
             if (reset_by_date)
             {
                 if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
@@ -7291,20 +7282,23 @@ FiniteElement::initModelVariables()
     }// loop over M_variables_elt
 
     // Check that output.variables doesn't contain a typo!
-    // Add "M_VT" and "None" to the available list before checking
-    available_names.push_back(std::string("M_VT"));
-    available_names.push_back(std::string("None"));
-    for (auto &requested: requested_names)
+    if ( output_time_step > 0 && vm["output.export_fields"].as<bool>() )
     {
-        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        // Add "M_VT" and "None" to the available list before checking
+        available_names.push_back(std::string("M_VT"));
+        available_names.push_back(std::string("None"));
+        for (auto &requested: requested_names)
         {
-            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
-            LOG(ERROR) << "Available names are (case sensitive):\n";
-            for (auto &available: available_names)
-                LOG(ERROR) << "     " << available << "\n";
+            if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+            {
+                LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+                LOG(ERROR) << "Available names are (case sensitive):\n";
+                for (auto &available: available_names)
+                    LOG(ERROR) << "     " << available << "\n";
 
-            M_comm.barrier();
-            throw std::runtime_error("Unknown name in output.variables\n");
+                M_comm.barrier();
+                throw std::runtime_error("Unknown name in output.variables\n");
+            }
         }
     }
 
@@ -8522,7 +8516,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::age_d):
+            case (GridOutput::variableID::age_det):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_age_det[i] * time_factor / years_in_sec;
                 break;
@@ -9018,7 +9012,7 @@ FiniteElement::initMoorings()
             ("sialb", GridOutput::variableID::sialb)
             ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
-            ("age_d", GridOutput::variableID::age_d)
+            ("age_det", GridOutput::variableID::age_det)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
@@ -12679,14 +12673,15 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 void
 FiniteElement::piomasIce()
 {
-    external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
+    Dataset ice_piomas_elements_dataset = DataSet("ice_piomas_elements");
+    external_data init_conc = ExternalData(&ice_piomas_elements_dataset,M_mesh,0,false,time_init);
+    external_data init_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,1,false,time_init);
+    external_data init_snow_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_init_conc);
-    external_data_tmp.push_back(&M_init_thick);
-    external_data_tmp.push_back(&M_init_snow_thick);
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
@@ -12695,23 +12690,19 @@ FiniteElement::piomasIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_conc[i] = std::min(1.,M_init_conc[i]);
-        M_thick[i] = M_init_thick[i];
-        M_snow_thick[i] = M_init_snow_thick[i];
+        M_conc[i] = std::min(1., init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = std::max(0., init_snow_thick[i]);
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
+        if((M_conc[i] <= 0.) || (M_thick[i] <= 0.))
         {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
+            M_conc[i] = 0.;
+            M_thick[i] = 0.;
+            M_snow_thick[i] = 0.;
         }
 
-        M_damage[i]=0.;
+        M_damage[i] = 0.;
     }
 }//piomasIce
 
@@ -14030,6 +14021,8 @@ FiniteElement::globalNumToprocId(int global_num)
 
         cpt += 2*M_sizes_nodes[i];
     }
+    throw std::logic_error("Couldn't map global number: "
+            + std::to_string(global_num) + " to (local) proc id.\n");
 } //globalNumToprocId
 
 // -------------------------------------------------------------------------------------
