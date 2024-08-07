@@ -6194,13 +6194,13 @@ FiniteElement::IABulkFluxes(
     const double sqrt3 = std::sqrt(3.);
     const double C5 = 2.*sqrt3;
     const double C6 = 1./(sqrt3*Bm);
-    const double C7 = std::atan((2.-Bm)/(sqrt3*Bm));
+    const double C7 = std::atan((2.-Bm)*C6);
 
     const double D1 = -0.5*bh;
     const double D2 = -ah/Bh + 0.5*bh*ch/Bh;
     const double D3 = ch-Bh;
     const double D4 = ch+Bh;
-    const double D5 = std::log((ch-Bh)/(ch+Bh));
+    const double D5 = std::log(D3/D4);
 
     const double lambda_u = std::log(zref_wind/z0);
     const double lambda_h = std::log(zref_wind/z0);
