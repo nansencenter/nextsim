@@ -407,6 +407,24 @@ ModelVariable::initElemental()
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
             break;
+
+        case (variableID::M_pond_volume):
+            M_name = "M_pond_volume";
+            M_export_name = "Meltpond_volume";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            break;
+
+        case (variableID::M_lid_volume):
+            M_name = "M_lid_volume";
+            M_export_name = "Meltpond_lid_volume";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            break;
         
         // Diagnostic variables
         case (variableID::D_conc):
@@ -744,6 +762,13 @@ ModelVariable::initElemental()
                 throw std::runtime_error(
                         "Unauthorised component number for D_sigma_p: "
                         +std::to_string(M_component_number));
+            break;
+
+        case (variableID::D_pond_fraction):
+            M_name = "D_pond_fraction";
+            M_export_name = "Meltpond_fraction";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         default:

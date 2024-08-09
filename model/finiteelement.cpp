@@ -5205,6 +5205,10 @@ FiniteElement::thermo(int dt)
     bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
+    const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
+    double const meltponds_roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
+    double const meltponds_dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5226,6 +5230,7 @@ FiniteElement::thermo(int dt)
     M_timer.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
+    bool bulk_for_young = false ;
     std::vector<double> Qia(M_num_elements);
     std::vector<double> Qlwi(M_num_elements);
     std::vector<double> Qswi(M_num_elements);
@@ -5236,7 +5241,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo(M_num_elements);
     std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, bulk_for_young);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5249,10 +5254,11 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo_young(M_num_elements);
     std::vector<double> I_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
-    {
+    {   
+        bulk_for_young = true ;
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
-                I_young, subl_young, dQiadT_young, albedo_young);
+                I_young, subl_young, dQiadT_young, albedo_young, bulk_for_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -5800,8 +5806,13 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         // rain Liquid precipitation
         // emp  Evaporation minus liquid precipitation
-        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*(M_precip[i]-tmp_snowfall);
+        double const rain_on_ice = std::max(0., M_precip[i] - tmp_snowfall);
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*rain_on_ice;
         double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
+
+        // Meltponds. This version doesn't impact the emp balance ... but a future one should
+        if (use_meltponds)
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, meltponds_roff, meltponds_dep2frac );
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6138,15 +6149,16 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
         std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-        std::vector<double>& alb_tot)
+        std::vector<double>& alb_tot, bool bulk_for_young)
 {
     // Constants
     double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    int const alb_scheme  = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice  = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn   = vm["thermo.alb_sn"].as<double>();
+    double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6198,9 +6210,18 @@ FiniteElement::IABulkFluxes(
         else
             hs = 0;
 
-	double pen_sw;
-	std::tie(alb_tot[i],pen_sw) = this->albedo(
-                Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0);
+        double pen_sw;
+        double pond_fraction;
+        if ( D_pond_fraction[i] > 0. && M_lid_volume[i]/D_pond_fraction[i] <= 0.05 )
+            pond_fraction = D_pond_fraction[i];
+        else
+            pond_fraction = 0.;
+        // No ponds on young ice
+        if (bulk_for_young)
+            pond_fraction = 0. ;
+
+        std::tie(alb_tot[i],pen_sw) = this->albedo(
+            Tsurf[i], hs, pond_fraction, alb_scheme, alb_ice, alb_sn, alb_pnd, I_0);
 
         Qsw[i] = -M_Qsw_in[i]*(1.- alb_tot[i])*(1.-pen_sw);
         I[i]   =  M_Qsw_in[i]*(1.- alb_tot[i])*pen_sw;
@@ -6310,8 +6331,9 @@ FiniteElement::freezingPoint(const double sss)
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
 inline std::tuple<double,double>
-FiniteElement::albedo(const double Tsurf, const double hs,
-        int alb_scheme, double alb_ice, double alb_sn, double I_0)
+FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd,
+        const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd,
+        const double I_0)
 {
     double albedo, pen_sw;
 
@@ -6359,8 +6381,28 @@ FiniteElement::albedo(const double Tsurf, const double hs,
             double frac_sn = hs/(hs+0.02);
 
             /* Final albedo */
-            albedo = frac_sn*albs + (1.-frac_sn)*albi;
-            pen_sw = (1.-frac_sn)*I_0;
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*albi;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
+
+            break;
+            }
+        case 4:
+            /* Constant albedos with a meltpond contribution */
+            /* The scheme assumes constant snow, ice, and meltpond albedos. Something like alb_ice = 0.54, alb_sn = 0.83, and alb_pnd = 0.3 makes sense. */
+            {
+            /* Snow cover fraction */
+            double frac_sn = hs/(hs+0.02);
+
+            double albs;
+            if ( Tsurf > -1. )
+            {
+                albs = alb_sn  - 0.124*(Tsurf+1.);
+            } else {
+                albs = alb_sn;
+            }
+            /* Final albedo */
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*alb_ice;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
 
             break;
             }
@@ -6371,6 +6413,97 @@ FiniteElement::albedo(const double Tsurf, const double hs,
 
     return std::make_tuple(albedo,pen_sw);
 }//albedo
+
+inline void
+FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
+        const double hs, const double iceSurfaceMelt, const double snowMelt,
+        const double Qia, const double rain, const double roff, const double dep2frac)
+{
+    // TODO: Make this tunable?
+    const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
+    const double concMin = 0.1;      // minimum ice concentration with ponds
+    const double max_lid_thickness = 0.3; // maximum lid thickness
+
+    const double ice_to_water = physical::rhoi/physical::rhow;
+    const double snow_to_water = physical::rhos/physical::rhow;
+    const double water_to_ice = physical::rhow/physical::rhoi;
+
+    /* Calculate total volume of available water decreased by 20% for runoff
+     * Unit conversion
+     * iceSurfaceMelt: m ice -> m water
+     * snowMelt: m snow -> m water
+     * rain: kg/m^2/s -> m water */
+    double const availableWater = -iceSurfaceMelt*ice_to_water
+                               - snowMelt*snow_to_water
+                               + rain/physical::rhow*dt;
+
+    /* 20% of available water is runoff, rest goes into the pond. Scale with
+     * concentration as well, following Holland et al. (2012) */
+    // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
+    M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
+
+    // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
+    if ( M_pond_volume[cpt] <= 0.
+            || M_conc[cpt] <= concMin
+            || M_thick[cpt]/M_conc[cpt] <= hIceMin )
+    {
+        // Set pond and lid volume to zero
+        M_pond_volume[cpt] = 0.;
+        M_lid_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
+
+        return;
+    }
+
+    // Calculate the melt pond depth and fraction following Holland et al. (2012)
+    D_pond_fraction[cpt] = std::sqrt(M_pond_volume[cpt]/dep2frac);
+
+    // Make sure there is no pond on snow
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 1.-hs/(hs+0.2));
+
+    // Make sure the pond depth isn't too high --> Holland et al. (2012)
+    double pond_depth = std::min(dep2frac*D_pond_fraction[cpt],0.9*hi);
+   // If pond depth was too high, just drain the excess 
+    M_pond_volume[cpt] = pond_depth*D_pond_fraction[cpt];
+   
+    // Make sure the pond depth isn't microscopic
+    pond_depth = std::max(0.05, pond_depth);
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 
+            (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
+
+    double delLidVolume = 0; // Volume increase is always positive!
+    if ( M_lid_volume[cpt] > 0. ) // a lid exits
+    {
+        // Grow or melt the lid - lid volume is in water-equivalent meters
+        /* Assume the pond water has the same salinity as sea ice and is at the
+         * freezing point */
+        const double TPond = -M_freezingpoint_mu*physical::si;
+        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
+        const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
+            *dt/(physical::rhoi*physical::Lf);
+
+        delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
+        delLidVolume = std::max(delLidVolume, -M_lid_volume[cpt]);
+    }
+    else if ( Qia > 0. ) // a lid forms
+    {
+        delLidVolume = dt*Qia/(physical::rhoi*physical::Lf)*ice_to_water;
+    }
+
+    M_lid_volume[cpt] += delLidVolume;
+    M_pond_volume[cpt] -= delLidVolume;
+
+    // Remove lid if the pond is frozen solid or if it's too thick
+    if ( M_pond_volume[cpt] <= 0.
+            || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] >= max_lid_thickness )
+    {
+        M_lid_volume[cpt] = 0.;
+        M_pond_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
+    }
+
+}
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
@@ -6967,6 +7100,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_freeze_onset);
     M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
     M_variables_elt.push_back(&M_del_vi_tend);
+    M_pond_volume = ModelVariable(ModelVariable::variableID::M_pond_volume);//! \param M_pond_volume (double) Volume of meltponds per grid cell area
+    M_variables_elt.push_back(&M_pond_volume);
+    M_lid_volume = ModelVariable(ModelVariable::variableID::M_lid_volume);//! \param M_lid_volume (double) Volume of meltpond lid per grid cell area
+    M_variables_elt.push_back(&M_lid_volume);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -7047,6 +7184,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_albedo);
     D_sialb = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_sialb (double) Sea ice albedo - mean albedo where ice
     M_variables_elt.push_back(&D_sialb);
+    D_pond_fraction = ModelVariable(ModelVariable::variableID::D_pond_fraction);//! \param D_pond_fraction (double) Fraction of grid cell covered by meltponds
+    M_variables_elt.push_back(&D_pond_fraction);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -8343,6 +8482,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::meltpond_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_pond_volume[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::meltpond_lid_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_lid_volume[i]*time_factor;
+                break;
+
             // MYI code
             case (GridOutput::variableID::conc_myi):
                 for (int i=0; i<M_local_nelements; i++)
@@ -8468,6 +8617,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_divergence[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::meltpond_fraction):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_pond_fraction[i]*time_factor;
+                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8774,6 +8927,9 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
+            ("meltpond_volume", GridOutput::variableID::meltpond_volume)
+            ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
+            ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)

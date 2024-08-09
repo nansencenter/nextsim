@@ -185,14 +185,18 @@ public:
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-            std::vector<double>& alb_tot);
-    inline std::tuple<double,double> albedo(const double Tsurf, const double hs,
-        int alb_scheme, double alb_ice, double alb_sn, double I_0);
+            std::vector<double>& alb_tot, bool bulk_for_young);
+    inline std::tuple<double,double> albedo(const double Tsurf, const double hs, const double frac_pnd,
+        const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd, const double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
     inline double iceOceanHeatflux(const int cpt, const double sst, const double tbot, const double mld, const double dt);
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
+    inline void meltPonds(const int cpt, const double dt, const double hi,
+             const double hs, const double iceSurfaceMelt, const double snowMelt,
+             const double Qia, const double rain, const double roff, const double dep2frac);
+    inline bool isPermeable(const int cpt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
@@ -732,6 +736,8 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
+    ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
+    ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -819,6 +825,7 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_pond_fraction; // Grid cell fraction covered by melt ponds
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]
