@@ -102,6 +102,10 @@ namespace Nextsim
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
+            ("setup.atmospheric_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of atmospheric forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
+            ("setup.oceanic_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of ocean forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
@@ -386,6 +390,7 @@ namespace Nextsim
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
             ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
             ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
+            ("thermo.alb_ponds", po::value<double>()->default_value( 0.30 ), "")
             ("thermo.I_0", po::value<double>()->default_value( 0.30 ), "Fraction of short-wave radiation that penetrates into the ice. The default (30%) is taken from Winton (2000).")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
@@ -436,6 +441,13 @@ namespace Nextsim
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
+
+            ("thermo.use_meltponds", po::value<bool>()->default_value(false),
+             "Use a simple meltpond scheme")
+            ("thermo.meltpond_runoff_fraction", po::value<double>()->default_value(0.2),
+             "Fraction of available water that run-off and doesn't fill the ponds")
+            ("thermo.meltpond_depth_to_fraction", po::value<double>()->default_value(0.8),
+             "Slope of linear fit of melt pond volume to melt pond fraction")
 
              //-----------------------------------------------------------------------------------
              //! - Nesting
