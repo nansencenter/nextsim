@@ -29,6 +29,7 @@
 #include <gmshmeshseq.hpp>
 #include <graphcsr.hpp>
 #include <graphcsrmpi.hpp>
+#include <interpolation.hpp>
 #include <externaldata.hpp>
 #include <gridoutput.hpp>
 #include <dataset.hpp>
@@ -245,8 +246,8 @@ public:
 
     double resolution(mesh_type_root const& mesh) const;
 
-    std::vector<double> hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
-    std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
+    std::vector<double> hminVertices(mesh_type_root const& mesh) const;
+    std::vector<double> hmaxVertices(mesh_type_root const& mesh) const;
 
     void initBamg();
     void initOptAndParam();
@@ -350,6 +351,9 @@ private:
     void advect(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
+
+    void compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours);
+    void compute_list_node_neighbours(std::vector<std::vector<int>>& list_neighbours);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);

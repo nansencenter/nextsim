@@ -358,8 +358,8 @@ FiniteElement::rootMeshProcessing()
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
 
-            M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
-            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
+            M_hminVertices = this->hminVertices(M_mesh_init_root);
+            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root);
 
             LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
             LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
@@ -1858,31 +1858,22 @@ FiniteElement::resolution(mesh_type_root const& mesh) const
 //! Calculates the minimum height (i.e., dimension) of each triangular mesh element.
 //! Called by the rootMeshProcessing() function.
 std::vector<double>
-FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const
+FiniteElement::hminVertices(mesh_type_root const& mesh) const
 {
-    std::vector<double> hmin(bamg_mesh->NodalElementConnectivitySize[0]);
-
-    for (int i=0; i<bamg_mesh->NodalElementConnectivitySize[0]; ++i)
+    std::vector<double> hmin(mesh.numNodes(),1.e30);
+    int n_nodes;
+    for (int i = 0; i < mesh.numTriangles(); i++)
     {
-        std::vector<double> measure(bamg_mesh->NodalElementConnectivitySize[1]);
-        int k = 0;
-        for (int j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
+        for (int j = 0; j < 3; j++)
         {
-            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
-
-            if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
-            {
-                measure[k] = this->measure(mesh.triangles()[elt_num],mesh);
-                k++;
-            }
-            else
-            {
-                continue;
-            }
+            n_nodes = mesh.triangles()[i].indices[j]-1;
+            hmin[n_nodes] = min(hmin[n_nodes], this->measure(mesh.triangles()[i],mesh));
         }
+    }
 
-        measure.resize(k);
-        hmin[i] = std::sqrt(2.)*std::sqrt(*std::min_element(measure.begin(),measure.end()))*0.8;
+    for (int i = 0; i < mesh.numNodes(); i++)
+    {
+        hmin[i] = std::sqrt(2.)*std::sqrt(hmin[i])*0.8;
     }
 
     return hmin;
@@ -1893,9 +1884,9 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
 //! Returns the maximum height (i.e., dimension) of all mesh elements
 //! Called by the rootMeshProcessing() function.
 std::vector<double>
-FiniteElement::hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const
+FiniteElement::hmaxVertices(mesh_type_root const& mesh) const
 {
-    std::vector<double> hmax = this->hminVertices(mesh,bamg_mesh);
+    std::vector<double> hmax = this->hminVertices(mesh);
 
     std::for_each(hmax.begin(), hmax.end(), [&](double& f){ f = 1.2*f; });
 
@@ -2771,31 +2762,26 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
         // get the global number of nodes
         int num_elements = M_mesh_root.numTriangles();
 
+        // get the neighbour elements
+        std::vector<std::vector<int>> list_neighbours(num_elements, std::vector<int>(3,-1));
+        compute_list_element_neighbours(list_neighbours);
+
         for (int cpt=0; cpt < num_elements; ++cpt)
         {
             /* some variables used for the advection*/
             double fluxes_source[3];
             int fluxes_source_id;
 
-            int neighbour_int;
-            double neighbour_double;
-
             for(int i=0;i<3;i++)
             {
-                neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-                neighbour_int    = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
-
-                // neighbour_double = M_element_connectivity[cpt*3+i];
-                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
-
-                if (!std::isnan(neighbour_double) && neighbour_int>0)
+                if (list_neighbours[cpt][i] != -1)
                 {
-                    fluxes_source_id=neighbour_int-1;
-                    fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
+                    fluxes_source_id = list_neighbours[cpt][i];
+                    fluxes_source[i] = factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
                 }
                 else // no diffusion crosses open nor closed boundaries
                 {
-                    fluxes_source[i]=0.;
+                    fluxes_source[i] = 0.;
                 }
             }
 
@@ -2806,6 +2792,99 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
     // scatter back verctor from root to all processes
     this->scatterElementField(variable_elt_root, variable_elt);
 }//diffuse
+
+//------------------------------------------------------------------------------------------------------
+//! Compute the list of neighbours of each triangle
+//! Called by the diffuse() function
+void
+FiniteElement::compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours)
+{
+    std::vector<std::vector<int>> list_triangles_nodes(M_mesh_root.numNodes());
+    int n_nodes;
+    // List of triangles associated with each node
+    for (int i = 0; i < M_mesh_root.numTriangles(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            n_nodes = M_mesh_root.triangles()[i].indices[j]-1;
+            list_triangles_nodes[n_nodes].push_back(i);
+        }
+    }
+
+    // List of triangles associated with each edge
+    bool exit_loop;
+    std::vector<std::vector<int>> list_triangles_edges(3*M_mesh_root.numTriangles());
+    int n_nodes1, n_nodes2;
+    for (int i = 0; i < M_mesh_root.numTriangles(); i++)
+    {
+        for (int l = 0; l < 3; l++)
+        {
+            n_nodes1 = M_mesh_root.triangles()[i].indices[l]-1;
+            n_nodes2 = M_mesh_root.triangles()[i].indices[(l+1)%3]-1;
+            exit_loop = false;
+
+            for (int j = 0; j < list_triangles_nodes[n_nodes1].size() && !exit_loop; j++)
+            {
+                for (int k = 0; k < list_triangles_nodes[n_nodes2].size(); k++)
+                {
+                    if (list_triangles_nodes[n_nodes1][j] == list_triangles_nodes[n_nodes2][k] && list_triangles_nodes[n_nodes1][j] != i)
+                    {
+                        list_triangles_edges[3*i+l].push_back(i);
+                        list_triangles_edges[3*i+l].push_back(list_triangles_nodes[n_nodes1][j]);
+                        exit_loop = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // List of neighbours
+    int n_elt1, n_elt2, index;
+    for (int i = 0; i < list_triangles_edges.size(); i++)
+    {
+        // Check whether the edge is on a boundary
+        if (list_triangles_edges[i].empty()) {continue;}
+
+        n_elt1 = list_triangles_edges[i][0];
+        n_elt2 = list_triangles_edges[i][1];
+
+        // Check whether the edge has already been treated (occurs once for each edge)
+        if (std::find(list_neighbours[n_elt1].begin(), list_neighbours[n_elt1].end(), n_elt2) != list_neighbours[n_elt1].end()) {continue;}
+
+        index = std::distance(list_neighbours[n_elt1].begin(), std::min_element(list_neighbours[n_elt1].begin(), list_neighbours[n_elt1].end()));
+        list_neighbours[n_elt1][index] = n_elt2;
+        index = std::distance(list_neighbours[n_elt2].begin(), std::min_element(list_neighbours[n_elt2].begin(), list_neighbours[n_elt2].end()));
+        list_neighbours[n_elt2][index] = n_elt1;
+    }
+
+}//compute_list_element_neighbours
+
+//------------------------------------------------------------------------------------------------------
+//! Compute the list of neighbours of each node
+//! Called by explicitSolve()
+void
+FiniteElement::compute_list_node_neighbours(std::vector<std::vector<int>>& list_neighbours)
+{
+    for (int i = 0; i < M_mesh.numTriangles(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            if (std::find(list_neighbours[M_mesh.triangles()[i].indices[j]-1].begin(),
+                          list_neighbours[M_mesh.triangles()[i].indices[j]-1].end(),
+                          M_mesh.triangles()[i].indices[(j+1)%3]-1)
+                          == list_neighbours[M_mesh.triangles()[i].indices[j]-1].end())
+               {list_neighbours[M_mesh.triangles()[i].indices[j]-1].push_back(M_mesh.triangles()[i].indices[(j+1)%3]-1);}
+
+            if (std::find(list_neighbours[M_mesh.triangles()[i].indices[j]-1].begin(),
+                          list_neighbours[M_mesh.triangles()[i].indices[j]-1].end(),
+                          M_mesh.triangles()[i].indices[(j+2)%3]-1)
+                          == list_neighbours[M_mesh.triangles()[i].indices[j]-1].end())
+               {list_neighbours[M_mesh.triangles()[i].indices[j]-1].push_back(M_mesh.triangles()[i].indices[(j+2)%3]-1);}
+        }
+    }
+} //compute_list_node_neighbours
+
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -2821,10 +2900,11 @@ FiniteElement::scatterElementConnectivity()
     if (M_rank == 0)
     {
 
-        // std::cout<<"bamgmesh_root->ElementConnectivitySize[0]= "<< bamgmesh_root->ElementConnectivitySize[0] <<"\n";
-        // std::cout<<"bamgmesh_root->ElementConnectivitySize[1]= "<< bamgmesh_root->ElementConnectivitySize[1] <<"\n";
-
         connectivity_root.resize(3*nb_var_element*M_id_elements.size());
+
+        // get the neighbour elements
+        std::vector<std::vector<int>> list_neighbours(M_mesh_root.numTriangles(), std::vector<int>(3,-1));
+        compute_list_element_neighbours(list_neighbours);
 
         for (int i=0; i<M_id_elements.size(); ++i)
         {
@@ -2832,12 +2912,9 @@ FiniteElement::scatterElementConnectivity()
 
             for (int j=0; j<nb_var_element; ++j)
             {
-                double neighbour_id_db = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
-                int neighbour_id_int = (int)neighbour_id_db;
-
-                if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
+                if (list_neighbours[ri][j] != -1)
                 {
-                    connectivity_root[nb_var_element*i+j] = neighbour_id_db;
+                    connectivity_root[nb_var_element*i+j] = 1.*list_neighbours[ri][j]+1.;
                 }
                 else
                 {
@@ -3098,7 +3175,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
         }
 
         chrono.restart();
-        ConservativeRemappingMeshToMesh(interp_elt_out, interp_in_elements, nb_var_element, bamgmesh_previous, bamgmesh_root);
+        ConservativeRemappingFromMeshToMesh(interp_elt_out, interp_in_elements, nb_var_element, M_mesh_previous_root, M_mesh_root);
         LOG(DEBUG)<<"-------------------CONSERVATIVE REMAPPING done in "<< chrono.elapsed() <<"s\n";
 
 #if 0
@@ -7398,8 +7475,8 @@ FiniteElement::initOASIS()
         throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
-    M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+    M_cpl_out = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+        cpl_time_step*days_in_sec, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -7723,13 +7800,13 @@ FiniteElement::step()
             if ( M_use_moorings && !M_moorings_snapshot )
             {
                 M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+                M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
                 M_timer.tock("updateGridMean");
             }
 
 #ifdef OASIS
             M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+            M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
             M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
@@ -7748,9 +7825,9 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
@@ -7774,14 +7851,14 @@ FiniteElement::step()
                 M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements,
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
                 if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
                 else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements);
 
                 M_timer.tock("resetMeshMean");
             }
@@ -7949,7 +8026,7 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
-        M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+        M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
         {
@@ -7977,7 +8054,7 @@ FiniteElement::step()
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
-        M_cpl_out.resetMeshMean(bamgmesh);
+        M_cpl_out.resetMeshMean(M_mesh);
         M_cpl_out.resetGridMean();
     }
     M_timer.tock("coupler put");
@@ -8600,6 +8677,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
     }
 
     // Update nodes
+    std::vector<double> tau_a(M_num_nodes,0.);
+    std::vector<double> conc(M_num_nodes,0.);
+    std::vector<double> surface(M_num_nodes,0.);
+    int n_nodes;
+
     for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
         switch (it->varID)
@@ -8650,6 +8732,19 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taux):
             case (GridOutput::variableID::tauy):
             case (GridOutput::variableID::taumod):
+
+                // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
+                for (int i = 0; i < M_mesh.numTriangles(); i++)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        n_nodes = M_mesh.triangles()[i].indices[j]-1;
+                        tau_a[n_nodes] += D_tau_ow[i] * M_surface[i];
+                        conc[n_nodes] += M_conc[i] * M_surface[i];
+                        surface[n_nodes] += M_surface[i];
+                    }
+                }
+
                 for (int i=0; i<M_num_nodes; i++)
                 {
                     double tau_i;
@@ -8672,27 +8767,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
                         wind2 *= wind2;
                     }
-
-                    // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc  /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc[i] + tau_a[i]*wind2*(1.-conc[i]/surface[i]) )*time_factor/surface[i];
                 }
+
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
@@ -8998,7 +9075,7 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+        M_moorings = GridOutput(M_mesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
@@ -9009,8 +9086,8 @@ FiniteElement::initMoorings()
             GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
                     "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
@@ -9019,8 +9096,8 @@ FiniteElement::initMoorings()
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, M_moorings_false_easting);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting, M_mesh_root);
         }
     }
 #ifdef OASIS
@@ -9029,9 +9106,8 @@ FiniteElement::initMoorings()
         // If we're coupled then all output is by default on the coupling grid and using the conservative remapping
         GridOutput::Grid grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
-
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        M_moorings = GridOutput(M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, true, M_mesh.transferMapElt(), M_comm);
     }
 #endif
     else
@@ -9042,7 +9118,7 @@ FiniteElement::initMoorings()
 
     // As only the root processor knows the entire grid we set the land mask using it
     if ( M_rank == 0 )
-        M_moorings.setLSM(bamgmesh_root);
+        M_moorings.setLSM(M_mesh_root);
 
     // Initialise netCDF output
     if ( (M_rank==0) || M_moorings_parallel_output )
@@ -9136,7 +9212,7 @@ void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
     // update data on grid
-    M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+    M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
     if ( ! M_moorings_parallel_output )
     {
@@ -9160,7 +9236,7 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         M_moorings.appendNetCDF(M_moorings_file, output_time);
 
     //reset means on mesh and grid
-    M_moorings.resetMeshMean(bamgmesh);
+    M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
 
@@ -10230,7 +10306,10 @@ FiniteElement::explicitSolve()
     // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
     M_timer.tick("OW smoother");
 
-    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    // get the neighbour points 
+    std::vector<std::vector<int>> list_neighbours(M_num_nodes);
+    compute_list_node_neighbours(list_neighbours);
+
     // nit<50 gives about 50 nodes of buffer
     for ( int nit=0; nit<50; ++nit )
     {
@@ -10249,17 +10328,11 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] = 0.;
 
             // Loop over neighbouring nodes
-            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
-            double w = 0;
-            for ( int j=0; j<num_neighbours; ++j )
+            for (int j = 0; j < list_neighbours[i].size(); j++)
             {
-                // neigbour node index
-                int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                M_VT[u_indx] += u[nni];
-                M_VT[v_indx] += u[nni + M_num_nodes];
+                M_VT[u_indx] += u[list_neighbours[i][j]]/list_neighbours[i].size();
+                M_VT[v_indx] += u[list_neighbours[i][j] + M_num_nodes]/list_neighbours[i].size();
             }
-            M_VT[u_indx] /= num_neighbours;
-            M_VT[v_indx] /= num_neighbours;
         }
 
         this->updateGhosts(M_VT);
@@ -14192,8 +14265,9 @@ FiniteElement::checkVelocityFields()
     // minimum speed to trigger velocity check
     double const spd_lim = 0.5;
 
-    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
-    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    // get the neighbour points 
+    std::vector<std::vector<int>> list_neighbours(M_num_nodes);
+    compute_list_node_neighbours(list_neighbours);
 
     std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
     for (int i=0; i<M_num_nodes; ++i)
@@ -14203,23 +14277,21 @@ FiniteElement::checkVelocityFields()
         double const spd = std::hypot(uv[0], uv[1]);
         if ( spd > spd_lim )
         {
-            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
             // for U and V
             for (int k=0; k<2; ++k)
             {
                 // one pass algorithm for standard deviation of velocities in neighbours
                 // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
                 double avg_old = 0;
-                for (int j=0; j<num_neighbours; ++j)
+                for (int j=0; j < list_neighbours[i].size(); ++j)
                 {
                     // neigbour node index for U (k=0) or V (k=1)
-                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
                     avg_old = avg_spd[k];
-                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
-                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                    avg_spd[k] += (M_VT[list_neighbours[i][j]] - avg_spd[k]) / (j + 1.);
+                    std_spd[k] += (M_VT[list_neighbours[i][j]] - avg_spd[k]) * (M_VT[list_neighbours[i][j]] - avg_old);
                 }
                 // standard deviation of velocities
-                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+                std_spd[k] = std::sqrt(std_spd[k] / (list_neighbours[i].size() - 1.));
                 // relative error of velocities
                 rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
             }
