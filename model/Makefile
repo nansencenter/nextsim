@@ -107,8 +107,6 @@ ifdef USE_MMG
     LDFLAGS += -L$(PARMMG_DIR)/Metis-prefix/src/Metis/build/Linux-x86_64/libmetis/ -lmetis
 endif
 
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
-
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 #ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
@@ -116,6 +114,8 @@ ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L/opt/local/lib -lprofiler
 endif
 endif
+
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
