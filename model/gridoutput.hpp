@@ -15,11 +15,9 @@
 #include <boost/format.hpp>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
-//#include <Bamgx.h>
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <interpolation.hpp>
-//#include <BamgTriangulatex.h>
 #include <netcdf>
 #include <debug.hpp>
 

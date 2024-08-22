@@ -37,9 +37,11 @@ void
 FiniteElement::initMesh()
 {
     this->initBamg();
+    if (use_MMG) this->initMMGopts();
     this->rootMeshProcessing();
     if (!M_use_restart)
         this->distributedMeshProcessing(true);
+    if (!M_use_restart && use_MMG) this->initMetric();
 }//initMesh
 
 
@@ -64,7 +66,7 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
     LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
 
-    if (!start)
+    if (!start && !use_MMG)
     {
         delete bamggeom;
         delete bamgmesh;
@@ -74,10 +76,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     }
 
     chrono.restart();
-    BamgConvertMeshx(
-                     bamgmesh,bamggeom,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles());
+    if (start || !use_MMG) {
+        BamgConvertMeshx(
+                         bamgmesh,bamggeom,
+                         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                         M_mesh.numNodes(), M_mesh.numTriangles());
+    }
 
     LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
 
@@ -97,9 +101,10 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->bcMarkedNodes();
     LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    this->createGraph();
-    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
+    // Function not used
+    //chrono.restart();
+    //this->createGraph();
+    //LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
 
     chrono.restart();
     this->gatherSizes();
@@ -227,11 +232,10 @@ FiniteElement::bcMarkedNodes()
                 // exclude ghost nodes
                 if (lindex < M_local_ndof)
                 {
-                    M_dirichlet_flags.push_back(lindex);
-                    //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
                     // add mask for dirichlet nodes
                     M_mask_dirichlet[lindex] = true;
                 }
+                M_dirichlet_flags.push_back(lindex);
             }
             else
             {
@@ -353,11 +357,20 @@ FiniteElement::rootMeshProcessing()
             // For the other meshes, we use a constant hmin and hmax
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
+            if (use_MMG)
+            {
+                mmgopt->hmin = h[0];
+                mmgopt->hmax = h[1];
+            }
             break;
         case setup::MeshType::FROM_SPLIT:
             bamgopt->hmin = h[0];
             bamgopt->hmax = h[1];
-
+            if (use_MMG)
+            {
+                mmgopt->hmin = h[0];
+                mmgopt->hmax = h[1];
+            }
             M_hminVertices = this->hminVertices(M_mesh_init_root);
             M_hmaxVertices = this->hmaxVertices(M_mesh_init_root);
 
@@ -387,7 +400,7 @@ FiniteElement::rootMeshProcessing()
             // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
             bamgopt->KeepVertices=0;
             bamgopt->splitcorners=1;
-            this->adaptMesh();
+            this->adaptMeshBamg();
             bamgopt->KeepVertices=1;
             bamgopt->splitcorners=0;
             LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
@@ -401,7 +414,7 @@ FiniteElement::rootMeshProcessing()
         {
             chrono.restart();
             LOG(DEBUG) <<"AdaptMesh starts\n";
-            this->adaptMesh();
+            this->adaptMeshBamg();
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
@@ -437,6 +450,8 @@ FiniteElement::rootMeshProcessing()
         }
     }
 
+    boost::mpi::broadcast(M_comm, mmgopt->hmin, 0);
+    boost::mpi::broadcast(M_comm, mmgopt->hmax, 0);
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
 }//rootMeshProcessing
@@ -1031,6 +1046,54 @@ FiniteElement::initBamg()
     bamgopt->Check();
 }//initBamg
 
+//------------------------------------------------------------------------------------------------------
+//! Initialize the MMG options.
+//! Called by the initMesh() function.   
+void
+FiniteElement::initMMGopts()
+{
+    mmgopt = new mmgOptions();
+
+    mmgopt->hmin = 1e-100; // Minimal element size
+    mmgopt->hmax = 1e100; // Maximal element size
+    mmgopt->verbose = vm["debugging.mmg_verbose"].as<int>(); // [-1..10], Tune level of verbosity
+    mmgopt->pmmgverbose = vm["debugging.pmmg_verbose"].as<int>();
+    mmgopt->mem = -1; // [n/-1], Set memory size to n Mbytes or keep the default value  
+    mmgopt->angle = 0; // [1/0], Turn on/off angle detection
+    mmgopt->optim = 0; // [1/0], Optimize mesh keeping its initial edge sizes
+    mmgopt->noinsert = 0; // [1/0], Avoid/allow point insertion               
+    mmgopt->noswap = 0; // [1/0], Avoid/allow edge or face flipping
+    mmgopt->nomove = 0; // [1/0], Avoid/allow point relocation
+    mmgopt->nosurf = 1; // [1/0], Avoid/allow surface modifications
+    mmgopt->nreg = 0; // [0/1], Enable normal regularization    
+    mmgopt->xreg = 0; // [0/1], Enable vertices coordinates regularization
+    mmgopt->nosizreq = 0; // [0/1], Allow/avoid overwritten of sizes at required points (advanced usage)
+    mmgopt->debug = 0; // [0/1], Debug mode in MMG
+    mmgopt->angleDetection = 0; // Value for angle detection
+    mmgopt->hausd = 0.01; // Hausdorff distance 0.01 default value
+    mmgopt->hgrad = 1.3; // Control gradation
+    mmgopt->hgradreq = -1; // Control gradation on required entites (advanced usage)
+}//initMMGopts
+
+//------------------------------------------------------------------------------------------------------
+//! Initialize the metrics.
+//! Called by the initMesh() function.
+void
+FiniteElement::initMetric()
+{
+    if (M_rank == 0)
+    {
+        Metric M_metric_root;
+        this->M_metric_root.Nst = M_mesh_root.numNodes();
+        this->M_metric_root.p = 2;
+        this->M_metric_root.process = 1000000; // assuming that NextSIM will never be run on more than 1000000 processors
+    }
+
+    Metric M_metric;
+    this->M_metric.Nst = M_mesh.numNodes();
+    this->M_metric.p = 2;
+    this->M_metric.process = M_rank;
+} // initMetric
 
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
@@ -1101,6 +1164,14 @@ FiniteElement::initOptAndParam()
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
         throw std::runtime_error("Set simul.duration >= 0\n");
+
+    use_MMG = false;
+#ifdef MMG
+    if (vm["numerics.regrid"].as<std::string>() == "mmg")
+    {
+        use_MMG = true;
+    }
+#endif
 
     ptime_step =  vm["debugging.ptime_percent"].as<int>()*duration/100; //! \param ptime_step (int) Info ouput time interval
     // Round ptime_step to the nearest multple of time_step
@@ -3146,7 +3217,7 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     chrono.restart();
     int nb_var_element = M_prognostic_variables_elt.size();
     this->gatherFieldsElement(interp_in_elements);
-    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes);
+    this->gatherFieldsNode(interp_in_nodes, rmap_nodes, sizes_nodes, 1);
     LOG(DEBUG)<<"-------------------GATHER done in "<< chrono.elapsed() <<"s\n";
 
     double* interp_elt_out;
@@ -3228,39 +3299,53 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 //! Gathers field values (velocities, displacements) at the nodes into a single structure, interp_node_in_local.
 //! Called by the interpFields() function.
 void
-FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes)
+FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes, int previous)
 {
     chrono.restart();
 
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 6;
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    int local_ndof;
+    int num_nodes;
+    int glob_num_nodes;
+    if (previous == 1) {
+        local_ndof = M_prv_local_ndof;
+        num_nodes = M_prv_num_nodes;
+        glob_num_nodes = M_prv_global_num_nodes;
+    }
+    else {
+        local_ndof = M_local_ndof;
+        num_nodes = M_num_nodes;
+        glob_num_nodes = M_mesh.numGlobalNodes();
+    }
+
+    std::vector<double> interp_node_in_local(M_nb_var_node*local_ndof,0.);
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
     //std::cout<<"NODAL: Interp starts\n";
 
-    for (int i=0; i<M_prv_local_ndof; ++i)
+    for (int i=0; i<local_ndof; ++i)
     {
         int tmp_nb_var = 0;
 
         // VT
         interp_node_in_local[M_nb_var_node*i] = M_VT[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+num_nodes];
         tmp_nb_var++;
 
         // UM
         interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+num_nodes];
         tmp_nb_var++;
 
         // UT
         interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
         tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+num_nodes];
         tmp_nb_var++;
 
         if ( tmp_nb_var != M_nb_var_node )
@@ -3271,7 +3356,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     if (M_rank == 0)
     {
-        interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
+        interp_in_nodes.resize(M_nb_var_node*glob_num_nodes);
         boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
     }
     else
@@ -3283,7 +3368,7 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     {
         auto interp_in_nodes_nrd = interp_in_nodes;
 
-        for (int i=0; i<M_prv_global_num_nodes; ++i)
+        for (int i=0; i<glob_num_nodes; ++i)
         {
             int ri =  rmap_nodes[i];
 
@@ -3691,11 +3776,13 @@ FiniteElement::regrid(bool step)
 
     std::vector<double> um_root;
 
-    M_timer.tick("gatherNodalField");
-    this->gatherNodalField(M_UM,um_root);
-    M_timer.tock("gatherNodalField");
+    if (!use_MMG) {
+        M_timer.tick("gatherNodalField");
+        this->gatherNodalField(M_UM,um_root);
+        M_timer.tock("gatherNodalField");
+    }
 
-    if (M_rank == 0)
+    if (M_rank == 0 || use_MMG)
     {
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
@@ -3706,11 +3793,18 @@ FiniteElement::regrid(bool step)
             displacement_factor /= 2.;
             step_order++;
 
-            flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            if (use_MMG) {
+                flip = this->flip(M_mesh,M_UM,displacement_factor);
+            }
+            else {
+                flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            }
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
         }
+
+        if (use_MMG) displacement_factor = boost::mpi::all_reduce(M_comm, displacement_factor,  boost::mpi::minimum<double>());
 
         LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
 
@@ -3738,21 +3832,31 @@ FiniteElement::regrid(bool step)
 
             chrono.restart();
             LOG(DEBUG) <<"Move starts\n";
-            M_mesh_root.move(um_root,displacement_factor);
+            
+            if (use_MMG) {
+                M_mesh.move(M_UM, displacement_factor);
+            }
+            else {
+                M_mesh_root.move(um_root,displacement_factor);
+            }
+
             LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
             chrono.restart();
-            LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
-            auto RX = M_mesh_root.coordX();
-            auto RY = M_mesh_root.coordY();
 
-            for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
-            {
-                bamgmesh_root->Vertices[3*id] = RX[id];
-                bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+            if (M_rank == 0) {
+                LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
+                auto RX = M_mesh_root.coordX();
+                auto RY = M_mesh_root.coordY();
+
+                for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+                {
+                    bamgmesh_root->Vertices[3*id] = RX[id];
+                    bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+                }
+
+                LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
             }
-
-            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
 
             if(M_mesh_type==setup::MeshType::FROM_SPLIT)
             {
@@ -3764,40 +3868,51 @@ FiniteElement::regrid(bool step)
 
             M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
-            this->adaptMesh();
+            if (use_MMG) {
+                std::vector<double> field(M_mesh.numNodes());
+                for (int i = 0; i < M_mesh.numNodes(); ++i) {
+                    field[i] = pow(M_UM[i]*M_UM[i] + M_UM[i+M_mesh.numNodes()]*M_UM[i+M_mesh.numNodes()], 0.5); // displacement magnitude
+                }
+#ifdef MMG
+                this->adaptMeshMMG(M_mesh, field);
+#endif
+            }
+            else {
+                this->adaptMeshBamg();
+            }
             LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
             M_timer.tock("adaptMesh");
 
 
             // save mesh (only root process)
-
-            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
-
-            M_timer.tick("partition");
-            // Environment::logMemoryUsage("before partitioning...");
-            chrono.restart();
-            LOG(DEBUG) <<"Saving mesh starts\n";
-            if (M_partition_space == mesh::PartitionSpace::MEMORY)
-                M_mesh_root.writeToGModel();
-            else if (M_partition_space == mesh::PartitionSpace::DISK)
-                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-
-            // partition the mesh on root process (rank 0)
-            chrono.restart();
-            LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partitioner, M_partition_space, M_mesh_fileformat);
-            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-            M_timer.tock("partition");
-
+            if (M_rank == 0) {
+                LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+                LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+                LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+                LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+                LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+    
+                M_timer.tick("partition");
+                // Environment::logMemoryUsage("before partitioning...");
+                chrono.restart();
+                LOG(DEBUG) <<"Saving mesh starts\n";
+                if (M_partition_space == mesh::PartitionSpace::MEMORY)
+                    M_mesh_root.writeToGModel();
+                else if (M_partition_space == mesh::PartitionSpace::DISK)
+                    M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+                LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+    
+                // partition the mesh on root process (rank 0)
+                chrono.restart();
+                LOG(DEBUG) <<"Partitioning mesh starts\n";
+                M_mesh_root.partition(M_partitioned_mesh_filename,
+                        M_partitioner, M_partition_space, M_mesh_fileformat);
+                LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+                M_timer.tock("partition");
+            }
             // Environment::logMemoryUsage("after partitioning...");
         }
-    } // rank 0
+    } // rank 0 || use_MMG
 
     // --------------------------------BEGINNING-------------------------
 
@@ -3827,7 +3942,7 @@ FiniteElement::regrid(bool step)
 //! Adapts the mesh grid.
 //! Called by the regrid() function.
 void
-FiniteElement::adaptMesh()
+FiniteElement::adaptMeshBamg()
 {
     delete bamgopt_previous;
     delete bamggeom_previous;
@@ -3971,6 +4086,393 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
+
+#ifdef MMG
+//------------------------------------------------------------------------------------------------------
+//! Adapts the mesh grid with MMG.
+//! Called by the regrid() function.
+template<typename FEMeshType>
+void
+FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field)
+{
+    chrono.restart();
+
+    // Compute the optimal metric for anisotropic remeshing
+    this->M_metric.compute_optimal_metric(mesh, field, mmgopt->hmin, mmgopt->hmax);
+
+    M_mesh_previous_root = M_mesh_root;
+
+    // Convert M_mesh in MMG mesh
+    PMMG2D_pParMesh parmesh = nullptr;
+    this->convert_mesh_MMG(parmesh, mesh);
+
+    // Uncomment to write the input mmgmesh
+    /*std::string String = "MMG_initial_mesh_" + std::to_string(M_rank) + ".msh";
+    const char* meshout0 = String.c_str();
+    char* meshout = new char[String.length()+1];
+    std::copy(String.begin(), String.end(), meshout);
+    meshout[String.length()] = '\0';
+
+    MMG2D_Set_outputMeshName(parmesh->mesh, meshout);
+    MMG2D_saveGenericMesh(parmesh->mesh, parmesh->met, parmesh->mesh->nameout);*/
+
+    // Compute the new mesh with MMG 
+    this->anisotropic_remeshing(parmesh, mesh, this->M_metric.components);
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"Previous  NumNodes     = "<< M_mesh_previous_root.numNodes() <<"\n";
+    LOG(DEBUG) <<"Previous  NumTriangles = "<< M_mesh_previous_root.numTriangles() <<"\n";
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh_root.numNodes() <<"\n";
+    LOG(DEBUG) <<"Current  NumTriangles  = "<< M_mesh_root.numTriangles() <<"\n";
+    LOG(DEBUG) <<"\n";
+}//adaptMeshMMG
+
+//------------------------------------------------------------------------------------------------------
+//! Anisotropic remeshing
+//! Called by the adaptMeshMMG() function
+template<typename FEMeshType>
+void
+FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, std::vector<std::vector<double>> const& metric_components)
+{
+
+    int nbVertices;
+    int nbTriangles;
+    int nbEdges;
+
+    // Give the tensor field to MMG
+    MMG2D_Set_solSize(parmesh->mesh, parmesh->met, MMG5_Vertex, mesh.numNodes(), MMG5_Tensor);
+
+    for (int i = 0 ; i < mesh.numNodes() ; i++)
+    {
+        MMG2D_Set_tensorSol(parmesh->met, metric_components[i][0], metric_components[i][1], metric_components[i][2], i+1);
+    }
+
+    chrono.restart();
+
+    // Compute anisotropic remeshing
+    int ier = PMMG2D_parmmg2dlib_distributed(parmesh);
+
+    if (ier == MMG5_STRONGFAILURE)
+    {
+        std::cout << "BAD ENDING OF MMG2DLIB: UNABLE TO SAVE MESH" << std::endl;
+        exit(1);
+    }
+    else if (ier == MMG5_LOWFAILURE)
+    {
+        std::cout << "BAD ENDING OF MMG2DLIB" << std::endl;
+    }
+
+    LOG(DEBUG) <<"---MMG REMESHING done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+
+    // Store the new mesh in temporary variables
+    MMG2D_Get_meshSize(parmesh->mesh, &nbVertices, &nbTriangles, nullptr, &nbEdges);
+
+    std::vector<double> vertices(2 * nbVertices);
+    std::vector<int> triangles(3 * nbTriangles);
+    std::vector<int> edges(2 * nbEdges);
+    std::vector<int> edges_tag(nbEdges);
+
+    MMG2D_Get_vertices(parmesh->mesh, &vertices[0], nullptr, nullptr, nullptr);
+    MMG2D_Get_triangles(parmesh->mesh, &triangles[0], nullptr, nullptr);
+    MMG2D_Get_edges(parmesh->mesh, &edges[0], &edges_tag[0], nullptr, nullptr);
+
+    // Retrieve the Dirichlet and Neumann nodes
+    std::vector<int> Dirichlet_nodes;
+    std::vector<int> Neumann_nodes;
+    for (int k = 1; k <= parmesh->mesh->np; k++) {
+        if (parmesh->mesh->point[k].xp == MG_DIRICHLET) Dirichlet_nodes.push_back(k);
+        if (parmesh->mesh->point[k].xp == MG_NEUMANN) Neumann_nodes.push_back(k);
+    }
+
+    // To write the output mmgmesh
+    if (M_rank == 0) {
+        std::string String = "MMG_final_mesh.msh";
+        const char* meshout0 = String.c_str();
+        char* meshout = new char[String.length()+1];
+        std::copy(String.begin(), String.end(), meshout);
+        meshout[String.length()] = '\0';
+        MMG2D_Set_outputMeshName(parmesh->mesh, meshout);
+        MMG2D_saveGenericMesh(parmesh->mesh, parmesh->met, parmesh->mesh->nameout);
+    }
+
+    ier = PMMG2D_Free_all(PMMG2D_ARG_start, PMMG2D_ARG_ppParMesh, &parmesh, PMMG2D_ARG_end);
+
+    if (M_rank) return;
+
+    std::vector<double> coordX(nbVertices);
+    std::vector<double> coordY(nbVertices);
+
+    for (int i = 0; i < nbVertices; i++)
+    {
+        coordX[i] = vertices[2 * i];
+        coordY[i] = vertices[2 * i + 1];
+    }
+
+    // Conversion in GMSH format
+    std::vector<point_type> mesh_nodes;
+    mesh_nodes.resize(nbVertices);
+    std::vector<element_type> mesh_triangles;
+    mesh_triangles.resize(nbTriangles);
+    std::vector<element_type> mesh_edges;
+    mesh_edges.resize(nbEdges);
+
+    for (int i = 0; i < nbVertices; i++)
+    {
+        mesh_nodes[i].id = i+1;
+        mesh_nodes[i].coords = {coordX[i], coordY[i]};
+    }
+
+    int type = 2;
+    int physical = 0;
+    int elementary = 0;
+    int numVertices = 3;
+    std::vector<int> indices(3);
+
+    for (int i = 0; i < nbTriangles; i++)
+    {
+        indices[0] = triangles[3*i];
+        indices[1] = triangles[3*i+1];
+        indices[2] = triangles[3*i+2];
+
+        element_type gmshElt (i, type, physical, elementary, numVertices, indices);
+
+        mesh_triangles[i] = gmshElt;
+    }
+
+    M_mesh_root.update(mesh_nodes, mesh_triangles);
+
+    LOG(DEBUG) <<"---MMG CONVERSION TO GMSH FORMAT done in "<< chrono.elapsed() <<"s\n";
+
+    this->updateBoundaryFlagsMMG(Dirichlet_nodes, Neumann_nodes);
+
+    chrono.restart();
+
+} // anisotropic_remeshing
+
+//------------------------------------------------------------------------------------------------------
+//! Compute the list of local boundary nodes
+//! Called by the convert_mesh_MMG() function
+void FiniteElement::compute_list_boundary_nodes(std::vector<int> &list_boundary_nodes)
+{
+    int i,j,k,cpt;
+    std::vector<double> coordX = M_mesh.coordX();
+    std::vector<double> coordY = M_mesh.coordY();
+    for (cpt = 0; cpt < M_mesh.numTriangles(); cpt++) {
+
+        // The ghost elements are not handled
+        int is_boundary = 0;
+        std::vector<int> list_neighbours;
+        for (i = 0; i < 3; i++) {
+            if (M_element_connectivity[3*cpt+i] < -99.) {
+                is_boundary = 1;
+            }
+            else {
+                list_neighbours.push_back(M_element_connectivity[3*cpt+i]);
+            }
+        }
+
+        if (!is_boundary) continue; // It is not a boundary element
+
+        int list_points[3];
+        for (i = 0; i < 3; i++) list_points[i] = M_mesh.triangles()[cpt].indices[i];
+
+        int is_points_neighour[3] = {0};
+
+        for (i = 0; i < list_neighbours.size(); i++) { // Loop over the neighbouring triangles
+            for (j = 0; j < 3; j++) { // Loop over the three points of the neighbouring triangle
+                for (k = 0; k < 3; k++) {
+                    if (M_mesh.triangles()[list_neighbours[i]].indices[j] == list_points[k]) is_points_neighour[k]++;
+                }
+            }
+        }
+
+        for (i = 0; i < 3; i++) {
+            if (is_points_neighour[i] > 1) continue; // It is not a boundary point
+            list_boundary_nodes[list_points[i]-1] = 1;
+        }
+
+    }
+
+} // compute_list_boundary_nodes
+
+//------------------------------------------------------------------------------------------------------
+//! Convert GMSH mesh to MMG mesh
+//! Called by the adaptMeshMMG() function
+template<typename FEMeshType>
+void
+FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh)
+{
+    int nbVertices = mesh.numNodes();
+    std::vector<double> vertices(2 * nbVertices);
+
+    // get vertices from M_mesh
+    std::vector<double> coordX = mesh.coordX();
+    std::vector<double> coordY = mesh.coordY();
+
+    for (int i = 0; i < nbVertices; i++)
+    {
+        vertices[2 * i] = coordX[i];
+        vertices[2 * i + 1] = coordY[i];
+    }
+
+    // get triangles from M_mesh. Indices of the points of the triangles in the order
+    std::vector<int> triangles;
+    std::vector<element_type> Triang = mesh.triangles();
+    int nbTriangles = 0;
+    for (auto it=Triang.begin(), end=Triang.end(); it!=end; ++it)
+    {
+        if (it->is_ghost) continue;
+        nbTriangles++;
+        for (int i=0; i<3; ++i)
+        {
+            triangles.push_back(it->indices[i]);
+        }
+    }
+
+    MPI_Comm comm = MPI_Comm(M_comm);
+    PMMG2D_Init_parMesh( PMMG2D_ARG_start, PMMG2D_ARG_ppParMesh, &parmesh, PMMG2D_ARG_dim, 2, PMMG2D_ARG_MPIComm, comm, PMMG2D_ARG_end, 120 );
+    MMG5_pMesh mmgMesh = parmesh->mesh;
+    MMG5_pSol mmgSol = parmesh->met;
+    chrono.restart();
+
+    // Define options
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_verbose, mmgopt->verbose);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_mem, mmgopt->mem);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_angle, mmgopt->angle);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_optim, mmgopt->optim);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_noinsert, mmgopt->noinsert);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_noswap, mmgopt->noswap);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nomove, mmgopt->nomove);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nosurf, mmgopt->nosurf);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nreg, mmgopt->nreg);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_xreg, mmgopt->xreg);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nosizreq, mmgopt->nosizreq);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_debug, mmgopt->debug);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmin, mmgopt->hmin);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmax, mmgopt->hmax);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_angleDetection, mmgopt->angleDetection);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hausd, mmgopt->hausd);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgrad, mmgopt->hgrad);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgradreq, mmgopt->hgradreq);
+
+    PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_verbose, mmgopt->pmmgverbose);
+
+    // Store M_mesh in mmgMesh 
+    // Set edges
+    const int MG_BDY = 1 << 4;
+    std::vector<int> list_nodes_boundary(nbVertices, 0);
+
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        list_nodes_boundary[M_dirichlet_flags[i]] = 1;
+    }
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        list_nodes_boundary[M_neumann_flags[i]] = 1;
+    }
+
+    int nbEdges = 0;
+    for (int i = 0; i < nbVertices; i++) {
+        if (list_nodes_boundary[i]) nbEdges++;
+    }
+
+    std::vector<int> edges(2 * nbEdges);
+    //std::vector<int> edges_tag(nbEdges);
+
+    // Store M_mesh in mmgMesh 
+    MMG2D_Set_meshSize(mmgMesh, nbVertices, nbTriangles, 0, nbEdges);
+    MMG2D_Set_vertices(mmgMesh, &vertices[0], nullptr);
+    MMG2D_Set_triangles(mmgMesh, &triangles[0], nullptr);
+
+    for (int i = 1; i <= mmgMesh->np; i++) mmgMesh->point[i].tag = 0;
+
+    for (int i=0; i<M_dirichlet_flags.size(); ++i)
+    {
+        mmgMesh->point[M_dirichlet_flags[i]+1].tag |= MG_BDY;
+        mmgMesh->point[M_dirichlet_flags[i]+1].xp = MG_DIRICHLET;
+    }
+    for (int i=0; i<M_neumann_flags.size(); ++i)
+    {
+        mmgMesh->point[M_neumann_flags[i]+1].tag |= MG_BDY;
+        mmgMesh->point[M_neumann_flags[i]+1].xp = MG_NEUMANN;
+    }
+
+    if (nbEdges == 0) return;
+
+    int k = 0;
+    for (int i = 1; i <= nbTriangles; i++) {
+        for (int j = 0; j < 3; j++) {
+            if ( (mmgMesh->point[mmgMesh->tria[i].v[(j+1)%3]].tag & MG_BDY) &&
+                 (mmgMesh->point[mmgMesh->tria[i].v[(j+2)%3]].tag & MG_BDY) ) {
+                mmgMesh->tria[i].tag[j] |= MG_BDY;
+                edges[2*k] = mmgMesh->tria[i].v[(j+1)%3];
+                edges[2*k+1] = mmgMesh->tria[i].v[(j+2)%3];
+                //edges_tag[k] = (std::binary_search(M_dirichlet_flags.begin(), M_dirichlet_flags.end(), edges[2 * k])) ? M_flag_fix : M_flag_fix + 1;
+                k++;
+            }
+        }
+    }
+
+    MMG2D_Set_edges(mmgMesh, &edges[0], nullptr);//&edges_tag[0]);
+
+} // convert_mesh_MMG
+
+//------------------------------------------------------------------------------------------------------
+//! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
+//! Called by the adaptMeshMMG() functions.
+void
+FiniteElement::updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes)
+{
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
+
+    //! 1) Updates Dirichlet nodes
+    M_dirichlet_flags_root.resize(0);
+    M_neumann_flags_root.resize(0);
+
+    //! 2) Gets the global number of nodes
+    int num_nodes = M_mesh_root.numNodes();
+
+    //! 3) Masks out the boundary nodes and updates Dirichlet and Neumann flag
+    M_mask_root.assign(num_nodes, false) ;
+    M_mask_dirichlet_root.assign(num_nodes, false) ;
+
+    for (int i = 0; i < Dirichlet_nodes.size(); i++) {
+        M_mask_root[Dirichlet_nodes[i]-1] = true;
+        M_dirichlet_flags_root.push_back(Dirichlet_nodes[i]);
+    }
+    for (int i = 0; i < Neumann_nodes.size(); i++) {
+        M_mask_root[Neumann_nodes[i]-1] = true;
+        M_neumann_flags_root.push_back(Neumann_nodes[i]);
+    }
+
+    //! 4) Updates Dirichlet nodes
+    M_dirichlet_nodes_root.resize(2*(M_dirichlet_flags_root.size()));
+    for (int i = 0; i < M_dirichlet_flags_root.size(); ++i)
+    {
+        M_dirichlet_nodes_root[2*i] = M_dirichlet_flags_root[i];
+        M_dirichlet_nodes_root[2*i+1] = M_dirichlet_flags_root[i] + num_nodes;
+        M_mask_dirichlet_root[M_dirichlet_flags_root[i]] = true;
+    }
+
+    //! 5) Updates Neumann nodes
+    M_neumann_nodes_root.resize(2*(M_neumann_flags_root.size()));
+    for (int i = 0; i < M_neumann_flags_root.size(); ++i)
+    {
+        M_neumann_nodes_root[2*i] = M_neumann_flags_root[i];
+        M_neumann_nodes_root[2*i+1] = M_neumann_flags_root[i] + num_nodes;
+    }
+
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
+
+} // updateBoundaryFlagsMMG
+
+#endif
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates the cohesion field (sum of a fixed value and a random component) and the maximum compressive strength of sea ice.
@@ -6820,6 +7322,13 @@ FiniteElement::init()
         if ( res_str.empty() )
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
+
+        if (use_MMG)
+        {
+            this->initMetric();
+            this->M_metric.compute_optimal_metric(M_mesh, M_UM, mmgopt->hmin, mmgopt->hmax);
+        }
+
         if ( this->checkRegridding() )
             this->regrid(pcpt); // The input for this function is no longer active
     }
@@ -6836,12 +7345,15 @@ FiniteElement::init()
 
     //! - 4) Initialise the auxiliary variables and check the minimum angle of the grid
     //!      \note needs to be after readRestart, otherwise M_mesh is not initialised yet
-    double minang = this->minAngle(M_mesh);
-    if (minang < vm["numerics.regrid_angle"].as<double>())
-    {
-        LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid (" << minang << ")\n";
-        throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+    if (!use_MMG) {
+        double minang = this->minAngle(M_mesh);
+        if (minang < vm["numerics.regrid_angle"].as<double>())
+        {
+            LOG(ERROR) <<"invalid regridding angle: should be smaller than the minimal angle in the initial grid (" << minang << ")\n";
+            throw std::logic_error("invalid regridding angle: should be smaller than the minimal angle in the intial grid");
+        }
     }
+
     this->calcAuxiliaryVariables();
 
     //! - 5) Initializes external data:
@@ -7773,11 +8285,29 @@ FiniteElement::step()
 
     M_timer.tock("check_fields");
 
+    // Only update each n_step_compute_metric step
+    // Also update if the mesh has been modified the previous timestep
+    if (use_MMG && (pcpt%n_step_compute_metric == 0 || M_regrid))
+    {
+        M_timer.tick("update_metric");
+        std::vector<double> field(M_mesh.numNodes());
+
+        for (int i = 0; i < M_mesh.numNodes(); ++i)
+        {
+            field[i] = pow(M_UM[i]*M_UM[i] + M_UM[i+M_mesh.numNodes()]*M_UM[i+M_mesh.numNodes()], 0.5); // displacement magnitude
+            //field[i] = M_damage[i];
+        }
+
+        this->M_metric.compute_optimal_metric(M_mesh, field, mmgopt->hmin, mmgopt->hmax);
+        M_timer.tock("update_metric");
+    }
+
+
     M_timer.tick("remesh");
 
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg" || vm["numerics.regrid"].as<std::string>() == "mmg")
     {
         M_timer.tick("checkRegridding");
         M_regrid = this->checkRegridding();
@@ -7811,6 +8341,7 @@ FiniteElement::step()
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
             M_timer.tick("regrid");
+
             if ( M_use_restart && pcpt==0)
                 this->regrid(1); // Special case where the restart conditions imply to remesh
             else
@@ -8092,14 +8623,21 @@ FiniteElement::step()
 bool
 FiniteElement::checkRegridding()
 {
-    bool regrid;
-    double const minang = this->minAngle(M_mesh, M_UM, 1.);
-    LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-    bool const regrid_local =
-        (minang < vm["numerics.regrid_angle"].as<double>())
-        || this->flip(M_mesh, M_UM, 1.);
-    boost::mpi::all_reduce(M_comm, regrid_local, regrid,
-            std::plus<bool>());//NB "+" for bools is "or"
+    bool regrid, regrid_local;
+
+    if (use_MMG)
+    {
+        std::vector<int> list_bad_triangles = this->M_metric.check_triangle_quality(M_mesh);
+        regrid_local = !list_bad_triangles.empty() || this->flip(M_mesh, M_UM, 1.);
+    }
+    else 
+    {
+        double const minang = this->minAngle(M_mesh, M_UM, 1.);
+        LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
+        regrid_local = (minang < vm["numerics.regrid_angle"].as<double>()) || this->flip(M_mesh, M_UM, 1.);
+    }
+
+    boost::mpi::all_reduce(M_comm, regrid_local, regrid, std::plus<bool>());//NB "+" for bools is "or"
     return regrid;
 }//checkRegridding
 
@@ -8282,6 +8820,7 @@ FiniteElement::run()
         // Time-stepping
         // **********************************************************************
         this->step();
+
         //stop early if debugging
         niter++;
         if (niter == maxiter)
@@ -9283,7 +9822,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     // fields defined on mesh nodes
     std::vector<double> interp_in_nodes;
-    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
+    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes, 1);
 
     std::vector<double> M_VT_root;
     std::vector<double> M_UM_root;
@@ -10366,6 +10905,14 @@ FiniteElement::explicitSolve()
 
     for (const int& nd : M_neumann_nodes)
         M_UM[nd] = UM_P[nd];
+
+    // MMG uses local mesh, so the displacement at the interfaces between processors must be the same
+    if (use_MMG) {
+        std::vector<double> variables_on_nodes;
+        this->gatherFieldsNode(variables_on_nodes, M_mesh.mapNodes(), M_sizes_nodes, 0);
+        double* double_variables_on_nodes = variables_on_nodes.data();
+        this->scatterFieldsNode(double_variables_on_nodes);
+    }
 
     M_timer.tock("OW smoother");
 }
@@ -14640,6 +15187,9 @@ FiniteElement::finalise(std::string current_time_system)
 
     if (M_mesh.comm().rank() == 0)
     {
+
+        if (use_MMG) delete mmgopt;
+
         delete bamgopt;
         delete bamggeom_root;
         delete bamgmesh_root;

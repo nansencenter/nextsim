@@ -23,6 +23,8 @@
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
+#include "mmg/mmg2d/libmmg2d.h"
+#include "libparmmg2d.h"
 #include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
@@ -34,6 +36,7 @@
 #include <gridoutput.hpp>
 #include <dataset.hpp>
 #include <model_variable.hpp>
+#include <metric.hpp>
 #include <drifters.hpp>
 #include "enums.hpp"
 #include <debug.hpp>
@@ -136,9 +139,25 @@ public:
 
     bool checkRegridding();
     void regrid(bool step = true);
-    void adaptMesh();
+    void adaptMeshBamg();
     void updateNodeIds();
     void updateBoundaryFlags();
+
+#ifdef MMG
+    template<typename FEMeshType>
+    void adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field);
+
+    template<typename FEMeshType>
+    void convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh);
+
+    void compute_list_boundary_nodes(std::vector<int> &list_boundary_nodes);
+
+    template<typename FEMeshType>
+    void anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, std::vector<std::vector<double>> const& metric_components);
+    void write_vtk_file(PMMG2D_pParMesh parmesh);
+
+    void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes);
+#endif
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -155,7 +174,7 @@ public:
     void gatherElementField(std::vector<double> const& field_local, std::vector<double>& field_root, int nb_fields = 1);
     void scatterElementField(std::vector<double> const& field_root, std::vector<double>& field_local, int nb_fields = 1);
 
-    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
+    void gatherFieldsNode(std::vector<double>& interp_in_elements, std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes, int previous);
     void scatterFieldsNode(double* interp_nd_out);
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
@@ -250,6 +269,8 @@ public:
     std::vector<double> hmaxVertices(mesh_type_root const& mesh) const;
 
     void initBamg();
+    void initMMGopts();
+    void initMetric();
     void initOptAndParam();
     void initFETensors();
     template<typename option_type>
@@ -312,6 +333,10 @@ public:
     void redistributeThermoFSD(const int i,double ddt, double lat_melt_rate, double young_ice_growth, double old_conc, double old_conc_young) ;
     double lateralMeltFSD(const int i,double ddt) ;
 #endif
+
+    bool use_MMG;
+    int MG_DIRICHLET = 22;
+    int MG_NEUMANN = 44;
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -413,6 +438,7 @@ private:
 
     int pcpt;
     int niter;
+    int n_step_compute_metric = 10;
     int mesh_adapt_step;
     bool had_remeshed;
     double minang;
@@ -622,6 +648,32 @@ private:
     BamgMesh *bamgmesh;
     BamgGeom *bamggeom;
 
+    typedef struct {
+        int hmin;
+        int hmax;
+        int verbose;
+        int pmmgverbose;
+        int mem;
+        int angle;
+        int optim;
+        int noinsert;
+        int noswap;
+        int nomove;
+        int nosurf;
+        int nreg;
+        int xreg;
+        int nosizreq;
+        int debug;
+        double angleDetection;
+        double hausd;
+        double hgrad;
+        double hgradreq;
+    } mmgOptions;
+
+    mmgOptions *mmgopt;
+
+    Metric M_metric;
+
 private: // only on root process (rank 0)
 
     mesh_type_root M_mesh_root;
@@ -636,6 +688,8 @@ private: // only on root process (rank 0)
     std::vector<int> M_neumann_nodes_root;
 
     std::vector<std::vector<double>> M_B0T_root;
+
+    Metric M_metric_root;
 
     BamgMesh *bamgmesh_root;
     BamgGeom *bamggeom_root;

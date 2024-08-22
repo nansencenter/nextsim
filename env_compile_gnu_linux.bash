@@ -42,6 +42,14 @@ else
     unset USE_OASIS ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_OASIS...
 fi
 
+# Remeshing with MMG
+l_mmg=true ; # The remeshing part can be achieved by bamg but anisotropic remeshing can only be achieved with mmg2d
+if ${l_mmg}; then
+    export USE_MMG=true
+else
+    unset USE_MMG ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_MMG...
+fi
+
 ############################################
 # Defaults before host-specific adjustment #
 ############################################
@@ -96,6 +104,8 @@ export MPI_INC_DIR=${MPI_DIR}/include
 
 # Third-party software dependencies, compiled with relevant compiler!
 export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
+
+export PARMMG_DIR=${NEXTSIMDIR}/deps/parmmg2d/build
 
 export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
 export BOOST_INCDIR=${BOOST_DIR}/include

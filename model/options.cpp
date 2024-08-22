@@ -49,6 +49,10 @@ namespace Nextsim
 
             ("debugging.bamg_verbose", po::value<int>()->default_value( 0 ),
                  "Bamg verbose mode: 0 is not verbose, 6 is very verbose")
+            ("debugging.pmmg_verbose", po::value<int>()->default_value( -1 ),
+                 "ParMMG verbose mode: -1 is not verbose, 6 is very verbose")
+            ("debugging.mmg_verbose", po::value<int>()->default_value( -1 ),
+                 "MMG verbose mode: -1 is not verbose, 6 is very verbose")
             ("debugging.gmsh_verbose", po::value<int>()->default_value( 0 ),
                  "Gmsh verbose mode: 0: silent except for fatal errors, 1: +errors, 2: +warnings, 3: +direct, 4: +information, 5: +status, 99: +debug")
             ("debugging.log-level", po::value<std::string>()->default_value( "info" ),
@@ -75,8 +79,14 @@ namespace Nextsim
 
 
             // remeshing
+#ifdef MMG
+               ("numerics.regrid", po::value<std::string>()->default_value( "mmg" ),
+                "Options for regridding: No-regridding, bamg or mmg")
+#else
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
-                "Options for regridding: No-regridding or bamg")
+                "Options for regridding: No-regridding, bamg or mmg")
+#endif
+
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
