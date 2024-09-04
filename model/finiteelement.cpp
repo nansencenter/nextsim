@@ -6503,6 +6503,56 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         D_pond_fraction[cpt] = 0.;
     }
 
+    /* Drain the meltpond if the ice becomes permiable. We just set the pond
+     * depth to be equal to the freeboard. The assumption being that ponds that
+     * are deeper than that are just flushed into the ocean and only the
+     * above-freeboard pond remains */
+    const double freeboard =
+	    ( hi*(physical::rhow-physical::rhoi) - hs*physical::rhos) / physical::rhow;
+    if ( pond_depth > freeboard && this->isPermeable(cpt) )
+        M_pond_volume[cpt] = freeboard*D_pond_fraction[cpt];
+}
+
+inline bool
+FiniteElement::isPermeable( const int cpt )
+{
+    std::vector<double> temp;
+
+    // Take all temperature points - also top and bottom
+    for ( int i=0; i<M_tice.size(); ++i )
+        temp.push_back(M_tice[i][cpt]);
+
+    temp.push_back(-physical::mu*M_sss[cpt]);
+
+    // Select Assur or Notz, depending on the maximum temperature
+    bool a, b, c, d;
+    if ( *std::max_element(temp.begin(), temp.end()) <= -2. )
+    {
+        // Assur 1958
+        a = -1.2;
+        b = -21.8;
+        c = -0.919;
+        d = -0.01878;
+    } else {
+        // Notz 2005 thesis eq. 3.2
+        a = 0.;
+        b = -17.6;
+        c = -0.389;
+        d = -0.00362;
+    }
+
+    // Calculate liquid fraction and infer permiability
+    bool isPermeable = false;
+    for ( auto& T: temp )
+    {
+        const double Sbr = a
+                + b * T
+                + c * std::pow(T,2)
+                + d * std::pow(T,3);
+        // permiable if liquid fraction > 5%
+        isPermeable = isPermeable || physical::si/Sbr > 0.05;
+    }
+    return isPermeable;
 }
 
 //------------------------------------------------------------------------------------------------------
