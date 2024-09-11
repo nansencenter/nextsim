@@ -72,14 +72,6 @@ public:
     typedef GraphCSRMPI graphmpi_type;
     typedef boost::shared_ptr<graphmpi_type> graphmpi_ptrtype;
 
-    // typedef ExternalData external_data;
-    // typedef ExternalData::Dataset Dataset;
-    // typedef ExternalData::Grid Grid;
-    // typedef ExternalData::Dimension Dimension;
-    // typedef ExternalData::Variable Variable;
-    // typedef ExternalData::Vectorial_Variable Vectorial_Variable;
-    // typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
-
     typedef DataSet Dataset;
     typedef ExternalData external_data;
     typedef typename std::vector<external_data*> external_data_vec ;
@@ -88,8 +80,6 @@ public:
     typedef boost::ptr_vector<external_data> externaldata_ptr_vector;
 
     FiniteElement(Communicator const& comm = Environment::comm());
-
-    // FiniteElement(Communicator const& comm = Environment::comm());
 
     mesh_type const& mesh() const {return M_mesh;}
 
@@ -143,7 +133,6 @@ public:
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
     void scatterFieldsElement(double* interp_elt_out);
 
-    //void gatherUM(std::vector<double>& um);
     void gatherNodalField(std::vector<double> const& field_local, std::vector<double>& field_root);
     void scatterNodalField(std::vector<double> const& field_root, std::vector<double>& field_local);
 
@@ -281,7 +270,7 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
-    void createGraph();//(BamgMesh const* bamg_mesh);
+    void createGraph();
     void assignVariables();
     void initVariables();
     void calcAuxiliaryVariables();
@@ -296,9 +285,14 @@ public:
     void update(std::vector<double> const & UM_P);
     void updateSigmaDamage(double const dt);
 
-    void updateGhosts(std::vector<double>& mesh_nodal_vec);
-    void initUpdateGhosts();
-    int globalNumToprocId(int global_num);
+    void updateGhostNodes(std::vector<double>& mesh_nodal_vec);
+    void initUpdateGhostNodes();
+    int globalDofToProcId(int global_dof);
+
+    void updateGhostElements(std::vector<double>& mesh_elt_ctr);
+    void updateGhostElements(ModelVariable& mesh_elt_ctr);
+    void initUpdateGhostElements();
+    int globalEltIdToProcId(int global_eltid);
 
 #ifdef OASIS
     bool M_couple_waves;
@@ -388,7 +382,6 @@ private:
     mesh_type M_mesh_previous;
 
     std::map<int, point_type > M_nodes;
-    //std::vector<point_type> M_nodes;
     std::vector<element_type> M_edges;
     std::vector<element_type> M_elements;
 
@@ -397,7 +390,7 @@ private:
 
     int M_ndof;
     int M_local_ndof;
-    int M_local_ndof_ghost;
+    //int M_local_ndof_ghost;
     int M_local_nelements;
     int M_rank;
     Communicator M_comm;
@@ -610,10 +603,15 @@ private:
     std::string M_export_path;
 
 private: // update solution from explicit solver
-    std::vector<std::vector<int>> M_extract_local_index;
-    std::vector<int> M_recipients_proc_id;
-    std::vector<int> M_local_ghosts_proc_id;
-    std::vector<std::vector<int>> M_local_ghosts_local_index;
+    std::vector<std::vector<int>> M_extract_local_node_indices;
+    std::vector<int> M_recipients_node_procid;
+    std::vector<int> M_ghost_node_procid;
+    std::vector<std::vector<int>> M_ghost_node_local_indices;
+
+    std::vector<std::vector<int>> M_extract_local_elt_indices;
+    std::vector<int> M_recipients_elt_procid;
+    std::vector<int> M_ghost_elt_procid;
+    std::vector<std::vector<int>> M_ghost_elt_local_indices;
 
 private:
 
