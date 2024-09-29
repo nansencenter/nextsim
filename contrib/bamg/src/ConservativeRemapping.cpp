@@ -357,7 +357,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     for (int i=0; i<3; ++i)
     {
         // ID and coordinates of the node - remember them for later
-        nodeID[i] = bamgmesh->Triangles[4*current_triangle+i] - 1; // Here we need C/C++ numbering
+        nodeID[i] = int(bamgmesh->Triangles[4*current_triangle+i]) - 1; // Here we need C/C++ numbering
         X[i] = bamgmesh->Vertices[3*nodeID[i]];
         Y[i] = bamgmesh->Vertices[3*nodeID[i]+1];
 
@@ -370,7 +370,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             int num_elements = bamgmesh->NodalElementConnectivitySize[1];
             for (int j=0; j<num_elements; j++)
             {
-                int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
+                int elt_num = int(bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j]) - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
                 if ( elt_num < 0 ) continue;
 
@@ -406,9 +406,10 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     }
 
     // 3: Look for intersections between the triangle and cell
-    int prev = 2;
-    for (int i=0; i<3; prev=i++)
+    for (int i=0; i<3; i++)
     {
+        const int prev = i-1<0 ? 2 : i-1;
+
         // If both the current and previous node are in the cell then we can skip this round
         if ( inCell[i] && inCell[prev] )
             continue;
@@ -419,7 +420,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             // We don't know which of the (up to) three connected triangles is the right one so we must search
             for (int j=0; j<3; j++)
             {
-                int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
+                int elt_num = int(bamgmesh->ElementConnectivity[3*current_triangle+j]) - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
                 if ( elt_num < 0 ) continue;
 
@@ -431,7 +432,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                 int counter = 0;
                 for (int k=0; k<3; ++k)
                 {
-                    int myID = bamgmesh->Triangles[4*elt_num+k] - 1; // Here we need C/C++ numbering
+                    int myID = int(bamgmesh->Triangles[4*elt_num+k]) - 1; // Here we need C/C++ numbering
                     if ( myID==nodeID[i] || myID==nodeID[prev] )
                         ++counter;
                 }
