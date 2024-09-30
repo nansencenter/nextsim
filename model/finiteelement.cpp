@@ -1868,7 +1868,7 @@ FiniteElement::hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mes
         int k = 0;
         for (int j=0; j<bamg_mesh->NodalElementConnectivitySize[1]; ++j)
         {
-            int elt_num = bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j]-1;
+            int elt_num = int(bamg_mesh->NodalElementConnectivity[bamg_mesh->NodalElementConnectivitySize[1]*i+j])-1;
 
             if ((0 <= elt_num) && (elt_num < mesh.numTriangles()) && (elt_num != NAN))
             {
@@ -3828,7 +3828,7 @@ FiniteElement::updateNodeIds()
             }
             else
             {
-                new_nodes_id[vert] = old_nodes_id[bamgmesh_root->PreviousNumbering[vert]-1];
+                new_nodes_id[vert] = old_nodes_id[int(bamgmesh_root->PreviousNumbering[vert])-1];
             }
         }
     }
@@ -3856,7 +3856,7 @@ FiniteElement::updateBoundaryFlags()
     M_mask_root.assign(bamgmesh_root->VerticesSize[0],false) ;
     M_mask_dirichlet_root.assign(bamgmesh_root->VerticesSize[0],false) ;
     for (int vert=0; vert<bamgmesh_root->VerticesOnGeomVertexSize[0]; ++vert)
-        M_mask_root[bamgmesh_root->VerticesOnGeomVertex[2*vert]-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
+        M_mask_root[int(bamgmesh_root->VerticesOnGeomVertex[2*vert])-1] = true; // The factor 2 is because VerticesOnGeomVertex has 2 dimensions in bamg
 
     //! 4) Updates Dirichlet and Neumann flags
     std::vector<int> boundary_flags_root;
@@ -8680,7 +8680,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     int num_elements = bamgmesh->NodalElementConnectivitySize[1];
                     for (int j=0; j<num_elements; j++)
                     {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+                        int elt_num = int(bamgmesh->NodalElementConnectivity[num_elements*i+j])-1;
                         // Skip negative elt_num
                         if ( elt_num < 0 ) continue;
 
@@ -10254,7 +10254,7 @@ FiniteElement::explicitSolve()
             for ( int j=0; j<num_neighbours; ++j )
             {
                 // neigbour node index
-                int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                int const nni = int(bamgmesh->NodalConnectivity[max_num_neighbours*i + j]) - 1;
                 M_VT[u_indx] += u[nni];
                 M_VT[v_indx] += u[nni + M_num_nodes];
             }
@@ -14213,7 +14213,7 @@ FiniteElement::checkVelocityFields()
                 for (int j=0; j<num_neighbours; ++j)
                 {
                     // neigbour node index for U (k=0) or V (k=1)
-                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    int const nni = M_num_nodes*k + int(bamgmesh->NodalConnectivity[max_num_neighbours*i + j]) - 1;
                     avg_old = avg_spd[k];
                     avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
                     std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
