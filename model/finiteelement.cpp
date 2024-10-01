@@ -10195,6 +10195,9 @@ FiniteElement::explicitSolve()
     std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
+    std::vector<bool> mask_neuman(M_num_nodes);
+    auto RX = M_mesh.coordX();
+    auto RY = M_mesh.coordY();
 #ifdef OASIS
     std::vector<double> tau_wi(2*M_num_nodes, 0.);
 #endif
@@ -10230,6 +10233,17 @@ FiniteElement::explicitSolve()
         // For the mEVP and drag
         VTM[u_indx] = M_VT[u_indx];
         VTM[v_indx] = M_VT[v_indx];
+
+        mask_neuman[i] = false;
+        // Masking Neuman nodes
+        for ( const int nnode : M_neumann_nodes )
+        {
+            if ( i == nnode )
+            {
+                mask_neuman[i] = true;
+                break;
+            }
+        }
 
 #ifdef OASIS
         // Wave stress
@@ -10303,6 +10317,15 @@ FiniteElement::explicitSolve()
 
             int u_indx = i;
             int v_indx = i+M_num_nodes;
+
+	    // Fixed velocities for open boundaries
+	    if ( mask_neuman[i] )
+	    {
+                if (RX[i]<1)
+                    M_VT[u_indx] = 0.3;
+                else if (RX[i]>5999)
+                    M_VT[u_indx] = -0.3;
+	    }
 
             // mEVP modificatinos and additional term
             double dtep, delu, delv;
