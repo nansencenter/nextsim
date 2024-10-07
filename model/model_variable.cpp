@@ -137,8 +137,6 @@ ModelVariable::initElemental()
             M_prognostic = true;
             M_exporting = false;
             M_diffusivity = 0.;
-            M_has_value_no_thick_ice = true;
-            M_value_no_thick_ice = M_tfr_ice;
             switch(M_component_number)
             {
                 case(0):
@@ -404,6 +402,24 @@ ModelVariable::initElemental()
         case (variableID::M_del_vi_tend):
             M_name = "M_del_vi_tend";
             M_export_name = "Ice_volume_tendency_daily";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            break;
+
+        case (variableID::M_pond_volume):
+            M_name = "M_pond_volume";
+            M_export_name = "Meltpond_volume";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            break;
+
+        case (variableID::M_lid_volume):
+            M_name = "M_lid_volume";
+            M_export_name = "Meltpond_lid_volume";
             M_prognostic = true;
             M_exporting = false;
             M_interp_transformation = interpTransformation::none;
@@ -746,6 +762,13 @@ ModelVariable::initElemental()
                 throw std::runtime_error(
                         "Unauthorised component number for D_sigma_p: "
                         +std::to_string(M_component_number));
+            break;
+
+        case (variableID::D_pond_fraction):
+            M_name = "D_pond_fraction";
+            M_export_name = "Meltpond_fraction";
+            M_prognostic = false;
+            M_exporting = false;
             break;
 
         default:
