@@ -7877,12 +7877,12 @@ FiniteElement::step()
 
     M_timer.tock("check_fields");
 
-    M_timer.tick("remesh");
-
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.advection"].as<std::string>() == "Lagrangian")
     {
+        M_timer.tick("remesh");
+
         M_timer.tick("checkRegridding");
         M_regrid = this->checkRegridding();
         M_timer.tock("checkRegridding");
@@ -7971,12 +7971,70 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
-
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
+        M_timer.tock("remesh");
     }//bamg-regrid
+    else if (vm["numerics.advection"].as<std::string>() == "Eulerian")
+    {
+        LOG(VERBOSE) << "Starting incremental remaping\n";
+        M_timer.tick("Incremental remapping");
+
+        LOG(VERBOSE) << "Move the meshes\n";
+        M_timer.tick("Move meshes");
+        // Move a copy of the mesh, move the nodes, and reset M_UM & M_UT
+        mesh_type moved_mesh = M_mesh;
+        moved_mesh.move(M_UM, 1.);
+        for ( int i=0; i<M_UM.size(); ++i )
+        {
+            M_UM[i] = 0.;
+            M_UT[i] = 0.;
+        }
+
+        // Make a copy of the bamgmesh and move the nodes
+        BamgMesh moved_bamgmesh = *bamgmesh;
+        auto RX = moved_mesh.coordX();
+        auto RY = moved_mesh.coordY();
+        for (int id=0; id<moved_bamgmesh.VerticesSize[0]; ++id)
+        {
+            moved_bamgmesh.Vertices[3*id] = RX[id];
+            moved_bamgmesh.Vertices[3*id+1] = RY[id] ;
+        }
+        M_timer.tock("Move meshes");
+
+        LOG(VERBOSE) << "Remap\n";
+        M_timer.tick("Remap");
+        // Collect element variables
+        std::vector<double> interp_elt_in_local;
+        bool ghosts = true;
+        this->collectVariables(interp_elt_in_local, ghosts);
+
+
+        // Conservative remaping from the moved to the original mesh
+        int nb_var_element = M_prognostic_variables_elt.size();
+        double* interp_elt_out;
+        ConservativeRemappingMeshToMesh(interp_elt_out, interp_elt_in_local, nb_var_element, &moved_bamgmesh, bamgmesh);
+        std::vector<double> out_elt_values(*interp_elt_out, *interp_elt_out + nb_var_element*M_num_elements);
+        delete[] interp_elt_out;
+
+        LOG(VERBOSE) << "Redistribute\n";
+        // redistribute elemental variables
+        this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
+        M_timer.tock("Remap");
+
+        M_timer.tick("Update ghosts");
+        // update ghosts
+        for (int j = 0; j<M_prognostic_variables_elt.size(); j++)
+        {
+            auto vptr = M_prognostic_variables_elt[j];
+            this->updateGhostElements(*vptr);
+        }
+        M_timer.tock("Update ghosts");
+
+        M_timer.tock("Incremental remaping");
+    }
+
 
     M_comm.barrier();
-    M_timer.tock("remesh");
 
     M_timer.tick("checkReload");
 
@@ -14005,9 +14063,9 @@ FiniteElement::globalDofToProcId(int global_dof)
 
 // -------------------------------------------------------------------------------------
 //! Updates the ghost elements
-//! Called by the explicit solver
+//! Called by the incremental remapping advection scheme
 void
-FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
+FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
 {
     std::vector<std::vector<double>> extract_local_values(M_comm.size());
 
@@ -14039,15 +14097,6 @@ FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
     }
 } //updateGhostElements
 
-// -------------------------------------------------------------------------------------
-//! Updates the ghost elements
-//! Called by the explicit solver
-void
-FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
-{
-    std::vector<double> mesh_elt = mesh_elt_ctr;
-    this->updateGhostElements(mesh_elt);
-}
 
 // -------------------------------------------------------------------------------------
 //! Initialise maps to update ghost elements
