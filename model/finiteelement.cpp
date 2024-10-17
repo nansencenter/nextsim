@@ -14060,6 +14060,15 @@ FiniteElement::globalDofToProcId(int global_dof)
 void
 FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
 {
+    this->updateGhostElements(&mesh_elt_ctr[0]);
+}
+
+// -------------------------------------------------------------------------------------
+//! Updates the ghost elements
+//! Called by the explicit solver
+void
+FiniteElement::updateGhostElements(double* mesh_elt_ctr)
+{
     std::vector<std::vector<double>> extract_local_values(M_comm.size());
 
     for (int i=0; i<M_extract_local_elt_indices.size(); i++)
@@ -14096,8 +14105,7 @@ FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
 void
 FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
 {
-    std::vector<double> mesh_elt = mesh_elt_ctr;
-    this->updateGhostElements(mesh_elt);
+    this->updateGhostElements(&mesh_elt_ctr[0]);
 }
 
 // -------------------------------------------------------------------------------------

@@ -289,6 +289,7 @@ public:
     void initUpdateGhostNodes();
     int globalDofToProcId(int global_dof);
 
+    void updateGhostElements(double* mesh_elt_ctr);
     void updateGhostElements(std::vector<double>& mesh_elt_ctr);
     void updateGhostElements(ModelVariable& mesh_elt_ctr);
     void initUpdateGhostElements();
