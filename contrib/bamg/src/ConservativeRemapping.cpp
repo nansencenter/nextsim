@@ -102,42 +102,20 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 }
 
 // Incremental remapping using ConservativeRemappingWeights and ConservativeRemappingMeshToGrid
-void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> UM)
+void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> &UM)
 {
     // Copy the node information
     int numNodes = bamgmesh->VerticesSize[0];
     assert(UM.size() == 2*numNodes);
 
-    // Copy the triangle information of the mesh and calculate the barycentre
+    // Copy the triangle information of the mesh
     // Keep the nomenclature for a grid (even if it's a mesh)
     int grid_size = bamgmesh->TrianglesSize[0];
-    std::vector<double> gridCornerX(3*grid_size);
-    std::vector<double> gridCornerY(3*grid_size);
-    for (int tr=0; tr<grid_size; ++tr)
-    {
-        for (int i=0; i<3; ++i)
-        {
-            // grid corner == vertice
-            int id = bamgmesh->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
-            gridCornerX[3*tr+i] = bamgmesh->Vertices[3*id];
-            gridCornerY[3*tr+i] = bamgmesh->Vertices[3*id+1];
-        }
-    }
 
     // Initialise gridP, triangles, and weights
     std::vector<int> gridP(grid_size);
     std::vector<std::vector<int>> triangles(grid_size);
     std::vector<std::vector<double>> weights(grid_size);
-
-    // Move the nodes of the mesh (temporarily)
-    for (int id=0; id<numNodes; ++id)
-    {
-        if ( UM[id] > 1e-6 )
-            bamgmesh->Vertices[3*id] += UM[id];
-
-        if ( UM[id+numNodes] > 1e-6 )
-            bamgmesh->Vertices[3*id+1] += UM[id+numNodes] ;
-    }
 
     // Calculate weights
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
@@ -145,13 +123,27 @@ void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, i
         // Save the ppoints
         gridP[ppoint] = ppoint;
 
-        // vertices of the new mesh in a format checkTriangle understands
+        // vertices of the moved mesh in a format checkTriangle understands
         std::vector<double> cornerX(3);
         std::vector<double> cornerY(3);
-        for (int corner=0; corner<3; ++corner)
+        for (int i=0; i<3; ++i)
         {
-            cornerX[corner] = gridCornerX[3*ppoint+corner];
-            cornerY[corner] = gridCornerY[3*ppoint+corner];
+            int id = bamgmesh->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
+            cornerX[i] = bamgmesh->Vertices[3*id];
+            cornerY[i] = bamgmesh->Vertices[3*id+1];
+
+            /* Apply UM only if it's sufficiently large. The intersection and
+             * point-in-polygon algorithms don't neccesarily agree when the
+             * displacement is close to the rounding error. We also set UM to
+             * zero only if it's large enough. That way, no information is lost
+             * here. */
+            if ( std::hypot(UM[id],UM[id+numNodes]) > 1e-3 )
+            {
+                cornerX[i] += UM[id];
+                cornerY[i] += UM[id+numNodes];
+                UM[id] = 0.;
+                UM[id+numNodes] = 0.;
+            }
         }
 
         // Call the recursive function (this is our work horse here)
@@ -160,19 +152,8 @@ void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, i
         assert(weights[ppoint][0] > 0.);
     }
 
-    // Move the mesh back
-    for (int id=0; id<numNodes; ++id)
-    {
-        if ( UM[id] > 1e-6 )
-            bamgmesh->Vertices[3*id] -= UM[id];
-
-        if ( UM[id+numNodes] > 1e-6 )
-            bamgmesh->Vertices[3*id+1] -= UM[id+numNodes] ;
-    }
-
-    // Now we apply the weights with meshToGrid - specify num_corners as 3
-    ConservativeRemappingMeshToGrid(interp_out, interp_in, nb_var, grid_size, std::nan(""),
-        gridP, gridCornerX, gridCornerY, triangles, weights, 3);
+    // Now we apply the weights with GridToMesh
+    ConservativeRemappingGridToMesh(interp_out, interp_in, nb_var, grid_size, gridP, triangles, weights);
 }
 
 // Apply weights for a mesh-to-grid remapping

@@ -32,7 +32,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
       BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new);
 
 // Conservative remapping using a displacement of the bamgmesh (UM)
-void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> UM);
+void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> &UM);
 
 // Recursive function to check the current triangle
 inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_number, // inputs

@@ -7988,30 +7988,24 @@ FiniteElement::step()
         LOG(VERBOSE) << "Remap\n";
         M_timer.tick("Collect");
         // Collect element variables
-        std::vector<double> interp_elt_in_local;
+        std::vector<double> interp_in;
         const bool ghosts = true;
-        this->collectVariables(interp_elt_in_local, ghosts);
+        this->collectVariables(interp_in, ghosts);
         M_timer.tock("Collect");
 
         // Conservative remaping from the moved to the original mesh
         M_timer.tick("Remap");
         int nb_var_element = M_prognostic_variables_elt.size();
-        double* interp_elt_out;
-        IncrementalRemapping(interp_elt_out, interp_elt_in_local, nb_var_element, bamgmesh, M_UM);
+        double* interp_out;
+        // NB! M_UM is reset by this call
+        IncrementalRemapping(interp_out, interp_in, nb_var_element, bamgmesh, M_UM);
         M_timer.tock("Remap");
         M_timer.tick("Redistribute");
-        // Reset M_UM (and M_UT for good measure)
-        for ( int i=0; i<M_UM.size(); ++i )
-        {
-            M_UM[i] = 0.;
-            M_UT[i] = 0.;
-        }
-
 
         // redistribute elemental variables
         // apply maxima during interpolation
-        this->redistributeVariables(interp_elt_out, true);
-        xDelete<double>(interp_elt_out);
+        this->redistributeVariables(interp_out, true);
+        xDelete<double>(interp_out);
         M_timer.tock("Redistribute");
 
         M_timer.tick("Update ghosts");
