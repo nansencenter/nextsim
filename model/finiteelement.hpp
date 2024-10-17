@@ -289,6 +289,7 @@ public:
     void initUpdateGhostNodes();
     int globalDofToProcId(int global_dof);
 
+    void updateGhostElements(std::vector<double>& mesh_elt_ctr);
     void updateGhostElements(ModelVariable& mesh_elt_ctr);
     void initUpdateGhostElements();
     int globalEltIdToProcId(int global_eltid);
@@ -349,6 +350,7 @@ private:
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
+    void redistributeVariables(double const* out_elt_values, bool const& apply_maxima);
 
     // IO
     void collectVariablesIO(std::vector<double>& elt_values_local,

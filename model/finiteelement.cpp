@@ -2216,6 +2216,12 @@ FiniteElement::collectVariablesIO(std::vector<double>& elt_values_local,
 void
 FiniteElement::redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima)
 {
+    this->redistributeVariables(&out_elt_values[0], apply_maxima);
+}
+
+void
+FiniteElement::redistributeVariables(double const* out_elt_values, bool const& apply_maxima)
+{
     //! -1) check if we are using the maximum values for the variables
     //!     - don't do this if calling during advection
     int nb_var_element = M_prognostic_variables_elt.size();
@@ -7979,47 +7985,34 @@ FiniteElement::step()
         LOG(VERBOSE) << "Starting incremental remaping\n";
         M_timer.tick("Incremental remapping");
 
-        LOG(VERBOSE) << "Move the meshes\n";
-        M_timer.tick("Move meshes");
-        // Move a copy of the mesh, move the nodes, and reset M_UM & M_UT
-        mesh_type moved_mesh = M_mesh;
-        moved_mesh.move(M_UM, 1.);
+        LOG(VERBOSE) << "Remap\n";
+        M_timer.tick("Collect");
+        // Collect element variables
+        std::vector<double> interp_elt_in_local;
+        const bool ghosts = true;
+        this->collectVariables(interp_elt_in_local, ghosts);
+        M_timer.tock("Collect");
+
+        // Conservative remaping from the moved to the original mesh
+        M_timer.tick("Remap");
+        int nb_var_element = M_prognostic_variables_elt.size();
+        double* interp_elt_out;
+        IncrementalRemapping(interp_elt_out, interp_elt_in_local, nb_var_element, bamgmesh, M_UM);
+        M_timer.tock("Remap");
+        M_timer.tick("Redistribute");
+        // Reset M_UM (and M_UT for good measure)
         for ( int i=0; i<M_UM.size(); ++i )
         {
             M_UM[i] = 0.;
             M_UT[i] = 0.;
         }
 
-        // Make a copy of the bamgmesh and move the nodes
-        BamgMesh moved_bamgmesh = *bamgmesh;
-        auto RX = moved_mesh.coordX();
-        auto RY = moved_mesh.coordY();
-        for (int id=0; id<moved_bamgmesh.VerticesSize[0]; ++id)
-        {
-            moved_bamgmesh.Vertices[3*id] = RX[id];
-            moved_bamgmesh.Vertices[3*id+1] = RY[id] ;
-        }
-        M_timer.tock("Move meshes");
 
-        LOG(VERBOSE) << "Remap\n";
-        M_timer.tick("Remap");
-        // Collect element variables
-        std::vector<double> interp_elt_in_local;
-        bool ghosts = true;
-        this->collectVariables(interp_elt_in_local, ghosts);
-
-
-        // Conservative remaping from the moved to the original mesh
-        int nb_var_element = M_prognostic_variables_elt.size();
-        double* interp_elt_out;
-        ConservativeRemappingMeshToMesh(interp_elt_out, interp_elt_in_local, nb_var_element, &moved_bamgmesh, bamgmesh);
-        std::vector<double> out_elt_values(*interp_elt_out, *interp_elt_out + nb_var_element*M_num_elements);
-        delete[] interp_elt_out;
-
-        LOG(VERBOSE) << "Redistribute\n";
         // redistribute elemental variables
-        this->redistributeVariables(out_elt_values, true);//apply maxima during interpolation
-        M_timer.tock("Remap");
+        // apply maxima during interpolation
+        this->redistributeVariables(interp_elt_out, true);
+        xDelete<double>(interp_elt_out);
+        M_timer.tock("Redistribute");
 
         M_timer.tick("Update ghosts");
         // update ghosts
@@ -8030,7 +8023,7 @@ FiniteElement::step()
         }
         M_timer.tock("Update ghosts");
 
-        M_timer.tock("Incremental remaping");
+        M_timer.tock("Incremental remapping");
     }
 
 
@@ -14063,9 +14056,9 @@ FiniteElement::globalDofToProcId(int global_dof)
 
 // -------------------------------------------------------------------------------------
 //! Updates the ghost elements
-//! Called by the incremental remapping advection scheme
+//! Called by the explicit solver
 void
-FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
+FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
 {
     std::vector<std::vector<double>> extract_local_values(M_comm.size());
 
@@ -14097,6 +14090,15 @@ FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
     }
 } //updateGhostElements
 
+// -------------------------------------------------------------------------------------
+//! Updates the ghost elements
+//! Called by the explicit solver
+void
+FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
+{
+    std::vector<double> mesh_elt = mesh_elt_ctr;
+    this->updateGhostElements(mesh_elt);
+}
 
 // -------------------------------------------------------------------------------------
 //! Initialise maps to update ghost elements
