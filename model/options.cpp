@@ -395,7 +395,7 @@ namespace Nextsim
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
             ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
-            ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
+            ("thermo.melt_type", po::value<int>()->default_value( 2 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
