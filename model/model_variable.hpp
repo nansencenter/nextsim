@@ -81,8 +81,12 @@ public:
         M_del_vi_tend     = 28,
         M_thick_myi       = 29,
         M_thick_summer    = 30,
-        M_pond_volume     = 31,
-        M_lid_volume      = 32,
+        M_drag_ui         = 31,
+        M_drag_ti         = 32,
+        M_drag_ui_young   = 33,
+        M_drag_ti_young   = 34,
+        M_pond_volume     = 35,
+        M_lid_volume      = 36,
 
         // Diagnostic variables
         D_conc         = 100,

@@ -562,6 +562,15 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
+    M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
+    const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
+    M_drag_ti.assign(M_num_elements, drag_ice_t);
+    if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+    {
+        M_drag_ui_young.assign(M_num_elements, quad_drag_coef_air);
+        M_drag_ti_young.assign(M_num_elements, drag_ice_t);
+    }
+
     // The coupled system needs special handling
     if ( M_ocean_type != setup::OceanType::COUPLED )
     {
@@ -5241,7 +5250,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo(M_num_elements);
     std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, bulk_for_young);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, M_drag_ui, M_drag_ti, bulk_for_young);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5254,11 +5263,12 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo_young(M_num_elements);
     std::vector<double> I_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
-    {   
+    {
         bulk_for_young = true ;
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
-                I_young, subl_young, dQiadT_young, albedo_young, bulk_for_young);
+                I_young, subl_young, dQiadT_young, albedo_young,
+                M_drag_ui_young, M_drag_ti_young, bulk_for_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -6133,7 +6143,6 @@ FiniteElement::thermo(int dt)
 
 }//thermo
 
-
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
 //! Called by the thermo() function.
@@ -6149,16 +6158,55 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
         std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-        std::vector<double>& alb_tot, bool bulk_for_young)
+        std::vector<double>& alb_tot,
+        ModelVariable& drag_ui, ModelVariable& drag_ti, bool bulk_for_young)
 {
     // Constants
-    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
     int const alb_scheme  = vm["thermo.alb_scheme"].as<int>();
     double const alb_ice  = vm["thermo.alb_ice"].as<double>();
     double const alb_sn   = vm["thermo.alb_sn"].as<double>();
     double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
+
+    // Stability calculations
+    const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
+
+    const double zref_wind = vm["thermo.zref_wind"].as<double>();
+    const double zref_temp = vm["thermo.zref_temp"].as<double>();
+    const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(quad_drag_coef_air));
+
+    const double Linvrange = 1./vm["thermo.limiting_lengthscale"].as<double>();
+    const double retv = 0.6078;
+
+    // Grachev et al's constants
+    const double am = 5.;
+    const double bm = am/6.5;
+    const double Bm = std::cbrt((1-bm)/bm);
+    const double ah = 5.;
+    const double bh = 5.;
+    const double ch = 3.;
+    const double Bh = std::sqrt(5);
+
+    // Additional constants for computational efficency
+    const double C1 = -3.*am/bm;
+    const double C2 = 0.5*am*Bm/bm;
+    const double C3 = 1./(1.+Bm);
+    const double Bm2 = Bm*Bm;
+    const double C4 = 1./(1.-Bm+Bm2);
+    const double sqrt3 = std::sqrt(3.);
+    const double C5 = 2.*sqrt3;
+    const double C6 = 1./(sqrt3*Bm);
+    const double C7 = std::atan((2.-Bm)*C6);
+
+    const double D1 = -0.5*bh;
+    const double D2 = -ah/Bh + 0.5*bh*ch/Bh;
+    const double D3 = ch-Bh;
+    const double D4 = ch+Bh;
+    const double D5 = std::log(D3/D4);
+
+    const double lambda_u = std::log(zref_wind/z0);
+    const double lambda_h = std::log(zref_wind/z0);
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6178,23 +6226,101 @@ FiniteElement::IABulkFluxes(
 
         // -------------------------------------------------
 
-        /* Density of air */
+        /* Temperatures in Kelvin */
         double tairK  = M_tair[i] + physical::tfrwK;
-        double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
+        double tsurfK = Tsurf[i] + physical::tfrwK;
+
+        /* Density of air */
+        double rhoair = M_mslp[i]/(physical::Ra_dry*tairK) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
 
         /* Wind speed */
         double  wspeed = this->windSpeedElement(i);
 
+        /* Potential temperature at zref_temp */
+        const double Tpot = tairK + physical::Gamma_d*zref_temp;
+
+        // -------------------------------------------------
+        // Drag coefficients
+
+        if ( ! fix_drag )
+        {
+
+            // 1. The inverse Obukov length
+
+            // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
+            // surface roughness velocity
+            const double ustar = std::sqrt(drag_ui[i])*wspeed;
+
+            // Virtual potential temperature
+            const double Tvirt = Tpot*(1. + retv*sphuma);
+
+            // Mixing ratio
+            const double mixrat = sphuma/(1.-sphuma);
+
+            // Potential temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
+            const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
+
+            // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
+            const double wr = drag_ti[i] * wspeed * (sphumi-sphuma) / ((1.-sphumi)*(1.-sphuma));
+
+            // Surface virtual potential temperature flux approximation \bar{w'\Theta')(1+0.61\bar r) + 0.61 \bar\Theta \bar{w'r'}
+            const double wTvirt = wTpot*(1. + retv*mixrat) + retv*Tpot*wr;
+
+            // Inverse Obukov length - k g (\bar{w'\Theta'_s})_s / u_*^3 \bar\Theta_v
+            const double Linv = std::max( -Linvrange, std::min( Linvrange,
+                        - physical::vonKarman * physical::g * wTvirt
+                            / (ustar*ustar*ustar * Tvirt) ) );
+
+            // 2. Stability parameter \zeta = z/L
+            // zref_wind is normally 10 m and zref_temp is normally 2 m
+            const double zetam = zref_wind * Linv;
+            const double zetah = zref_temp * Linv;
+
+            // 3. Stability functions \Psi for momentum and heat
+            double psim, psih;
+            if ( Linv >= 0 ) // The stable case
+            {
+                // momentum
+                const double x = std::cbrt(1.+zetam);
+                psim = C1*(x-1.)
+                    + C2*( 2.*std::log((x+Bm)*C3) - std::log((x*x-x*Bm+Bm2)*C4)
+                            + C5*(std::atan((2.*x-Bm)*C6) - C7) );
+
+                // heat
+                psih = D1*std::log(1. + ch*zetah + zetah*zetah)
+                    + D2*(std::log((2.*zetah+D3)/(2.*zetah+D4)) - D5);
+            }
+            else { // The unstable case
+                // momentum
+                double x = std::sqrt(std::sqrt(1.-16.*zetam));
+                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - 2.*std::atan(x) + 0.5*M_PI;
+
+                // heat
+                x = std::sqrt(std::sqrt(1.-16.*zetah));
+                psih = 2.*std::log(0.5*(1.+x*x));
+            }
+
+            // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Pshi} )^2
+            drag_ui[i] = physical::vonKarman/(lambda_u - psim);
+            drag_ui[i] *= drag_ui[i];
+            drag_ti[i] = physical::vonKarman/(lambda_h - psih);
+            drag_ti[i] *= drag_ti[i];
+
+        }
+
+        // -------------------------------------------------
+        // Heat fluxes
+
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = drag_ti[i] * rhoair * physical::cpa * wspeed*( tsurfK - Tpot );
+        double dQshdT = drag_ti[i] * rhoair * physical::cpa * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
+        Qlh[i] = drag_ti[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ti[i]*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
@@ -6229,6 +6355,7 @@ FiniteElement::IABulkFluxes(
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
         Qia[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+
     }
 }//IABulkFluxes
 
@@ -6463,12 +6590,12 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
 
     // Make sure the pond depth isn't too high --> Holland et al. (2012)
     double pond_depth = std::min(dep2frac*D_pond_fraction[cpt],0.9*hi);
-   // If pond depth was too high, just drain the excess 
+   // If pond depth was too high, just drain the excess
     M_pond_volume[cpt] = pond_depth*D_pond_fraction[cpt];
-   
+
     // Make sure the pond depth isn't microscopic
     pond_depth = std::max(0.05, pond_depth);
-    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt],
             (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
 
     double delLidVolume = 0; // Volume increase is always positive!
@@ -7045,6 +7172,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_sst);
     M_sss = ModelVariable(ModelVariable::variableID::M_sss);//! \param M_sss (double) Sea surface salinity (slab ocean) [C]
     M_variables_elt.push_back(&M_sss);
+
+    M_drag_ui = ModelVariable(ModelVariable::variableID::M_drag_ui);
+    M_variables_elt.push_back(&M_drag_ui);
+    M_drag_ti = ModelVariable(ModelVariable::variableID::M_drag_ti);
+    M_variables_elt.push_back(&M_drag_ti);
+
     if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
         M_tsurf_young = ModelVariable(ModelVariable::variableID::M_tsurf_young);//! \param M_tsurf_young (double) Young ice surface temperature [C]
@@ -7055,6 +7188,10 @@ FiniteElement::initModelVariables()
         M_variables_elt.push_back(&M_hs_young);
         M_conc_young = ModelVariable(ModelVariable::variableID::M_conc_young);//! \param M_conc (double) Concentration of young ice
         M_variables_elt.push_back(&M_conc_young);
+        M_drag_ui_young = ModelVariable(ModelVariable::variableID::M_drag_ui_young);
+        M_variables_elt.push_back(&M_drag_ui_young);
+        M_drag_ti_young = ModelVariable(ModelVariable::variableID::M_drag_ti_young);
+        M_variables_elt.push_back(&M_drag_ti_young);
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
@@ -8617,6 +8754,29 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_divergence[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::drag_ui):
+                for (int i=0; i<M_local_nelements; i++)
+                {
+                    double drag = M_drag_ui[i];
+                    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        drag = (M_drag_ui[i]*M_conc[i]+M_drag_ui_young[i]*M_conc_young[i])
+                            /(M_conc[i]+M_conc_young[i]);
+
+                    it->data_mesh[i] += drag*time_factor;
+                }
+                break;
+            case (GridOutput::variableID::drag_ti):
+                for (int i=0; i<M_local_nelements; i++)
+                {
+                    double drag = M_drag_ti[i];
+                    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        drag = (M_drag_ti[i]*M_conc[i]+M_drag_ti_young[i]*M_conc_young[i])
+                            /(M_conc[i]+M_conc_young[i]);
+
+                    it->data_mesh[i] += drag*time_factor;
+                }
+                break;
+
             case (GridOutput::variableID::meltpond_fraction):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_pond_fraction[i]*time_factor;
@@ -8927,6 +9087,8 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
+            ("drag_ui", GridOutput::variableID::drag_ui)
+            ("drag_ti", GridOutput::variableID::drag_ti)
             ("meltpond_volume", GridOutput::variableID::meltpond_volume)
             ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
             ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
@@ -10215,7 +10377,26 @@ FiniteElement::explicitSolve()
         }
 
         // Atmospheric drag
-        const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
+        // Surface weighted average drag
+        double drag = 0.;
+        double surface = 0;
+        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+        for (int j=0; j<num_elements; j++)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+            // Skip negative elt_num
+            if ( elt_num < 0 ) continue;
+
+            double dragp = M_drag_ui[elt_num];
+            if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE && M_conc[elt_num]+M_conc_young[elt_num] > 0. )
+                dragp = (M_drag_ui[elt_num]*M_conc[elt_num]+M_drag_ui_young[elt_num]*M_conc_young[elt_num])
+                    /(M_conc[elt_num]+M_conc_young[elt_num]);
+
+            drag += dragp * M_surface[elt_num];
+            surface += M_surface[elt_num];
+        }
+        drag *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface;
+
         D_tau_a[u_indx] = drag * M_wind[u_indx];
         D_tau_a[v_indx] = drag * M_wind[v_indx];
 

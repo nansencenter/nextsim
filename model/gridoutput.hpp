@@ -190,7 +190,9 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
-        meltpond_fraction = 128,
+        drag_ui      = 128,
+        drag_ti      = 129,
+        meltpond_fraction = 130,
 
         // Forcing variables
         tair     = 200,
@@ -701,6 +703,18 @@ public:
                     Units    = "1/s";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::drag_ui):
+                    name     = "drag_ui";
+                    longName = "Ice-atmosphere momentum drag";
+                    stdName  = "ice-atmosphere_momentum_drag";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ti):
+                    name     = "drag_ti";
+                    longName = "Ice-atmosphere thermodynamic drag";
+                    stdName  = "ice-atmosphere_thermodynamic_drag";
+                    Units    = "1/s";
                 case (variableID::meltpond_fraction):
                     name     = "meltpond_fraction";
                     longName = "Meltpond fraction";

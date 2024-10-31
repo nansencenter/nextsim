@@ -429,6 +429,14 @@ namespace Nextsim
              "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
              "Exponent of factor for heat flux that compensates for assimilation of concentration")
+            ("thermo.zref_wind", po::value<double>()->default_value(10.),
+             "Reference height for wind forcing [m]")
+            ("thermo.zref_temp", po::value<double>()->default_value(2.),
+             "Reference height for temperature forcing [m]")
+            ("thermo.force_neutral_atmosphere", po::value<bool>()->default_value(false),
+             "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
+            ("thermo.limiting_lengthscale", po::value<double>()->default_value( 1. ),
+             "A limit for the Obukov lenght (m).")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
