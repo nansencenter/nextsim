@@ -25,28 +25,33 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_version("2.2"),
     M_ordering("gmsh"),
     M_nodes(),
-    M_triangles(),
-    M_edges(),
     M_nodes_vec(),
     M_local_dof_with_ghost(),
+    M_local_dof_with_ghost_default(),
     M_local_dof_without_ghost(),
     M_local_ghost(),
-    M_triangles_id_with_ghost(),
+    M_triangles(),
+    M_local_eltid_with_ghost(),
+    M_local_eltid_with_ghost_default(),
+    M_local_eltid_without_ghost(),
+    M_local_ghost_elt(),
+    M_edges(),
     M_num_nodes(0),
+    M_nldof_with_ghost(0),
+    M_nldof_without_ghost(0),
+    M_nlghost(0),
     M_num_triangles(0),
+    M_nlelt_with_ghost(0),
+    M_nlelt_without_ghost(0),
+    M_nlghost_elt(0),
     M_num_edges(0),
-    M_nldof_with_ghost(),
-    M_nldof_without_ghost(),
-    M_nlghost(),
-    M_num_triangles_without_ghost(),
-    M_transfer_map(),
-    M_transfer_map_reordered(),
+    M_transfer_map_dof(),
+    M_transfer_map_dof_default(),
     M_transfer_map_elt(),
-    //M_reorder_map_nodes(),
-    //M_reorder_map_elements(),
+    M_transfer_map_elt_default(),
     M_map_nodes(),
     M_map_elements(),
-    timer(),
+    M_timer(),
     M_mppfile(Environment::nextsimMppfile()),
     M_log_level(Environment::logLevel()),
     M_log_all(Environment::logAll())
@@ -57,30 +62,37 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_comm(mesh.M_comm),
     M_version(mesh.M_version),
     M_ordering(mesh.M_ordering),
-    M_mppfile(mesh.M_mppfile),
-    M_log_level(mesh.M_log_level),
-    M_log_all(mesh.M_log_all),
     M_nodes(mesh.M_nodes),
-    M_triangles(mesh.M_triangles),
-    M_edges(mesh.M_edges),
     M_nodes_vec(mesh.M_nodes_vec),
     M_local_dof_with_ghost(mesh.M_local_dof_with_ghost),
+    M_local_dof_with_ghost_default(mesh.M_local_dof_with_ghost_default),
     M_local_dof_without_ghost(mesh.M_local_dof_without_ghost),
     M_local_ghost(mesh.M_local_ghost),
-    M_triangles_id_with_ghost(mesh.M_triangles_id_with_ghost),
+    M_triangles(mesh.M_triangles),
+    M_local_eltid_with_ghost(mesh.M_local_eltid_with_ghost),
+    M_local_eltid_with_ghost_default(mesh.M_local_eltid_with_ghost_default),
+    M_local_eltid_without_ghost(mesh.M_local_eltid_without_ghost),
+    M_local_ghost_elt(mesh.M_local_ghost_elt),
+    M_edges(mesh.M_edges),
     M_num_nodes(mesh.M_num_nodes),
-    M_num_triangles(mesh.M_num_triangles),
-    M_num_edges(mesh.M_num_edges),
     M_nldof_with_ghost(mesh.M_nldof_with_ghost),
     M_nldof_without_ghost(mesh.M_nldof_without_ghost),
     M_nlghost(mesh.M_nlghost),
-    M_num_triangles_without_ghost(mesh.M_num_triangles_without_ghost),
-    M_transfer_map(mesh.M_transfer_map),
-    M_transfer_map_reordered(mesh.M_transfer_map_reordered),
-    //M_reorder_map_nodes(mesh.M_reorder_map_nodes),
-    //M_reorder_map_elements(mesh.M_reorder_map_elements)
+    M_num_triangles(mesh.M_num_triangles),
+    M_nlelt_with_ghost(mesh.M_nlelt_with_ghost),
+    M_nlelt_without_ghost(mesh.M_nlelt_without_ghost),
+    M_nlghost_elt(mesh.M_nlghost_elt),
+    M_num_edges(mesh.M_num_edges),
+    M_transfer_map_dof(mesh.M_transfer_map_dof),
+    M_transfer_map_dof_default(mesh.M_transfer_map_dof_default),
+    M_transfer_map_elt(mesh.M_transfer_map_elt),
+    M_transfer_map_elt_default(mesh.M_transfer_map_elt_default),
     M_map_nodes(mesh.M_map_nodes),
-    M_map_elements(mesh.M_map_elements)
+    M_map_elements(mesh.M_map_elements),
+    M_timer(mesh.M_timer),
+    M_mppfile(mesh.M_mppfile),
+    M_log_level(mesh.M_log_level),
+    M_log_all(mesh.M_log_all)
 {}
 
 #if 0
@@ -129,11 +141,11 @@ GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format
     }
 
     // create nodal partitions
-    timer["in.nodal"].first.restart();
+    M_timer["in.nodal"].first.restart();
     if (M_comm.size() > 1)
         this->nodalGrid();
 
-    LOG(DEBUG)<<"-------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
+    LOG(DEBUG)<<"-------------------INSIDE: NODALGRID done in "<< M_timer["in.nodal"].first.elapsed() <<"s\n";
 }
 
 void
@@ -970,9 +982,6 @@ GmshMesh::nodalGrid()
 
     std::sort(all_local_nodes.begin(), all_local_nodes.end());
     all_local_nodes.erase(std::unique( all_local_nodes.begin(), all_local_nodes.end() ), all_local_nodes.end());
-    //std::sort(all_local_nodes.begin(), all_local_nodes.end()); // already sorted
-
-    //std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end()); // already sorted
 
     std::set_difference(all_local_nodes.begin(), all_local_nodes.end(),
                         M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end(),
@@ -1092,74 +1101,6 @@ GmshMesh::nodalGrid()
 
             M_local_dof_without_ghost = renumbering[M_comm.rank()];
         }
-#if 0
-        else
-        {
-            std::sort(M_local_ghost.begin(), M_local_ghost.end());
-            std::vector<std::vector<int>> global_ghosts;
-            // gather operations for global ghost numbering
-            boost::mpi::all_gather(M_comm,
-                                   M_local_ghost,
-                                   global_ghosts);
-
-
-            std::vector<int> global_from_mesh(M_num_nodes);
-            std::iota(global_from_mesh.begin(), global_from_mesh.end(), 1);
-
-            std::vector<int> global_from_code;//(num_nodes);
-
-            for (int ii=0; ii<renumbering.size(); ++ii)
-            {
-                for (int jj=0; jj<renumbering[ii].size(); ++jj)
-                {
-                    global_from_code.push_back(renumbering[ii][jj]);
-                }
-            }
-
-            std::sort(global_from_code.begin(), global_from_code.end());
-
-            std::vector<int> diff_trs;
-            std::set_difference(global_from_mesh.begin(), global_from_mesh.end(),
-                                global_from_code.begin(), global_from_code.end(),
-                                std::back_inserter(diff_trs));
-
-#if 0
-            for (int kk=0; kk<diff_trs.size(); ++kk)
-            {
-                //std::cout<<
-                std::cout<<"---------------------------------------MISSING NODES= \n";
-                std::cout<<"                                                         ---[" << M_comm.rank() << "]: IDS["<< kk <<"]= "<< diff_trs[kk] <<"\n";
-            }
-#endif
-
-            for (int kk=0; kk<diff_trs.size(); ++kk)
-            {
-                std::vector<int> dom_ids;
-
-                for (int ii=0; ii<global_ghosts.size(); ++ii)
-                {
-                    //global_from_code.push_back(renumbering[ii][jj]);
-                    //if ((std::find(global_ghosts[ii].begin(),global_ghosts[ii].end(),diff_trs[kk]) != global_ghosts[ii].end()))
-                    if (std::binary_search(global_ghosts[ii].begin(), global_ghosts[ii].end(),diff_trs[kk]))
-                    {
-                        dom_ids.push_back(ii);
-                    }
-                }
-
-                int valid_id = *std::min_element(dom_ids.begin(), dom_ids.end());
-
-                if (M_comm.rank() == valid_id)
-                {
-                    //std::cout<<"----------------------------------WORKING["<< M_comm.rank() <<"]: "<< diff_trs[kk] <<"\n";
-
-                    M_local_ghost.erase(std::remove(M_local_ghost.begin(), M_local_ghost.end(), diff_trs[kk]),
-                                        M_local_ghost.end());
-
-                    M_local_dof_without_ghost.push_back(diff_trs[kk]);
-                }
-            }
-        }
-#endif
     } // check the nodal partition end
 
     std::sort(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.end());
@@ -1168,9 +1109,8 @@ GmshMesh::nodalGrid()
     std::copy_n(M_local_dof_without_ghost.begin(), M_local_dof_without_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
     std::copy_n(M_local_ghost.begin(), M_local_ghost.size(), std::back_inserter(M_local_dof_with_ghost));
 
-    //bimap_type reorder;
-    std::map<int,int> reorder;
-    std::map<int,int> M_reorder_map_nodes;
+    std::map<int,int> reorder_map_global_dof_uv;
+    std::map<int,int> reorder_map_global_dof;
 
     int cpts = 0;
     int cpts_dom = 0;
@@ -1179,29 +1119,17 @@ GmshMesh::nodalGrid()
     {
         int sr = renumbering[ii].size();
 
-        //for (int jj=0; jj<renumbering[ii].size(); ++jj)
         for (int jj=0; jj<sr; ++jj)
         {
-            //reorder.insert(position(renumbering[ii][jj],cpts+1+cpts_dom));
-            //reorder[renumbering[ii][jj]] = cpts+1+cpts_dom;
-            if (1)//(std::binary_search(M_local_dof_with_ghost.begin(), M_local_dof_with_ghost.end(),renumbering[ii][jj]))
-            {
-                // renumber global dofs for getting contiguous numbering between processors (needed for PETSc)
+            // renumber global dofs for getting contiguous numbering between processors (needed for PETSc)
+            // add first component (u) of velocity
+            reorder_map_global_dof_uv.insert(std::make_pair(renumbering[ii][jj],cpts+1+cpts_dom));
 
-                // add first component (u) of velocity
-                reorder.insert(std::make_pair(renumbering[ii][jj],cpts+1+cpts_dom));
+            // add second component (v) of velocity
+            reorder_map_global_dof_uv.insert(std::make_pair(renumbering[ii][jj]+M_num_nodes,cpts+1+sr+cpts_dom));
 
-                // add second component (v) of velocity
-                reorder.insert(std::make_pair(renumbering[ii][jj]+M_num_nodes,cpts+1+sr+cpts_dom));
-            }
-
-            //reorder_root[renumbering[ii][jj]] = cpts+1;
-            //M_reorder_map_nodes.insert(position(renumbering[ii][jj],cpts+1));
-            M_reorder_map_nodes.insert(std::make_pair(renumbering[ii][jj],cpts+1));
-
-            // add second component for velocity
-            //reorder[renumbering[ii][jj]+M_num_nodes] = cpts+1+sr+cpts_dom;
-            //reorder.insert(std::make_pair(renumbering[ii][jj]+M_num_nodes,cpts+1+sr+cpts_dom));
+            // dof global to global renumbering
+            reorder_map_global_dof.insert(std::make_pair(renumbering[ii][jj],cpts+1));
 
 #if 0
             if (M_comm.rank() == 0)
@@ -1219,10 +1147,8 @@ GmshMesh::nodalGrid()
         cpts_dom += renumbering[ii].size();
     }
 
-
-
-    M_local_dof_with_ghost_init = M_local_dof_with_ghost;
-    auto local_dof_with_ghost = M_local_dof_with_ghost;
+    M_local_dof_with_ghost_default = M_local_dof_with_ghost;
+    //auto local_dof_with_ghost = M_local_dof_with_ghost;
 
     M_nldof_with_ghost = M_local_dof_with_ghost.size();
     M_nldof_without_ghost = M_local_dof_without_ghost.size();
@@ -1231,21 +1157,21 @@ GmshMesh::nodalGrid()
     M_local_dof_with_ghost.resize(2*M_nldof_with_ghost);
     M_local_dof_without_ghost.resize(2*M_nldof_without_ghost);
 
-    for (int k=0; k<local_dof_with_ghost.size(); ++k)
+    for (int k=0; k<M_local_dof_with_ghost_default.size(); ++k)
     {
         // mapping from old global numbering to local numbering
-        M_transfer_map.insert(position(local_dof_with_ghost[k],k+1));
+        M_transfer_map_dof_default.insert(position(M_local_dof_with_ghost_default[k],k+1));
 
-        int rdof = reorder.find(local_dof_with_ghost[k])->second;
-        int rdofv = reorder.find(local_dof_with_ghost[k]+M_num_nodes)->second;
+        int rdof = reorder_map_global_dof_uv.find(M_local_dof_with_ghost_default[k])->second;
+        int rdofv = reorder_map_global_dof_uv.find(M_local_dof_with_ghost_default[k]+M_num_nodes)->second;
 
         // mapping from new global numbering to local numbering
-        M_transfer_map_reordered.insert(position(rdof,k+1));
+        M_transfer_map_dof.insert(position(rdof,k+1));
 
         M_local_dof_with_ghost[k] = rdof;
         M_local_dof_with_ghost[k+M_nldof_with_ghost] = rdofv;
 
-        M_nodes[k+1] = M_nodes_vec[local_dof_with_ghost[k]-1];
+        M_nodes[k+1] = M_nodes_vec[M_local_dof_with_ghost_default[k]-1];
 
 
         if (k < M_nldof_without_ghost)
@@ -1264,7 +1190,7 @@ GmshMesh::nodalGrid()
     M_global_num_nodes = M_num_nodes;
     M_num_nodes = M_nodes.size();
 
-    std::vector<int> triangles_num_without_ghost;
+    //std::vector<int> M_local_eltid_without_ghost;
     std::vector<element_type> _triangles = M_triangles;
     M_triangles.resize(0);
 
@@ -1276,7 +1202,7 @@ GmshMesh::nodalGrid()
 
             for (int i=0; i<3; ++i)
             {
-                if ((M_transfer_map.left.find(it->indices[i]) == M_transfer_map.left.end()))
+                if ((M_transfer_map_dof_default.left.find(it->indices[i]) == M_transfer_map_dof_default.left.end()))
                 {
                     _test = true;
                     break;
@@ -1291,9 +1217,9 @@ GmshMesh::nodalGrid()
             // new add
             for (int i=0; i<3; ++i)
             {
-                int rdof = reorder.find(it->indices[i])->second;
+                int rdof = reorder_map_global_dof_uv.find(it->indices[i])->second;
 
-                it->indices[i] = M_transfer_map.left.find(it->indices[i])->second;
+                it->indices[i] = M_transfer_map_dof_default.left.find(it->indices[i])->second;
 
                 if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
                 {
@@ -1306,7 +1232,7 @@ GmshMesh::nodalGrid()
 
             if ((M_comm.rank() == it->partition))
             {
-                triangles_num_without_ghost.push_back(it->number);
+                M_local_eltid_without_ghost.push_back(it->number);
             }
         }
     }
@@ -1314,8 +1240,8 @@ GmshMesh::nodalGrid()
     M_num_triangles = M_triangles.size();
 
     // check the nodal partitions
-    int elt_size = triangles_num_without_ghost.size();
-    int num_elements = boost::mpi::all_reduce(M_comm, elt_size, std::plus<int>());
+    int elt_lsize = M_local_eltid_without_ghost.size();
+    int num_elements = boost::mpi::all_reduce(M_comm, elt_lsize, std::plus<int>());
 
     if (M_global_num_elements_from_serial != num_elements)
     {
@@ -1327,12 +1253,7 @@ GmshMesh::nodalGrid()
     // --------------------------------BEGINNING-------------------------
     renumbering.resize(0);
     int num_trls;
-    this->allGather(triangles_num_without_ghost, renumbering, num_trls);
-
-    // // gather operations for global element renumbering
-    // boost::mpi::all_gather(M_comm,
-    //                        triangles_num_without_ghost,
-    //                        renumbering);
+    this->allGather(M_local_eltid_without_ghost, renumbering, num_trls);
 
     std::vector<int> diff_trs;
 
@@ -1347,7 +1268,6 @@ GmshMesh::nodalGrid()
         {
             for (int jj=0; jj<renumbering[ii].size(); ++jj)
             {
-                //M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
                 all_trs.push_back(renumbering[ii][jj]);
                 ++cpts;
             }
@@ -1357,7 +1277,7 @@ GmshMesh::nodalGrid()
 
         std::sort(all_trs.begin(), all_trs.end());
 
-        std::vector<int> global_trs(all_trs.size());//(M_reorder_map_elements.size());
+        std::vector<int> global_trs(all_trs.size());
         std::iota(global_trs.begin(), global_trs.end(), 1);
 
         std::set_difference(global_trs.begin(), global_trs.end(),
@@ -1379,7 +1299,7 @@ GmshMesh::nodalGrid()
     // elements in partition first and ghost at the end
     _triangles = M_triangles;
     M_triangles.resize(0);
-    M_num_triangles_without_ghost = 0;
+    //M_nlelt_without_ghost = 0;
 
     for (auto it=_triangles.begin(), end=_triangles.end(); it!=end; ++it)
     {
@@ -1393,7 +1313,7 @@ GmshMesh::nodalGrid()
 
                 if ((M_comm.rank() == min_rank))
                 {
-                    triangles_num_without_ghost.push_back(it->number);
+                    M_local_eltid_without_ghost.push_back(it->number);
                     it->partition = M_comm.rank();
                 }
             }
@@ -1402,8 +1322,8 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() == it->partition)
         {
             M_triangles.push_back(*it);
-            M_triangles_id_with_ghost.push_back(it->number);
-            ++M_num_triangles_without_ghost;
+            M_local_eltid_with_ghost.push_back(it->number);
+            //++M_nlelt_without_ghost;
         }
     }
 
@@ -1412,14 +1332,8 @@ GmshMesh::nodalGrid()
         if (M_comm.rank() != it->partition)
         {
             M_triangles.push_back(*it);
-            M_triangles_id_with_ghost.push_back(it->number);
+            M_local_eltid_with_ghost.push_back(it->number);
         }
-    }
-
-    for (int k=0; k<M_triangles_id_with_ghost.size(); ++k)
-    {
-        // mapping from old global numbering to local numbering
-        M_transfer_map_elt.insert(position(M_triangles_id_with_ghost[k],k+1));
     }
 
     // --------------------------------END-------------------------------
@@ -1431,9 +1345,9 @@ GmshMesh::nodalGrid()
 
         for (int i=0; i<2; ++i)
         {
-            int rdof = reorder.find(it->indices[i])->second;
+            int rdof = reorder_map_global_dof_uv.find(it->indices[i])->second;
 
-            it->indices[i] = M_transfer_map.left.find(it->indices[i])->second;
+            it->indices[i] = M_transfer_map_dof_default.left.find(it->indices[i])->second;
 
             if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
             {
@@ -1443,40 +1357,65 @@ GmshMesh::nodalGrid()
     }
 
     // --------------------------------BEGINNING-------------------------
-    std::sort(triangles_num_without_ghost.begin(), triangles_num_without_ghost.end());
+    std::sort(M_local_eltid_without_ghost.begin(), M_local_eltid_without_ghost.end());
     renumbering.resize(0);
-    //int num_trls;
-    allGather(triangles_num_without_ghost, renumbering, num_trls);
+    allGather(M_local_eltid_without_ghost, renumbering, num_trls);
 
-    // // gather operations for global element renumbering
-    // boost::mpi::all_gather(M_comm,
-    //                        triangles_num_without_ghost,
-    //                        renumbering);
-
+    // consider
     cpts = 0;
     cpts_dom = 0;
-    std::map<int,int> M_reorder_map_elements;
+    std::map<int,int> reorder_map_global_elt;
 
     for (int ii=0; ii<M_comm.size(); ++ii)
     {
         for (int jj=0; jj<renumbering[ii].size(); ++jj)
         {
-            //M_reorder_map_elements.insert(position(renumbering[ii][jj],cpts+1));
-            M_reorder_map_elements.insert(std::make_pair(renumbering[ii][jj],cpts+1));
+            reorder_map_global_elt.insert(std::make_pair(renumbering[ii][jj],cpts+1));
             ++cpts;
         }
     }
+
+    M_local_eltid_with_ghost_default = M_local_eltid_with_ghost;
+    //auto local_dof_with_ghost = M_local_dof_with_ghost;
+    M_nlelt_with_ghost = M_local_eltid_with_ghost.size();
+    M_nlelt_without_ghost = M_local_eltid_without_ghost.size();
+    //M_nlghost_elt = M_nlelt_with_ghost-M_nlelt_without_ghost;//M_local_ghost_elt.size();
+
+    for (int k=0; k<M_local_eltid_with_ghost_default.size(); ++k)
+    {
+        // mapping from old global numbering to local numbering
+        M_transfer_map_elt_default.insert(position(M_local_eltid_with_ghost_default[k],k+1));
+
+        int reltid = reorder_map_global_elt.find(M_local_eltid_with_ghost_default[k])->second;
+        // mapping from new global numbering to local numbering
+        M_transfer_map_elt.insert(position(reltid,k+1));
+
+        M_local_eltid_with_ghost[k] = reltid;
+
+        if (k < M_nlelt_without_ghost)
+        {
+            M_local_eltid_without_ghost[k] = reltid;
+        }
+        else
+        {
+            //M_local_ghost_elt[k-M_nlelt_without_ghost] = reltid;
+            M_local_ghost_elt.push_back(reltid);
+        }
+    }
+
     // --------------------------------END-------------------------------
 
-    M_global_num_elements = M_reorder_map_elements.size();
+    std::sort(M_local_ghost_elt.begin(), M_local_ghost_elt.end());
+    M_nlghost_elt = M_local_ghost_elt.size();
+    M_global_num_elements = reorder_map_global_elt.size();
 
     // std::cout<<"["<< this->comm().rank() << "] M_global_num_elements= "<< M_global_num_elements <<"\n";
-    // std::cout<<"["<< this->comm().rank() << "] M_num_elements       = "<< triangles_num_without_ghost.size() <<"\n";
+    // std::cout<<"["<< this->comm().rank() << "] M_num_elements       = "<< M_local_eltid_without_ghost.size() <<"\n";
 
     // elements: boost::bimap -> std::map (optimization)
     M_map_elements.resize(M_global_num_elements);
     cpts = 0;
-    for (auto it=M_reorder_map_elements.begin(), end=M_reorder_map_elements.end(); it!=end; ++it)
+    for (auto it=reorder_map_global_elt.begin(), end=reorder_map_global_elt.end(); it!=end; ++it)
     {
         // if ((M_comm.rank()==0) && (cpts < 100))
         //     std::cout<<"--Key= "<< it->first <<"   Value= "<< it->second <<"\n";
@@ -1485,16 +1424,13 @@ GmshMesh::nodalGrid()
     }
 
     // nodes: boost::bimap -> std::map (optimization)
-    M_map_nodes.resize(M_reorder_map_nodes.size());
+    M_map_nodes.resize(reorder_map_global_dof.size());
     cpts = 0;
-    for (auto it=M_reorder_map_nodes.begin(), end=M_reorder_map_nodes.end(); it!=end; ++it)
+    for (auto it=reorder_map_global_dof.begin(), end=reorder_map_global_dof.end(); it!=end; ++it)
     {
-        // if ((M_comm.rank()==0) && (cpts < 100))
-        //     std::cout<<"--Key= "<< it->first <<"   Value= "<< it->second <<"\n";
         M_map_nodes[cpts] = it->second-1;
         ++cpts;
     }
-
 }
 
 void
