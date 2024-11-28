@@ -303,7 +303,7 @@ public:
 
     // FSD related functions
     void computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson);
-    double computeCharacteristicDiameter(const double dmin, const double dmax, const double gamma, const int n) ;
+    double computeCharacteristicDiameter(const double dmin, const double dmax, const double gamma, const double moment_exponent) ;
 #ifdef OASIS
     bool M_couple_waves;
     bool M_recv_wave_stress;
