@@ -308,6 +308,9 @@ public:
     void initFsd();
     void redistributeFSD();
     void updateFSD();
+    void computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson);
+    void computeParametersPrognosticFSD(const int i);
+    double computeMoment(const double dmin, const double dmax, const double nfsd_exponent, const double moment_exponent) ;
     std::vector<double> computeWaveBreakingProb();
     double computeLateralAreaFSD(const int cpt);
     double computeLeadFractionFSD(const int cpt);
