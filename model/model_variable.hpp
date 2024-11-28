@@ -131,6 +131,9 @@ public:
         D_del_ci_ridge_myi = 139,
         D_sialb        = 140,
         D_pond_fraction = 141,
+        D_dchar       = 142,
+        D_dlength     = 143,
+        D_dnum        = 144,
     };
 
 

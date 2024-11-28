@@ -310,7 +310,6 @@ public:
     void initFsd();
     void redistributeFSD();
     void updateFSD();
-    void computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson);
     void computeParametersPrognosticFSD(const int i);
     std::vector<double> computeWaveBreakingProb();
     double computeLateralAreaFSD(const int cpt);
@@ -827,8 +826,11 @@ private:
     ModelVariable D_fwflux; // Fresh-water flux at ocean surface [kg/m2/s]
     ModelVariable D_fwflux_ice; // Fresh-water flux at ocean surface due to ice processes [kg/m2/s]
     ModelVariable D_brine; // Brine release into the ocean [kg/m2/s]
-    ModelVariable D_dmax; //max floe size [m]
-    ModelVariable D_dmean; //mean floe size [m]
+    ModelVariable D_dmax; //max floe size (for exchange with wave model) [m]
+    ModelVariable D_dmean; //mean floe size (for exchange with wave model) [m]
+    ModelVariable D_dchar; //char floe size [m]
+    ModelVariable D_dlength; // floe size associated with floe edge length [m]
+    ModelVariable D_dnum; // floe size considering floe number [m]
     ModelVariable D_tau_ow; // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m] (for the coupled ice-ocean system)
     ModelVariable D_evap; // Evaporation out of the ocean [kg/m2/s]
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]

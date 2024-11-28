@@ -4298,13 +4298,6 @@ FiniteElement::computeParametersDiagnosticFSD(const int i, const double upper_li
     // Denton et Timmermans 2022 use a number density FSD as a function of floe area with an exponent alpha (f(a)=Ca**-alpha)). 
     // One can how that replacing area by floe size gives an exponent gamma=2*alpha-1
     // Careful that D&T22 work with m=-alpha, I prefer thinking with a positive exponent for the power-law
-    
-    if (D_conc[i]<1e-12)
-    {
-        D_dmean[i] = 0;
-        D_dmax[i]  = 0;
-        return ;
-    }
     const double gamma = 2.*(2.-0.26*M_conc[i])-1 ; // 2*alpha(conc)-1
     double  sea_ice_thickness  = M_thick[i] ; 
     if  (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
@@ -4314,56 +4307,70 @@ FiniteElement::computeParametersDiagnosticFSD(const int i, const double upper_li
                                   , 0.25 ) ;
     // TODO : Introduce proper variables for characteristic floe sizes 
     // Compute moments
-    D_dmean[i] = this->computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 1.0);
-    //double d2_1 = computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 2.0);
-    D_dmax[i] = this->computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 3.0);
+    D_dchar[i]   = this->computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 3.0);
+    D_dlength[i] = this->computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 2.0);
+    D_dnum[i]    = this->computeCharacteristicDiameter(dmin, upper_lim_floe_size, gamma, 1.0);
+    D_dmean[i]   = D_dnum[i] ;
+    D_dmax[i]    = D_dchar[i] ;
 }
 #ifdef OASIS
 void
 FiniteElement::computeParametersPrognosticFSD(const int i)
 {
-   if (D_conc[i]>0)
+   double M_1_mech= 0. ;
+   double M_0 = 0, M_1 = 0., M_neg1 = 0., M_neg2 = 0.;
+   if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
    {
-       D_dmax[i]=1000. ;
-       D_dmean[i]=1000.;
-       if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
+       //If more than 90% of sea ice that is in the element is "broken"
+       double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
+       for(int j=M_num_fsd_bins-2;j>-1;j--)
        {
-           //If more than 90% of sea ice that is in the element is "broken"
-           double ctot_fsd = M_conc_mech_fsd[M_num_fsd_bins-1][i];
-           for(int j=M_num_fsd_bins-2;j>-1;j--)
+           ctot_fsd += M_conc_mech_fsd[j][i] ;
+           if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
            {
-               ctot_fsd += M_conc_mech_fsd[j][i] ;
-               if (ctot_fsd>M_dmax_c_threshold*D_conc[i])
-               {
-                   D_dmax[i]=M_fsd_bin_up_limits[j]   ;
-                   break ;
-               }
+               D_dmax[i]=M_fsd_bin_up_limits[j]   ;
+               break ;
            }
-           D_dmean[i]=0.;
-           for(int j=0;j<M_num_fsd_bins;j++)
-               D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i];
        }
-       else
-       {
-           D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold)
-                  * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
-           D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
-
-           D_dmean[i]=0.;
-           for(int j=0;j<M_num_fsd_bins-1;j++)
-               D_dmean[i] += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j]/D_conc[i] ;
-           D_dmean[i]+= M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i] /D_conc[i] ;
-       }
-       D_dmax[i] =std::min(D_dmax[i],M_fsd_unbroken_floe_size);
-       D_dmax[i] =std::max(D_dmax[i],M_fsd_min_floe_size);
-       D_dmean[i]=std::min(D_dmax[i],D_dmean[i]);
-       D_dmean[i]=std::max(D_dmean[i],M_fsd_min_floe_size);
+       for (int j = 0; j < M_num_fsd_bins; j++) 
+           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j];
    }
    else
    {
-       D_dmax[i]  = 0. ;
-       D_dmean[i] = 0. ;
+       D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold)
+              * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+       D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+
+       for (int j = 0; j < M_num_fsd_bins-1; j++) 
+           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j];
+       M_1_mech += M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i];
    }
+   D_dmax[i] =std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+   D_dmax[i] =std::max(D_dmax[i],M_fsd_min_floe_size);
+   // Loop over bins to compute moments for the thermo FSD
+   for (int j = 0; j < M_num_fsd_bins-1; j++) 
+   {
+       double d_j = M_fsd_bin_centres[j];
+       M_1 += M_conc_fsd[j][i] * d_j;
+       M_neg1 += M_conc_fsd[j][i] / d_j;      // M_{-1}
+       M_neg2 += M_conc_fsd[j][i] / (d_j * d_j); // M_{-2}
+   }
+   double d_n =  (D_dmax[i]-M_fsd_bin_low_limits[M_num_fsd_bins-1])/2. + M_fsd_bin_low_limits[M_num_fsd_bins-1];
+   M_1 += M_conc_fsd[M_num_fsd_bins-1][i] * d_n;
+   M_neg1 += M_conc_fsd[M_num_fsd_bins-1][i] / d_n;      // M_{-1}
+   M_neg2 += M_conc_fsd[M_num_fsd_bins-1][i] / (d_n * d_n); // M_{-2}
+   M_0 = D_conc[i];
+   // No need to normalize the other moments as we do a ratio
+   // Now compute the characteristic floe sizes
+   D_dmean[i]   = M_1_mech / M_0; // Characteristic floe size associated with the number of floes
+   D_dchar[i]   = M_1 / M_0; // Mean floe size associated with area (D_dmean), same as representative floe size defined by Roach et al. 2018
+   D_dlength[i] = M_0 / M_neg1; // Characteristic floe size associated with floe edge length (perimetre)
+   D_dnum[i]    = M_neg1 / M_neg2; // Characteristic floe size associated with the number of floes
+   
+   D_dmean[i]   = std::max(D_dmean[i],M_fsd_min_floe_size);
+   D_dlength[i] = std::max(D_dlength[i],M_fsd_min_floe_size);
+   D_dchar[i]   = std::max(D_dchar[i],M_fsd_min_floe_size);
+   D_dnum[i]    = std::max(D_dnum[i],M_fsd_min_floe_size);
 }
 //------------------------------------------------------------------------------------------------------
 //! Redistribute the floes in the FSD after break_up if prob[i]>0
@@ -7424,6 +7431,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_dmax);
     D_dmean = ModelVariable(ModelVariable::variableID::D_dmean);
     M_variables_elt.push_back(&D_dmean);
+    D_dchar = ModelVariable(ModelVariable::variableID::D_dchar);
+    M_variables_elt.push_back(&D_dchar);
+    D_dlength = ModelVariable(ModelVariable::variableID::D_dlength);
+    M_variables_elt.push_back(&D_dlength);
+    D_dnum = ModelVariable(ModelVariable::variableID::D_dnum);
+    M_variables_elt.push_back(&D_dnum);
 
     //! - 2) loop over M_variables_elt in order to sort them
     //!     for restart/regrid/export
@@ -7973,6 +7986,11 @@ FiniteElement::updateIceDiagnostics()
     D_thick.resize(M_num_elements); //! \param D_thick (double) Total thickness (diagnostic)
     D_snow_thick.resize(M_num_elements); //! \param D_snow_thick (double) Total snow thickness (diagnostic)
     D_tsurf.resize(M_num_elements); //! \param D_tsurf (double) Mean surface temperature (diagnostic)
+    D_dmax.resize(M_num_elements)   ;
+    D_dmean.resize(M_num_elements)  ;
+    D_dlength.resize(M_num_elements);
+    D_dchar.resize(M_num_elements)  ;
+    D_dnum.resize(M_num_elements)   ;
     for(int k=0; k<2; k++)
         D_sigma[k].resize(M_num_elements);
 
@@ -8009,12 +8027,23 @@ FiniteElement::updateIceDiagnostics()
             D_divergence[i] += dxN*u + dyN*v;
         }
         // TODO Here compute characteristic floe sizes from either diagnostic or prognostic FSD
+        if (D_conc[i]<1e-12)
+        {
+            D_dmax[i]  = 0. ;
+            D_dmean[i] = 0. ;
+            D_dlength[i] = 0.;
+            D_dchar[i]   = 0.;
+            D_dnum[i]    = 0.;
+        }
+        else 
+        {
 #ifdef OASIS
-        if (M_num_fsd_bins>0)
-            this->computeParametersPrognosticFSD(i);
+            if (M_num_fsd_bins>0)
+                this->computeParametersPrognosticFSD(i);
 #endif
-        if (use_diagnostic_FSD) 
-            this->computeParametersDiagnosticFSD(i, upper_lim_floe_size, poisson) ;
+            if (use_diagnostic_FSD) 
+                this->computeParametersDiagnosticFSD(i, upper_lim_floe_size, poisson) ;
+        }
     }
 }
 
@@ -8949,6 +8978,18 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += D_dmean[i]*time_factor;
                 break;
+            case (GridOutput::variableID::dchar):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dchar[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dlength):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dlength[i]*time_factor;
+                break;
+            case (GridOutput::variableID::dnum):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_dnum[i]*time_factor;
+                break;
 
             // Coupling variables (not covered elsewhere)
             // NB: reversed sign convention!
@@ -9168,6 +9209,9 @@ FiniteElement::initMoorings()
             ("saltflux", GridOutput::variableID::saltflux)
             ("dmax",GridOutput::variableID::dmax)
             ("dmean",GridOutput::variableID::dmean)
+            ("dchar",GridOutput::variableID::dchar)
+            ("dlength",GridOutput::variableID::dlength)
+            ("dnum",GridOutput::variableID::dnum)
             // Forcing
             ("tair", GridOutput::variableID::tair)
             ("sphuma", GridOutput::variableID::sphuma)
