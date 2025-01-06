@@ -4267,7 +4267,8 @@ FiniteElement::updateSigmaDamage(double const dt)
 }//updateSigmaDamage
 
 //------------------------------------------------------------------------------------------------------
-//! Helper function to compute the n-th moment of the FSD
+//! Helper function to compute the n-th moment of the FSD.
+//! Called by `computeParametersDiagnosticFSD`
 double FiniteElement::computeCharacteristicDiameter(double dmin, double dmax, const double gamma, int n)
 {
     // Helper function to compute the k-th moment of the diameter distribution
