@@ -4265,7 +4265,9 @@ FiniteElement::updateSigmaDamage(double const dt)
 
     }//loop over elements
 }//updateSigmaDamage
-// Helper function to compute the n-th moment of the FSD
+
+//------------------------------------------------------------------------------------------------------
+//! Helper function to compute the n-th moment of the FSD
 double FiniteElement::computeCharacteristicDiameter(double dmin, double dmax, const double gamma, int n)
 {
     // Helper function to compute the k-th moment of the diameter distribution
@@ -4288,6 +4290,10 @@ double FiniteElement::computeCharacteristicDiameter(double dmin, double dmax, co
     return numerator / denominator;
 }
 
+//------------------------------------------------------------------------------------------------------
+//! Computes floe size paremetres for a FSD largely inspired from Denton et Timmermans 2022 and brainstormed with C. Rousset
+//! The idea is to assume a single exponent power law for the FSD and have a fixed upper limit.
+//! The exponent varies with concentration and as suggested by D&T
 void
 FiniteElement::computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson)
 {
