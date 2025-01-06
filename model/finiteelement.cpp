@@ -4321,6 +4321,8 @@ FiniteElement::computeParametersDiagnosticFSD(const int i, const double upper_li
     D_dmax[i]    = D_dchar[i] ;
 }
 #ifdef OASIS
+//! calculate parameters summarising the prognostic FSD.
+//! Called by `updateIceDiagnostics`
 void
 FiniteElement::computeParametersPrognosticFSD(const int i)
 {
