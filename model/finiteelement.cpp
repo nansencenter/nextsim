@@ -4294,7 +4294,8 @@ double FiniteElement::computeCharacteristicDiameter(double dmin, double dmax, co
 //------------------------------------------------------------------------------------------------------
 //! Computes floe size paremetres for a FSD largely inspired from Denton et Timmermans 2022 and brainstormed with C. Rousset
 //! The idea is to assume a single exponent power law for the FSD and have a fixed upper limit.
-//! The exponent varies with concentration and as suggested by D&T
+//! The exponent varies with concentration and as suggested by D&T.
+//! Called by `updateIceDiagnostics`
 void
 FiniteElement::computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson)
 {
