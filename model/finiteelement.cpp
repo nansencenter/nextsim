@@ -1240,6 +1240,7 @@ FiniteElement::initOptAndParam()
 
     //! Turn on snow-to-ice formation when flooding
     M_flooding = vm["thermo.flooding"].as<bool>(); //! \param M_flooding (bool) turn on snow-to-ice formation when flooding
+    M_fsd_upper_lim_floe_size= vm["thermo.fsd_upper_lim_floe_size"].as<double>();
 
 #ifdef OASIS
     // If we're coupled to NEMO we use the NEMO freezing point scheme regardless of what the options file says
@@ -1409,7 +1410,6 @@ FiniteElement::initOptAndParam()
     M_breakup_cell_average_thickness  = vm["wave_coupling.breakup_cell_average_thickness"].as<bool>();
     //! FSD : Misc. parameters
     M_dmax_c_threshold      = vm["wave_coupling.dmax_c_threshold"].as<double>();
-    M_fsd_unbroken_floe_size= vm["wave_coupling.fsd_unbroken_floe_size"].as<double>();
     M_fsd_damage_type= vm["wave_coupling.fsd_damage_type"].as<int>();
     M_distinguish_mech_fsd= vm["wave_coupling.distinguish_mech_fsd"].as<bool>();
     M_debug_fsd= vm["wave_coupling.debug_fsd"].as<bool>();
@@ -4265,24 +4265,26 @@ FiniteElement::updateSigmaDamage(double const dt)
 
     }//loop over elements
 }//updateSigmaDamage
-// Helper function to compute the n-th moment of the FSD
-double FiniteElement::computeCharacteristicDiameter(double dmin, double dmax, const double gamma, int n)
+// Helper functions to compute the n-th moment of the FSD
+// Standalone function to compute the k-th moment of the diameter distribution
+double FiniteElement::computeMomentDiagFSD(const double dmin, const double dmax, const double gamma, const int k)
 {
-    // Helper function to compute the k-th moment of the diameter distribution
-    auto moment_diameter = [=](int k) -> double {
-        double exponent = 1 - gamma + k; // Compute the power-law exponent
-        if (std::abs(exponent) < 1e-6)
-        {
-            // Special case: floe_exponent = moment_exponent - 1 (logarithmic divergence)
-            return std::log(dmax / dmin);
-        }
-        return (std::pow(dmax, exponent) - std::pow(dmin, exponent)) / exponent;
-    };
+    double exponent = 1 - gamma + k; // Compute the power-law exponent
+    if (std::abs(exponent) < 1e-6)
+    {
+        // Special case: floe_exponent = moment_exponent - 1 (logarithmic divergence)
+        return std::log(dmax / dmin);
+    }
+    return (std::pow(dmax, exponent) - std::pow(dmin, exponent)) / exponent;
+}
 
+// Function to compute the characteristic diameter d(n,m)
+double FiniteElement::computeCharacteristicDiameter(const double dmin, const double dmax, const double gamma, const int n)
+{
     // Compute the numerator (n-th moment) and denominator (m-th moment)
-    const int m = n-1 ;
-    double numerator = moment_diameter(n);
-    double denominator = moment_diameter(m);
+    const int m = n - 1;
+    const double numerator =   this->computeMomentDiagFSD(dmin, dmax, gamma, n);
+    const double denominator = this->computeMomentDiagFSD(dmin, dmax, gamma, m);
 
     // Return the ratio
     return numerator / denominator;
@@ -4319,6 +4321,7 @@ FiniteElement::computeParametersPrognosticFSD(const int i)
 {
    double M_1_mech= 0. ;
    double M_0 = 0, M_1 = 0., M_neg1 = 0., M_neg2 = 0.;
+   // Reminder: M_conc_fsd is an areal FSD. M_conc_fsd[j]~g(Dj)dDj
    if (M_conc_mech_fsd[M_num_fsd_bins-1][i]<=M_dmax_c_threshold*D_conc[i])
    {
        //If more than 90% of sea ice that is in the element is "broken"
@@ -4333,34 +4336,52 @@ FiniteElement::computeParametersPrognosticFSD(const int i)
            }
        }
        for (int j = 0; j < M_num_fsd_bins; j++) 
-           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j];
+           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j] ;
    }
    else
    {
        D_dmax[i]=(M_conc_mech_fsd[M_num_fsd_bins-1][i]/D_conc[i] - M_dmax_c_threshold) / (1.-M_dmax_c_threshold)
-              * (M_fsd_unbroken_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
-       D_dmax[i]=std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+              * (M_fsd_upper_lim_floe_size- M_fsd_bin_up_limits[M_num_fsd_bins-1]) + M_fsd_bin_up_limits[M_num_fsd_bins-1] ;
+       D_dmax[i]=std::min(D_dmax[i],M_fsd_upper_lim_floe_size);
 
        for (int j = 0; j < M_num_fsd_bins-1; j++) 
-           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j];
-       M_1_mech += M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i];
+           M_1_mech += M_conc_mech_fsd[j][i] * M_fsd_bin_centres[j] ;
+       //M_1_mech += M_conc_mech_fsd[M_num_fsd_bins-1][i] * D_dmax[i];
    }
-   D_dmax[i] =std::min(D_dmax[i],M_fsd_unbroken_floe_size);
+   D_dmax[i] =std::min(D_dmax[i],M_fsd_upper_lim_floe_size);
    D_dmax[i] =std::max(D_dmax[i],M_fsd_min_floe_size);
    // Loop over bins to compute moments for the thermo FSD
    for (int j = 0; j < M_num_fsd_bins-1; j++) 
    {
-       double d_j = M_fsd_bin_centres[j];
-       M_1 += M_conc_fsd[j][i] * d_j;
-       M_neg1 += M_conc_fsd[j][i] / d_j;      // M_{-1}
-       M_neg2 += M_conc_fsd[j][i] / (d_j * d_j); // M_{-2}
+       double d_j = M_fsd_bin_centres[j] ;
+       M_1 += M_conc_fsd[j][i] * d_j ;
+       M_neg1 += M_conc_fsd[j][i] / d_j ;      // M_{-1}
+       M_neg2 += M_conc_fsd[j][i] / (d_j * d_j) ; // M_{-2}
+       M_0 += M_conc_fsd[j][i] ;
    }
-   double d_n =  (D_dmax[i]-M_fsd_bin_low_limits[M_num_fsd_bins-1])/2. + M_fsd_bin_low_limits[M_num_fsd_bins-1];
-   M_1 += M_conc_fsd[M_num_fsd_bins-1][i] * d_n;
-   M_neg1 += M_conc_fsd[M_num_fsd_bins-1][i] / d_n;      // M_{-1}
-   M_neg2 += M_conc_fsd[M_num_fsd_bins-1][i] / (d_n * d_n); // M_{-2}
-   M_0 = D_conc[i];
    // No need to normalize the other moments as we do a ratio
+   // Now compute the moments for unbroken floes
+   // We assume unbroken floes follow a single exponent power law
+   // (like the diagnostic FSD)
+   // We need to compute the normalized moments associated with this FSD and
+   // multiply by the fraction of unbroken floes
+   const double gamma = 2.*(2.-0.26*M_conc[i])-1 ; // exponent of the FSD (number of floes)
+   const double dmin = M_fsd_bin_low_limits[M_num_fsd_bins-1];
+   const double dmax = M_fsd_upper_lim_floe_size;
+   double norm = 0 ; 
+   // Special case: floe_exponent = moment_exponent - 1 (logarithmic divergence)
+   if (std::abs(3-gamma) < 1e-6)
+       norm = 1./std::log(dmax / dmin);
+   else
+       norm = (3.-gamma)/(std::pow(dmax, 3.-gamma) - std::pow(dmin, 3.-gamma)) ;
+   // The trick is that M_conc_fsd is an areal FSD, while gamma is the exponent for number density
+   // Adding 2 to the moment computed for the number density FSD works
+   M_0 += M_conc_fsd[M_num_fsd_bins-1][i]*norm*this->computeMomentDiagFSD(dmin,dmax,gamma,2);
+   M_1 += M_conc_fsd[M_num_fsd_bins-1][i]*norm*this->computeMomentDiagFSD(dmin,dmax,gamma,3);
+   M_1_mech += M_conc_mech_fsd[M_num_fsd_bins-1][i]*norm*this->computeMomentDiagFSD(dmin,dmax,gamma,3);
+   M_neg1 += M_conc_fsd[M_num_fsd_bins-1][i]*norm*this->computeMomentDiagFSD(dmin,dmax,gamma,1);      // M_{-1}
+   M_neg2 += M_conc_fsd[M_num_fsd_bins-1][i]*norm*this->computeMomentDiagFSD(dmin,dmax,gamma,0); // M_{-2}
+
    // Now compute the characteristic floe sizes
    D_dmean[i]   = M_1_mech / M_0; // Characteristic floe size associated with the number of floes
    D_dchar[i]   = M_1 / M_0; // Mean floe size associated with area (D_dmean), same as representative floe size defined by Roach et al. 2018
@@ -7975,7 +7996,7 @@ void
 FiniteElement::updateIceDiagnostics()
 {
    // diagnostic FSD parametres  
-   const double upper_lim_floe_size = 3000 ;
+   const double upper_lim_floe_size = M_fsd_upper_lim_floe_size ;
    const double poisson = 0.3 ;
    bool use_diagnostic_FSD = true ;
 #ifdef OASIS

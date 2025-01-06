@@ -437,6 +437,7 @@ namespace Nextsim
              "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
             ("thermo.limiting_lengthscale", po::value<double>()->default_value( 1. ),
              "A limit for the Obukov lenght (m).")
+            ("thermo.fsd_upper_lim_floe_size", po::value<double>()->default_value( 3000. ), "Floe size assumed for unbroken sea ice")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
@@ -515,7 +516,6 @@ namespace Nextsim
             ("wave_coupling.welding_kappa", po::value<double>()->default_value( 0.01 ), "Coagulation rate : values in range 0.001->0.01 (Roach et al., 2018)")
             ("wave_coupling.fsd_welding_use_scaled_area", po::value<bool>()->default_value( false ), "Roach et al., 2018-> True")
             ("wave_coupling.dmax_c_threshold", po::value<double>()->default_value( 0.1 ), "Sea ice concentration thereshold to determine dmax value.             By default, dmax is the size associated with the 9th decile of sea ice")
-            ("wave_coupling.fsd_unbroken_floe_size", po::value<double>()->default_value( 1000. ), "Floe size assumed for unbroken sea ice")
             ("wave_coupling.fsd_damage_type", po::value<int>()->default_value(0), "Type of relationship between damage and FSD: 0 none, 1 related to unbroken floes concentration, 2 : related to break-up prob.")
             ("wave_coupling.fsd_damage_max", po::value<double>()->default_value(0.99), "Max. value for damage due to break-up")
             // Break-up parameters 

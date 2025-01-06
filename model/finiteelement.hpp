@@ -304,6 +304,7 @@ public:
     // FSD related functions
     void computeParametersDiagnosticFSD(const int i, const double upper_lim_floe_size, const double poisson);
     double computeCharacteristicDiameter(const double dmin, const double dmax, const double gamma, const int n) ;
+    double computeMomentDiagFSD(const double dmin, const double dmax, const double gamma, const int n) ;
 #ifdef OASIS
     bool M_couple_waves;
     bool M_recv_wave_stress;
@@ -746,6 +747,7 @@ private:
     ModelVariable M_drag_ti_young;      // Ice-atmosphere thermodynamic drag coefficient of young ice
     ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
     ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
+    double M_fsd_upper_lim_floe_size     ;
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -760,7 +762,6 @@ private:
     std::vector<double> M_fsd_bin_centres;
     std::vector<double> M_fsd_bin_low_limits;
     std::vector<double> M_fsd_bin_up_limits;
-    double M_fsd_unbroken_floe_size     ;
     // Non-circularity of floes
     double M_floe_shape                              ;
     // Lettie's variables
