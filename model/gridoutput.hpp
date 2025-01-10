@@ -818,7 +818,7 @@ public:
 
                 case (variableID::dchar):
                     name     = "dchar";
-                    longName = "Mean floe size";
+                    longName = "Mean floe size associated with floe area";
                     stdName  = "char_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
@@ -826,7 +826,7 @@ public:
 
                 case (variableID::dnum):
                     name     = "dnum";
-                    longName = "Mean floe size";
+                    longName = "Mean floe size associated with number of floes";
                     stdName  = "mean_num_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
@@ -834,7 +834,7 @@ public:
                 
                 case (variableID::dlength):
                     name     = "dlength";
-                    longName = "Mean floe size";
+                    longName = "Mean floe size associated with floe perimeter";
                     stdName  = "mean_length_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
