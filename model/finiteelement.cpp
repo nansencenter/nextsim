@@ -4706,14 +4706,14 @@ FiniteElement::redistributeThermoFSD(const int i, double ddt, double lat_melt_ra
     else //if lat_melt_rate==0 (or lower, but not possible yet)
     {   // REFREEZING
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
-        { // Complete refreezing if young ice fills the lead
-            if (M_conc[i] + M_conc_young[i]==1.)
+        { // Complete refreezing if consolidated ice covers the whole cell
+            if (M_conc[i]>=1.)
             {
-                M_conc_fsd[M_num_fsd_bins-1][i] =1.; //
+                M_conc_fsd[M_num_fsd_bins-1][i] = 1.; //
                 for(int m=0;m<M_num_fsd_bins-1;m++)
                    M_conc_fsd[m][i]=0.;
             }
-            else if (del_c_fsd>=0)
+            else if (del_c_fsd>=0) //If new ice has formed, consider it is unbroken
             {
                 M_conc_fsd[M_num_fsd_bins-1][i]+=del_c_fsd  ;
             }
@@ -4884,42 +4884,46 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
     {
          double unbroken_area_loss=0.;
          // time step limitations for merging
-         double stability = ddt * M_welding_kappa * old_conc_tot * M_fsd_area_scaled_up[M_num_fsd_bins-1] ; // timestep * conc * area_scale_upper_lim * c_mrg;
-         int ndt_mrg = std::round(stability+0.5) ; // round up
-         double subdt = ddt/((float)ndt_mrg) ;  // sub_time step
          std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd
-         std::vector<double>  coag_pos(M_num_fsd_bins,0.)  ;
-         std::vector<double>  coag_neg(M_num_fsd_bins,0.)  ;
+         std::vector<double>  tmp_nfsd(M_num_fsd_bins,0.)  ; // initialize temp fsd for number of floes (instead of area)
+         std::vector<double>  gain(M_num_fsd_bins,0.)  ;
+         std::vector<double>  loss(M_num_fsd_bins,0.)  ;
+         std::vector<double> stability(M_num_fsd_bins,0.)  ; 
+        
+         for (int m=0; m<M_num_fsd_bins;m++)
+         {
+             tmp_nfsd[m] =  old_conc_fsd[m] / M_floe_area_centered[m] ;
+             if (tmp_conc_fsd[m]>1e-12)
+                 stability[m] = tmp_nfsd[m]/(M_welding_kappa * old_conc_tot * tmp_conc_fsd[m]) ;
+             else
+                 stability[m] = 1e30 ;
+             if (stability[m]<1e-12)
+                 stability[m]=1e30 ;
+         } 
+         double subdt = *std::min_element(stability.begin(),stability.end()) ; 
+         subdt = std::min(subdt,ddt) ; 
+         int ndt_mrg  = std::round(ddt/subdt) ; // round up
 
          for(int t=0;t<ndt_mrg;t++)
          {
              for(int kx=0; kx<M_num_fsd_bins;kx++)
              {
-                 coag_pos[kx]=0. ;
-                 for(int ky=0; ky<=kx;ky++)
+                 if (tmp_conc_fsd[kx]<1e-12)
+                     continue ;
+                 for(int ky=0; ky<M_num_fsd_bins;ky++)
                  {
                      int a = M_alpha_fsd_merge[kx][ky] ;
-                     double sum_mergers = 0.           ;
-                     if (a<M_num_fsd_bins)
+                     if (a>kx)
                      {
-                        for(int p=a; p<M_num_fsd_bins; p++)
-                            sum_mergers += tmp_conc_fsd[p] ;
+                         loss[kx] = loss[kx] + M_welding_kappa * old_conc_tot * M_floe_area_centered[kx] * tmp_conc_fsd[kx]*tmp_conc_fsd[ky]; 
+                         gain[a]  = gain[a]  + M_welding_kappa * old_conc_tot * M_floe_area_centered[kx] * tmp_conc_fsd[kx]*tmp_conc_fsd[ky];
                      }
-                     coag_pos[kx] = coag_pos[kx] +
-                                    M_fsd_area_scaled_centered[ky] * tmp_conc_fsd[ky] * old_conc_tot * (
-                                    sum_mergers +
-                                    (tmp_conc_fsd[a-1]/M_fsd_area_scaled_binwidth[a-1]) *
-                                    ( M_fsd_area_scaled_up[a-1] - M_fsd_area_scaled_up[kx] + M_fsd_area_scaled_centered[ky] ) ) ;
                  }
              }
-             coag_neg[0]=0. ; // no gain of area for the smallest bin
-             tmp_conc_fsd[0] = tmp_conc_fsd[0] - subdt * M_welding_kappa *(coag_pos[0]-coag_neg[0]) ;
-             for (int m=1; m<M_num_fsd_bins;m++)
+             for(int m=0; m<M_num_fsd_bins; m++)
              {
-                 coag_neg[m]     = coag_pos[m-1] ;
-                 tmp_conc_fsd[m] = tmp_conc_fsd[m] - subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) ;
+                 tmp_conc_fsd[m] = tmp_conc_fsd[m] + subdt * (gain[m]-loss[m]) ;
              }
-             unbroken_area_loss =  unbroken_area_loss + subdt*M_welding_kappa*coag_pos[M_num_fsd_bins-1] ; // The way it is computed, the unbroken cat. is losing sea ice
              // Sanity check
              if (M_debug_fsd)
              {
@@ -4935,15 +4939,15 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                          crash = true ;
                          crash_msg << "FSD cat conc > 1. " <<" \n" ;
                      }
-                     if ( subdt * M_welding_kappa *coag_pos[m]<-1e-11)
+                     if ( subdt * M_welding_kappa *gain[m]<-1e-11)
                      {
                          crash = true ;
-                         crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(coag_pos[m]-coag_neg[m]) <<" \n" ;
+                         crash_msg << "Negative welding ! :"<< subdt * M_welding_kappa *(gain[m]-loss[m]) <<" \n" ;
                      }
                      if(crash)
                      {
-                         crash_msg <<"Diagnostic tools: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", coag_pos_cat :" << coag_pos[m]
-                                    <<", coag_neg_cat :" << coag_neg[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                         crash_msg <<"Diagnostic tools: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", gain_cat :" << gain[m]
+                                    <<", loss_cat :" << loss[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
                          crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
                          for (int n=0; n<M_num_fsd_bins;n++)
                          {
@@ -4955,7 +4959,6 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                  }
              }    // end sanity check
          } // end welding sub-timestep
-         tmp_conc_fsd[M_num_fsd_bins-1] = tmp_conc_fsd[M_num_fsd_bins-1] + unbroken_area_loss ;   // And this is needed to undo this unbroken sea ice removal
 
          // following lines are additional check and correction for potential numeric errors
          double conc_loss = std::accumulate(tmp_conc_fsd.begin(), tmp_conc_fsd.end(), 0.) - std::accumulate(old_conc_fsd.begin(), old_conc_fsd.end(), 0.) ;
@@ -4988,19 +4991,18 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
              crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
              crash_msg << "conc :" << M_conc[cpt]  << " \n";
              crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
-             crash_msg << "stability : " << stability << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
+             crash_msg  << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
              for(int m=0; m<M_num_fsd_bins;m++)
              {
                  crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
                  crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
-                 crash_msg << "Coag_pos ("<< m<<") :" << coag_pos[m]  << " \n";
+                 crash_msg << "Coag_pos ("<< m<<") :" << gain[m]  << " \n";
              }
              throw std::runtime_error(crash_msg.str());
          }
     }
 }//weldingRoach
 #endif
-
 
 //------------------------------------------------------------------------------------------------------
 //! Nests the ice variables (thickness, concentration, snow thickness) from outer domain: used in a regional forecast context.
@@ -7554,12 +7556,7 @@ FiniteElement::initFsd()
     M_floe_area_low.assign(M_num_fsd_bins, 0.)            ;
     M_floe_area_centered.assign(M_num_fsd_bins, 0.)       ;
     M_floe_area_binwidth.assign(M_num_fsd_bins, 0.)       ;
-    M_fsd_area_scaled_up.assign(M_num_fsd_bins, 0.)       ;
-    M_fsd_area_scaled_low.assign(M_num_fsd_bins, 0.)      ;
-    M_fsd_area_scaled_centered.assign(M_num_fsd_bins, 0.) ;
-    M_fsd_area_scaled_binwidth.assign(M_num_fsd_bins, 0.) ;
     M_fsd_area_lims.assign(M_num_fsd_bins+1, 0.)          ;
-    M_fsd_area_lims_scaled.assign(M_num_fsd_bins+1, 0.)   ;
 
     switch (M_fsd_type)
     {
@@ -7634,24 +7631,6 @@ FiniteElement::initFsd()
         }
     }
 
-    if (M_fsd_welding_use_scaled_area)
-    {
-        for(int m=0; m<M_num_fsd_bins+1; m++)
-            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0])
-                     / *std::max_element(M_floe_area_binwidth.begin(),M_floe_area_binwidth.end() ) ;
-    }
-    else
-    {
-        for(int m=0; m<M_num_fsd_bins+1; m++)
-            M_fsd_area_lims_scaled[m] = (M_fsd_area_lims[m]- M_fsd_area_lims[0]);
-    }
-    for(int m=0; m<M_num_fsd_bins; m++)
-    {
-        M_fsd_area_scaled_up[m]  = M_fsd_area_lims_scaled[m+1] ;
-        M_fsd_area_scaled_low[m] = M_fsd_area_lims_scaled[m]   ;
-        M_fsd_area_scaled_centered[m] = (M_fsd_area_scaled_up[m]+M_fsd_area_scaled_low[m])/2. ;
-        M_fsd_area_scaled_binwidth[m] = M_fsd_area_scaled_up[m] - M_fsd_area_scaled_low[m]    ;
-    }
     // Definition of alpha -> which floe sizes can combine during merging
     M_alpha_fsd_merge.resize(M_num_fsd_bins);
     for(int m=0; m<M_num_fsd_bins; m++)
@@ -7659,35 +7638,27 @@ FiniteElement::initFsd()
         M_alpha_fsd_merge[m].assign(M_num_fsd_bins,-999);
         for(int n=0; n<M_num_fsd_bins; n++)
         {
-            double test =  M_fsd_area_scaled_up[m] -  M_fsd_area_scaled_centered[n];
+            double test =  M_floe_area_centered[m] +  M_floe_area_centered[n];
             for(int p=0; p<M_num_fsd_bins; p++)
             {
-                if ( (test>=M_fsd_area_scaled_low[p])&&(test<M_fsd_area_scaled_up[p] ) )
-                    M_alpha_fsd_merge[m][n]=p+1;
+                if ( (test>=M_floe_area_low[p])&&(test<M_floe_area_up[p] ) )
+                    M_alpha_fsd_merge[m][n]=p;
             }
+            if (test>M_floe_area_up[M_num_fsd_bins-1])
+                M_alpha_fsd_merge[m][n] = M_num_fsd_bins-1;
         }
     }
     if (M_rank==0)
     {
-        LOG(INFO)  << "--------- FSD BINS INFO (WIELDING VARIABLES)---------\n";
-        for(int m=0; m<M_num_fsd_bins; m++)
-        {
-            LOG(INFO) << "\n"
-                      << "FSD bin area scaled centre   : (" << m << ") "<< M_fsd_area_scaled_centered[m] << " \n"
-                      << "FSD bin area scaled low lim. : (" << m << ") "<< M_fsd_area_scaled_low[m] << " \n"
-                      << "FSD bin area scaled up lim.  : (" << m << ") "<< M_fsd_area_scaled_up[m] << " \n"
-                      << "FSD binwidth area scaled     : (" << m << ") "<< M_fsd_area_scaled_binwidth[m] << " \n" ;
-        }
+        LOG(INFO)  << "--------- FSD BINS INFO (WELDING VARIABLES)---------\n";
         LOG(INFO) << "-------- alpha merge ------- \n" ;
         for(int m=0; m<M_num_fsd_bins; m++)
         {
-            LOG(INFO) << "["<< m <<"]   ";
+            LOG(INFO) << "["<< m <<"]  \n ";
             for(int n=0; n<M_num_fsd_bins; n++)
                 LOG(INFO) << M_alpha_fsd_merge[m][n] << " ; " ;
             LOG(INFO) << "\n";
          }
-
-
     }
     // End of Lettie's code
 
