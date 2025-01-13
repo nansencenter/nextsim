@@ -4408,7 +4408,7 @@ FiniteElement::redistributeFSD()
 {
 
     std::vector<double> P(M_num_fsd_bins) ;
-    //double lambda             ; // Wave wavelength asscoiated with break-up, deduced from wave model info.
+    std::vector<double> const lat = M_mesh.meanLat();
     const double poisson=0.3 ; // To be added in computation of critical strain in case your consider plates
     const double coef1 = vm["wave_coupling.breakup_coef1"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
     const double coef2 = vm["wave_coupling.breakup_coef2"].as<double>();  ; // tuning param. for tanh function used in breaking prob.
@@ -4424,9 +4424,15 @@ FiniteElement::redistributeFSD()
            ctot += M_conc_young[i];
         if (ctot>0)
         {
-            // don't try to break if there are no waves
+            //! Compute the wavelength associated with Tm02
+            double  lambda= M_wlbk[i] ;
             double P_inf =0. ;
-            if (M_wlbk[i]<500.-1.)
+            // At the pole, WW3 will send 0, try to correct for that
+            //lat_i /= num_neighbours ;
+            if (lat[i]>89)
+               lambda=2000.;
+            // don't try to break if there are no waves
+            if (lambda<1600.-1.) //Dmax=800.
                 P_inf=1. ;
             if( P_inf <= prob_cutoff)
                 continue ;
@@ -4451,8 +4457,6 @@ FiniteElement::redistributeFSD()
             double  d_flex      = 0.5 * std::pow ( std::pow(PI,4)*M_floes_flex_young*std::pow(sea_ice_thickness,3) /
                                             (48*physical::rhow*physical::g * (1-std::pow(poisson,2))  )
                                           , 0.25 ) ;
-            //! Compute the wavelength associated with Tm02
-            double  lambda= M_wlbk[i] ;
             // Now useless
             double  cg_w  = 0.5*std::sqrt(physical::g*lambda/2/PI)           ;
             //int     N_waves = cpl_time_step /(M_tm02[i]) ;
@@ -4888,30 +4892,29 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
         c_fsd_broken += M_conc_fsd[j][cpt] ;
     if ( (c_fsd_broken>0.01)&&(old_conc_tot>0.1) )  // Only wielding for not too low concentrations and if there is broken ice
     {
-         double unbroken_area_loss=0.;
-         // time step limitations for merging
          std::vector<double>  tmp_conc_fsd = old_conc_fsd  ; // initialize temp fsd
          std::vector<double>  tmp_nfsd(M_num_fsd_bins,0.)  ; // initialize temp fsd for number of floes (instead of area)
-         std::vector<double>  gain(M_num_fsd_bins,0.)  ;
-         std::vector<double>  loss(M_num_fsd_bins,0.)  ;
-         std::vector<double> stability(M_num_fsd_bins,0.)  ; 
+         double elapsed_t = 0 ; 
+         while(elapsed_t<ddt)
+         {
+             // time step limitations for merging
+             std::vector<double> stability(M_num_fsd_bins,0.)  ; 
+             std::vector<double>  gain(M_num_fsd_bins,0.)  ;
+             std::vector<double>  loss(M_num_fsd_bins,0.)  ;
         
-         for (int m=0; m<M_num_fsd_bins;m++)
-         {
-             tmp_nfsd[m] =  old_conc_fsd[m] / M_floe_area_centered[m] ;
-             if (tmp_conc_fsd[m]>1e-12)
-                 stability[m] = tmp_nfsd[m]/(M_welding_kappa * old_conc_tot * tmp_conc_fsd[m]) ;
-             else
-                 stability[m] = 1e30 ;
-             if (stability[m]<1e-12)
-                 stability[m]=1e30 ;
-         } 
-         double subdt = *std::min_element(stability.begin(),stability.end()) ; 
-         subdt = std::min(subdt,ddt) ; 
-         int ndt_mrg  = std::round(ddt/subdt) ; // round up
+             for (int m=0; m<M_num_fsd_bins;m++)
+             {
+                 tmp_nfsd[m] =  old_conc_fsd[m] / M_floe_area_centered[m] ;
+                 if (tmp_conc_fsd[m]>1e-12)
+                     stability[m] = tmp_nfsd[m]/(M_welding_kappa * old_conc_tot * tmp_conc_fsd[m]) ;
+                 else
+                     stability[m] = 1e30 ;
+                 if (stability[m]<1e-12)
+                     stability[m]=1e30 ;
+             }
+             double subdt = *std::min_element(stability.begin(),stability.end()) ; 
+             subdt = std::min(subdt,ddt) ;
 
-         for(int t=0;t<ndt_mrg;t++)
-         {
              for(int kx=0; kx<M_num_fsd_bins;kx++)
              {
                  if (tmp_conc_fsd[kx]<1e-12)
@@ -4953,7 +4956,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                      if(crash)
                      {
                          crash_msg <<"Diagnostic tools: cat :"<< m <<", conc_fsd_cat :"<< tmp_conc_fsd[m] <<", gain_cat :" << gain[m]
-                                    <<", loss_cat :" << loss[m] <<" , ndt_mrg : "<<ndt_mrg<< " \n" ;
+                                    <<", loss_cat :" << loss[m] << " \n" ;
                          crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
                          for (int n=0; n<M_num_fsd_bins;n++)
                          {
@@ -4964,6 +4967,7 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
                      }
                  }
              }    // end sanity check
+         elapsed_t+=subdt ;
          } // end welding sub-timestep
 
          // following lines are additional check and correction for potential numeric errors
@@ -4997,12 +5001,10 @@ FiniteElement::weldingRoach(const int cpt, double ddt)
              crash_msg << "Welding : [" <<M_rank << "], element : "<<cpt<<" \n";
              crash_msg << "conc :" << M_conc[cpt]  << " \n";
              crash_msg << "conc_tot_fsd:" << old_conc_tot <<" \n";
-             crash_msg  << " , ndt_mrg :"<< ndt_mrg << " , subdt :" << subdt <<" \n";
              for(int m=0; m<M_num_fsd_bins;m++)
              {
                  crash_msg << "Old conc_fsd_tmp cat ("<< m<<") :" << old_conc_fsd[m]  << " \n";
                  crash_msg << "Conc_fsd_tmp cat ("<< m<<") :" << tmp_conc_fsd[m]  << " \n";
-                 crash_msg << "Coag_pos ("<< m<<") :" << gain[m]  << " \n";
              }
              throw std::runtime_error(crash_msg.str());
          }
@@ -7198,7 +7200,7 @@ FiniteElement::init()
         }
 #ifdef OASIS
         if (M_couple_waves)
-            this->initFsd();
+            this->initFSD();
 #endif
         if ( M_check_restart )
         {
@@ -7540,7 +7542,7 @@ FiniteElement::initModelVariables()
 // -----------------------------------------------------------------
 //! simple function to init the floe size
 void
-FiniteElement::initFsd()
+FiniteElement::initFSD()
 {
     //! Initialize the FSD bins and FSD related variables used in:
     //! - floe size redistribution
@@ -7672,22 +7674,28 @@ FiniteElement::initFsd()
 
 
     //! Distribute the ice into the categories
-    for(int i=0; i<M_num_elements; i++)
+    if ( !M_use_restart )
     {
-        // all the thick ice in the highest bin
-        M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i];
-        if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
-            M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_young[i];
+        for(int i=0; i<M_num_elements; i++)
+        {
+            // all the thick ice in the highest bin
+            M_conc_fsd[M_num_fsd_bins-1][i] = M_conc[i];
+            if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                M_conc_fsd[M_num_fsd_bins - 1][i] += M_conc_young[i];
 
-        //nothing in the other bins
-        for(int k=0; k<M_num_fsd_bins-1; k++)
-            M_conc_fsd[k][i] = 0.;
-        // If we want to distinguish between mechanical and thermodynamical properties
-        if (M_distinguish_mech_fsd)
-            for(int k=0; k<M_num_fsd_bins; k++)
-                M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
+            //nothing in the other bins
+            for(int k=0; k<M_num_fsd_bins-1; k++)
+                M_conc_fsd[k][i] = 0.;
+            // If we want to distinguish between mechanical and thermodynamical properties
+            if (M_distinguish_mech_fsd)
+                for(int k=0; k<M_num_fsd_bins; k++)
+                    M_conc_mech_fsd[k][i] = M_conc_fsd[k][i] ;
+        }
     }
-
+    else
+    {
+        this->updateFSD();
+    }
 
 }//init FSD
 #endif
@@ -11777,7 +11785,7 @@ FiniteElement::checkConsistency()
 #ifdef OASIS
     //FSD
     if (M_couple_waves)
-        this->initFsd();
+        this->initFSD();
 #endif
 }//checkConsistency
 
