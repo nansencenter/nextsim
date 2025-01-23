@@ -171,10 +171,10 @@ public:
     void nestingDynamics();
     void thermo(int dt);
     inline void thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-            const double Qia, const double dQiadT, const double subl, const double Tbot,
+            const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i, double &Tsurf);
-    inline void thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-            double const Qia, double const dQiadT, const double Qsw, const double subl, const double Tbot,
+    inline void thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+            double const Qia, double const dQiadT, const double I, const double subl, const double Tbot,
             double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
             double &Tsurf, double &T1, double &T2);
     void OWBulkFluxes(std::vector<double>& Qow, std::vector<double>& Qlw, std::vector<double>& Qsw,
@@ -184,15 +184,20 @@ public:
             const std::vector<double>& conc, std::vector<double>& Qia,
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
-            std::vector<double>& subl, std::vector<double>& dQiadT,
-            std::vector<double>& alb_tot);
-    inline double albedo(const double Tsurf, const double hs,
-        int alb_scheme, double alb_ice, double alb_sn, double I_0);
+            std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
+            std::vector<double>& alb_tot,
+            ModelVariable& drag_ui, ModelVariable& drag_ti, bool bulk_for_young);
+    inline std::tuple<double,double> albedo(const double Tsurf, const double hs, const double frac_pnd,
+        const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd, const double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
     inline double iceOceanHeatflux(const int cpt, const double sst, const double tbot, const double mld, const double dt);
     inline double incomingLongwave(const int i);
     inline double freezingPoint(const double sss);
     inline double windSpeedElement(const int i);
+    inline void meltPonds(const int cpt, const double dt, const double hi,
+             const double hs, const double iceSurfaceMelt, const double snowMelt,
+             const double Qia, const double rain, const double roff, const double dep2frac);
+    inline bool isPermeable(const int cpt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,
                     double const CRtime, std::vector<double> &RX, std::vector<double> &RY);
@@ -211,7 +216,6 @@ public:
 
     Dataset M_ice_topaz_elements_dataset;
     Dataset M_ice_icesat_elements_dataset;
-    Dataset M_ice_piomas_elements_dataset;
     Dataset M_ice_amsre_elements_dataset;
     Dataset M_ice_osisaf_elements_dataset;
     Dataset M_ice_osisaf_type_elements_dataset;
@@ -733,6 +737,12 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
+    ModelVariable M_drag_ui;            // Ice-atmosphere momentum drag coefficient
+    ModelVariable M_drag_ti;            // Ice-atmosphere thermodynamic drag coefficient
+    ModelVariable M_drag_ui_young;      // Ice-atmosphere momentum drag coefficient of young ice
+    ModelVariable M_drag_ti_young;      // Ice-atmosphere thermodynamic drag coefficient of young ice
+    ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
+    ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
 
 #ifdef OASIS
     // Following variables are related to floe size distribution
@@ -820,6 +830,7 @@ private:
     ModelVariable D_rain; // Rain into the ocean [kg/m2/s]
     ModelVariable D_albedo; // surface albedo
     ModelVariable D_sialb; // sea ice albedo
+    ModelVariable D_pond_fraction; // Grid cell fraction covered by melt ponds
 
     // Temporary variables
     std::vector<double> D_tau_w; // Ice-ocean drag [Pa]

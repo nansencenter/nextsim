@@ -145,7 +145,7 @@ public:
         hs_young     = 15,
         conc_young   = 16,
         fyi_fraction = 17,
-        age_d        = 18,
+        age_det      = 18,
         age          = 19,
         conc_upd     = 20,
         sigma_11     = 21,
@@ -158,6 +158,8 @@ public:
         del_vi_tend  = 28,
         thick_myi    = 29,
         thick_summer = 30,
+        meltpond_volume     = 31,
+        meltpond_lid_volume = 32,
 
         // Diagnostic variables
         Qa           = 100,
@@ -188,6 +190,9 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
+        drag_ui      = 128,
+        drag_ti      = 129,
+        meltpond_fraction = 130,
 
         // Forcing variables
         tair     = 200,
@@ -379,7 +384,7 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::age_d):
+                case (variableID::age_det):
                     name     = "siage_det";
                     longName = "Detectable Age of Sea Ice";
                     stdName  = "det_age_of_sea_ice";
@@ -419,6 +424,20 @@ public:
                     longName = "Stress tensor 12";
                     stdName  = "stress_tensor_12";
                     Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_volume):
+                    name     = "meltpond_volume";
+                    longName = "Meltpond volume";
+                    stdName  = "meltpond_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_lid_volume):
+                    name     = "meltpond_lid_volume";
+                    longName = "Meltpond lid volume";
+                    stdName  = "meltpond_lid_volume";
+                    Units    = "m";
                     cell_methods = "area: mean";
                     break;
 
@@ -682,6 +701,25 @@ public:
                     longName = "Ice Velocity Divergence";
                     stdName  = "ice_velocity_divergence";
                     Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ui):
+                    name     = "drag_ui";
+                    longName = "Ice-atmosphere momentum drag";
+                    stdName  = "ice-atmosphere_momentum_drag";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ti):
+                    name     = "drag_ti";
+                    longName = "Ice-atmosphere thermodynamic drag";
+                    stdName  = "ice-atmosphere_thermodynamic_drag";
+                    Units    = "1/s";
+                case (variableID::meltpond_fraction):
+                    name     = "meltpond_fraction";
+                    longName = "Meltpond fraction";
+                    stdName  = "meltpond_fraction";
+                    Units    = "1";
                     cell_methods = "area: mean";
                     break;
 

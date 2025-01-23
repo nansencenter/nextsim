@@ -102,6 +102,10 @@ namespace Nextsim
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
+            ("setup.atmospheric_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of atmospheric forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
+            ("setup.oceanic_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of ocean forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
@@ -228,7 +232,7 @@ namespace Nextsim
                 "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ),
+            ("output.output_per_day", po::value<int>()->default_value( 0 ),
                "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
@@ -386,11 +390,12 @@ namespace Nextsim
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
             ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
             ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
-            ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
+            ("thermo.alb_ponds", po::value<double>()->default_value( 0.30 ), "")
+            ("thermo.I_0", po::value<double>()->default_value( 0.30 ), "Fraction of short-wave radiation that penetrates into the ice. The default (30%) is taken from Winton (2000).")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
             ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
-            ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
+            ("thermo.melt_type", po::value<int>()->default_value( 2 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
@@ -424,10 +429,25 @@ namespace Nextsim
              "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
              "Exponent of factor for heat flux that compensates for assimilation of concentration")
+            ("thermo.zref_wind", po::value<double>()->default_value(10.),
+             "Reference height for wind forcing [m]")
+            ("thermo.zref_temp", po::value<double>()->default_value(2.),
+             "Reference height for temperature forcing [m]")
+            ("thermo.force_neutral_atmosphere", po::value<bool>()->default_value(false),
+             "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
+            ("thermo.limiting_lengthscale", po::value<double>()->default_value( 1. ),
+             "A limit for the Obukov lenght (m).")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
+
+            ("thermo.use_meltponds", po::value<bool>()->default_value(false),
+             "Use a simple meltpond scheme")
+            ("thermo.meltpond_runoff_fraction", po::value<double>()->default_value(0.2),
+             "Fraction of available water that run-off and doesn't fill the ponds")
+            ("thermo.meltpond_depth_to_fraction", po::value<double>()->default_value(0.8),
+             "Slope of linear fit of melt pond volume to melt pond fraction")
 
              //-----------------------------------------------------------------------------------
              //! - Nesting

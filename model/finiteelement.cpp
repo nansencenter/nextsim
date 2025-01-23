@@ -562,6 +562,15 @@ FiniteElement::assignVariables()
 
     M_fcor.assign(M_num_elements, 0.);
 
+    M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
+    const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
+    M_drag_ti.assign(M_num_elements, drag_ice_t);
+    if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+    {
+        M_drag_ui_young.assign(M_num_elements, quad_drag_coef_air);
+        M_drag_ti_young.assign(M_num_elements, drag_ice_t);
+    }
+
     // The coupled system needs special handling
     if ( M_ocean_type != setup::OceanType::COUPLED )
     {
@@ -613,7 +622,6 @@ FiniteElement::assignVariables()
     }
 #endif
     M_ice_topaz_elements_dataset.interpolated=false;
-    M_ice_piomas_elements_dataset.interpolated=false;
     M_ice_amsre_elements_dataset.interpolated=false;
     M_ice_osisaf_elements_dataset.interpolated=false;
     M_ice_osisaf_type_elements_dataset.interpolated=false;
@@ -838,7 +846,6 @@ FiniteElement::initDatasets()
     //              amount of memory
     M_ice_topaz_elements_dataset=DataSet("ice_topaz4r_elements");
     M_ice_icesat_elements_dataset=DataSet("ice_icesat_elements");
-    M_ice_piomas_elements_dataset=DataSet("ice_piomas_elements");
     M_ice_amsre_elements_dataset=DataSet("ice_amsre_elements");
     M_ice_osisaf_elements_dataset=DataSet("ice_osisaf_elements");
     M_ice_osisaf_type_elements_dataset=DataSet("ice_osisaf_type_elements");
@@ -1346,6 +1353,7 @@ FiniteElement::initOptAndParam()
         ("evp", setup::DynamicsType::EVP)
         ("mevp", setup::DynamicsType::mEVP)
         ("bbm", setup::DynamicsType::BBM)
+        ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
     M_dynamics_type = this->getOptionFromMap("setup.dynamics-type", str2dynamics);
         //! \param M_dynamics_type (string) Option on the type of dynamics (default, no motion or freedrift)
@@ -5206,6 +5214,10 @@ FiniteElement::thermo(int dt)
     bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
+    const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
+    double const meltponds_roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
+    double const meltponds_dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
+
     M_timer.tick("fluxes");
     M_timer.tick("ow_fluxes");
     // -------------------------------------------------
@@ -5227,6 +5239,7 @@ FiniteElement::thermo(int dt)
     M_timer.tick("ia_fluxes");
 
     //! Calculate the ice-atmosphere fluxes
+    bool bulk_for_young = false ;
     std::vector<double> Qia(M_num_elements);
     std::vector<double> Qlwi(M_num_elements);
     std::vector<double> Qswi(M_num_elements);
@@ -5235,8 +5248,9 @@ FiniteElement::thermo(int dt)
     std::vector<double> subl(M_num_elements);
     std::vector<double> dQiadT(M_num_elements);
     std::vector<double> albedo(M_num_elements);
+    std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, subl, dQiadT, albedo);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, M_drag_ui, M_drag_ti, bulk_for_young);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5247,11 +5261,14 @@ FiniteElement::thermo(int dt)
     std::vector<double> subl_young(M_num_elements);
     std::vector<double> dQiadT_young(M_num_elements);
     std::vector<double> albedo_young(M_num_elements);
+    std::vector<double> I_young(M_num_elements);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
     {
+        bulk_for_young = true ;
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
-                subl_young, dQiadT_young, albedo_young);
+                I_young, subl_young, dQiadT_young, albedo_young,
+                M_drag_ui_young, M_drag_ti_young, bulk_for_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -5323,7 +5340,10 @@ FiniteElement::thermo(int dt)
 
         // Reset mld if we're using variable mixed layer depth
         if (M_mld.isInitialized())
+        {
             mld = M_mld[i];
+            assert( mld > 0. );
+        }
 
         // -------------------------------------------------
         //! 4) Calculates or sets the flux due to nudging
@@ -5373,12 +5393,12 @@ FiniteElement::thermo(int dt)
         {
             case setup::ThermoType::ZERO_LAYER:
                 this->thermoIce0(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
-                        mld, tmp_snowfall, Qia[i], dQiadT[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], I[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i, M_tice[0][i]);
                 break;
             case setup::ThermoType::WINTON:
-                this->thermoWinton(ddt, I_0, M_conc[i], M_thick[i], M_snow_thick[i],
-                        mld, tmp_snowfall, Qia[i], dQiadT[i], Qswi[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
+                this->thermoWinton(ddt, M_conc[i], M_thick[i], M_snow_thick[i],
+                        mld, tmp_snowfall, Qia[i], dQiadT[i], I[i], subl[i], tfrw,//end of inputs - rest are outputs or in/out
                         Qio, hi, hs, hi_old, del_hi, del_hs_mlt, mlt_hi_top, mlt_hi_bot, del_hi_s2i,
                         M_tice[0][i], M_tice[1][i], M_tice[2][i]);
                 break;
@@ -5391,7 +5411,7 @@ FiniteElement::thermo(int dt)
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             this->thermoIce0(ddt, M_conc_young[i], M_h_young[i], M_hs_young[i],
-                    mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
+                    mld, tmp_snowfall, Qia_young[i], dQiadT_young[i], I_young[i], subl_young[i], tfrw,//end of inputs - rest are outputs or in/out
                     Qio_young, hi_young, hs_young, hi_young_old, del_hi_young, del_hs_young_mlt, mlt_hi_top_young, mlt_hi_bot_young, del_hi_s2i_young, M_tsurf_young[i]);
             M_h_young[i]  = hi_young * old_conc_young;
             M_hs_young[i] = hs_young * old_conc_young;
@@ -5796,8 +5816,13 @@ FiniteElement::thermo(int dt)
         // open-water part plus rain in the ice-covered part.
         // rain Liquid precipitation
         // emp  Evaporation minus liquid precipitation
-        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*(M_precip[i]-tmp_snowfall);
+        double const rain_on_ice = std::max(0., M_precip[i] - tmp_snowfall);
+        double rain = (1.-old_conc-old_conc_young)*M_precip[i] + (old_conc+old_conc_young)*rain_on_ice;
         double emp  = evap[i]*(1.-old_conc-old_conc_young) - rain;
+
+        // Meltponds. This version doesn't impact the emp balance ... but a future one should
+        if (use_meltponds)
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, meltponds_roff, meltponds_dep2frac );
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -5990,28 +6015,21 @@ FiniteElement::thermo(int dt)
 
             // Observable sea ice age tracer
             // Melt does not effect the age, growth makes it younger
-            M_age_det[i] += dt*M_conc[i];
+            double w_age = old_conc <= 0? 0.: std::min(old_conc/M_conc[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_conc > M_conc => w_age = 1
+            // freezing => weighted average
+            M_age_det[i] =  w_age * (M_age_det[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
             // Real (volume weighted and conserving) sea ice age
-            double old_age = M_age[i];
-            double del_vi_thick = M_thick[i] - old_vol;
+            w_age = old_vol <= 0 ? 0. : std::min(old_vol/M_thick[i], 1.);
+            // no ice => w_age = 0 => age = dt
+            // melting => old_vol > M_thick => w_age = 1
+            // freezing => weighted average
+            M_age[i] =  w_age * (M_age[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
-            // potential devision by zero and non-initialized old_vol (strange value) in the first time step
-            if (old_vol > 0. && del_vi_thick > 0.) // freezing
-            {
-                M_age[i] = (old_age+dt)*old_vol/M_thick[i] + dt*(del_vi_thick)/M_thick[i];
-            }
-            else if (old_vol > 0. && del_vi_thick < 0.) // melting
-            {
-                M_age[i] = old_age+dt;
-            }
-            else //new ice
-            {
-                M_age[i] =  dt;
-            }
             // MYI should be reset to M_conc (or M_conc+M_conc_young) on the reset date
             bool reset_myi = false;
-
             if (reset_by_date)
             {
                 if (date_string_md == date_string_reset_myi_md && std::fmod(M_current_time, 1.) == 0.)
@@ -6125,7 +6143,6 @@ FiniteElement::thermo(int dt)
 
 }//thermo
 
-
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
 //! Called by the thermo() function.
@@ -6140,16 +6157,56 @@ FiniteElement::IABulkFluxes(
         const std::vector<double>& conc, std::vector<double>& Qia,
         std::vector<double>& Qlw, std::vector<double>& Qsw,
         std::vector<double>& Qlh, std::vector<double>& Qsh,
-        std::vector<double>& subl, std::vector<double>& dQiadT,
-        std::vector<double>& alb_tot)
+        std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
+        std::vector<double>& alb_tot,
+        ModelVariable& drag_ui, ModelVariable& drag_ti, bool bulk_for_young)
 {
     // Constants
-    double const drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     double const I_0        = vm["thermo.I_0"].as<double>();
 
-    int const alb_scheme = vm["thermo.alb_scheme"].as<int>();
-    double const alb_ice = vm["thermo.alb_ice"].as<double>();
-    double const alb_sn  = vm["thermo.alb_sn"].as<double>();
+    int const alb_scheme  = vm["thermo.alb_scheme"].as<int>();
+    double const alb_ice  = vm["thermo.alb_ice"].as<double>();
+    double const alb_sn   = vm["thermo.alb_sn"].as<double>();
+    double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
+
+    // Stability calculations
+    const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
+
+    const double zref_wind = vm["thermo.zref_wind"].as<double>();
+    const double zref_temp = vm["thermo.zref_temp"].as<double>();
+    const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(quad_drag_coef_air));
+
+    const double Linvrange = 1./vm["thermo.limiting_lengthscale"].as<double>();
+    const double retv = 0.6078;
+
+    // Grachev et al's constants
+    const double am = 5.;
+    const double bm = am/6.5;
+    const double Bm = std::cbrt((1-bm)/bm);
+    const double ah = 5.;
+    const double bh = 5.;
+    const double ch = 3.;
+    const double Bh = std::sqrt(5);
+
+    // Additional constants for computational efficency
+    const double C1 = -3.*am/bm;
+    const double C2 = 0.5*am*Bm/bm;
+    const double C3 = 1./(1.+Bm);
+    const double Bm2 = Bm*Bm;
+    const double C4 = 1./(1.-Bm+Bm2);
+    const double sqrt3 = std::sqrt(3.);
+    const double C5 = 2.*sqrt3;
+    const double C6 = 1./(sqrt3*Bm);
+    const double C7 = std::atan((2.-Bm)*C6);
+
+    const double D1 = -0.5*bh;
+    const double D2 = -ah/Bh + 0.5*bh*ch/Bh;
+    const double D3 = ch-Bh;
+    const double D4 = ch+Bh;
+    const double D5 = std::log(D3/D4);
+
+    const double lambda_u = std::log(zref_wind/z0);
+    const double lambda_h = std::log(zref_wind/z0);
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6169,23 +6226,101 @@ FiniteElement::IABulkFluxes(
 
         // -------------------------------------------------
 
-        /* Density of air */
+        /* Temperatures in Kelvin */
         double tairK  = M_tair[i] + physical::tfrwK;
-        double rhoair = M_mslp[i]/(physical::Ra_dry*(M_tair[i]+physical::tfrwK)) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
+        double tsurfK = Tsurf[i] + physical::tfrwK;
+
+        /* Density of air */
+        double rhoair = M_mslp[i]/(physical::Ra_dry*tairK) * ( 1. - sphuma*(1.-physical::Ra_vap/physical::Ra_dry) );
 
         /* Wind speed */
         double  wspeed = this->windSpeedElement(i);
 
+        /* Potential temperature at zref_temp */
+        const double Tpot = tairK + physical::Gamma_d*zref_temp;
+
+        // -------------------------------------------------
+        // Drag coefficients
+
+        if ( ! fix_drag )
+        {
+
+            // 1. The inverse Obukov length
+
+            // The inverse Obukov length a la wikipedia (but see also Stull, Roland B. (1988). An introduction to boundary layer meteorology)
+            // surface roughness velocity
+            const double ustar = std::sqrt(drag_ui[i])*wspeed;
+
+            // Virtual potential temperature
+            const double Tvirt = Tpot*(1. + retv*sphuma);
+
+            // Mixing ratio
+            const double mixrat = sphuma/(1.-sphuma);
+
+            // Potential temperature flux \bar{w'\Theta') \approx sensible heat flux / (\rho_a c_p)
+            const double wTpot = drag_ti[i]  * wspeed * (tsurfK-Tpot);
+
+            // Mixing ratio flux \bar{w'r') \approx latent heat flux / (\rho_a L) / (1-q_a)(1-q_i)
+            const double wr = drag_ti[i] * wspeed * (sphumi-sphuma) / ((1.-sphumi)*(1.-sphuma));
+
+            // Surface virtual potential temperature flux approximation \bar{w'\Theta')(1+0.61\bar r) + 0.61 \bar\Theta \bar{w'r'}
+            const double wTvirt = wTpot*(1. + retv*mixrat) + retv*Tpot*wr;
+
+            // Inverse Obukov length - k g (\bar{w'\Theta'_s})_s / u_*^3 \bar\Theta_v
+            const double Linv = std::max( -Linvrange, std::min( Linvrange,
+                        - physical::vonKarman * physical::g * wTvirt
+                            / (ustar*ustar*ustar * Tvirt) ) );
+
+            // 2. Stability parameter \zeta = z/L
+            // zref_wind is normally 10 m and zref_temp is normally 2 m
+            const double zetam = zref_wind * Linv;
+            const double zetah = zref_temp * Linv;
+
+            // 3. Stability functions \Psi for momentum and heat
+            double psim, psih;
+            if ( Linv >= 0 ) // The stable case
+            {
+                // momentum
+                const double x = std::cbrt(1.+zetam);
+                psim = C1*(x-1.)
+                    + C2*( 2.*std::log((x+Bm)*C3) - std::log((x*x-x*Bm+Bm2)*C4)
+                            + C5*(std::atan((2.*x-Bm)*C6) - C7) );
+
+                // heat
+                psih = D1*std::log(1. + ch*zetah + zetah*zetah)
+                    + D2*(std::log((2.*zetah+D3)/(2.*zetah+D4)) - D5);
+            }
+            else { // The unstable case
+                // momentum
+                double x = std::sqrt(std::sqrt(1.-16.*zetam));
+                psim = 2.*std::log(0.5*(1.+x)) + std::log(0.5*(1.+x*x)) - 2.*std::atan(x) + 0.5*M_PI;
+
+                // heat
+                x = std::sqrt(std::sqrt(1.-16.*zetah));
+                psih = 2.*std::log(0.5*(1.+x*x));
+            }
+
+            // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Pshi} )^2
+            drag_ui[i] = physical::vonKarman/(lambda_u - psim);
+            drag_ui[i] *= drag_ui[i];
+            drag_ti[i] = physical::vonKarman/(lambda_h - psih);
+            drag_ti[i] *= drag_ti[i];
+
+        }
+
+        // -------------------------------------------------
+        // Heat fluxes
+
         /* Sensible heat flux and derivative */
-        Qsh[i] = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed*( Tsurf[i] - M_tair[i] );
-        double dQshdT = drag_ice_t * rhoair * (physical::cpa+sphuma*physical::cpv) * wspeed;
+        Qsh[i] = drag_ti[i] * rhoair * physical::cpa * wspeed*( tsurfK - Tpot );
+        double dQshdT = drag_ti[i] * rhoair * physical::cpa * wspeed;
 
         /* Latent heat of sublimation */
         double Lsub = physical::Lf + physical::Lv0 - 240. - 290.*Tsurf[i] - 4.*Tsurf[i]*Tsurf[i];
 
         /* Latent heat flux and derivative */
-        Qlh[i] = drag_ice_t*rhoair*Lsub*wspeed*( sphumi - sphuma );
-        double dQlhdT = drag_ice_t*Lsub*rhoair*wspeed*dsphumidT;
+        Qlh[i] = drag_ti[i]*rhoair*Lsub*wspeed*( sphumi - sphuma );
+        double dQlhdT = drag_ti[i]*Lsub*rhoair*wspeed*dsphumidT;
 
         /* Sum them up */
         dQiadT[i] = dQlwdT + dQshdT + dQlhdT;
@@ -6201,13 +6336,26 @@ FiniteElement::IABulkFluxes(
         else
             hs = 0;
 
-        alb_tot[i] = this->albedo(
-                Tsurf[i], hs, alb_scheme, alb_ice, alb_sn, I_0);
-        Qsw[i] = -M_Qsw_in[i]*(1.-I_0)*(1.- alb_tot[i]);
+        double pen_sw;
+        double pond_fraction;
+        if ( D_pond_fraction[i] > 0. && M_lid_volume[i]/D_pond_fraction[i] <= 0.05 )
+            pond_fraction = D_pond_fraction[i];
+        else
+            pond_fraction = 0.;
+        // No ponds on young ice
+        if (bulk_for_young)
+            pond_fraction = 0. ;
+
+        std::tie(alb_tot[i],pen_sw) = this->albedo(
+            Tsurf[i], hs, pond_fraction, alb_scheme, alb_ice, alb_sn, alb_pnd, I_0);
+
+        Qsw[i] = -M_Qsw_in[i]*(1.- alb_tot[i])*(1.-pen_sw);
+        I[i]   =  M_Qsw_in[i]*(1.- alb_tot[i])*pen_sw;
 
         /* Sum them up */
         Qlw[i] = Qlw_out - this->incomingLongwave(i);
         Qia[i] = Qsw[i] + Qlw[i] + Qsh[i] + Qlh[i];
+
     }
 }//IABulkFluxes
 
@@ -6309,11 +6457,12 @@ FiniteElement::freezingPoint(const double sss)
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
-inline double
-FiniteElement::albedo(const double Tsurf, const double hs,
-        int alb_scheme, double alb_ice, double alb_sn, double I_0)
+inline std::tuple<double,double>
+FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd,
+        const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd,
+        const double I_0)
 {
-    double albedo;
+    double albedo, pen_sw;
 
     /* Calculate albedo - we can impliment different schemes if we want */
     switch ( alb_scheme )
@@ -6329,9 +6478,11 @@ FiniteElement::albedo(const double Tsurf, const double hs,
                     albedo = std::min(alb_sn, alb_ice + (alb_sn-alb_ice)*hs/0.2);
                 else
                     albedo = alb_sn;
+
+                pen_sw = 0.;
             } else {
-                /* account for penetrating shortwave radiation */
-                albedo = alb_ice + 0.4*( 1.-alb_ice )*I_0;
+                albedo = alb_ice;
+                pen_sw = I_0;
             }
             break;
         case 3:
@@ -6357,7 +6508,28 @@ FiniteElement::albedo(const double Tsurf, const double hs,
             double frac_sn = hs/(hs+0.02);
 
             /* Final albedo */
-            albedo = frac_sn*albs + (1.-frac_sn)*albi;
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*albi;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
+
+            break;
+            }
+        case 4:
+            /* Constant albedos with a meltpond contribution */
+            /* The scheme assumes constant snow, ice, and meltpond albedos. Something like alb_ice = 0.54, alb_sn = 0.83, and alb_pnd = 0.3 makes sense. */
+            {
+            /* Snow cover fraction */
+            double frac_sn = hs/(hs+0.02);
+
+            double albs;
+            if ( Tsurf > -1. )
+            {
+                albs = alb_sn  - 0.124*(Tsurf+1.);
+            } else {
+                albs = alb_sn;
+            }
+            /* Final albedo */
+            albedo = frac_sn*albs + frac_pnd*alb_pnd + (1.-frac_sn-frac_pnd)*alb_ice;
+            pen_sw = (1.-frac_sn-frac_pnd)*I_0;
 
             break;
             }
@@ -6366,15 +6538,106 @@ FiniteElement::albedo(const double Tsurf, const double hs,
             throw std::logic_error("Wrong albedo_scheme");
     }
 
-    return albedo;
+    return std::make_tuple(albedo,pen_sw);
 }//albedo
+
+inline void
+FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
+        const double hs, const double iceSurfaceMelt, const double snowMelt,
+        const double Qia, const double rain, const double roff, const double dep2frac)
+{
+    // TODO: Make this tunable?
+    const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
+    const double concMin = 0.1;      // minimum ice concentration with ponds
+    const double max_lid_thickness = 0.3; // maximum lid thickness
+
+    const double ice_to_water = physical::rhoi/physical::rhow;
+    const double snow_to_water = physical::rhos/physical::rhow;
+    const double water_to_ice = physical::rhow/physical::rhoi;
+
+    /* Calculate total volume of available water decreased by 20% for runoff
+     * Unit conversion
+     * iceSurfaceMelt: m ice -> m water
+     * snowMelt: m snow -> m water
+     * rain: kg/m^2/s -> m water */
+    double const availableWater = -iceSurfaceMelt*ice_to_water
+                               - snowMelt*snow_to_water
+                               + rain/physical::rhow*dt;
+
+    /* 20% of available water is runoff, rest goes into the pond. Scale with
+     * concentration as well, following Holland et al. (2012) */
+    // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
+    M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
+
+    // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
+    if ( M_pond_volume[cpt] <= 0.
+            || M_conc[cpt] <= concMin
+            || M_thick[cpt]/M_conc[cpt] <= hIceMin )
+    {
+        // Set pond and lid volume to zero
+        M_pond_volume[cpt] = 0.;
+        M_lid_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
+
+        return;
+    }
+
+    // Calculate the melt pond depth and fraction following Holland et al. (2012)
+    D_pond_fraction[cpt] = std::sqrt(M_pond_volume[cpt]/dep2frac);
+
+    // Make sure there is no pond on snow
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt], 1.-hs/(hs+0.2));
+
+    // Make sure the pond depth isn't too high --> Holland et al. (2012)
+    double pond_depth = std::min(dep2frac*D_pond_fraction[cpt],0.9*hi);
+   // If pond depth was too high, just drain the excess
+    M_pond_volume[cpt] = pond_depth*D_pond_fraction[cpt];
+
+    // Make sure the pond depth isn't microscopic
+    pond_depth = std::max(0.05, pond_depth);
+    D_pond_fraction[cpt] = std::min(D_pond_fraction[cpt],
+            (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
+
+    double delLidVolume = 0; // Volume increase is always positive!
+    if ( M_lid_volume[cpt] > 0. ) // a lid exits
+    {
+        // Grow or melt the lid - lid volume is in water-equivalent meters
+        /* Assume the pond water has the same salinity as sea ice and is at the
+         * freezing point */
+        const double TPond = -M_freezingpoint_mu*physical::si;
+        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
+        const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
+            *dt/(physical::rhoi*physical::Lf);
+
+        delLidVolume = delLidThickness*ice_to_water*D_pond_fraction[cpt];
+        delLidVolume = std::max(delLidVolume, -M_lid_volume[cpt]);
+    }
+    else if ( Qia > 0. ) // a lid forms
+    {
+        delLidVolume = dt*Qia/(physical::rhoi*physical::Lf)*ice_to_water;
+    }
+
+    M_lid_volume[cpt] += delLidVolume;
+    M_pond_volume[cpt] -= delLidVolume;
+
+    // Remove lid if the pond is frozen solid or if it's too thick
+    if ( M_pond_volume[cpt] <= 0.
+            || M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt] >= max_lid_thickness )
+    {
+        M_lid_volume[cpt] = 0.;
+        M_pond_volume[cpt] = 0.;
+        D_pond_fraction[cpt] = 0.;
+    }
+
+}
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
 //! Called by the thermo() function.
 inline void
-FiniteElement::thermoWinton(const double dt, const double I_0, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-        const double Qia, const double dQiadT, const double Qsw, const double subl, const double Tbot,
+FiniteElement::thermoWinton(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
+        const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf, double &T1, double &T2)
 {
@@ -6416,7 +6679,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
         double K32 = 2*physical::ki/hi; // (10)
 
         double A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12*B/(K12+B); // (16)
-        double B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I_0*Qsw
+        double B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I
             - K32*( 4*dt*K32*Tbot + hi*Crho*T2 ) / ( 6*dt*K32 + hi*Crho ) + A*K12/(K12+B); // (17)
         double C1 = hi*qi*Tfr_ice/(2*dt); // (18)
 
@@ -6431,7 +6694,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
             Tsurf = Tfr_surf;
             // A1 = hi*Crho/(2*dt) + K32*( 4*dt*K32 + hi*Crho ) / ( 6*dt*K32 + hi*Crho ) + K12; // (19)
             A1   += K12 - K12*B/(K12+B);
-            // B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I_0*Qsw
+            // B1 = -hi/(2*dt) * ( Crho*T1 + qi*Tfr_ice/T1 ) - I
             //     - K32 * ( 4*dt*K32*Tbot + hi*Crho*T2 ) / (6*dt*K32 + hi*Crho ) - K12*Tsurf ; // (20)
             B1   -= K12*Tsurf + A*K12/(K12+B);
             T1    = - ( B1 + std::sqrt(B1*B1-4*A1*C1) ) / ( 2*A1 ); // (21)
@@ -6601,7 +6864,7 @@ FiniteElement::thermoWinton(const double dt, const double I_0, const double conc
 //! Called by the thermo() function.
 inline void
 FiniteElement::thermoIce0(const double dt, const double conc, const double voli, const double vols, const double mld, const double snowfall,
-        const double Qia, const double dQiadT, const double subl, const double Tbot,
+        const double Qia, const double dQiadT, const double I, const double subl, const double Tbot,
         double &Qio, double &hi, double &hs, double &hi_old, double &del_hi, double &del_hs_mlt, double &mlt_hi_top, double &mlt_hi_bot, double &del_hi_s2i,
         double &Tsurf)
 {
@@ -6609,6 +6872,10 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
     double const qi = physical::Lf * physical::rhoi;
     double const qs = physical::Lf * physical::rhos;
     double const Tfr_ice  = - M_freezingpoint_mu * physical::si;     // Freezing point of ice
+
+    // Semtner's (1967) fudge factors
+    double const beta = 0.4;
+    double const gamma = 1.065;
 
     /* Don't do anything if there's no ice */
     if ( conc <=0. || voli<=0.)
@@ -6627,11 +6894,13 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
         /* Local variables */
         double Qic, del_hb, del_ht, draft;
 
+	double const Qia_mod = Qia + (1.-beta)*I;
+
         // -------------------------------------------------
         /* Calculate Tsurf */
         /* Conductive flux through the ice */
-        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki );
-        Tsurf = Tsurf + ( Qic - Qia )/
+        Qic   = M_ks*( Tbot-Tsurf )/( hs + M_ks*hi/physical::ki ) * gamma;
+        Tsurf = Tsurf + ( Qic - Qia_mod )/
             ( M_ks/(hs+M_ks*hi/physical::ki) + dQiadT );
 
         /* Limit Tsurf to the freezing point of snow or ice */
@@ -6646,7 +6915,7 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 
         /* Top melt */
         /* Snow melt and sublimation */
-        del_hs_mlt = std::min(Qia-Qic,0.)*dt/qs;
+        del_hs_mlt = std::min(Qia_mod-Qic,0.)*dt/qs;
         hs += del_hs_mlt - subl*dt/physical::rhos;
         /* Use the energy left over after snow melts to melt the ice */
         del_ht = std::min(hs, 0.)*qs/qi;
@@ -6903,6 +7172,12 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_sst);
     M_sss = ModelVariable(ModelVariable::variableID::M_sss);//! \param M_sss (double) Sea surface salinity (slab ocean) [C]
     M_variables_elt.push_back(&M_sss);
+
+    M_drag_ui = ModelVariable(ModelVariable::variableID::M_drag_ui);
+    M_variables_elt.push_back(&M_drag_ui);
+    M_drag_ti = ModelVariable(ModelVariable::variableID::M_drag_ti);
+    M_variables_elt.push_back(&M_drag_ti);
+
     if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
         M_tsurf_young = ModelVariable(ModelVariable::variableID::M_tsurf_young);//! \param M_tsurf_young (double) Young ice surface temperature [C]
@@ -6913,6 +7188,10 @@ FiniteElement::initModelVariables()
         M_variables_elt.push_back(&M_hs_young);
         M_conc_young = ModelVariable(ModelVariable::variableID::M_conc_young);//! \param M_conc (double) Concentration of young ice
         M_variables_elt.push_back(&M_conc_young);
+        M_drag_ui_young = ModelVariable(ModelVariable::variableID::M_drag_ui_young);
+        M_variables_elt.push_back(&M_drag_ui_young);
+        M_drag_ti_young = ModelVariable(ModelVariable::variableID::M_drag_ti_young);
+        M_variables_elt.push_back(&M_drag_ti_young);
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
@@ -6958,6 +7237,10 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_freeze_onset);
     M_del_vi_tend = ModelVariable(ModelVariable::variableID::M_del_vi_tend);//! \param M_del_vi_tend (double) Counter of daily total del_hi to deduce melt/freeze day
     M_variables_elt.push_back(&M_del_vi_tend);
+    M_pond_volume = ModelVariable(ModelVariable::variableID::M_pond_volume);//! \param M_pond_volume (double) Volume of meltponds per grid cell area
+    M_variables_elt.push_back(&M_pond_volume);
+    M_lid_volume = ModelVariable(ModelVariable::variableID::M_lid_volume);//! \param M_lid_volume (double) Volume of meltpond lid per grid cell area
+    M_variables_elt.push_back(&M_lid_volume);
 
     // Diagnostic variables are assigned the prefix D_
     D_conc = ModelVariable(ModelVariable::variableID::D_conc);//! \param D_conc (double) Total concentration of ice
@@ -7038,6 +7321,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&D_albedo);
     D_sialb = ModelVariable(ModelVariable::variableID::D_albedo);//! \param D_sialb (double) Sea ice albedo - mean albedo where ice
     M_variables_elt.push_back(&D_sialb);
+    D_pond_fraction = ModelVariable(ModelVariable::variableID::D_pond_fraction);//! \param D_pond_fraction (double) Fraction of grid cell covered by meltponds
+    M_variables_elt.push_back(&D_pond_fraction);
 
     D_dmax = ModelVariable(ModelVariable::variableID::D_dmax);
     M_variables_elt.push_back(&D_dmax);
@@ -7085,20 +7370,23 @@ FiniteElement::initModelVariables()
     }// loop over M_variables_elt
 
     // Check that output.variables doesn't contain a typo!
-    // Add "M_VT" and "None" to the available list before checking
-    available_names.push_back(std::string("M_VT"));
-    available_names.push_back(std::string("None"));
-    for (auto &requested: requested_names)
+    if ( output_time_step > 0 && vm["output.export_fields"].as<bool>() )
     {
-        if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+        // Add "M_VT" and "None" to the available list before checking
+        available_names.push_back(std::string("M_VT"));
+        available_names.push_back(std::string("None"));
+        for (auto &requested: requested_names)
         {
-            LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
-            LOG(ERROR) << "Available names are (case sensitive):\n";
-            for (auto &available: available_names)
-                LOG(ERROR) << "     " << available << "\n";
+            if ( std::find(available_names.begin(), available_names.end(), requested) == available_names.end() )
+            {
+                LOG(ERROR) << "'" << requested << "' is listed as output.variables, but it is not available as an output name\n";
+                LOG(ERROR) << "Available names are (case sensitive):\n";
+                for (auto &available: available_names)
+                    LOG(ERROR) << "     " << available << "\n";
 
-            M_comm.barrier();
-            throw std::runtime_error("Unknown name in output.variables\n");
+                M_comm.barrier();
+                throw std::runtime_error("Unknown name in output.variables\n");
+            }
         }
     }
 
@@ -8316,7 +8604,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_fyi_fraction[i]*time_factor;
                 break;
 
-            case (GridOutput::variableID::age_d):
+            case (GridOutput::variableID::age_det):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_age_det[i] * time_factor / years_in_sec;
                 break;
@@ -8329,6 +8617,16 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::conc_upd):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc_upd[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::meltpond_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_pond_volume[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::meltpond_lid_volume):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_lid_volume[i]*time_factor;
                 break;
 
             // MYI code
@@ -8456,6 +8754,33 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += D_divergence[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::drag_ui):
+                for (int i=0; i<M_local_nelements; i++)
+                {
+                    double drag = M_drag_ui[i];
+                    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        drag = (M_drag_ui[i]*M_conc[i]+M_drag_ui_young[i]*M_conc_young[i])
+                            /(M_conc[i]+M_conc_young[i]);
+
+                    it->data_mesh[i] += drag*time_factor;
+                }
+                break;
+            case (GridOutput::variableID::drag_ti):
+                for (int i=0; i<M_local_nelements; i++)
+                {
+                    double drag = M_drag_ti[i];
+                    if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
+                        drag = (M_drag_ti[i]*M_conc[i]+M_drag_ti_young[i]*M_conc_young[i])
+                            /(M_conc[i]+M_conc_young[i]);
+
+                    it->data_mesh[i] += drag*time_factor;
+                }
+                break;
+
+            case (GridOutput::variableID::meltpond_fraction):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += D_pond_fraction[i]*time_factor;
+                break;
 
             // forcing variables
             case (GridOutput::variableID::tair):
@@ -8742,6 +9067,8 @@ FiniteElement::initMoorings()
             ("damage", GridOutput::variableID::damage)
             ("ridge_ratio", GridOutput::variableID::ridge_ratio)
             ("tsurf", GridOutput::variableID::tsurf)
+            ("t1", GridOutput::variableID::t1)
+            ("t2", GridOutput::variableID::t2)
             ("Qa", GridOutput::variableID::Qa)
             ("Qo", GridOutput::variableID::Qo)
             ("Qsw", GridOutput::variableID::Qsw)
@@ -8760,6 +9087,11 @@ FiniteElement::initMoorings()
             ("sigma_n", GridOutput::variableID::sigma_n)
             ("sigma_s", GridOutput::variableID::sigma_s)
             ("divergence", GridOutput::variableID::divergence)
+            ("drag_ui", GridOutput::variableID::drag_ui)
+            ("drag_ti", GridOutput::variableID::drag_ti)
+            ("meltpond_volume", GridOutput::variableID::meltpond_volume)
+            ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
+            ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
             // Primarily coupling variables, but perhaps useful for debugging
             ("taumod", GridOutput::variableID::taumod)
             ("vice_melt", GridOutput::variableID::vice_melt)
@@ -8793,7 +9125,7 @@ FiniteElement::initMoorings()
             ("sialb", GridOutput::variableID::sialb)
             ("albedo", GridOutput::variableID::albedo)
             ("fyi_fraction", GridOutput::variableID::fyi_fraction)
-            ("age_d", GridOutput::variableID::age_d)
+            ("age_det", GridOutput::variableID::age_det)
             ("age", GridOutput::variableID::age)
             ("conc_upd", GridOutput::variableID::conc_upd)
             ("d_crit", GridOutput::variableID::d_crit)
@@ -10045,7 +10377,26 @@ FiniteElement::explicitSolve()
         }
 
         // Atmospheric drag
-        const double drag = physical::rhoa*quad_drag_coef_air*std::hypot(M_wind[u_indx],M_wind[v_indx]);
+        // Surface weighted average drag
+        double drag = 0.;
+        double surface = 0;
+        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+        for (int j=0; j<num_elements; j++)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+            // Skip negative elt_num
+            if ( elt_num < 0 ) continue;
+
+            double dragp = M_drag_ui[elt_num];
+            if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE && M_conc[elt_num]+M_conc_young[elt_num] > 0. )
+                dragp = (M_drag_ui[elt_num]*M_conc[elt_num]+M_drag_ui_young[elt_num]*M_conc_young[elt_num])
+                    /(M_conc[elt_num]+M_conc_young[elt_num]);
+
+            drag += dragp * M_surface[elt_num];
+            surface += M_surface[elt_num];
+        }
+        drag *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface;
+
         D_tau_a[u_indx] = drag * M_wind[u_indx];
         D_tau_a[v_indx] = drag * M_wind[v_indx];
 
@@ -12454,14 +12805,15 @@ FiniteElement::topazForecastAmsr2OsisafNicIce(bool use_weekly_nic)
 void
 FiniteElement::piomasIce()
 {
-    external_data M_init_conc=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,0,false,time_init);
-    external_data M_init_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,1,false,time_init);
-    external_data M_init_snow_thick=ExternalData(&M_ice_piomas_elements_dataset,M_mesh,2,false,time_init);
+    Dataset ice_piomas_elements_dataset = DataSet("ice_piomas_elements");
+    external_data init_conc = ExternalData(&ice_piomas_elements_dataset,M_mesh,0,false,time_init);
+    external_data init_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,1,false,time_init);
+    external_data init_snow_thick = ExternalData(&ice_piomas_elements_dataset,M_mesh,2,false,time_init);
 
     external_data_vec external_data_tmp;
-    external_data_tmp.push_back(&M_init_conc);
-    external_data_tmp.push_back(&M_init_thick);
-    external_data_tmp.push_back(&M_init_snow_thick);
+    external_data_tmp.push_back(&init_conc);
+    external_data_tmp.push_back(&init_thick);
+    external_data_tmp.push_back(&init_snow_thick);
 
     auto RX = M_mesh.bCoordX();
     auto RY = M_mesh.bCoordY();
@@ -12470,23 +12822,19 @@ FiniteElement::piomasIce()
 
     for (int i=0; i<M_num_elements; ++i)
     {
-        M_conc[i] = std::min(1.,M_init_conc[i]);
-        M_thick[i] = M_init_thick[i];
-        M_snow_thick[i] = M_init_snow_thick[i];
+        M_conc[i] = std::min(1., init_conc[i]);
+        M_thick[i] = init_thick[i];
+        M_snow_thick[i] = std::max(0., init_snow_thick[i]);
 
         //if either c or h equal zero, we set the others to zero as well
-        if(M_conc[i]<=0.)
+        if((M_conc[i] <= 0.) || (M_thick[i] <= 0.))
         {
-            M_thick[i]=0.;
-            M_snow_thick[i]=0.;
-        }
-        if(M_thick[i]<=0.)
-        {
-            M_conc[i]=0.;
-            M_snow_thick[i]=0.;
+            M_conc[i] = 0.;
+            M_thick[i] = 0.;
+            M_snow_thick[i] = 0.;
         }
 
-        M_damage[i]=0.;
+        M_damage[i] = 0.;
     }
 }//piomasIce
 
@@ -13805,6 +14153,8 @@ FiniteElement::globalNumToprocId(int global_num)
 
         cpt += 2*M_sizes_nodes[i];
     }
+    throw std::logic_error("Couldn't map global number: "
+            + std::to_string(global_num) + " to (local) proc id.\n");
 } //globalNumToprocId
 
 // -------------------------------------------------------------------------------------
