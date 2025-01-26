@@ -6569,7 +6569,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
     M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
 
-    // Flush the pond if there's not enough ice. Skip everythin if there's no pond.
+    // Flush the pond if there's not enough ice. Skip everything if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
             || M_conc[cpt] <= concMin
             || M_thick[cpt]/M_conc[cpt] <= hIceMin )
