@@ -6024,7 +6024,7 @@ FiniteElement::thermo(int dt)
             // Real (volume weighted and conserving) sea ice age
             w_age = old_vol <= 0 ? 0. : std::min(old_vol/M_thick[i], 1.);
             // no ice => w_age = 0 => age = dt
-            // melting => old_vol > M_thick => w_age = 1 => => age += dt
+            // melting => old_vol > M_thick => w_age = 1 => age += dt
             // freezing => weighted average
             M_age[i] =  w_age * (M_age[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
