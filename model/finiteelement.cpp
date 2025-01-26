@@ -6017,14 +6017,14 @@ FiniteElement::thermo(int dt)
             // Melt does not effect the age, growth makes it younger
             double w_age = old_conc <= 0? 0.: std::min(old_conc/M_conc[i], 1.);
             // no ice => w_age = 0 => age = dt
-            // melting => old_conc > M_conc => w_age = 1
+            // melting => old_conc > M_conc => w_age = 1 => age += dt
             // freezing => weighted average
             M_age_det[i] =  w_age * (M_age_det[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
             // Real (volume weighted and conserving) sea ice age
             w_age = old_vol <= 0 ? 0. : std::min(old_vol/M_thick[i], 1.);
             // no ice => w_age = 0 => age = dt
-            // melting => old_vol > M_thick => w_age = 1
+            // melting => old_vol > M_thick => w_age = 1 => age += dt
             // freezing => weighted average
             M_age[i] =  w_age * (M_age[i] + dt) + std::max((1 - w_age) * dt, 0.);
 
@@ -6300,7 +6300,7 @@ FiniteElement::IABulkFluxes(
                 psih = 2.*std::log(0.5*(1.+x*x));
             }
 
-            // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Pshi} )^2
+            // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Psi} )^2
             drag_ui[i] = physical::vonKarman/(lambda_u - psim);
             drag_ui[i] *= drag_ui[i];
             drag_ti[i] = physical::vonKarman/(lambda_h - psih);
@@ -6569,7 +6569,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
     M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
 
-    // Flush the pond if there's not enough ice. Skip everyting if there's no pond.
+    // Flush the pond if there's not enough ice. Skip everything if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
             || M_conc[cpt] <= concMin
             || M_thick[cpt]/M_conc[cpt] <= hIceMin )
