@@ -50,9 +50,9 @@ export CC=mpiicc
 export CXX=mpiicpc
 export FC=mpiifort
 #
-export CFLAGS="-xHost -O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
+export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-xHost -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
+export CXXFLAGS="-O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
 export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC"
 #
@@ -61,13 +61,13 @@ export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "           
 #
 export MPI_DIR="${INTEL_ROOT}/mpi/latest"
 #
-export NETCDF_DIR="/opt/netcdf_intel"
-export NETCDF_CXX_DIR="/opt/netcdf_intel"
+export NETCDF_DIR="/usr/local/ifort"
+export NETCDF_CXX_DIR="/usr/local/ifort"
 #
 export AEROBULK_DIR="${HOME}/DEV/aerobulk"
 export OASIS_DIR="${HOME}/src/oasis3-mct"
 #
-NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
+NXTSM_DEP_DIR="/usr/local/ifort" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
 #
 #############################################
 
