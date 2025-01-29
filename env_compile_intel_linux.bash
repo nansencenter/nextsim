@@ -54,7 +54,7 @@ export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are sti
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
 export CXXFLAGS="-O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
-export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC"
+export FFLAGS="-diag-disable=10441 -O2 -qopenmp -lstdc++ -fPIC"
 #
 INTEL_ROOT="/opt/intel/oneapi";                        # root directory of the Intel suite (compiler and MPI)
 export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "              " compiler
@@ -154,9 +154,9 @@ export CPATH=${MPI_INC_DIR}:${CPATH}
 #######################################################################
 
 # Third-party software dependencies, compiled with relevant compiler!
-export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
+export GMSH_DIR=/usr/local/ifort
 
-export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
+export BOOST_DIR=/usr/local/ifort
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
