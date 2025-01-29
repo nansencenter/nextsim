@@ -47,14 +47,14 @@ fi
 ############################################
 ### Linux / Intel / IntelMPI specific part:
 export CC=mpiicc
-export CXX=mpiicpc
+export CXX=mpiicc
 export FC=mpiifort
 #
-export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
+export CFLAGS="-I/usr/local/ifort/include -O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
-export LDFLAGS=""
-export FFLAGS="-O2 -qopenmp -lstdc++ -fPIC"
+export CXXFLAGS="-I/usr/local/ifort/include -I/usr/local/ifort/include/gmsh -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
+export LDFLAGS="-L/usr/local/ifort/lib "
+export FFLAGS="-I/usr/local/ifort/include -O2 -qopenmp -lstdc++ -fPIC"
 #
 INTEL_ROOT="/opt/intel/oneapi";                        # root directory of the Intel suite (compiler and MPI)
 export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "              " compiler
@@ -134,7 +134,7 @@ case `hostname -f | cut -d. -f2` in
 esac
 
 if ${l_aerobulk} || ${l_cpl_oasis}; then
-    export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
+    export LDFLAGS="${LDFLAGS} -L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
 fi
 
 # Normally the following 2 are pretty standard:
@@ -154,9 +154,9 @@ export CPATH=${MPI_INC_DIR}:${CPATH}
 #######################################################################
 
 # Third-party software dependencies, compiled with relevant compiler!
-export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
+export GMSH_DIR=/usr/local/ifort
 
-export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
+export BOOST_DIR=/usr/local/ifort
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 
