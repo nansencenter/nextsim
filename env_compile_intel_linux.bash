@@ -47,12 +47,12 @@ fi
 ############################################
 ### Linux / Intel / IntelMPI specific part:
 export CC=mpiicc
-export CXX=mpiicpc
+export CXX=mpiicc
 export FC=mpiifort
 #
-export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
+export CFLAGS="-I/usr/local/ifort/include -O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
+export CXXFLAGS="-diag-disable=10441 -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
 export FFLAGS="-diag-disable=10441 -O2 -qopenmp -lstdc++ -fPIC"
 #
@@ -134,7 +134,7 @@ case `hostname -f | cut -d. -f2` in
 esac
 
 if ${l_aerobulk} || ${l_cpl_oasis}; then
-    export LDFLAGS="-L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
+    export LDFLAGS="${LDFLAGS} -L${INTEL_COMP_DIR}/compiler/lib/intel64_lin -lifcore -lifport"
 fi
 
 # Normally the following 2 are pretty standard:
