@@ -8589,6 +8589,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += M_conc_young[i]*time_factor;
                 break;
 
+            case (GridOutput::variableID::conc_cons):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc[i]*time_factor;
+                break;
+
             case (GridOutput::variableID::h_young):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_h_young[i]*time_factor;
@@ -9077,6 +9082,7 @@ FiniteElement::initMoorings()
             ("Qlh", GridOutput::variableID::Qlh)
             ("delS", GridOutput::variableID::delS)
             ("conc_young", GridOutput::variableID::conc_young)
+            ("conc_cons", GridOutput::variableID::conc_cons)
             ("h_young", GridOutput::variableID::h_young)
             ("hs_young", GridOutput::variableID::hs_young)
             ("sst", GridOutput::variableID::sst)
