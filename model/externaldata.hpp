@@ -103,6 +103,7 @@ public:
 #endif
 
     bool isInitialized() const { return M_initialized; }
+    bool isVector() const { return M_is_vector; }
 
     std::string getDatasetName() const {
         if(M_is_constant)

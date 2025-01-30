@@ -21,6 +21,7 @@
 #include <ConservativeRemapping.hpp>
 #include <BamgTriangulatex.h>
 #include <netcdf>
+#include <debug.hpp>
 
 /**
  * @class GridOutput
@@ -140,33 +141,58 @@ public:
         tsurf_ice    = 11,
         t1           = 12,
         t2           = 13,
-        h_thin       = 14,
-        hs_thin      = 15,
-        conc_thin    = 16,
+        h_young      = 14,
+        hs_young     = 15,
+        conc_young   = 16,
         fyi_fraction = 17,
-        age_d        = 18,
+        age_det      = 18,
         age          = 19,
         conc_upd     = 20,
+        sigma_11     = 21,
+        sigma_22     = 22,
+        sigma_12     = 23,
+        conc_myi     = 24,
+        freeze_days  = 25,
+        freeze_onset = 26,
+        conc_summer  = 27,
+        del_vi_tend  = 28,
+        thick_myi    = 29,
+        thick_summer = 30,
+        meltpond_volume     = 31,
+        meltpond_lid_volume = 32,
 
         // Diagnostic variables
-        Qa     = 100,
-        Qsw    = 101,
-        Qlw    = 102,
-        Qsh    = 103,
-        Qlh    = 104,
-        Qo     = 105,
-        delS   = 106,
-        rain   = 107,
-        evap   = 108,
-        d_crit = 109,
-        vice_melt  = 110,
-        del_hi     = 111,
-        del_hi_thin= 112,
-        newice     = 113,
-        snow2ice   = 114,
-        mlt_top    = 115,
-        mlt_bot    = 116,
-        del_vi_thin= 117,
+        Qa           = 100,
+        Qsw          = 101,
+        Qlw          = 102,
+        Qsh          = 103,
+        Qlh          = 104,
+        Qo           = 105,
+        delS         = 106,
+        rain         = 107,
+        evap         = 108,
+        d_crit       = 109,
+        vice_melt    = 110,
+        del_hi       = 111,
+        del_hi_young = 112,
+        newice       = 113,
+        snow2ice     = 114,
+        mlt_top      = 115,
+        mlt_bot      = 116,
+        del_vi_young = 117,
+        sigma_n      = 118,
+        sigma_s      = 119,
+        divergence   = 120,
+        albedo       = 121,
+        dci_ridge_myi= 122,
+        dci_mlt_myi  = 123,
+        dvi_mlt_myi  = 124,
+        dci_rplnt_myi= 125,
+        dvi_rplnt_myi= 126,
+        sialb        = 127,
+        drag_ui      = 128,
+        drag_ti      = 129,
+        meltpond_fraction = 130,
 
         // Forcing variables
         tair     = 200,
@@ -183,6 +209,11 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
+        mld      = 214,
+        ocean_temp = 215,
+        ocean_salt = 216,
+        tau_ax   = 217,
+        tau_ay   = 218,
 
         // WIM variables
         dmax        = 300,
@@ -197,6 +228,8 @@ public:
         QSwOcean   = 906,
         saltflux   = 907,
         fwflux_ice = 908,
+        tauwix     = 909,
+        tauwiy     = 910,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -250,10 +283,10 @@ public:
                     break;
                 case (variableID::ridge_ratio):
                     name     = "ridge_ratio";
-                    longName = "Sea Ice Ridge Ratio";
-                    stdName  = "sea_ice_ridge_ratio";
+                    longName = "Sea Ice Volume Fraction of Ridged Ice";
+                    stdName  = "sea_ice_volume_fraction_of_ridged_ice";
                     Units    = "1";
-                    cell_methods = "area: mean";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::snow):
                     name     = "snt";
@@ -323,24 +356,24 @@ public:
                     cell_methods = "area: mean";
                     // CF cannonical units are K, but we can use C also
                     break;
-                case (variableID::conc_thin):
-                    name     = "sic_thin";
-                    longName = "Thin Ice Concentration";
-                    stdName  = "thin_ice_area_fraction";
+                case (variableID::conc_young):
+                    name     = "sic_young";
+                    longName = "Sea Ice Area Fraction of Young Ice";
+                    stdName  = "sea_ice_classification";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::h_thin):
-                    name     = "sit_thin";
-                    longName = "Thin Ice Thickness";
-                    stdName  = "thin_ice_thickness";
+                case (variableID::h_young):
+                    name     = "sit_young";
+                    longName = "Young Ice Thickness";
+                    stdName  = "young_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::hs_thin):
-                    name     = "snt_thin";
-                    longName = "Surface Snow Thickness on thin ice";
-                    stdName  = "surface_snow_thickness_on_thin_ice";
+                case (variableID::hs_young):
+                    name     = "snt_young";
+                    longName = "Surface Snow Thickness on young ice";
+                    stdName  = "surface_snow_thickness_on_young_ice";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
@@ -351,25 +384,111 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::age_d):
-                    name     = "sia_det";
-                    longName = "Detectable sea ice age";
-                    stdName  = "det_sea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                case (variableID::age_det):
+                    name     = "siage_det";
+                    longName = "Detectable Age of Sea Ice";
+                    stdName  = "det_age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::age):
-                    name     = "sia";
-                    longName = "Sea ice age";
-                    stdName  = "aea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage";
+                    longName = "Age of Sea Ice";
+                    stdName  = "age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::conc_upd):
                     name     = "conc_upd";
                     longName = "conc_upd";
                     stdName  = "conc_upd";
                     Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_11):
+                    name     = "sigma_11";
+                    longName = "Stress tensor 11";
+                    stdName  = "stress_tensor_11";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_22):
+                    name     = "sigma_22";
+                    longName = "Stress tensor 22";
+                    stdName  = "stress_tensor_22";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_12):
+                    name     = "sigma_12";
+                    longName = "Stress tensor 12";
+                    stdName  = "stress_tensor_12";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_volume):
+                    name     = "meltpond_volume";
+                    longName = "Meltpond volume";
+                    stdName  = "meltpond_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean where ice";
+                    break;
+                case (variableID::meltpond_lid_volume):
+                    name     = "meltpond_lid_volume";
+                    longName = "Meltpond lid volume";
+                    stdName  = "meltpond_lid_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean where ice";
+                    break;
+
+                // MYI variables
+                case (variableID::conc_myi):
+                    name     = "conc_myi";
+                    longName = "Sea ice Area Fraction of Multi-year Ice";
+                    stdName  = "sea_ice_classification";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::thick_myi):
+                    name     = "thick_myi";
+                    longName = "Cell-average thickness of Multiyear Ice";
+                    stdName  = "thick_myi";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_summer):
+                    name     = "conc_summer";
+                    longName = "Concentration of ice at end of summer";
+                    stdName  = "conc_summer";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::thick_summer):
+                    name     = "thick_summer";
+                    longName = "Cell-average thickness of ice at end of summer";
+                    stdName  = "thick_summer";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_days):
+                    name     = "freeze_days";
+                    longName = "Time (days) of ice freezing";
+                    stdName  = "freeze_days";
+                    Units    = "s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::freeze_onset):
+                    name     = "freeze_onset";
+                    longName = "Onset of ice freezing has happened";
+                    stdName  = "freeze_onset";
+                    Units    = "binary";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::del_vi_tend):
+                    name     = "del_vi_tend";
+                    longName = "Daily total ice volume tendency";
+                    stdName  = "del_vi_tend";
+                    Units    = "binary";
                     cell_methods = "area: mean";
                     break;
 
@@ -444,10 +563,10 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_vi_thin):
-                    name     = "del_vi_thin";
-                    longName = "Thin ice Volume Melted or Formed per Day per Surface Area";
-                    stdName  = "thin_ice_volume_melted_or_formed_per_day_per_surface_area";
+                case (variableID::del_vi_young):
+                    name     = "del_vi_young";
+                    longName = "Young Ice Volume Melted or Formed per Day per Surface Area";
+                    stdName  = "young_ice_volume_melted_or_formed_per_day_per_surface_area";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
@@ -465,10 +584,10 @@ public:
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_hi_thin):
-                    name     = "del_hi_thin";
-                    longName = "Growth-melt rate of new (thin) ice";
-                    stdName  = "growth_melt_rate_of_thin_ice";
+                case (variableID::del_hi_young):
+                    name     = "del_hi_young";
+                    longName = "Growth-melt rate of young ice";
+                    stdName  = "growth_melt_rate_of_young_ice";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
@@ -499,6 +618,109 @@ public:
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
                     cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_rplnt_myi):
+                    name     = "dci_rplnt_myi";
+                    longName = "myi area change rate due to replenishment";
+                    stdName  = "myi_area_change_rate_due_to_replenishment";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_rplnt_myi):
+                    name     = "dvi_rplnt_myi";
+                    longName = "myi volume_change rate due to replenishment";
+                    stdName  = "myi_volume_change_rate_due_to_replenishment";
+                    Units    = " m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_mlt_myi):
+                    name     = "dvi_mlt_myi";
+                    longName = "myi volume_change rate due to melt";
+                    stdName  = "myi_volume_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_mlt_myi):
+                    name     = "dci_mlt_myi";
+                    longName = "myi area_change rate due to melt";
+                    stdName  = "myi_area_change_rate_due_to_melt";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge_myi):
+                    name     = "dci_ridge_myi";
+                    longName = "myi area_change rate due to ridging";
+                    stdName  = "myi_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::albedo):
+                    name     = "albedo";
+                    longName = "Surface albedo";
+                    stdName  = "surface_albedo";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sialb):
+                    name     = "sialb";
+                    longName = "Sea ice albedo";
+                    stdName  = "sea_ice_albedo";
+                    Units    = "1";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                case (variableID::sigma_n):
+                    name     = "sigma_n";
+                    longName = "Normal internal stress";
+                    stdName  = "normal_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::sigma_s):
+                    name     = "sigma_s";
+                    longName = "Shear internal stress";
+                    stdName  = "shear_internal_stress";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ax):
+                    name     = "tau_ax";
+                    longName = "Eastward Stress at Ice Surface";
+                    stdName  = "eastward_stress_at_ice_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tau_ay):
+                    name     = "tau_ay";
+                    longName = "Northward Stress at Ice Surface";
+                    stdName  = "northward_stress_at_ice_surface";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::divergence):
+                    name     = "divergence";
+                    longName = "Ice Velocity Divergence";
+                    stdName  = "ice_velocity_divergence";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ui):
+                    name     = "drag_ui";
+                    longName = "Ice-atmosphere momentum drag";
+                    stdName  = "ice-atmosphere_momentum_drag";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ti):
+                    name     = "drag_ti";
+                    longName = "Ice-atmosphere thermodynamic drag";
+                    stdName  = "ice-atmosphere_thermodynamic_drag";
+                    Units    = "1/s";
+                case (variableID::meltpond_fraction):
+                    name     = "meltpond_fraction";
+                    longName = "Meltpond area fraction";
+                    stdName  = "meltpond_area_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean where ice";
                     break;
 
                 // Coupling variables
@@ -556,6 +778,20 @@ public:
                     longName = "Downward Sea Ice Basal Salt Flux";
                     stdName  = "downward_sea_ice_basal_salt_flux";
                     Units    = "W m-2";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauwix):
+                    name     = "tauwix";
+                    longName = "Eastward Stress waves on ice";
+                    stdName  = "eastward_stress_waves_on_ice";
+                    Units    = "Pa";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::tauwiy):
+                    name     = "tauwiy";
+                    longName = "Northward Stress waves on ice";
+                    stdName  = "northward_stress_waves_on_ice";
+                    Units    = "Pa";
                     cell_methods = "area: mean";
                     break;
 
@@ -689,6 +925,30 @@ public:
                     cell_methods = "area: mean";
                     break;
 
+                case (variableID::mld):
+                    name     = "mld";
+                    longName = "ocean mixed layer depth";
+                    stdName  = "ocean_mixed_layer_depth";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_temp):
+                    name     = "ocean_temp";
+                    longName = "ocean temperature forcing";
+                    stdName  = "ocean_temperature_forcing";
+                    Units    = "degree_Celcius";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_salt):
+                    name     = "ocean_salt";
+                    longName = "ocean salinity forcing";
+                    stdName  = "ocean_salinity_forcing";
+                    Units    = "1e-3";
+                    cell_methods = "area: mean";
+                    break;
+
                 // Non-output variables
                 case (variableID::proc_mask):
                     name     = "proc_mask";
@@ -786,7 +1046,8 @@ public:
 
     void setLSM(BamgMesh* bamgmesh);
 
-    void updateGridMean(BamgMesh* bamgmesh);
+    void updateGridMean(BamgMesh* bamgmesh, int nb_local_el,
+            std::vector<double> const& UM);
     void resetGridMean();
     void resetMeshMean(BamgMesh* bamgmesh, bool regrid, int nb_local_el,
             const std::vector<int>& gridP, const std::vector<std::vector<int>>& triangles, const std::vector<std::vector<double>>& weights);
@@ -825,6 +1086,9 @@ public:
 
 private:
 
+    LogLevel M_log_level;
+    bool M_log_all;
+
     double M_xmin;
     double M_ymax;
 
@@ -850,7 +1114,9 @@ private:
 
     void applyLSM();
 
-    void updateGridMeanWorker(BamgMesh* bamgmesh, variableKind kind, interpMethod method, std::vector<Variable>& variables, double miss_val);
+    void updateGridMeanWorker(BamgMesh* bamgmesh, std::vector<double> const& UM,
+            variableKind kind, interpMethod method, std::vector<Variable>& variables,
+            double miss_val);
 
     void rotateVectors(Vectorial_Variable const& vectorial_variable, int nb_var, double* &interp_out, double miss_val);
 
@@ -858,7 +1124,8 @@ private:
     std::vector<std::vector<int>> M_triangles;
     std::vector<std::vector<double>> M_weights;
 
-    void setProcMask(BamgMesh* bamgmesh, int nb_local_el);
+    void setProcMask(BamgMesh* bamgmesh, int nb_local_el,
+            std::vector<double> const& UM);
     std::vector<double> M_proc_mask;
 
     Communicator M_comm;

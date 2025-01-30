@@ -39,14 +39,6 @@ public:
         elemental  =  1
     };
 
-    enum interpMethod
-    {
-        // interpolation method to be used by contrib/bamg/src/InterpFromMeshToMesh2dCavities:
-        nearest_neighbour = 0, // new elements get assigned the value of the nearest dead element
-        conservative      = 1  // integral of all the dead elements in a cavity is redistributed
-                               //  among the new elements in proportion to their area
-    };
-
     enum interpTransformation
     {
         // transformation to be done before (and inverted after) interpolation at regrid time (and advection if using ALE)
@@ -59,64 +51,86 @@ public:
     enum variableID
     {
         // Prognostic variables
-        M_conc          =  1,
-        M_thick         =  2,
-        M_damage        =  3,
-        M_snow_thick    =  4,
-        M_ridge_ratio   =  5,
-        M_tice          =  6,
-        M_sigma         =  7,
-        M_sst           =  8,
-        M_sss           =  9,
-        M_tsurf_thin    = 10,
-        M_h_thin        = 11,
-        M_hs_thin       = 12,
-        M_conc_thin     = 13,
-        M_random_number = 14,
-        M_conc_fsd      = 15,
-        M_fyi_fraction  = 16,
-        M_age_det       = 17,
-        M_age           = 18,
-        M_conc_upd      = 19,
-        M_conc_mech_fsd = 20,
-        M_cum_damage    = 21,
-        M_cum_wave_damage=22,
-        M_divergence    = 23,
+        M_conc            =  1,
+        M_thick           =  2,
+        M_damage          =  3,
+        M_snow_thick      =  4,
+        M_ridge_ratio     =  5,
+        M_tice            =  6,
+        M_sigma           =  7,
+        M_sst             =  8,
+        M_sss             =  9,
+        M_tsurf_young     = 10,
+        M_h_young         = 11,
+        M_hs_young        = 12,
+        M_conc_young      = 13,
+        M_random_number   = 14,
+        M_conc_fsd        = 15,
+        M_fyi_fraction    = 16,
+        M_age_det         = 17,
+        M_age             = 18,
+        M_conc_upd        = 19,
+        M_conc_mech_fsd   = 20,
+        M_cum_damage      = 21,
+        M_cum_wave_damage = 22,
+        M_divergence      = 23,
+        M_conc_myi        = 24,
+        M_conc_summer     = 25,
+        M_freeze_days     = 26,
+        M_freeze_onset    = 27,
+        M_del_vi_tend     = 28,
+        M_thick_myi       = 29,
+        M_thick_summer    = 30,
+        M_drag_ui         = 31,
+        M_drag_ti         = 32,
+        M_drag_ui_young   = 33,
+        M_drag_ti_young   = 34,
+        M_pond_volume     = 35,
+        M_lid_volume      = 36,
 
         // Diagnostic variables
-        D_conc       = 100,
-        D_thick      = 101,
-        D_snow_thick = 102,
-        D_tsurf      = 103,
-        D_sigma      = 104,
-        D_Qa         = 105,
-        D_Qsw        = 106,
-        D_Qlw        = 107,
-        D_Qsh        = 108,
-        D_Qlh        = 109,
-        D_Qo         = 110,
-        D_Qnosun     = 111,
-        D_Qsw_ocean  = 112,
-        D_tau_ow     = 113,
-        D_delS       = 114,
-        D_fwflux     = 115,
-        D_brine      = 116,
-        D_evap       = 117,
-        D_rain       = 118,
-        D_dmax       = 119,
-        D_dmean      = 120,
-        D_Qassim     = 121,
-        D_fwflux_ice = 122,
-        D_dcrit      = 123,
-        D_sigma_p    = 124,
-        D_vice_melt  = 125,
-        D_newice     = 126,
-        D_del_hi     = 127,
-        D_del_hi_thin= 128,
-        D_mlt_bot    = 129,
-        D_mlt_top    = 130,
-        D_snow2ice   = 131,
-        D_del_vi_thin= 132,
+        D_conc         = 100,
+        D_thick        = 101,
+        D_snow_thick   = 102,
+        D_tsurf        = 103,
+        D_sigma        = 104,
+        D_Qa           = 105,
+        D_Qsw          = 106,
+        D_Qlw          = 107,
+        D_Qsh          = 108,
+        D_Qlh          = 109,
+        D_Qo           = 110,
+        D_Qnosun       = 111,
+        D_Qsw_ocean    = 112,
+        D_tau_ow       = 113,
+        D_delS         = 114,
+        D_fwflux       = 115,
+        D_brine        = 116,
+        D_evap         = 117,
+        D_rain         = 118,
+        D_dmax         = 119,
+        D_dmean        = 120,
+        D_Qassim       = 121,
+        D_fwflux_ice   = 122,
+        D_dcrit        = 123,
+        D_sigma_p      = 124,
+        D_vice_melt    = 125,
+        D_newice       = 126,
+        D_del_hi       = 127,
+        D_del_hi_young = 128,
+        D_mlt_bot      = 129,
+        D_mlt_top      = 130,
+        D_snow2ice     = 131,
+        D_del_vi_young = 132,
+        D_divergence   = 133,
+        D_albedo       = 134,
+        D_del_ci_mlt_myi   = 135,
+        D_del_vi_mlt_myi   = 136,
+        D_del_ci_rplnt_myi = 137,
+        D_del_vi_rplnt_myi = 138,
+        D_del_ci_ridge_myi = 139,
+        D_sialb        = 140,
+        D_pond_fraction = 141,
     };
 
 
@@ -128,18 +142,14 @@ private:
     std::string M_export_name;//name in binary file
     bool M_prognostic;//is it a prognostic variable (in the restart file, and is it regridded)?
     bool M_exporting;//export to binary output? (Default which could be overridden by config file in future)
-    interpMethod M_interp_method;//interpolation method during regridding
     interpTransformation M_interp_transformation;//transformation to use during interpolation/advection (ALE)
     double M_diffusivity;//diffusivity parameter
         // 0. for non added diffusion;
         // positive value for active diffusion in [m^2/s] (only non conservative implementation available)
     bool M_has_min = false; //does the variable have a strict min (eg >0)?
     bool M_has_max = false; //does the variable have a strict max (eg <1)?
-    bool M_has_value_no_thick_ice = false; //does the variable have a designated value if no thick ice (eg 0, freezing temp)?
     double M_min_val;
     double M_max_val;
-    double M_value_no_thick_ice;
-    double M_tfr_ice;
 
 
 public:
@@ -150,9 +160,6 @@ public:
     ModelVariable(variableID id, int comp_num=-1)
         : M_varID(id), M_component_number(comp_num)
     {
-
-        M_tfr_ice = -physical::mu*physical::si;
-        // freezing point of ice - value for M_tice[i] in open water
 
         // see if it is an elemental variable
         bool elemental = this->initElemental();
@@ -194,15 +201,12 @@ public:
     std::string exportName() { return M_export_name; }
     bool isPrognostic() {return M_prognostic; }
     bool exporting() { return M_exporting; }
-    interpMethod getInterpMethod() {return M_interp_method; }
     interpTransformation getInterpTransformation() { return M_interp_transformation; }
     double diffusivity() { return M_diffusivity; }
     bool hasMinVal() { return M_has_min; }
     bool hasMaxVal() { return M_has_max; }
-    bool hasValueNoThickIce() { return M_has_value_no_thick_ice; }
     double minVal() { return M_min_val; }
     double maxVal() { return M_max_val; }
-    double valueNoThickIce() { return M_value_no_thick_ice; }
 
     // set attributes
     void setExporting(bool const& do_export) { M_exporting = do_export; }
