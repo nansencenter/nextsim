@@ -4240,6 +4240,9 @@ FiniteElement::updateSigmaDamage(double const dt)
             double const del_damage = (1.0-M_damage[cpt])*(1.0-dcrit)*dt*rtd;
             M_damage[cpt] += del_damage;
 
+            // This shouldn't be necessary, but M_damage[cpt] > 1 can still happen with finite precision.
+            M_damage[cpt] = std::min(1.-1e-12, M_damage[cpt]);
+
 #ifdef OASIS
             M_cum_damage[cpt] += del_damage;
 #endif
