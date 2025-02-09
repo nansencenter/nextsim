@@ -24,6 +24,7 @@ export NEXTSIMDIR=`pwd`
 # AeroBulk turbulent air-sea flux computation
 #--------------------------------------------
 l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+echo l_aerobulk = $l_aerobulk ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
     # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
@@ -32,10 +33,11 @@ if ${l_aerobulk}; then
 else
     unset USE_AEROBULK ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_AEROBULK...
 fi
+echo $USE_AEROBULK ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_AEROBULK...
 
 # Coupling with another GCM component via OASIS (WW3, NEMO, etc)
 # --------------------------------------------------------------
-l_cpl_oasis=false ; # neXtSIM is going to be coupled to something via OASIS ? If true, give the appropriate value for "OASIS_DIR" in the arch CASE block...
+l_cpl_oasis=true ; # neXtSIM is going to be coupled to something via OASIS ? If true, give the appropriate value for "OASIS_DIR" in the arch CASE block...
 if ${l_cpl_oasis}; then
     export USE_OASIS=true
 else
@@ -64,8 +66,8 @@ export MPI_DIR="${INTEL_ROOT}/mpi/latest"
 export NETCDF_DIR="/usr/local/ifort"
 export NETCDF_CXX_DIR="/usr/local/ifort"
 #
-export AEROBULK_DIR="${HOME}/DEV/aerobulk"
-export OASIS_DIR="${HOME}/src/oasis3-mct"
+export AEROBULK_DIR="/usr/local/ifort/"
+export OASIS_DIR="/usr/local/ifort/oasis3-mct/debug"
 #
 NXTSM_DEP_DIR="/usr/local/ifort" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
 #
